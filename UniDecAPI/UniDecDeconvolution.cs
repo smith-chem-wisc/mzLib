@@ -16,7 +16,8 @@ namespace UniDecAPI
 			unsafe
 			{
 				Config config = new();
-				config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config); 
+				config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
+				config.lengthmz = xarray.Length; 
 				Decon decon = new();
 				InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs(); 
 				fixed (float* ptrXarray = &xarray[0], ptrYarray = &yarray[0])
@@ -50,16 +51,9 @@ namespace UniDecAPI
 				InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs();
 				fixed (float* ptrXarray = &xarray[0], ptrYarray = &yarray[0])
 				{
-					try
-					{
 						inp.dataMZ = ptrXarray;
 						inp.dataInt = ptrYarray;
-						UniDecAPIMethods.DeconMethods.TestingMainDeconvolution();
-					}
-					finally
-					{
-						UniDecAPIMethods.InputMethods.FreeInputs(inp);
-					}
+						result = UniDecAPIMethods.DeconMethods.TestingMainDeconvolution();
 				}
 			}
 			return result; 

@@ -36,7 +36,6 @@ namespace UniDecAPI
 			private static extern int _TestingMainDeconvolution();
 			public static int TestingMainDeconvolution()
 			{
-				Console.WriteLine("I haven't crashed yet"); 
 				return _TestingMainDeconvolution(); 
 			}
 		}

@@ -49,7 +49,6 @@ struct Config
     float killmass;
     int fixedmassaxis;
     int isotopemode;
-    int filetype;
     int imflag;
     //IM Parameters
     float dtsig;

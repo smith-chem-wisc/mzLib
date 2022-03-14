@@ -6,8 +6,30 @@
 //
 
 #include "UniDec_Main.h"
-void TestingMainDeconvolution(void) {
-    // get rid of all the file import 
+int TestingMainDeconvolution(Config config, Input inp) {
+    
+    Decon decon = SetupDecon();
+    char* barr = NULL;
+
+    int mlength, zlength, numclose,
+        * mind = NULL,
+        * zind = NULL,
+        * closemind = NULL,
+        * closezind = NULL,
+        * closeind = NULL,
+        * starttab = NULL,
+        * endtab = NULL;
+    float
+        * mdist = NULL,
+        * zdist = NULL,
+        * mzdist = NULL,
+        * rmzdist = NULL,
+        * oldblur = NULL,
+        * closeval = NULL,
+        * closearray = NULL;
+    
+    barr = calloc(config.lengthmz * config.numz, sizeof(char));
+    memcpy(barr, inp.barr, config.lengthmz * config.numz * sizeof(char));
 }
 
 

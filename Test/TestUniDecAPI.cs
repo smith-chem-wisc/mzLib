@@ -138,7 +138,9 @@ namespace Test
 			var scan = testScan[0];
 
 			// Decon deconResult = scan.PerformUniDecDeconvolution(0, 0); 
-			scan.TestPerformUniDecDecon(); 
+			int result = scan.TestPerformUniDecDecon();
+			Assert.AreEqual(30, result);
+			Decon deconResult = scan.PerformUniDecDeconvolution(1,1); 
 		}
 	}
 }
