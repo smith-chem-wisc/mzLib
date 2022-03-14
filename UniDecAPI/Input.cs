@@ -19,5 +19,5 @@ namespace UniDecAPI
 		public int* isotopeops;
 		public float* isotopeval;
 		public fixed float isoparams[10];
-	}	
+	}
 }

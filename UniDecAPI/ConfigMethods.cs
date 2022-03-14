@@ -11,13 +11,6 @@ namespace UniDecAPI
 	{
 		public static class ConfigMethods
 		{
-			[DllImport("TestDLL.dll", EntryPoint = "SetDefaultConfig")]
-			private static extern Config _SetDefaultConfig(Config config);
-			public static Config SetDefaultConfig()
-			{
-				Config config = new(); 
-				return _SetDefaultConfig(config);
-			}
 			[DllImport("TestDLL.dll", EntryPoint = "ReturnModifiedConfigToCS")]
 			private static extern Config _ReturnModifiedConfigToCS(Config config); 
 			public static Config ReturnModifiedConfigToCS(Config config)

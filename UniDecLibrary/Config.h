@@ -101,7 +101,6 @@ struct Config
     int doubledec;
 };
 
-__declspec(dllexport) Config SetDefaultConfig(void);
 // Load config needs to be rewritten so that I can just pass the config struct from the C# calling code.
 __declspec(dllexport) Config PostImport(Config config); 
 __declspec(dllexport) Config ReturnModifiedConfigToCS(Config config); 

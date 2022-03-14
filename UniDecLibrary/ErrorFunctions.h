@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "Config.h"
 #include "Decon.h"
+#include "FitFunctions.h"
 
 float errfunspeedy(Config config, Decon decon, const char* barr, const float* dataInt, const int maxlength,
                    const int* isotopepos, const float* isotopeval, const int* starttab, const int* endtab, const float* mzdist, float* rsquared);

@@ -25,6 +25,20 @@ namespace UniDecAPI
 			{
 				return _Average(length, xarray); 
 			}
+
+			[DllImport("TestDLL.dll", EntryPoint = "MainDeconvolution")]
+			private static extern Decon _MainDeconvolution(Config config, InputUnsafe inp, int silent, int verbose);
+			public static Decon MainDeconvolution(Config config, InputUnsafe inp, int silent, int verbose)
+			{
+				return _MainDeconvolution(config, inp, silent, verbose); 
+			}
+			[DllImport("TestDLL.dll", EntryPoint = "TestingMainDeconvolution")]
+			private static extern int _TestingMainDeconvolution();
+			public static int TestingMainDeconvolution()
+			{
+				Console.WriteLine("I haven't crashed yet"); 
+				return _TestingMainDeconvolution(); 
+			}
 		}
 	}
 }

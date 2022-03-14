@@ -24,15 +24,6 @@ namespace UniDecAPI
 			{
 				_FreeInputs(inp); 
 			}
-
-			public static unsafe void ConvertMsDataScanToInputUnsafe(MsDataScan scan)
-			{
-				double[] xarray = scan.MassSpectrum.XArray;
-				double[] yarray = scan.MassSpectrum.YArray; 
-
-				// convert the arrays to float[] 
-				// create a pointer to the 
-			}
 		}
 	}
 }

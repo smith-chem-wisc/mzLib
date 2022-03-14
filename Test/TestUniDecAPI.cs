@@ -4,7 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using NUnit.Framework;
-using UniDecAPI; 
+using UniDecAPI;
+using System.IO; 
+using MassSpectrometry;
+using IO.ThermoRawFileReader; 
 
 namespace Test
 {
@@ -13,18 +16,6 @@ namespace Test
 
 	class TestUniDecAPI
 	{
-		[Test]
-		public void TestDefaultConfig()
-		{
-			// no pointers generated with SetDefaultConfig, so 
-			// no memory cleanup required. 
-			Config testConfig = UniDecAPIMethods.ConfigMethods.SetDefaultConfig();
-			// Initially was causing a stack overflow error, however, this was likely 
-			// caused by me not following my own convention of using an _ with the private function name. 
-			// May have caused a stack overflow because I was recursively calling SetDefaultConfig becuase of 
-			// my careless error. 
-			PrintProperties(testConfig);
-		}
 		[Test]
 		public void TestModifyConfigCS()
 		{
@@ -61,7 +52,22 @@ namespace Test
 		[Test]
 		public void TestInput()
 		{
-
+			float[] xarray = { 1.1F, 2.2F, 3.3F };
+			float[] yarray = { 2.2F, 3.3F, 4.4F }; 
+			unsafe
+			{
+				InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs();
+				fixed (float* ptrXarray = &xarray[0], ptrYarray = &yarray[0])
+				{
+					
+					
+					inp.dataMZ = ptrXarray;
+					inp.dataInt = ptrYarray;
+					Console.WriteLine("Inside 'Fixed' statement: " + inp.dataMZ[0].ToString()); 
+					Assert.AreEqual(2.2F, inp.dataMZ[1]); 
+				}
+				Console.WriteLine("Outside 'Fixed' Statement: " + inp.dataMZ[0].ToString()); 
+			}
 		}
 		[Test]
 		public void TestAverage()
@@ -122,6 +128,17 @@ namespace Test
 			{
 				UniDecAPIMethods.InputMethods.FreeInputs(inp); 
 			}
+		}
+		[Test]
+		[TestCase("LowResMS1ScanForDecon.raw")]
+		public void TestPerformUniDecDeconvolution(string file)
+		{
+			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
+			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
+			var scan = testScan[0];
+
+			// Decon deconResult = scan.PerformUniDecDeconvolution(0, 0); 
+			scan.TestPerformUniDecDecon(); 
 		}
 	}
 }
