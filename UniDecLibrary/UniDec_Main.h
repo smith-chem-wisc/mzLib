@@ -37,4 +37,4 @@
 #include "UD_analysis.h"
 
 __declspec(dllexport) Decon MainDeconvolution(const Config config, const Input inp, const int silent, const int verbose);
-__declspec(dllexport) int TestingMainDeconvolution(Config config, Input inp); 
+__declspec(dllexport) Decon TestingMainDeconvolution(Config config, Input inp, int silent, int verbose); 

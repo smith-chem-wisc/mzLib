@@ -138,9 +138,23 @@ namespace Test
 			var scan = testScan[0];
 
 			// Decon deconResult = scan.PerformUniDecDeconvolution(0, 0); 
-			int result = scan.TestPerformUniDecDecon();
-			Assert.AreEqual(30, result);
-			Decon deconResult = scan.PerformUniDecDeconvolution(1,1); 
+			Decon result = scan.TestPerformUniDecDecon();
+			
+		}
+
+		[Test]
+		[TestCase("LowResMS1ScanForDecon.raw")]
+		public void TestSetupConfig(string file)
+		{
+			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
+			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
+			var scan = testScan[0];
+			float minOfScan = (float)scan.MassSpectrum.XArray.Min(); 
+
+			Config config = new();
+			UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
+			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
+			Assert.AreEqual(minOfScan, config.minmz); 
 		}
 	}
 }

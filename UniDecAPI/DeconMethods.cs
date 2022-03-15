@@ -33,10 +33,10 @@ namespace UniDecAPI
 				return _MainDeconvolution(config, inp, silent, verbose); 
 			}
 			[DllImport("TestDLL.dll", EntryPoint = "TestingMainDeconvolution")]
-			private static extern int _TestingMainDeconvolution();
-			public static int TestingMainDeconvolution()
+			private static extern Decon _TestingMainDeconvolution(Config config, InputUnsafe inp, int silent, int verbose);
+			public static Decon TestingMainDeconvolution(Config config, InputUnsafe inp, int silent, int verbose)
 			{
-				return _TestingMainDeconvolution(); 
+				return _TestingMainDeconvolution(config, inp, silent, verbose); 
 			}
 		}
 	}

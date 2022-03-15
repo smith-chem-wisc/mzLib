@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Runtime.InteropServices; 
+using System.Runtime.InteropServices;
+using MassSpectrometry; 
 
 namespace UniDecAPI
 {
@@ -23,6 +24,14 @@ namespace UniDecAPI
 			{
 				Config* ptrToConfig = &config; 
 				return _ModifyConfigToDefault(ptrToConfig); 
+			}
+			public static void SetupConfig(ref Config config, MsDataScan scan)
+			{
+				config.lengthmz = scan.MassSpectrum.XArray.Length;
+				config.filterwidth = 10;
+				config.minmz = (float)scan.MassSpectrum.XArray.Min();
+				config.maxmz = (float)scan.MassSpectrum.XArray.Max();
+				config.numz = 100; 
 			}
 		}
 	}

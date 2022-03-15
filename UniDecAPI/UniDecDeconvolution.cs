@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using MassSpectrometry; 
+using MassSpectrometry;
+using System.Runtime.InteropServices;
 
 namespace UniDecAPI
 {
@@ -17,46 +18,61 @@ namespace UniDecAPI
 			{
 				Config config = new();
 				config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
-				config.lengthmz = xarray.Length; 
+				UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
+
 				Decon decon = new();
-				InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs(); 
+				InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs();
+				char[] test = { (char)0, (char)0, (char)1 };
 				fixed (float* ptrXarray = &xarray[0], ptrYarray = &yarray[0])
 				{
-					try
+					fixed (char* ptrToTest = &test[0])
 					{
-						inp.dataMZ = ptrXarray;
-						inp.dataInt = ptrYarray;
+						try
+						{
 
-						decon = UniDecAPIMethods.DeconMethods.MainDeconvolution(config, inp, silent, verbose);
+							inp.dataMZ = ptrXarray;
+							inp.dataInt = ptrYarray;
+							inp.barr = ptrToTest;
+
+							decon = UniDecAPIMethods.DeconMethods.MainDeconvolution(config, inp, silent, verbose);
+						}
+						finally
+						{
+							UniDecAPIMethods.InputMethods.FreeInputs(inp);
+						}
+						return decon;
 					}
-					finally
-					{
-						UniDecAPIMethods.InputMethods.FreeInputs(inp);
-					}
-					return decon;
 				}
 			}
-			
+
 		}
-		public static int TestPerformUniDecDecon(this MsDataScan scan)
+		public static Decon TestPerformUniDecDecon(this MsDataScan scan)
 		{
 			float[] xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
 			float[] yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
-			int result = 0; 
+			int result = 0;
 			unsafe
 			{
 				Config config = new();
 				config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
-				// Decon decon = new();
+				UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
+
+				Decon decon = new();
 				InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs();
+				char[] test = { (char)0, (char)0, (char)1 };
 				fixed (float* ptrXarray = &xarray[0], ptrYarray = &yarray[0])
 				{
+					fixed (char* ptrToTest = &test[0])
+					{
 						inp.dataMZ = ptrXarray;
 						inp.dataInt = ptrYarray;
-						result = UniDecAPIMethods.DeconMethods.TestingMainDeconvolution();
+						inp.barr = ptrToTest;
+						decon = UniDecAPIMethods.DeconMethods.TestingMainDeconvolution(config, inp, 0, 1);
+						
+						return decon;
+					}
 				}
 			}
-			return result; 
 		}
 	}
 }
