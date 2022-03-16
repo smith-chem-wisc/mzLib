@@ -269,6 +269,7 @@ void cconv2fast(double* a, double* b, double* c, int length) {
 void dd_deconv2(double* kernel_y, double* data_y, int length, double* output) {
     // Create flipped point spread function kernel_star
     double* kernel_star = malloc(length * sizeof(double));
+    if (!kernel_star) { return; }
     for (int i = 0; i < length; i++) {
         kernel_star[i] = kernel_y[length - i - 1];
     }

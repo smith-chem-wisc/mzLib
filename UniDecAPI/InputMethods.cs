@@ -24,6 +24,18 @@ namespace UniDecAPI
 			{
 				_FreeInputs(inp); 
 			}
+			[DllImport("TestDLL.dll", EntryPoint = "ReadInputs")]
+			private static extern void _ReadInputs(ref InputUnsafe inp, ref Config config);
+			public static void ReadInputs(InputUnsafe inp, Config config)
+			{
+				_ReadInputs(ref inp, ref config); 
+			}
+			[DllImport("TestDLL.dll", EntryPoint = "ReadInputsByValue")]
+			private static extern InputUnsafe _ReadInputsByValue(InputUnsafe inp, ref Config config); 
+			public static InputUnsafe ReadInputsByValue(InputUnsafe inp, Config config)
+			{
+				return _ReadInputsByValue(inp, ref config); 
+			}
 		}
 	}
 }

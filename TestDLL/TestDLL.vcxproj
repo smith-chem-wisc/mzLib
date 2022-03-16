@@ -90,7 +90,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecLibrary;C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -112,7 +112,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecLibrary;C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -134,7 +134,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecLibrary;C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -156,7 +156,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecLibrary;C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -201,6 +201,7 @@
     <ClInclude Include="..\UniDecLibrary\UniDec_Main.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="TestFFTW3.h" />
+    <ClInclude Include="TinyChunksOfUniDecDeconvolution.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\UniDecLibrary\ArgMax.c" />
@@ -229,6 +230,7 @@
     <ClCompile Include="..\UniDecLibrary\UniDec.c" />
     <ClCompile Include="..\UniDecLibrary\UniDec_Main.c" />
     <ClCompile Include="TestFFTW3.c" />
+    <ClCompile Include="TinyChunksOfUniDecDeconvolution.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

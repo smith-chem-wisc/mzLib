@@ -84,9 +84,6 @@
     <ClInclude Include="..\UniDecLibrary\Sorting.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\UniDecLibrary\TestMasses.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\UniDecLibrary\Transforms.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -103,6 +100,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\UniDecLibrary\UniDec_Main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\TestMasses.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TinyChunksOfUniDecDeconvolution.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -183,6 +186,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\UniDecLibrary\UniDec_Main.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TinyChunksOfUniDecDeconvolution.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

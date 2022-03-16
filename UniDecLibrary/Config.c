@@ -6,11 +6,12 @@
 //
 
 #include "Config.h"
+
 Config ModifyConfigToDefault(Config* config) {
     config->numit = 50;
     config->numz = 1;
     config->endz = 100;
-    config->startz = 1;
+    config->startz = 2;
     config->zsig = (float)1;
     config->psig = (float)1;
     config->beta = (float)0;
@@ -63,7 +64,7 @@ Config ModifyConfigToDefault(Config* config) {
     config->zout = 0;
     config->baselineflag = (int)1;
     config->noiseflag = 0;
-    config->metamode = -2;
+    //config->metamode = -2;
     config->minmz = (float)-1;
     config->maxmz = (float)-1;
     config->mzbins = 0;
@@ -84,53 +85,51 @@ Config ModifyConfigToDefault(Config* config) {
     config->filterwidth = 20;
     config->zerolog = -12;
     config->lengthmz = 0;
-    config->mfilelen = 0;
+    //config->mfilelen = 0;
     config->isolength = 0;
     // DouleDec
-    config->doubledec = 0; // Consider initializing kernel as well?    
+    //config->doubledec = 0; // Consider initializing kernel as well?    
     return *config; 
 }
 
-Config PostImport(Config config)
+void PostImport(Config *config)
 {
     //Convert gaussian FWHM to sigma
-    if (config.psfun == 0) { config.mzsig = config.mzsig / 2.35482; }
-    config.dtsig = config.dtsig / 2.35482;
+    if (config->psfun == 0) { config->mzsig = config->mzsig / 2.35482; }
+    config->dtsig = config->dtsig / 2.35482;
     //Check whether to turn off or on the config.limitflag. Limit flag on means it will select only the mass values closest to the mass values from mfile.
-    if (config.mflag == 1 && config.mtabsig == 0) { config.limitflag = 1; }
+    if (config->mflag == 1 && config->mtabsig == 0) { config->limitflag = 1; }
 
-    config.numz = config.endz - config.startz + 1;
+    config->numz = config->endz - config->startz + 1;
 
     //If linflag is active, overwrite speedy}
-    if (config.linflag != -1) {
-        if (config.linflag != 2) { config.speedyflag = 1; }
-        else { config.speedyflag = 0; }
+    if (config->linflag != -1) {
+        if (config->linflag != 2) { config->speedyflag = 1; }
+        else { config->speedyflag = 0; }
     }
-    if (config.speedyflag == 1) { printf("Speedy mode: Assuming Linearized Data\n"); }
+    if (config->speedyflag == 1) { printf("Speedy mode: Assuming Linearized Data\n"); }
 
 
     //Check to see if the mass axis should be fixed
-    if (config.massub < 0 || config.masslb < 0) {
-        config.fixedmassaxis = 1;
-        config.massub = fabs(config.massub);
-        config.masslb = fabs(config.masslb);
+    if (config->massub < 0 || config->masslb < 0) {
+        config->fixedmassaxis = 1;
+        config->massub = fabs(config->massub);
+        config->masslb = fabs(config->masslb);
     }
 
-    if (config.twaveflag == -1 && config.imflag == 1) { printf("\n\nNeed to define twaveflag for CCS calculation\n\n"); }
+    if (config->twaveflag == -1 && config->imflag == 1) { printf("\n\nNeed to define twaveflag for CCS calculation\n\n"); }
 
     //bug proofing so we don't get a 1/0 problem
-    if (config.msig == 0) { config.msig = 0.00001; }
-    if (config.zsig == 0) { config.zsig = 0.00001; }
-    if (config.massbins == 0) { config.massbins = 1; }
+    if (config->msig == 0) { config->msig = 0.00001; }
+    if (config->zsig == 0) { config->zsig = 0.00001; }
+    if (config->massbins == 0) { config->massbins = 1; }
 
     //Convert aggressiveflag to baselineflag
-    if (config.aggressiveflag == 1 || config.aggressiveflag == 2) { config.baselineflag = 1; }
-    else { config.baselineflag = 0; }
+    if (config->aggressiveflag == 1 || config->aggressiveflag == 2) { config->baselineflag = 1; }
+    else { config->baselineflag = 0; }
 
     //Experimental correction. Not sure why this is necessary.
-    if (config.psig < 0) { config.mzsig /= 3; }
-
-    return config;
+    if (config->psig < 0) { config->mzsig /= 3; }
 }
 
 Config ReturnModifiedConfigToCS(Config config) {

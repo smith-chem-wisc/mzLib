@@ -138,8 +138,7 @@ namespace Test
 			var scan = testScan[0];
 
 			// Decon deconResult = scan.PerformUniDecDeconvolution(0, 0); 
-			Decon result = scan.TestPerformUniDecDecon();
-			
+			Decon result = scan.PerformUniDecDeconvolution();
 		}
 
 		[Test]
@@ -155,6 +154,37 @@ namespace Test
 			UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
 			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
 			Assert.AreEqual(minOfScan, config.minmz); 
+		}
+		[Test]
+		[TestCase("LowResMS1ScanForDecon.raw")]
+		public unsafe void TestConfigAndInputsSetup(string file)
+		{
+			Config config = new();
+			InputUnsafe inp = new();
+			Decon decon = new(); 
+
+			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
+			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
+			var scan = testScan[0];
+
+			config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config); 
+			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
+			inp = UniDecAPIMethods.InputMethods.SetupInputs();
+
+			float[] xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
+			float[] yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
+
+			fixed(float* xarrayPtr = &xarray[0], yarrayPtr = &yarray[0])
+			{
+				inp.dataMZ = xarrayPtr;
+				inp.dataInt = yarrayPtr; 
+
+				inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
+				//PrintProperties(inp);
+				//Console.WriteLine("Now printing the config object" + "\n");
+				//PrintProperties(config);			
+				decon = UniDecAPIMethods.DeconMethods.RunUnidec(inp, config);
+			}
 		}
 	}
 }

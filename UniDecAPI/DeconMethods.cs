@@ -38,6 +38,12 @@ namespace UniDecAPI
 			{
 				return _TestingMainDeconvolution(config, inp, silent, verbose); 
 			}
+			[DllImport("TestDLL.dll", EntryPoint = "run_unidec")]
+			private static extern Decon _RunUnidec(InputUnsafe inp, Config config); 
+			public static Decon RunUnidec(InputUnsafe inp, Config config)
+			{
+				return _RunUnidec(inp, config); 
+			}
 		}
 	}
 }

@@ -87,8 +87,8 @@ namespace UniDecAPI
         //Experimental Parameters
         public int filterwidth;
         public float zerolog;
-        public int lengthmz;
-        public int mfilelen;
+        public int lengthmz; // probably can get rid of 
+        //public int mfilelen;
         public int isolength;
         // DoubleDec Parameters
         public int doubledec;

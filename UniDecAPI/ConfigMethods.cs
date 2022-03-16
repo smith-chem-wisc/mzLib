@@ -25,14 +25,24 @@ namespace UniDecAPI
 				Config* ptrToConfig = &config; 
 				return _ModifyConfigToDefault(ptrToConfig); 
 			}
+
+			[DllImport("TestDLL.dll", EntryPoint = "PostImport")]
+			private static extern void _PostImport(ref Config config);
+			public static void PostImport(Config config)
+			{
+				_PostImport(ref config); 
+			}
+
 			public static void SetupConfig(ref Config config, MsDataScan scan)
 			{
 				config.lengthmz = scan.MassSpectrum.XArray.Length;
 				config.filterwidth = 10;
 				config.minmz = (float)scan.MassSpectrum.XArray.Min();
 				config.maxmz = (float)scan.MassSpectrum.XArray.Max();
-				config.numz = 100; 
+				config.numz = 100;
+
 			}
+
 		}
 	}
 }

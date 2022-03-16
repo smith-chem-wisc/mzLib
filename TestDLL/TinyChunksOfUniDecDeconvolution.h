@@ -1,16 +1,3 @@
-/*
-* UniDec_Main.h
-*
-*  Created on : 29 December 2016
-* Author : Michael.Marty
-*/
-
-//
-// Copyright 2015 University of Oxford
-// Copyright 2016 University of Arizona
-//
-//
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,8 +24,4 @@
 #include "Normalization.h"
 #include "UD_analysis.h"
 
-__declspec(dllexport) Decon run_unidec(Input inp, Config config); 
-__declspec(dllexport) Decon MainDeconvolution(const Config config, const Input inp);
-__declspec(dllexport) void ReadInputs(Input* inp, Config* config);
-__declspec(dllexport) void SetLimits(Config config, Input* inp); 
-__declspec(dllexport) Input ReadInputsByValue(Input inp, Config* config); 
+__declspec(dllexport) int DeclarePointersAndFree(void); 
