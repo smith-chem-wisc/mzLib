@@ -23,6 +23,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -191,10 +192,19 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadUnimod(string unimodLocation)
         {
-            using (WebClient Client = new WebClient())
+            Uri uri = new(@"http://www.unimod.org/xml/unimod.xml");
+            HttpClient client = new();
+
+            string downloadedContent;
+            using (HttpResponseMessage urlResponse = client.GetAsync(uri).Result)
             {
-                Client.DownloadFile(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
+                using (HttpContent urlContent = urlResponse.Content)
+                {
+                    downloadedContent = urlContent.ReadAsStringAsync().Result;
+                }
             }
+
+            File.WriteAllText(unimodLocation + ".temp", downloadedContent);
         }
 
         private static void DownloadElements(string elementLocation)
