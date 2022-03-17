@@ -96,9 +96,10 @@ void SetLimits(Config config, Input* inp) {
 
 Decon run_unidec(Input inp, Config config) {
     
-    inp = SetupInputs();
-    ReadInputs(&inp, &config);
+    // Called by C# calling code instead: 
+    // ReadInputsByValue(inp, &config);
     //Sets limits based on mass range and any test masses
+    
     SetLimits(config, &inp);
 
     //Setup Isotope Distributions
@@ -113,10 +114,8 @@ Decon run_unidec(Input inp, Config config) {
     //
     //...................................................................
 
-    //Setup the Deconvolution
-    Decon decon = SetupDecon();
     //Run the main Deconvolution		
-    decon = MainDeconvolution(config, inp);
+    Decon decon = MainDeconvolution(config, inp);
     return decon; 
 }
 
@@ -415,7 +414,7 @@ Decon MainDeconvolution(const Config config, const Input inp)
             {
                 if (barr[i] == 1)
                 {
-                    diff += pow((decon.blur[i] - oldblur[i]), 2);
+                    diff += pow(((double)decon.blur[i] - (double)oldblur[i]), 2);
                     tot += decon.blur[i];
                 }
             }

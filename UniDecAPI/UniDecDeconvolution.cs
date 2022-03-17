@@ -10,14 +10,12 @@ namespace UniDecAPI
 {
 	public static class UniDecDeconvolution
 	{
-		public static Decon PerformUniDecDeconvolution(this MsDataScan scan)
+		public static Decon PerformUniDecDeconvolution(this MsDataScan scan, Config config)
 		{
 			float[] xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
 			float[] yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
 			unsafe
 			{
-				Config config = new();
-				config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
 				UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
 
 				Decon decon = new();
@@ -25,19 +23,20 @@ namespace UniDecAPI
 				fixed (float* ptrXarray = &xarray[0], ptrYarray = &yarray[0])
 				{
 					// need to fully setup the config object. 
-						try
-						{
+					try
+					{
 
-							inp.dataMZ = ptrXarray;
-							inp.dataInt = ptrYarray;
+						inp.dataMZ = ptrXarray;
+						inp.dataInt = ptrYarray;
+						inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config); 
 
-							decon = UniDecAPIMethods.DeconMethods.RunUnidec(inp,config);
-						}
-						finally
-						{
-							UniDecAPIMethods.InputMethods.FreeInputs(inp);
-						}
-						return decon;
+						decon = UniDecAPIMethods.DeconMethods.RunUnidec(inp,config);
+					}
+					finally
+					{
+						UniDecAPIMethods.InputMethods.FreeInputs(inp);
+					}
+					return decon;
 				}
 			}
 

@@ -24,4 +24,14 @@
 #include "Normalization.h"
 #include "UD_analysis.h"
 
-__declspec(dllexport) int DeclarePointersAndFree(void); 
+__declspec(dllexport) int MemoryAllocationOfBarr(void); 
+__declspec(dllexport) int AllocateMemoryToPointersThenFree(); 
+__declspec(dllexport) char UseMemcpyInC();
+__declspec(dllexport) char UseMemcpyWithInpAndConfigObjects(); 
+__declspec(dllexport) int MemoryObjectAllocationToHeap(Config config, Input inp); 
+__declspec(dllexport) int TestSetStartEnds(Input inp, Config config); 
+__declspec(dllexport) int MemoryObjectAllocationToHeapConfigPtr(Config* config, Input inp); 
+__declspec(dllexport) int TestFreeDecon(); 
+__declspec(dllexport) int TestSetupAndAllocateMemoryToDecon(); 
+__declspec(dllexport) Decon TestSetupAndReturnDecon(); 
+__declspec(dllexport) Decon MainDeconWithMinimalControlFlow(Config config, Input inp); 
