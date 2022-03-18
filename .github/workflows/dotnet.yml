@@ -24,21 +24,19 @@ jobs:
         dotnet build --no-restore;
         dotnet build --no-restore ./Test/Test.csproj;
         dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj;
-    - name: Add msbuild
+    - name: Add coverlet collector
       run:
         cd mzLib;
-        dotnet add Test/Test.csproj package coverlet.msbuild;
-        dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.msbuild;
+        dotnet add Test/Test.csproj package coverlet.collector;
+        dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector;
     - name: Test
       run:
         cd mzLib;
         dotnet test --no-build --verbosity normal
-          /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
-          /p:CoverletOutput='../../coberturatest.xml'
+          --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
           ./Test/Test.csproj;
         dotnet test --no-build --verbosity normal
-          /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
-          /p:CoverletOutput='../../coberturatestlfq.xml'
+          --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
           ./TestFlashLFQ/TestFlashLFQ.csproj;
     - name: Directory lists
       run:
@@ -48,4 +46,4 @@ jobs:
       uses: codecov/codecov-action@v2
       with:
         verbose: true
-        files: ./coberturatest.xml,./coberturatestlfq.xml
+        files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
