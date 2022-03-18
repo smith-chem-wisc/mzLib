@@ -23,6 +23,7 @@
 #include "FitFunctions.h"
 #include "Normalization.h"
 #include "UD_analysis.h"
+#include "UniDec_Main.h"
 
 __declspec(dllexport) int MemoryAllocationOfBarr(void); 
 __declspec(dllexport) int AllocateMemoryToPointersThenFree(); 
@@ -34,4 +35,5 @@ __declspec(dllexport) int MemoryObjectAllocationToHeapConfigPtr(Config* config, 
 __declspec(dllexport) int TestFreeDecon(); 
 __declspec(dllexport) int TestSetupAndAllocateMemoryToDecon(); 
 __declspec(dllexport) Decon TestSetupAndReturnDecon(); 
-__declspec(dllexport) Decon MainDeconWithMinimalControlFlow(Config config, Input inp); 
+__declspec(dllexport) int MainDeconWithMinimalControlFlow(Config config, Input inp); 
+__declspec(dllexport) Decon RunUniDecWithTestMainDeconAlgo(Input inp, Config config);

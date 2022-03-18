@@ -74,9 +74,13 @@ namespace UniDecAPI
 		private static extern Decon _MainDeconWithMinimalControlFlow(Config config, InputUnsafe inp); 
 		public static Decon MainDeconWithMinimalControlFlow(Config config, InputUnsafe inp)
 		{
-			return _MainDeconWithMinimalControlFlow(Config config, InputUnsafe inp); 
+			return _MainDeconWithMinimalControlFlow(config, inp); 
 		}
-
-
+		[DllImport("TestDLL.dll", EntryPoint = "RunUniDecWithTestMainDeconAlgo")]
+		private static extern Decon _RunUniDecWithTestMainDeconAlgo(InputUnsafe inp, Config config); 
+		public static Decon RunUniDecWithTestMainDeconAlgo(InputUnsafe inp, Config config)
+		{
+			return _RunUniDecWithTestMainDeconAlgo(inp, config); 	
+		}
 	}
 }

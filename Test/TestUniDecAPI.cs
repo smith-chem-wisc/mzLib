@@ -172,6 +172,7 @@ namespace Test
 				PrintProperties(inp);
 				Console.WriteLine("Now printing the config object" + "\n");
 				PrintProperties(config);
+				for(int i = 0; i < 100; i++) { Console.WriteLine(inp.barr[i].ToString()); }
 			}
 		}
 		[Test]
@@ -202,38 +203,6 @@ namespace Test
 		}
 		[Test]
 		[TestCase("LowResMS1ScanForDecon.raw")]
-		public void TestMemoryObjectAllocationToHeap(string file)
-		{
-			Config config = new();
-			InputUnsafe inp = new();
-
-			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
-			var scan = testScan[0];
-
-			config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
-			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
-			inp = UniDecAPIMethods.InputMethods.SetupInputs();
-			inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
-
-			float[] xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
-			float[] yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
-			unsafe
-			{
-				fixed (float* xarrayPtr = &xarray[0], yarrayPtr = &yarray[0])
-				{
-					inp.dataMZ = xarrayPtr;
-					inp.dataInt = yarrayPtr;
-					inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
-					int result = AlgorithmTesting.MemoryObjectAllocationToHeap(config, inp);
-					Assert.AreEqual(1, result);
-
-				}
-			}
-
-		}
-		[Test]
-		[TestCase("LowResMS1ScanForDecon.raw")]
 		public void TestCFuncTestSEtStartEnds(string file)
 		{
 			Config config = new();
@@ -260,7 +229,6 @@ namespace Test
 
 					int result = AlgorithmTesting.TestSetStartEnds(inp, config);
 					Assert.AreEqual(10994, result);
-
 				}
 			}
 		}
@@ -329,8 +297,6 @@ namespace Test
 		{
 			// initialize the config and inp structs for data transfer to and from C
 			Config config = new();
-			InputUnsafe inp = new();
-			Decon decon = new(); 
 
 			// gets the scan needed to fill requirements of C structs and C workflow
 			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
@@ -340,12 +306,11 @@ namespace Test
 			// sets the config to deafult
 			config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
 			// modifies some MsDataScan-dependent field of config
-
-			UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
 			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
-			UniDecAPIMethods.ConfigMethods.PostImport(config); 
-			Decon deonvolutedScan = scan.PerformUniDecDeconvolution(config); 
-			// initializes the inp object to deafult. 
+			UniDecAPIMethods.ConfigMethods.PostImport(config);
+			scan.PerformUniDecDeconForTestingPurposes(config); 
+			// initializes the inp object to deafult. 27
+
 		}
 	}
 }

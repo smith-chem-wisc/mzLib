@@ -297,8 +297,8 @@ Decon TestSetupAndReturnDecon() {
     return decon;
 }
 
-Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
-    Decon decon = SetupDecon();
+int MainDeconWithMinimalControlFlow(Config config, Input inp) {
+    //Decon decon = SetupDecon();
     char* barr = NULL;
 
     int mlength, zlength, numclose,
@@ -330,18 +330,26 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
     maxlength = SetStartsEnds(config, &inp, starttab, endtab, threshold);
     int pslen = config.lengthmz * maxlength;
     mzdist = calloc(pslen, sizeof(float));
+    
+
+    //Sets up the blur function in oligomer mass and charge
+
+
     int makereverse = 1; 
     rmzdist = calloc(pslen, sizeof(float));
     MakePeakShape2D(config.lengthmz, maxlength, starttab, endtab, inp.dataMZ, fabs(config.mzsig) * config.peakshapeinflate, config.psfun, config.speedyflag, mzdist, rmzdist, makereverse);
     zlength = 1 + 2 * (int)config.zsig;
     mlength = 1 + 2 * (int)config.msig;
-    numclose = mlength * zlength;
+    mind = calloc(mlength, sizeof(int));
+    mdist = calloc(mlength, sizeof(float));
     
-    for (int i = 0; i < mlength; i++)
-    {
-        mind[i] = i - (mlength - 1) / 2;
-        if (config.msig != 0) { mdist[i] = exp(-(pow((i - (mlength - 1) / 2.), 2)) / (2.0 * config.msig * config.msig)); }
-        else { mdist[i] = 1; }
+    if (mind != NULL) {
+        for (int i = 0; i < mlength; i++)
+        {
+            mind[i] = i - (mlength - 1) / 2;
+            if (config.msig != 0) { mdist[i] = exp(-(pow((i - (mlength - 1) / 2.), 2)) / (2.0 * config.msig * config.msig)); }
+            else { mdist[i] = 1; }
+        }
     }
     
     
@@ -354,6 +362,8 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
         else { zdist[i] = 1; }
         //printf("%f\n", zdist[i]);
     }
+
+    numclose = mlength * zlength;
     closemind = calloc(numclose, sizeof(int));
     closezind = calloc(numclose, sizeof(int));
     closeval = calloc(numclose, sizeof(float));
@@ -384,8 +394,10 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
     float dmax = Max(inp.dataInt, config.lengthmz);
     float betafactor = 1;
     if (dmax > 1) { betafactor = dmax; }
-
+    
+    //Something wrong with KillB. 
     KillB(inp.dataInt, barr, config.intthresh, config.lengthmz, config.numz, config.isolength, inp.isotopepos, inp.isotopeval);
+    
     decon.blur = calloc(config.lengthmz * config.numz, sizeof(float));
     decon.newblur = calloc(config.lengthmz * config.numz, sizeof(float));
     oldblur = calloc(config.lengthmz * config.numz, sizeof(float));
@@ -427,7 +439,7 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
     float blurmax = 0;
     decon.conv = 0;
     int off = 0;
-    /*
+
     for (int iterations = 0; iterations < abs(config.numit); iterations++)
     {
         decon.iterations = iterations;
@@ -716,5 +728,32 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
     free(zdist);
     free(barr);
     free(closeind);
-    return decon; 
+    //return decon; 
+    return 1; 
+}
+
+Decon RunUniDecWithTestMainDeconAlgo(Input inp, Config config) {
+    // Called by C# calling code instead: 
+    // ReadInputsByValue(inp, &config);
+    //Sets limits based on mass range and any test masses
+
+    SetLimits(config, &inp);
+    
+    //Setup Isotope Distributions
+    if (config.isotopemode > 0)
+    {
+        setup_and_make_isotopes(&config, &inp);
+    }
+    /*
+    //................................................................
+    //
+    // Deconvolution
+    //
+    //...................................................................
+
+    //Run the main Deconvolution		
+    */
+    int result = MainDeconWithMinimalControlFlow(config, inp);
+    Decon decon = SetupDecon(); 
+    return decon;
 }
