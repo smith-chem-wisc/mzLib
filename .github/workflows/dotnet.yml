@@ -34,11 +34,11 @@ jobs:
     - name: Test
       run: |
         cd mzLib
-        dotnet test --no-build --verbosity normal
-          --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
+        dotnet test --no-build --verbosity normal \
+          --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura \
           ./Test/Test.csproj
-        dotnet test --no-build --verbosity normal
-          --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
+        dotnet test --no-build --verbosity normal \
+          --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura \
           ./TestFlashLFQ/TestFlashLFQ.csproj
     - name: Directory lists
       run: |
