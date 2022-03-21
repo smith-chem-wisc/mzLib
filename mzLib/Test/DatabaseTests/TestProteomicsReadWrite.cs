@@ -322,7 +322,7 @@ namespace Test
 
             List<DisulfideBond> disulfideBonds = new List<DisulfideBond> { new DisulfideBond(1, "ds1"), new DisulfideBond(2, 3, "ds2") };
 
-            Protein p1 = new Protein(
+            Protein originalProtein = new Protein(
                 "SEQENCE",
                 "a1",
                 geneNames: gene_names,
@@ -338,55 +338,55 @@ namespace Test
                 databaseFilePath: Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bnueiwhf.xml"));
 
             // Generate data for files
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { p1 },
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { originalProtein },
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bnueiwhf.xml"));
 
             IEnumerable<string> modTypesToExclude = new List<string>();
             IEnumerable<Modification> allKnownModifications = new List<Modification>();
-            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bnueiwhf.xml"), true, DecoyType.None,
+            List<Protein> proteinReadFromXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bnueiwhf.xml"), true, DecoyType.None,
                 allKnownModifications, true, modTypesToExclude, out Dictionary<string, Modification> unknownModifications);
-            Assert.AreEqual(p1.Accession, ok[0].Accession);
-            Assert.AreEqual(p1.BaseSequence, ok[0].BaseSequence);
-            Assert.AreEqual(p1.DatabaseReferences.First().Id, ok[0].DatabaseReferences.First().Id);
-            Assert.AreEqual(p1.DatabaseReferences.First().Properties.First().Item1, ok[0].DatabaseReferences.First().Properties.First().Item1);
-            Assert.AreEqual(p1.DatabaseReferences.First().Properties.First().Item2, ok[0].DatabaseReferences.First().Properties.First().Item2);
-            Assert.AreEqual(p1.DatabaseReferences.First().Type, ok[0].DatabaseReferences.First().Type);
+            Assert.AreEqual(originalProtein.Accession, proteinReadFromXml[0].Accession);
+            Assert.AreEqual(originalProtein.BaseSequence, proteinReadFromXml[0].BaseSequence);
+            Assert.AreEqual(originalProtein.DatabaseReferences.First().Id, proteinReadFromXml[0].DatabaseReferences.First().Id);
+            Assert.AreEqual(originalProtein.DatabaseReferences.First().Properties.First().Item1, proteinReadFromXml[0].DatabaseReferences.First().Properties.First().Item1);
+            Assert.AreEqual(originalProtein.DatabaseReferences.First().Properties.First().Item2, proteinReadFromXml[0].DatabaseReferences.First().Properties.First().Item2);
+            Assert.AreEqual(originalProtein.DatabaseReferences.First().Type, proteinReadFromXml[0].DatabaseReferences.First().Type);
 
-            Assert.AreEqual(p1.DisulfideBonds.First().Description, ok[0].DisulfideBonds.First().Description);
-            Assert.AreEqual(p1.DisulfideBonds.First().OneBasedBeginPosition, ok[0].DisulfideBonds.First().OneBasedBeginPosition);
-            Assert.AreEqual(p1.DisulfideBonds.First().OneBasedEndPosition, ok[0].DisulfideBonds.First().OneBasedEndPosition);
-            Assert.AreEqual(p1.DisulfideBonds.Last().Description, ok[0].DisulfideBonds.Last().Description);
-            Assert.AreEqual(p1.DisulfideBonds.Last().OneBasedBeginPosition, ok[0].DisulfideBonds.Last().OneBasedBeginPosition);
-            Assert.AreEqual(p1.DisulfideBonds.Last().OneBasedEndPosition, ok[0].DisulfideBonds.Last().OneBasedEndPosition);
+            Assert.AreEqual(originalProtein.DisulfideBonds.First().Description, proteinReadFromXml[0].DisulfideBonds.First().Description);
+            Assert.AreEqual(originalProtein.DisulfideBonds.First().OneBasedBeginPosition, proteinReadFromXml[0].DisulfideBonds.First().OneBasedBeginPosition);
+            Assert.AreEqual(originalProtein.DisulfideBonds.First().OneBasedEndPosition, proteinReadFromXml[0].DisulfideBonds.First().OneBasedEndPosition);
+            Assert.AreEqual(originalProtein.DisulfideBonds.Last().Description, proteinReadFromXml[0].DisulfideBonds.Last().Description);
+            Assert.AreEqual(originalProtein.DisulfideBonds.Last().OneBasedBeginPosition, proteinReadFromXml[0].DisulfideBonds.Last().OneBasedBeginPosition);
+            Assert.AreEqual(originalProtein.DisulfideBonds.Last().OneBasedEndPosition, proteinReadFromXml[0].DisulfideBonds.Last().OneBasedEndPosition);
 
-            Assert.AreEqual(p1.FullDescription, ok[0].FullDescription);
-            Assert.AreEqual(p1.FullName, ok[0].FullName);
-            Assert.AreEqual(p1.GeneNames, ok[0].GeneNames);
-            Assert.AreEqual(p1.IsContaminant, ok[0].IsContaminant);
-            Assert.AreEqual(p1.IsDecoy, ok[0].IsDecoy);
-            Assert.AreEqual(p1.Length, ok[0].Length);
-            Assert.AreEqual(p1.Name, ok[0].Name);
-            Assert.AreEqual(p1.Organism, ok[0].Organism);
-            Assert.AreEqual(p1.DatabaseFilePath, ok[0].DatabaseFilePath);
-            Assert.AreEqual(1, p1.OneBasedPossibleLocalizedModifications.Keys.Count);
-            Assert.AreEqual(1, ok[0].OneBasedPossibleLocalizedModifications.Keys.Count);
-            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications.Keys.First(), ok[0].OneBasedPossibleLocalizedModifications.Keys.First());
-            Assert.IsTrue(p1.OneBasedPossibleLocalizedModifications[5][0].Equals(ok[0].OneBasedPossibleLocalizedModifications[5][0]));
+            Assert.AreEqual(originalProtein.FullDescription, proteinReadFromXml[0].FullDescription);
+            Assert.AreEqual(originalProtein.FullName, proteinReadFromXml[0].FullName);
+            Assert.AreEqual(originalProtein.GeneNames, proteinReadFromXml[0].GeneNames);
+            Assert.AreEqual(originalProtein.IsContaminant, proteinReadFromXml[0].IsContaminant);
+            Assert.AreEqual(originalProtein.IsDecoy, proteinReadFromXml[0].IsDecoy);
+            Assert.AreEqual(originalProtein.Length, proteinReadFromXml[0].Length);
+            Assert.AreEqual(originalProtein.Name, proteinReadFromXml[0].Name);
+            Assert.AreEqual(originalProtein.Organism, proteinReadFromXml[0].Organism);
+            Assert.AreEqual(originalProtein.DatabaseFilePath, proteinReadFromXml[0].DatabaseFilePath);
+            Assert.AreEqual(1, originalProtein.OneBasedPossibleLocalizedModifications.Keys.Count);
+            Assert.AreEqual(1, proteinReadFromXml[0].OneBasedPossibleLocalizedModifications.Keys.Count);
+            Assert.AreEqual(originalProtein.OneBasedPossibleLocalizedModifications.Keys.First(), proteinReadFromXml[0].OneBasedPossibleLocalizedModifications.Keys.First());
+            Assert.IsTrue(originalProtein.OneBasedPossibleLocalizedModifications[5][0].Equals(proteinReadFromXml[0].OneBasedPossibleLocalizedModifications[5][0]));
 
-            Assert.AreEqual(p1.ProteolysisProducts.First().OneBasedBeginPosition, ok[0].ProteolysisProducts.First().OneBasedBeginPosition);
-            Assert.AreEqual(p1.ProteolysisProducts.First().OneBasedEndPosition, ok[0].ProteolysisProducts.First().OneBasedEndPosition);
-            Assert.AreEqual(p1.ProteolysisProducts.First().Type, ok[0].ProteolysisProducts.First().Type);
+            Assert.AreEqual(originalProtein.ProteolysisProducts.First().OneBasedBeginPosition, proteinReadFromXml[0].ProteolysisProducts.First().OneBasedBeginPosition);
+            Assert.AreEqual(originalProtein.ProteolysisProducts.First().OneBasedEndPosition, proteinReadFromXml[0].ProteolysisProducts.First().OneBasedEndPosition);
+            Assert.AreEqual(originalProtein.ProteolysisProducts.First().Type, proteinReadFromXml[0].ProteolysisProducts.First().Type.Split('(')[0]);
 
-            Assert.AreEqual(p1.SequenceVariations.First().Description, ok[0].SequenceVariations.First().Description);
-            Assert.AreEqual(p1.SequenceVariations.First().OneBasedBeginPosition, ok[0].SequenceVariations.First().OneBasedBeginPosition);
-            Assert.AreEqual(p1.SequenceVariations.First().OneBasedEndPosition, ok[0].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreEqual(p1.SequenceVariations.First().OriginalSequence, ok[0].SequenceVariations.First().OriginalSequence);
-            Assert.AreEqual(p1.SequenceVariations.First().VariantSequence, ok[0].SequenceVariations.First().VariantSequence);
-            Assert.AreEqual(p1.SequenceVariations.Last().Description, ok[0].SequenceVariations.Last().Description);
-            Assert.AreEqual(p1.SequenceVariations.Last().OneBasedBeginPosition, ok[0].SequenceVariations.Last().OneBasedBeginPosition);
-            Assert.AreEqual(p1.SequenceVariations.Last().OneBasedEndPosition, ok[0].SequenceVariations.Last().OneBasedEndPosition);
-            Assert.AreEqual(p1.SequenceVariations.Last().OriginalSequence, ok[0].SequenceVariations.Last().OriginalSequence);
-            Assert.AreEqual(p1.SequenceVariations.Last().VariantSequence, ok[0].SequenceVariations.Last().VariantSequence);
+            Assert.AreEqual(originalProtein.SequenceVariations.First().Description, proteinReadFromXml[0].SequenceVariations.First().Description);
+            Assert.AreEqual(originalProtein.SequenceVariations.First().OneBasedBeginPosition, proteinReadFromXml[0].SequenceVariations.First().OneBasedBeginPosition);
+            Assert.AreEqual(originalProtein.SequenceVariations.First().OneBasedEndPosition, proteinReadFromXml[0].SequenceVariations.First().OneBasedEndPosition);
+            Assert.AreEqual(originalProtein.SequenceVariations.First().OriginalSequence, proteinReadFromXml[0].SequenceVariations.First().OriginalSequence);
+            Assert.AreEqual(originalProtein.SequenceVariations.First().VariantSequence, proteinReadFromXml[0].SequenceVariations.First().VariantSequence);
+            Assert.AreEqual(originalProtein.SequenceVariations.Last().Description, proteinReadFromXml[0].SequenceVariations.Last().Description);
+            Assert.AreEqual(originalProtein.SequenceVariations.Last().OneBasedBeginPosition, proteinReadFromXml[0].SequenceVariations.Last().OneBasedBeginPosition);
+            Assert.AreEqual(originalProtein.SequenceVariations.Last().OneBasedEndPosition, proteinReadFromXml[0].SequenceVariations.Last().OneBasedEndPosition);
+            Assert.AreEqual(originalProtein.SequenceVariations.Last().OriginalSequence, proteinReadFromXml[0].SequenceVariations.Last().OriginalSequence);
+            Assert.AreEqual(originalProtein.SequenceVariations.Last().VariantSequence, proteinReadFromXml[0].SequenceVariations.Last().VariantSequence);
         }
 
         [Test]
