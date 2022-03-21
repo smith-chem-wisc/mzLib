@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <modification>ID   mod1 on D
+MT   mt
+TG   D
+PP   Anywhere.
+MM   10
+
+//</modification>
+  <entry>
+    <accession>prot1</accession>
+    <gene />
+    <feature type="modified residue" description="mod1 on D">
+      <location>
+        <position position="3" />
+      </location>
+    </feature>
+    <sequence length="24">MEDEEKMEDEEKMEDEEKMEDEEK</sequence>
+  </entry>
+</mzLibProteinDb>
