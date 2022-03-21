@@ -226,6 +226,7 @@ namespace UsefulProteomicsDatabases
             else if (FeatureType == "peptide" || FeatureType == "propeptide" || FeatureType == "chain" || FeatureType == "signal peptide")
             {
                 string type = FeatureType;
+                //next we are going to add test descrbing the begin and end positions (if any) of the feature. This results in increased information in the output about feature location in the protein
                 if (OneBasedBeginPosition.HasValue)
                 {
                     type = type + "(" + (int)OneBasedBeginPosition.Value;
@@ -235,7 +236,7 @@ namespace UsefulProteomicsDatabases
                     }
                     else
                     {
-                        type = type + "-null)";
+                        type += "-null)";
                     }
                 }
                 else
@@ -246,7 +247,7 @@ namespace UsefulProteomicsDatabases
                     }
                     else
                     {
-                        type = type + ("null-null");
+                        type += ("null-null");
                     }
                 }
                 ProteolysisProducts.Add(new ProteolysisProduct(OneBasedBeginPosition, OneBasedEndPosition, type));

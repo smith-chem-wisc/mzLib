@@ -817,6 +817,11 @@ namespace Proteomics
             }
         }
 
+        /// <summary>
+        /// proteins with multiple proteolysis products are not always full cleaved. we observed proteolysis products w/ missed cleavages.
+        /// This method allows for one missed cleavage between proteolysis products.
+        /// </summary>
+        /// <param name="minimumProductLength"></param>
         public void CleaveOnceBetweenProteolysisProducts(int minimumProductLength = 7)
         {
             List<int> cleavagePostions = new();
@@ -837,8 +842,9 @@ namespace Proteomics
             {
                 if (position - 1 >= minimumProductLength)
                 {
-                    string leftType = "N-terminal Portion of Singly Cleaved Protein" + "(" + 1 + "-" + position + ")";
+                    string leftType = $"N-terminal Portion of Singly Cleaved Protein(1-{position})";
                     ProteolysisProduct leftProduct = new(1, position, leftType);
+                    //here we're making sure a product with these begin/end positions isn't already present
                     if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == leftProduct.OneBasedBeginPosition && p.OneBasedEndPosition == leftProduct.OneBasedEndPosition))
                     {
                         _proteolysisProducts.Add(leftProduct);
@@ -847,8 +853,9 @@ namespace Proteomics
 
                 if (BaseSequence.Length - position - 1 >= minimumProductLength)
                 {
-                    string rightType = "C-terminal Portion of Singly Cleaved Protein" + "(" + (position + 1).ToString() + "-" + BaseSequence.Length + ")";
+                    string rightType = $"C-terminal Portion of Singly Cleaved Protein({position + 1}-{BaseSequence.Length})";
                     ProteolysisProduct rightProduct = new(position + 1, BaseSequence.Length, rightType);
+                    //here we're making sure a product with these begin/end positions isn't already present
                     if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == rightProduct.OneBasedBeginPosition && p.OneBasedEndPosition == rightProduct.OneBasedEndPosition))
                     {
                         _proteolysisProducts.Add(rightProduct);
