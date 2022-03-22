@@ -80,16 +80,16 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// downloades and then returns the filepath to a compressed (.gz), tab-delimited text file of the available proteomes. Line one is the header.
         /// </summary>
-        /// <param name="filepath">filepath to the downloaded filefilepath</param>
+        /// <param name="destinationFolder">filepath to the downloaded filefilepath</param>
         /// <returns></returns>
-        public static string DownloadAvailableUniProtProteomes(string filepath)
+        public static string DownloadAvailableUniProtProteomes(string destinationFolder)
         {
-            if (Directory.Exists(filepath))
+            if (Directory.Exists(destinationFolder))
             {
                 string htmlQueryString = "https://www.uniprot.org/proteomes/?query=*&format=tab&compress=yes&columns=id,name,organism-id,proteincount,busco,cpd,assembly%20representation";
-                string filename = "\\availableUniProtProteomes.txt.gz";
+                string filename = "availableUniProtProteomes.txt.gz";
 
-                filepath += filename;
+                string filepath = Path.Combine(destinationFolder, filename);
                 Loaders.DownloadContent(htmlQueryString, filepath);
 
                 if (File.Exists(filepath))

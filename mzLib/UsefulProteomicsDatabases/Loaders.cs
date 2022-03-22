@@ -29,6 +29,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml.Serialization;
 using UsefulProteomicsDatabases.Generated;
+using System.Threading.Tasks;
 
 namespace UsefulProteomicsDatabases
 {
@@ -164,16 +165,14 @@ namespace UsefulProteomicsDatabases
             return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var errors).OfType<Modification>();
         }
 
-        public static async void DownloadContent(string url, string outputFile)
+        public static void DownloadContent(string url, string outputFile)
         {
             Uri uri = new(url);
             HttpClient client = new();
-            using (HttpResponseMessage urlResponse = await client.GetAsync(uri))
+            HttpResponseMessage urlResponse = Task.Run(() => client.GetAsync(uri)).Result;
+            using (FileStream stream = new FileStream(outputFile, FileMode.CreateNew))
             {
-                using (var fs = new FileStream(outputFile, FileMode.CreateNew))
-                {
-                    await urlResponse.Content.CopyToAsync(fs);
-                }
+                Task.Run(() => urlResponse.Content.CopyToAsync(stream)).Wait();
             }
         }
 

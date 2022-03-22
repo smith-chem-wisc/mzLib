@@ -588,7 +588,7 @@ namespace Test
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
             string downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
-            Assert.AreEqual(filepath + "\\availableUniProtProteomes.txt.gz", downloadedFilePath);
+            Assert.AreEqual(Path.Combine(filepath, "availableUniProtProteomes.txt.gz"), downloadedFilePath);
 
             Dictionary<string, string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(downloadedFilePath);
 
