@@ -2,7 +2,6 @@
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net;
 
 namespace UsefulProteomicsDatabases
 {
@@ -135,6 +134,7 @@ namespace UsefulProteomicsDatabases
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
                         }
                         return dictionaryOfAvailableProteomes;
+
                     case ".zip":
                         idNameList = ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList();
                         foreach (string item in idNameList)
@@ -143,6 +143,7 @@ namespace UsefulProteomicsDatabases
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
                         }
                         return dictionaryOfAvailableProteomes;
+
                     case ".txt":
                         idNameList = File.ReadAllLines(completePathToAvailableUniProtProteomes).ToList();
                         foreach (string item in idNameList)
@@ -151,6 +152,7 @@ namespace UsefulProteomicsDatabases
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
                         }
                         return dictionaryOfAvailableProteomes;
+
                     default:
                         return null; //no file with the appropriate extension is present
                 };

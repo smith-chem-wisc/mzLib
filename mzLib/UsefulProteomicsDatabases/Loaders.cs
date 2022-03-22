@@ -164,21 +164,17 @@ namespace UsefulProteomicsDatabases
             return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var errors).OfType<Modification>();
         }
 
-        public static void DownloadContent(string url, string outputFile)
+        public static async void DownloadContent(string url, string outputFile)
         {
             Uri uri = new(url);
             HttpClient client = new();
-
-            string downloadedContent;
-            using (HttpResponseMessage urlResponse = client.GetAsync(uri).Result)
+            using (HttpResponseMessage urlResponse = await client.GetAsync(uri))
             {
-                using (HttpContent urlContent = urlResponse.Content)
+                using (var fs = new FileStream(outputFile, FileMode.CreateNew))
                 {
-                    downloadedContent = urlContent.ReadAsStringAsync().Result;
+                    await urlResponse.Content.CopyToAsync(fs);
                 }
             }
-
-            File.WriteAllText(outputFile, downloadedContent);
         }
 
         private static bool FilesAreEqual_Hash(string first, string second)

@@ -974,12 +974,12 @@ namespace IO.MzML
 
             if (!writeIndexed)
             {
-                using (TextWriter writer = new StreamWriter(outputFile))
+                using (XmlWriter writer = XmlWriter.Create(outputFile, new() { NewLineChars = "\n", Indent = true }))
                 {
                     mzmlSerializer.Serialize(writer, mzML);
                 }
             }
-            else if (writeIndexed)
+            else
             {
                 Generated.indexedmzML indexedMzml = new Generated.indexedmzML();
                 indexedMzml.mzML = mzML;
