@@ -35,5 +35,6 @@ __declspec(dllexport) int MemoryObjectAllocationToHeapConfigPtr(Config* config, 
 __declspec(dllexport) int TestFreeDecon(); 
 __declspec(dllexport) int TestSetupAndAllocateMemoryToDecon(); 
 __declspec(dllexport) Decon TestSetupAndReturnDecon(); 
-__declspec(dllexport) int MainDeconWithMinimalControlFlow(Config config, Input inp); 
+__declspec(dllexport) Decon MainDeconWithMinimalControlFlow(Config config, Input inp); 
 __declspec(dllexport) Decon RunUniDecWithTestMainDeconAlgo(Input inp, Config config);
+__declspec(dllexport) void TestingKillBFunction(float* I, char* B, float intthresh, int lengthmz, int numz, const int isolength, int* isotopepos, float* isotopeval); 

@@ -71,5 +71,22 @@ namespace UniDecAPI
 				}
 			}
 		}
+		public static unsafe void Deconvolute(this MsDataScan scan, Config config)
+		{
+			float[] xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
+			float[] yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
+			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
+			InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs();
+			fixed (float* ptrXarry = &xarray[0], ptrYarray = &yarray[0])
+			{
+				inp.dataInt = ptrYarray;
+				inp.dataMZ = ptrXarry;
+				inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config); 
+			}
+		}
+	}
+	public static class UniDecDeconvolutionUtilities
+	{
+
 	}
 }

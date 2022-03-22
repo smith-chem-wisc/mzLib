@@ -297,8 +297,8 @@ Decon TestSetupAndReturnDecon() {
     return decon;
 }
 
-int MainDeconWithMinimalControlFlow(Config config, Input inp) {
-    //Decon decon = SetupDecon();
+Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
+    Decon decon = SetupDecon();
     char* barr = NULL;
 
     int mlength, zlength, numclose,
@@ -337,6 +337,7 @@ int MainDeconWithMinimalControlFlow(Config config, Input inp) {
 
     int makereverse = 1; 
     rmzdist = calloc(pslen, sizeof(float));
+    // fabs takes returns the abosolute values of that number. 
     MakePeakShape2D(config.lengthmz, maxlength, starttab, endtab, inp.dataMZ, fabs(config.mzsig) * config.peakshapeinflate, config.psfun, config.speedyflag, mzdist, rmzdist, makereverse);
     zlength = 1 + 2 * (int)config.zsig;
     mlength = 1 + 2 * (int)config.msig;
@@ -365,10 +366,11 @@ int MainDeconWithMinimalControlFlow(Config config, Input inp) {
 
     numclose = mlength * zlength;
     closemind = calloc(numclose, sizeof(int));
-    closezind = calloc(numclose, sizeof(int));
+    closezind = calloc(numclose, sizeof(int)); 
     closeval = calloc(numclose, sizeof(float));
     closeind = calloc(numclose * config.lengthmz * config.numz, sizeof(int));
     closearray = calloc(numclose * config.lengthmz * config.numz, sizeof(float));
+
 
     //Determines the indexes of things that are close as well as the values used in the neighborhood convolution
     for (int k = 0; k < numclose; k++)
@@ -396,8 +398,7 @@ int MainDeconWithMinimalControlFlow(Config config, Input inp) {
     if (dmax > 1) { betafactor = dmax; }
     
     //Something wrong with KillB. 
-    KillB(inp.dataInt, barr, config.intthresh, config.lengthmz, config.numz, config.isolength, inp.isotopepos, inp.isotopeval);
-    
+    TestingKillBFunction(inp.dataInt, barr, config.intthresh, config.lengthmz, config.numz, config.isolength, inp.isotopepos, inp.isotopeval);
     decon.blur = calloc(config.lengthmz * config.numz, sizeof(float));
     decon.newblur = calloc(config.lengthmz * config.numz, sizeof(float));
     oldblur = calloc(config.lengthmz * config.numz, sizeof(float));
@@ -405,6 +406,7 @@ int MainDeconWithMinimalControlFlow(Config config, Input inp) {
     decon.baseline = calloc(config.lengthmz, sizeof(float));
     decon.noise = calloc(config.lengthmz, sizeof(float));
 
+    // Create decon blur
     for (int i = 0; i < config.lengthmz; i++)
     {
         float val = inp.dataInt[i] / ((float)(config.numz + 2));
@@ -711,7 +713,6 @@ int MainDeconWithMinimalControlFlow(Config config, Input inp) {
     decon.uniscore = score(config, &decon, inp, scorethreshold);
 
     }
-    */
     //Free Memory
     free(mzdist);
     free(rmzdist);
@@ -728,8 +729,8 @@ int MainDeconWithMinimalControlFlow(Config config, Input inp) {
     free(zdist);
     free(barr);
     free(closeind);
-    //return decon; 
-    return 1; 
+
+    return decon; 
 }
 
 Decon RunUniDecWithTestMainDeconAlgo(Input inp, Config config) {
@@ -753,7 +754,41 @@ Decon RunUniDecWithTestMainDeconAlgo(Input inp, Config config) {
 
     //Run the main Deconvolution		
     */
-    int result = MainDeconWithMinimalControlFlow(config, inp);
-    Decon decon = SetupDecon(); 
-    return decon;
+    Decon result = MainDeconWithMinimalControlFlow(config, inp);
+    return result; 
+}
+
+void TestingKillBFunction(float* I, char* B, float intthresh, int lengthmz, int numz, const int isolength, int* isotopepos, float* isotopeval)
+{
+    unsigned int i, j, k;
+    if (isolength == 0) {
+        for (i = 0; i < lengthmz; i++)
+        {
+            for (j = 0; j < numz; j++)
+            {
+                if (I[i] <= intthresh) { B[index2D(numz, i, j)] = 0; }
+            }
+        }
+    }
+    else
+    {
+        float cutoff = 0.5;
+        for (i = 0; i < lengthmz; i++)
+        {
+            for (j = 0; j < numz; j++)
+            {
+                float max = 0;
+                for (k = 0; k < isolength; k++)
+                {
+                    float val = isotopeval[index3D(numz, isolength, i, j, k)];
+                    if (val > max) { max = val; }
+                    if (val > cutoff * max) {
+                        int pos = isotopepos[index3D(numz, isolength, i, j, k)];
+                        if (I[pos] <= intthresh) { B[index2D(numz, i, j)] = 0; }
+                    }
+                }
+
+            }
+        }
+    }
 }

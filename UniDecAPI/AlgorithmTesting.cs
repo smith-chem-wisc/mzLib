@@ -82,5 +82,11 @@ namespace UniDecAPI
 		{
 			return _RunUniDecWithTestMainDeconAlgo(inp, config); 	
 		}
+		[DllImport("TestDLL.dll", EntryPoint = "TestingKillBFunction")]
+		private static extern unsafe void _TestKillBFunction(float* I, char* B, float intthresh, int lengthmz, int numz, int isolength, int* isotopepos, float* isotopeval);
+		public static unsafe void TestKillBFunction(InputUnsafe inp, Config config, float intthresh)
+		{
+			_TestKillBFunction(inp.dataInt, inp.barr, intthresh, config.lengthmz, config.numz, config.isolength, inp.isotopeops, inp.isotopeval); 
+		}
 	}
 }

@@ -63,7 +63,8 @@ void charge_scaling(float* blur, const int* nztab, const int lengthmz, const int
 }
 
 
-void MakePeakShape2D(int lengthmz, int maxlength, int* starttab, int* endtab, float* dataMZ, float mzsig, int psfun, int speedyflag, float* mzdist, float* rmzdist, int makereverse)
+void MakePeakShape2D(int lengthmz, int maxlength, int* starttab, int* endtab, float* dataMZ, 
+    float mzsig, int psfun, int speedyflag, float* mzdist, float* rmzdist, int makereverse)
 {
     #pragma omp parallel for schedule(auto)
     for(int i=0;i<lengthmz;i++)

@@ -21,16 +21,16 @@
 
 void convolve_simp(const int lengthmz, const int maxlength, const int* starttab, const int* endtab, const float* mzdist, const float* deltas, float* denom, const int speedyflag);
 
-void deconvolve_baseline(const int lengthmz, const float* dataMZ, const float* dataInt, float* baseline, const float mzsig);
+__declspec(dllexport) void deconvolve_baseline(const int lengthmz, const float* dataMZ, const float* dataInt, float* baseline, const float mzsig);
 
-float deconvolve_iteration_speedy(const int lengthmz, const int numz, const int maxlength, const float* __restrict blur, float* __restrict blur2,
+__declspec(dllexport) float deconvolve_iteration_speedy(const int lengthmz, const int numz, const int maxlength, const float* __restrict blur, float* __restrict blur2,
     const char* __restrict barr, const int aggressiveflag, const float* __restrict  dataInt,
     const int isolength, const int* __restrict isotopepos, const float* __restrict isotopeval
     , const int* starttab, const int* endtab, const float* mzdist, const float* rmzdist, const int speedyflag, const int baselineflag, float* baseline,
                                   float* noise, const float mzsig, const float* dataMZ, const float filterwidth, const float psig);
-float Reconvolve(const int lengthmz, const int numz, const int maxlength, const int* starttab, const int* endtab, const float* mzdist, const float* blur, float* newblur, const int speedyflag, const char* barr); 
+__declspec(dllexport) float Reconvolve(const int lengthmz, const int numz, const int maxlength, const int* starttab, const int* endtab, const float* mzdist, const float* blur, float* newblur, const int speedyflag, const char* barr);
 
-int SetStartsEnds(const Config config, const Input* inp, int* starttab, int* endtab, const float threshold);
+__declspec(dllexport) int SetStartsEnds(const Config config, const Input* inp, int* starttab, int* endtab, const float threshold);
 
 void cconv2fast(double* a, double* b, double* c, int length);
 

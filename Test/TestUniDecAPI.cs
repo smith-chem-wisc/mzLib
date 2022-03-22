@@ -16,6 +16,15 @@ namespace Test
 
 	class TestUniDecAPI
 	{
+
+		private MsDataScan scan;
+		[OneTimeSetUp]
+		public void Init()
+		{
+			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
+			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
+			scan = testScan[0];
+		}
 		[Test]
 		public void TestModifyConfigCS()
 		{
@@ -131,12 +140,9 @@ namespace Test
 		}
 
 		[Test]
-		[TestCase("LowResMS1ScanForDecon.raw")]
-		public void TestSetupConfig(string file)
+		public void TestSetupConfig()
 		{
-			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
-			var scan = testScan[0];
+
 			float minOfScan = (float)scan.MassSpectrum.XArray.Min();
 
 			Config config = new();
@@ -145,16 +151,11 @@ namespace Test
 			Assert.AreEqual(minOfScan, config.minmz);
 		}
 		[Test]
-		[TestCase("LowResMS1ScanForDecon.raw")]
-		public unsafe void TestConfigAndInputsSetup(string file)
+		public unsafe void TestConfigAndInputsSetup()
 		{
 			Config config = new();
 			InputUnsafe inp = new();
 			Decon decon = new();
-
-			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
-			var scan = testScan[0];
 
 			config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
 			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
@@ -172,7 +173,7 @@ namespace Test
 				PrintProperties(inp);
 				Console.WriteLine("Now printing the config object" + "\n");
 				PrintProperties(config);
-				for(int i = 0; i < 100; i++) { Console.WriteLine(inp.barr[i].ToString()); }
+				for (int i = 0; i < 100; i++) { Console.WriteLine(inp.barr[i].ToString()); }
 			}
 		}
 		[Test]
@@ -202,15 +203,10 @@ namespace Test
 			Assert.AreEqual(expected[0], result);
 		}
 		[Test]
-		[TestCase("LowResMS1ScanForDecon.raw")]
-		public void TestCFuncTestSEtStartEnds(string file)
+		public void TestCFuncTestSEtStartEnds()
 		{
 			Config config = new();
 			InputUnsafe inp = new();
-
-			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
-			var scan = testScan[0];
 
 			config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
 			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
@@ -233,17 +229,11 @@ namespace Test
 			}
 		}
 		[Test]
-		[TestCase("LowResMS1ScanForDecon.raw")]
-		public void TestMemoryObjectAllocationToHeapConfigPtr(string file)
+		public void TestMemoryObjectAllocationToHeapConfigPtr()
 		{
 			// initialize the config and inp structs for data transfer to and from C
 			Config config = new();
 			InputUnsafe inp = new();
-
-			// gets the scan needed to fill requirements of C structs and C workflow
-			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
-			var scan = testScan[0];
 
 			// sets the config to deafult
 			config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
@@ -255,9 +245,9 @@ namespace Test
 			// gets the m/z and int arrays from msdatascan. 
 			float[] xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
 			float[] yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
-			
+
 			unsafe
-			{	// initializes pointers to the arrays. 
+			{   // initializes pointers to the arrays. 
 				fixed (float* xarrayPtr = &xarray[0], yarrayPtr = &yarray[0])
 				{
 					// assigns the pointers to the inp.dataMZ and inp.dataInt fields in the inp struct
@@ -276,41 +266,101 @@ namespace Test
 		public void TestFreeDecon()
 		{
 			int result = AlgorithmTesting.TestFreeDecon();
-			Assert.AreEqual(1, result); 
+			Assert.AreEqual(1, result);
 		}
 		[Test]
 		public void TestSetupAndAllocateMemoryToDecon()
 		{
 			int result = AlgorithmTesting.TestSetupAndAllocateMemoryToDecon();
-			Assert.AreEqual(1, result); 
+			Assert.AreEqual(1, result);
 		}
 		[Test]
 		public void TestSetupAndReturnDecon()
 		{
 			// error was caused by returning a pointer to a managed type (in this case float[])
 			Decon decon = AlgorithmTesting.TestSetupAndReturnDecon();
-			PrintProperties(decon); 
+			PrintProperties(decon);
 		}
 		[Test]
-		[TestCase("LowResMS1ScanForDecon.raw")]
-		public void TestUniDecDeconvolution(string file)
+		public void TestUniDecDeconvolution()
 		{
-			// initialize the config and inp structs for data transfer to and from C
-			Config config = new();
-
-			// gets the scan needed to fill requirements of C structs and C workflow
-			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
-			var scan = testScan[0];
-
-			// sets the config to deafult
-			config = UniDecAPIMethods.ConfigMethods.ModifyConfigToDefault(config);
-			// modifies some MsDataScan-dependent field of config
-			UniDecAPIMethods.ConfigMethods.SetupConfig(ref config, scan);
-			UniDecAPIMethods.ConfigMethods.PostImport(config);
-			scan.PerformUniDecDeconForTestingPurposes(config); 
-			// initializes the inp object to deafult. 27
 
 		}
+		[Test]
+		public unsafe void TestBarr()
+		{
+			// setup the config struct
+			UniDecAPIMethods.ConfigMethods.CreateAndSetupConfig(scan, out Config config);
+
+			// setup the input struct
+			InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs();
+
+			// assign inp the x and y array data
+			float[] xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
+			float[] yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
+
+			int numberElementsInBarr = config.lengthmz * config.numz;
+			char[] barr = new char[numberElementsInBarr];
+
+			fixed (float* ptrXarray = &xarray[0], ptrYarray = &yarray[0])
+			{
+				inp.dataInt = ptrYarray;
+				inp.dataMZ = ptrXarray;
+				inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
+				char[] barrResult = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberElementsInBarr);
+				Assert.AreEqual("0", ((sbyte)barr[0]).ToString());
+				Assert.AreEqual(numberElementsInBarr, barrResult.Length); 
+			}
+		}
+		[Test]
+		public unsafe void TestReadInputsByValue()
+		{
+			// setup the config struct
+			UniDecAPIMethods.ConfigMethods.CreateAndSetupConfig(scan, out Config config);
+
+			// setup the input struct
+			InputUnsafe inp = UniDecAPIMethods.InputMethods.SetupInputs();
+
+			// assign inp the x and y array data
+			float[] xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
+			float[] yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
+
+			int numberElementsInBarr = config.lengthmz * config.numz;
+			char[] barr = new char[numberElementsInBarr];
+
+			fixed (float* ptrXarray = &xarray[0], ptrYarray = &yarray[0])
+			{
+				inp.dataInt = ptrYarray;
+				inp.dataMZ = ptrXarray;
+				inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
+			}
+		}
+
+		[Test]
+		public unsafe void TestCreateAndSetupConfig()
+		{
+			UniDecAPIMethods.ConfigMethods.CreateAndSetupConfig(scan, out Config config);
+			PrintProperties(config);
+		}
+
+		[Test]
+		public unsafe void TestPtrToArrayConversions()
+		{
+			float[] testFloatArray = new float[] { 1F, 2F, 3F };
+			char[] testCharArray = new char[] { '0', '1', '0' }; 
+			
+			fixed(float* ptrFloatArray = &testFloatArray[0])
+			{
+				float[] resultFloatArray = UniDecAPIMethods.UtilityMethods.PtrToArray(ptrFloatArray, testFloatArray.Length);
+				Assert.AreEqual(testFloatArray, resultFloatArray); 
+			}
+			
+			fixed(char* ptrCharArray = &testCharArray[0])
+			{
+				char[] resultCharArray = UniDecAPIMethods.UtilityMethods.PtrToArray(ptrCharArray, testCharArray.Length);
+				Assert.AreEqual(testCharArray, resultCharArray); 
+			}
+		}
+		
 	}
 }

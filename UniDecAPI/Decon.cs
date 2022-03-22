@@ -12,7 +12,7 @@ namespace UniDecAPI
 		public float* fitdat;
 		public float* baseline;
 		public float* noise;
-		public float* massgride;
+		public float* massgrid;
 		public float* massaxis;
 		public float* massaxisval;
 		public float* blur;

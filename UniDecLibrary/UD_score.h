@@ -28,7 +28,7 @@ float score_minimum(float height, float min);
 float fscore(Config config, const int plen, const int mlen, const float* massaxis, const float* masssum, const float *peakx, const float height,
              const float mlow, const float mhigh, const float peak, const int badfwhm);
 float score_from_peaks(const int plen, const float *peakx, const float *peaky, float *dscores, const Config config, Decon *decon, const Input inp, const float threshold);
-float score(Config config, Decon *decon, Input inp, const float threshold);
+__declspec(dllexport) float score(Config config, Decon *decon, Input inp, const float threshold);
 int ReadDecon(Config* config, const Input inp, Decon* decon);
 void get_scan_scores(int argc, char* argv[], Config config);
 

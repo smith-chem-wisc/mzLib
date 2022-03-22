@@ -18,7 +18,7 @@
 #include "ArrayIndexing.h"
 
 
-void blur_it(const int lengthmz,
+__declspec(dllexport) void blur_it(const int lengthmz,
     const int numz,
     const int numclose,
     const int* __restrict closeind,
@@ -27,7 +27,7 @@ void blur_it(const int lengthmz,
     const float* __restrict blur,
              const char* __restrict barr); 
 
-void blur_it_mean(const int lengthmz,
+__declspec(dllexport) void blur_it_mean(const int lengthmz,
     const int numz,
     const int numclose,
     const int* __restrict closeind,
@@ -37,7 +37,7 @@ void blur_it_mean(const int lengthmz,
     const float* __restrict closearray,
                   const float zerolog);
 
-void blur_it_hybrid1(const int lengthmz,
+__declspec(dllexport) void blur_it_hybrid1(const int lengthmz,
     const int numz,
     const int zlength,
     const int mlength,
@@ -52,7 +52,7 @@ void blur_it_hybrid1(const int lengthmz,
     const float* __restrict closearray,
                      const float zerolog);
 
-void blur_it_hybrid2(const int lengthmz,
+__declspec(dllexport) void blur_it_hybrid2(const int lengthmz,
     const int numz,
     const int zlength,
     const int mlength,
@@ -71,7 +71,7 @@ void blur_it_hybrid2(const int lengthmz,
 void midblur_baseline(float* baseline, const int lengthmz, const float* dataMZ, const float mzsig, int mult);
 void blur_noise(float* noise, int lengthmz);
 void blur_baseline(float* baseline, const int lengthmz, const float* dataMZ, const float mzsig, int mult, int filterwidth);
-void MakeSparseBlur(const int numclose, char* barr, const int* closezind,
+__declspec(dllexport) void MakeSparseBlur(const int numclose, char* barr, const int* closezind,
     const int* closemind, const float* mtab, const int* nztab,
                     const float* dataMZ, int* closeind, float* closeval, float* closearray, const Config config);
 void midblur_baseline(float* baseline, const int lengthmz, const float* dataMZ, const float mzsig, int mult);

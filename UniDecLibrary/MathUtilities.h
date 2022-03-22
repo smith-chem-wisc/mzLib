@@ -26,14 +26,14 @@ void complex_mult(fftw_complex* A, fftw_complex* B, fftw_complex* product_ft, in
 
 __declspec(dllexport) float Average(const int length, const float* xarray);
 int mod(int a, int b); 
-float Max(const float* blur, const int length);
-float Sum(const float* blur, int length);
+__declspec(dllexport) float Max(const float* blur, const int length);
+__declspec(dllexport) float Sum(const float* blur, int length);
 int twopow(int num);
 float nativecharge(float mass, float fudge);
 float StdDev(int length, float* xarray, float wmean);
 float ndis(float x, float y, float sig);
 float clip(float x, float cutoff);
-void ignorezeros(char* barr, const float* dataInt, const int lengthmz, const int numz);
+__declspec(dllexport) void ignorezeros(char* barr, const float* dataInt, const int lengthmz, const int numz);
 inline int fixk(int k, int lengthmz)
 {
     k = abs(k);

@@ -42,7 +42,13 @@ namespace UniDecAPI
 				config.numz = 100;
 
 			}
-
+			public static void CreateAndSetupConfig(MsDataScan scan, out Config config)
+			{
+				config = new(); 
+				config = ModifyConfigToDefault(config);
+				SetupConfig(ref config, scan);
+				PostImport(config);
+			}
 		}
 	}
 }
