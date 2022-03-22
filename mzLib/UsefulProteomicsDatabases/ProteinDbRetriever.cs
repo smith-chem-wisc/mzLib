@@ -67,11 +67,8 @@ namespace UsefulProteomicsDatabases
                 }
                 if (htmlQueryString.Length > 0)
                 {
-                    using (WebClient Client = new WebClient())
-                    {
-                        Client.DownloadFile(htmlQueryString, absolutePathToStorageDirectory + filename);
-                        return absolutePathToStorageDirectory + filename;
-                    }
+                    Loaders.DownloadContent(htmlQueryString, absolutePathToStorageDirectory + filename);
+                    return absolutePathToStorageDirectory + filename;
                 }
                 //we don't support other file types yet.
                 return null;
@@ -94,10 +91,7 @@ namespace UsefulProteomicsDatabases
                 string filename = "\\availableUniProtProteomes.txt.gz";
 
                 filepath += filename;
-                using (WebClient Client = new WebClient())
-                {
-                    Client.DownloadFile(htmlQueryString, filepath);
-                }
+                Loaders.DownloadContent(htmlQueryString, filepath);
 
                 if (File.Exists(filepath))
                 {

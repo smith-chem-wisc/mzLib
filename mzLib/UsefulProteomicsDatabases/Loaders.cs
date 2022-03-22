@@ -164,6 +164,23 @@ namespace UsefulProteomicsDatabases
             return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var errors).OfType<Modification>();
         }
 
+        public static void DownloadContent(string url, string outputFile)
+        {
+            Uri uri = new(url);
+            HttpClient client = new();
+
+            string downloadedContent;
+            using (HttpResponseMessage urlResponse = client.GetAsync(uri).Result)
+            {
+                using (HttpContent urlContent = urlResponse.Content)
+                {
+                    downloadedContent = urlContent.ReadAsStringAsync().Result;
+                }
+            }
+
+            File.WriteAllText(outputFile, downloadedContent);
+        }
+
         private static bool FilesAreEqual_Hash(string first, string second)
         {
             using (FileStream a = File.Open(first, FileMode.Open, FileAccess.Read))
@@ -184,43 +201,22 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadPsiMod(string psimodLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
-            }
+            DownloadContent(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
         }
 
         private static void DownloadUnimod(string unimodLocation)
         {
-            Uri uri = new(@"http://www.unimod.org/xml/unimod.xml");
-            HttpClient client = new();
-
-            string downloadedContent;
-            using (HttpResponseMessage urlResponse = client.GetAsync(uri).Result)
-            {
-                using (HttpContent urlContent = urlResponse.Content)
-                {
-                    downloadedContent = urlContent.ReadAsStringAsync().Result;
-                }
-            }
-
-            File.WriteAllText(unimodLocation + ".temp", downloadedContent);
+            DownloadContent(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
         }
 
         private static void DownloadElements(string elementLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", elementLocation + ".temp");
-            }
+            DownloadContent(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", elementLocation + ".temp");
         }
 
         private static void DownloadUniprot(string uniprotLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
-            }
+            DownloadContent(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
         }
     }
 }
