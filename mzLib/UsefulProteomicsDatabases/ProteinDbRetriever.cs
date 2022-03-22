@@ -119,16 +119,12 @@ namespace UsefulProteomicsDatabases
         {
             if (File.Exists(completePathToAvailableUniProtProteomes))
             {
-                Dictionary<string, string> dictionaryOfAvailableProteomes = new Dictionary<string, string>();
-                List<string> idNameList = new List<string>();
-
+                Dictionary<string, string> dictionaryOfAvailableProteomes = new();
                 string fileExtension = Path.GetExtension(completePathToAvailableUniProtProteomes);
-
                 switch (fileExtension)
                 {
                     case ".gz":
-                        idNameList = ReadAllGZippedLines(completePathToAvailableUniProtProteomes).ToList();
-                        foreach (string item in idNameList)
+                        foreach (string item in ReadAllGZippedLines(completePathToAvailableUniProtProteomes).ToList())
                         {
                             var lineValuesArray = item.Split("\t");
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
@@ -136,8 +132,7 @@ namespace UsefulProteomicsDatabases
                         return dictionaryOfAvailableProteomes;
 
                     case ".zip":
-                        idNameList = ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList();
-                        foreach (string item in idNameList)
+                        foreach (string item in ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList())
                         {
                             var lineValuesArray = item.Split("\t");
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
@@ -145,8 +140,7 @@ namespace UsefulProteomicsDatabases
                         return dictionaryOfAvailableProteomes;
 
                     case ".txt":
-                        idNameList = File.ReadAllLines(completePathToAvailableUniProtProteomes).ToList();
-                        foreach (string item in idNameList)
+                        foreach (string item in File.ReadAllLines(completePathToAvailableUniProtProteomes).ToList())
                         {
                             var lineValuesArray = item.Split("\t");
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
@@ -170,7 +164,7 @@ namespace UsefulProteomicsDatabases
         {
             string currentDirectory = Directory.GetCurrentDirectory();
             string filePath = Path.Combine(currentDirectory, "UniProtKB_columnNamesForProgrammaticAccess.txt");
-            Dictionary<string, string> d = new Dictionary<string, string>();
+            Dictionary<string, string> d = new();
             string[] idNameList = File.ReadAllLines(filePath);
             foreach (string item in idNameList)
             {

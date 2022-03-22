@@ -27,9 +27,9 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
 using UsefulProteomicsDatabases.Generated;
-using System.Threading.Tasks;
 
 namespace UsefulProteomicsDatabases
 {
@@ -120,7 +120,7 @@ namespace UsefulProteomicsDatabases
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
         {
             var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
-            Regex digitsOnly = new Regex(@"[^\d]");
+            Regex digitsOnly = new(@"[^\d]");
             return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
         }
 
@@ -162,7 +162,7 @@ namespace UsefulProteomicsDatabases
             {
                 UpdateUniprot(uniprotLocation);
             }
-            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var errors).OfType<Modification>();
+            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _).OfType<Modification>();
         }
 
         public static void DownloadContent(string url, string outputFile)
@@ -170,7 +170,7 @@ namespace UsefulProteomicsDatabases
             Uri uri = new(url);
             HttpClient client = new();
             HttpResponseMessage urlResponse = Task.Run(() => client.GetAsync(uri)).Result;
-            using (FileStream stream = new FileStream(outputFile, FileMode.CreateNew))
+            using (FileStream stream = new(outputFile, FileMode.CreateNew))
             {
                 Task.Run(() => urlResponse.Content.CopyToAsync(stream)).Wait();
             }
