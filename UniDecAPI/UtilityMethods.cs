@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using System.Runtime.InteropServices; 
 namespace UniDecAPI
 {
 	public partial class UniDecAPIMethods
@@ -77,6 +77,13 @@ namespace UniDecAPI
 				}
 				return result;
 			}
+			[DllImport("TestDLL.dll", EntryPoint = "SetLimits")]
+			private static extern unsafe void _SetLimits(Config config, InputUnsafe* inp); 
+			public static unsafe void SetLimits(Config config, InputUnsafe inp)
+			{
+				_SetLimits(config, &inp); 
+			}
+
 		}
 	}
 }

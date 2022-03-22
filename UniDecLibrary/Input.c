@@ -22,7 +22,8 @@ Input SetupInputs(void){
         inp.isotopepos = NULL;
         inp.isotopeval = NULL;
         //Set default isotope parameters. These can be overwritten by config file.
-        float temp[10] = { 1.00840852e+00, 1.25318718e-03, 2.37226341e+00, 8.19178000e-04, -4.37741951e-01, 6.64992972e-04, 9.94230511e-01, 4.64975237e-01, 1.00529041e-02, 5.81240792e-01 };
+        float temp[10] = { 1.00840852e+00F, 1.25318718e-03F, 2.37226341e+00F, 
+            8.19178000e-04F, -4.37741951e-01F, 6.64992972e-04F, 9.94230511e-01F, 4.64975237e-01F, 1.00529041e-02F, 5.81240792e-01F };
         memcpy(inp.isoparams, temp, sizeof(temp));
     
         return inp;

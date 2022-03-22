@@ -9,7 +9,7 @@
 #define Normalization_h
 
 #include <stdio.h>
-void simp_norm(const int length, float* data);
-void simp_norm_sum(const int length, float* data);
+__declspec(dllexport) void simp_norm(const int length, float* data);
+__declspec(dllexport) void simp_norm_sum(const int length, float* data);
 
 #endif /* Normalization_h */

@@ -91,7 +91,7 @@ void TestMass(int lengthmz, int numz, char* barr, float* mtab, float nativezub, 
             nativelimit = nativecharge(testmass, 0);
             if (testmass<massub && testmass>masslb && nztab[j]<nativelimit + nativezub && nztab[j]>nativelimit + nativezlb)
             {
-                barr[index2D(numz, i, j)] = 1;
+                barr[index2D(numz, i, j)] = (char)'1';
             }
             else
             {

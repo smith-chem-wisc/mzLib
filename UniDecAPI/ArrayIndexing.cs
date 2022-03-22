@@ -104,12 +104,6 @@ namespace UniDecAPI
 		}
 		public static unsafe class MZPeak
 		{
-			public static void MakePeakShape2D(int lengthmz, int maxlength, ref int[] starttab, ref int[] endtab, float* dataMZ, 
-				float mzsig, int psfun, int speedyflag, ref float[] mzdist, ref float[] rmzdist, int makereverse)
-			{
-				_MakePeakShape2D(lengthmz, maxlength, ref starttab,ref endtab, dataMZ, mzsig, psfun, speedyflag,
-				ref mzdist, ref rmzdist, makereverse);
-			}
 			public static void MakePeakShape2D(Config config, InputUnsafe inp, float[] mzdist, float[] rmzdist, 
 				 int makereverse, int[] starttab, int[] endtab, int maxlength)
 			{
@@ -131,11 +125,6 @@ namespace UniDecAPI
 
 			[DllImport("TestDLL.dll", EntryPoint = "MakePeakShape2D")]
 			private static extern void _MakePeakShape2D(int lengthmz, int maxlength,
-				ref int[] starttab, ref int[] endtab, float* dataMZ, float mzsig, int psfun, int speedyflag,
-				ref float[] mzdist, ref float[] rmzdist, int makereverse);
-
-			[DllImport("TestDLL.dll", EntryPoint = "MakePeakShape2D")]
-			private static extern void _MakePeakShape2D(int lengthmz, int maxlength,
 				int* starttab, int* endtab, float* dataMZ, float mzsig, int psfun, int speedyflag,
 				float* mzdist, float* rmzdist, int makereverse);
 
@@ -144,15 +133,18 @@ namespace UniDecAPI
 				int psfun, float* mzdist, float* rmzdist, int makereverse); 
 			
 		}
-		public static class Normalization
+		public unsafe static class Normalization
 		{
-			public static unsafe void SimpNormSum(int length, float* data)
+			public static void SimpNormSum(int length, float[] data)
 			{
-				simp_norm_sum(length, data);
+				fixed(float* dataPtr = &data[0])
+				{
+					simp_norm_sum(length, dataPtr);
+				}
 			}
 
 			[DllImport("TestDLL.dll", EntryPoint = "simp_norm_sum")]
-			private static extern unsafe void simp_norm_sum(int length, float* data);
+			private static extern void simp_norm_sum(int length, float* data);
 
 		}
 		public static unsafe class Blur
@@ -163,6 +155,23 @@ namespace UniDecAPI
 			{
 				_MakeSparseBlur(numclose, barr, closezind, closemind, mtab,
 					nztab, dataMZ, closeind, closeval, closearray, config);
+			}
+			public static void MakeSparseBlur(InputUnsafe inp, Config config, int numclose, char[] barr, 
+				int[] closezind, int[] closemind, int[] closeind, 
+				float[] closeval, float[] closearray)
+			{
+				fixed(char* barrPtr = &barr[0])
+				{
+					fixed(int* closezindPtr = &closezind[0], closemindPtr = &closemind[0], 
+						closeindPtr = &closeind[0])
+					{
+						fixed(float* closevalPtr = &closeval[0], closearrayPtr = &closearray[0])
+						{
+							_MakeSparseBlur(numclose, barrPtr, closezindPtr, closemindPtr, inp.mtab, inp.nztab,
+								inp.dataMZ, closeindPtr, closevalPtr, closearrayPtr, config); 
+						}
+					}
+				}
 			}
 			public static void CreateInitialBlur(Decon decon, InputUnsafe inp, Config config)
 			{
