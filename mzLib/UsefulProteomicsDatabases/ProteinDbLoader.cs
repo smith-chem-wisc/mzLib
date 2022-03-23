@@ -12,7 +12,8 @@ using System.Xml;
 
 namespace UsefulProteomicsDatabases
 {
-    public enum FastaHeaderType { UniProt, Ensembl, Gencode, Unknown }
+    public enum FastaHeaderType
+    { UniProt, Ensembl, Gencode, Unknown }
 
     public static class ProteinDbLoader
     {
@@ -52,10 +53,9 @@ namespace UsefulProteomicsDatabases
         /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts code
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1)
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addBiomarkers = false)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -93,6 +93,10 @@ namespace UsefulProteomicsDatabases
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
                             if (newProtein != null)
                             {
+                                if (addBiomarkers)
+                                {
+                                    newProtein.AddBiomarkers();
+                                }
                                 targets.Add(newProtein);
                             }
                         }
@@ -160,7 +164,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
-            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1)
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addBiomarkers = false)
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -211,11 +215,13 @@ namespace UsefulProteomicsDatabases
                                     organismRegex = UniprotOrganismRegex;
                                     geneNameRegex = UniprotGeneNameRegex;
                                     break;
+
                                 case FastaHeaderType.Ensembl:
                                     accessionRegex = EnsemblAccessionRegex;
                                     fullNameRegex = EnsemblFullNameRegex;
                                     geneNameRegex = EnsemblGeneNameRegex;
                                     break;
+
                                 case FastaHeaderType.Gencode:
                                     accessionRegex = GencodeAccessionRegex;
                                     fullNameRegex = GencodeFullNameRegex;
@@ -274,6 +280,10 @@ namespace UsefulProteomicsDatabases
                         }
                         else
                         {
+                            if (addBiomarkers)
+                            {
+                                protein.AddBiomarkers();
+                            }
                             targets.Add(protein);
                         }
 
@@ -455,7 +465,7 @@ namespace UsefulProteomicsDatabases
             }
 
             // check for gencode header format
-            // gencode will have 8 fields, each separated by "|". 
+            // gencode will have 8 fields, each separated by "|".
             // missing fields are still present but have a "-" character as a placeholder.
             if (line.Count(p => p == '|') == 7)
             {
