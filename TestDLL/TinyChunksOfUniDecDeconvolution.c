@@ -792,3 +792,9 @@ void TestingKillBFunction(float* I, char* B, float intthresh, int lengthmz, int 
         }
     }
 }
+void TestingCharArrayMarshalling(char* arrayOfChar, int lengthArray) {
+    // modify char array.
+    for (int i = 0; i < lengthArray; i++) {
+        arrayOfChar[i] = '1'; 
+    }
+}

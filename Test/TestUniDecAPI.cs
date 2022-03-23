@@ -8,6 +8,7 @@ using UniDecAPI;
 using System.IO; 
 using MassSpectrometry;
 using IO.ThermoRawFileReader;
+using System.Runtime.InteropServices; 
 
 namespace Test
 {
@@ -361,6 +362,40 @@ namespace Test
 				Assert.AreEqual(testCharArray, resultCharArray); 
 			}
 		}
-		
+		[Test]
+		public unsafe void TestCharArrayMarshallingToC()
+		{
+
+			char[] testCharArray = {'0', '0', '0'};
+			char[] expectedArray = { '1', '1', '1' };
+			byte[] testByteArray = { 0, 0, 0 }; 
+			TestingCharArrayMarshalling(testCharArray, 3);
+			TestingCharArrayMarshalling(testByteArray, 3); 
+			// this test fails because char is 2 byte in C#, but one byte in C. 
+			Assert.AreNotEqual(expectedArray, testCharArray);
+			// This test passses because byte is one byte in C# and char is one byte in C. 
+			Assert.AreEqual(expectedArray, testByteArray); 
+		}
+
+		[DllImport("TestDLL.dll", EntryPoint = "TestingCharArrayMarshalling")]
+		private static unsafe extern void _TestingCharArrayMarshalling(char* array, int arrayLength);
+		[DllImport("TestDLL.dll", EntryPoint = "TestingCharArrayMarshalling")]
+		private static unsafe extern void _TestingCharArrayMarshalling(byte* array, int arrayLength);
+		public static unsafe void TestingCharArrayMarshalling(char[] array, int arrayLength)
+		{
+			fixed (char* charPtr = &array[0])
+			{
+				_TestingCharArrayMarshalling(charPtr, arrayLength);
+			}
+		}
+		public static unsafe void TestingCharArrayMarshalling(byte[] array, int arrayLength)
+		{
+			fixed (byte* bytePtr = &array[0])
+			{
+				_TestingCharArrayMarshalling(bytePtr, arrayLength);
+			}
+		}
+
+
 	}
 }

@@ -38,3 +38,4 @@ __declspec(dllexport) Decon TestSetupAndReturnDecon();
 __declspec(dllexport) Decon MainDeconWithMinimalControlFlow(Config config, Input inp); 
 __declspec(dllexport) Decon RunUniDecWithTestMainDeconAlgo(Input inp, Config config);
 __declspec(dllexport) void TestingKillBFunction(float* I, char* B, float intthresh, int lengthmz, int numz, const int isolength, int* isotopepos, float* isotopeval); 
+__declspec(dllexport) void TestingCharArrayMarshalling(char* arrayOfChar, int lengthArray); 

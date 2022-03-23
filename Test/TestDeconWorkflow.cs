@@ -51,6 +51,8 @@ namespace Test
 			inp.dataMZ = (float*)xarrayPtr;
 
 			inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
+			// correctly assigns a value to inp.barr, but the value isn't correct. Need to make sure that it's 
+			// char on the C side. 
 			UniDecAPIMethods.UtilityMethods.SetLimits(config, inp); 			
 		}
 		[OneTimeTearDown]
