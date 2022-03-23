@@ -76,7 +76,8 @@ float getfitdatspeedy(float* fitdat, const float* blur, const char* barr, const 
 
 
 
-void KillB(float* I, char* B, float intthresh, int lengthmz, int numz, const int isolength, int* isotopepos, float* isotopeval)
+void KillB(float* I, char* B, float intthresh, int lengthmz, int numz, 
+    const int isolength, int* isotopepos, float* isotopeval)
 {
     unsigned int i, j, k;
     if (isolength == 0) {

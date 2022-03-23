@@ -82,9 +82,28 @@ namespace UniDecAPI
 				byte[] result = new byte[length];
 				for (int i = 0; i < length; i++)
 				{
-					result[i] = pointer[i];
+					result[i] = pointer[i]; 					
 				}
 				return result;
+			}
+			public static void ConvertASCIIBytesFromCToByteInCS(ref byte[] byteArray)
+			{
+				for(int i = 0; i < byteArray.Length; i++)
+				{
+					// 48 is 0 in ascii and 57 is 9 in ascii
+					if (byteArray[i] >= 48 & byteArray[i] <= 57)
+					{
+						byteArray[i] -= (byte)48;
+					}
+				}
+			}
+			public static void ConvertASCIIBytesFromCToByteInCS(ref byte byteVal)
+			{
+					// 48 is 0 in ascii and 57 is 9 in ascii
+					if (byteVal >= 48 & byteVal <= 57)
+					{
+						byteVal -= (byte)48;
+					}
 			}
 			[DllImport("TestDLL.dll", EntryPoint = "SetLimits")]
 			private static extern unsafe void _SetLimits(Config config, InputUnsafe* inp); 

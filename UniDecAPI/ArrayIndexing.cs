@@ -34,6 +34,50 @@ namespace UniDecAPI
 				int result = a % b;
 				return result < 0 ? result + b : result;
 			}
+			public static void ApplyCutoff1D(ref float[] array, float cutoff, int lengthmz)
+			{
+				for(int i = 0; i < lengthmz; i++)
+				{
+					if(array[i] < cutoff)
+					{
+						array[i] = 0; 
+					}
+				}
+			}
+		}
+		public static unsafe class FitFunctions
+		{
+			public static void KillB(float[] I, byte[] B, float intthresh, int lengthmz, int numz, 
+				int isolength, int[] isotopepos, float[] isotopeval)
+			{
+				fixed(float* iPtr = &I[0], isotopevalPtr = &isotopeval[0])
+				{
+					fixed(int* isotopeopsPtr = &isotopepos[0])
+					{
+						fixed(byte* bPtr = &B[0])
+						{
+							_KillB(iPtr, bPtr, intthresh, lengthmz, numz, isolength,
+								isotopeopsPtr, isotopevalPtr); 
+						}
+					}
+				}
+			}
+			public static void KillB(float* I, byte* B, float intthresh, int lengthmz, int numz, 
+				int isolength, int* isotopepos,float* isotopeval)
+			{
+				_KillB(I, B, intthresh, lengthmz, numz, isolength, isotopepos, isotopeval); 
+			}
+			public static void KillB(InputUnsafe inp, Config config, byte[] barr)
+			{
+				fixed (byte* barrPtr = &barr[0])
+				{
+					_KillB(inp.dataInt, barrPtr, config.intthresh, config.lengthmz, config.numz,
+						config.isolength, inp.isotopeops, inp.isotopeval); 
+				}
+			}
+			[DllImport("TestDLL.dll", EntryPoint = "KillB")]
+			private static extern void _KillB(float* I, byte* b, float intthresh, int lengthmz, int numz,
+				int isolength, int* isotopepos, float* isotopeval); 
 		}
 		public static unsafe class Convolution
 		{
@@ -79,14 +123,29 @@ namespace UniDecAPI
 			{
 				return _Nearfast(dataMz, point, numdat);
 			}
-			public static void DeconvolveBaseline(int lengthmz, float* dataInt, float* baseline, float mzsig)
+			public static void DeconvolveBaseline(Config config, InputUnsafe inp, Decon decon)
 			{
-				_DeconvolveBaseline(lengthmz, dataInt, baseline, mzsig);
+				fixed(float* baselinePtr = &decon.baseline[0])
+				{
+					_DeconvolveBaseline(config.lengthmz, inp.dataMZ, inp.dataInt, baselinePtr, Math.Abs(config.mzsig));
+				}
+
 			}
-			public static float Reconvolve(int lengthmz, int numz, int maxlength, int* starttab, int* endtab,
-				float* mzdist, float* blur, float* newblur, int speedyflag, char* barr)
+			public static float Reconvolve(int lengthmz, int numz, int maxlength, int[] starttab, int[] endtab,
+				float[] mzdist, float[] blur, float[] newblur, int speedyflag, byte[] barr)
 			{
-				return _Reconvolve(lengthmz, numz, maxlength, starttab, endtab, mzdist, blur, newblur, speedyflag, barr);
+				fixed (int* starttabPtr = &starttab[0], endtabPtr = &endtab[0])
+				{
+					fixed (float* mzdistPtr = &mzdist[0], blurPtr = &blur[0], newblurPtr = &newblur[0])
+					{
+						fixed (byte* barrPtr = &barr[0])
+						{
+							return _Reconvolve(lengthmz, numz, maxlength, starttabPtr, endtabPtr, 
+								mzdistPtr, blurPtr, newblurPtr, speedyflag, barrPtr);
+						}
+					}
+				}	
+				
 			}
 			
 			// Private methods 
@@ -94,12 +153,12 @@ namespace UniDecAPI
 			private static extern int _Nearfast(float* dataMz, float point, int numdat);
 
 			[DllImport("TestDLL.dll", EntryPoint = "deconvolve_baseline")]
-			private static extern void _DeconvolveBaseline(int lengthmz, float* dataInt, float* baseline,
+			private static extern void _DeconvolveBaseline(int lengthmz, float* dataMZ, float* dataInt, float* baseline,
 				float mzsig);
 			
 			[DllImport("TestDLL.dll", EntryPoint = "Reconvolve")]
 			private static extern float _Reconvolve(int lengthmz, int numz, int maxlength, int* starttab, 
-				int* endtab, float* mzdist, float* blur, float* newblur, int speedyflag, char* barr);
+				int* endtab, float* mzdist, float* blur, float* newblur, int speedyflag, byte* barr);
 			
 		}
 		public static unsafe class MZPeak
@@ -117,10 +176,15 @@ namespace UniDecAPI
 					}
 				}
 			}
-			public static void MakePeakShape1D(float* dataMZ, float threshold, int lengthmz, int speedyflag, float mzsig, int psfun,
-				float* mzdist, float* rmzdist, int makereverse)
+			public static void MakePeakShape1D(Config config, InputUnsafe inp, float threshold, float[] mzdist,
+				float[] rmzdist, int makeReverse)
 			{
-				_MakePeakShape1D(dataMZ, threshold, lengthmz, speedyflag, mzsig, psfun, mzdist, rmzdist, makereverse);
+				fixed(float* mzdistPtr = &mzdist[0], rmzdistPtr = &rmzdist[0])
+				{
+					_MakePeakShape1D(inp.dataMZ, threshold, config.lengthmz, config.speedyflag, 
+						Math.Abs(config.mzsig), config.psfun, mzdistPtr, rmzdistPtr, makeReverse);
+				}
+				
 			}
 
 			[DllImport("TestDLL.dll", EntryPoint = "MakePeakShape2D")]
@@ -202,46 +266,111 @@ namespace UniDecAPI
 					}
 				}
 			}
-			public static void SoftargmaxTransposed(float* blur, int lengthmz, int numz, float beta,
-				byte* barr, int maxlength, int isolength, int* isotopepos, float* isotopeval, int speedyflag,
-				int* starttab, int* endtab, float* mzdist, float mzsig)
+			public static void SoftargmaxTransposed(Decon decon, Config config, InputUnsafe inp,
+				float betaFactor, byte[] barr, int maxlength, int[] starttab, int[] endtab, float[] rmzdist)
 			{
-				_SoftArgmaxTransposed(blur, lengthmz, numz, beta, barr, maxlength,
-					isolength, isotopepos, isotopeval, speedyflag, starttab, endtab, mzdist, mzsig);
+				float beta = Math.Abs(config.beta / betaFactor); 
+				fixed(float* rmzdistPtr = &rmzdist[0], blurPtr = &decon.blur[0])
+				{
+					fixed(int* starttabPtr = &starttab[0], endtabPtr = &endtab[0])
+					{
+						fixed(byte* barrPtr = &barr[0])
+						{
+							_SoftArgmaxTransposed(blurPtr, config.lengthmz, config.numz, beta,
+								barrPtr, maxlength, config.isolength, inp.isotopeops, inp.isotopeval, config.speedyflag,
+								starttabPtr, endtabPtr, rmzdistPtr, config.mzsig); 
+						}
+					}
+				}
+
 			}
-			public static void Softargmax(float* blur, int lengthmz, int numz, float beta)
+			public static void Softargmax(float[] blur, int lengthmz, int numz, float beta)
 			{
-				_Softargmax(blur, lengthmz, numz, beta);
+				fixed(float* blurPtr = &blur[0])
+				{
+					_Softargmax(blurPtr, lengthmz, numz, beta);
+				}
+
 			}
-			public static void PointSmoothing(float* blur, byte* barr, int lengthmz, int numz, int width)
+			public static void PointSmoothing(float[] blur, byte[] barr, int lengthmz, int numz, int width)
 			{
-				_PointSmoothing(blur, barr, lengthmz, numz, width);
+				fixed(float* blurPtr = &blur[0])
+				{
+					fixed(byte* barrPtr = &barr[0])
+					{
+						_PointSmoothing(blurPtr, barrPtr, lengthmz, numz, width);
+					}
+				}
+				
 			}
-			public static void PointSmoothingPeakWidth(int lengthmz, int numz, int maxlength, int* starttab, int* endtab, float* mzdist, float* blur, int speedyflag, byte* barr)
+			public static void PointSmoothingPeakWidth(int lengthmz, int numz, int maxlength,
+				int[] starttab, int[] endtab, float[] mzdist, float[] blur, int speedyflag, byte[] barr)
 			{
-				_PointSmoothingPeakWidth(lengthmz, numz, maxlength, starttab, endtab, mzdist, blur, speedyflag, barr);
+				fixed(float* mzdistPtr = &mzdist[0], blurPtr = &blur[0])
+				{
+					fixed(int* starttabPtr = &starttab[0], endtabPtr = &endtab[0])
+					{
+						fixed(byte* barrPtr = &barr[0])
+						{
+							_PointSmoothingPeakWidth(lengthmz, numz, maxlength, starttabPtr, endtabPtr, 
+								mzdistPtr, blurPtr, speedyflag, barrPtr);
+						}
+					}
+				}
 			}
-			public static void BlurItMean(int lengthmz, int numz, int numclose, int* closeind, float* newblur,
-				float* blur, byte* barr, float* closearray, float zerolog)
+			public static void BlurItMean(Config config, Decon decon, int numclose, int[] closeind, 
+				byte[] barr, float[] closeArray)
 			{
-				_BlurItMean(lengthmz, numz, numclose, closeind, newblur,
-				blur, barr, closearray, zerolog);
+				fixed(float* newblurPtr = &decon.newblur[0], closearrayPtr = &closeArray[0], 
+					blurPtr = &decon.blur[0])
+				{
+					fixed(int* closeIndPtr = &closeind[0])
+					{
+						fixed(byte* barrPtr = &barr[0])
+						{
+							_BlurItMean(config.lengthmz, config.numz, numclose, closeIndPtr,
+								newblurPtr, blurPtr, barrPtr, closearrayPtr, config.zerolog); 
+						}
+					}
+				}
+
 			}
 			public static void BlurItHybrid1(int lengthmz, int numz, int zlength, int mlength,
-				int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
-				float* blur, byte* barr, float* closearray, float zerolog)
+				int[] closeind, int[] closemind, int[] closezind, float[] mdist, float[] zdist, float[] newblur,
+				float[] blur, byte[] barr, float[] closearray, float zerolog)
 			{
-				_BlurItHybrid1(lengthmz, numz, zlength, mlength, closeind, closemind, closezind,
-					mdist, zdist, newblur, blur, barr, closearray, zerolog);
+				fixed(int* closeindPtr = &closeind[0], closemindPtr = &closemind[0], closezindPtr = &closezind[0])
+				{
+					fixed(float* mdistPtr = &mdist[0], zdistPtr = &zdist[0], newblurPtr = &newblur[0], 
+						blurPtr = &blur[0], closearrayPtr = &closearray[0])
+					{
+						fixed(byte* barrPtr = &barr[0])
+						{
+							_BlurItHybrid1(lengthmz, numz, zlength, mlength, closeindPtr, closemindPtr, 
+								closezindPtr, mdistPtr, zdistPtr, newblurPtr, blurPtr, barrPtr, closearrayPtr, zerolog);
+						}
+					}
+				}
+
 			}
-			public static void BlurIt(int lengthmz, int numz, int numclose, int* closeind,
-				float* closearray, float* newblur, float* blur, byte* barr)
+			public static void BlurIt(int lengthmz, int numz, int numclose, int[] closeind,
+				float[] closearray, float[] newblur, float[] blur, byte[] barr)
 			{
-				_BlurIt(lengthmz, numz, numclose, closeind, closearray, newblur, blur, barr);
+				fixed(int* closeindPtr = &closeind[0])
+				{
+					fixed(float* closearrayPtr = &closearray[0], newblurPtr = &newblur[0], blurPtr = &blur[0])
+					{
+						fixed(byte* barrPtr = &barr[0])
+						{
+							_BlurIt(lengthmz, numz, numclose, closeindPtr, closearrayPtr, newblurPtr, blurPtr, barrPtr);
+						}
+					}
+				}
+				
 			}
-			public static void PerformIterations(Decon decon, Config config, InputUnsafe inp, float betafactor, int maxlength,
-				int* starttab, int* endtab, float* mzdist, int numclose, int* closeind, float* closearray, int zlength, int mlength,
-				int* closemind, int* closezind, float* mdist, float* dataInt2, float* zdist, byte* barr, float* rmzdist, float* oldblur)
+			public static void PerformIterations(ref Decon decon, Config config, InputUnsafe inp, float betafactor, int maxlength,
+				int[] starttab, int[] endtab, float[] mzdist, int numclose, int[] closeind, float[] closearray, int zlength, int mlength,
+				int[] closemind, int[] closezind, float[] mdist, float[] dataInt2, float[] zdist, byte[] barr, float[] rmzdist, float[] oldblur)
 			{
 				int off = 0;
 				for (int iterations = 0; iterations < Math.Abs(config.numit); iterations++)
@@ -255,12 +384,12 @@ namespace UniDecAPI
 					}
 					else if (config.beta < 0 && iterations > 0)
 					{
-						SoftargmaxTransposed(decon.blur, config.lengthmz, config.numz, Math.Abs(config.beta / betafactor), inp.barr, maxlength, config.isolength, inp.isotopeops, inp.isotopeval, config.speedyflag, starttab, endtab, rmzdist, config.mzsig);
+						SoftargmaxTransposed(decon, config, inp, betafactor, barr, maxlength, starttab, endtab, rmzdist);
 					}
 
 					if (config.psig >= 1 && iterations > 0)
 					{
-						PointSmoothing(decon.blur, inp.barr, config.lengthmz, config.numz, Math.Abs((int)config.psig));
+						PointSmoothing(decon.blur, barr, config.lengthmz, config.numz, Math.Abs((int)config.psig));
 						//printf("Point Smoothed %f\n", config.psig);
 					}
 					else if (config.psig < 0 && iterations > 0)
@@ -272,15 +401,17 @@ namespace UniDecAPI
 					//Run Blurs
 					if (config.zsig >= 0 && config.msig >= 0)
 					{
-						BlurItMean(config.lengthmz, config.numz, numclose, closeind, decon.newblur, decon.blur, inp.barr, closearray, config.zerolog);
+						BlurItMean(config, decon, numclose, closeind, barr, closearray);
 					}
 					else if (config.zsig > 0 && config.msig < 0)
 					{
-						BlurItHybrid1(config.lengthmz, config.numz, zlength, mlength, closeind, closemind, closezind, mdist, zdist, decon.newblur, decon.blur, barr, closearray, config.zerolog);
+						BlurItHybrid1(config.lengthmz, config.numz, zlength, mlength, closeind, closemind, 
+							closezind, mdist, zdist, decon.newblur, decon.blur, barr, closearray, config.zerolog);
 					}
 					else if (config.zsig < 0 && config.msig > 0)
 					{
-						BlurItHybrid2(config.lengthmz, config.numz, zlength, mlength, closeind, closemind, closezind, mdist, zdist, decon.newblur, decon.blur, barr, closearray, config.zerolog);
+						BlurItHybrid2(config.lengthmz, config.numz, zlength, mlength, 
+							closeind, closemind, closezind, mdist, zdist, decon.newblur, decon.blur, barr, closearray, config.zerolog);
 					}
 					else
 					{
@@ -307,10 +438,10 @@ namespace UniDecAPI
 							}
 						}
 						if (tot != 0) { decon.conv = (diff / tot); }
-						else { decon.conv = 12345678; }
+						else { decon.conv = 12345678F; }
 
 						//printf("Iteration: %d Convergence: %f\n", iterations, decon.conv);
-						if (decon.conv < 0.000001)
+						if (decon.conv < 0.000001F)
 						{
 							if (off == 1 && config.numit > 0)
 							{
@@ -320,7 +451,9 @@ namespace UniDecAPI
 							off = 1;
 						}
 					}
+					oldblur = decon.blur; 
 				}
+
 			}
 			[DllImport("TestDLL.dll", EntryPoint = "MakeSparseBlur")]
 			private static extern void _MakeSparseBlur(int numclose, byte* barr, int* closezind,
@@ -355,11 +488,21 @@ namespace UniDecAPI
 				int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
 				float* blur, byte* barr, float* closearray, float zerolog);
 			public static void BlurItHybrid2(int lengthmz, int numz, int zlength, int mlength,
-				int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
-				float* blur, byte* barr, float* closearray, float zerolog)
+				int[] closeind, int[] closemind, int[] closezind, float[] mdist, float[] zdist, float[] newblur,
+				float[] blur, byte[] barr, float[] closearray, float zerolog)
 			{
-				_BlurItHybrid2(lengthmz, numz, zlength, mlength, closeind, closemind, closezind,
-					mdist, zdist, newblur, blur, barr, closearray, zerolog);
+				fixed (int* closeindPtr = &closeind[0], closemindPtr = &closemind[0], closezindPtr = &closezind[0])
+				{
+					fixed (float* mdistPtr = &mdist[0], zdistPtr = &zdist[0], newblurPtr = &newblur[0],
+						blurPtr = &blur[0], closearrayPtr = &closearray[0])
+					{
+						fixed (byte* barrPtr = &barr[0])
+						{
+							_BlurItHybrid2(lengthmz, numz, zlength, mlength, closeindPtr, closemindPtr, closezindPtr,
+								mdistPtr, zdistPtr, newblurPtr, blurPtr, barrPtr, closearrayPtr, zerolog);
+						}
+					}
+				}
 			}
 			[DllImport("TestDLL.dll", EntryPoint = "blur_it")]
 			private static extern void _BlurIt(int lengthmz, int numz, int numclose, int* closeind,
@@ -371,7 +514,8 @@ namespace UniDecAPI
 				int isolength, int* isotopepos, float* isotopeval, int* starttab, int* endtab,
 				float* mzdist, float* rmzdist, int speedyflag, int baselineflag, float* baseline,
 				float* noise, float mzsig, float* dataMZ, float filterwidth, float psig);
-			public static void DeconvolveIterationSpeedy(int lengthmz, int numz, int maxlength,
+			
+			/*public static void DeconvolveIterationSpeedy(int lengthmz, int numz, int maxlength,
 				float* blur, float* blur2, byte* barr, int aggressiveflag, float* dataInt,
 				int isolength, int* isotopepos, float* isotopeval, int* starttab, int* endtab,
 				float* mzdist, float* rmzdist, int speedyflag, int baselineflag, float* baseline,
@@ -381,15 +525,44 @@ namespace UniDecAPI
 				blur, blur2, barr, aggressiveflag, dataInt, isolength, isotopepos, isotopeval,
 				starttab, endtab, mzdist, rmzdist, speedyflag, baselineflag, baseline,
 				noise, mzsig, dataMZ, filterwidth, psig);
+			}*/
+			public static void DeconvolveIterationSpeedy(int lengthmz, int numz, int maxlength,
+				float[] blur, float[] blur2, byte[] barr, int aggressiveflag, float[] dataInt,
+				int isolength, int* isotopepos, float* isotopeval, int[] starttab, int[] endtab,
+				float[] mzdist, float[] rmzdist, int speedyflag, int baselineflag, float[] baseline,
+				float[] noise, float mzsig, float* dataMZ, float filterwidth, float psig)
+			{
+				fixed(float* blurPtr = &blur[0], blur2Ptr = &blur2[0], dataIntPtr = &dataInt[0],
+					mzdistPtr = &mzdist[0], rmzdistPtr = &rmzdist[0], baselinePtr = &baseline[0], noisePtr = &noise[0])
+				{
+					fixed(int* starttabPtr = &starttab[0], endtabPtr = &endtab[0])
+					{
+						fixed(byte* barrPtr = &barr[0])
+						{
+							_DeconvolveIterationSpeedy(lengthmz, numz, maxlength,
+								blurPtr, blur2Ptr, barrPtr, aggressiveflag, dataIntPtr, isolength, isotopepos, 
+								isotopeval, starttabPtr, endtabPtr, mzdistPtr, rmzdistPtr, speedyflag, 
+								baselineflag, baselinePtr,	noisePtr, mzsig, dataMZ, filterwidth, psig);
+						}
+					}
+				}
+
 			}
 
 			public static unsafe class MathUtilities
 			{
 				[DllImport("TestDLL.dll", EntryPoint = "Max")]
 				private static extern float _Max(float* blur, int length);
+				public static float Max(float[] blur, int length)
+				{
+					fixed(float* blurPtr = &blur[0])
+					{
+						return _Max(blurPtr, length);
+					}
+				}
 				public static float Max(float* blur, int length)
 				{
-					return _Max(blur, length);
+					return _Max(blur, length); 
 				}
 				public static void AplyCutoff1D(float* array, float cutoff, int lengthmz)
 				{
@@ -410,23 +583,21 @@ namespace UniDecAPI
 				{
 					_SetupAndMakeIsotopes(ref config, ref inp);
 				}
-				public static void MonoisotopicToAverageMass(int lengthmz, int numz, float* blur, char* barr,
-					int isolength, int* isotopepos, float* isotopeval)
+				public static void MonoisotopicToAverageMass(Config config, InputUnsafe inp, Decon decon, byte[] barr)
 				{
-					float[] newblur = new float[lengthmz * numz];
-					for (int i = 0; i < lengthmz; i++)
+					float[] newblur = new float[config.lengthmz * config.numz];
+					for (int i = 0; i < config.lengthmz; i++)
 					{
-						for (int j = 0; j < numz; j++)
+						for (int j = 0; j < config.numz; j++)
 						{
-							if (barr[ArrayIndexing.Index2D(numz, i, j)] == 1)
+							if (barr[ArrayIndexing.Index2D(config.numz, i, j)] == 1)
 							{
-								float topval = blur[ArrayIndexing.Index2D(numz, i, j)];
-								for (int k = 0; k < isolength; k++)
+								float topval = decon.blur[ArrayIndexing.Index2D(config.numz, i, j)];
+								for (int k = 0; k < config.isolength; k++)
 								{
-									int pos = isotopepos[ArrayIndexing.Index3D(numz, isolength, i, j, k)];
-									float val = isotopeval[ArrayIndexing.Index3D(numz, isolength, i, j, k)];
-									newblur[ArrayIndexing.Index2D(numz, pos, j)] += topval * val;
-
+									int pos = inp.isotopeops[ArrayIndexing.Index3D(config.numz, config.isolength, i, j, k)];
+									float val = inp.isotopeval[ArrayIndexing.Index3D(config.numz, config.isolength, i, j, k)];
+									newblur[ArrayIndexing.Index2D(config.numz, pos, j)] += topval * val;
 								}
 							}
 						}
@@ -436,13 +607,24 @@ namespace UniDecAPI
 			public static unsafe class ErrorFunctions
 			{
 				[DllImport("TestDLL.dll", EntryPoint = "errfunspeedy")]
-				private static extern float _ErrFunctionSpeedy(Config config, Decon decon, char* barr, float* dataInt, int maxlength,
-					int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, float* rsquared); 
-				public static float ErrFunctionSpeedy(Config config, Decon decon, char* barr, float* dataInt, int maxlength,
-					int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, float* rsquared)
+				private static extern float _ErrFunctionSpeedy(Config config, Decon decon, byte* barr, float* dataInt, int maxlength,
+					int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, float rsquared); 
+				
+				public static float ErrFunctionSpeedy(Config config, Decon decon, byte[] barr, float* dataInt, int maxlength,
+					int* isotopepos, float* isotopeval, int[] starttab, int[] endtab, float[] mzdist)
 				{
-					return _ErrFunctionSpeedy(config, decon, barr, dataInt, maxlength, isotopepos, isotopeval, 
-						starttab, endtab, mzdist, rsquared); 
+					fixed (int* starttabPtr = &starttab[0], endtabPtr = &endtab[0])
+					{
+						fixed(float* mzdistPtr = &mzdist[0])
+						{
+							fixed(byte* barrPtr = &barr[0])
+							{
+								return _ErrFunctionSpeedy(config, decon, barrPtr, dataInt, maxlength, isotopepos, isotopeval,
+											starttabPtr, endtabPtr, mzdistPtr, decon.rsquared);
+							}
+						}
+					}
+					
 				}
 			}
 			public static unsafe class MassIntensityDetermination
@@ -450,54 +632,63 @@ namespace UniDecAPI
 				public static void IntegrateMassIntensities(Config config, Decon decon, InputUnsafe inp)
 				{
 					float massmax = config.masslb;
-					float massmin = config.massub; 
-					if (config.poolflag == 0)
+					float massmin = config.massub;
+					fixed (float* massaxisPtr = &decon.massaxis[0], 
+						massaxisvalPtr = &decon.massaxisval[0], 
+						blurPtr = &decon.blur[0], 
+						massgridPtr = &decon.massgrid[0], 
+						newblurPtr = &decon.newblur[0])
 					{
-						if (config.rawflag == 1 || config.rawflag == 3)
+						if (config.poolflag == 0)
 						{
-							IntegrateTransform(config.lengthmz, config.numz, inp.mtab, massmax, massmin, decon.mlen, decon.massaxis, decon.massaxisval, decon.blur, decon.massgrid);
+							if (config.rawflag == 1 || config.rawflag == 3)
+							{
+								IntegrateTransform(config.lengthmz, config.numz, inp.mtab, massmax, massmin, 
+									decon.mlen, massaxisPtr, massaxisvalPtr, blurPtr, massgridPtr);
+							}
+							if (config.rawflag == 0 || config.rawflag == 2)
+							{
+								IntegrateTransform(config.lengthmz, config.numz, inp.mtab, massmax, massmin, decon.mlen,
+									 massaxisPtr, massaxisvalPtr, newblurPtr, massgridPtr);
+							}
 						}
-						if (config.rawflag == 0 || config.rawflag == 2)
+						else if (config.poolflag == 1)
 						{
-							IntegrateTransform(config.lengthmz, config.numz, inp.mtab, massmax, massmin, decon.mlen, decon.massaxis, decon.massaxisval, decon.newblur, decon.massgrid);
+							if (config.rawflag == 1 || config.rawflag == 3)
+							{
+								InterpolateTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, massaxisPtr, 
+									config.adductmass, inp.dataMZ, massgridPtr, massaxisvalPtr, blurPtr);
+							}
+							if (config.rawflag == 0 || config.rawflag == 2)
+							{
+								InterpolateTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, 
+									massaxisPtr, config.adductmass, inp.dataMZ, massgridPtr, massaxisvalPtr, newblurPtr);
+							}
 						}
-					}
-					else if (config.poolflag == 1)
-					{
-						if (config.rawflag == 1 || config.rawflag == 3)
+						else if (config.poolflag == 2)
 						{
-							InterpolateTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis, config.adductmass,
-								inp.dataMZ, decon.massgrid, decon.massaxisval, decon.blur);
+							if (config.rawflag == 1 || config.rawflag == 3)
+							{
+								SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, massaxisPtr, config.adductmass,
+									inp.dataMZ, massgridPtr, massaxisvalPtr, blurPtr);
+							}
+							if (config.rawflag == 0 || config.rawflag == 2)
+							{
+								SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, massaxisPtr, config.adductmass,
+									inp.dataMZ, massgridPtr, massaxisvalPtr, newblurPtr);
+							}
 						}
-						if (config.rawflag == 0 || config.rawflag == 2)
+						else
 						{
-							InterpolateTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis, config.adductmass,
-								inp.dataMZ, decon.massgrid, decon.massaxisval, decon.newblur);
+							// throw new error
 						}
-					}
-					else if (config.poolflag == 2)
-					{
-						if (config.rawflag == 1 || config.rawflag == 3)
-						{
-							SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis, config.adductmass,
-								inp.dataMZ, decon.massgrid, decon.massaxisval, decon.blur);
-						}
-						if (config.rawflag == 0 || config.rawflag == 2)
-						{
-							SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis, config.adductmass,
-								inp.dataMZ, decon.massgrid, decon.massaxisval, decon.newblur);
-						}
-					}
-					else
-					{
-						// throw new error
 					}
 				}
 				[DllImport("TestDLL.dll", EntryPoint = "IntegrateTransform")]
 				private static extern void _IntegrateTransform(int lengthmz, int numz, float* mtab, float massmax, float massmin, int maaxle, 
 					float* massaxis, float* massaxisval, float* blur, float* massgrid);
-				public static void IntegrateTransform(int lengthmz, int numz, float* mtab, float massmax, float massmin, int maaxle,
-					float* massaxis, float* massaxisval, float* blur, float* massgrid)
+				public static void IntegrateTransform(int lengthmz, int numz, float* mtab, float massmax, 
+					float massmin, int maaxle, float* massaxis, float* massaxisval, float* blur, float* massgrid)
 				{
 					_IntegrateTransform(lengthmz, numz, mtab, massmax, massmin, maaxle,
 					massaxis, massaxisval, blur, massgrid); 

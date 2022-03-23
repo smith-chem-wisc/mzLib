@@ -9,17 +9,17 @@ namespace UniDecAPI
 {
 	public unsafe struct Decon
 	{
-		public float* fitdat;
-		public float* baseline;
-		public float* noise;
-		public float* massgrid;
-		public float* massaxis;
-		public float* massaxisval;
-		public float* blur;
-		public float* newblur;
-		public float* peakx;
-		public float* peaky;
-		public float* dscores;
+		public float[] fitdat;
+		public float[] baseline;
+		public float[] noise;
+		public float[] massgrid;
+		public float[] massaxis;
+		public float[] massaxisval;
+		public float[] blur;
+		public float[] newblur;
+		public float[] peakx;
+		public float[] peaky;
+		public float[] dscores;
 		public float error;
 		public float rsquared;
 		public float iterations;
