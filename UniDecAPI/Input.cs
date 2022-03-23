@@ -15,7 +15,7 @@ namespace UniDecAPI
 		public float* testmasses;
 		public int* nztab;
 		public float* mtab;
-		public char* barr;
+		public byte* barr;
 		public int* isotopeops;
 		public float* isotopeval;
 		public fixed float isoparams[10];

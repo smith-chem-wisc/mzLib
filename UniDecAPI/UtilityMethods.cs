@@ -77,6 +77,15 @@ namespace UniDecAPI
 				}
 				return result;
 			}
+			public static unsafe byte[] PtrToArray(byte* pointer, int length)
+			{
+				byte[] result = new byte[length];
+				for (int i = 0; i < length; i++)
+				{
+					result[i] = pointer[i];
+				}
+				return result;
+			}
 			[DllImport("TestDLL.dll", EntryPoint = "SetLimits")]
 			private static extern unsafe void _SetLimits(Config config, InputUnsafe* inp); 
 			public static unsafe void SetLimits(Config config, InputUnsafe inp)

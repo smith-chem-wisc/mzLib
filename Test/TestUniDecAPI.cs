@@ -308,8 +308,8 @@ namespace Test
 				inp.dataInt = ptrYarray;
 				inp.dataMZ = ptrXarray;
 				inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
-				char[] barrResult = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberElementsInBarr);
-				Assert.AreEqual("0", ((sbyte)barr[0]).ToString());
+				byte[] barrResult = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberElementsInBarr);
+				Assert.AreEqual(0, barr[0]);
 				Assert.AreEqual(numberElementsInBarr, barrResult.Length); 
 			}
 		}

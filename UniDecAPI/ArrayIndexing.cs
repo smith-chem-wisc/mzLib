@@ -149,18 +149,18 @@ namespace UniDecAPI
 		}
 		public static unsafe class Blur
 		{
-			public static void MakeSparseBlur(int numclose, char* barr, int* closezind,
+			public static void MakeSparseBlur(int numclose, byte* barr, int* closezind,
 				int* closemind, float* mtab, int* nztab, float* dataMZ, int* closeind, float* closeval,
 				float* closearray, Config config)
 			{
 				_MakeSparseBlur(numclose, barr, closezind, closemind, mtab,
 					nztab, dataMZ, closeind, closeval, closearray, config);
 			}
-			public static void MakeSparseBlur(InputUnsafe inp, Config config, int numclose, char[] barr, 
+			public static void MakeSparseBlur(InputUnsafe inp, Config config, int numclose, byte[] barr, 
 				int[] closezind, int[] closemind, int[] closeind, 
 				float[] closeval, float[] closearray)
 			{
-				fixed(char* barrPtr = &barr[0])
+				fixed(byte* barrPtr = &barr[0])
 				{
 					fixed(int* closezindPtr = &closezind[0], closemindPtr = &closemind[0], 
 						closeindPtr = &closeind[0])
@@ -203,7 +203,7 @@ namespace UniDecAPI
 				}
 			}
 			public static void SoftargmaxTransposed(float* blur, int lengthmz, int numz, float beta,
-				char* barr, int maxlength, int isolength, int* isotopepos, float* isotopeval, int speedyflag,
+				byte* barr, int maxlength, int isolength, int* isotopepos, float* isotopeval, int speedyflag,
 				int* starttab, int* endtab, float* mzdist, float mzsig)
 			{
 				_SoftArgmaxTransposed(blur, lengthmz, numz, beta, barr, maxlength,
@@ -213,35 +213,35 @@ namespace UniDecAPI
 			{
 				_Softargmax(blur, lengthmz, numz, beta);
 			}
-			public static void PointSmoothing(float* blur, char* barr, int lengthmz, int numz, int width)
+			public static void PointSmoothing(float* blur, byte* barr, int lengthmz, int numz, int width)
 			{
 				_PointSmoothing(blur, barr, lengthmz, numz, width);
 			}
-			public static void PointSmoothingPeakWidth(int lengthmz, int numz, int maxlength, int* starttab, int* endtab, float* mzdist, float* blur, int speedyflag, char* barr)
+			public static void PointSmoothingPeakWidth(int lengthmz, int numz, int maxlength, int* starttab, int* endtab, float* mzdist, float* blur, int speedyflag, byte* barr)
 			{
 				_PointSmoothingPeakWidth(lengthmz, numz, maxlength, starttab, endtab, mzdist, blur, speedyflag, barr);
 			}
 			public static void BlurItMean(int lengthmz, int numz, int numclose, int* closeind, float* newblur,
-				float* blur, char* barr, float* closearray, float zerolog)
+				float* blur, byte* barr, float* closearray, float zerolog)
 			{
 				_BlurItMean(lengthmz, numz, numclose, closeind, newblur,
 				blur, barr, closearray, zerolog);
 			}
 			public static void BlurItHybrid1(int lengthmz, int numz, int zlength, int mlength,
 				int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
-				float* blur, char* barr, float* closearray, float zerolog)
+				float* blur, byte* barr, float* closearray, float zerolog)
 			{
 				_BlurItHybrid1(lengthmz, numz, zlength, mlength, closeind, closemind, closezind,
 					mdist, zdist, newblur, blur, barr, closearray, zerolog);
 			}
 			public static void BlurIt(int lengthmz, int numz, int numclose, int* closeind,
-				float* closearray, float* newblur, float* blur, char* barr)
+				float* closearray, float* newblur, float* blur, byte* barr)
 			{
 				_BlurIt(lengthmz, numz, numclose, closeind, closearray, newblur, blur, barr);
 			}
 			public static void PerformIterations(Decon decon, Config config, InputUnsafe inp, float betafactor, int maxlength,
 				int* starttab, int* endtab, float* mzdist, int numclose, int* closeind, float* closearray, int zlength, int mlength,
-				int* closemind, int* closezind, float* mdist, float* dataInt2, float* zdist, char* barr, float* rmzdist, float* oldblur)
+				int* closemind, int* closezind, float* mdist, float* dataInt2, float* zdist, byte* barr, float* rmzdist, float* oldblur)
 			{
 				int off = 0;
 				for (int iterations = 0; iterations < Math.Abs(config.numit); iterations++)
@@ -323,7 +323,7 @@ namespace UniDecAPI
 				}
 			}
 			[DllImport("TestDLL.dll", EntryPoint = "MakeSparseBlur")]
-			private static extern void _MakeSparseBlur(int numclose, char* barr, int* closezind,
+			private static extern void _MakeSparseBlur(int numclose, byte* barr, int* closezind,
 				int* closemind, float* mtab, int* nztab, float* dataMZ, int* closeind, float* closeval,
 				float* closearray, Config config);
 
@@ -332,47 +332,47 @@ namespace UniDecAPI
 
 			[DllImport("TestDLL.dll", EntryPoint = "softargmax_transposed")]
 			private static extern void _SoftArgmaxTransposed(float* blur, int lengthmz, int numz, float beta,
-				char* barr, int maxlength, int isolength, int* isotopepos, float* isotopeval, int speedyflag,
+				byte* barr, int maxlength, int isolength, int* isotopepos, float* isotopeval, int speedyflag,
 				int* starttab, int* endtab, float* mzdist, float mzsig);
 
 			[DllImport("TestDLL.dll", EntryPoint = "point_smoothing")]
-			private static extern void _PointSmoothing(float* blur, char* barr, int lengthmz, int numz, int width);
+			private static extern void _PointSmoothing(float* blur, byte* barr, int lengthmz, int numz, int width);
 
 			[DllImport("TestDLL.dll", EntryPoint = "point_smoothing_peak_width")]
-			private static extern void _PointSmoothingPeakWidth(int lengthmz, int numz, int maxlength, int* starttab, int* endtab, float* mzdist, float* blur, int speedyflag, char* barr);
+			private static extern void _PointSmoothingPeakWidth(int lengthmz, int numz, int maxlength, int* starttab, int* endtab, float* mzdist, float* blur, int speedyflag, byte* barr);
 
 			[DllImport("TestDLL.dll", EntryPoint = "blur_it_mean")]
 			private static extern void _BlurItMean(int lengthmz, int numz, int numclose, int* closeind, float* newblur,
-				float* blur, char* barr, float* closearray, float zerolog);
+				float* blur, byte* barr, float* closearray, float zerolog);
 
 			[DllImport("TestDLL.dll", EntryPoint = "blur_it_hybrid1")]
 			private static extern void _BlurItHybrid1(int lengthmz, int numz, int zlength, int mlength,
 				int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
-				float* blur, char* barr, float* closearray, float zerolog);
+				float* blur, byte* barr, float* closearray, float zerolog);
 			
 			[DllImport("TestDLL.dll", EntryPoint = "blur_it_hybrid2")]
 			private static extern void _BlurItHybrid2(int lengthmz, int numz, int zlength, int mlength,
 				int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
-				float* blur, char* barr, float* closearray, float zerolog);
+				float* blur, byte* barr, float* closearray, float zerolog);
 			public static void BlurItHybrid2(int lengthmz, int numz, int zlength, int mlength,
 				int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
-				float* blur, char* barr, float* closearray, float zerolog)
+				float* blur, byte* barr, float* closearray, float zerolog)
 			{
 				_BlurItHybrid2(lengthmz, numz, zlength, mlength, closeind, closemind, closezind,
 					mdist, zdist, newblur, blur, barr, closearray, zerolog);
 			}
 			[DllImport("TestDLL.dll", EntryPoint = "blur_it")]
 			private static extern void _BlurIt(int lengthmz, int numz, int numclose, int* closeind,
-				float* closearray, float* newblur, float* blur, char* barr);
+				float* closearray, float* newblur, float* blur, byte* barr);
 			
 			[DllImport("TestDLL.dll", EntryPoint = "deconvolve_iteration_speedy")]
 			private static extern void _DeconvolveIterationSpeedy(int lengthmz, int numz, int maxlength,
-				float* blur, float* blur2, char* barr, int aggressiveflag, float* dataInt,
+				float* blur, float* blur2, byte* barr, int aggressiveflag, float* dataInt,
 				int isolength, int* isotopepos, float* isotopeval, int* starttab, int* endtab,
 				float* mzdist, float* rmzdist, int speedyflag, int baselineflag, float* baseline,
 				float* noise, float mzsig, float* dataMZ, float filterwidth, float psig);
 			public static void DeconvolveIterationSpeedy(int lengthmz, int numz, int maxlength,
-				float* blur, float* blur2, char* barr, int aggressiveflag, float* dataInt,
+				float* blur, float* blur2, byte* barr, int aggressiveflag, float* dataInt,
 				int isolength, int* isotopepos, float* isotopeval, int* starttab, int* endtab,
 				float* mzdist, float* rmzdist, int speedyflag, int baselineflag, float* baseline,
 				float* noise, float mzsig, float* dataMZ, float filterwidth, float psig)

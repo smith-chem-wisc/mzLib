@@ -67,7 +67,7 @@ namespace Test
 		{
 			int numberOfElementsInBarr = config.lengthmz * config.numz;
 			
-			char[] barr = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberOfElementsInBarr);
+			byte[] barr = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberOfElementsInBarr);
 			float threshold = config.psthresh * Math.Abs(config.mzsig) * config.peakshapeinflate;
 
 			int[] starttab = new int[config.lengthmz];
