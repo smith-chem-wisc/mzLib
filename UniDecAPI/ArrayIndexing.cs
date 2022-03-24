@@ -577,12 +577,49 @@ namespace UniDecAPI
 			}
 			public static unsafe class Isotopes
 			{
-				[DllImport("TestDLL.dll", EntryPoint = "setup_and_make_isotopes")]
-				private static extern void _SetupAndMakeIsotopes(ref Config config, ref InputUnsafe inp);
-				public static void SetupAndMakeIsotopes(ref Config config, ref InputUnsafe inp)
+				public static void SetupAndMakeIsotopes2(Config config, InputUnsafe inp)
 				{
-					_SetupAndMakeIsotopes(ref config, ref inp);
+					config.isolength = SetupIsotopes(config, inp);
+
+					int[] isotopeposTemp = new int[config.isolength * config.lengthmz * config.numz];
+					float[] isotopeval = new float[config.isolength * config.lengthmz * config.numz];
+					fixed(int* isotopeposPtr = &isotopeposTemp[0])
+					{
+						fixed(float* isotopevalPtr = &isotopeval[0])
+						{
+							MakeIsotopes(config, inp, isotopevalPtr, isotopeposPtr);
+							inp.isotopeval = isotopevalPtr;
+							inp.isotopeops = isotopeposPtr; 
+						}
+					} 
 				}
+				[DllImport("TestDLL.dll", EntryPoint = "SetupAndMakeIsotopes")]
+				private static extern void _SetupAndMakeIsotopes(Config config, InputUnsafe inp); 
+				public static void SetupAndMakeIsotopes(Config config, InputUnsafe inp)
+				{
+					_SetupAndMakeIsotopes(config, inp); 
+				}
+				[DllImport("TestDLL.dll", EntryPoint = "SetupIsotopes")]
+				private static extern int _SetupIsotopes(float* isoparams, int* isotopepos, float* isotopeval, 
+					float* mtab, int* ztab, byte* barr, float* dataMZ, int lengthmz, int numz);
+				public static int SetupIsotopes(Config config, InputUnsafe inp)
+				{
+					return _SetupIsotopes(inp.isoparams, inp.isotopeops, inp.isotopeval, inp.mtab, inp.nztab,
+						inp.barr, inp.dataMZ, config.lengthmz, config.numz); 
+				}
+				[DllImport("TestDLL.dll", EntryPoint = "MakeIsotopes")]
+				private static extern void _MakeIsotopes(float* isoparams, int* isotopepos, float* isotopeval, float* mtab, int* ztab, 
+					byte* barr, float* dataMZ, int lengthmz, int numz); 
+				public static void MakeIsotopes(Config config, InputUnsafe inp, float* isotopeval, int* isotopepos)
+				{
+					_MakeIsotopes(inp.isoparams, isotopepos, isotopeval, inp.mtab, inp.nztab, inp.barr, inp.dataMZ,
+						config.lengthmz, config.numz); 
+				}
+				public static void MakeIsotopesDirect(Config config, InputUnsafe inp)
+				{
+
+				}
+
 				public static void MonoisotopicToAverageMass(Config config, InputUnsafe inp, Decon decon, byte[] barr)
 				{
 					float[] newblur = new float[config.lengthmz * config.numz];
@@ -608,19 +645,20 @@ namespace UniDecAPI
 			{
 				[DllImport("TestDLL.dll", EntryPoint = "errfunspeedy")]
 				private static extern float _ErrFunctionSpeedy(Config config, Decon decon, byte* barr, float* dataInt, int maxlength,
-					int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, float rsquared); 
+					int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, float* rsquared); 
 				
 				public static float ErrFunctionSpeedy(Config config, Decon decon, byte[] barr, float* dataInt, int maxlength,
 					int* isotopepos, float* isotopeval, int[] starttab, int[] endtab, float[] mzdist)
-				{
+				{ 
 					fixed (int* starttabPtr = &starttab[0], endtabPtr = &endtab[0])
 					{
 						fixed(float* mzdistPtr = &mzdist[0])
 						{
 							fixed(byte* barrPtr = &barr[0])
 							{
+								float* rsqaurePtr = &decon.rsquared; 
 								return _ErrFunctionSpeedy(config, decon, barrPtr, dataInt, maxlength, isotopepos, isotopeval,
-											starttabPtr, endtabPtr, mzdistPtr, decon.rsquared);
+											starttabPtr, endtabPtr, mzdistPtr, rsqaurePtr);
 							}
 						}
 					}

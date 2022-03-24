@@ -53,7 +53,7 @@ namespace Test
 			inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
 			// correctly assigns a value to inp.barr, but the value isn't correct. Need to make sure that it's 
 			// char on the C side. 
-			UniDecAPIMethods.UtilityMethods.SetLimits(config, inp);  			
+			UniDecAPIMethods.UtilityMethods.SetLimits(config, inp);
 		}
 		[OneTimeTearDown]
 		public void TearDown()
@@ -76,7 +76,8 @@ namespace Test
 			 * to the correct byte value in C# is subtract the ASCII code for zero, which is 48. The subtraction is implemented in 
 			 * the below method. 
 			 */
-			UniDecAPIMethods.UtilityMethods.ConvertASCIIBytesFromCToByteInCS(ref barr); 
+			UniDecAPIMethods.UtilityMethods.ConvertASCIIBytesFromCToByteInCS(ref barr);
+			DirectUniDecPort.Blur.Isotopes.SetupAndMakeIsotopes2(config, inp);
 
 			float threshold = config.psthresh * Math.Abs(config.mzsig) * config.peakshapeinflate;
 
@@ -223,9 +224,11 @@ namespace Test
 			}
 
 			DirectUniDecPort.ArrayIndexing.ApplyCutoff1D(ref deconResults.blur, blurmax * cutoff, config.lengthmz * config.numz);
-			// return Decon 
+
 			deconResults.fitdat = new float[config.lengthmz];
+
 			// This line of code is currently not working. 
+			float rsquared = 0; 
 			deconResults.error = DirectUniDecPort.Blur.ErrorFunctions.ErrFunctionSpeedy(config, deconResults, barr, inp.dataInt, maxlength,
 				inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist); 
 			if(config.intthresh != -1)
@@ -255,6 +258,15 @@ namespace Test
 				}
 			}
 
+		}
+		[Test]
+		public void TestSetupIsotopes()
+		{
+			int numberOfElementsInBarr = config.lengthmz * config.numz;
+			byte[] barr = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberOfElementsInBarr);
+			UniDecAPIMethods.UtilityMethods.ConvertASCIIBytesFromCToByteInCS(ref barr);
+			
+			DirectUniDecPort.Blur.Isotopes.SetupAndMakeIsotopes2(config, inp);
 		}
 	}
 }

@@ -395,6 +395,12 @@ namespace Test
 				_TestingCharArrayMarshalling(bytePtr, arrayLength);
 			}
 		}
+		[Test]
+		public void TestSetupAndMakeIsotopes()
+		{
+
+
+		}
 
 
 	}

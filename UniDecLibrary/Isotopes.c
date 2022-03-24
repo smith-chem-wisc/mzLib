@@ -213,16 +213,24 @@ void test_isotopes(float mass, float* isoparams)
 
 
 void setup_and_make_isotopes(Config* config, Input* inp) {
-    printf("Isotope Mode: %d\n", config->isotopemode);
 
-    config->isolength = setup_isotopes(inp->isoparams, inp->isotopepos, inp->isotopeval, inp->mtab, inp->nztab, inp->barr, inp->dataMZ, config->lengthmz, config->numz);
+    config->isolength = setup_isotopes(inp->isoparams, inp->isotopepos, inp->isotopeval, inp->mtab, inp->nztab, 
+        inp->barr, inp->dataMZ, config->lengthmz, config->numz);
 
     inp->isotopepos = calloc(config->isolength * config->lengthmz * config->numz, sizeof(int));
     inp->isotopeval = calloc(config->isolength * config->lengthmz * config->numz, sizeof(float));
 
     make_isotopes(inp->isoparams, inp->isotopepos, inp->isotopeval, inp->mtab, inp->nztab, inp->barr, inp->dataMZ, config->lengthmz, config->numz);
 
-    printf("Isotopes set up, Length: %d\n", config->isolength);
+}
+void SetupAndMakeIsotopes(Config config, Input inp) {
+    config.isolength = setup_isotopes(config.isolength, inp.isotopepos, inp.isotopeval, inp.mtab, inp.nztab,
+        inp.barr, inp.dataMZ, config.lengthmz, config.numz); 
+    inp.isotopepos = calloc(config.isolength * config.lengthmz * config.numz, sizeof(int)); 
+    inp.isotopeval = calloc(config.isolength * config.lengthmz * config.numz, sizeof(float)); 
+
+    make_isotopes(inp.isoparams, inp.isotopepos, inp.isotopeval, inp.mtab, inp.nztab, inp.barr, inp.dataMZ,
+        config.lengthmz, config.numz); 
 }
 void monotopic_to_average(const int lengthmz, const int numz, float* blur, const char* barr, int isolength, const int* __restrict isotopepos, const float* __restrict isotopeval)
 {
