@@ -22,7 +22,7 @@ namespace Test
                 ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: true)[0];
 
             Assert.AreEqual(11, insulinProteinFromFasta.ProteolysisProducts.Count());
-            Assert.AreEqual(1, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type.Contains("intact")).Count());
+            Assert.AreEqual(1, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
             Assert.AreEqual(10, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
             List<int> expectedBegins = new List<int> { 2, 3, 4, 5, 6, 7, 2, 2, 2, 2, 2 };
             List<int> expectedEnds = new List<int> { 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105 };
@@ -36,7 +36,7 @@ namespace Test
                 DecoyType.None, null, false, null, out var unknownModifications, addBiomarkers: true)[0];
 
             Assert.AreEqual(55, insulinProteinFromXml.ProteolysisProducts.Count());
-            Assert.AreEqual(1, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type.Contains("intact")).Count());
+            Assert.AreEqual(1, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
             Assert.AreEqual(50, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count()); //4 are original proteolysis products
 
             expectedBegins = new List<int> { 25, 57, 90, 2, 3, 4, 5, 6, 7, 2, 2, 2, 2, 2, 2, 26, 27, 28, 29, 30, 25, 25, 25, 25, 25, 58, 59, 60, 61, 62, 57, 57, 57, 57, 57, 91, 92, 93, 94, 95, 90, 90, 90, 90, 90, 3, 4, 5, 6, 7, 2, 2, 2, 2, 2 };

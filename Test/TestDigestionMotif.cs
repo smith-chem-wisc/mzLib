@@ -606,7 +606,7 @@ namespace Test
             Assert.AreEqual(0, insulinProteinFromFasta.ProteolysisProducts.Count());
             insulinProteinFromFasta.AddBiomarkers(true, false, true, true, InitiatorMethionineBehavior.Cleave, 7, 7);
             Assert.AreEqual(15, insulinProteinFromFasta.ProteolysisProducts.Count());
-            Assert.AreEqual(1, insulinProteinFromFasta.ProteolysisProducts.Where(p=>p.Type.Contains("intact")).Count());
+            Assert.AreEqual(1, insulinProteinFromFasta.ProteolysisProducts.Where(p=>p.Type == "full-length proteoform").Count());
             Assert.AreEqual(14, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
             List<int> expectedBegins = new List<int> { 2,2,2,2,2,2,2,2,3,4,5,6,7,8,9 };
             List<int> expectedEnds = new List<int> { 103, 104, 105, 106, 107, 108, 109, 110, 110, 110, 110, 110, 110, 110, 110 };
@@ -621,7 +621,7 @@ namespace Test
             Assert.AreEqual(4, insulinProteinFromXml.ProteolysisProducts.Count());
             insulinProteinFromXml.AddBiomarkers(true, false, true, true, InitiatorMethionineBehavior.Cleave, 7, 7);
             Assert.AreEqual(19, insulinProteinFromXml.ProteolysisProducts.Count());
-            Assert.AreEqual(1, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type.Contains("intact")).Count());
+            Assert.AreEqual(1, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
             Assert.AreEqual(14, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count()); //4 are original proteolysis products
             expectedBegins = new List<int> { 2, 2, 2, 2, 2, 2, 2, 2, 3, 4, 5, 6, 7, 8, 9, 1, 25, 57, 90 };
             expectedEnds = new List<int> { 110, 109, 108, 107, 106, 105, 104, 103, 110, 110, 110, 110, 110, 110, 110, 24, 54, 87, 110 };
