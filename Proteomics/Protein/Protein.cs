@@ -724,18 +724,18 @@ namespace Proteomics
                 AddIntactProteoformToProteolysisProducts(initiatorMethionineBehavior, minProductBaseSequenceLength);
                 if (addNterminalDigestionBiomarkers)
                 {
-                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, true, false, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, "full proteoform biomarker");
+                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, true, false, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion biomarker");
                 }
                 if (addCterminalDigestionBiomarkers)
                 {
-                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, false, true, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, "full proteoform biomarker");
+                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, false, true, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion biomarker");
                 }
             }
 
             if (addForEachOrigninalProteolysisProduct) // this does not include the original intact proteoform
             {
                 RemoveMethionineWhenAppropriateFromExistingProduts(initiatorMethionineBehavior); 
-                List<ProteolysisProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("biomarker") && !p.Type.Contains("intact")).ToList();               
+                List<ProteolysisProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("biomarker") && !p.Type.Contains("full-length proteoform")).ToList();               
                 foreach (ProteolysisProduct product in existingProducts)
                 {
                     if (product.OneBasedBeginPosition.HasValue && product.OneBasedEndPosition.HasValue)
@@ -802,7 +802,7 @@ namespace Proteomics
                 //when it's variable, we don't have to add anything here, we'll get an additonal proteolysis product later.
                 if(BaseSequence.Length >= minProductBaseSequenceLength)
                 {
-                    _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "intact proteoform"));
+                    _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "full-length proteoform"));
                 }
                 
             }
@@ -812,14 +812,14 @@ namespace Proteomics
                 {
                     if (BaseSequence.Length - 1 >= minProductBaseSequenceLength)
                     {
-                        _proteolysisProducts.Add(new ProteolysisProduct(2, BaseSequence.Length, "intact proteoform"));
+                        _proteolysisProducts.Add(new ProteolysisProduct(2, BaseSequence.Length, "full-length proteoform"));
                     }
                 }
                 else
                 {
                     if (BaseSequence.Length >= minProductBaseSequenceLength)
                     {
-                        _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "intact proteoform"));
+                        _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "full-length proteoform"));
                     }
                 }
             }
