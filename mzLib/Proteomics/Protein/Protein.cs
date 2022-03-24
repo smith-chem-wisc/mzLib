@@ -249,8 +249,7 @@ namespace Proteomics
             variableModifications = variableModifications ?? new List<Modification>();
             CleavageSpecificity searchModeType = digestionParams.SearchModeType;
 
-            ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
-
+            ProteinDigestion digestion = new(digestionParams, allKnownFixedModifications, variableModifications);
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :

@@ -1,5 +1,4 @@
-﻿using Chemistry;
-using MzLibUtil;
+﻿using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
@@ -290,7 +289,6 @@ namespace Test
             Assert.AreEqual(first, "PRON");
         }
 
-
         [Test]
         public static void TestNterminalProteolysis()
         {
@@ -395,7 +393,7 @@ namespace Test
             {
                 productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
             }
-            expectedProductSequences = new List<string> { "PEPTIDE", "EPTIDE"};
+            expectedProductSequences = new List<string> { "PEPTIDE", "EPTIDE" };
             CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
         }
 
@@ -670,11 +668,8 @@ namespace Test
         [Test]
         public static void TestBiomarkersOnProteinXmlWithExistingProteolysisProducts()
         {
-            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-
-            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications)[0];
-            Assert.AreEqual(4, insulin.ProteolysisProducts.Count());
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "P08709.xml");
+            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true, DecoyType.None, null, false, null, out var unknownModifications)[0];
 
             insulin.AddBiomarkers(true, false, true, true, InitiatorMethionineBehavior.Cleave, 7, 7);
 
