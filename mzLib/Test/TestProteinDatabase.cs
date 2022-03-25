@@ -8,7 +8,6 @@ using UsefulProteomicsDatabases;
 namespace Test
 {
     [TestFixture]
-    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestProteinDatabase
     {
         [Test]
@@ -43,11 +42,34 @@ namespace Test
             expectedBegins = new List<int> { 1, 25, 57, 90, 1, 2, 3, 4, 5, 6, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 1, 1, 1, 1, 1, 26, 27, 28, 29, 30, 25, 25, 25, 25, 25, 58, 59, 60, 61, 62, 57, 57, 57, 57, 57, 91, 92, 93, 94, 95, 90, 90, 90, 90, 90, 25 };
             expectedEnds = new List<int> { 24, 54, 87, 110, 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 24, 24, 24, 24, 24, 23, 22, 21, 20, 19, 54, 54, 54, 54, 54, 53, 52, 51, 50, 49, 87, 87, 87, 87, 87, 86, 85, 84, 83, 82, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 110 };
 
-
             List<int> reportedBegins = insulinProteinFromXml.ProteolysisProducts.Select(p => p.OneBasedBeginPosition.Value).ToList();
             List<int> reportedEnds = insulinProteinFromXml.ProteolysisProducts.Select(p => p.OneBasedEndPosition.Value).ToList();
             CollectionAssert.AreEquivalent(expectedBegins, reportedBegins);
             CollectionAssert.AreEquivalent(expectedEnds, reportedEnds);
+        }
+
+        [Test]
+        public static void TestDoNotWriteBiomarkersToXml()
+        {
+            //with xml, here for this protein, there are existing proteolysis products
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "TestProtein.xml");
+            List<Protein> proteins
+                = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications, addBiomarkers: true);
+
+            Assert.AreEqual(10, proteins[0].ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
+
+            string testOutXml = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "testOutXml.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<System.Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), testOutXml);
+            string[] lines = File.ReadAllLines(testOutXml);
+            Assert.AreEqual(0, lines.Where(l => l.Contains("biomarker")).Count());
+
+            List<Protein> moreProteins
+                = ProteinDbLoader.LoadProteinXML(testOutXml, true,
+                DecoyType.Reverse, null, false, null, out var moreUnknownModifications, addBiomarkers: false);
+            Assert.AreEqual(0, moreProteins[0].ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
+
+            File.Delete(testOutXml);
         }
     }
 }
