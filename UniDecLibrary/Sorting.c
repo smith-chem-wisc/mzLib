@@ -55,10 +55,16 @@ int neartest(float* testmasses, float point, int lengthtest, float cutoff)
 //Fast way of finding the nearest data point in an ordered list.
 int nearfast(const float* dataMZ, const float point, const int numdat)
 {
+    // this is a binary search, but for some reason it's not very fast
     int start = 0;
     int length = numdat - 1;
     int end = 0;
     int diff = length - start;
+    // this can actually trigger an infinite loop given the right data. 
+    // That's probably what happened when I was working on it. 
+    // There's no guarantee that diff will ever go below 1. 
+    
+    // can be converted to a switch statment also. 
     while (diff > 1)
     {
         if (point < dataMZ[start + (length - start) / 2])

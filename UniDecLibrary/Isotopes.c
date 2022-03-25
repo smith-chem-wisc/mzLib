@@ -75,42 +75,33 @@ int setup_isotopes(float* isoparams, int* isotopepos, float* isotopeval, float* 
     return isolength;
 }
 
-void make_isotopes(float* isoparams, int* isotopepos, float* isotopeval, float* mtab, int* ztab, char* barr, float* dataMZ, int lengthmz, int numz)
+// use a pointer to pass minmid, maxmid, maxsig. 
+void make_isotopes(float* isoparams, int* isotopepos, float* isotopeval, float* mtab, int* ztab, char* barr,
+    float* dataMZ, int lengthmz, int numz, float minmid, float maxmid, float maxsig)
 {
-    float minmass = 100000000;
-    float maxmass = 1;
-    int i, j, k;
-    for (i = 0; i < lengthmz * numz; i++)
-    {
-        if (barr[i] == 1)
-        {
-            float mass = mtab[i];
-            if (mass < minmass) { minmass = mass; }
-            if (mass > maxmass) { maxmass = mass; }
-        }
-    }
     float massdiff = 1.0026;
+    int i, j, k;
 
-    float minmid = isotopemid(minmass, isoparams);
-    float minsig = isotopesig(minmass, isoparams);
-    float maxmid = isotopemid(maxmass, isoparams);
-    float maxsig = isotopesig(maxmass, isoparams);
-
-    //int isostart = (int)(minmid - 4 * minsig);
     int isostart = 0;
     int isoend = (int)(maxmid + 4 * maxsig);
     //if (isostart<0){ isostart = 0; }
     if (isoend < 4) { isoend = 4; }
+    
     int isolength = isoend - isostart;
+    
     float* isorange = NULL;
     int* isoindex = NULL;
     isorange = calloc(isolength, sizeof(float));
     isoindex = calloc(isolength, sizeof(int));
+    // looping through and assigning isorange and isoindex. 
     for (i = 0; i < isolength; i++)
     {
+        // should probably fix this null dereferencing. 
         isorange[i] = (isostart + i) * massdiff;
         isoindex[i] = (isostart + i);
     }
+    // iterate and get rid of the non-zero values, then iterate over that. saves 
+    // an if for each iteration. 
 #pragma omp parallel for private (i,j,k), schedule(auto)
     for (i = 0; i < lengthmz; i++)
     {
@@ -123,22 +114,27 @@ void make_isotopes(float* isoparams, int* isotopepos, float* isotopeval, float* 
                 for (k = 0; k < isolength; k++)
                 {
                     float newmz = mz + (isorange[k] / ((float)z));
+                    // nearfast needs serious optimization or another way to do it... 
                     int pos = nearfast(dataMZ, newmz, lengthmz);
+                    // reassignment might be able to be optimized. 
                     isotopepos[index3D(numz, isolength, i, j, k)] = pos;
                 }
             }
         }
     }
+    // definitely don't need two loops here. 
 #pragma omp parallel for private (i,j,k), schedule(auto)
     for (i = 0; i < lengthmz; i++)
     {
         for (j = 0; j < numz; j++)
         {
+            // again, if statement should be optimizable. 
             if (barr[index2D(numz, i, j)] == 1)
             {
                 float mass = mtab[index2D(numz, i, j)];
                 float mid = isotopemid(mass, isoparams);
                 float sig = isotopesig(mass, isoparams);
+
                 if (sig == 0) { printf("Error: Sigma Isotope Parameter is 0"); exit(102); }
                 float alpha = isotopealpha(mass, isoparams);
                 float amp = (1.0 - alpha) / (sig * 2.50662827);

@@ -593,6 +593,39 @@ namespace UniDecAPI
 						}
 					} 
 				}
+				public static float Isotopemid(float mass, float* isoparams)
+				{
+					float a, b, c;
+					a = isoparams[4];
+					b = isoparams[5];
+					c = isoparams[6];
+					return a + b * (float)Math.Pow(mass, c);
+				}
+
+				public static float Isotopesig(float mass, float* isoparams)
+				{
+					float a, b, c;
+					a = isoparams[7];
+					b = isoparams[8];
+					c = isoparams[9];
+					return a + b * (float)Math.Pow(mass, c);
+				}
+
+				public static float Isotopealpha(float mass, float* isoparams)
+				{
+					float a, b;
+					a = isoparams[0];
+					b = isoparams[1];
+					return a * (float)Math.Exp(-mass * b);
+				}
+
+				public static float Isotopebeta(float mass, float* isoparams)
+				{
+					float a, b;
+					a = isoparams[2];
+					b = isoparams[3];
+					return a * (float)Math.Exp(-mass * b);
+				}
 				[DllImport("TestDLL.dll", EntryPoint = "SetupAndMakeIsotopes")]
 				private static extern void _SetupAndMakeIsotopes(Config config, InputUnsafe inp); 
 				public static void SetupAndMakeIsotopes(Config config, InputUnsafe inp)
@@ -615,8 +648,61 @@ namespace UniDecAPI
 					_MakeIsotopes(inp.isoparams, isotopepos, isotopeval, inp.mtab, inp.nztab, inp.barr, inp.dataMZ,
 						config.lengthmz, config.numz); 
 				}
-				public static void MakeIsotopesDirect(Config config, InputUnsafe inp)
+				public static void MakeIsotopes(Config config, InputUnsafe inp, IsotopeStruct isos)
 				{
+					float massdiff = 1.0026f;
+					int isostart = 0;
+					int isoend = (int)(isos.maxmid + 4 * isos.maxsig);
+
+					int isolength = isoend - isostart; 
+
+					float[] isorange = new float[isolength];
+					int[] isoindex = new int[isolength]; 
+					
+					for(int i = 0; i < isolength; i++)
+					{
+						isorange[i] = (isostart + i) * massdiff;
+						isoindex[i] = (isostart + i); 
+					}
+
+					for(int i = 0; i < config.lengthmz; i++)
+					{
+						for(int j = 0; j < config.numz; j++)
+						{
+							if (inp.barr[UniDecAPIMethods.UtilityMethods.index2D(config.numz, i, j)] == 1)
+							{
+								float mz = inp.dataMZ[i];
+								int z = inp.nztab[i];
+
+
+								float mass = inp.mtab[ArrayIndexing.Index2D(config.numz, i, j)];
+								float mid = Isotopemid(mass, inp.isoparams);
+								float sig = Isotopesig(mass, inp.isoparams);
+
+								float alpha = Isotopealpha(mass, inp.isoparams);
+								float amp = (1.0f - alpha) / (sig * 2.50662827f);
+								float beta = Isotopebeta(mass, inp.isoparams);
+								float tot = 0;
+
+								for (int k = 0; k < isolength; k++)
+								{
+									float newmz = mz + (isorange[k] + (float)z);
+									int pos = Convolution.Nearfast(inp.dataMZ, newmz, config.lengthmz);
+
+									float e = alpha * (float)Math.Exp(-isoindex[k] * beta);
+									float g = amp * (float)Math.Exp(-Math.Pow(isoindex[k] - mid, 2) / (2 * Math.Pow(sig, 2)));
+									float temp = e + g;
+									tot += temp;
+									if(tot > 0)
+									{
+										temp *= 1 / tot; 
+									}
+									inp.isotopeval[ArrayIndexing.Index3D(config.numz, isolength, i, j, k)] = temp;
+								}
+
+							}
+						}
+					}
 
 				}
 

@@ -9,6 +9,7 @@ using System.IO;
 using MassSpectrometry;
 using IO.ThermoRawFileReader;
 using System.Runtime.InteropServices;
+using System.Diagnostics; 
 
 namespace Test
 {
@@ -265,8 +266,67 @@ namespace Test
 			int numberOfElementsInBarr = config.lengthmz * config.numz;
 			byte[] barr = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberOfElementsInBarr);
 			UniDecAPIMethods.UtilityMethods.ConvertASCIIBytesFromCToByteInCS(ref barr);
-			
+			// this function wasn't complete after waiting nearly an hour. So it needs to be fixed. 
 			DirectUniDecPort.Blur.Isotopes.SetupAndMakeIsotopes2(config, inp);
+		}
+		[Test]
+		[TestCase(1000.3f)]
+		[TestCase(8129f)]
+		[TestCase(9087.12f)]
+		[TestCase(1.12f)]
+		[TestCase(85.0f)]
+		public void TestNearFastCS(float searchVal)
+		{
+
+			int numData = 100000; 
+			float[] seq = Enumerable.Range(1, numData).Select(i => i * 1f).ToArray();
+			// returns the index of the closest point.
+			// int nearFastResult = DirectUniDecPort.Convolution.NearFastCS(seq, 50f, numData);
+			// Assert.AreEqual(49, nearFastResult); 
+
+			// total time taken for 100 points: 35 ms. So it's actually extremely slow to be searching all these
+			// points with the algorithm as-is. 
+
+			// binary search recursive: 
+			Stopwatch stopwatch = new();
+			
+			stopwatch.Start();
+			int binarySearchResultIndex = BinarySearch(seq, searchVal, 0, numData - 1);
+			stopwatch.Stop();
+
+			Assert.AreEqual((int)searchVal - 1, binarySearchResultIndex);
+			Console.WriteLine("binary search with recursion: " + stopwatch.ElapsedTicks.ToString());
+			
+			fixed(float* seqPtr = &seq[0])
+			{
+				Stopwatch stpwtch = new();
+				stpwtch.Start(); 
+				int resultNearFast = DirectUniDecPort.Convolution.Nearfast(seqPtr, searchVal, numData);
+				stpwtch.Stop();
+				Assert.AreEqual((int)searchVal - 1, resultNearFast); 
+				Console.WriteLine("nearfast search: " + stpwtch.ElapsedTicks.ToString()); 
+			}
+
+		}
+
+		public static int BinarySearch(float[] array, float searchVal, int leftIndex, int rightIndex)
+		{
+			if (rightIndex >= leftIndex)
+			{
+				int mid = leftIndex + (rightIndex - leftIndex) / 2;
+
+				if (array[mid] == searchVal) return mid;
+				if (array[mid] > searchVal) return BinarySearch(array, searchVal, leftIndex, mid - 1);
+				return BinarySearch(array, searchVal, mid + 1, rightIndex); 
+			}
+			if (Math.Abs(searchVal - array[leftIndex]) >= Math.Abs(searchVal - array[rightIndex]))
+			{
+				return rightIndex;
+			}
+			else
+			{
+				return leftIndex; 
+			}
 		}
 	}
 }

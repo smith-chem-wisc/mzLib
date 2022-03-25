@@ -22,6 +22,16 @@ struct Input {
     float isoparams[10];
 };
 
+__declspec(dllexport) typedef struct IsotopeStruct IsotopeStruct; 
+
+struct IsotopeStruct {
+    float minmid; 
+    float minsig; 
+    float maxmid; 
+    float maxsig; 
+    int isolength; 
+};
+
 __declspec(dllexport) Input SetupInputs(void);
 __declspec(dllexport) void FreeInputs(Input inp);
 __declspec(dllexport) Input SetupInputsSafe(Input* inp); 
