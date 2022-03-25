@@ -65,6 +65,23 @@ namespace Test
         }
 
         [Test]
+        public static void TestMethionineCleaveNoMethionine()
+        {
+            //Note: existing proteoloysis products are now subjected to additional proteolysis.
+
+            //with fasta (there are no existing proteolysis products. so we rely on the code to deal with that non-factor)
+            string fastaDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
+            Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: false)[0];
+
+            Protein noMethionine = new Protein(insulinProteinFromFasta.BaseSequence.Substring(1,insulinProteinFromFasta.BaseSequence.Length-1), insulinProteinFromFasta.Accession);
+
+            Assert.AreEqual(0, noMethionine.ProteolysisProducts.Count());
+            noMethionine.AddBiomarkers(initiatorMethionineBehavior: Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave);
+            Assert.AreEqual(11, noMethionine.ProteolysisProducts.Count());
+        }
+
+        [Test]
         public static void TestMethionineVariable()
         {
             //Note: existing proteoloysis products are now subjected to additional proteolysis.
