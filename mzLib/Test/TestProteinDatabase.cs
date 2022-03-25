@@ -7,6 +7,7 @@ using UsefulProteomicsDatabases;
 
 namespace Test
 {
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     [TestFixture]
     public sealed class TestProteinDatabase
     {
