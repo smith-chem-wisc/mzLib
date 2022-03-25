@@ -47,8 +47,9 @@ float isotopebeta(float mass, float* isoparams)
     return a * exp(-mass * b);
 }
 
-int setup_isotopes(float* isoparams, int* isotopepos, float* isotopeval, float* mtab, int* ztab, char* barr, float* dataMZ, int lengthmz, int numz)
+IsotopeStruct setup_isotopes(float* isoparams, int* isotopepos, float* isotopeval, float* mtab, int* ztab, char* barr, float* dataMZ, int lengthmz, int numz)
 {
+    IsotopeStruct isoStruct; 
     float minmass = 100000000;
     float maxmass = 1;
     int i;
@@ -62,17 +63,17 @@ int setup_isotopes(float* isoparams, int* isotopepos, float* isotopeval, float* 
         }
     }
 
-    float minmid = isotopemid(minmass, isoparams);
-    float minsig = isotopesig(minmass, isoparams);
-    float maxmid = isotopemid(maxmass, isoparams);
-    float maxsig = isotopesig(maxmass, isoparams);
+    isoStruct.minmid = isotopemid(minmass, isoparams);
+    isoStruct.minsig = isotopesig(minmass, isoparams);
+    isoStruct.maxmid = isotopemid(maxmass, isoparams);
+    isoStruct.maxsig = isotopesig(maxmass, isoparams);
 
-    int isostart = (int)(minmid - 4 * minsig);
-    int isoend = (int)(maxmid + 4 * maxsig);
+    int isostart = (int)(isoStruct.minmid - 4 * isoStruct.minsig);
+    int isoend = (int)(isoStruct.maxmid + 4 * isoStruct.maxsig);
     if (isostart < 0) { isostart = 0; }
     if (isoend < 4) { isoend = 4; }
-    int isolength = isoend - isostart;
-    return isolength;
+    isoStruct.isolength = isoend - isostart;
+    return isoStruct;
 }
 
 // use a pointer to pass minmid, maxmid, maxsig. 
@@ -114,7 +115,6 @@ void make_isotopes(float* isoparams, int* isotopepos, float* isotopeval, float* 
                 for (k = 0; k < isolength; k++)
                 {
                     float newmz = mz + (isorange[k] / ((float)z));
-                    // nearfast needs serious optimization or another way to do it... 
                     int pos = nearfast(dataMZ, newmz, lengthmz);
                     // reassignment might be able to be optimized. 
                     isotopepos[index3D(numz, isolength, i, j, k)] = pos;
@@ -208,7 +208,7 @@ void test_isotopes(float mass, float* isoparams)
 
 
 
-void setup_and_make_isotopes(Config* config, Input* inp) {
+/*void setup_and_make_isotopes(Config* config, Input* inp) {
 
     config->isolength = setup_isotopes(inp->isoparams, inp->isotopepos, inp->isotopeval, inp->mtab, inp->nztab, 
         inp->barr, inp->dataMZ, config->lengthmz, config->numz);
@@ -218,8 +218,9 @@ void setup_and_make_isotopes(Config* config, Input* inp) {
 
     make_isotopes(inp->isoparams, inp->isotopepos, inp->isotopeval, inp->mtab, inp->nztab, inp->barr, inp->dataMZ, config->lengthmz, config->numz);
 
-}
-void SetupAndMakeIsotopes(Config config, Input inp) {
+}*/
+
+/*void SetupAndMakeIsotopes(Config config, Input inp) {
     config.isolength = setup_isotopes(config.isolength, inp.isotopepos, inp.isotopeval, inp.mtab, inp.nztab,
         inp.barr, inp.dataMZ, config.lengthmz, config.numz); 
     inp.isotopepos = calloc(config.isolength * config.lengthmz * config.numz, sizeof(int)); 
@@ -227,7 +228,7 @@ void SetupAndMakeIsotopes(Config config, Input inp) {
 
     make_isotopes(inp.isoparams, inp.isotopepos, inp.isotopeval, inp.mtab, inp.nztab, inp.barr, inp.dataMZ,
         config.lengthmz, config.numz); 
-}
+}*/
 void monotopic_to_average(const int lengthmz, const int numz, float* blur, const char* barr, int isolength, const int* __restrict isotopepos, const float* __restrict isotopeval)
 {
     float* newblur = NULL;

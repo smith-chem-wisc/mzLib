@@ -78,7 +78,7 @@ namespace Test
 			 * the below method. 
 			 */
 			UniDecAPIMethods.UtilityMethods.ConvertASCIIBytesFromCToByteInCS(ref barr);
-			DirectUniDecPort.Blur.Isotopes.SetupAndMakeIsotopes2(config, inp);
+			//DirectUniDecPort.Blur.Isotopes.SetupAndMakeIsotopes2(config, inp);
 
 			float threshold = config.psthresh * Math.Abs(config.mzsig) * config.peakshapeinflate;
 
@@ -260,15 +260,7 @@ namespace Test
 			}
 
 		}
-		[Test]
-		public void TestSetupIsotopes()
-		{
-			int numberOfElementsInBarr = config.lengthmz * config.numz;
-			byte[] barr = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberOfElementsInBarr);
-			UniDecAPIMethods.UtilityMethods.ConvertASCIIBytesFromCToByteInCS(ref barr);
-			// this function wasn't complete after waiting nearly an hour. So it needs to be fixed. 
-			DirectUniDecPort.Blur.Isotopes.SetupAndMakeIsotopes2(config, inp);
-		}
+	
 		[Test]
 		[TestCase(1000.3f)]
 		[TestCase(8129f)]
@@ -308,6 +300,19 @@ namespace Test
 			}
 
 		}
+		[Test]
+		public void TestSetupIsotopes()
+		{
+			IsotopeStruct isoStruct = DirectUniDecPort.Blur.Isotopes.SetupIsotopes(config, inp);
+			PrintProperties(isoStruct); 
+		}
+		[Test]
+		public void TestMakeIsotopes()
+		{
+			IsotopeStruct isoStruct = DirectUniDecPort.Blur.Isotopes.SetupIsotopes(config, inp);
+			DirectUniDecPort.Blur.Isotopes.MakeIsotopes(config, inp, isoStruct);
+			int i = -1; 
+		}
 
 		public static int BinarySearch(float[] array, float searchVal, int leftIndex, int rightIndex)
 		{
@@ -328,5 +333,13 @@ namespace Test
 				return leftIndex; 
 			}
 		}
+		public void PrintProperties(object o)
+		{
+			foreach (var field in o.GetType().GetFields())
+			{
+				Console.WriteLine(field.Name + ": " + field.GetValue(o));
+			}
+		}
+
 	}
 }

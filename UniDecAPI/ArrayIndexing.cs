@@ -577,7 +577,7 @@ namespace UniDecAPI
 			}
 			public static unsafe class Isotopes
 			{
-				public static void SetupAndMakeIsotopes2(Config config, InputUnsafe inp)
+				/*public static void SetupAndMakeIsotopes2(Config config, InputUnsafe inp)
 				{
 					config.isolength = SetupIsotopes(config, inp);
 
@@ -592,7 +592,7 @@ namespace UniDecAPI
 							inp.isotopeops = isotopeposPtr; 
 						}
 					} 
-				}
+				}*/
 				public static float Isotopemid(float mass, float* isoparams)
 				{
 					float a, b, c;
@@ -632,24 +632,31 @@ namespace UniDecAPI
 				{
 					_SetupAndMakeIsotopes(config, inp); 
 				}
-				[DllImport("TestDLL.dll", EntryPoint = "SetupIsotopes")]
-				private static extern int _SetupIsotopes(float* isoparams, int* isotopepos, float* isotopeval, 
+				[DllImport("TestDLL.dll", EntryPoint = "setup_isotopes")]
+				private static extern IsotopeStruct _SetupIsotopes(float* isoparams, int* isotopepos, float* isotopeval, 
 					float* mtab, int* ztab, byte* barr, float* dataMZ, int lengthmz, int numz);
-				public static int SetupIsotopes(Config config, InputUnsafe inp)
+				public static IsotopeStruct SetupIsotopes(Config config, InputUnsafe inp)
 				{
-					return _SetupIsotopes(inp.isoparams, inp.isotopeops, inp.isotopeval, inp.mtab, inp.nztab,
-						inp.barr, inp.dataMZ, config.lengthmz, config.numz); 
+					fixed(float* isoparamsPtr = &InputUnsafe.isoparams[0])
+					{
+						return _SetupIsotopes(isoparamsPtr, inp.isotopeops, inp.isotopeval, inp.mtab, inp.nztab,
+						inp.barr, inp.dataMZ, config.lengthmz, config.numz);
+					}
 				}
 				[DllImport("TestDLL.dll", EntryPoint = "MakeIsotopes")]
 				private static extern void _MakeIsotopes(float* isoparams, int* isotopepos, float* isotopeval, float* mtab, int* ztab, 
 					byte* barr, float* dataMZ, int lengthmz, int numz); 
 				public static void MakeIsotopes(Config config, InputUnsafe inp, float* isotopeval, int* isotopepos)
 				{
-					_MakeIsotopes(inp.isoparams, isotopepos, isotopeval, inp.mtab, inp.nztab, inp.barr, inp.dataMZ,
-						config.lengthmz, config.numz); 
+					fixed (float* isoparamsPtr = &InputUnsafe.isoparams[0])
+					{
+						_MakeIsotopes(isoparamsPtr, isotopepos, isotopeval, inp.mtab, inp.nztab, inp.barr, inp.dataMZ,
+						config.lengthmz, config.numz);
+					}
 				}
 				public static void MakeIsotopes(Config config, InputUnsafe inp, IsotopeStruct isos)
 				{
+
 					float massdiff = 1.0026f;
 					int isostart = 0;
 					int isoend = (int)(isos.maxmid + 4 * isos.maxsig);
@@ -674,15 +681,20 @@ namespace UniDecAPI
 								float mz = inp.dataMZ[i];
 								int z = inp.nztab[i];
 
-
+								// need to declare variables outside fixed if going to use outside of fixed. 
+								float alpha, amp, beta, tot, mid, sig; 
 								float mass = inp.mtab[ArrayIndexing.Index2D(config.numz, i, j)];
-								float mid = Isotopemid(mass, inp.isoparams);
-								float sig = Isotopesig(mass, inp.isoparams);
 
-								float alpha = Isotopealpha(mass, inp.isoparams);
-								float amp = (1.0f - alpha) / (sig * 2.50662827f);
-								float beta = Isotopebeta(mass, inp.isoparams);
-								float tot = 0;
+								fixed (float* isoparamsPtr = &InputUnsafe.isoparams[0])
+								{
+									mid = Isotopemid(mass, isoparamsPtr);
+									sig = Isotopesig(mass, isoparamsPtr);
+
+									alpha = Isotopealpha(mass, isoparamsPtr);
+									amp = (1.0f - alpha) / (sig * 2.50662827f);
+									beta = Isotopebeta(mass, isoparamsPtr);
+									tot = 0;
+								}
 
 								for (int k = 0; k < isolength; k++)
 								{
@@ -699,7 +711,6 @@ namespace UniDecAPI
 									}
 									inp.isotopeval[ArrayIndexing.Index3D(config.numz, isolength, i, j, k)] = temp;
 								}
-
 							}
 						}
 					}
