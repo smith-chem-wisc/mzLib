@@ -280,10 +280,6 @@ namespace UsefulProteomicsDatabases
                         }
                         else
                         {
-                            if (addBiomarkers)
-                            {
-                                protein.AddBiomarkers();
-                            }
                             targets.Add(protein);
                         }
 
