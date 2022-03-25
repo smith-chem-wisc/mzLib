@@ -9,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Xml;
 using System.Xml.Serialization;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -417,7 +419,16 @@ namespace Test
                 unitName = "dalton",
                 value = "0.01"
             };
-            TextWriter writer = new StreamWriter("myIdentifications.mzid");
+
+            UTF8Encoding utf8EmitBOM = new UTF8Encoding(false);
+            XmlWriterSettings settings = new XmlWriterSettings()
+            {
+                NewLineChars = "\n",
+                Indent = true,
+                Encoding = utf8EmitBOM,
+            };
+            XmlWriter writer = XmlWriter.Create("myIdentifications.mzid", settings);
+
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
 
@@ -574,7 +585,16 @@ namespace Test
                 unitName = "dalton",
                 value = "0.01"
             };
-            TextWriter writer = new StreamWriter("myIdentifications.mzid");
+
+            UTF8Encoding utf8EmitBOM = new UTF8Encoding(false);
+            XmlWriterSettings settings = new XmlWriterSettings()
+            {
+                NewLineChars = "\n",
+                Indent = true,
+                Encoding = utf8EmitBOM,
+            };
+            XmlWriter writer = XmlWriter.Create("myIdentifications.mzid", settings);
+
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
 
@@ -842,7 +862,14 @@ namespace Test
                 unitName = "dalton",
                 value = "0.01"
             };
-            TextWriter writer = new StreamWriter("myIdentifications.mzid");
+            UTF8Encoding utf8EmitBOM = new UTF8Encoding(false);
+            XmlWriterSettings settings = new XmlWriterSettings()
+            {
+                NewLineChars = "\n",
+                Indent = true,
+                Encoding = utf8EmitBOM,
+            };
+            XmlWriter writer = XmlWriter.Create("myIdentifications.mzid", settings);
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
 
@@ -999,7 +1026,14 @@ namespace Test
                 unitName = "dalton",
                 value = "0.01"
             };
-            TextWriter writer = new StreamWriter("myIdentifications.mzid");
+            UTF8Encoding utf8EmitBOM = new UTF8Encoding(false);
+            XmlWriterSettings settings = new XmlWriterSettings()
+            {
+                NewLineChars = "\n",
+                Indent = true,
+                Encoding = utf8EmitBOM,
+            };
+            XmlWriter writer = XmlWriter.Create("myIdentifications.mzid", settings);
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
 
@@ -1162,7 +1196,14 @@ namespace Test
                 unitName = "dalton",
                 value = "0.01"
             };
-            TextWriter writer = new StreamWriter("myIdentifications.mzid");
+            UTF8Encoding utf8EmitBOM = new UTF8Encoding(false);
+            XmlWriterSettings settings = new XmlWriterSettings()
+            {
+                NewLineChars = "\n",
+                Indent = true,
+                Encoding = utf8EmitBOM,
+            };
+            XmlWriter writer = XmlWriter.Create("myIdentifications.mzid", settings);
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
 
@@ -1319,7 +1360,14 @@ namespace Test
                 unitName = "dalton",
                 value = "0.01"
             };
-            TextWriter writer = new StreamWriter("myIdentifications.mzid");
+            UTF8Encoding utf8EmitBOM = new UTF8Encoding(false);
+            XmlWriterSettings settings = new XmlWriterSettings()
+            {
+                NewLineChars = "\n",
+                Indent = true,
+                Encoding = utf8EmitBOM,
+            };
+            XmlWriter writer = XmlWriter.Create("myIdentifications.mzid", settings);
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
 
