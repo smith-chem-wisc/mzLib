@@ -25,7 +25,7 @@ namespace Test
             Assert.AreEqual(1, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
             Assert.AreEqual(10, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
 
-            List<int> expectedBegins = new List<int> { 1,2,3,4,5,6,1,1,1,1,1 };
+            List<int> expectedBegins = new List<int> { 1, 2, 3, 4, 5, 6, 1, 1, 1, 1, 1 };
             List<int> expectedEnds = new List<int> { 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105 };
             CollectionAssert.AreEquivalent(expectedBegins, insulinProteinFromFasta.ProteolysisProducts.Select(p => p.OneBasedBeginPosition).ToList());
             CollectionAssert.AreEquivalent(expectedEnds, insulinProteinFromFasta.ProteolysisProducts.Select(p => p.OneBasedEndPosition).ToList());
@@ -48,6 +48,7 @@ namespace Test
             CollectionAssert.AreEquivalent(expectedBegins, reportedBegins);
             CollectionAssert.AreEquivalent(expectedEnds, reportedEnds);
         }
+
         [Test]
         public static void TestMethionineCleave()
         {
@@ -60,7 +61,7 @@ namespace Test
 
             Assert.AreEqual(0, insulinProteinFromFasta.ProteolysisProducts.Count());
             insulinProteinFromFasta.AddBiomarkers(initiatorMethionineBehavior: Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave);
-            Assert.AreEqual(11, insulinProteinFromFasta.ProteolysisProducts.Count());            
+            Assert.AreEqual(11, insulinProteinFromFasta.ProteolysisProducts.Count());
         }
 
         [Test]
