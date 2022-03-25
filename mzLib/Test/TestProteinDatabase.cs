@@ -48,6 +48,35 @@ namespace Test
             CollectionAssert.AreEquivalent(expectedBegins, reportedBegins);
             CollectionAssert.AreEquivalent(expectedEnds, reportedEnds);
         }
+        [Test]
+        public static void TestMethionineCleave()
+        {
+            //Note: existing proteoloysis products are now subjected to additional proteolysis.
+
+            //with fasta (there are no existing proteolysis products. so we rely on the code to deal with that non-factor)
+            string fastaDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
+            Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: false)[0];
+
+            Assert.AreEqual(0, insulinProteinFromFasta.ProteolysisProducts.Count());
+            insulinProteinFromFasta.AddBiomarkers(initiatorMethionineBehavior: Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave);
+            Assert.AreEqual(11, insulinProteinFromFasta.ProteolysisProducts.Count());            
+        }
+
+        [Test]
+        public static void TestMethionineVariable()
+        {
+            //Note: existing proteoloysis products are now subjected to additional proteolysis.
+
+            //with fasta (there are no existing proteolysis products. so we rely on the code to deal with that non-factor)
+            string fastaDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
+            Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: false)[0];
+
+            Assert.AreEqual(0, insulinProteinFromFasta.ProteolysisProducts.Count());
+            insulinProteinFromFasta.AddBiomarkers(initiatorMethionineBehavior: Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Variable);
+            Assert.AreEqual(12, insulinProteinFromFasta.ProteolysisProducts.Count());
+        }
 
         [Test]
         public static void TestDoNotWriteBiomarkersToXml()
