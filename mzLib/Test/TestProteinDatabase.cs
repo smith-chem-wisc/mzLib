@@ -12,6 +12,96 @@ namespace Test
     public sealed class TestProteinDatabase
     {
         [Test]
+        public static void MakeAnewProteinWithAndWithoutBiomarkers()
+        {
+            Protein noBiomarkerProtein1 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Assert.AreEqual(0, noBiomarkerProtein1.ProteolysisProducts.Count());
+
+            noBiomarkerProtein1.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave, 7);
+            Assert.AreEqual(1, noBiomarkerProtein1.ProteolysisProducts.Count());
+
+            Protein noBiomarkerProtein2 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Assert.AreEqual(0, noBiomarkerProtein2.ProteolysisProducts.Count());
+
+            noBiomarkerProtein2.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Retain, 7);
+            Assert.AreEqual(1, noBiomarkerProtein2.ProteolysisProducts.Count());
+
+            Protein noBiomarkerProtein3 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Assert.AreEqual(0, noBiomarkerProtein3.ProteolysisProducts.Count());
+
+            noBiomarkerProtein3.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Variable, 7);
+            Assert.AreEqual(1, noBiomarkerProtein3.ProteolysisProducts.Count());
+
+            Protein biomarkerProtein1 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: true);
+            Assert.AreEqual(11, biomarkerProtein1.ProteolysisProducts.Count());
+
+            Protein biomarkerProtein2 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            biomarkerProtein2.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave, 7);
+            Assert.AreEqual(1, biomarkerProtein2.ProteolysisProducts.Count());
+        }
+
+        [Test]
+        public static void AddBiomarkersToProteolysisProducts()
+        {
+            //with xml, here for this protein, there are existing proteolysis products
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+            Protein insulinProteinFromXml1
+                = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications1, addBiomarkers: false)[0];
+
+            Assert.AreEqual(4, insulinProteinFromXml1.ProteolysisProducts.Count());
+            insulinProteinFromXml1.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Retain, 7, 5, "biomarker");
+            Assert.AreEqual(14, insulinProteinFromXml1.ProteolysisProducts.Count());
+
+            Protein insulinProteinFromXml2
+                = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications2, addBiomarkers: false)[0];
+
+            Assert.AreEqual(4, insulinProteinFromXml2.ProteolysisProducts.Count());
+            insulinProteinFromXml2.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave, 7, 5, "biomarker");
+            Assert.AreEqual(14, insulinProteinFromXml2.ProteolysisProducts.Count());
+
+            Protein insulinProteinFromXml3
+                = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications3, addBiomarkers: false)[0];
+
+            Assert.AreEqual(4, insulinProteinFromXml3.ProteolysisProducts.Count());
+            insulinProteinFromXml3.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Variable, 7, 5, "biomarker");
+            Assert.AreEqual(15, insulinProteinFromXml3.ProteolysisProducts.Count());
+        }
+
+        [Test]
+        public static void TestRemoveMethionineWhenAppropriate()
+        {
+            //with xml, here for this protein, there are existing proteolysis products
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+
+            Protein insulinProteinFromXml1
+                = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications1, addBiomarkers: false)[0];
+
+            Assert.AreEqual(4, insulinProteinFromXml1.ProteolysisProducts.Count());
+            insulinProteinFromXml1.RemoveMethionineWhenAppropriateFromExistingProduts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Retain);
+            Assert.AreEqual(1, insulinProteinFromXml1.ProteolysisProducts.First().OneBasedBeginPosition.Value);
+
+            Protein insulinProteinFromXml2
+                = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications2, addBiomarkers: false)[0];
+
+            Assert.AreEqual(4, insulinProteinFromXml2.ProteolysisProducts.Count());
+            insulinProteinFromXml2.RemoveMethionineWhenAppropriateFromExistingProduts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave);
+            Assert.AreEqual(2, insulinProteinFromXml2.ProteolysisProducts.ToList()[3].OneBasedBeginPosition.Value);
+
+            Protein insulinProteinFromXml3
+                = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications3, addBiomarkers: false)[0];
+
+            Assert.AreEqual(4, insulinProteinFromXml3.ProteolysisProducts.Count());
+            insulinProteinFromXml3.RemoveMethionineWhenAppropriateFromExistingProduts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Variable);
+            Assert.AreEqual(1, insulinProteinFromXml3.ProteolysisProducts.ToList()[0].OneBasedBeginPosition.Value);
+        }
+
+        [Test]
         public static void TestAddBiomarkersIntactAndExistingProteolysisProducts()
         {
             //Note: existing proteoloysis products are now subjected to additional proteolysis.

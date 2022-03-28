@@ -13,6 +13,12 @@ namespace Test
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestRawFileReader
     {
+        /// <summary>
+        /// Tests LoadAllStaticData for ThermoRawFileReader
+        /// </summary>
+        /// <param name="infile"></param>
+        /// <param name="outfile1"></param>
+        /// <param name="outfile2"></param>
         [Test]
         [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
         [TestCase("small.raw", "a.mzML", "aa.mzML")]
@@ -32,7 +38,9 @@ namespace Test
             Mzml.LoadAllStaticData(outfile2);
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
-
+        /// <summary>
+        /// Tests the dynamic connection for thermorawfilereader
+        /// </summary>
         [Test]
         public static void TestDynamicConnectionRawFileReader()
         {
@@ -64,7 +72,10 @@ namespace Test
 
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
-
+        /// <summary>
+        /// Test Peak Filtering for ThermoRawFileReader
+        /// </summary>
+        /// <param name="infile"></param>
         [Test]
         [TestCase("testFileWMS2.raw")]
         [TestCase("small.raw")]
@@ -111,7 +122,9 @@ namespace Test
             Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h " +
                 $"{stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
-
+        /// <summary>
+        /// Test Thermo License for ThermoRawFileReader
+        /// </summary>
         [Test]
         public static void TestThermoLicence()
         {

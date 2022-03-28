@@ -760,7 +760,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="existingProducts"></param>
         /// <param name="initiatorMethionineBehavior"></param>
-        private void RemoveMethionineWhenAppropriateFromExistingProduts(InitiatorMethionineBehavior initiatorMethionineBehavior)
+        public void RemoveMethionineWhenAppropriateFromExistingProduts(InitiatorMethionineBehavior initiatorMethionineBehavior)
         {
             List<ProteolysisProduct> productsAtNterminusWithMethionine = _proteolysisProducts.Where(p => !p.Type.Contains("biomarker") && !p.Type.Contains("intact") && p.OneBasedBeginPosition == 1).ToList();
 
@@ -789,7 +789,7 @@ namespace Proteomics
             }
         }
 
-        private void AddIntactProteoformToProteolysisProducts(InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength)
+        public void AddIntactProteoformToProteolysisProducts(InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength)
         {
             if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Retain || initiatorMethionineBehavior == InitiatorMethionineBehavior.Variable)
             {
