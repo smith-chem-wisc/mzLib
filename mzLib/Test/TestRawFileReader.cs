@@ -136,7 +136,10 @@ namespace Test
 
             Console.WriteLine($"Analysis time for TestThermoLicence: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
-
+        /// <summary>
+        /// Test that raw files can be opened dynamically in ThermoRawFileReader
+        /// </summary>
+        /// <param name="fileName"></param>
         [Test]
         [TestCase("small.RAW")]
         [TestCase("testFileWMS2.raw")]
@@ -199,7 +202,9 @@ namespace Test
                 }
             }
         }
-
+        /// <summary>
+        /// Tests that you can read EtHCD files in ThermoRawFileReader
+        /// </summary>
         [Test]
         public static void TestEthcdReading()
         {
