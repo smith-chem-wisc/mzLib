@@ -273,17 +273,13 @@ namespace UsefulProteomicsDatabases
                         }
                         unique_accessions.Add(accession);
                         Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
-                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation);
+                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation, addBiomarkers: addBiomarkers);
                         if (protein.Length == 0)
                         {
                             errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
                         }
                         else
                         {
-                            if (addBiomarkers)
-                            {
-                                protein.AddBiomarkers();
-                            }
                             targets.Add(protein);
                         }
 
