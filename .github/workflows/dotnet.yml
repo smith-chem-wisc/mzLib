@@ -17,31 +17,21 @@ jobs:
       with:
         dotnet-version: 5.0.x
     - name: Restore dependencies
-      run: cd mzLib; dotnet restore
+      run: cd mzLib && dotnet restore
     - name: Build
-      run:
-        cd mzLib;
-        dotnet build --no-restore;
-        dotnet build --no-restore ./Test/Test.csproj;
-        dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj;
-    - name: Add coverlet collector
-      run:
-        cd mzLib;
-        dotnet add Test/Test.csproj package coverlet.collector;
-        dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector;
+      run: cd mzLib && dotnet build --no-restore
+    - name: Build (Test)
+      run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    - name: Build (TestFlashLFQ)
+      run: cd mzLib && dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj
+    - name: Add coverlet collector (Test)
+      run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector
+    - name: Add coverlet collector (TestFlashLFQ)
+      run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector
     - name: Test
-      run:
-        cd mzLib;
-        dotnet test --no-build --verbosity normal
-          --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
-          ./Test/Test.csproj;
-        dotnet test --no-build --verbosity normal
-          --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
-          ./TestFlashLFQ/TestFlashLFQ.csproj;
-    - name: Directory lists
-      run:
-        ls;
-        ls mzLib;
+      run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
+    - name: TestFlashLFQ
+      run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./TestFlashLFQ/TestFlashLFQ.csproj
     - name: Codecov
       uses: codecov/codecov-action@v2
       with:

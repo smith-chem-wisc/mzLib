@@ -13,7 +13,7 @@ namespace Proteomics.ProteolyticDigestion
             PsiMsAccessionNumber = psiMSAccessionNumber;
             PsiMsName = psiMSName;
             DigestionMotifs = motifList ?? new List<DigestionMotif>();
-            CleavageMod = modDetails; 
+            CleavageMod = modDetails;
         }
 
         public string Name { get; }
@@ -21,7 +21,7 @@ namespace Proteomics.ProteolyticDigestion
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
         public List<DigestionMotif> DigestionMotifs { get; }
-        public Modification CleavageMod {get; set;}
+        public Modification CleavageMod { get; set; }
 
         public override string ToString()
         {
@@ -38,7 +38,6 @@ namespace Proteomics.ProteolyticDigestion
         {
             return (Name ?? "").GetHashCode();
         }
-               
 
         /// <summary>
         /// This method is used to determine cleavage specificity if the cleavage specificity is unknown
@@ -93,7 +92,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
         internal List<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
-            int minPeptideLength, int maxPeptideLength, Protease specificProtease)
+            int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownBiomarkerSearch = false)
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
 
@@ -112,7 +111,7 @@ namespace Proteomics.ProteolyticDigestion
             //top-down
             else if (CleavageSpecificity == CleavageSpecificity.None)
             {
-                if(specificProtease.Name != "top-down biomarker")
+                if (!topDownBiomarkerSearch)//standard top-down
                 {
                     // retain methionine
                     if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M')
@@ -128,10 +127,6 @@ namespace Proteomics.ProteolyticDigestion
                         peptides.Add(new ProteolyticPeptide(protein, 2, protein.Length, 0, CleavageSpecificity.Full, "full:M cleaved"));
                     }
                 }
-                else
-                {
-                    protein.AddBiomarkers(true, true, true, true, initiatorMethionineBehavior, minPeptideLength, 7);
-                }
 
                 // Also digest using the proteolysis product start/end indices
                 peptides.AddRange(
@@ -139,7 +134,7 @@ namespace Proteomics.ProteolyticDigestion
                     .Where(proteolysisProduct => proteolysisProduct.OneBasedEndPosition.HasValue && proteolysisProduct.OneBasedBeginPosition.HasValue
                         && OkayLength(proteolysisProduct.OneBasedEndPosition.Value - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptideLength, maxPeptideLength))
                     .Select(proteolysisProduct =>
-                        new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value, 0, CleavageSpecificity.Full, proteolysisProduct.Type)));
+                        new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value, 0, CleavageSpecificity.None, proteolysisProduct.Type)));
             }
 
             // Full proteolytic cleavage
@@ -547,7 +542,6 @@ namespace Proteomics.ProteolyticDigestion
 
             return intervals.Concat(fixedCTermIntervals).Concat(fixedNTermIntervals);
         }
-
 
         /// <summary>
         /// Gets peptides for the singleN protease
