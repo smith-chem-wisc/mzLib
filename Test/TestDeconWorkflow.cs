@@ -22,13 +22,19 @@ namespace Test
 		private float[] yarray;
 		public IntPtr xarrayPtr;
 		public IntPtr yarrayPtr;
+		public IntPtr isotopeposPtr;
+		public IntPtr isotopevalPtr; 
 
 		[OneTimeSetUp]
 		public void Init()
 		{
 			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
-			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
-			scan = testScan[0];
+			//List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
+			//scan = testScan[0];
+
+			FilteringParams filterParams = new(numberOfPeaksToKeepPerWindow:1, windowWidthThomsons: 2.006);
+			List<MsDataScan> testScanWithFilter = ThermoRawFileReader.LoadAllStaticData(path, filterParams).GetAllScansList();
+			scan = testScanWithFilter[0]; 
 
 			// setup the config struct
 			UniDecAPIMethods.ConfigMethods.CreateAndSetupConfig(scan, out config);
@@ -46,8 +52,10 @@ namespace Test
 			Marshal.Copy(xarray, 0, xarrayPtr, xarray.Length); 
 
 			yarrayPtr = Marshal.AllocHGlobal(Marshal.SizeOf(yarray[0]) * yarray.Length);
-			Marshal.Copy(yarray, 0, yarrayPtr, yarray.Length); 
+			Marshal.Copy(yarray, 0, yarrayPtr, yarray.Length);
+
 			
+
 			inp.dataInt = (float*)yarrayPtr;
 			inp.dataMZ = (float*)xarrayPtr;
 
@@ -55,12 +63,22 @@ namespace Test
 			// correctly assigns a value to inp.barr, but the value isn't correct. Need to make sure that it's 
 			// char on the C side. 
 			UniDecAPIMethods.UtilityMethods.SetLimits(config, inp);
+			IsotopeStruct isoStruct = DirectUniDecPort.Blur.Isotopes.SetupIsotopes(config, inp);
+			config.isolength = Math.Abs(isoStruct.isolength);
+			
+			isotopeposPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1) * config.isolength * config.lengthmz * config.numz);
+			isotopevalPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1f) * config.isolength * config.lengthmz * config.numz);
+			inp.isotopeops = (int*)isotopeposPtr;
+			inp.isotopeval = (float*)isotopevalPtr;
+			DirectUniDecPort.Blur.Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
 		}
 		[OneTimeTearDown]
 		public void TearDown()
 		{
 			Marshal.FreeHGlobal(xarrayPtr);
 			Marshal.FreeHGlobal(yarrayPtr);
+			Marshal.FreeHGlobal(isotopevalPtr);
+			Marshal.FreeHGlobal(isotopeposPtr); 
 		}
 
 		[Test]
@@ -153,7 +171,12 @@ namespace Test
 			{ 
 				betafactor = dmax; 
 			}
-			DirectUniDecPort.FitFunctions.KillB(inp, config, barr);
+
+			UniDecAPIMethods.UtilityMethods.KillB_CS(inp.dataInt, ref barr, config.intthresh, config.lengthmz, config.numz, config.isolength, 
+				inp.isotopeops, inp.isotopeval);
+			// DirectUniDecPort.FitFunctions.KillB(inp.dataInt, barr, 
+			//	config.intthresh, config.lengthmz, config.numz, 
+			//	config.isolength, inp.isotopeops, inp.isotopeval); 
 
 			deconResults.blur = new float[config.lengthmz * config.numz];
 			deconResults.newblur = new float[config.lengthmz * config.numz];
@@ -227,11 +250,11 @@ namespace Test
 			DirectUniDecPort.ArrayIndexing.ApplyCutoff1D(ref deconResults.blur, blurmax * cutoff, config.lengthmz * config.numz);
 
 			deconResults.fitdat = new float[config.lengthmz];
-
+			
 			// This line of code is currently not working. 
-			float rsquared = 0; 
 			deconResults.error = DirectUniDecPort.Blur.ErrorFunctions.ErrFunctionSpeedy(config, deconResults, barr, inp.dataInt, maxlength,
-				inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist); 
+				inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist);
+			/*
 			if(config.intthresh != -1)
 			{
 				for(int i = 0; i < config.lengthmz-1; i++)
@@ -243,7 +266,7 @@ namespace Test
 					}
 				}
 			}
-
+			
 			if(config.isotopemode == 2)
 			{
 				DirectUniDecPort.Blur.Isotopes.MonoisotopicToAverageMass(config, inp, deconResults, barr); 
@@ -258,9 +281,10 @@ namespace Test
 						starttab, endtab, mzdist, deconResults.blur, deconResults.newblur, config.speedyflag, barr); 
 				}
 			}
-
+			Assert.AreEqual(1, 1); 
+			*/
 		}
-	
+
 		[Test]
 		[TestCase(1000.3f)]
 		[TestCase(8129f)]
@@ -305,13 +329,43 @@ namespace Test
 		{
 			IsotopeStruct isoStruct = DirectUniDecPort.Blur.Isotopes.SetupIsotopes(config, inp);
 			PrintProperties(isoStruct); 
+			for(int i = 0; i < config.lengthmz; i++)
+			{
+				for(int j = 0; j < config.numz; j++)
+				{
+					for(int k = 0; k < 1; k++)
+					{
+						Console.WriteLine(inp.isotopeval[DirectUniDecPort.ArrayIndexing.Index3D(config.numz, 1, i, j, k)].ToString()); 
+					}
+				}
+			}
 		}
 		[Test]
 		public void TestMakeIsotopes()
 		{
 			IsotopeStruct isoStruct = DirectUniDecPort.Blur.Isotopes.SetupIsotopes(config, inp);
-			DirectUniDecPort.Blur.Isotopes.MakeIsotopes(config, inp, isoStruct);
-			int i = -1; 
+			config.isolength = Math.Abs(isoStruct.isolength); 
+			isotopeposPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1) * config.isolength * config.lengthmz * config.numz);
+			isotopevalPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1f) * config.isolength * config.lengthmz * config.numz);
+			inp.isotopeops = (int*)isotopeposPtr;
+			inp.isotopeval = (float*)isotopevalPtr;
+			DirectUniDecPort.Blur.Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
+		}
+		[Test]
+		public void TestIndex3DArray()
+		{
+			int[,,] test3DArray = new int[,,] 
+			{
+				{ { 0, 1, 2 } },
+				{ { 3, 4, 5 } },
+				{ { 6, 7, 8 } } 
+			};
+			int[] test1DArray = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+			int result = DirectUniDecPort.ArrayIndexing.Index3D(1, 3, 0, 1, 2);
+			int result2 = DirectUniDecPort.ArrayIndexing.Index3D(1, 3, 1, 2, 0); 
+			Assert.AreEqual(test1DArray[5], test1DArray[result]);
+			Assert.AreEqual(test1DArray[7], test1DArray[result2]);
+			//int shouldFail = test1DArray[DirectUniDecPort.ArrayIndexing.Index3D(1, 3, 3, 3, 3)]; 
 		}
 
 		public static int BinarySearch(float[] array, float searchVal, int leftIndex, int rightIndex)
@@ -340,6 +394,14 @@ namespace Test
 				Console.WriteLine(field.Name + ": " + field.GetValue(o));
 			}
 		}
-
+		public void TestHailMary()
+		{
+			// this didn't work sadly
+			UniDecAPIMethods.DeconMethods.MainDeconvolution(config, inp, 0, 0); 
+		}
+		public void TestBinning()
+		{
+			
+		}
 	}
 }

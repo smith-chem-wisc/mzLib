@@ -14,6 +14,6 @@ namespace UniDecAPI
 		public float minsig;
 		public float maxmid;
 		public float maxsig;
-		int isolength; 
+		public int isolength; 
 	}
 }

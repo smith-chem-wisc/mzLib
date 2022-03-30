@@ -14,8 +14,10 @@
 
 // Error calculations
 
-float errfunspeedy(Config config, Decon decon, const char* barr, const float* dataInt, const int maxlength,
-    const int* isotopepos, const float* isotopeval, const int* starttab, const int* endtab, const float* mzdist, float* rsquared)
+float errfunspeedy(Config config, Decon decon, const char* barr,
+    const float* dataInt, const int maxlength, const int* isotopepos, 
+    const float* isotopeval, const int* starttab, const int* endtab, 
+    const float* mzdist, float* rsquared)
 {
     //Get max intensity
     float maxint = 0;

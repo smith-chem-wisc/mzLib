@@ -27,10 +27,13 @@ namespace UniDecAPI
 			}
 
 			[DllImport("TestDLL.dll", EntryPoint = "PostImport")]
-			private static extern void _PostImport(ref Config config);
-			public static void PostImport(Config config)
+			private static unsafe extern void _PostImport(ref Config config);
+			public static void PostImport(ref Config config)
 			{
-				_PostImport(ref config); 
+				unsafe
+				{
+					_PostImport(ref config);
+				}
 			}
 
 			public static void SetupConfig(ref Config config, MsDataScan scan)
@@ -39,15 +42,13 @@ namespace UniDecAPI
 				config.filterwidth = 10;
 				config.minmz = (float)scan.MassSpectrum.XArray.Min();
 				config.maxmz = (float)scan.MassSpectrum.XArray.Max();
-				config.numz = 100;
-
 			}
 			public static void CreateAndSetupConfig(MsDataScan scan, out Config config)
 			{
 				config = new(); 
 				config = ModifyConfigToDefault(config);
 				SetupConfig(ref config, scan);
-				PostImport(config);
+				PostImport(ref config);
 			}
 		}
 	}

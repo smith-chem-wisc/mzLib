@@ -20,9 +20,7 @@ Input SetupInputs(void){
         inp.mtab = NULL;
         inp.barr = NULL;
         inp.isotopepos = NULL;
-        inp.isotopeval = NULL;
-        //Set default isotope parameters. These can be overwritten by config file.
-    
+        inp.isotopeval = NULL;    
         return inp;
 }
 

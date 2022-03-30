@@ -10,7 +10,7 @@ namespace UniDecAPI
 	{
 		public class UtilityMethods
 		{
-			public static unsafe void KillB_CS(ref float[] I, bool[] B, float intthresh, int lengthmz, int numz, int isolength, int[] isotopeops, float[] isotopeval)
+			public static unsafe void KillB_CS(float* I, ref byte[] B, float intthresh, int lengthmz, int numz, int isolength, int* isotopeops, float* isotopeval)
 			{
 				int i, j, k; 
 				if(isolength == 0)
@@ -42,7 +42,7 @@ namespace UniDecAPI
 								if(val > cutoff * max)
 								{
 									int pos = isotopeops[index3D(numz, isolength, i, j, k)]; 
-									if(I[pos] <= intthresh) { B[index2D(numz, i, j)] = false;  }
+									if(I[pos] <= intthresh) { B[index2D(numz, i, j)] = 0;  }
 								}
 							}
 						}
@@ -59,7 +59,7 @@ namespace UniDecAPI
 			}
 			// Creating an array from a pointer is not very fast, so you need to 
 			// use sparingly. 
-			public static unsafe float[] PtrToArray(float* pointer, int length)
+			public static unsafe float[] PtrToArray(float* pointer, long length)
 			{
 				float[] result = new float[length]; 
 				for(int i = 0; i < length; i++)

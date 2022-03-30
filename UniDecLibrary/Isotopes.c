@@ -52,8 +52,7 @@ IsotopeStruct setup_isotopes(float* isoparams, int* isotopepos, float* isotopeva
     IsotopeStruct isoStruct; 
     float minmass = 100000000;
     float maxmass = 1;
-    int i;
-    for (i = 0;i < lengthmz * numz;i++)
+    for (int i = 0;i < lengthmz * numz;i++)
     {
         if (barr[i] == 1)
         {

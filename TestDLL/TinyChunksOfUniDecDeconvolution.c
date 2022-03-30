@@ -745,7 +745,7 @@ Decon RunUniDecWithTestMainDeconAlgo(Input inp, Config config) {
     //Setup Isotope Distributions
     if (config.isotopemode > 0)
     {
-        setup_and_make_isotopes(&config, &inp);
+        //setup_and_make_isotopes(&config, &inp);
     }
     /*
     //................................................................

@@ -129,14 +129,11 @@ namespace Test
 		public void TestSetupInputs()
 		{
 			InputUnsafe inp = new();
-			try
-			{
 				inp = UniDecAPIMethods.InputMethods.SetupInputs();
 				PrintProperties(inp);
-			}
-			finally
+			for(int i = 0; i < 10; i++)
 			{
-				UniDecAPIMethods.InputMethods.FreeInputs(inp);
+				Console.WriteLine(InputUnsafe.isoparams[i]); 
 			}
 		}
 
@@ -336,14 +333,6 @@ namespace Test
 				inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
 			}
 		}
-
-		[Test]
-		public unsafe void TestCreateAndSetupConfig()
-		{
-			UniDecAPIMethods.ConfigMethods.CreateAndSetupConfig(scan, out Config config);
-			PrintProperties(config);
-		}
-
 		[Test]
 		public unsafe void TestPtrToArrayConversions()
 		{
@@ -400,6 +389,12 @@ namespace Test
 		{
 
 
+		}
+		[Test]
+		public void TestCreateAndSetupConfig()
+		{
+			UniDecAPIMethods.ConfigMethods.CreateAndSetupConfig(scan, out Config config);
+			Assert.AreEqual(99, config.numz); 
 		}
 
 

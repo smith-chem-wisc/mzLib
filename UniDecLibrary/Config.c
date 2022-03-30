@@ -10,8 +10,8 @@
 Config ModifyConfigToDefault(Config* config) {
     config->numit = 50;
     config->numz = 1;
-    config->endz = 100;
-    config->startz = 2;
+    config->endz = 35;
+    config->startz = 28;
     config->zsig = (float)1;
     config->psig = (float)1;
     config->beta = (float)0;
@@ -64,7 +64,7 @@ Config ModifyConfigToDefault(Config* config) {
     config->zout = 0;
     config->baselineflag = (int)1;
     config->noiseflag = 0;
-    //config->metamode = -2;
+    config->metamode = -2;
     config->minmz = (float)-1;
     config->maxmz = (float)-1;
     config->mzbins = 0;
@@ -92,7 +92,7 @@ Config ModifyConfigToDefault(Config* config) {
     return *config; 
 }
 
-void PostImport(Config *config)
+void PostImport(Config* config)
 {
     //Convert gaussian FWHM to sigma
     if (config->psfun == 0) { config->mzsig = config->mzsig / 2.35482; }
