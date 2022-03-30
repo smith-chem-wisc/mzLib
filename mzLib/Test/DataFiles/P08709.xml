@@ -1,0 +1,1703 @@
+<?xml version='1.0' encoding='utf-8'?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+ <entry dataset="Swiss-Prot" created="1988-01-01" modified="2021-09-29" version="271">
+<accession>P08709</accession>
+<accession>B0YJC8</accession>
+<accession>Q14339</accession>
+<accession>Q5JVF1</accession>
+<accession>Q5JVF2</accession>
+<accession>Q9UD52</accession>
+<accession>Q9UD53</accession>
+<accession>Q9UD54</accession>
+<name>FA7_HUMAN</name>
+<protein>
+<recommendedName>
+<fullName>Coagulation factor VII</fullName>
+<ecNumber>3.4.21.21</ecNumber>
+</recommendedName>
+<alternativeName>
+<fullName>Proconvertin</fullName>
+</alternativeName>
+<alternativeName>
+<fullName>Serum prothrombin conversion accelerator</fullName>
+<shortName>SPCA</shortName>
+</alternativeName>
+<innName>Eptacog alfa</innName>
+<component>
+<recommendedName>
+<fullName>Factor VII light chain</fullName>
+</recommendedName>
+</component>
+<component>
+<recommendedName>
+<fullName>Factor VII heavy chain</fullName>
+</recommendedName>
+</component>
+</protein>
+<gene>
+<name type="primary">F7</name>
+</gene>
+   <organism>
+     <name type="scientific">Homo sapiens</name>
+     <name type="common">Human</name>
+     <dbReference type="NCBI Taxonomy" id="9606"/>
+     <lineage>
+       <taxon>Eukaryota</taxon>
+       <taxon>Metazoa</taxon>
+       <taxon>Chordata</taxon>
+       <taxon>Craniata</taxon>
+       <taxon>Vertebrata</taxon>
+       <taxon>Euteleostomi</taxon>
+       <taxon>Mammalia</taxon>
+       <taxon>Eutheria</taxon>
+       <taxon>Euarchontoglires</taxon>
+       <taxon>Primates</taxon>
+       <taxon>Haplorrhini</taxon>
+       <taxon>Catarrhini</taxon>
+       <taxon>Hominidae</taxon>
+       <taxon>Homo</taxon>
+     </lineage>
+   </organism>
+<feature type="signal peptide" evidence="2">
+<location>
+<begin position="1"/>
+<end position="20"/>
+</location>
+</feature>
+<feature type="propeptide" id="PRO_0000027729" evidence="27">
+<location>
+<begin position="21"/>
+<end position="60"/>
+</location>
+</feature>
+<feature type="chain" description="Factor VII light chain" id="PRO_0000027730">
+<location>
+<begin position="61"/>
+<end position="212"/>
+</location>
+</feature>
+<feature type="chain" description="Factor VII heavy chain" id="PRO_0000027731">
+<location>
+<begin position="213"/>
+<end position="466"/>
+</location>
+</feature>
+<feature type="domain" description="Gla" evidence="5">
+<location>
+<begin position="61"/>
+<end position="105"/>
+</location>
+</feature>
+<feature type="domain" description="EGF-like 1; calcium-binding" evidence="3">
+<location>
+<begin position="106"/>
+<end position="142"/>
+</location>
+</feature>
+<feature type="domain" description="EGF-like 2" evidence="3">
+<location>
+<begin position="147"/>
+<end position="188"/>
+</location>
+</feature>
+<feature type="domain" description="Peptidase S1" evidence="4">
+<location>
+<begin position="213"/>
+<end position="452"/>
+</location>
+</feature>
+<feature type="active site" description="Charge relay system" evidence="1">
+<location>
+<position position="253"/>
+</location>
+</feature>
+<feature type="active site" description="Charge relay system" evidence="1">
+<location>
+<position position="302"/>
+</location>
+</feature>
+<feature type="active site" description="Charge relay system" evidence="1">
+<location>
+<position position="404"/>
+</location>
+</feature>
+<feature type="binding site" description="Substrate" evidence="1">
+<location>
+<position position="398"/>
+</location>
+</feature>
+<feature type="site" description="Important for S-112 for O-xylosylation">
+<location>
+<position position="113"/>
+</location>
+</feature>
+<feature type="site" description="Cleavage; by factor Xa, factor XIIa, factor IXa, or thrombin">
+<location>
+<begin position="212"/>
+<end position="213"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="66"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="67"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="74"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="76"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27">
+<location>
+<position position="79"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="80"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="85"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="86"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="89"/>
+</location>
+</feature>
+<feature type="modified residue" description="4-carboxyglutamate" evidence="5 27 28">
+<location>
+<position position="95"/>
+</location>
+</feature>
+<feature type="modified residue" description="(3R)-3-hydroxyaspartate" evidence="27">
+<location>
+<position position="123"/>
+</location>
+</feature>
+<feature type="glycosylation site" description="O-linked (Glc...) serine; alternate" id="CAR_000007" evidence="16 22 24 25">
+<location>
+<position position="112"/>
+</location>
+</feature>
+<feature type="glycosylation site" description="O-linked (Xyl...) serine; alternate" evidence="16 22 24 25">
+<location>
+<position position="112"/>
+</location>
+</feature>
+<feature type="glycosylation site" description="O-linked (Fuc) serine" id="CAR_000180" evidence="16 41">
+<location>
+<position position="120"/>
+</location>
+</feature>
+<feature type="glycosylation site" description="N-linked (GlcNAc...) asparagine" evidence="17 27">
+<location>
+<position position="205"/>
+</location>
+</feature>
+<feature type="glycosylation site" description="N-linked (GlcNAc...) asparagine" evidence="17 27">
+<location>
+<position position="382"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="77"/>
+<end position="82"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="110"/>
+<end position="121"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="115"/>
+<end position="130"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="132"/>
+<end position="141"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="151"/>
+<end position="162"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="158"/>
+<end position="172"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="174"/>
+<end position="187"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="195"/>
+<end position="322"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="219"/>
+<end position="224"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="238"/>
+<end position="254"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="370"/>
+<end position="389"/>
+</location>
+</feature>
+<feature type="disulfide bond">
+<location>
+<begin position="400"/>
+<end position="428"/>
+</location>
+</feature>
+<feature type="splice variant" description="In isoform B." id="VSP_005387" evidence="47 48">
+<location>
+<begin position="22"/>
+<end position="43"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; Morioka; dbSNP:rs387906507." id="VAR_014391" evidence="44">
+<original>L</original>
+<variation>P</variation>
+<location>
+<position position="13"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065369" evidence="21">
+<original>R</original>
+<variation>RR</variation>
+<location>
+<position position="59"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_015135" evidence="7 15">
+<original>F</original>
+<variation>L</variation>
+<location>
+<position position="64"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs45572939." id="VAR_014405" evidence="10 15">
+<original>L</original>
+<variation>Q</variation>
+<location>
+<position position="73"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_014406" evidence="10">
+<original>E</original>
+<variation>Q</variation>
+<location>
+<position position="79"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1448296564." id="VAR_065370" evidence="15">
+<original>C</original>
+<variation>F</variation>
+<location>
+<position position="82"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs745374448." id="VAR_065371" evidence="19">
+<original>C</original>
+<variation>R</variation>
+<location>
+<position position="82"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065372" evidence="15">
+<location>
+<position position="84"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs121964935." id="VAR_065373" evidence="11">
+<original>E</original>
+<variation>K</variation>
+<location>
+<position position="85"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs776354144." id="VAR_065374" evidence="15">
+<original>R</original>
+<variation>G</variation>
+<location>
+<position position="88"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065375" evidence="15">
+<original>R</original>
+<variation>P</variation>
+<location>
+<position position="88"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; exhibits no procoagulant activity and is unable to bind tissue factor; dbSNP:rs121964932." id="VAR_065376" evidence="42">
+<original>N</original>
+<variation>D</variation>
+<location>
+<position position="117"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_015136" evidence="7 15">
+<original>S</original>
+<variation>P</variation>
+<location>
+<position position="120"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_014407" evidence="10">
+<original>C</original>
+<variation>F</variation>
+<location>
+<position position="121"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_014408" evidence="10">
+<original>L</original>
+<variation>P</variation>
+<location>
+<position position="125"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_014409" evidence="7 10 15">
+<original>Y</original>
+<variation>C</variation>
+<location>
+<position position="128"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065377" evidence="15">
+<original>G</original>
+<variation>D</variation>
+<location>
+<position position="138"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_006497">
+<original>R</original>
+<variation>K</variation>
+<location>
+<position position="139"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; Charlotte; dbSNP:rs150525536." id="VAR_006498" evidence="15 33 34">
+<original>R</original>
+<variation>Q</variation>
+<location>
+<position position="139"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs776796178." id="VAR_006499" evidence="10 34">
+<original>R</original>
+<variation>W</variation>
+<location>
+<position position="139"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_014410" evidence="10">
+<original>C</original>
+<variation>S</variation>
+<location>
+<position position="151"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs146795869." id="VAR_015137" evidence="7 15">
+<original>E</original>
+<variation>K</variation>
+<location>
+<position position="154"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs563972504." id="VAR_065378" evidence="15">
+<original>G</original>
+<variation>S</variation>
+<location>
+<position position="156"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_006501">
+<original>G</original>
+<variation>C</variation>
+<location>
+<position position="157"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs763458490." id="VAR_006500" evidence="7 15">
+<original>G</original>
+<variation>S</variation>
+<location>
+<position position="157"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs771335282." id="VAR_014411" evidence="10">
+<original>G</original>
+<variation>V</variation>
+<location>
+<position position="157"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs200016360." id="VAR_006502" evidence="7 10 15 34">
+<original>Q</original>
+<variation>R</variation>
+<location>
+<position position="160"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs143855920." id="VAR_065379" evidence="15">
+<original>S</original>
+<variation>F</variation>
+<location>
+<position position="171"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065380" evidence="19">
+<original>G</original>
+<variation>R</variation>
+<location>
+<position position="177"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065381" evidence="15">
+<original>L</original>
+<variation>P</variation>
+<location>
+<position position="181"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1258691292." id="VAR_065382" evidence="15">
+<original>D</original>
+<variation>N</variation>
+<location>
+<position position="183"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs764971156." id="VAR_065383" evidence="15">
+<original>S</original>
+<variation>F</variation>
+<location>
+<position position="186"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1479693459." id="VAR_065384" evidence="15">
+<original>P</original>
+<variation>S</variation>
+<location>
+<position position="189"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065385" evidence="15">
+<original>P</original>
+<variation>L</variation>
+<location>
+<position position="194"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; Malta-I; dbSNP:rs1234759020." id="VAR_006503" evidence="15 43">
+<original>P</original>
+<variation>T</variation>
+<location>
+<position position="194"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs372577568." id="VAR_014412" evidence="7 10 15">
+<original>C</original>
+<variation>R</variation>
+<location>
+<position position="195"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1250204261." id="VAR_006504" evidence="34">
+<original>K</original>
+<variation>E</variation>
+<location>
+<position position="197"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs762621913." id="VAR_065386" evidence="19">
+<original>I</original>
+<variation>T</variation>
+<location>
+<position position="198"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; Charlotte; dbSNP:rs868044209." id="VAR_006505" evidence="7 15 19 33">
+<original>R</original>
+<variation>Q</variation>
+<location>
+<position position="212"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1438503836." id="VAR_015138" evidence="7 15">
+<original>G</original>
+<variation>D</variation>
+<location>
+<position position="216"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs121964928." id="VAR_006506" evidence="35">
+<original>C</original>
+<variation>Y</variation>
+<location>
+<position position="238"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065387" evidence="18">
+<original>G</original>
+<variation>R</variation>
+<location>
+<position position="240"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1160146175." id="VAR_014413" evidence="10 15">
+<original>T</original>
+<variation>N</variation>
+<location>
+<position position="241"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065388" evidence="23">
+<original>S</original>
+<variation>F</variation>
+<location>
+<position position="250"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065389" evidence="19">
+<original>A</original>
+<variation>P</variation>
+<location>
+<position position="251"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1269916662." id="VAR_065390" evidence="15">
+<original>A</original>
+<variation>T</variation>
+<location>
+<position position="251"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065391" evidence="15">
+<original>C</original>
+<variation>R</variation>
+<location>
+<position position="254"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_015139" evidence="7 15">
+<original>C</original>
+<variation>Y</variation>
+<location>
+<position position="254"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs753266903." id="VAR_065392" evidence="15">
+<original>L</original>
+<variation>P</variation>
+<location>
+<position position="264"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs764807079." id="VAR_015140" evidence="7 15">
+<original>A</original>
+<variation>T</variation>
+<location>
+<position position="266"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs751028917." id="VAR_065393" evidence="15">
+<original>D</original>
+<variation>N</variation>
+<location>
+<position position="272"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs550074221." id="VAR_065394" evidence="15">
+<original>D</original>
+<variation>N</variation>
+<location>
+<position position="277"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs779589651." id="VAR_006507" evidence="15 38">
+<original>R</original>
+<variation>W</variation>
+<location>
+<position position="283"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In dbSNP:rs6045." id="VAR_013936" evidence="6">
+<original>V</original>
+<variation>D</variation>
+<location>
+<position position="295"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065395" evidence="15">
+<original>T</original>
+<variation>I</variation>
+<location>
+<position position="298"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065396" evidence="15">
+<original>H</original>
+<variation>Q</variation>
+<location>
+<position position="301"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_014414" evidence="7 10 15">
+<original>D</original>
+<variation>H</variation>
+<location>
+<position position="302"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs770328850." id="VAR_014415" evidence="10 15">
+<original>D</original>
+<variation>N</variation>
+<location>
+<position position="302"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs773627551." id="VAR_014416" evidence="10 15">
+<original>A</original>
+<variation>T</variation>
+<location>
+<position position="304"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; Malta-II; dbSNP:rs121964931." id="VAR_006508" evidence="7 10 15 39 43">
+<original>A</original>
+<variation>V</variation>
+<location>
+<position position="304"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs147680958." id="VAR_014417" evidence="7 10 15">
+<original>R</original>
+<variation>C</variation>
+<location>
+<position position="307"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; Mie; dbSNP:rs121964929." id="VAR_006509" evidence="15 30">
+<original>R</original>
+<variation>H</variation>
+<location>
+<position position="307"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs201991361." id="VAR_015141" evidence="7 15">
+<original>V</original>
+<variation>M</variation>
+<location>
+<position position="312"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065397" evidence="21">
+<original>L</original>
+<variation>V</variation>
+<location>
+<position position="314"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs778138366." id="VAR_065398" evidence="15">
+<original>L</original>
+<variation>F</variation>
+<location>
+<position position="321"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065399" evidence="19">
+<original>L</original>
+<variation>R</variation>
+<location>
+<position position="323"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs749760143." id="VAR_006510" evidence="7 15 38">
+<original>E</original>
+<variation>K</variation>
+<location>
+<position position="325"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs146698837." id="VAR_065400" evidence="15">
+<original>R</original>
+<variation>Q</variation>
+<location>
+<position position="326"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs200212201." id="VAR_014418" evidence="10">
+<original>T</original>
+<variation>M</variation>
+<location>
+<position position="332"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs139372641." id="VAR_065401" evidence="15">
+<original>R</original>
+<variation>C</variation>
+<location>
+<position position="337"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_015142" evidence="7 15">
+<original>V</original>
+<variation>F</variation>
+<location>
+<position position="341"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1250853566." id="VAR_065402" evidence="15 21">
+<original>G</original>
+<variation>S</variation>
+<location>
+<position position="343"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_076570" evidence="26">
+<original>W</original>
+<variation>G</variation>
+<location>
+<position position="344"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065403" evidence="19">
+<original>W</original>
+<variation>R</variation>
+<location>
+<position position="344"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065404" evidence="15">
+<original>G</original>
+<variation>S</variation>
+<location>
+<position position="345"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs747876824." id="VAR_065405" evidence="15">
+<original>R</original>
+<variation>C</variation>
+<location>
+<position position="350"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In dbSNP:rs3093267." id="VAR_013122" evidence="46">
+<original>A</original>
+<variation>T</variation>
+<location>
+<position position="352"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs36209567." id="VAR_006511" evidence="7 10 13 15 31">
+<original>A</original>
+<variation>V</variation>
+<location>
+<position position="354"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs149283257." id="VAR_006512" evidence="7 10 15 32">
+<original>M</original>
+<variation>I</variation>
+<location>
+<position position="358"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs928183869." id="VAR_006513" evidence="38">
+<original>M</original>
+<variation>V</variation>
+<location>
+<position position="358"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065406" evidence="15">
+<original>L</original>
+<variation>P</variation>
+<location>
+<position position="360"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065407" evidence="15">
+<original>P</original>
+<variation>H</variation>
+<location>
+<position position="363"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs963430078." id="VAR_015143" evidence="7 15">
+<original>P</original>
+<variation>R</variation>
+<location>
+<position position="363"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; Harrow/Padua; dbSNP:rs121964926." id="VAR_006514" evidence="14 15 20 32 34 38">
+<original>R</original>
+<variation>Q</variation>
+<location>
+<position position="364"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs750980786." id="VAR_065408" evidence="15">
+<original>R</original>
+<variation>W</variation>
+<location>
+<position position="364"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In dbSNP:rs747673406." id="VAR_018671" evidence="29">
+<original>T</original>
+<variation>S</variation>
+<location>
+<position position="367"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs121964927." id="VAR_006515" evidence="7 10 14 15 19 32">
+<original>C</original>
+<variation>F</variation>
+<location>
+<position position="370"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs137919286." id="VAR_065409" evidence="15">
+<original>R</original>
+<variation>W</variation>
+<location>
+<position position="375"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs531225271." id="VAR_065410" evidence="15 19">
+<original>T</original>
+<variation>M</variation>
+<location>
+<position position="384"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1595080725." id="VAR_065411" evidence="15">
+<original>M</original>
+<variation>T</variation>
+<location>
+<position position="387"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1215224419." id="VAR_065412" evidence="15">
+<original>M</original>
+<variation>V</variation>
+<location>
+<position position="387"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; reduces tissue factor binding; impairs activation by factor Xa; abolishes amidolytic and coagulant activities; dbSNP:rs121964938." id="VAR_065413" evidence="15 40">
+<original>F</original>
+<variation>S</variation>
+<location>
+<position position="388"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs121964934." id="VAR_014392" evidence="9 10 21">
+<original>C</original>
+<variation>G</variation>
+<location>
+<position position="389"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065414" evidence="15">
+<original>G</original>
+<variation>C</variation>
+<location>
+<position position="391"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs190485816." id="VAR_014419" evidence="10 15">
+<original>G</original>
+<variation>S</variation>
+<location>
+<position position="391"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065415" evidence="19">
+<original>D</original>
+<variation>E</variation>
+<location>
+<position position="398"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs748979195." id="VAR_065416" evidence="15">
+<original>K</original>
+<variation>E</variation>
+<location>
+<position position="401"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_006517" evidence="38">
+<original>G</original>
+<variation>E</variation>
+<location>
+<position position="402"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_006516" evidence="32">
+<original>G</original>
+<variation>R</variation>
+<location>
+<position position="402"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_015144" evidence="7 15">
+<original>D</original>
+<variation>H</variation>
+<location>
+<position position="403"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065417" evidence="15">
+<original>S</original>
+<variation>N</variation>
+<location>
+<position position="404"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs121964936." id="VAR_065418" evidence="11">
+<original>H</original>
+<variation>Q</variation>
+<location>
+<position position="408"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1566910847." id="VAR_065419" evidence="19">
+<original>H</original>
+<variation>R</variation>
+<location>
+<position position="408"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065420" evidence="15">
+<original>R</original>
+<variation>G</variation>
+<location>
+<position position="413"/>
+</location>
+</feature>
+<feature type="sequence variant" description="May be associated with decreased susceptibility to myocardial infarction; dbSNP:rs6046." id="VAR_006518" evidence="6 8 13 32 38 46">
+<original>R</original>
+<variation>Q</variation>
+<location>
+<position position="413"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; results in severely impaired protein secretion; dbSNP:rs121964937." id="VAR_065421" evidence="12">
+<original>G</original>
+<variation>C</variation>
+<location>
+<position position="414"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs121964930." id="VAR_006519" evidence="7 15 37">
+<original>T</original>
+<variation>M</variation>
+<location>
+<position position="419"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065422" evidence="15">
+<original>V</original>
+<variation>F</variation>
+<location>
+<position position="422"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065423" evidence="15">
+<original>G</original>
+<variation>A</variation>
+<location>
+<position position="425"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D." id="VAR_065424" evidence="15">
+<original>G</original>
+<variation>C</variation>
+<location>
+<position position="425"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs755377592." id="VAR_065425" evidence="15">
+<original>A</original>
+<variation>T</variation>
+<location>
+<position position="429"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs1450120320." id="VAR_065426" evidence="15">
+<original>G</original>
+<variation>D</variation>
+<location>
+<position position="432"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs756956471." id="VAR_014420" evidence="10 15">
+<original>G</original>
+<variation>E</variation>
+<location>
+<position position="435"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In FA7D; dbSNP:rs758213652." id="VAR_065427" evidence="15">
+<original>Y</original>
+<variation>F</variation>
+<location>
+<position position="437"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In dbSNP:rs3093248." id="VAR_013123" evidence="46">
+<original>E</original>
+<variation>K</variation>
+<location>
+<position position="445"/>
+</location>
+</feature>
+<feature type="mutagenesis site" description="Complete loss of O-glycosylation and O-xylosylation by POGLUT1." evidence="24">
+<original>S</original>
+<variation>A</variation>
+<location>
+<position position="112"/>
+</location>
+</feature>
+<feature type="mutagenesis site" description="No effect on O-glycosylation by POGLUT1. Drastic decrease in O-xylosylation." evidence="24">
+<original>S</original>
+<variation>A</variation>
+<location>
+<position position="113"/>
+</location>
+</feature>
+<feature type="helix" evidence="54">
+<location>
+<begin position="66"/>
+<end position="68"/>
+</location>
+</feature>
+<feature type="helix" evidence="54">
+<location>
+<begin position="73"/>
+<end position="77"/>
+</location>
+</feature>
+<feature type="helix" evidence="54">
+<location>
+<begin position="84"/>
+<end position="91"/>
+</location>
+</feature>
+<feature type="helix" evidence="54">
+<location>
+<begin position="94"/>
+<end position="104"/>
+</location>
+</feature>
+<feature type="turn" evidence="54">
+<location>
+<begin position="109"/>
+<end position="112"/>
+</location>
+</feature>
+<feature type="turn" evidence="51">
+<location>
+<begin position="116"/>
+<end position="118"/>
+</location>
+</feature>
+<feature type="strand" evidence="54">
+<location>
+<begin position="120"/>
+<end position="124"/>
+</location>
+</feature>
+<feature type="strand" evidence="54">
+<location>
+<begin position="127"/>
+<end position="131"/>
+</location>
+</feature>
+<feature type="strand" evidence="54">
+<location>
+<begin position="136"/>
+<end position="138"/>
+</location>
+</feature>
+<feature type="helix" evidence="52">
+<location>
+<begin position="145"/>
+<end position="147"/>
+</location>
+</feature>
+<feature type="strand" evidence="51">
+<location>
+<begin position="148"/>
+<end position="150"/>
+</location>
+</feature>
+<feature type="turn" evidence="54">
+<location>
+<begin position="151"/>
+<end position="153"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="154"/>
+<end position="157"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="159"/>
+<end position="165"/>
+</location>
+</feature>
+<feature type="turn" evidence="55">
+<location>
+<begin position="166"/>
+<end position="168"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="169"/>
+<end position="173"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="178"/>
+<end position="180"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="187"/>
+<end position="189"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="191"/>
+<end position="193"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="199"/>
+<end position="205"/>
+</location>
+</feature>
+<feature type="helix" evidence="50">
+<location>
+<begin position="220"/>
+<end position="222"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="227"/>
+<end position="232"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="235"/>
+<end position="242"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="244"/>
+<end position="250"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="252"/>
+<end position="255"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="261"/>
+<end position="263"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="264"/>
+<end position="269"/>
+</location>
+</feature>
+<feature type="strand" evidence="53">
+<location>
+<begin position="272"/>
+<end position="274"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="281"/>
+<end position="291"/>
+</location>
+</feature>
+<feature type="strand" evidence="50">
+<location>
+<begin position="298"/>
+<end position="301"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="304"/>
+<end position="310"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="326"/>
+<end position="331"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="333"/>
+<end position="335"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="338"/>
+<end position="344"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="346"/>
+<end position="348"/>
+</location>
+</feature>
+<feature type="turn" evidence="49">
+<location>
+<begin position="352"/>
+<end position="355"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="358"/>
+<end position="365"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="367"/>
+<end position="373"/>
+</location>
+</feature>
+<feature type="turn" evidence="54">
+<location>
+<begin position="376"/>
+<end position="378"/>
+</location>
+</feature>
+<feature type="turn" evidence="54">
+<location>
+<begin position="380"/>
+<end position="382"/>
+</location>
+</feature>
+<feature type="helix" evidence="50">
+<location>
+<begin position="383"/>
+<end position="386"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="387"/>
+<end position="391"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="393"/>
+<end position="398"/>
+</location>
+</feature>
+<feature type="helix" evidence="56">
+<location>
+<begin position="401"/>
+<end position="403"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="407"/>
+<end position="412"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="415"/>
+<end position="422"/>
+</location>
+</feature>
+<feature type="turn" evidence="57">
+<location>
+<begin position="427"/>
+<end position="429"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="435"/>
+<end position="439"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="440"/>
+<end position="443"/>
+</location>
+</feature>
+<feature type="helix" evidence="55">
+<location>
+<begin position="444"/>
+<end position="451"/>
+</location>
+</feature>
+<feature type="strand" evidence="55">
+<location>
+<begin position="457"/>
+<end position="463"/>
+</location>
+</feature>
+<evidence key="1" type="ECO:0000250"/>
+<evidence key="2" type="ECO:0000255"/>
+<evidence key="3" type="ECO:0000255">
+<source>
+<dbReference type="PROSITE-ProRule" id="PRU00076"/>
+</source>
+</evidence>
+<evidence key="4" type="ECO:0000255">
+<source>
+<dbReference type="PROSITE-ProRule" id="PRU00274"/>
+</source>
+</evidence>
+<evidence key="5" type="ECO:0000255">
+<source>
+<dbReference type="PROSITE-ProRule" id="PRU00463"/>
+</source>
+</evidence>
+<evidence key="6" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="10391209"/>
+</source>
+</evidence>
+<evidence key="7" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="10862079"/>
+</source>
+</evidence>
+<evidence key="8" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="10984565"/>
+</source>
+</evidence>
+<evidence key="9" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="11091194"/>
+</source>
+</evidence>
+<evidence key="10" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="11129332"/>
+</source>
+</evidence>
+<evidence key="11" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="12472587"/>
+</source>
+</evidence>
+<evidence key="12" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="14717781"/>
+</source>
+</evidence>
+<evidence key="13" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="16292673"/>
+</source>
+</evidence>
+<evidence key="14" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="1634227"/>
+</source>
+</evidence>
+<evidence key="15" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="18976247"/>
+</source>
+</evidence>
+<evidence key="16" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="1904059"/>
+</source>
+</evidence>
+<evidence key="17" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="19167329"/>
+</source>
+</evidence>
+<evidence key="18" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="19432927"/>
+</source>
+</evidence>
+<evidence key="19" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="19751712"/>
+</source>
+</evidence>
+<evidence key="20" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="2070047"/>
+</source>
+</evidence>
+<evidence key="21" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="21206266"/>
+</source>
+</evidence>
+<evidence key="22" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="2129367"/>
+</source>
+</evidence>
+<evidence key="23" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="21372693"/>
+</source>
+</evidence>
+<evidence key="24" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="21949356"/>
+</source>
+</evidence>
+<evidence key="25" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="2511201"/>
+</source>
+</evidence>
+<evidence key="26" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="26761581"/>
+</source>
+</evidence>
+<evidence key="27" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="3264725"/>
+</source>
+</evidence>
+<evidence key="28" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="3486420"/>
+</source>
+</evidence>
+<evidence key="29" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="7860081"/>
+</source>
+</evidence>
+<evidence key="30" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="7974346"/>
+</source>
+</evidence>
+<evidence key="31" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="7981691"/>
+</source>
+</evidence>
+<evidence key="32" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8043443"/>
+</source>
+</evidence>
+<evidence key="33" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8204879"/>
+</source>
+</evidence>
+<evidence key="34" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8242057"/>
+</source>
+</evidence>
+<evidence key="35" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8364544"/>
+</source>
+</evidence>
+<evidence key="36" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8598903"/>
+</source>
+</evidence>
+<evidence key="37" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8652821"/>
+</source>
+</evidence>
+<evidence key="38" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8844208"/>
+</source>
+</evidence>
+<evidence key="39" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8883260"/>
+</source>
+</evidence>
+<evidence key="40" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="8940045"/>
+</source>
+</evidence>
+<evidence key="41" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="9023546"/>
+</source>
+</evidence>
+<evidence key="42" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="9414278"/>
+</source>
+</evidence>
+<evidence key="43" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="9452082"/>
+</source>
+</evidence>
+<evidence key="44" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="9576180"/>
+</source>
+</evidence>
+<evidence key="45" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="9925787"/>
+</source>
+</evidence>
+<evidence key="46" type="ECO:0000269">
+<source ref="6"/>
+</evidence>
+<evidence key="47" type="ECO:0000303">
+<source>
+<dbReference type="PubMed" id="15489334"/>
+</source>
+</evidence>
+<evidence key="48" type="ECO:0000303">
+<source>
+<dbReference type="PubMed" id="3486420"/>
+</source>
+</evidence>
+<evidence key="49" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="1DVA"/>
+</source>
+</evidence>
+<evidence key="50" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="1JBU"/>
+</source>
+</evidence>
+<evidence key="51" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="1QFK"/>
+</source>
+</evidence>
+<evidence key="52" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="2C4F"/>
+</source>
+</evidence>
+<evidence key="53" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="2FLB"/>
+</source>
+</evidence>
+<evidence key="54" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="4YLQ"/>
+</source>
+</evidence>
+<evidence key="55" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="5PAG"/>
+</source>
+</evidence>
+<evidence key="56" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="5PAK"/>
+</source>
+</evidence>
+<evidence key="57" type="ECO:0007829">
+<source>
+<dbReference type="PDB" id="5PAX"/>
+</source>
+</evidence>
+<sequence length="466" mass="51594" checksum="9B5D501669D67B06" modified="1988-01-01" version="1" precursor="true">
+MVSQALRLLCLLLGLQGCLAAGGVAKASGGETRDMPWKPGPHRVFVTQEEAHGVLHRRRRANAFLEELRPGSLERECKEEQCSFEEAREIFKDAERTKLFWISYSDGDQCASSPCQNGGSCKDQLQSYICFCLPAFEGRNCETHKDDQLICVNENGGCEQYCSDHTGTKRSCRCHEGYSLLADGVSCTPTVEYPCGKIPILEKRNASKPQGRIVGGKVCPKGECPWQVLLLVNGAQLCGGTLINTIWVVSAAHCFDKIKNWRNLIAVLGEHDLSEHDGDEQSRRVAQVIIPSTYVPGTTNHDIALLRLHQPVVLTDHVVPLCLPERTFSERTLAFVRFSLVSGWGQLLDRGATALELMVLNVPRLMTQDCLQQSRKVGDSPNITEYMFCAGYSDGSKDSCKGDSGGPHATHYRGTWYLTGIVSWGQGCATVGHFGVYTRVSQYIEWLQKLMRSEPRPGVLLRAPFP
+</sequence>
+</entry>
+  <copyright>
+    Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms Distributed under the Creative Commons Attribution (CC BY 4.0) License
+  </copyright>
+</uniprot>  
