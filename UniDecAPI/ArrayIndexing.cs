@@ -736,24 +736,51 @@ namespace UniDecAPI
 			{
 				[DllImport("TestDLL.dll", EntryPoint = "errfunspeedy")]
 				private static extern float _ErrFunctionSpeedy(Config config, Decon decon, byte* barr, float* dataInt, int maxlength,
-					int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, ref float rsquared); 
+					int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, float rsquared, 
+					float* fitdat, float* blur, float* baseline); 
 				
 				public static float ErrFunctionSpeedy(Config config, Decon decon, byte[] barr, float* dataInt, int maxlength,
 					int* isotopepos, float* isotopeval, int[] starttab, int[] endtab, float[] mzdist)
 				{ 
+					// the issue is that it requires quite a few calls to Decon's arrays. So I need to actually break it out 
+					// into many more pointers. 
 					fixed (int* starttabPtr = &starttab[0], endtabPtr = &endtab[0])
 					{
-						fixed(float* mzdistPtr = &mzdist[0])
+						fixed(float* mzdistPtr = &mzdist[0], fitdatPtr = &decon.fitdat[0], 
+							blurPtr = &decon.blur[0], baselinePtr = &decon.baseline[0])
 						{
 							fixed(byte* barrPtr = &barr[0])
 							{
 								return _ErrFunctionSpeedy(config, decon, barrPtr, dataInt, maxlength, isotopepos, isotopeval,
-											starttabPtr, endtabPtr, mzdistPtr, ref decon.rsquared);
+											starttabPtr, endtabPtr, mzdistPtr, decon.rsquared, fitdatPtr, blurPtr, baselinePtr);
 							}
 						}
 					}
-					
 				}
+				/*public static float ErrorFunctionSpeedyDirect(Config config, Decon decon, byte[] barr, 
+					float* dataInt, int maxLength, int* isotopepos, float* isotopeval, int* starttab, 
+					int* endtab, float* mzdist, float rsquared)
+				{
+					float maxint = 0; 
+					for(int i = 0; i < config.lengthmz; i++)
+					{
+						if(dataInt[i] > maxint)
+						{
+							maxint = dataInt[i]; 
+						}
+					}
+
+					if(config.baselineflag == 1)
+					{
+						for(int i = 0; i < config.lengthmz; i++)
+						{
+							decon.fitdat[i] += decon.baseline[i]; 
+						}
+					}
+					
+
+				}
+				public static extern float */
 			}
 			public static unsafe class MassIntensityDetermination
 			{
@@ -842,8 +869,8 @@ namespace UniDecAPI
 			}
 			public static unsafe class Scoring
 			{
-				[DllImport("TestDLL.dll", EntryPoint = "score")]
-				private static extern float _UniScore(Config config, Decon decon, InputUnsafe inp, float scoreThreshold); 
+				[DllImport("TestDLL.dll", EntryPoint = "performScoring")]
+				private static extern float _UniScore(Config config, [In, Out] Decon decon, InputUnsafe inp, float scoreThreshold); 
 				public static float UniScore(Config config, Decon decon, InputUnsafe inp, float scoreThreshold)
 				{
 					return _UniScore(config, decon, inp, scoreThreshold); 

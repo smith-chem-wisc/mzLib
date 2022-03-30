@@ -509,7 +509,7 @@ float score_from_peaks(const int plen, const float *peakx, const float *peaky, f
     return uniscore;
 }
 
-float score(Config config, Decon *decon, Input inp, const float threshold)
+__declspec(dllexport) float performScoring(Config config, Decon *decon, Input inp, const float threshold)
 {
     //printf("Starting Score %f %f\n", config.peakwin, config.peakthresh);
     

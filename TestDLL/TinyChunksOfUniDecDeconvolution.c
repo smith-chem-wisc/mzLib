@@ -186,7 +186,7 @@ int MemoryObjectAllocationToHeap(Config config, Input inp) {
     return 1; 
 }
 
-int MemoryObjectAllocationToHeapConfigPtr(Config *config, Input inp) {
+/*int MemoryObjectAllocationToHeapConfigPtr(Config* config, Input inp) {
     // Memory allocation to decon is the issue. 
     // set up the memroy
     // pointers are set to null because not all of them are used. 
@@ -226,7 +226,8 @@ int MemoryObjectAllocationToHeapConfigPtr(Config *config, Input inp) {
 
     float threshold = config->psthresh * (float)fabs((double)config->mzsig) * config->peakshapeinflate;
     int maxlength = SetStartsEnds(*config, &inp, starttab, endtab, threshold);
-    decon.error = errfunspeedy(*config, decon, barr, inp.dataInt, maxlength, inp.isotopepos, inp.isotopeval, starttab, endtab, mzdist, &decon.rsquared);
+    decon.error = errfunspeedy(*config, decon, barr, inp.dataInt, maxlength, inp.isotopepos, inp.isotopeval, starttab, endtab, mzdist, decon.rsquared);
+    decon.error = errfunspeedy(*config, decon, barr, inp.dataInt, maxlength, inp.isotopepos, inp.isotopeval, starttab, endtab, mzdist, decon.rsquared);
 
     //memcpy(decon.newblur, decon.blur, (config->lengthmz * config->numz) * sizeof(float));
     //decon.massaxis = calloc(decon.mlen, sizeof(float));
@@ -257,7 +258,7 @@ int MemoryObjectAllocationToHeapConfigPtr(Config *config, Input inp) {
     FreeDecon(decon); 
     return 1;
 }
-
+*/
 int TestSetStartEnds(Input inp, Config config) {
     int* starttab = calloc(config.lengthmz, sizeof(int));
     int* endtab = calloc(config.lengthmz, sizeof(int));
@@ -553,8 +554,8 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
 
     //Calculate the fit data and error.
     decon.fitdat = calloc(config.lengthmz, sizeof(float));
-    decon.error = errfunspeedy(config, decon, barr, inp.dataInt, maxlength, inp.isotopepos, inp.isotopeval, 
-        starttab, endtab, mzdist, &decon.rsquared);
+    /*decon.error = errfunspeedy(config, decon, barr, inp.dataInt, maxlength, inp.isotopepos, inp.isotopeval,
+        starttab, endtab, mzdist, &decon.rsquared);*/
 
     //Fix issues with fitdat and consecutive zero data points
     //TODO: It might be possible to build this in to convolve_simp so that this isn't necessary but it would require a 1D barr.
@@ -712,7 +713,7 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
 
     //Note this will not execute if the mass axis is bad
     float scorethreshold = 0;
-    decon.uniscore = score(config, &decon, inp, scorethreshold);
+    decon.uniscore = performScoring(config, &decon, inp, scorethreshold);
 
     }
     //Free Memory

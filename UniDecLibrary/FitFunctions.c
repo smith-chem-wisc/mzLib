@@ -12,8 +12,10 @@
 #include "Convolution.h"
 // Fit functions
 
-float getfitdatspeedy(float* fitdat, const float* blur, const char* barr, const int lengthmz, const int numz, const int maxlength, const float maxint,
-    const int isolength, const int* isotopepos, const float* isotopeval, const int* starttab, const int* endtab, const float* mzdist, const int speedyflag)
+float getfitdatspeedy(float* fitdat, const float* blur, const char* barr, const int lengthmz, 
+    const int numz, const int maxlength, const float maxint, const int isolength, 
+    const int* isotopepos, const float* isotopeval, const int* starttab, const int* endtab, 
+    const float* mzdist, const int speedyflag)
 {
     unsigned int i, j, k;
     float* deltas = NULL;

@@ -94,7 +94,7 @@ void SetLimits(Config config, Input* inp) {
 }
 
 
-Decon run_unidec(Input inp, Config config) {
+/*Decon run_unidec(Input inp, Config config) {
     
     // Called by C# calling code instead: 
     // ReadInputsByValue(inp, &config);
@@ -117,10 +117,10 @@ Decon run_unidec(Input inp, Config config) {
     //Run the main Deconvolution		
     Decon decon = MainDeconvolution(config, inp);
     return decon; 
-}
+}*/
 
 
-Decon MainDeconvolution(const Config config, const Input inp)
+/*
 {
     // get rid of all the file import 
     Decon decon = SetupDecon();
@@ -470,7 +470,7 @@ Decon MainDeconvolution(const Config config, const Input inp)
     
     //Calculate the fit data and error.
     decon.fitdat = calloc(config.lengthmz, sizeof(float));
-    decon.error = errfunspeedy(config, decon, barr, inp.dataInt, maxlength, inp.isotopepos, inp.isotopeval, starttab, endtab, mzdist, &decon.rsquared);
+    decon.error = errfunspeedy(config, decon, barr, inp.dataInt, maxlength, inp.isotopepos, inp.isotopeval, starttab, endtab, mzdist, decon.rsquared);
 
     //Fix issues with fitdat and consecutive zero data points
     //TODO: It might be possible to build this in to convolve_simp so that this isn't necessary but it would require a 1D barr.
@@ -649,7 +649,7 @@ Decon MainDeconvolution(const Config config, const Input inp)
     free(barr);
     free(closeind);
     return decon;
-}
+}*/
 
 // got rid of autotune and run unidec. Focusing only on the main deconvolution function for mzLib import
 

@@ -17,7 +17,7 @@
 float errfunspeedy(Config config, Decon decon, const char* barr,
     const float* dataInt, const int maxlength, const int* isotopepos, 
     const float* isotopeval, const int* starttab, const int* endtab, 
-    const float* mzdist, float* rsquared)
+    const float* mzdist, float rsquared, float* fitdat, float* blur, float* baseline)
 {
     //Get max intensity
     float maxint = 0;
@@ -26,18 +26,18 @@ float errfunspeedy(Config config, Decon decon, const char* barr,
         if (dataInt[i] > maxint) { maxint = dataInt[i]; }
     }
 
-    getfitdatspeedy(decon.fitdat, decon.blur, barr, config.lengthmz, config.numz, maxlength,
+    float fitmax = getfitdatspeedy(fitdat, blur, barr, config.lengthmz, config.numz, maxlength,
         maxint, config.isolength, isotopepos, isotopeval, starttab, endtab, mzdist, config.speedyflag);
 
     if (config.baselineflag == 1)
     {
 #pragma omp parallel for schedule(auto)
         for (int i = 0; i < config.lengthmz; i++) {
-            decon.fitdat[i] += decon.baseline[i];// +decon.noise[i];
+            fitdat[i] += baseline[i];// +decon.noise[i];
             //decon.fitdat[i] = decon.noise[i]+0.1;
         }
     }
-    ApplyCutoff1D(decon.fitdat, 0, config.lengthmz);
+    ApplyCutoff1D(fitdat, 0, config.lengthmz);
 
     float fitmean = Average(config.lengthmz, dataInt);
 
@@ -45,12 +45,12 @@ float errfunspeedy(Config config, Decon decon, const char* barr,
     float sstot = 0;
     for (int i = 0;i < config.lengthmz;i++)
     {
-        error += pow((decon.fitdat[i] - dataInt[i]), 2);
+        error += pow((fitdat[i] - dataInt[i]), 2);
         sstot += pow((dataInt[i] - fitmean), 2);
     }
 
     //Calculate R-squared
-    if (sstot != 0) { *rsquared = 1 - (error / sstot); }
+    if (sstot != 0) { decon.rsquared = 1 - (error / sstot); }
 
     return error;
 }
