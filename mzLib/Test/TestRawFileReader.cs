@@ -40,7 +40,7 @@ namespace Test
         }
 
         /// <summary>
-        /// Tests the dynamic connection for ThermoRawFileReader
+        /// Tests the dynamic connection for thermorawfilereader
         /// </summary>
         [Test]
         public static void TestDynamicConnectionRawFileReader()
@@ -126,7 +126,7 @@ namespace Test
         }
 
         /// <summary>
-        /// Just makes sure the Thermo RawFileReader licence is accessible...
+        /// Test Thermo License for ThermoRawFileReader
         /// </summary>
         [Test]
         public static void TestThermoLicence()
@@ -141,7 +141,7 @@ namespace Test
         }
 
         /// <summary>
-        /// Test dynamic reading of RAW files
+        /// Test that raw files can be opened dynamically in ThermoRawFileReader
         /// </summary>
         /// <param name="fileName"></param>
         [Test]
@@ -208,7 +208,7 @@ namespace Test
         }
 
         /// <summary>
-        /// Test reading ET-HCD files
+        /// Tests that you can read EtHCD files in ThermoRawFileReader
         /// </summary>
         [Test]
         public static void TestEthcdReading()
