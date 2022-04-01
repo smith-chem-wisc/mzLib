@@ -171,8 +171,9 @@ float single_fwhm(Config config, const int mlen, const float* massaxis, const fl
     return fwhm;
 }
 
-float uscore(Config config, const float* dataMZ, const float* dataInt, const float* mzgrid, const int* nztab,
-    const float mlow, const float mhigh, const float peak)
+float uscore(Config config, const float* dataMZ, const float* dataInt,
+    const float* mzgrid, const int* nztab, const float mlow, const float mhigh, 
+    const float peak)
 {
     float power = 2;
     //float* errors = NULL;
@@ -463,7 +464,9 @@ float fscore(Config config, const int plen, const int mlen, const float* massaxi
 }
 
 
-float score_from_peaks(const int plen, const float *peakx, const float *peaky, float *dscores, const Config config, Decon *decon, const Input inp, const float threshold) {
+__declspec(dllexport) float score_from_peaks(const int plen, const float *peakx, 
+    const float *peaky, float *dscores, const Config config, Decon *decon, 
+    const Input inp, const float threshold) {
 
     float xfwhm = 2;
     float* fwhmlow = NULL;
@@ -473,7 +476,8 @@ float score_from_peaks(const int plen, const float *peakx, const float *peaky, f
     fwhmhigh = calloc(plen, sizeof(float));
     badfwhm = calloc(plen, sizeof(float));
 
-    get_fwhms(config, plen, decon->mlen, decon->massaxis, decon->massaxisval, peakx, fwhmlow, fwhmhigh, badfwhm);
+    get_fwhms(config, plen, decon->mlen, decon->massaxis, decon->massaxisval, peakx, 
+        fwhmlow, fwhmhigh, badfwhm);
 
     float numerator = 0;
     float denominator = 0;
@@ -489,21 +493,21 @@ float score_from_peaks(const int plen, const float *peakx, const float *peaky, f
         float height = decon->massaxisval[index];
 
         float usc = uscore(config, inp.dataMZ, inp.dataInt, decon->newblur, inp.nztab, l, h, m);
-        float msc = mscore(config, decon->mlen, decon->massaxis, decon->massaxisval, decon->massgrid, l, h, m);
-        float cssc = csscore(config, decon->mlen, decon->massaxis, decon->massaxisval, decon->massgrid, l, h, m);
-        float fsc = fscore(config, plen, decon->mlen, decon->massaxis, decon->massaxisval, peakx, height, fwhmlow[i], fwhmhigh[i], m, badfwhm[i]);
+        float msc = mscore(config, decon->mlen, decon->massaxis, decon->massaxisval, 
+            decon->massgrid, l, h, m);
+        float cssc = csscore(config, decon->mlen, decon->massaxis, decon->massaxisval, 
+            decon->massgrid, l, h, m);
+        float fsc = fscore(config, plen, decon->mlen, decon->massaxis, decon->massaxisval, 
+            peakx, height, fwhmlow[i], fwhmhigh[i], m, badfwhm[i]);
 
         float dsc = usc * msc * cssc * fsc;
         dscores[i] = dsc;
         if (dsc > threshold)
         {
-            //printf("Peak: Mass:%f Int:%f M:%f U:%f CS:%f F:%f D: %f \n", peakx[i], peaky[i], msc, usc, cssc, fsc, dsc);
             numerator += ival * ival * dsc;
             denominator += ival * ival;
         }
     }
-
-    //printf("R Squared: %f\n", decon->rsquared);
 
     if (denominator != 0) { uniscore = decon->rsquared * numerator / denominator; }
     return uniscore;

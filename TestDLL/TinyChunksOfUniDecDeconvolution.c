@@ -694,8 +694,9 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
         }
         else if (config.poolflag == 2) {
             if (config.rawflag == 1 || config.rawflag == 3) {
-                SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis, config.adductmass,
-                    inp.dataMZ, decon.massgrid, decon.massaxisval, decon.blur);
+                SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, 
+                    decon.massaxis, config.adductmass, inp.dataMZ, decon.massgrid, 
+                    decon.massaxisval, decon.blur);
             }
             if (config.rawflag == 0 || config.rawflag == 2) {
                 SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis, config.adductmass,

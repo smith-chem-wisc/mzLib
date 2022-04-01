@@ -19,8 +19,8 @@
 
 void interpolate_merge(const float *massaxis, float *outint, const float *tempaxis, const float *tempint, const int mlen, const int templen);
 int is_peak(const float *dataMZ, const float *dataInt, const int lengthmz, const float window, const float thresh, const int index);
-int peak_detect(const float *dataMZ, const float *dataInt, const int lengthmz, const float window, const float thresh, float * peakx, float *peaky);
-void peak_norm(float *peaky, int plen, int peaknorm);
+__declspec(dllexport) int peak_detect(const float *dataMZ, const float *dataInt, const int lengthmz, const float window, const float thresh, float * peakx, float *peaky);
+__declspec(dllexport) void peak_norm(float *peaky, int plen, int peaknorm);
 float extract_height(Config config, const float peak, const float *xvals, const float *yvals, const int length);
 float extract_localmax(Config config, const float peak, const float *xvals, const float *yvals, const int length);
 float extract_localmax_position(Config config, const float peak, const float *xvals, const float *yvals, const int length);

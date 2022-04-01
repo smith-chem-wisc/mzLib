@@ -23,7 +23,8 @@ namespace Test
 		public IntPtr xarrayPtr;
 		public IntPtr yarrayPtr;
 		public IntPtr isotopeposPtr;
-		public IntPtr isotopevalPtr; 
+		public IntPtr isotopevalPtr;
+		public Decon deconResults; 
 
 		[OneTimeSetUp]
 		public void Init()
@@ -63,29 +64,16 @@ namespace Test
 			// correctly assigns a value to inp.barr, but the value isn't correct. Need to make sure that it's 
 			// char on the C side. 
 			UniDecAPIMethods.UtilityMethods.SetLimits(config, inp);
-			IsotopeStruct isoStruct = DirectUniDecPort.Blur.Isotopes.SetupIsotopes(config, inp);
+			IsotopeStruct isoStruct = Isotopes.SetupIsotopes(config, inp);
 			config.isolength = Math.Abs(isoStruct.isolength);
 			
 			isotopeposPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1) * config.isolength * config.lengthmz * config.numz);
 			isotopevalPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1f) * config.isolength * config.lengthmz * config.numz);
 			inp.isotopeops = (int*)isotopeposPtr;
 			inp.isotopeval = (float*)isotopevalPtr;
-			DirectUniDecPort.Blur.Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
-		}
-		[OneTimeTearDown]
-		public void TearDown()
-		{
-			Marshal.FreeHGlobal(xarrayPtr);
-			Marshal.FreeHGlobal(yarrayPtr);
-			Marshal.FreeHGlobal(isotopevalPtr);
-			Marshal.FreeHGlobal(isotopeposPtr); 
-		}
-
-		[Test]
-		public void TestUniDecDeconvolutionWorklow()
-		{
+			Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
 			int numberOfElementsInBarr = config.lengthmz * config.numz;
-			Decon deconResults = new();
+			deconResults = new Decon(); 
 			byte[] barr = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberOfElementsInBarr);
 			/*
 			 * inp.barr is a char* pointing to an array of 1s or 0s. These ones and zeroes are stored in an 
@@ -102,14 +90,14 @@ namespace Test
 
 			int[] starttab = new int[config.lengthmz];
 			int[] endtab = new int[config.lengthmz];
-			int maxlength = DirectUniDecPort.Convolution.SetStartEnds(config, ref inp, ref starttab, ref endtab, threshold);
+			int maxlength = Convolution.SetStartEnds(config, ref inp, ref starttab, ref endtab, threshold);
 
 			int pslen = config.lengthmz * maxlength;
 			float[] mzdist = new float[pslen];
 			float[] rmzdist = new float[pslen];
 			int makereverse = 1;
 			// makepeakshape2d is very slow (>20s) 
-			DirectUniDecPort.MZPeak.MakePeakShape2D(config, inp, mzdist, rmzdist, makereverse, starttab, endtab, maxlength);
+			MZPeak.MakePeakShape2D(config, inp, mzdist, rmzdist, makereverse, starttab, endtab, maxlength);
 
 			int zlength = 1 + 2 * (int)config.zsig;
 			int mlength = 1 + 2 * (int)config.msig;
@@ -145,11 +133,11 @@ namespace Test
 				closeval[k] = zdist[(int)k / mlength] * mdist[k % mlength];
 			}
 
-			DirectUniDecPort.Normalization.SimpNormSum(mlength, mdist);
-			DirectUniDecPort.Normalization.SimpNormSum(zlength, zdist);
-			DirectUniDecPort.Normalization.SimpNormSum(numclose, closeval);
+			Normalization.SimpNormSum(mlength, mdist);
+			Normalization.SimpNormSum(zlength, zdist);
+			Normalization.SimpNormSum(numclose, closeval);
 
-			DirectUniDecPort.Blur.MakeSparseBlur(inp, config, numclose, barr, closezind,
+			Blur.MakeSparseBlur(inp, config, numclose, barr, closezind,
 				closemind, closeind, closeval, closearray);
 
 			int badness = 1;
@@ -165,7 +153,7 @@ namespace Test
 				throw new InvalidOperationException("Badness = 1...");
 			}
 
-			float dmax = DirectUniDecPort.Blur.MathUtilities.Max(inp.dataInt, config.lengthmz);
+			float dmax = MathUtilities.Max(inp.dataInt, config.lengthmz);
 			float betafactor = 1;
 			if (dmax > 1)
 			{
@@ -196,17 +184,17 @@ namespace Test
 
 				for (int j = 0; j < config.numz; j++)
 				{
-					if (barr[DirectUniDecPort.ArrayIndexing.Index2D(config.numz, i, j)] == 1)
+					if (barr[ArrayIndexing.Index2D(config.numz, i, j)] == 1)
 					{
 						if (config.isotopemode == 0)
 						{
-							deconResults.blur[DirectUniDecPort.ArrayIndexing.Index2D(config.numz, i, j)] = val;
+							deconResults.blur[ArrayIndexing.Index2D(config.numz, i, j)] = val;
 						}
-						else { deconResults.blur[DirectUniDecPort.ArrayIndexing.Index2D(config.numz, i, j)] = 1; }
+						else { deconResults.blur[ArrayIndexing.Index2D(config.numz, i, j)] = 1; }
 					}
 					else
 					{
-						deconResults.blur[DirectUniDecPort.ArrayIndexing.Index2D(config.numz, i, j)] = 0;
+						deconResults.blur[ArrayIndexing.Index2D(config.numz, i, j)] = 0;
 					}
 				}
 			}
@@ -218,12 +206,12 @@ namespace Test
 
 			float[] dataInt2 = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.dataInt, config.lengthmz);
 
-			DirectUniDecPort.Convolution.DeconvolveBaseline(config, inp, deconResults);
+			Convolution.DeconvolveBaseline(config, inp, deconResults);
 			float blurmax = 0F;
 			deconResults.conv = 0F;
 			int off = 0;
 
-			DirectUniDecPort.Blur.PerformIterations(ref deconResults, config, inp, betafactor, maxlength,
+			Blur.PerformIterations(ref deconResults, config, inp, betafactor, maxlength,
 				starttab, endtab, mzdist, numclose, closeind, closearray, zlength, mlength,
 				closemind, closezind, mdist, dataInt2, zdist, barr, rmzdist, oldblur);
 
@@ -232,27 +220,27 @@ namespace Test
 			{
 				if (config.speedyflag == 0)
 				{
-					DirectUniDecPort.MZPeak.MakePeakShape2D(config, inp, mzdist, rmzdist, makereverse: 0, starttab, endtab, maxlength);
+					MZPeak.MakePeakShape2D(config, inp, mzdist, rmzdist, makereverse: 0, starttab, endtab, maxlength);
 				}
 				else
 				{
-					DirectUniDecPort.MZPeak.MakePeakShape1D(config, inp, threshold, mzdist, rmzdist, makeReverse: 0);
+					MZPeak.MakePeakShape1D(config, inp, threshold, mzdist, rmzdist, makeReverse: 0);
 				}
 			}
 
-			blurmax = DirectUniDecPort.Blur.MathUtilities.Max(deconResults.blur, config.lengthmz * config.numz);
+			blurmax = MathUtilities.Max(deconResults.blur, config.lengthmz * config.numz);
 			float cutoff = 0F;
 			if (blurmax != 0)
 			{
 				cutoff = 0.000001F;
 			}
 
-			DirectUniDecPort.ArrayIndexing.ApplyCutoff1D(ref deconResults.blur, blurmax * cutoff, config.lengthmz * config.numz);
+			ArrayIndexing.ApplyCutoff1D(ref deconResults.blur, blurmax * cutoff, config.lengthmz * config.numz);
 
 			deconResults.fitdat = new float[config.lengthmz];
 
 			// This line of code is currently not working. 
-			deconResults.error = DirectUniDecPort.Blur.ErrorFunctions.ErrFunctionSpeedy(config, deconResults, barr, inp.dataInt, maxlength,
+			deconResults.error = ErrorFunctions.ErrFunctionSpeedy(config, deconResults, barr, inp.dataInt, maxlength,
 				inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist);
 
 			if (config.intthresh != -1)
@@ -266,10 +254,10 @@ namespace Test
 					}
 				}
 			}
-
+			// not tested yet. 
 			if (config.isotopemode == 2)
 			{
-				DirectUniDecPort.Blur.Isotopes.MonoisotopicToAverageMass(config, inp, deconResults, barr);
+				Isotopes.MonoisotopicToAverageMass(config, inp, deconResults, barr);
 			}
 
 			float newblurmax = blurmax;
@@ -277,7 +265,7 @@ namespace Test
 			{
 				if (config.mzsig != 0)
 				{
-					newblurmax = DirectUniDecPort.Convolution.Reconvolve(config.lengthmz, config.numz, maxlength,
+					newblurmax = Convolution.Reconvolve(config.lengthmz, config.numz, maxlength,
 						starttab, endtab, mzdist, deconResults.blur, deconResults.newblur, config.speedyflag, barr);
 				}
 				else
@@ -294,10 +282,10 @@ namespace Test
 				{
 					for (int j = 0; j < config.numz; j++)
 					{
-						if (deconResults.newblur[DirectUniDecPort.ArrayIndexing.Index2D(config.numz, i, j)] * barr[DirectUniDecPort.ArrayIndexing.Index2D(config.numz, i, j)] > newblurmax * cutoff)
+						if (deconResults.newblur[ArrayIndexing.Index2D(config.numz, i, j)] * barr[ArrayIndexing.Index2D(config.numz, i, j)] > newblurmax * cutoff)
 						{
-							float testmax = inp.mtab[DirectUniDecPort.ArrayIndexing.Index2D(config.numz, i, j)] + threshold * inp.nztab[j] + config.massbins;
-							float testmin = inp.mtab[DirectUniDecPort.ArrayIndexing.Index2D(config.numz, i, j)] - threshold * inp.nztab[j];
+							float testmax = inp.mtab[ArrayIndexing.Index2D(config.numz, i, j)] + threshold * inp.nztab[j] + config.massbins;
+							float testmin = inp.mtab[ArrayIndexing.Index2D(config.numz, i, j)] - threshold * inp.nztab[j];
 
 							//To prevent really wierd decimals
 							testmin = (float)Math.Round(testmin / config.massbins) * config.massbins;
@@ -347,9 +335,25 @@ namespace Test
 					deconResults.massaxis[i] = massmin + i * config.massbins;
 				}
 			}
-			DirectUniDecPort.Blur.MassIntensityDetermination.IntegrateMassIntensities(config, deconResults, inp);
-			float scorethreshold = 0f;
-			deconResults.uniscore = DirectUniDecPort.Blur.Scoring.UniScore(config, deconResults, inp, scorethreshold); 
+
+			MassIntensityDetermination.IntegrateMassIntensities(config, deconResults, inp);
+		}
+		[OneTimeTearDown]
+		public void TearDown()
+		{
+			Marshal.FreeHGlobal(xarrayPtr);
+			Marshal.FreeHGlobal(yarrayPtr);
+			Marshal.FreeHGlobal(isotopevalPtr);
+			Marshal.FreeHGlobal(isotopeposPtr); 
+		}
+
+		[Test]
+		public void TestUniDecDeconvolutionWorklow()
+		{
+			float scorethresh = 0f;
+			config.peakwin = 20; 
+			//deconResults.uniscore = Scoring.UniScorePorted(config, deconResults, inp, scorethresh);
+			Console.WriteLine(deconResults.peakx[1].ToString() + deconResults.peaky[1].ToString() + deconResults.dscores[1].ToString()); 
 		}
 
 		[Test]
@@ -384,7 +388,7 @@ namespace Test
 			{
 				Stopwatch stpwtch = new();
 				stpwtch.Start(); 
-				int resultNearFast = DirectUniDecPort.Convolution.Nearfast(seqPtr, searchVal, numData);
+				int resultNearFast = Convolution.Nearfast(seqPtr, searchVal, numData);
 				stpwtch.Stop();
 				Assert.AreEqual((int)searchVal - 1, resultNearFast); 
 				Console.WriteLine("nearfast search: " + stpwtch.ElapsedTicks.ToString()); 
@@ -394,7 +398,7 @@ namespace Test
 		[Test]
 		public void TestSetupIsotopes()
 		{
-			IsotopeStruct isoStruct = DirectUniDecPort.Blur.Isotopes.SetupIsotopes(config, inp);
+			IsotopeStruct isoStruct = Isotopes.SetupIsotopes(config, inp);
 			PrintProperties(isoStruct); 
 			for(int i = 0; i < config.lengthmz; i++)
 			{
@@ -402,7 +406,7 @@ namespace Test
 				{
 					for(int k = 0; k < 1; k++)
 					{
-						Console.WriteLine(inp.isotopeval[DirectUniDecPort.ArrayIndexing.Index3D(config.numz, 1, i, j, k)].ToString()); 
+						Console.WriteLine(inp.isotopeval[ArrayIndexing.Index3D(config.numz, 1, i, j, k)].ToString()); 
 					}
 				}
 			}
@@ -410,13 +414,13 @@ namespace Test
 		[Test]
 		public void TestMakeIsotopes()
 		{
-			IsotopeStruct isoStruct = DirectUniDecPort.Blur.Isotopes.SetupIsotopes(config, inp);
+			IsotopeStruct isoStruct = Isotopes.SetupIsotopes(config, inp);
 			config.isolength = Math.Abs(isoStruct.isolength); 
 			isotopeposPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1) * config.isolength * config.lengthmz * config.numz);
 			isotopevalPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1f) * config.isolength * config.lengthmz * config.numz);
 			inp.isotopeops = (int*)isotopeposPtr;
 			inp.isotopeval = (float*)isotopevalPtr;
-			DirectUniDecPort.Blur.Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
+			Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
 		}
 		[Test]
 		public void TestIndex3DArray()
@@ -428,8 +432,8 @@ namespace Test
 				{ { 6, 7, 8 } } 
 			};
 			int[] test1DArray = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
-			int result = DirectUniDecPort.ArrayIndexing.Index3D(1, 3, 0, 1, 2);
-			int result2 = DirectUniDecPort.ArrayIndexing.Index3D(1, 3, 1, 2, 0); 
+			int result = ArrayIndexing.Index3D(1, 3, 0, 1, 2);
+			int result2 = ArrayIndexing.Index3D(1, 3, 1, 2, 0); 
 			Assert.AreEqual(test1DArray[5], test1DArray[result]);
 			Assert.AreEqual(test1DArray[7], test1DArray[result2]);
 			//int shouldFail = test1DArray[DirectUniDecPort.ArrayIndexing.Index3D(1, 3, 3, 3, 3)]; 
@@ -461,14 +465,52 @@ namespace Test
 				Console.WriteLine(field.Name + ": " + field.GetValue(o));
 			}
 		}
-		public void TestHailMary()
-		{
-			// this didn't work sadly
-			UniDecAPIMethods.DeconMethods.MainDeconvolution(config, inp, 0, 0); 
-		}
 		public void TestBinning()
 		{
 			
+		}
+		[Test]
+		[TestCase(0.1f)]
+		[TestCase(0.01f)]
+		[TestCase(0f)]
+		public void TestPeakDetect(float threshold)
+		{
+			deconResults.peakx = new float[deconResults.mlen];
+			deconResults.peaky = new float[deconResults.mlen];
+			int result = 0; 
+			fixed (float* peakxPtr = &deconResults.peakx[0], peakyPtr = &deconResults.peaky[0])
+			{
+				result = Scoring.PeakDetect(inp.dataMZ, inp.dataInt, config.lengthmz, 20,
+					threshold, peakxPtr, peakyPtr);
+			}
+			Console.WriteLine(result.ToString()); 
+		}
+		[Test]
+		public void TestGetFWHMS()
+		{
+			float threshold = 0.01f; 
+			fixed (float* massaxisPtr = &deconResults.massaxis[0], massaxisvalPtr = &deconResults.massaxisval[0],
+				peakxPtr = &deconResults.peakx[0], peakyPtr = &deconResults.peaky[0], newblurPtr = &deconResults.newblur[0], 
+				massgridPtr = &deconResults.massgrid[0])
+			{
+				// get the number of peaks: 
+				int plen = Scoring.PeakDetect(inp.dataMZ, inp.dataInt, config.lengthmz, 20,
+					threshold, peakxPtr, peakyPtr);
+				float[] fwhmHigh;
+				float[] fwhmLow;
+				float[] badFwhm; 
+
+				Scoring.GetFWHMS(config, plen, deconResults.mlen, massaxisPtr, massaxisvalPtr, peakxPtr,
+					out fwhmLow, out fwhmHigh, out badFwhm);
+
+				Console.WriteLine(string.Join("; ", fwhmLow.Length, fwhmHigh.Length, badFwhm.Length));
+				Console.WriteLine(string.Join("; ", fwhmLow[0], fwhmHigh[0], badFwhm[0]));
+			}
+		}
+		[Test]
+		public void TestScoreFromPeaksPorted()
+		{
+
 		}
 	}
 }

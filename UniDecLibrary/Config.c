@@ -70,7 +70,9 @@ Config ModifyConfigToDefault(Config* config) {
     config->mzbins = 0;
     config->bsub = 0;
     config->datareduction = 0;
+    // peak detection range 
     config->peakwin = 500;
+    // peak detection threshold 
     config->peakthresh = 0.1;
     config->exchoice = 0;
     config->exchoicez = 1;

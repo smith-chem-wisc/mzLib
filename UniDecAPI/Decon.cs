@@ -7,7 +7,8 @@ using System.Runtime.InteropServices;
 
 namespace UniDecAPI
 {
-	public unsafe struct Decon
+	[StructLayout(LayoutKind.Sequential)]
+	public struct Decon
 	{
 		public float[] fitdat;
 		public float[] baseline;

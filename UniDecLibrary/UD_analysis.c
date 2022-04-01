@@ -112,7 +112,7 @@ int peak_detect(const float *dataMZ, const float *dataInt, const int lengthmz, c
 }
 
 
-void peak_norm(float *peaky, int plen, int peaknorm)
+__declspec(dllexport) void peak_norm(float *peaky, int plen, int peaknorm)
 {
     float norm = 0;
     if (peaknorm==1){norm= Max(peaky, plen);}
