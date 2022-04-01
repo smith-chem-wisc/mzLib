@@ -24,7 +24,8 @@ namespace Test
 		public IntPtr yarrayPtr;
 		public IntPtr isotopeposPtr;
 		public IntPtr isotopevalPtr;
-		public Decon deconResults; 
+		public Decon deconResults;
+		public DeconUnsafe deconUnsafe; 
 
 		[OneTimeSetUp]
 		public void Init()
@@ -53,7 +54,7 @@ namespace Test
 			Marshal.Copy(xarray, 0, xarrayPtr, xarray.Length); 
 
 			yarrayPtr = Marshal.AllocHGlobal(Marshal.SizeOf(yarray[0]) * yarray.Length);
-			Marshal.Copy(yarray, 0, yarrayPtr, yarray.Length);
+			Marshal.Copy(yarray, 0, yarrayPtr, yarray.Length); 
 
 			
 
@@ -73,7 +74,8 @@ namespace Test
 			inp.isotopeval = (float*)isotopevalPtr;
 			Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
 			int numberOfElementsInBarr = config.lengthmz * config.numz;
-			deconResults = new Decon(); 
+			deconResults = new Decon();
+			deconUnsafe = new DeconUnsafe(); 
 			byte[] barr = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberOfElementsInBarr);
 			/*
 			 * inp.barr is a char* pointing to an array of 1s or 0s. These ones and zeroes are stored in an 
@@ -166,9 +168,15 @@ namespace Test
 			//	config.intthresh, config.lengthmz, config.numz, 
 			//	config.isolength, inp.isotopeops, inp.isotopeval); 
 
+			deconUnsafe.blur = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz);
+			deconUnsafe.newblur = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz);
+			float* oldblur = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz);
+			deconUnsafe.baseline = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz);
+			deconUnsafe.noise = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz); 
+
 			deconResults.blur = new float[config.lengthmz * config.numz];
 			deconResults.newblur = new float[config.lengthmz * config.numz];
-			float[] oldblur = new float[config.lengthmz * config.numz];
+			//float[] oldblur = new float[config.lengthmz * config.numz];
 			deconResults.baseline = new float[config.lengthmz * config.numz];
 			deconResults.noise = new float[config.lengthmz * config.numz];
 
