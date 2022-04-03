@@ -930,39 +930,31 @@ namespace Test
             }
         }
 
-        [Test] 
+        [Test]
         public static void TestPeptideWithSetModsReturnsBiomarkersInTopDown()
         {
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
 
             Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications)[0];
+                DecoyType.None, null, false, null, out var unknownModifications, addBiomarkers: true)[0];
 
-            Protease protease = new Protease("top-down biomarker", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-
-            List<PeptideWithSetModifications> insulinBiomarkers = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
-
-            Assert.AreEqual(77, insulinBiomarkers.Count);
-            
+            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
+            List<PeptideWithSetModifications> insulinBiomarkers = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
+            Assert.AreEqual(56, insulinBiomarkers.Count);
         }
 
         [Test]
         public static void TestPeptideWithSetModsReturnsDecoyBiomarkersInTopDown()
         {
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-
             List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications);
+                DecoyType.Reverse, null, false, null, out var unknownModifications, addBiomarkers: true);
 
-            Protease protease = new Protease("top-down biomarker", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-
-            List<PeptideWithSetModifications> insulintTargetBiomarkers = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
-
-            Assert.AreEqual(77, insulintTargetBiomarkers.Count);
-
-            List<PeptideWithSetModifications> insulintDecoyBiomarkers = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
-
-            Assert.AreEqual(77, insulintDecoyBiomarkers.Count);
+            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
+            List<PeptideWithSetModifications> insulintTargetBiomarkers = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
+            Assert.AreEqual(56, insulintTargetBiomarkers.Count);
+            List<PeptideWithSetModifications> insulintDecoyBiomarkers = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
+            Assert.AreEqual(56, insulintDecoyBiomarkers.Count);
         }
 
         [Test]
