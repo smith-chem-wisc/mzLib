@@ -231,15 +231,15 @@ namespace Test
 				cutoff = 0.000001F;
 			}
 
-			ArrayIndexing.ApplyCutoff1D( deconUnsafe.blur, blurmax * cutoff, config.lengthmz * config.numz);
+			ArrayIndexing.ApplyCutoff1D(deconUnsafe.blur, blurmax * cutoff, config.lengthmz * config.numz);
 
 			deconUnsafe.fitdat = (float*)UnHandler.AllocateToUnmanaged(config.lengthmz, typeof(float));
 
 			
 			deconUnsafe.error = ErrorFunctions.ErrFunctionSpeedy(config, deconUnsafe, barr, inp.dataInt, maxlength, inp.isotopeops, inp.isotopeval,
 				starttab, endtab, mzdist); 
-			deconUnsafe.error = ErrorFunctions.ErrFunctionSpeedy(config, deconUnsafe, barr, inp.dataInt, maxlength,
-				inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist);
+			//deconUnsafe.error = ErrorFunctions.ErrFunctionSpeedy(config, deconUnsafe, barr, inp.dataInt, maxlength,
+			//	inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist);
 
 			if (config.intthresh != -1)
 			{
@@ -354,13 +354,9 @@ namespace Test
 			deconUnsafe.peakx = (float*)UnHandler.AllocateToUnmanaged(deconResults.mlen, typeof(float));
 			deconUnsafe.peaky = (float*)UnHandler.AllocateToUnmanaged(deconResults.mlen, typeof(float)); 
 			
-			deconResults.uniscore = Scoring.UniScorePorted(config, ref deconUnsafe, inp, scorethresh, config.peakwin, UnHandler);
-			Console.WriteLine(deconResults.uniscore.ToString()); 
-			for(int i = 0; i < deconUnsafe.plen; i++)
-			{
-				Console.WriteLine(string.Join("; ", deconUnsafe.peakx[i].ToString(),
-					deconUnsafe.peaky[i].ToString(), deconUnsafe.dscores[i].ToString()));
-			}
+			deconUnsafe.uniscore = Scoring.UniScorePorted(config, ref deconUnsafe, inp, scorethresh, config.peakwin, UnHandler);
+			PrintProperties(deconUnsafe); 
+
 		}
 
 		[Test]

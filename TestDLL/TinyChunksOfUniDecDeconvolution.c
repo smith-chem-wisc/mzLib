@@ -666,7 +666,7 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
         memset(decon.massaxisval, 0, decon.mlen * sizeof(float));
         memset(decon.massgrid, 0, decon.mlen * config.numz * sizeof(float));
 
-
+    }
         //Create the mass axis
         for (int i = 0; i < decon.mlen; i++)
         {
@@ -716,7 +716,6 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
     float scorethreshold = 0;
     decon.uniscore = performScoring(config, &decon, inp, scorethreshold);
 
-    }
     //Free Memory
     free(mzdist);
     free(rmzdist);
