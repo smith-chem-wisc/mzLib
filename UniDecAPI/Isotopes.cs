@@ -149,5 +149,25 @@ namespace UniDecAPI
 				}
 			}
 		}
+		public static void MonoisotopicToAverageMass(Config config, InputUnsafe inp, DeconUnsafe decon, byte[] barr)
+		{
+			float[] newblur = new float[config.lengthmz * config.numz];
+			for (int i = 0; i < config.lengthmz; i++)
+			{
+				for (int j = 0; j < config.numz; j++)
+				{
+					if (barr[ArrayIndexing.Index2D(config.numz, i, j)] == 1)
+					{
+						float topval = decon.blur[ArrayIndexing.Index2D(config.numz, i, j)];
+						for (int k = 0; k < config.isolength; k++)
+						{
+							int pos = inp.isotopeops[ArrayIndexing.Index3D(config.numz, config.isolength, i, j, k)];
+							float val = inp.isotopeval[ArrayIndexing.Index3D(config.numz, config.isolength, i, j, k)];
+							newblur[ArrayIndexing.Index2D(config.numz, pos, j)] += topval * val;
+						}
+					}
+				}
+			}
+		}
 	}
 }

@@ -13,7 +13,7 @@
 #include "Sorting.h"
 #include "ArrayIndexing.h"
 
-void get_fwhms(Config config, const int plen, const int mlen, const float* massaxis, const float* masssum, const float* peakx, float* fwhmlow, float* fwhmhigh, float* badfwhm)
+__declspec(dllexport) void get_fwhms(Config config, const int plen, const int mlen, const float* massaxis, const float* masssum, const float* peakx, float* fwhmlow, float* fwhmhigh, float* badfwhm)
 {
     for (int i = 0; i < plen; i++)
     {
@@ -171,7 +171,7 @@ float single_fwhm(Config config, const int mlen, const float* massaxis, const fl
     return fwhm;
 }
 
-float uscore(Config config, const float* dataMZ, const float* dataInt,
+__declspec(dllexport) float uscore(Config config, const float* dataMZ, const float* dataInt,
     const float* mzgrid, const int* nztab, const float mlow, const float mhigh, 
     const float peak)
 {
@@ -239,7 +239,7 @@ float uscore(Config config, const float* dataMZ, const float* dataInt,
 }
 
 
-float mscore(Config config, const int mlen, const float* massaxis, const float* masssum, const float* massgrid, const float mlow, const float mhigh, const float peak)
+__declspec(dllexport) float mscore(Config config, const int mlen, const float* massaxis, const float* masssum, const float* massgrid, const float mlow, const float mhigh, const float peak)
 {
     float power = 2;
     float mscore = 0;
@@ -315,7 +315,7 @@ float mscore(Config config, const int mlen, const float* massaxis, const float* 
 }
 
 
-float csscore(Config config, const int mlen, const float* massaxis, const float* masssum, const float* massgrid, const float mlow, const float mhigh, const float peak)
+__declspec(dllexport) float csscore(Config config, const int mlen, const float* massaxis, const float* masssum, const float* massgrid, const float mlow, const float mhigh, const float peak)
 {
     float csscore = 0;
     
@@ -412,7 +412,7 @@ float score_minimum(float height, float min)
     else { return 1; }
 }
 
-float fscore(Config config, const int plen, const int mlen, const float* massaxis, const float* masssum, const float *peakx, const float height,
+__declspec(dllexport) float fscore(Config config, const int plen, const int mlen, const float* massaxis, const float* masssum, const float *peakx, const float height,
     const float mlow, const float mhigh, const float peak, const int badfwhm)
 {
     float fscore = 1;

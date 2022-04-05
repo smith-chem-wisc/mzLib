@@ -14,7 +14,7 @@ namespace UniDecAPI
 		}
 
 		[DllImport("TestDLL.dll", EntryPoint = "simp_norm_sum")]
-		private static extern void simp_norm_sum(int length, float* data);
+		public static extern void simp_norm_sum(int length, float* data);
 
 	}
 }

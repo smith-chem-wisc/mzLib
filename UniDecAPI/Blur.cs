@@ -74,7 +74,17 @@ namespace UniDecAPI
 					}
 				}
 			}
-
+		}
+		public static void SoftargmaxTransposed(DeconUnsafe decon, Config config, InputUnsafe inp,
+			float betaFactor, byte[] barr, int maxlength, int* starttab, int* endtab, float* rmzdist)
+		{
+			float beta = Math.Abs(config.beta / betaFactor);
+			fixed (byte* barrPtr = &barr[0])
+			{
+				_SoftArgmaxTransposed(decon.blur, config.lengthmz, config.numz, beta,
+					barrPtr, maxlength, config.isolength, inp.isotopeops, inp.isotopeval, config.speedyflag,
+					starttab, endtab, rmzdist, config.mzsig);
+			}
 		}
 		public static void Softargmax(float[] blur, int lengthmz, int numz, float beta)
 		{
@@ -83,6 +93,10 @@ namespace UniDecAPI
 				_Softargmax(blurPtr, lengthmz, numz, beta);
 			}
 
+		}
+		public static void Softargmax(float* blur, int lengthmz, int numz, float beta)
+		{
+				_Softargmax(blur, lengthmz, numz, beta);
 		}
 		public static void PointSmoothing(float[] blur, byte[] barr, int lengthmz, int numz, int width)
 		{
@@ -94,6 +108,13 @@ namespace UniDecAPI
 				}
 			}
 
+		}
+		public static void PointSmoothing(float* blur, byte[] barr, int lengthmz, int numz, int width)
+		{
+			fixed (byte* barrPtr = &barr[0])
+			{
+				_PointSmoothing(blur, barrPtr, lengthmz, numz, width);
+			}
 		}
 		public static void PointSmoothingPeakWidth(int lengthmz, int numz, int maxlength,
 			int[] starttab, int[] endtab, float[] mzdist, float[] blur, int speedyflag, byte[] barr)
@@ -108,6 +129,15 @@ namespace UniDecAPI
 							mzdistPtr, blurPtr, speedyflag, barrPtr);
 					}
 				}
+			}
+		}
+		public static void PointSmoothingPeakWidth(int lengthmz, int numz, int maxlength,
+			int* starttab, int* endtab, float* mzdist, float* blur, int speedyflag, byte[] barr)
+		{
+			fixed (byte* barrPtr = &barr[0])
+			{
+				_PointSmoothingPeakWidth(lengthmz, numz, maxlength, starttab,endtab,
+					mzdist, blur, speedyflag, barrPtr);
 			}
 		}
 		public static void BlurItMean(Config config, Decon decon, int numclose, int[] closeind,
@@ -127,6 +157,15 @@ namespace UniDecAPI
 			}
 
 		}
+		public static void BlurItMean(Config config, DeconUnsafe decon, int numclose, int* closeind,
+			byte[] barr, float* closeArray, float zerolog)
+		{
+				fixed (byte* barrPtr = &barr[0])
+				{
+					_BlurItMean(config.lengthmz, config.numz, numclose, closeind,
+						decon.newblur, decon.blur, barrPtr, closeArray, config.zerolog);
+				}
+		}
 		public static void BlurItHybrid1(int lengthmz, int numz, int zlength, int mlength,
 			int[] closeind, int[] closemind, int[] closezind, float[] mdist, float[] zdist, float[] newblur,
 			float[] blur, byte[] barr, float[] closearray, float zerolog)
@@ -145,6 +184,16 @@ namespace UniDecAPI
 			}
 
 		}
+		public static void BlurItHybrid1(int lengthmz, int numz, int zlength, int mlength,
+			int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
+			float* blur, byte[] barr, float* closearray, float zerolog)
+		{
+			fixed (byte* barrPtr = &barr[0])
+			{
+				_BlurItHybrid1(lengthmz, numz, zlength, mlength, closeind, closemind,
+					closezind, mdist, zdist, newblur, blur, barrPtr, closearray, zerolog);
+			}
+		}
 		public static void BlurIt(int lengthmz, int numz, int numclose, int[] closeind,
 			float[] closearray, float[] newblur, float[] blur, byte[] barr)
 		{
@@ -159,6 +208,15 @@ namespace UniDecAPI
 				}
 			}
 
+		}
+
+		public static void BlurIt(int lengthmz, int numz, int numclose, int* closeind,
+			float* closearray, float* newblur, float* blur, byte[] barr)
+		{
+			fixed (byte* barrPtr = &barr[0])
+			{
+						_BlurIt(lengthmz, numz, numclose, closeind, closearray, newblur, blur, barrPtr);
+			}
 		}
 		public static void PerformIterations(ref Decon decon, Config config, InputUnsafe inp, float betafactor, int maxlength,
 			int[] starttab, int[] endtab, float[] mzdist, int numclose, int[] closeind, float[] closearray, int zlength, int mlength,
@@ -247,8 +305,98 @@ namespace UniDecAPI
 			}
 
 		}
+
+		public static void PerformIterations(DeconUnsafe decon, Config config, InputUnsafe inp, float betafactor, int maxlength,
+			int* starttab, int* endtab, float* mzdist, int numclose, int* closeind, float* closearray, int zlength, int mlength,
+			int* closemind, int* closezind, float* mdist, float* dataInt2, float* zdist, byte[] barr, float* rmzdist, float* oldblur)
+		{
+			int off = 0;
+			for (int iterations = 0; iterations < Math.Abs(config.numit); iterations++)
+			{
+				decon.iterations = iterations;
+				if (config.beta > 0 && iterations > 0)
+				{
+
+					Softargmax(decon.blur, config.lengthmz, config.numz, config.beta / betafactor);
+					//printf("Beta %f\n", beta);
+				}
+				else if (config.beta < 0 && iterations > 0)
+				{
+					SoftargmaxTransposed(decon, config, inp, betafactor, barr, maxlength, starttab, endtab, rmzdist);
+				}
+
+				if (config.psig >= 1 && iterations > 0)
+				{
+					PointSmoothing(decon.blur, barr, config.lengthmz, config.numz, Math.Abs((int)config.psig));
+					//printf("Point Smoothed %f\n", config.psig);
+				}
+				else if (config.psig < 0 && iterations > 0)
+				{
+					PointSmoothingPeakWidth(config.lengthmz, config.numz, maxlength, starttab, endtab, mzdist, decon.blur, config.speedyflag, barr);
+				}
+
+
+				//Run Blurs
+				if (config.zsig >= 0 && config.msig >= 0)
+				{
+					BlurItMean(config, decon, numclose, closeind, barr, closearray, config.zerolog);
+				}
+				else if (config.zsig > 0 && config.msig < 0)
+				{
+					BlurItHybrid1(config.lengthmz, config.numz, zlength, mlength, closeind, closemind,
+						closezind, mdist, zdist, decon.newblur, decon.blur, barr, closearray, config.zerolog);
+				}
+				else if (config.zsig < 0 && config.msig > 0)
+				{
+					BlurItHybrid2(config.lengthmz, config.numz, zlength, mlength,
+						closeind, closemind, closezind, mdist, zdist, decon.newblur, decon.blur, barr, closearray, config.zerolog);
+				}
+				else
+				{
+					BlurIt(config.lengthmz, config.numz, numclose, closeind, closearray, decon.newblur, decon.blur, barr);
+				}
+
+				//Run Richardson-Lucy Deconvolution
+				DeconvolveIterationSpeedy(config.lengthmz, config.numz, maxlength,
+					decon.newblur, decon.blur, barr, config.aggressiveflag, dataInt2,
+					config.isolength, inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist, rmzdist, config.speedyflag,
+					config.baselineflag, decon.baseline, decon.noise, config.mzsig, inp.dataMZ, config.filterwidth, config.psig);
+
+				//Determine the metrics for conversion. Only do this every 10% to speed up.
+				if ((config.numit < 10 || iterations % 10 == 0 || iterations % 10 == 1 || iterations > 0.9 * config.numit))
+				{
+					float diff = 0;
+					float tot = 0;
+					for (int i = 0; i < config.lengthmz * config.numz; i++)
+					{
+						if (barr[i] == 1)
+						{
+							diff += (float)Math.Pow(((double)decon.blur[i] - (double)oldblur[i]), 2);
+							tot += decon.blur[i];
+						}
+					}
+					if (tot != 0) { decon.conv = (diff / tot); }
+					else { decon.conv = 12345678F; }
+
+					//printf("Iteration: %d Convergence: %f\n", iterations, decon.conv);
+					if (decon.conv < 0.000001F)
+					{
+						if (off == 1 && config.numit > 0)
+						{
+
+							break;
+						}
+						off = 1;
+					}
+				}
+				oldblur = decon.blur;
+			}
+
+		}
+
+
 		[DllImport("TestDLL.dll", EntryPoint = "MakeSparseBlur")]
-		private static extern void _MakeSparseBlur(int numclose, byte* barr, int* closezind,
+		public static extern void _MakeSparseBlur(int numclose, byte* barr, int* closezind,
 			int* closemind, float* mtab, int* nztab, float* dataMZ, int* closeind, float* closeval,
 			float* closearray, Config config);
 
@@ -259,6 +407,7 @@ namespace UniDecAPI
 		private static extern void _SoftArgmaxTransposed(float* blur, int lengthmz, int numz, float beta,
 			byte* barr, int maxlength, int isolength, int* isotopepos, float* isotopeval, int speedyflag,
 			int* starttab, int* endtab, float* mzdist, float mzsig);
+
 
 		[DllImport("TestDLL.dll", EntryPoint = "point_smoothing")]
 		private static extern void _PointSmoothing(float* blur, byte* barr, int lengthmz, int numz, int width);
@@ -296,6 +445,17 @@ namespace UniDecAPI
 				}
 			}
 		}
+		public static void BlurItHybrid2(int lengthmz, int numz, int zlength, int mlength,
+			int* closeind, int* closemind, int* closezind, float* mdist, float* zdist, float* newblur,
+			float* blur, byte[] barr, float* closearray, float zerolog)
+		{
+			fixed (byte* barrPtr = &barr[0])
+			{
+				_BlurItHybrid2(lengthmz, numz, zlength, mlength, closeind, closemind, closezind,
+					mdist, zdist, newblur, blur, barrPtr, closearray, zerolog);
+			}
+		}
+
 		[DllImport("TestDLL.dll", EntryPoint = "blur_it")]
 		private static extern void _BlurIt(int lengthmz, int numz, int numclose, int* closeind,
 			float* closearray, float* newblur, float* blur, byte* barr);
@@ -329,7 +489,20 @@ namespace UniDecAPI
 			}
 
 		}
-
+		public static void DeconvolveIterationSpeedy(int lengthmz, int numz, int maxlength,
+			float* blur, float* blur2, byte[] barr, int aggressiveflag, float* dataInt,
+			int isolength, int* isotopepos, float* isotopeval, int* starttab, int* endtab,
+			float* mzdist, float* rmzdist, int speedyflag, int baselineflag, float* baseline,
+			float* noise, float mzsig, float* dataMZ, float filterwidth, float psig)
+		{
+			fixed (byte* barrPtr = &barr[0])
+			{
+				_DeconvolveIterationSpeedy(lengthmz, numz, maxlength,
+					blur, blur2, barrPtr, aggressiveflag, dataInt, isolength, isotopepos,
+					isotopeval, starttab, endtab, mzdist, rmzdist, speedyflag,
+					baselineflag, baseline, noise, mzsig, dataMZ, filterwidth, psig);
+			}
+		}
 
 	}
 

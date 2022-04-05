@@ -7,20 +7,30 @@ using System.Runtime.InteropServices;
 
 namespace UniDecAPI
 {
-	public static class UnmanagedHandling
+	public class UnmanagedHandling
 	{
+		// TODO: Implement IDisposable.
+
+		public List<IntPtr> ListPtrs { get; private set; }
+		public UnmanagedHandling()
+		{
+			ListPtrs = new List<IntPtr>(); 
+		}
+
 		// takes a managed array and converts it to an IntPtr. 
 		// You need to be sure that you free any IntPtr you create with this method. 
 		// Immediately castable to whatever you want your pointer to be. 
-		public static IntPtr AllocateToUnmanaged(float[] managedArray)
+		public IntPtr AllocateToUnmanaged(float[] managedArray)
 		{
 			IntPtr ptr = Marshal.AllocHGlobal(Marshal.SizeOf(managedArray[0]) * managedArray.Length);
 			Marshal.Copy(managedArray, 0, ptr, managedArray.Length);
+			ListPtrs.Add(ptr); 
 			return ptr; 
 		}
-		public static IntPtr AllocateToUnmanaged(int size)
+		public IntPtr AllocateToUnmanaged(int size, Type type)
 		{
-			IntPtr ptr = Marshal.AllocHGlobal(size);
+			IntPtr ptr = Marshal.AllocHGlobal(size * Marshal.SizeOf(type));
+			ListPtrs.Add(ptr); 
 			return ptr; 
 		}
 	}

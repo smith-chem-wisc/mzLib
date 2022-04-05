@@ -18,6 +18,13 @@ namespace UniDecAPI
 				}
 			}
 		}
+		public static void MakePeakShape2D(Config config, InputUnsafe inp, float* mzdist, float* rmzdist,
+			 int makereverse, int* starttab, int* endtab, int maxlength)
+		{
+					float mzsig = Math.Abs(config.mzsig) * config.peakshapeinflate;
+					_MakePeakShape2D(config.lengthmz, maxlength, starttab, endtab,
+						inp.dataMZ, mzsig, config.psfun, config.speedyflag, mzdist, rmzdist, makereverse);
+		}
 		public static void MakePeakShape1D(Config config, InputUnsafe inp, float threshold, float[] mzdist,
 			float[] rmzdist, int makeReverse)
 		{
@@ -27,6 +34,12 @@ namespace UniDecAPI
 					Math.Abs(config.mzsig), config.psfun, mzdistPtr, rmzdistPtr, makeReverse);
 			}
 
+		}
+		public static void MakePeakShape1D(Config config, InputUnsafe inp, float threshold, float* mzdist,
+			float* rmzdist, int makeReverse)
+		{
+			_MakePeakShape1D(inp.dataMZ, threshold, config.lengthmz, config.speedyflag,
+				Math.Abs(config.mzsig), config.psfun, mzdist, rmzdist, makeReverse);
 		}
 
 		[DllImport("TestDLL.dll", EntryPoint = "MakePeakShape2D")]

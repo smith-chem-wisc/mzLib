@@ -9,6 +9,10 @@ namespace UniDecAPI
 		private static extern float _ErrFunctionSpeedy(Config config, Decon decon, byte* barr, float* dataInt, int maxlength,
 			int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, float rsquared,
 			float* fitdat, float* blur, float* baseline);
+		[DllImport("TestDLL.dll", EntryPoint = "errfunspeedy")]
+		private static extern float _ErrFunctionSpeedy(Config config, DeconUnsafe decon, byte* barr, float* dataInt, int maxlength,
+			int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist, float rsquared,
+			float* fitdat, float* blur, float* baseline);
 
 		public static float ErrFunctionSpeedy(Config config, Decon decon, byte[] barr, float* dataInt, int maxlength,
 			int* isotopepos, float* isotopeval, int[] starttab, int[] endtab, float[] mzdist)
@@ -26,6 +30,15 @@ namespace UniDecAPI
 									starttabPtr, endtabPtr, mzdistPtr, decon.rsquared, fitdatPtr, blurPtr, baselinePtr);
 					}
 				}
+			}
+		}
+		public static float ErrFunctionSpeedy(Config config, DeconUnsafe decon, byte[] barr, float* dataInt, int maxlength,
+			int* isotopepos, float* isotopeval, int* starttab, int* endtab, float* mzdist)
+		{
+			fixed (byte* barrPtr = &barr[0])
+			{
+				return _ErrFunctionSpeedy(config, decon, barrPtr, dataInt, maxlength, isotopepos, isotopeval,
+							starttab, endtab, mzdist, decon.rsquared, decon.fitdat, decon.blur, decon.baseline);
 			}
 		}
 	}

@@ -30,5 +30,15 @@ namespace UniDecAPI
 				}
 			}
 		}
+		public static unsafe void ApplyCutoff1D(float* array, float cutoff, int lengthmz)
+		{
+			for (int i = 0; i < lengthmz; i++)
+			{
+				if (array[i] < cutoff)
+				{
+					array[i] = 0;
+				}
+			}
+		}
 	}
 }

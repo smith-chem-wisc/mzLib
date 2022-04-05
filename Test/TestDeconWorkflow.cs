@@ -25,11 +25,13 @@ namespace Test
 		public IntPtr isotopeposPtr;
 		public IntPtr isotopevalPtr;
 		public Decon deconResults;
-		public DeconUnsafe deconUnsafe; 
+		public DeconUnsafe deconUnsafe;
+		public UnmanagedHandling UnHandler; 
 
 		[OneTimeSetUp]
 		public void Init()
 		{
+			UnHandler = new UnmanagedHandling(); 
 			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
 			//List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
 			//scan = testScan[0];
@@ -46,20 +48,10 @@ namespace Test
 
 			// assign inp the x and y array data
 			xarray = scan.MassSpectrum.XArray.ConvertDoubleArrayToFloat();
-			yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();
+			yarray = scan.MassSpectrum.YArray.ConvertDoubleArrayToFloat();			
 
-
-
-			xarrayPtr = Marshal.AllocHGlobal(Marshal.SizeOf(xarray[0]) * xarray.Length);
-			Marshal.Copy(xarray, 0, xarrayPtr, xarray.Length); 
-
-			yarrayPtr = Marshal.AllocHGlobal(Marshal.SizeOf(yarray[0]) * yarray.Length);
-			Marshal.Copy(yarray, 0, yarrayPtr, yarray.Length); 
-
-			
-
-			inp.dataInt = (float*)yarrayPtr;
-			inp.dataMZ = (float*)xarrayPtr;
+			inp.dataInt = (float*)UnHandler.AllocateToUnmanaged(xarray);
+			inp.dataMZ = (float*)UnHandler.AllocateToUnmanaged(yarray);
 
 			inp = UniDecAPIMethods.InputMethods.ReadInputsByValue(inp, config);
 			// correctly assigns a value to inp.barr, but the value isn't correct. Need to make sure that it's 
@@ -68,10 +60,9 @@ namespace Test
 			IsotopeStruct isoStruct = Isotopes.SetupIsotopes(config, inp);
 			config.isolength = Math.Abs(isoStruct.isolength);
 			
-			isotopeposPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1) * config.isolength * config.lengthmz * config.numz);
-			isotopevalPtr = Marshal.AllocHGlobal(Marshal.SizeOf(1f) * config.isolength * config.lengthmz * config.numz);
-			inp.isotopeops = (int*)isotopeposPtr;
-			inp.isotopeval = (float*)isotopevalPtr;
+			inp.isotopeops = (int*)UnHandler.AllocateToUnmanaged(config.isolength * config.lengthmz * config.numz, typeof(int));
+			inp.isotopeval = (float*)UnHandler.AllocateToUnmanaged(config.isolength * config.lengthmz * config.numz, typeof(float));
+
 			Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
 			int numberOfElementsInBarr = config.lengthmz * config.numz;
 			deconResults = new Decon();
@@ -90,22 +81,22 @@ namespace Test
 
 			float threshold = config.psthresh * Math.Abs(config.mzsig) * config.peakshapeinflate;
 
-			int[] starttab = new int[config.lengthmz];
-			int[] endtab = new int[config.lengthmz];
-			int maxlength = Convolution.SetStartEnds(config, ref inp, ref starttab, ref endtab, threshold);
+			int* starttab = (int*) UnHandler.AllocateToUnmanaged(config.lengthmz, typeof(int));
+			int* endtab = (int*)UnHandler.AllocateToUnmanaged(config.lengthmz, typeof(int));
+
+			int maxlength = Convolution.SetStartEnds(config, ref inp, starttab, endtab, threshold);
 
 			int pslen = config.lengthmz * maxlength;
-			float[] mzdist = new float[pslen];
-			float[] rmzdist = new float[pslen];
+			float* mzdist = (float*)UnHandler.AllocateToUnmanaged(pslen, typeof(float));
+			float* rmzdist = (float*)UnHandler.AllocateToUnmanaged(pslen, typeof(int));
 			int makereverse = 1;
 			// makepeakshape2d is very slow (>20s) 
 			MZPeak.MakePeakShape2D(config, inp, mzdist, rmzdist, makereverse, starttab, endtab, maxlength);
 
 			int zlength = 1 + 2 * (int)config.zsig;
 			int mlength = 1 + 2 * (int)config.msig;
-			int[] mind = new int[mlength];
-			float[] mdist = new float[mlength];
-
+			int* mind = (int*)UnHandler.AllocateToUnmanaged(mlength, typeof(int));
+			float* mdist = (float*)UnHandler.AllocateToUnmanaged(mlength, typeof(int)); 
 			for (int i = 0; i < mlength; i++)
 			{
 				mind[i] = i - (mlength - 1) / 2;
@@ -118,15 +109,15 @@ namespace Test
 					mdist[i] = 1;
 				}
 			}
-			int[] zind = new int[zlength];
-			float[] zdist = new float[zlength];
+			int* zind = stackalloc int [zlength];
+			float* zdist = stackalloc float[zlength];
 
 			int numclose = mlength * zlength;
-			int[] closemind = new int[numclose];
-			int[] closezind = new int[numclose];
-			float[] closeval = new float[numclose];
-			int[] closeind = new int[numclose * config.lengthmz * config.numz];
-			float[] closearray = new float[numclose * config.lengthmz * config.numz];
+			int* closemind = (int*)UnHandler.AllocateToUnmanaged(numclose, typeof(int));
+			int* closezind = (int*)UnHandler.AllocateToUnmanaged(numclose, typeof(int));
+			float* closeval = (float*)UnHandler.AllocateToUnmanaged(numclose, typeof(int));
+			int* closeind = (int*)UnHandler.AllocateToUnmanaged(numclose * config.lengthmz * config.numz, typeof(int));
+			float* closearray = (float*)UnHandler.AllocateToUnmanaged(numclose * config.lengthmz * config.numz, typeof(int));
 
 			for (int k = 0; k < numclose; k++)
 			{
@@ -135,12 +126,12 @@ namespace Test
 				closeval[k] = zdist[(int)k / mlength] * mdist[k % mlength];
 			}
 
-			Normalization.SimpNormSum(mlength, mdist);
-			Normalization.SimpNormSum(zlength, zdist);
-			Normalization.SimpNormSum(numclose, closeval);
+			Normalization.simp_norm_sum(mlength, mdist);
+			Normalization.simp_norm_sum(zlength, zdist);
+			Normalization.simp_norm_sum(numclose, closeval);
 
-			Blur.MakeSparseBlur(inp, config, numclose, barr, closezind,
-				closemind, closeind, closeval, closearray);
+			Blur._MakeSparseBlur(numclose, inp.barr, closezind, closemind, inp.mtab, inp.nztab, 
+				inp.dataMZ, closeind, closeval, closearray, config);
 
 			int badness = 1;
 			for (int i = 0; i < config.lengthmz * config.numz; i++)
@@ -168,17 +159,11 @@ namespace Test
 			//	config.intthresh, config.lengthmz, config.numz, 
 			//	config.isolength, inp.isotopeops, inp.isotopeval); 
 
-			deconUnsafe.blur = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz);
-			deconUnsafe.newblur = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz);
-			float* oldblur = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz);
-			deconUnsafe.baseline = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz);
-			deconUnsafe.noise = (float*)UnmanagedHandling.AllocateToUnmanaged(config.lengthmz * config.numz); 
-
-			deconResults.blur = new float[config.lengthmz * config.numz];
-			deconResults.newblur = new float[config.lengthmz * config.numz];
-			//float[] oldblur = new float[config.lengthmz * config.numz];
-			deconResults.baseline = new float[config.lengthmz * config.numz];
-			deconResults.noise = new float[config.lengthmz * config.numz];
+			deconUnsafe.blur = (float*)UnHandler.AllocateToUnmanaged(config.lengthmz * config.numz, typeof(float));
+			deconUnsafe.newblur = (float*)UnHandler.AllocateToUnmanaged(config.lengthmz * config.numz, typeof(float));
+			float* oldblur = stackalloc float[config.lengthmz * config.numz];
+			deconUnsafe.baseline = (float*)UnHandler.AllocateToUnmanaged(config.lengthmz * config.numz, typeof(float));
+			deconUnsafe.noise = (float*)UnHandler.AllocateToUnmanaged(config.lengthmz * config.numz, typeof(float)); 
 
 			for (int i = 0; i < config.lengthmz; i++)
 			{
@@ -186,8 +171,8 @@ namespace Test
 				if (config.baselineflag == 1)
 				{
 
-					deconResults.baseline[i] = val;
-					deconResults.noise[i] = val;
+					deconUnsafe.baseline[i] = val;
+					deconUnsafe.noise[i] = val;
 				}
 
 				for (int j = 0; j < config.numz; j++)
@@ -196,32 +181,35 @@ namespace Test
 					{
 						if (config.isotopemode == 0)
 						{
-							deconResults.blur[ArrayIndexing.Index2D(config.numz, i, j)] = val;
+							deconUnsafe.blur[ArrayIndexing.Index2D(config.numz, i, j)] = val;
 						}
-						else { deconResults.blur[ArrayIndexing.Index2D(config.numz, i, j)] = 1; }
+						else {deconUnsafe.blur[ArrayIndexing.Index2D(config.numz, i, j)] = 1; }
 					}
 					else
 					{
-						deconResults.blur[ArrayIndexing.Index2D(config.numz, i, j)] = 0;
+						deconUnsafe.blur[ArrayIndexing.Index2D(config.numz, i, j)] = 0;
 					}
 				}
 			}
 
 			// copy decon.blur to oldblur: 
-			oldblur = deconResults.blur;
+			oldblur = deconUnsafe.blur;
 			// copy decon.newblur to decon.blur: 
-			deconResults.newblur = deconResults.blur;
+			deconUnsafe.newblur = deconUnsafe.blur;
 
 			float[] dataInt2 = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.dataInt, config.lengthmz);
 
-			Convolution.DeconvolveBaseline(config, inp, deconResults);
-			float blurmax = 0F;
-			deconResults.conv = 0F;
-			int off = 0;
 
-			Blur.PerformIterations(ref deconResults, config, inp, betafactor, maxlength,
-				starttab, endtab, mzdist, numclose, closeind, closearray, zlength, mlength,
-				closemind, closezind, mdist, dataInt2, zdist, barr, rmzdist, oldblur);
+			Convolution.DeconvolveBaseline(config, inp, deconUnsafe);
+			float blurmax = 0F;
+			deconUnsafe.conv = 0F;
+			
+			fixed(float* dataInt2Ptr = &dataInt2[0])
+			{
+				Blur.PerformIterations(deconUnsafe, config, inp, betafactor, maxlength,
+					starttab, endtab, mzdist, numclose, closeind, closearray, zlength, mlength,
+					closemind, closezind, mdist, dataInt2Ptr, zdist, barr, rmzdist, oldblur);
+			}
 
 
 			if (config.peakshapeinflate != 1 && config.mzsig != 0)
@@ -236,19 +224,21 @@ namespace Test
 				}
 			}
 
-			blurmax = MathUtilities.Max(deconResults.blur, config.lengthmz * config.numz);
+			blurmax = MathUtilities.Max(deconUnsafe.blur, config.lengthmz * config.numz);
 			float cutoff = 0F;
 			if (blurmax != 0)
 			{
 				cutoff = 0.000001F;
 			}
 
-			ArrayIndexing.ApplyCutoff1D(ref deconResults.blur, blurmax * cutoff, config.lengthmz * config.numz);
+			ArrayIndexing.ApplyCutoff1D( deconUnsafe.blur, blurmax * cutoff, config.lengthmz * config.numz);
 
-			deconResults.fitdat = new float[config.lengthmz];
+			deconUnsafe.fitdat = (float*)UnHandler.AllocateToUnmanaged(config.lengthmz, typeof(float));
 
-			// This line of code is currently not working. 
-			deconResults.error = ErrorFunctions.ErrFunctionSpeedy(config, deconResults, barr, inp.dataInt, maxlength,
+			
+			deconUnsafe.error = ErrorFunctions.ErrFunctionSpeedy(config, deconUnsafe, barr, inp.dataInt, maxlength, inp.isotopeops, inp.isotopeval,
+				starttab, endtab, mzdist); 
+			deconUnsafe.error = ErrorFunctions.ErrFunctionSpeedy(config, deconUnsafe, barr, inp.dataInt, maxlength,
 				inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist);
 
 			if (config.intthresh != -1)
@@ -257,15 +247,15 @@ namespace Test
 				{
 					if (inp.dataInt[i] == 0 && inp.dataInt[i + 1] == 0)
 					{
-						deconResults.fitdat[i] = 0F;
-						deconResults.fitdat[i + 1] = 0F;
+						deconUnsafe.fitdat[i] = 0F;
+						deconUnsafe.fitdat[i + 1] = 0F;
 					}
 				}
 			}
 			// not tested yet. 
 			if (config.isotopemode == 2)
 			{
-				Isotopes.MonoisotopicToAverageMass(config, inp, deconResults, barr);
+				Isotopes.MonoisotopicToAverageMass(config, inp, deconUnsafe, barr);
 			}
 
 			float newblurmax = blurmax;
@@ -273,12 +263,12 @@ namespace Test
 			{
 				if (config.mzsig != 0)
 				{
-					newblurmax = Convolution.Reconvolve(config.lengthmz, config.numz, maxlength,
-						starttab, endtab, mzdist, deconResults.blur, deconResults.newblur, config.speedyflag, barr);
+					newblurmax = Convolution._Reconvolve(config.lengthmz, config.numz, maxlength,
+						starttab, endtab, mzdist, deconUnsafe.blur, deconUnsafe.newblur, config.speedyflag, inp.barr);
 				}
 				else
 				{
-					deconResults.newblur = deconResults.blur;
+					deconUnsafe.newblur = deconUnsafe.blur;
 				}
 			}
 			float massmax = config.masslb;
@@ -290,7 +280,7 @@ namespace Test
 				{
 					for (int j = 0; j < config.numz; j++)
 					{
-						if (deconResults.newblur[ArrayIndexing.Index2D(config.numz, i, j)] * barr[ArrayIndexing.Index2D(config.numz, i, j)] > newblurmax * cutoff)
+						if (deconUnsafe.newblur[ArrayIndexing.Index2D(config.numz, i, j)] * barr[ArrayIndexing.Index2D(config.numz, i, j)] > newblurmax * cutoff)
 						{
 							float testmax = inp.mtab[ArrayIndexing.Index2D(config.numz, i, j)] + threshold * inp.nztab[j] + config.massbins;
 							float testmin = inp.mtab[ArrayIndexing.Index2D(config.numz, i, j)] - threshold * inp.nztab[j];
@@ -308,60 +298,69 @@ namespace Test
 			else { massmax = config.massub; massmin = config.masslb; }
 
 			//Checks to make sure the mass axis is good and makes a dummy axis if not
-			deconResults.mlen = (int)((massmax - massmin) / config.massbins);
-			if (deconResults.mlen < 1)
+			deconUnsafe.mlen = (int)((massmax - massmin) / config.massbins);
+			if (deconUnsafe.mlen < 1)
 			{
 				massmax = config.massub;
 				massmin = config.masslb;
-				deconResults.mlen = (int)((massmax - massmin) / config.massbins);
+				deconUnsafe.mlen = (int)((massmax - massmin) / config.massbins);
 
 				//Declare the memory
 
-				deconResults.massaxis = new float[deconResults.mlen];
-				deconResults.massaxisval = new float[deconResults.mlen];
-				deconResults.massgrid = new float[deconResults.mlen * config.numz];
+				deconUnsafe.massaxis = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen, typeof(float));
+				deconUnsafe.massaxisval = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen, typeof(float));
+				deconUnsafe.massgrid = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen * config.numz, typeof(float));
 
 				//Create the mass axis
-				for (int i = 0; i < deconResults.mlen; i++)
+				for (int i = 0; i < deconUnsafe.mlen; i++)
 				{
-					deconResults.massaxis[i] = massmin + i * config.massbins;
+					deconUnsafe.massaxis[i] = massmin + i * config.massbins;
 				}
-				deconResults.uniscore = 0;
+				deconUnsafe.uniscore = 0;
 			}
 			else
 			{
 
 				//Declare the memory
-				deconResults.massaxis = new float[deconResults.massaxis.Length];
-				deconResults.massaxisval = new float[deconResults.mlen];
-				deconResults.massgrid = new float[deconResults.mlen * config.numz];
+				deconUnsafe.massaxis = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen, typeof(float));
+				deconUnsafe.massaxisval = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen, typeof(float));
+				deconUnsafe.massgrid = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen * config.numz, typeof(float));
 
 
 				//Create the mass axis
-				for (int i = 0; i < deconResults.mlen; i++)
+				for (int i = 0; i < deconUnsafe.mlen; i++)
 				{
-					deconResults.massaxis[i] = massmin + i * config.massbins;
+					deconUnsafe.massaxis[i] = massmin + i * config.massbins;
 				}
 			}
 
-			MassIntensityDetermination.IntegrateMassIntensities(config, deconResults, inp);
+			MassIntensityDetermination.IntegrateMassIntensities(config, deconUnsafe, inp);
 		}
 		[OneTimeTearDown]
 		public void TearDown()
 		{
-			Marshal.FreeHGlobal(xarrayPtr);
-			Marshal.FreeHGlobal(yarrayPtr);
-			Marshal.FreeHGlobal(isotopevalPtr);
-			Marshal.FreeHGlobal(isotopeposPtr); 
+			foreach(IntPtr i in UnHandler.ListPtrs)
+			{
+				Marshal.FreeHGlobal(i);
+			}
 		}
 
 		[Test]
 		public void TestUniDecDeconvolutionWorklow()
 		{
 			float scorethresh = 0f;
-			config.peakwin = 20; 
-			//deconResults.uniscore = Scoring.UniScorePorted(config, deconResults, inp, scorethresh);
-			Console.WriteLine(deconResults.peakx[1].ToString() + deconResults.peaky[1].ToString() + deconResults.dscores[1].ToString()); 
+			config.peakwin = 20;
+
+			deconUnsafe.peakx = (float*)UnHandler.AllocateToUnmanaged(deconResults.mlen, typeof(float));
+			deconUnsafe.peaky = (float*)UnHandler.AllocateToUnmanaged(deconResults.mlen, typeof(float)); 
+			
+			deconResults.uniscore = Scoring.UniScorePorted(config, ref deconUnsafe, inp, scorethresh, config.peakwin, UnHandler);
+			Console.WriteLine(deconResults.uniscore.ToString()); 
+			for(int i = 0; i < deconUnsafe.plen; i++)
+			{
+				Console.WriteLine(string.Join("; ", deconUnsafe.peakx[i].ToString(),
+					deconUnsafe.peaky[i].ToString(), deconUnsafe.dscores[i].ToString()));
+			}
 		}
 
 		[Test]
@@ -496,29 +495,21 @@ namespace Test
 		[Test]
 		public void TestGetFWHMS()
 		{
-			float threshold = 0.01f; 
-			fixed (float* massaxisPtr = &deconResults.massaxis[0], massaxisvalPtr = &deconResults.massaxisval[0],
-				peakxPtr = &deconResults.peakx[0], peakyPtr = &deconResults.peaky[0], newblurPtr = &deconResults.newblur[0], 
-				massgridPtr = &deconResults.massgrid[0])
-			{
-				// get the number of peaks: 
-				int plen = Scoring.PeakDetect(inp.dataMZ, inp.dataInt, config.lengthmz, 20,
-					threshold, peakxPtr, peakyPtr);
-				float[] fwhmHigh;
-				float[] fwhmLow;
-				float[] badFwhm; 
+			float threshold = 0.01f;
+			deconUnsafe.peakx = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen, typeof(float));
+			deconUnsafe.peaky = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen, typeof(float)); 
+			// get the number of peaks: 
+			int plen = Scoring.PeakDetect(inp.dataMZ, inp.dataInt, config.lengthmz, 20,
+				threshold, deconUnsafe.peakx, deconUnsafe.peaky);
+			float* fwhmHigh = stackalloc float[plen];
+			float* fwhmLow = stackalloc float[plen];
+			float* badFwhm = stackalloc float[plen]; 
 
-				Scoring.GetFWHMS(config, plen, deconResults.mlen, massaxisPtr, massaxisvalPtr, peakxPtr,
-					out fwhmLow, out fwhmHigh, out badFwhm);
-
-				Console.WriteLine(string.Join("; ", fwhmLow.Length, fwhmHigh.Length, badFwhm.Length));
-				Console.WriteLine(string.Join("; ", fwhmLow[0], fwhmHigh[0], badFwhm[0]));
-			}
-		}
-		[Test]
-		public void TestScoreFromPeaksPorted()
-		{
-
+			Scoring.GetFWHMS(config, plen, deconResults.mlen, deconUnsafe.massaxis, deconUnsafe.massaxisval, deconUnsafe.peakx,
+				fwhmLow, fwhmHigh, badFwhm);
+			Console.WriteLine(string.Join("; ", fwhmLow[0], fwhmHigh[0], badFwhm[0]));
+			
 		}
 	}
 }
+

@@ -59,6 +59,54 @@ namespace UniDecAPI
 				}
 			}
 		}
+		public static void IntegrateMassIntensities(Config config, DeconUnsafe decon, InputUnsafe inp)
+		{
+			float massmax = config.masslb;
+			float massmin = config.massub;
+				if (config.poolflag == 0)
+				{
+					if (config.rawflag == 1 || config.rawflag == 3)
+					{
+						IntegrateTransform(config.lengthmz, config.numz, inp.mtab, massmax, massmin,
+							decon.mlen, decon.massaxis, decon.massaxisval, decon.blur, decon.massgrid);
+					}
+					if (config.rawflag == 0 || config.rawflag == 2)
+					{
+						IntegrateTransform(config.lengthmz, config.numz, inp.mtab, massmax, massmin, decon.mlen,
+							 decon.massaxis, decon.massaxisval, decon.newblur, decon.massgrid);
+					}
+				}
+				else if (config.poolflag == 1)
+				{
+					if (config.rawflag == 1 || config.rawflag == 3)
+					{
+						InterpolateTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis,
+							config.adductmass, inp.dataMZ, decon.massgrid, decon.massaxisval, decon.blur);
+					}
+					if (config.rawflag == 0 || config.rawflag == 2)
+					{
+						InterpolateTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab,
+							decon.massaxis, config.adductmass, inp.dataMZ, decon.massgrid, decon.massaxisval, decon.newblur);
+					}
+				}
+				else if (config.poolflag == 2)
+				{
+					if (config.rawflag == 1 || config.rawflag == 3)
+					{
+						SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis, config.adductmass,
+							inp.dataMZ, decon.massgrid, decon.massaxisval, decon.blur);
+					}
+					if (config.rawflag == 0 || config.rawflag == 2)
+					{
+						SmartTransform(decon.mlen, config.numz, config.lengthmz, inp.nztab, decon.massaxis, config.adductmass,
+							inp.dataMZ, decon.massgrid, decon.massaxisval, decon.newblur);
+					}
+				}
+				else
+				{
+					// throw new error
+				}
+		}
 		[DllImport("TestDLL.dll", EntryPoint = "IntegrateTransform")]
 		private static extern void _IntegrateTransform(int lengthmz, int numz, float* mtab, float massmax, float massmin, int maaxle,
 			float* massaxis, float* massaxisval, float* blur, float* massgrid);

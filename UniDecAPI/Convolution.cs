@@ -43,6 +43,46 @@ namespace UniDecAPI
 			//printf("Max Length: %d\t", maxlength);
 			return maxlength;
 		}
+		public static int SetStartEnds(Config config, ref InputUnsafe inp, int* starttab, int* endtab, float threshold)
+		{
+			// changed InputUnsafe to pass by reference here, but I think I could've also passed it directly and 
+			// created the pointer with a fixed statement as well. Probably better to pass by reference though. 
+
+			int maxlength = 1;
+			for (int i = 0; i < config.lengthmz; i++)
+			{
+				float point = inp.dataMZ[i] - threshold;
+				int start, end;
+				if (point < inp.dataMZ[0] && config.speedyflag == 0)
+				{
+					//start = (int)((point - inp->dataMZ[0]) / (inp->dataMZ[1] - inp->dataMZ[0]));
+					start = 0 - Nearfast(inp.dataMZ, (float)2 * inp.dataMZ[0] - point, config.lengthmz);
+				}
+				else
+				{
+					start = Nearfast(inp.dataMZ, point, config.lengthmz);
+				}
+				starttab[i] = start;
+
+				point = inp.dataMZ[i] + threshold;
+				if (point > inp.dataMZ[config.lengthmz - 1] && config.speedyflag == 0)
+				{
+					//end = config.lengthmz - 1 + (int)((point - inp->dataMZ[config.lengthmz - 1]) / (inp->dataMZ[config.lengthmz - 1] - inp->dataMZ[config.lengthmz - 2]));
+					end = config.lengthmz - 1 + Nearfast(inp.dataMZ, (float)2 * inp.dataMZ[0] - point, config.lengthmz);
+				}
+				else
+				{
+					end = Nearfast(inp.dataMZ, point, config.lengthmz);
+				}
+				endtab[i] = end;
+				if (end - start > maxlength) { maxlength = end - start; }
+				//printf("%d %d\n", start, end);
+			}
+			//printf("Max Length: %d\t", maxlength);
+			return maxlength;
+		}
+
+
 		public static int Nearfast(float* dataMz, float point, int numdat)
 		{
 			return _Nearfast(dataMz, point, numdat);
@@ -53,6 +93,11 @@ namespace UniDecAPI
 			{
 				_DeconvolveBaseline(config.lengthmz, inp.dataMZ, inp.dataInt, baselinePtr, Math.Abs(config.mzsig));
 			}
+
+		}
+		public static void DeconvolveBaseline(Config config, InputUnsafe inp, DeconUnsafe decon)
+		{
+				_DeconvolveBaseline(config.lengthmz, inp.dataMZ, inp.dataInt, decon.baseline, Math.Abs(config.mzsig));
 
 		}
 		public static float Reconvolve(int lengthmz, int numz, int maxlength, int[] starttab, int[] endtab,
@@ -81,7 +126,7 @@ namespace UniDecAPI
 			float mzsig);
 
 		[DllImport("TestDLL.dll", EntryPoint = "Reconvolve")]
-		private static extern float _Reconvolve(int lengthmz, int numz, int maxlength, int* starttab,
+		public static extern float _Reconvolve(int lengthmz, int numz, int maxlength, int* starttab,
 			int* endtab, float* mzdist, float* blur, float* newblur, int speedyflag, byte* barr);
 
 	}
