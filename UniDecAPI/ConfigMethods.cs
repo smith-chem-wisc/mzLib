@@ -39,13 +39,25 @@ namespace UniDecAPI
 			public static void SetupConfig(ref Config config, MsDataScan scan)
 			{
 				config.lengthmz = scan.MassSpectrum.XArray.Length;
-				config.filterwidth = 10;
 				config.minmz = (float)scan.MassSpectrum.XArray.Min();
 				config.maxmz = (float)scan.MassSpectrum.XArray.Max();
+			}
+			public static void SetupConfig(ref Config config, MzSpectrum scan)
+			{
+				config.lengthmz = scan.XArray.Length;
+				config.minmz = (float)scan.XArray.Min();
+				config.maxmz = (float)scan.XArray.Max();
 			}
 			public static void CreateAndSetupConfig(MsDataScan scan, out Config config)
 			{
 				config = new(); 
+				config = ModifyConfigToDefault(config);
+				SetupConfig(ref config, scan);
+				PostImport(ref config);
+			}
+			public static void CreateAndSetupConfig(MzSpectrum scan, out Config config)
+			{
+				config = new();
 				config = ModifyConfigToDefault(config);
 				SetupConfig(ref config, scan);
 				PostImport(ref config);

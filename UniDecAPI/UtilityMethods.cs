@@ -59,7 +59,7 @@ namespace UniDecAPI
 			}
 			// Creating an array from a pointer is not very fast, so you need to 
 			// use sparingly. 
-			public static unsafe float[] PtrToArray(float* pointer, long length)
+			public static unsafe float[] PtrToArray(float* pointer, int length)
 			{
 				float[] result = new float[length]; 
 				for(int i = 0; i < length; i++)

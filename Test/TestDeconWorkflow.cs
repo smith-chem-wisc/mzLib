@@ -20,15 +20,13 @@ namespace Test
 		private InputUnsafe inp;
 		private float[] xarray;
 		private float[] yarray;
-		public IntPtr xarrayPtr;
-		public IntPtr yarrayPtr;
 		public IntPtr isotopeposPtr;
 		public IntPtr isotopevalPtr;
 		public Decon deconResults;
 		public DeconUnsafe deconUnsafe;
 		public UnmanagedHandling UnHandler; 
 
-		[OneTimeSetUp]
+		//[OneTimeSetUp]
 		public void Init()
 		{
 			UnHandler = new UnmanagedHandling(); 
@@ -65,7 +63,6 @@ namespace Test
 
 			Isotopes.MakeIsotopesFromAPI(config, inp, isoStruct);
 			int numberOfElementsInBarr = config.lengthmz * config.numz;
-			deconResults = new Decon();
 			deconUnsafe = new DeconUnsafe(); 
 			byte[] barr = UniDecAPIMethods.UtilityMethods.PtrToArray(inp.barr, numberOfElementsInBarr);
 			/*
@@ -206,7 +203,7 @@ namespace Test
 			
 			fixed(float* dataInt2Ptr = &dataInt2[0])
 			{
-				Blur.PerformIterations(deconUnsafe, config, inp, betafactor, maxlength,
+				Blur.PerformIterations(ref deconUnsafe, config, inp, betafactor, maxlength,
 					starttab, endtab, mzdist, numclose, closeind, closearray, zlength, mlength,
 					closemind, closezind, mdist, dataInt2Ptr, zdist, barr, rmzdist, oldblur);
 			}
@@ -236,7 +233,7 @@ namespace Test
 			deconUnsafe.fitdat = (float*)UnHandler.AllocateToUnmanaged(config.lengthmz, typeof(float));
 
 			
-			deconUnsafe.error = ErrorFunctions.ErrFunctionSpeedy(config, deconUnsafe, barr, inp.dataInt, maxlength, inp.isotopeops, inp.isotopeval,
+			deconUnsafe.error = ErrorFunctions.ErrFunctionSpeedy(config, ref deconUnsafe, barr, inp.dataInt, maxlength, inp.isotopeops, inp.isotopeval,
 				starttab, endtab, mzdist); 
 			//deconUnsafe.error = ErrorFunctions.ErrFunctionSpeedy(config, deconUnsafe, barr, inp.dataInt, maxlength,
 			//	inp.isotopeops, inp.isotopeval, starttab, endtab, mzdist);
@@ -334,7 +331,7 @@ namespace Test
 				}
 			}
 
-			MassIntensityDetermination.IntegrateMassIntensities(config, deconUnsafe, inp);
+			MassIntensityDetermination.IntegrateMassIntensities(config, ref deconUnsafe, inp);
 		}
 		[OneTimeTearDown]
 		public void TearDown()
@@ -351,12 +348,24 @@ namespace Test
 			float scorethresh = 0f;
 			config.peakwin = 20;
 
-			deconUnsafe.peakx = (float*)UnHandler.AllocateToUnmanaged(deconResults.mlen, typeof(float));
-			deconUnsafe.peaky = (float*)UnHandler.AllocateToUnmanaged(deconResults.mlen, typeof(float)); 
+			deconUnsafe.peakx = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen, typeof(float));
+			deconUnsafe.peaky = (float*)UnHandler.AllocateToUnmanaged(deconUnsafe.mlen, typeof(float)); 
 			
 			deconUnsafe.uniscore = Scoring.UniScorePorted(config, ref deconUnsafe, inp, scorethresh, config.peakwin, UnHandler);
 			PrintProperties(deconUnsafe); 
+		}
+		[Test]
+		public void TestDeconResults()
+		{
+			float scorethresh = 0f;
+			config.peakwin = 20;
 
+			deconUnsafe.peakx = (float*)UnHandler.AllocateToUnmanaged(deconResults.mlen, typeof(float));
+			deconUnsafe.peaky = (float*)UnHandler.AllocateToUnmanaged(deconResults.mlen, typeof(float));
+
+			deconUnsafe.uniscore = Scoring.UniScorePorted(config, ref deconUnsafe, inp, scorethresh, config.peakwin, UnHandler);
+			DeconResults deconFin = new(deconUnsafe, config);
+			Console.WriteLine(string.Join(", ", deconFin.PeakX.ToList())); 
 		}
 
 		[Test]
@@ -505,6 +514,24 @@ namespace Test
 				fwhmLow, fwhmHigh, badFwhm);
 			Console.WriteLine(string.Join("; ", fwhmLow[0], fwhmHigh[0], badFwhm[0]));
 			
+		}
+		[Test]
+		[TestCase(1, 2.006)]
+		[TestCase(5, 2.006)]
+		[TestCase(1, 1.003)]
+		[TestCase(5, 1.003)]
+		public void TestUniDecDeconEngine(int peakPerWindow, double windowWidth)
+		{
+			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
+			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
+			scan = testScan[0];
+
+			FilteringParams filterParams = new(numberOfPeaksToKeepPerWindow: peakPerWindow, windowWidthThomsons: windowWidth);
+			List<MsDataScan> testScanWithFilter = ThermoRawFileReader.LoadAllStaticData(path, filterParams).GetAllScansList();
+			scan = testScanWithFilter[0];
+			
+			scan.MassSpectrum.DeconvoluteWithUniDec(out DeconResults deconResults);
+			Console.WriteLine(string.Join("\n", deconResults.DScores.ToList())); 
 		}
 	}
 }

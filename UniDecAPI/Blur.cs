@@ -306,7 +306,7 @@ namespace UniDecAPI
 
 		}
 
-		public static void PerformIterations(DeconUnsafe decon, Config config, InputUnsafe inp, float betafactor, int maxlength,
+		public static void PerformIterations(ref DeconUnsafe decon, Config config, InputUnsafe inp, float betafactor, int maxlength,
 			int* starttab, int* endtab, float* mzdist, int numclose, int* closeind, float* closearray, int zlength, int mlength,
 			int* closemind, int* closezind, float* mdist, float* dataInt2, float* zdist, byte[] barr, float* rmzdist, float* oldblur)
 		{

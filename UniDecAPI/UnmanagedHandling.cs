@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 
 namespace UniDecAPI
 {
-	public class UnmanagedHandling
+	public class UnmanagedHandling : IDisposable
 	{
 		// TODO: Implement IDisposable.
 
@@ -32,6 +32,22 @@ namespace UniDecAPI
 			IntPtr ptr = Marshal.AllocHGlobal(size * Marshal.SizeOf(type));
 			ListPtrs.Add(ptr); 
 			return ptr; 
+		}
+		public void Dispose()
+		{
+			Dispose(true);
+			GC.SuppressFinalize(this);
+		}
+		protected virtual void Dispose(bool disposing)
+		{
+			if (disposing)
+			{
+
+			}
+			foreach(IntPtr ptrList in ListPtrs)
+			{
+				Marshal.FreeHGlobal(ptrList);
+			}
 		}
 	}
 }

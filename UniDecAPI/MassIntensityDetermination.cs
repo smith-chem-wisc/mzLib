@@ -59,7 +59,7 @@ namespace UniDecAPI
 				}
 			}
 		}
-		public static void IntegrateMassIntensities(Config config, DeconUnsafe decon, InputUnsafe inp)
+		public static void IntegrateMassIntensities(Config config, ref DeconUnsafe decon, InputUnsafe inp)
 		{
 			float massmax = config.masslb;
 			float massmin = config.massub;

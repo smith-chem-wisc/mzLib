@@ -23,7 +23,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
+using System.Linq; 
+
 
 namespace MassSpectrometry
 {
@@ -811,5 +812,9 @@ namespace MassSpectrometry
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
+        public void DeconvoluteWithUniDec()
+		{
+
+		}
     }
 }
