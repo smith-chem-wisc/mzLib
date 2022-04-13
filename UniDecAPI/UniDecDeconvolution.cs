@@ -615,7 +615,7 @@ namespace UniDecAPI
 		{
 			return new double[chargeArray.Length, massAxis.Length];
 		}
-		public void IntegrateTransform(double[,] massTable, double[] massaxis, double[] massaxisVal, 
+		public void IntegrateTransform(double[,] massTable, double[] massaxis, ref double[] massaxisVal, 
 			double[,] ft, ref double[,] deconMassTable)
 		{
 			// this function uses an accumulator grid of charge vs mass. 
@@ -681,6 +681,50 @@ namespace UniDecAPI
 					.Sum(); 
 			}
 			return result; 
+		}
+		public double[,] ApplyLogMeanFilter(double[,] matrix, int width)
+		{
+			double[,] result = new double[matrix.GetLength(0), matrix.GetLength(1)];
+			double frontTerm = 1 / (2 * (width +1) + 1); 
+
+			for (int y = 0; y < matrix.GetLength(1); y++)
+			{
+				for (int x = 0; x < matrix.GetLength(0); x++)
+				{
+					if (matrix[x, y] == 0) continue; 
+					double sum = 0;
+
+					for (int i = -width/2; i < width/2; i++)
+					{
+						int sourceY = y + i;
+						int sourceX = x + i;
+
+						if (sourceX < 0)
+							sourceX = 0;
+
+						if (sourceX >= matrix.GetLength(0))
+							sourceX = matrix.GetLength(0) - 1;
+
+						if (sourceY < 0)
+							sourceY = 0;
+
+						if (sourceY >= matrix.GetLength(1))
+							sourceY = matrix.GetLength(1) - 1;
+
+						if(matrix[sourceX, sourceY] > 0)
+						{
+							sum += Math.Log(matrix[sourceX, sourceY]);
+						}
+						else
+						{
+							continue; 
+						}
+
+					}
+					result[x, y] = Math.Exp(sum * frontTerm);
+				}
+			}
+			return result;
 		}
 
 	}

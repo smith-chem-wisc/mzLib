@@ -608,11 +608,15 @@ namespace Test
 			// creates a deep copy of matrix and creates the result of the iterations. 
 			double[,] result = engine.CreateDeepCopy(measuredSpectrum);
 			// create the gaussian kernel. 
-			double[,] gaussKernel2D = engine.GenerateGaussianKernel2D(3.0, 8);
-			double[] gaussKernel1D = engine.GenerateGuassianKernel(2.5, 3);
+			// spacing for this example is 0.1 between each measured m/z. 
+			// so the minimum standard deviation of a kernel is going to be 2 * 0.1. 
+			// This makes sense since you can't meaningfully convolute a signal with a function that is the min frequency/2. 
+			double[] gaussKernel1D = engine.GenerateGuassianKernel(0.2, 8);
 
-			// f^(t=0) = intensity data, i.e. result
+			
+			// f^(t=0) = intensity data 
 			double[,] initialFt = engine.CreateChargeAndMZMatrix(yarray, 5, 50);
+			initialFt = engine.ApplyLogMeanFilter(initialFt, 7); 
 			double[] initialSummedChargeAxis = engine.SumChargeAxis(initialFt);
 			double[] initialConvolutedChargeAxis = engine.ConvoluteSummedChargeAxis(initialSummedChargeAxis, gaussKernel1D);
 			double[] invConvChargeAxis = engine.TakeReciprocalOfArray(initialConvolutedChargeAxis);
@@ -622,20 +626,22 @@ namespace Test
 			
 			double[,] ft = new double[45, 10000];
 			double[,] smoothedIterationResult = new double[45, 10000]; 
-			double[] summedChargeAxis;
-			double[] convolutedChargeAxis;
-			double[] recipChargeAxis; 
+			double[] summedChargeAxis = new double[10000];
+			double[] convolutedChargeAxis = new double[10000];
+			double[] recipChargeAxis = new double[10000]; 
 			
-			for (int i = 0; i < 25; i++)
+			for (int i = 0; i < 10; i++)
 			{
 				ft = engine.CreateChargeAndMZMatrix(iterationResult, 5, 50); 
-				smoothedIterationResult = engine.ConvoluteFull2D(ft, gaussKernel2D);
+				smoothedIterationResult = engine.ApplyLogMeanFilter(ft, 7);
 				summedChargeAxis = engine.SumChargeAxis(smoothedIterationResult);
 				convolutedChargeAxis = engine.ConvoluteSummedChargeAxis(summedChargeAxis, gaussKernel1D);
+				// h(x) / c(x)
+				// reciprocal followed by multiplication should hypothetically be faster than element-wise division of the two arrays. 
 				recipChargeAxis = engine.TakeReciprocalOfArray(convolutedChargeAxis);
-				
 				temp = engine.ElementwiseMultiplyArrays(yarray, recipChargeAxis);
 
+				// f^t * h(x) / c(x)
 				iterationResult = engine.ElementwiseMultiplyArrays(iterationResult, temp); 
 			}
 
@@ -644,10 +650,10 @@ namespace Test
 
 			engine.CreateMassAxes(out double[] massaxis, out double[] massAxisVals, 50000, 10000, 5);
 			double[,] deconMassTable = engine.CreateDeconvolutedMassTable(massaxis, chargeArray); 
-			engine.IntegrateTransform(massTable, massaxis, massAxisVals, smoothedIterationResult, ref deconMassTable);
+			engine.IntegrateTransform(massTable, massaxis, ref massAxisVals, smoothedIterationResult, ref deconMassTable);
 
-			PrintMatrix(deconMassTable);
-
+			// PrintMatrix(deconMassTable);
+			Console.WriteLine(string.Join("\n", massAxisVals.AsEnumerable())); 
 			double[] deconMassSpectrum = engine.ColSums(deconMassTable);
 			CreateDeconMassSpectrum(deconMassSpectrum, massaxis, "UniDecOuptut.pdf"); 
 		}
