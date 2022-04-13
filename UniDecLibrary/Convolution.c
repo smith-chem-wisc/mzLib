@@ -100,7 +100,7 @@ float deconvolve_iteration_speedy(const int lengthmz, const int numz, const int 
     if (aggressiveflag == 1)
     {
 #pragma omp parallel for private(i), schedule(auto)
-        for (i = 0;i < lengthmz;i++) {
+        for (i = 0; i < lengthmz;i++) {
             denom[i] += baseline[i];// +noise[i]);
         }
     }

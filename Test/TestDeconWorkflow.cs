@@ -9,7 +9,9 @@ using System.IO;
 using MassSpectrometry;
 using IO.ThermoRawFileReader;
 using System.Runtime.InteropServices;
-using System.Diagnostics; 
+using System.Diagnostics;
+using System.Data;
+using OxyPlot; 
 
 namespace Test
 {
@@ -333,7 +335,7 @@ namespace Test
 
 			MassIntensityDetermination.IntegrateMassIntensities(config, ref deconUnsafe, inp);
 		}
-		[OneTimeTearDown]
+		//[OneTimeTearDown]
 		public void TearDown()
 		{
 			foreach(IntPtr i in UnHandler.ListPtrs)
@@ -520,6 +522,7 @@ namespace Test
 		[TestCase(5, 2.006)]
 		[TestCase(1, 1.003)]
 		[TestCase(5, 1.003)]
+
 		public void TestUniDecDeconEngine(int peakPerWindow, double windowWidth)
 		{
 			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
@@ -532,6 +535,252 @@ namespace Test
 			
 			scan.MassSpectrum.DeconvoluteWithUniDec(out DeconResults deconResults);
 			Console.WriteLine(string.Join("\n", deconResults.DScores.ToList())); 
+		}
+		[Test]
+		public void TestGenerateGaussianKernel()
+		{
+			UniDecDeconEngine engine = new();
+			double[] result = engine.GenerateGuassianKernel(1, 5);
+			double[] expected = new double[] { 0.053991, 0.2419707, 0.39894, 0.24197, 0.053991};
+			for(int i = 0; i < result.Length; i++)
+			{
+				Assert.AreEqual(expected[i], result[i], 0.001); 
+			}
+		}
+		[Test]
+		public void TestConvoluteFull()
+		{
+			UniDecDeconEngine engine = new(); 
+
+			double[] testSignal = new double[] { 0, 0, 0, 0, 255, 255, 255, 0, 0, 0, 0 };
+			double[] kernel = engine.GenerateGuassianKernel(0.5, 3);
+			
+			double[] result = engine.ConvoluteFull(testSignal, kernel);
+			Console.WriteLine(string.Join("\n", result.ToList())); 
+			// TODO: Write and actual assert statement here
+		}
+
+		[Test]
+		public void TestCreateChargeAndMZMatrix()
+		{
+			UniDecDeconEngine engine = new(); 
+			string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "UniDecDeconTestData.txt");
+			DataTable proteinDt = LoadTsvFileToDataTable(path);
+
+			var testMzData = proteinDt.AsEnumerable().Select(x => new
+			{
+				Mz = (double)x["Mz"], 
+				Int = (double)x["Intensity"]
+			}).ToList();
+
+			double[] xarray = testMzData.Select(i => (double)i.Mz).ToArray();
+			double[] yarray = testMzData.Select(i => (double)i.Int).ToArray();
+
+			double[,] matrix = engine.CreateChargeAndMZMatrix(yarray, 5, 50);
+
+			int colLength = matrix.GetLength(1); 
+			for(int i = 0; i < matrix.GetLength(0); i++)
+			{
+				Console.WriteLine(string.Join(", ", Enumerable.Range(0, matrix.GetLength(1))
+					.Select(x => matrix[i, x]).ToArray())); 
+			}
+		}
+		[Test]
+		public void TestDeconvolutionII()
+		{
+			CreateBetterTestData(out double[] yarray, out double[] xarray); 
+			// setup
+			UniDecDeconEngine engine = new();
+
+			double[,] measuredSpectrum = new double[xarray.Length, 2]; 
+			for(int i = 0; i < xarray.Length; i++)
+			{
+				measuredSpectrum[i, 0] = xarray[i];
+				measuredSpectrum[i, 1] = yarray[i]; 
+			}
+
+			/*
+			 * iteration = delta functions * measured spectrum / charge axis convolved with peak shape 
+			 * 
+			 * delta functions are smoothed by convoluting with a filter before proceeding with the deconvolution
+			 **/
+
+			// creates a deep copy of matrix and creates the result of the iterations. 
+			double[,] result = engine.CreateDeepCopy(measuredSpectrum);
+			// create the gaussian kernel. 
+			double[,] gaussKernel2D = engine.GenerateGaussianKernel2D(3.0, 8);
+			double[] gaussKernel1D = engine.GenerateGuassianKernel(2.5, 3);
+
+			// f^(t=0) = intensity data, i.e. result
+			double[,] initialFt = engine.CreateChargeAndMZMatrix(yarray, 5, 50);
+			double[] initialSummedChargeAxis = engine.SumChargeAxis(initialFt);
+			double[] initialConvolutedChargeAxis = engine.ConvoluteSummedChargeAxis(initialSummedChargeAxis, gaussKernel1D);
+			double[] invConvChargeAxis = engine.TakeReciprocalOfArray(initialConvolutedChargeAxis);
+
+			double[] temp = engine.ElementwiseMultiplyArrays(yarray, invConvChargeAxis);
+			double[] iterationResult = engine.ElementwiseMultiplyArrays(yarray, temp);
+			
+			double[,] ft = new double[45, 10000];
+			double[,] smoothedIterationResult = new double[45, 10000]; 
+			double[] summedChargeAxis;
+			double[] convolutedChargeAxis;
+			double[] recipChargeAxis; 
+			
+			for (int i = 0; i < 25; i++)
+			{
+				ft = engine.CreateChargeAndMZMatrix(iterationResult, 5, 50); 
+				smoothedIterationResult = engine.ConvoluteFull2D(ft, gaussKernel2D);
+				summedChargeAxis = engine.SumChargeAxis(smoothedIterationResult);
+				convolutedChargeAxis = engine.ConvoluteSummedChargeAxis(summedChargeAxis, gaussKernel1D);
+				recipChargeAxis = engine.TakeReciprocalOfArray(convolutedChargeAxis);
+				
+				temp = engine.ElementwiseMultiplyArrays(yarray, recipChargeAxis);
+
+				iterationResult = engine.ElementwiseMultiplyArrays(iterationResult, temp); 
+			}
+
+			int[] chargeArray = Enumerable.Range(5, 45).ToArray();
+			double[,] massTable = engine.CreateChargeByMzTable(chargeArray, xarray, 1.007);
+
+			engine.CreateMassAxes(out double[] massaxis, out double[] massAxisVals, 50000, 10000, 5);
+			double[,] deconMassTable = engine.CreateDeconvolutedMassTable(massaxis, chargeArray); 
+			engine.IntegrateTransform(massTable, massaxis, massAxisVals, smoothedIterationResult, ref deconMassTable);
+
+			PrintMatrix(deconMassTable);
+
+			double[] deconMassSpectrum = engine.ColSums(deconMassTable);
+			CreateDeconMassSpectrum(deconMassSpectrum, massaxis, "UniDecOuptut.pdf"); 
+		}
+		public void CreateDeconMassSpectrum(double[] deconMassSpec, double[] massAxis, string fileName)
+		{
+			var data = new OxyPlot.Series.LineSeries()
+			{
+				Title = $"Deconvoluted Mass Spectra",
+				Color = OxyPlot.OxyColors.Blue,
+				StrokeThickness = 1,
+				MarkerSize = 1,
+				MarkerType = OxyPlot.MarkerType.Circle
+			}; 
+			for(int i = 0; i < deconMassSpec.Length; i++)
+			{
+				data.Points.Add(new OxyPlot.DataPoint(massAxis[i], deconMassSpec[i])); 
+			}
+			var model = new OxyPlot.PlotModel
+			{
+				Title = $"Deconvoluted Mass Spectrum"
+			};
+
+			model.Series.Add(data);
+			WriteOxyPlotToPDF(fileName, model); 
+		}
+		public static void WriteOxyPlotToPDF(string fileName, PlotModel plotmodel)
+		{
+			using (var stream = File.Create(fileName))
+			{
+				var pdfExporter = new PdfExporter { Width = 600, Height = 600 };
+				pdfExporter.Export(plotmodel, stream);
+			}
+		}
+		public void PrintMatrix(double[,] matrix)
+		{
+			for(int i = 0; i < matrix.GetLength(0); i++)
+			{
+				Console.WriteLine(string.Join(", ", Enumerable.Range(0, matrix.GetLength(1))
+					.Select(x => matrix[i, x]).ToArray())); 
+			}
+		}
+		[Test]
+		public void TestCreateMassAxes()
+		{
+			CreateBetterTestData(out double[] yarray, out double[] xarray);
+			double massMax = 50000;
+			double massMin = 10000;
+			double massBinWidth = 5;
+
+			UniDecDeconEngine eng = new();
+			eng.CreateMassAxes(out double[] massAxis, out double[] massAxisVals, massMax, massMin, massBinWidth);
+
+			Console.WriteLine(string.Join("\n", massAxis.AsEnumerable())); 
+
+		}
+		[Test]
+		public void TestCreateChargeByMzTable()
+		{
+			UniDecDeconEngine eng = new();
+			CreateBetterTestData(out double[] yarray, out double[] xarray);
+			int[] chargeArray = Enumerable.Range(5, 45).ToArray();
+			double[,] massTable = eng.CreateChargeByMzTable(chargeArray, xarray, 1.007); 
+		}
+		public DataTable LoadTsvFileToDataTable(string tsvPath)
+		{
+			DataTable dt = new DataTable();
+			using (StreamReader reader = new StreamReader(tsvPath))
+			{
+				string line = "";
+				int rowcount = 0;
+				while ((line = reader.ReadLine()) != null)
+				{
+					string[] tsv = line.Split("\t").ToArray();
+					if (rowcount == 0)
+					{
+						foreach (string colName in tsv)
+						{
+							dt.Columns.Add(colName, typeof(double));
+						}
+						rowcount++; 
+						continue;
+					}
+
+					dt.Rows.Add(tsv);
+					rowcount++; 
+				}
+			}
+			return dt; 
+		}
+		public void CreateBetterTestData(out double[] intArray, out double[] mzArray)
+		{
+			double highMz = 1500;
+			double lowMz = 500;
+			double deltaMz = 0.1;
+			int totalValues = (int)((highMz - lowMz) / deltaMz);
+			double[] mzAxis = Enumerable.Range(0, totalValues).Select(i => i*deltaMz + lowMz).ToArray();
+			double[] intensityArray = new double[totalValues]; 
+			List<double> mzToHaveIntensity = (new double[] { 1201.0, 1091.9, 1001.0, 924.1, 858.2 }).ToList();
+			mzToHaveIntensity.Sort(); 
+
+			int[] indexes = new int[mzToHaveIntensity.Count];
+
+			for(int i = 0; i < mzToHaveIntensity.Count; i++)
+			{
+				indexes[i] = Array.BinarySearch(mzAxis, mzToHaveIntensity[i]);
+				if(indexes[i] < 0)
+				{
+					indexes[i] = ~indexes[i];
+				}
+			}
+			
+			var indexesList = indexes.ToList();
+			int j = 0;
+			double[] intensityValues = new double[] { 0.0309, 0.0619, 0.0929, 0.124, 0.0929 }; 
+			
+			for(int i = 0; i < intensityArray.Length; i++)
+			{
+				intensityArray[i] = 0; 
+
+				if (indexes[j] == i)
+				{
+					intensityArray[i] = intensityValues[j]; 
+					j++;
+					// loop will try to evaluate beyond indexes.Length, so 
+					// needed to break the loop once last indexes[j] is reached. Also saves time. 
+					if(j == indexes.Length)
+					{
+						break; 
+					}
+				}
+			}
+			intArray = intensityArray;
+			mzArray = mzAxis; 
 		}
 	}
 }

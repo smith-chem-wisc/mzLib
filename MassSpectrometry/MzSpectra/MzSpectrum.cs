@@ -95,6 +95,18 @@ namespace MassSpectrometry
             Buffer.BlockCopy(mzintensities, sizeof(double) * count, YArray, 0, sizeof(double) * count);
             peakList = new MzPeak[Size];
         }
+        public MzSpectrum(List<MzPeak> mzPeakList)
+		{
+            XArray = mzPeakList.Select(i => i.Mz).ToArray();
+            YArray = mzPeakList.Select(i => i.Intensity).ToArray();
+            peakList = new MzPeak[Size]; 
+		}
+        public MzSpectrum(IEnumerable<MzPeak> mzPeakList)
+        {
+            XArray = mzPeakList.Select(i => i.Mz).ToArray();
+            YArray = mzPeakList.Select(i => i.Intensity).ToArray();
+            peakList = new MzPeak[Size];
+        }
 
         public MzSpectrum(double[] mz, double[] intensities, bool shouldCopy)
         {

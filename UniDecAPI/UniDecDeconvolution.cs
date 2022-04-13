@@ -35,7 +35,155 @@ namespace UniDecAPI
 			}
 			return results; 
 		}
+		private void RawDataPreprocessing(MzSpectrum spectrum)
+		{
+			double minmz, maxmz, gaussianSmoothWidth, binSize, intthresh, dataReductionPercent;
+			bool baseLineSubtration, smooth; 
 
+			// crop data
+
+			// Smooth Data
+			// Linearize Data
+			// BaseLineSubtraction
+			// DataReduction
+			// Normalization
+			// Intensity Thresholding
+			// DataReduction
+			// ZeroRemoval
+			// Duplicate Removal. 
+		}
+		// Trims m/z range of data. 
+		public MzSpectrum DataChop(MzSpectrum spectrum, double minMz, double maxMz)
+		{
+			return new MzSpectrum(spectrum.Extract(minMz, maxMz)); 
+		}
+		public double[] GaussianSmoothingFilter(MzSpectrum spectrum, double sigma, int kernelSize)
+		{
+			double deviation = (kernelSize - 1) / 6;
+			double[] kernel = GenerateGuassianKernel(deviation, kernelSize);
+			return ConvoluteFull(spectrum.YArray, kernel); 
+		}
+		public double[] ConvoluteFull(double[] signal, double[] kernel)
+		{
+			// Output needs padding. Length shouuld be 
+			double[] output = new double[signal.Length + 2 * kernel.Length - 1];
+			// create zero padded array 
+			Array.Copy(signal, 0, output, kernel.Length - 1, signal.Length); 
+			// outer loop iterates through the signal
+			double[] accumulator = new double[output.Length]; 
+			
+			for(int sig = kernel.Length; sig < output.Length - kernel.Length; sig++)
+			{
+				double sum = 0; 
+				// inner loop iterates through the kernel
+				// kernel values need to go from 
+				for(int kern = 0; kern < kernel.Length; kern++)
+				{
+					accumulator[sig] += kernel[kern] * output[sig - kern]; 
+				}
+			}
+
+			return RemovePadding(accumulator, signal.Length); 
+		}
+		private double[] RemovePadding(double[] array, int originalDimensions)
+		{
+			int padding = array.Length - originalDimensions; 
+			List<double> arrayList = array.ToList();
+			return arrayList.Skip(padding / 2).Take(originalDimensions).ToArray(); 
+		}
+		public void ConvoluteFull(ref double[] signal, double[] kernel)
+		{
+			signal = ConvoluteFull(signal, kernel); 
+		}
+		public double[,] ConvoluteFull2D(double[,] matrix, double[,] kernel)
+		{
+			double[,] result = new double[matrix.GetLength(0), matrix.GetLength(1)]; 
+			for(int y = 0; y < matrix.GetLength(1); y++)
+			{
+				for(int x = 0; x < matrix.GetLength(0); x++){
+					double sum = 0; 
+
+					for(int kernelY = -kernel.GetLength(0)/2; kernelY < kernel.GetLength(0)/2; kernelY++)
+					{
+						for(int kernelX = -kernel.GetLength(1)/2; kernelX < kernel.GetLength(1)/2; kernelX++)
+						{
+							int sourceY = y + kernelY;
+							int sourceX = x + kernelX;
+
+							if (sourceX < 0)
+								sourceX = 0;
+
+							if (sourceX >= matrix.GetLength(0))
+								sourceX = matrix.GetLength(0) - 1;
+
+							if (sourceY < 0)
+								sourceY = 0;
+
+							if (sourceY >= matrix.GetLength(1))
+								sourceY = matrix.GetLength(1) - 1;
+
+							sum += matrix[sourceX, sourceY]; 
+						}
+					}
+					result[x, y] = sum; 
+				}
+			}
+			
+			return result;
+		}
+		public double[] GenerateGuassianKernel(double sigma, int size)
+		{
+			/* Gaussian formula: 
+			 * g(x) = alpha * exp{-(x-mu)^2/(2 * sigma^2)}
+			 * where alpha = 1/(sigma * sqrt(2*pi)) 
+			 */
+
+			double[] kernel = new double[size];
+			int half = size / 2;
+
+			double alpha = 1 / (sigma * Math.Sqrt(2 * Math.PI)); 
+
+			for(int i = 0; i < size; i++)
+			{
+				double beta = -(i - half) * (i - half) / (2 * sigma * sigma);
+				kernel[i] = alpha * Math.Exp(beta);
+			}
+			return kernel; 
+		}
+		public double[,] GenerateGaussianKernel2D(double sigma, int size)
+		{
+			double[,] kernel = new double[size, size];
+			double frontTerm = 1 / (2 * Math.PI * sigma * sigma);
+			double twoSigSquared = 2 * sigma * sigma; 
+
+			for(int i = 0; i < kernel.GetLength(0); i++)
+			{
+				for(int j = 0; j < kernel.GetLength(1); j++)
+				{
+					kernel[i, j] = frontTerm * Math.Exp(-(i * i + j * j) / twoSigSquared); 
+				}
+			}
+			return kernel; 
+
+		}
+		private void LinearizeData() { }
+		private void NonLinearizeData() { }
+		private void RemoveNoise() { }
+		private void Normalize()
+		{
+
+		}
+		private void IntensityThresholding() { }
+		
+		private void PeakDetect()
+		{
+
+		}
+		private void RemoveMiddleZeroes()
+		{
+
+		}
+		private void RemoveDuplicateValues() { }
 		private void Setup(MzSpectrum spectrum)
 		{
 			unsafe
@@ -338,6 +486,201 @@ namespace UniDecAPI
 			decon.uniscore = Scoring.UniScorePorted(config, ref decon, inp, scorethresh, config.peakwin, unHandler);
 
 			return new DeconResults(decon, config); 
+		}
+		public double[,] CreateChargeAndMZMatrix(double[] intArray, int minCharge, int maxCharge)
+		{
+			// create charge range
+			int[] chargeArray = Enumerable.Range(minCharge, maxCharge - minCharge).ToArray();
+			double[,] chargeAndMzMatrix = new double[chargeArray.Length, intArray.Length]; 
+
+			for(int i = 0; i < chargeAndMzMatrix.GetLength(0); i++)
+			{
+				for(int j = 0; j < chargeAndMzMatrix.GetLength(1); j++)
+				{
+					chargeAndMzMatrix[i, j] = chargeArray[i] * intArray[j];
+				}
+			}
+			return chargeAndMzMatrix; 
+		}
+		public double[] SumChargeAxis(double[,] chargeMzMatrix)
+		{
+			double[] colSums = new double[chargeMzMatrix.GetLength(1)]; 
+			for(int i = 0; i < colSums.Length; i++)
+			{
+				colSums[i] = Enumerable.Range(0, chargeMzMatrix.GetLength(0)).Select(x => chargeMzMatrix[x, i]).Sum();
+			}
+			return colSums; 
+		}
+		public double[] ConvoluteSummedChargeAxis(double[] chargeAxis, double[] peakShapeKernel)
+		{
+			return ConvoluteFull(chargeAxis, peakShapeKernel); 
+		}
+		public double[,] SmoothDeltaFunctions(double[,] matrix, double[,] kernel)
+		{
+			double[,] result = new double[matrix.GetLength(0), matrix.GetLength(1)];
+			//convolute the kernel with the 2D image. 
+			return ConvoluteFull2D(matrix, kernel); 
+
+		}
+		public void SmoothDeltaFunctions(ref double[,] matrix, double[,] kernel)
+		{
+			matrix = SmoothDeltaFunctions(matrix, kernel); 
+		}
+		public double[,] MatrixMultiplication(double[,] matrix1, double[,] matrix2)
+		{
+			int rowsMatrix1 = matrix1.GetLength(0);
+			int colsMatrix1 = matrix1.GetLength(1);
+			int rowsMatrix2 = matrix2.GetLength(0);
+			int colsMatrix2 = matrix2.GetLength(1); 
+			double[,] result = new double[rowsMatrix1, colsMatrix2];
+			for(int i = 0; i < colsMatrix2; i++)
+			{
+				for(int j = 0; j < rowsMatrix1; j++)
+				{
+					double sum = 0; 
+					for(int k = 0; k < colsMatrix1; k++)
+					{
+						sum += matrix1[j, k] * matrix2[k, i]; 
+					}
+					result[j, i] = sum; 
+				}
+			}
+			return result; 
+		}
+
+		public double[] MultiplyArrayByScalar(double[] array, double scalar)
+		{
+			return array.Select(i => i * scalar).ToArray(); 
+		}
+		public double[] TakeReciprocalOfArray(double[] array)
+		{
+			return array.Select(i => i = (i != 0) ? 1 / i : 0).ToArray(); 
+		}
+		public double[,] ElementwiseMultiplication(double[,] matrix1, double[,] matrix2)
+		{
+			double[,] result = new double[matrix1.GetLength(0), matrix1.GetLength(1)]; 
+
+			for(int i = 0; i < matrix1.GetLength(0); i++)
+			{
+				for(int j = 0; j < matrix1.GetLength(1); j++)
+				{
+					result[i, j] = matrix1[i,j] * matrix2[i,j]; 
+				}
+			}
+			return result; 
+		}
+		public double[,] ElementwiseMutiplyArray(double[,] matrix, double[] array)
+		{
+			double[,] result = new double[matrix.GetLength(0), matrix.GetLength(1)]; 
+			for(int i = 0; i < matrix.GetLength(0); i++)
+			{
+				for(int j = 0; j < matrix.GetLength(1); j++)
+				{
+					result[i, j] = matrix[i, j] * array[j]; 
+				}
+			}
+			return result; 
+		}
+		public double[] ElementwiseMultiplyArrays(double[] array1, double[] array2)
+		{
+			double[] result = new double[array1.Length]; 
+			for(int i = 0; i < result.Length; i++)
+			{
+				result[i] = array1[i] * array2[i]; 
+			}
+			return result; 
+		}
+		public double[,] CreateDeepCopy(double[,] source) 
+		{
+			double[,] copy = new double[source.GetLength(0), source.GetLength(1)];
+			double[] buffer = new double[source.GetLength(0) * source.GetLength(1)];
+
+			Buffer.BlockCopy(source, 0, buffer, 0, buffer.Length * sizeof(double));
+			Buffer.BlockCopy(buffer, 0, copy, 0, buffer.Length * sizeof(double));
+			return copy; 
+		}
+		public double[,] CreateChargeByMzTable(int[] charges, double[] mzAxis, double adductMass)
+		{
+			double[,] massTable = new double[charges.Length, mzAxis.Length]; 
+			for(int i = 0; i < massTable.GetLength(0); i++)
+			{
+				for(int j = 0; j < massTable.GetLength(1); j++)
+				{
+					massTable[i, j] = charges[i] * mzAxis[j] - adductMass * charges[i];
+				}
+			}
+			return massTable; 
+		}
+		public double[,] CreateDeconvolutedMassTable(double[] massAxis, int[] chargeArray)
+		{
+			return new double[chargeArray.Length, massAxis.Length];
+		}
+		public void IntegrateTransform(double[,] massTable, double[] massaxis, double[] massaxisVal, 
+			double[,] ft, ref double[,] deconMassTable)
+		{
+			// this function uses an accumulator grid of charge vs mass. 
+			// The accumulator is the deconMassTable. It is made up of the massaxis on the x-axis
+			// (cols) and the charge on the y-axis (rows). 
+
+			// if a mass from the mass table matches a mass from the deconvoluted mass table, 
+			// the value of that is pulled from the ft grid and added to the accumulator grid. 
+			// the location of the addition is the (charge, index) where index = the matching index 
+			// between the mass from the mass index and the mass axis. 
+			double massMax = massaxis.Max();
+			double massMin = massaxis.Min(); 
+			// i is charge, j is mass
+			for(int i = 0; i < massTable.GetLength(0); i++)
+			{
+				for(int j = 0; j < massTable.GetLength(1); j++)
+				{
+					double testmass = massTable[i,j];
+					if (testmass > massMax | testmass < massMin) continue; 
+
+					int index = Array.BinarySearch(massaxis, testmass);
+					if (index < 0) index = ~index;
+					
+					double newval = ft[i, j];
+					massaxisVal[index] += newval;
+					deconMassTable[i, index] += newval; 
+				}
+			}
+			
+		}
+		public void CreateMassAxes(out double[] massAxis, out double[] massAxisVals, 
+			double massMax, double massMin, double massBinWidth)
+		{
+			double massDiff = massMax - massMin;
+			int elementsOfMassAxis = (int)(massDiff / massBinWidth);
+
+			massAxis = new double[elementsOfMassAxis];
+			massAxisVals = new double[elementsOfMassAxis]; 
+
+			for(int i = 0; i < elementsOfMassAxis; i++)
+			{
+				massAxis[i] = massMin + i * massBinWidth; 
+			}
+		}
+		public double[] RowSums(double[,] matrix)
+		{
+			double[] result = new double[matrix.GetLength(0)];
+			for (int i = 0; i < matrix.GetLength(0); i++)
+			{
+				result[i] = Enumerable.Range(0, matrix.GetLength(1))
+					.Select(x => matrix[i,x])
+					.Sum();
+			}
+			return result;
+		}
+		public double[] ColSums(double[,] matrix)
+		{
+			double[] result = new double[matrix.GetLength(1)]; 
+			for(int i = 0; i < matrix.GetLength(1); i++)
+			{
+				result[i] = Enumerable.Range(0, matrix.GetLength(0))
+					.Select(x => matrix[x, i])
+					.Sum(); 
+			}
+			return result; 
 		}
 
 	}
