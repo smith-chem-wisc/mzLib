@@ -587,7 +587,7 @@ namespace Proteomics
             return validModDictionary;
         }
 
-        public void AddBiomarkersToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        public void AddBiomarkersToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
@@ -670,24 +670,23 @@ namespace Proteomics
         /// <param name="initiatorMethionineBehavior"> this effects the intact proteoform as well as any original proteolysis products containing the N-terminus</param>
         /// <param name="minProductBaseSequenceLength"> the same as the min detectable peptide</param>
         /// <param name="lengthOfProteolysis"> the number of amino acids that can be removed from either end.</param>
-        public void AddBiomarkers(bool addFullProtein = true, bool addForEachOrigninalProteolysisProduct = true, bool addNterminalDigestionBiomarkers = true, bool addCterminalDigestionBiomarkers = true, InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Retain, int minProductBaseSequenceLength = 7, int lengthOfProteolysis = 5)
+        public void AddBiomarkers(bool addFullProtein = true, bool addForEachOrigninalProteolysisProduct = true, bool addNterminalDigestionBiomarkers = true, bool addCterminalDigestionBiomarkers = true, int minProductBaseSequenceLength = 7, int lengthOfProteolysis = 5)
         {
             if (addFullProtein) //this loop adds the intact protoeoform and its proteolysis products to the proteolysis products list
             {
-                AddIntactProteoformToProteolysisProducts(initiatorMethionineBehavior, minProductBaseSequenceLength);
+                AddIntactProteoformToProteolysisProducts(minProductBaseSequenceLength);
                 if (addNterminalDigestionBiomarkers)
                 {
-                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, true, false, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion biomarker");
+                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, true, false, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion biomarker");
                 }
                 if (addCterminalDigestionBiomarkers)
                 {
-                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, false, true, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion biomarker");
+                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, false, true, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion biomarker");
                 }
             }
 
             if (addForEachOrigninalProteolysisProduct) // this does not include the original intact proteoform
             {
-                RemoveMethionineWhenAppropriateFromExistingProduts(initiatorMethionineBehavior);
                 List<ProteolysisProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("biomarker") && !p.Type.Contains("full-length proteoform")).ToList();
                 foreach (ProteolysisProduct product in existingProducts)
                 {
@@ -702,11 +701,11 @@ namespace Proteomics
                         //the original proteolysis product is already on the list so we don't need to duplicate
                         if (addNterminalDigestionBiomarkers)
                         {
-                            AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, true, false, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+                            AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, true, false, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
                         }
                         if (addCterminalDigestionBiomarkers)
                         {
-                            AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, false, true, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+                            AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, false, true, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
                         }
                     }
                 }
@@ -714,66 +713,11 @@ namespace Proteomics
             CleaveOnceBetweenProteolysisProducts();
         }
 
-        /// <summary>
-        /// When a protein has existing proteolysis products, we have to remove methionine when appropriate before creating additional proteolysis products
-        /// </summary>
-        /// <param name="existingProducts"></param>
-        /// <param name="initiatorMethionineBehavior"></param>
-        public void RemoveMethionineWhenAppropriateFromExistingProduts(InitiatorMethionineBehavior initiatorMethionineBehavior)
+        public void AddIntactProteoformToProteolysisProducts(int minProductBaseSequenceLength)
         {
-            List<ProteolysisProduct> productsAtNterminusWithMethionine = _proteolysisProducts.Where(p => !p.Type.Contains("biomarker") && !p.Type.Contains("intact") && p.OneBasedBeginPosition == 1).ToList();
-
-            if (productsAtNterminusWithMethionine.Count > 0)
+            if (BaseSequence.Length >= minProductBaseSequenceLength)
             {
-                if (BaseSequence.Substring(0, 1) == "M")
-                {
-                    if (productsAtNterminusWithMethionine.Count > 0)
-                    {
-                        List<ProteolysisProduct> replacementNterminalProducts = new();
-                        if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Cleave)
-                        {
-                            foreach (ProteolysisProduct product in productsAtNterminusWithMethionine)
-                            {
-                                replacementNterminalProducts.Add(new ProteolysisProduct(2, product.OneBasedEndPosition, product.Type));
-                            }
-                            _proteolysisProducts.RemoveAll(p => p.OneBasedBeginPosition == 1 && !p.Type.Contains("biomarker") && !p.Type.Contains("Intact"));
-                            _proteolysisProducts.AddRange(replacementNterminalProducts);
-                        }
-                        else if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Variable)
-                        {
-                            //here we don't want to do anything, we leave in the products with begin position = 1. Later we'll add an additional proteolysis product so that we get the right number
-                        }
-                    }
-                }
-            }
-        }
-
-        public void AddIntactProteoformToProteolysisProducts(InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength)
-        {
-            if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Retain || initiatorMethionineBehavior == InitiatorMethionineBehavior.Variable)
-            {
-                //when it's variable, we don't have to add anything here, we'll get an additonal proteolysis product later.
-                if (BaseSequence.Length >= minProductBaseSequenceLength)
-                {
-                    _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "full-length proteoform"));
-                }
-            }
-            else if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Cleave)
-            {
-                if (BaseSequence.Substring(0, 1) == "M")
-                {
-                    if (BaseSequence.Length - 1 >= minProductBaseSequenceLength)
-                    {
-                        _proteolysisProducts.Add(new ProteolysisProduct(2, BaseSequence.Length, "full-length proteoform"));
-                    }
-                }
-                else
-                {
-                    if (BaseSequence.Length >= minProductBaseSequenceLength)
-                    {
-                        _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "full-length proteoform"));
-                    }
-                }
+                _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "full-length proteoform"));
             }
         }
 
