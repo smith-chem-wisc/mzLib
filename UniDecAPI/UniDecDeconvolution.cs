@@ -13,6 +13,8 @@ namespace UniDecAPI
 		public static void DeconvoluteWithUniDec(this MzSpectrum spectrum, out DeconResults deconResults)
 		{
 			UniDecDeconEngine deconEngine = new();
+			double[] yarray = deconEngine.LinearizeMassSpectrum(spectrum, 0.5, out double[] xarray);
+			MzSpectrum linSpectrum = new(xarray, yarray, false); 
 			deconResults = deconEngine.Run(spectrum); 
 		}
 	}
@@ -634,17 +636,47 @@ namespace UniDecAPI
 				for(int j = 0; j < massTable.GetLength(1); j++)
 				{
 					double testmass = massTable[i,j];
-					if (testmass > massMax | testmass < massMin) continue; 
+					if (testmass > massMax || testmass < massMin) continue; 
 
 					int index = Array.BinarySearch(massaxis, testmass);
 					if (index < 0) index = ~index;
 					
 					double newval = ft[i, j];
-					massaxisVal[index] += newval;
-					deconMassTable[i, index] += newval; 
+					if(massaxis[index] == testmass)
+					{
+						massaxisVal[index] += newval;
+						deconMassTable[i,index] += newval; 
+					}
+					if(massaxis[index] < testmass && index < massaxis.Length - 2)
+					{
+						int index2 = index + 1;
+						double interpos = LinearInterpolatePosition(massaxis[index], massaxis[index2], testmass);
+						massaxisVal[index] += (1.0 - interpos) * newval;
+						deconMassTable[i,index] += (1.0 - interpos) * newval;
+
+						massaxisVal[index2] += interpos * newval;
+						deconMassTable[i,index2] += interpos * newval; 
+					}
+					if(index > 0 && massaxis[index] > testmass)
+					{
+						int index2 = index - 1;
+						double interpos = LinearInterpolatePosition(massaxis[index], massaxis[index2], testmass);
+						massaxisVal[index] += (1 - interpos) * newval;
+						deconMassTable[i,index] += (1.0 - interpos) * newval;
+						massaxisVal[index2] += interpos * newval;
+						deconMassTable[i,index2] += interpos * newval;
+					}
 				}
 			}
 			
+		}
+		public double LinearInterpolatePosition(double x1, double x2, double x)
+		{
+			if(x2 - x1 == 0)
+			{
+				return 0; 
+			}
+			return (x - x1) / (x2 - x1); 
 		}
 		public void CreateMassAxes(out double[] massAxis, out double[] massAxisVals, 
 			double massMax, double massMin, double massBinWidth)
@@ -685,15 +717,13 @@ namespace UniDecAPI
 		public double[,] ApplyLogMeanFilter(double[,] matrix, int width)
 		{
 			double[,] result = new double[matrix.GetLength(0), matrix.GetLength(1)];
-			double frontTerm = 1 / (2 * (width +1) + 1); 
+			double frontTerm = 1 / (2 * width + 1); 
 
 			for (int y = 0; y < matrix.GetLength(1); y++)
 			{
 				for (int x = 0; x < matrix.GetLength(0); x++)
 				{
-					if (matrix[x, y] == 0) continue; 
 					double sum = 0;
-
 					for (int i = -width/2; i < width/2; i++)
 					{
 						int sourceY = y + i;
@@ -715,16 +745,106 @@ namespace UniDecAPI
 						{
 							sum += Math.Log(matrix[sourceX, sourceY]);
 						}
-						else
-						{
-							continue; 
-						}
-
 					}
 					result[x, y] = Math.Exp(sum * frontTerm);
 				}
 			}
 			return result;
+		}
+		public double[] ApplyLogMeanFilter(double[] array, int width)
+		{
+			double[] result = new double[array.Length];
+			double frontTerm = 1 / (2 * width + 1);
+
+			
+				for (int x = 0; x < array.Length; x++)
+				{
+					double sum = 0;
+					for (int i = -width / 2; i < width / 2; i++)
+					{
+						int sourceX = x + i;
+
+						if (sourceX < 0)
+							sourceX = 0;
+
+						if (sourceX >= array.GetLength(0))
+							sourceX = array.GetLength(0) - 1;
+
+
+						if (array[sourceX] > 0)
+						{
+							sum += Math.Log(array[sourceX]);
+						}
+					}
+					result[x] = Math.Exp(sum * frontTerm);
+				}
+			return result;
+		}
+		public double[] LinearizeMassSpectrum(MzSpectrum spectrum, double binWidth, out double[] mzAxisNew)
+		{
+			double firstpoint = Math.Ceiling(spectrum.XArray[0] / binWidth) * binWidth;
+			double lastpoint = Math.Floor(spectrum.XArray.Last() / binWidth) * binWidth;
+			int numberBins = (int)((lastpoint - firstpoint) / binWidth);
+			mzAxisNew = Enumerable.Range(0, numberBins).Select(i => firstpoint + i * binWidth).ToArray();
+
+			return Interpolate1D(spectrum.XArray, spectrum.YArray, mzAxisNew); 
+		}
+		public double[] Interpolate1D(double[] x, double[] y, double[] xNew)
+		{
+			double[] yNew = new double[xNew.Length];
+			double dx, dy, m, b;
+			
+			int xMaxIndex = x.Length - 1;
+			int yMaxindex = y.Length - 1;
+			int xNewSize = xNew.Length; 
+
+			for(int i = 0; i < xNew.Length; i++)
+			{
+				int index = Array.BinarySearch(x, xNew[i]);
+				if (index < 0) index = ~index;
+
+				if (index > x.Length - 1) continue; 
+
+				if(x[index] > xNew[i])
+				{
+					dx = index > 0 ? (x[index] - x[index - 1]) : (x[index + 1] - x[index]);
+					dy = index > 0 ? (y[index] - y[index - 1]) : (y[index + 1] - y[index]);
+				}else
+				{
+					dx = index < xMaxIndex ? (x[index + 1] - x[index]) : (x[index] - x[index - 1]);
+					dy = index < xMaxIndex ? (y[index + 1] - y[index]) : (y[index] - y[index - 1]);
+				}
+				m = dy / dx;
+				b = y[index] - x[index] * m;
+				yNew[i] = xNew[i] * m + b; 
+			}
+			return yNew; 
+		}
+		public void NormalizeIntensity(ref double[] yarray)
+		{
+			double maxIntensity = yarray.Max();
+			yarray = yarray.AsEnumerable().Select(i => i / maxIntensity).ToArray(); 
+		}
+		public double[,] PointSmoothing(double[,] matrix, int width)
+		{
+			for(int i = 0; i < matrix.GetLength(1); i++)
+			{
+				for(int j = 0; j < matrix.GetLength(0); j++)
+				{
+					int low = i - width;
+					if (low < 0) low = 0;
+					int high = i + width + 1;
+
+					if (high > matrix.GetLength(1)) high = matrix.GetLength(1);
+
+					double sum = 0;
+					for (int k = low; k < high; k++)
+					{
+						sum += matrix[j, i] = sum / (double)(1 + 2 * width); 
+					}
+				}
+			}
+			return matrix; 
 		}
 
 	}

@@ -527,13 +527,8 @@ namespace Test
 		{
 			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
 			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
-			scan = testScan[0];
-
-			FilteringParams filterParams = new(numberOfPeaksToKeepPerWindow: peakPerWindow, windowWidthThomsons: windowWidth);
-			List<MsDataScan> testScanWithFilter = ThermoRawFileReader.LoadAllStaticData(path, filterParams).GetAllScansList();
-			scan = testScanWithFilter[0];
-			
-			scan.MassSpectrum.DeconvoluteWithUniDec(out DeconResults deconResults);
+			MzSpectrum scan =  testScan[0].MassSpectrum;
+			scan.DeconvoluteWithUniDec(out DeconResults deconResults);
 			Console.WriteLine(string.Join("\n", deconResults.DScores.ToList())); 
 		}
 		[Test]
@@ -588,35 +583,30 @@ namespace Test
 		[Test]
 		public void TestDeconvolutionII()
 		{
-			CreateBetterTestData(out double[] yarray, out double[] xarray); 
+			//CreateBetterTestData(out double[] yarray, out double[] xarray); 
+			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
+			List<MsDataScan> scan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
+			MzSpectrum testScan = scan[0].MassSpectrum;
 			// setup
 			UniDecDeconEngine engine = new();
-
-			double[,] measuredSpectrum = new double[xarray.Length, 2]; 
-			for(int i = 0; i < xarray.Length; i++)
-			{
-				measuredSpectrum[i, 0] = xarray[i];
-				measuredSpectrum[i, 1] = yarray[i]; 
-			}
-
+			double[] yarray = engine.LinearizeMassSpectrum(testScan, 0.5, out double[] xarray);
 			/*
 			 * iteration = delta functions * measured spectrum / charge axis convolved with peak shape 
 			 * 
 			 * delta functions are smoothed by convoluting with a filter before proceeding with the deconvolution
 			 **/
 
-			// creates a deep copy of matrix and creates the result of the iterations. 
-			double[,] result = engine.CreateDeepCopy(measuredSpectrum);
 			// create the gaussian kernel. 
 			// spacing for this example is 0.1 between each measured m/z. 
 			// so the minimum standard deviation of a kernel is going to be 2 * 0.1. 
 			// This makes sense since you can't meaningfully convolute a signal with a function that is the min frequency/2. 
-			double[] gaussKernel1D = engine.GenerateGuassianKernel(0.2, 8);
+			double[] gaussKernel1D = engine.GenerateGuassianKernel(1, 10);
 
 			
 			// f^(t=0) = intensity data 
 			double[,] initialFt = engine.CreateChargeAndMZMatrix(yarray, 5, 50);
-			initialFt = engine.ApplyLogMeanFilter(initialFt, 7); 
+			initialFt = engine.ApplyLogMeanFilter(initialFt, 25);
+
 			double[] initialSummedChargeAxis = engine.SumChargeAxis(initialFt);
 			double[] initialConvolutedChargeAxis = engine.ConvoluteSummedChargeAxis(initialSummedChargeAxis, gaussKernel1D);
 			double[] invConvChargeAxis = engine.TakeReciprocalOfArray(initialConvolutedChargeAxis);
@@ -624,16 +614,16 @@ namespace Test
 			double[] temp = engine.ElementwiseMultiplyArrays(yarray, invConvChargeAxis);
 			double[] iterationResult = engine.ElementwiseMultiplyArrays(yarray, temp);
 			
-			double[,] ft = new double[45, 10000];
-			double[,] smoothedIterationResult = new double[45, 10000]; 
-			double[] summedChargeAxis = new double[10000];
-			double[] convolutedChargeAxis = new double[10000];
-			double[] recipChargeAxis = new double[10000]; 
+			double[,] ft = new double[45, xarray.Length];
+			double[,] smoothedIterationResult = new double[45, xarray.Length]; 
+			double[] summedChargeAxis = new double[xarray.Length];
+			double[] convolutedChargeAxis = new double[xarray.Length];
+			double[] recipChargeAxis = new double[xarray.Length]; 
 			
-			for (int i = 0; i < 10; i++)
+			for (int i = 0; i < 50; i++)
 			{
-				ft = engine.CreateChargeAndMZMatrix(iterationResult, 5, 50); 
-				smoothedIterationResult = engine.ApplyLogMeanFilter(ft, 7);
+				ft = engine.CreateChargeAndMZMatrix(iterationResult, 5, 50);
+				smoothedIterationResult = engine.ApplyLogMeanFilter(ft, 25); 
 				summedChargeAxis = engine.SumChargeAxis(smoothedIterationResult);
 				convolutedChargeAxis = engine.ConvoluteSummedChargeAxis(summedChargeAxis, gaussKernel1D);
 				// h(x) / c(x)
@@ -648,14 +638,14 @@ namespace Test
 			int[] chargeArray = Enumerable.Range(5, 45).ToArray();
 			double[,] massTable = engine.CreateChargeByMzTable(chargeArray, xarray, 1.007);
 
-			engine.CreateMassAxes(out double[] massaxis, out double[] massAxisVals, 50000, 10000, 5);
+			engine.CreateMassAxes(out double[] massaxis, out double[] massAxisVals, 50000, 5000, 0.5);
 			double[,] deconMassTable = engine.CreateDeconvolutedMassTable(massaxis, chargeArray); 
 			engine.IntegrateTransform(massTable, massaxis, ref massAxisVals, smoothedIterationResult, ref deconMassTable);
 
 			// PrintMatrix(deconMassTable);
 			Console.WriteLine(string.Join("\n", massAxisVals.AsEnumerable())); 
-			double[] deconMassSpectrum = engine.ColSums(deconMassTable);
-			CreateDeconMassSpectrum(deconMassSpectrum, massaxis, "UniDecOuptut.pdf"); 
+			double[] deconMassSpectrum = engine.RowSums(deconMassTable);
+			CreateDeconMassSpectrum(massAxisVals, massaxis, "UniDecOuptut.pdf"); 
 		}
 		public void CreateDeconMassSpectrum(double[] deconMassSpec, double[] massAxis, string fileName)
 		{
@@ -767,11 +757,12 @@ namespace Test
 			
 			var indexesList = indexes.ToList();
 			int j = 0;
-			double[] intensityValues = new double[] { 0.0309, 0.0619, 0.0929, 0.124, 0.0929 }; 
-			
+			double[] intensityValues = new double[] { 0.0309, 0.0619, 0.0929, 0.124, 0.0929 };
+
+			Random rnd = new(); 
 			for(int i = 0; i < intensityArray.Length; i++)
 			{
-				intensityArray[i] = 0; 
+				intensityArray[i] = 0; // rnd.NextDouble() / 100000; 
 
 				if (indexes[j] == i)
 				{
@@ -787,6 +778,37 @@ namespace Test
 			}
 			intArray = intensityArray;
 			mzArray = mzAxis; 
+		}
+		[Test]
+		public void TestLinearizeMassSpecData()
+		{
+			UniDecDeconEngine eng = new(); 
+			// TODO: Take a scan and then make sure the mass axis has linear spacing. Also normalize it to TIC
+			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
+			List<MsDataScan> scan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
+			MzSpectrum testScan = scan[0].MassSpectrum;
+
+			double[] linearizedSpectrum = eng.LinearizeMassSpectrum(testScan, binWidth: 0.5, out double[] mzAxisNew);
+			//PrintArrayToConsole(mzAxisNew);
+			//PrintArrayToConsole(linearizedSpectrum); 
+			CreateDeconMassSpectrum(linearizedSpectrum, mzAxisNew, "linearized.pdf");
+			CreateDeconMassSpectrum(testScan.YArray, testScan.XArray, "pre-linearized.pdf"); 
+		}
+		[Test] 
+		public void TestInterpolate1D()
+		{
+			UniDecDeconEngine eng = new(); 
+			double[] xNew = new double[] { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 };
+			double[] xOrg = new double[] { 0.15, 0.33, 0.46, 0.75 };
+			double[] yOrg = new double[] { 2.0, 3.0, 4.0, 2.0 };
+
+			double[] yResult = eng.Interpolate1D(xOrg, yOrg, xNew);
+			Console.WriteLine(string.Join("\n", yResult.AsEnumerable())); 
+			
+		}
+		public void PrintArrayToConsole<T>(T[] array)
+		{
+			Console.WriteLine(string.Join("\n", array.AsEnumerable())); 
 		}
 	}
 }
