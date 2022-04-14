@@ -154,6 +154,7 @@ namespace Proteomics
         /// Base sequence, which may contain applied sequence variations.
         /// </summary>
         public string BaseSequence { get; }
+
         public string Organism { get; }
         public bool IsDecoy { get; }
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
@@ -592,66 +593,25 @@ namespace Proteomics
 
             if (sequenceContainsNterminus)
             {
-                if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Retain)//we don't have to do anything here. if the sequence starrts / M or not it is unchanged
-                {
-                    //Digest C-terminus
-                    if (addCterminalDigestionBiomarkers)
-                    {
-                        AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
-                    }
-
-                    //Digest N-terminus
-                    if (addNterminalDigestionBiomarkers)
-                    {
-                        AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
-                    }
-                }
-                else if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Cleave)
+                //Digest N-terminus
+                if (addNterminalDigestionBiomarkers)
                 {
                     if (BaseSequence.Substring(0, 1) == "M")
                     {
-                        //Digest C-terminus
-                        if (addCterminalDigestionBiomarkers)
-                        {
-                            AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin + 1, minProductBaseSequenceLength, proteolyisisProductName);
-                        }
-
-                        //Digest N-terminus
-                        if (addNterminalDigestionBiomarkers)
-                        {
-                            AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin + 1, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
-                        }
-                    }
-                    else
-                    {
-                        //Digest C-terminus
-                        if (addCterminalDigestionBiomarkers)
-                        {
-                            AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
-                        }
-
-                        //Digest N-terminus
-                        if (addNterminalDigestionBiomarkers)
-                        {
-                            AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
-                        }
+                        AddNterminalBiomarkers(lengthOfProteolysis + 1, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
                     }
                 }
-                else // initiator methionine cleavage is variable we have to deal both with keeping and deleting the M
+                //Digest C-terminus -- not effected by variable N-terminus behavior
+                if (addCterminalDigestionBiomarkers)
                 {
-                    //Digest N-terminus
-                    if (addNterminalDigestionBiomarkers)
+                    // if first residue is M, then we have to add c-terminal markers for both with and without the M
+                    if (BaseSequence.Substring(0, 1) == "M")
                     {
-                        if (BaseSequence.Substring(0, 1) == "M")
-                        {
-                            AddNterminalBiomarkers(lengthOfProteolysis + 1, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
-                        }
+                        //add sequences WITHOUT methionine
+                        AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin + 1, minProductBaseSequenceLength, proteolyisisProductName);
                     }
-                    //Digest C-terminus -- not effected by variable N-terminus behavior
-                    if (addCterminalDigestionBiomarkers)
-                    {
-                        AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
-                    }
+                    //add sequences with methionine
+                    AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
                 }
             }
             else // sequence does not contain N-terminus
