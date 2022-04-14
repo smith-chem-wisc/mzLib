@@ -33,7 +33,7 @@ namespace Proteomics
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
-            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addBiomarkers = false)
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false)
         {
             // Mandatory
             BaseSequence = sequence;
@@ -65,9 +65,9 @@ namespace Proteomics
             DisulfideBonds = disulfideBonds ?? new List<DisulfideBond>();
             SpliceSites = spliceSites ?? new List<SpliceSite>();
 
-            if (addBiomarkers)
+            if (addTruncations)
             {
-                this.AddBiomarkers();
+                this.AddTruncations();
             }
         }
 
@@ -587,54 +587,54 @@ namespace Proteomics
             return validModDictionary;
         }
 
-        public void AddBiomarkersToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        public void AddTruncationsToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionTruncations, bool addCterminalDigestionTruncations, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
             if (sequenceContainsNterminus)
             {
                 //Digest N-terminus
-                if (addNterminalDigestionBiomarkers)
+                if (addNterminalDigestionTruncations)
                 {
                     if (BaseSequence.Substring(0, 1) == "M")
                     {
-                        AddNterminalBiomarkers(lengthOfProteolysis + 1, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                        AddNterminalTruncations(lengthOfProteolysis + 1, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
                     }
                     else
                     {
-                        AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                        AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
                     }
                 }
                 //Digest C-terminus -- not effected by variable N-terminus behavior
-                if (addCterminalDigestionBiomarkers)
+                if (addCterminalDigestionTruncations)
                 {
                     // if first residue is M, then we have to add c-terminal markers for both with and without the M
                     if (BaseSequence.Substring(0, 1) == "M")
                     {
                         //add sequences WITHOUT methionine
-                        AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin + 1, minProductBaseSequenceLength, proteolyisisProductName);
+                        AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin + 1, minProductBaseSequenceLength, proteolyisisProductName);
                     }
                     //add sequences with methionine
-                    AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
+                    AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
                 }
             }
             else // sequence does not contain N-terminus
             {
                 //Digest C-terminus
-                if (addCterminalDigestionBiomarkers)
+                if (addCterminalDigestionTruncations)
                 {
-                    AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
+                    AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
                 }
 
                 //Digest N-terminus
-                if (addNterminalDigestionBiomarkers)
+                if (addNterminalDigestionTruncations)
                 {
-                    AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                    AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
                 }
             }
         }
 
-        private void AddCterminalBiomarkers(int lengthOfProteolysis, int fullProteinOneBasedEnd, int fullProteinOneBasedBegin, int minProductBaseSequenceLength, string proteolyisisProductName)
+        private void AddCterminalTruncations(int lengthOfProteolysis, int fullProteinOneBasedEnd, int fullProteinOneBasedBegin, int minProductBaseSequenceLength, string proteolyisisProductName)
         {
             for (int i = 1; i <= lengthOfProteolysis; i++)
             {
@@ -647,7 +647,7 @@ namespace Proteomics
             }
         }
 
-        private void AddNterminalBiomarkers(int lengthOfProteolysis, int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, int minProductBaseSequenceLength, string proteolyisisProductName)
+        private void AddNterminalTruncations(int lengthOfProteolysis, int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, int minProductBaseSequenceLength, string proteolyisisProductName)
         {
             for (int i = 1; i <= lengthOfProteolysis; i++)
             {
@@ -669,23 +669,23 @@ namespace Proteomics
         /// </summary>
         /// <param name="addFullProtein"> This needs to be added to the proteolysisProducts list to be searched </param>
         /// <param name="addForEachOrigninalProteolysisProduct"> the original products are there but those resulting from N- or C-terminal degradation still need to be added</param>
-        /// <param name="addNterminalDigestionBiomarkers"></param>
-        /// <param name="addCterminalDigestionBiomarkers"></param>
+        /// <param name="addNterminalDigestionTruncations"></param>
+        /// <param name="addCterminalDigestionTruncations"></param>
         /// <param name="initiatorMethionineBehavior"> this effects the intact proteoform as well as any original proteolysis products containing the N-terminus</param>
         /// <param name="minProductBaseSequenceLength"> the same as the min detectable peptide</param>
         /// <param name="lengthOfProteolysis"> the number of amino acids that can be removed from either end.</param>
-        public void AddBiomarkers(bool addFullProtein = true, bool addForEachOrigninalProteolysisProduct = true, bool addNterminalDigestionBiomarkers = true, bool addCterminalDigestionBiomarkers = true, int minProductBaseSequenceLength = 7, int lengthOfProteolysis = 5)
+        public void AddTruncations(bool addFullProtein = true, bool addForEachOrigninalProteolysisProduct = true, bool addNterminalDigestionTruncations = true, bool addCterminalDigestionTruncations = true, int minProductBaseSequenceLength = 7, int lengthOfProteolysis = 5)
         {
             if (addFullProtein) //this loop adds the intact protoeoform and its proteolysis products to the proteolysis products list
             {
                 AddIntactProteoformToProteolysisProducts(minProductBaseSequenceLength);
-                if (addNterminalDigestionBiomarkers)
+                if (addNterminalDigestionTruncations)
                 {
-                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, true, false, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion biomarker");
+                    AddTruncationsToProteolysisProducts(1, BaseSequence.Length, true, false, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion biomarker");
                 }
-                if (addCterminalDigestionBiomarkers)
+                if (addCterminalDigestionTruncations)
                 {
-                    AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, false, true, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion biomarker");
+                    AddTruncationsToProteolysisProducts(1, BaseSequence.Length, false, true, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion biomarker");
                 }
             }
 
@@ -703,13 +703,13 @@ namespace Proteomics
                             proteolyisisProductName = product.Type + " " + proteolyisisProductName;
                         }
                         //the original proteolysis product is already on the list so we don't need to duplicate
-                        if (addNterminalDigestionBiomarkers)
+                        if (addNterminalDigestionTruncations)
                         {
-                            AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, true, false, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+                            AddTruncationsToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, true, false, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
                         }
-                        if (addCterminalDigestionBiomarkers)
+                        if (addCterminalDigestionTruncations)
                         {
-                            AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, false, true, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+                            AddTruncationsToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, false, true, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
                         }
                     }
                 }

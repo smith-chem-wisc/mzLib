@@ -12,61 +12,61 @@ namespace Test
     public sealed class TestProteinDatabase
     {
         [Test]
-        public static void MakeAnewProteinWithAndWithoutBiomarkers()
+        public static void MakeAnewProteinWithAndWithoutTruncations()
         {
-            Protein noBiomarkerProtein1 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Protein noBiomarkerProtein1 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
             Assert.AreEqual(0, noBiomarkerProtein1.ProteolysisProducts.Count());
 
             noBiomarkerProtein1.AddIntactProteoformToProteolysisProducts(7);
             Assert.AreEqual(1, noBiomarkerProtein1.ProteolysisProducts.Count());
 
-            Protein noBiomarkerProtein2 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Protein noBiomarkerProtein2 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
             Assert.AreEqual(0, noBiomarkerProtein2.ProteolysisProducts.Count());
 
             noBiomarkerProtein2.AddIntactProteoformToProteolysisProducts(7);
             Assert.AreEqual(1, noBiomarkerProtein2.ProteolysisProducts.Count());
 
-            Protein noBiomarkerProtein3 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Protein noBiomarkerProtein3 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
             Assert.AreEqual(0, noBiomarkerProtein3.ProteolysisProducts.Count());
 
             noBiomarkerProtein3.AddIntactProteoformToProteolysisProducts(7);
             Assert.AreEqual(1, noBiomarkerProtein3.ProteolysisProducts.Count());
 
-            Protein biomarkerProtein1 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: true);
+            Protein biomarkerProtein1 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: true);
             Assert.AreEqual(11, biomarkerProtein1.ProteolysisProducts.Count());
 
-            Protein biomarkerProtein2 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Protein biomarkerProtein2 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
             biomarkerProtein2.AddIntactProteoformToProteolysisProducts(7);
             Assert.AreEqual(1, biomarkerProtein2.ProteolysisProducts.Count());
         }
 
         [Test]
-        public static void AddBiomarkersToProteolysisProducts()
+        public static void AddTruncationsToProteolysisProducts()
         {
             //with xml, here for this protein, there are existing proteolysis products
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
             Protein insulinProteinFromXml1
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications1, addBiomarkers: false)[0];
+                DecoyType.None, null, false, null, out var unknownModifications1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml1.ProteolysisProducts.Count());
-            insulinProteinFromXml1.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
+            insulinProteinFromXml1.AddTruncationsToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
             Assert.AreEqual(20, insulinProteinFromXml1.ProteolysisProducts.Count());
 
             Protein insulinProteinFromXml2
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications2, addBiomarkers: false)[0];
+                DecoyType.None, null, false, null, out var unknownModifications2, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml2.ProteolysisProducts.Count());
-            insulinProteinFromXml2.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
+            insulinProteinFromXml2.AddTruncationsToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
             Assert.AreEqual(20, insulinProteinFromXml2.ProteolysisProducts.Count());
 
             Protein insulinProteinFromXml3
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications3, addBiomarkers: false)[0];
+                DecoyType.None, null, false, null, out var unknownModifications3, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml3.ProteolysisProducts.Count());
-            insulinProteinFromXml3.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
+            insulinProteinFromXml3.AddTruncationsToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
             Assert.AreEqual(20, insulinProteinFromXml3.ProteolysisProducts.Count());
         }
 
@@ -78,32 +78,32 @@ namespace Test
 
             Protein insulinProteinFromXml1
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications1, addBiomarkers: false)[0];
+                DecoyType.None, null, false, null, out var unknownModifications1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml1.ProteolysisProducts.Count());
 
             Protein insulinProteinFromXml2
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications2, addBiomarkers: false)[0];
+                DecoyType.None, null, false, null, out var unknownModifications2, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml2.ProteolysisProducts.Count());
 
             Protein insulinProteinFromXml3
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications3, addBiomarkers: false)[0];
+                DecoyType.None, null, false, null, out var unknownModifications3, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml3.ProteolysisProducts.Count());
         }
 
         [Test]
-        public static void TestAddBiomarkersIntactAndExistingProteolysisProducts()
+        public static void TestAddTruncationsIntactAndExistingProteolysisProducts()
         {
             //Note: existing proteoloysis products are now subjected to additional proteolysis.
 
             //with fasta (there are no existing proteolysis products. so we rely on the code to deal with that non-factor)
             string fastaDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
             Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: true)[0];
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addTruncations: true)[0];
 
             Assert.AreEqual(17, insulinProteinFromFasta.ProteolysisProducts.Count());
             Assert.AreEqual(1, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
@@ -119,7 +119,7 @@ namespace Test
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
             Protein insulinProteinFromXml
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications, addBiomarkers: true)[0];
+                DecoyType.None, null, false, null, out var unknownModifications, addTruncations: true)[0];
 
             Assert.AreEqual(68, insulinProteinFromXml.ProteolysisProducts.Count());
             Assert.AreEqual(1, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
@@ -142,10 +142,10 @@ namespace Test
             //with fasta (there are no existing proteolysis products. so we rely on the code to deal with that non-factor)
             string fastaDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
             Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: false)[0];
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addTruncations: false)[0];
 
             Assert.AreEqual(0, insulinProteinFromFasta.ProteolysisProducts.Count());
-            insulinProteinFromFasta.AddBiomarkers();
+            insulinProteinFromFasta.AddTruncations();
             Assert.AreEqual(17, insulinProteinFromFasta.ProteolysisProducts.Count());
         }
 
@@ -157,12 +157,12 @@ namespace Test
             //with fasta (there are no existing proteolysis products. so we rely on the code to deal with that non-factor)
             string fastaDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
             Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: false)[0];
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addTruncations: false)[0];
 
             Protein noMethionine = new Protein(insulinProteinFromFasta.BaseSequence.Substring(1,insulinProteinFromFasta.BaseSequence.Length-1), insulinProteinFromFasta.Accession);
 
             Assert.AreEqual(0, noMethionine.ProteolysisProducts.Count());
-            noMethionine.AddBiomarkers();
+            noMethionine.AddTruncations();
             Assert.AreEqual(11, noMethionine.ProteolysisProducts.Count());
         }
 
@@ -174,21 +174,21 @@ namespace Test
             //with fasta (there are no existing proteolysis products. so we rely on the code to deal with that non-factor)
             string fastaDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
             Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: false)[0];
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addTruncations: false)[0];
 
             Assert.AreEqual(0, insulinProteinFromFasta.ProteolysisProducts.Count());
-            insulinProteinFromFasta.AddBiomarkers();
+            insulinProteinFromFasta.AddTruncations();
             Assert.AreEqual(17, insulinProteinFromFasta.ProteolysisProducts.Count());
         }
 
         [Test]
-        public static void TestDoNotWriteBiomarkersToXml()
+        public static void TestDoNotWriteTruncationsToXml()
         {
             //with xml, here for this protein, there are existing proteolysis products
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "TestProtein.xml");
             List<Protein> proteins
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, addBiomarkers: true);
+                DecoyType.Reverse, null, false, null, out var unknownModifications, addTruncations: true);
 
             Assert.AreEqual(16, proteins[0].ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
 
@@ -199,7 +199,7 @@ namespace Test
 
             List<Protein> moreProteins
                 = ProteinDbLoader.LoadProteinXML(testOutXml, true,
-                DecoyType.Reverse, null, false, null, out var moreUnknownModifications, addBiomarkers: false);
+                DecoyType.Reverse, null, false, null, out var moreUnknownModifications, addTruncations: false);
             Assert.AreEqual(0, moreProteins[0].ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
 
             File.Delete(testOutXml);
