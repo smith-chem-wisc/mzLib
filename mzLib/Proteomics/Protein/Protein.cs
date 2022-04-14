@@ -600,6 +600,10 @@ namespace Proteomics
                     {
                         AddNterminalBiomarkers(lengthOfProteolysis + 1, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
                     }
+                    else
+                    {
+                        AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                    }
                 }
                 //Digest C-terminus -- not effected by variable N-terminus behavior
                 if (addCterminalDigestionBiomarkers)
