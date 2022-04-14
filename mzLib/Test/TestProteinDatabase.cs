@@ -51,7 +51,7 @@ namespace Test
 
             Assert.AreEqual(4, insulinProteinFromXml1.ProteolysisProducts.Count());
             insulinProteinFromXml1.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
-            Assert.AreEqual(14, insulinProteinFromXml1.ProteolysisProducts.Count());
+            Assert.AreEqual(20, insulinProteinFromXml1.ProteolysisProducts.Count());
 
             Protein insulinProteinFromXml2
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
@@ -59,7 +59,7 @@ namespace Test
 
             Assert.AreEqual(4, insulinProteinFromXml2.ProteolysisProducts.Count());
             insulinProteinFromXml2.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
-            Assert.AreEqual(14, insulinProteinFromXml2.ProteolysisProducts.Count());
+            Assert.AreEqual(20, insulinProteinFromXml2.ProteolysisProducts.Count());
 
             Protein insulinProteinFromXml3
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
@@ -67,7 +67,7 @@ namespace Test
 
             Assert.AreEqual(4, insulinProteinFromXml3.ProteolysisProducts.Count());
             insulinProteinFromXml3.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
-            Assert.AreEqual(15, insulinProteinFromXml3.ProteolysisProducts.Count());
+            Assert.AreEqual(20, insulinProteinFromXml3.ProteolysisProducts.Count());
         }
 
         [Test]
@@ -105,12 +105,13 @@ namespace Test
             Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
                 ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addBiomarkers: true)[0];
 
-            Assert.AreEqual(11, insulinProteinFromFasta.ProteolysisProducts.Count());
+            Assert.AreEqual(17, insulinProteinFromFasta.ProteolysisProducts.Count());
             Assert.AreEqual(1, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
-            Assert.AreEqual(10, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
+            Assert.AreEqual(16, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
 
-            List<int> expectedBegins = new List<int> { 1, 2, 3, 4, 5, 6, 1, 1, 1, 1, 1 };
-            List<int> expectedEnds = new List<int> { 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105 };
+            List<int> expectedBegins = new List<int> { 1, 2, 3, 4, 5, 6, 7, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1 };
+            List<int> expectedEnds = new List<int> { 110, 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 109, 108, 107, 106, 105 };
+
             CollectionAssert.AreEquivalent(expectedBegins, insulinProteinFromFasta.ProteolysisProducts.Select(p => p.OneBasedBeginPosition).ToList());
             CollectionAssert.AreEquivalent(expectedEnds, insulinProteinFromFasta.ProteolysisProducts.Select(p => p.OneBasedEndPosition).ToList());
 
@@ -120,12 +121,12 @@ namespace Test
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.None, null, false, null, out var unknownModifications, addBiomarkers: true)[0];
 
-            Assert.AreEqual(56, insulinProteinFromXml.ProteolysisProducts.Count());
+            Assert.AreEqual(68, insulinProteinFromXml.ProteolysisProducts.Count());
             Assert.AreEqual(1, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
-            Assert.AreEqual(50, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count()); //4 are original proteolysis products
+            Assert.AreEqual(62, insulinProteinFromXml.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count()); //4 are original proteolysis products
 
-            expectedBegins = new List<int> { 1, 25, 57, 90, 1, 2, 3, 4, 5, 6, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 1, 1, 1, 1, 1, 26, 27, 28, 29, 30, 25, 25, 25, 25, 25, 58, 59, 60, 61, 62, 57, 57, 57, 57, 57, 91, 92, 93, 94, 95, 90, 90, 90, 90, 90, 25 };
-            expectedEnds = new List<int> { 24, 54, 87, 110, 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 24, 24, 24, 24, 24, 23, 22, 21, 20, 19, 54, 54, 54, 54, 54, 53, 52, 51, 50, 49, 87, 87, 87, 87, 87, 86, 85, 84, 83, 82, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 110 };
+            expectedBegins = new List<int> { 1, 25, 57, 90, 1, 2, 3, 4, 5, 6, 7, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 7, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 26, 27, 28, 29, 30, 25, 25, 25, 25, 25, 58, 59, 60, 61, 62, 57, 57, 57, 57, 57, 91, 92, 93, 94, 95, 90, 90, 90, 90, 90, 25 };
+            expectedEnds = new List<int> { 24, 54, 87, 110, 110, 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 109, 108, 107, 106, 105, 24, 24, 24, 24, 24, 24, 23, 22, 21, 20, 19, 23, 22, 21, 20, 19, 54, 54, 54, 54, 54, 53, 52, 51, 50, 49, 87, 87, 87, 87, 87, 86, 85, 84, 83, 82, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 110 };
 
             List<int> reportedBegins = insulinProteinFromXml.ProteolysisProducts.Select(p => p.OneBasedBeginPosition.Value).ToList();
             List<int> reportedEnds = insulinProteinFromXml.ProteolysisProducts.Select(p => p.OneBasedEndPosition.Value).ToList();
@@ -145,7 +146,7 @@ namespace Test
 
             Assert.AreEqual(0, insulinProteinFromFasta.ProteolysisProducts.Count());
             insulinProteinFromFasta.AddBiomarkers();
-            Assert.AreEqual(11, insulinProteinFromFasta.ProteolysisProducts.Count());
+            Assert.AreEqual(17, insulinProteinFromFasta.ProteolysisProducts.Count());
         }
 
         [Test]
@@ -177,7 +178,7 @@ namespace Test
 
             Assert.AreEqual(0, insulinProteinFromFasta.ProteolysisProducts.Count());
             insulinProteinFromFasta.AddBiomarkers();
-            Assert.AreEqual(12, insulinProteinFromFasta.ProteolysisProducts.Count());
+            Assert.AreEqual(17, insulinProteinFromFasta.ProteolysisProducts.Count());
         }
 
         [Test]
@@ -189,7 +190,7 @@ namespace Test
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications, addBiomarkers: true);
 
-            Assert.AreEqual(10, proteins[0].ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
+            Assert.AreEqual(16, proteins[0].ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
 
             string testOutXml = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "testOutXml.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<System.Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), testOutXml);

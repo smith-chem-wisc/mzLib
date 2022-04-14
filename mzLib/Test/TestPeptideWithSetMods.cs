@@ -940,7 +940,7 @@ namespace Test
 
             Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
             List<PeptideWithSetModifications> insulinBiomarkers = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
-            Assert.AreEqual(56, insulinBiomarkers.Count);
+            Assert.AreEqual(68, insulinBiomarkers.Count);
         }
 
         [Test]
@@ -952,9 +952,9 @@ namespace Test
 
             Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
             List<PeptideWithSetModifications> insulintTargetBiomarkers = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
-            Assert.AreEqual(56, insulintTargetBiomarkers.Count);
+            Assert.AreEqual(68, insulintTargetBiomarkers.Count);
             List<PeptideWithSetModifications> insulintDecoyBiomarkers = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
-            Assert.AreEqual(56, insulintDecoyBiomarkers.Count);
+            Assert.AreEqual(68, insulintDecoyBiomarkers.Count);
         }
 
         [Test]
