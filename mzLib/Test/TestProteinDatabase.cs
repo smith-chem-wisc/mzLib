@@ -14,23 +14,23 @@ namespace Test
         [Test]
         public static void MakeAnewProteinWithAndWithoutTruncations()
         {
-            Protein noBiomarkerProtein1 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
-            Assert.AreEqual(0, noBiomarkerProtein1.ProteolysisProducts.Count());
+            Protein noTruncationProtein1 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
+            Assert.AreEqual(0, noTruncationProtein1.ProteolysisProducts.Count());
 
-            noBiomarkerProtein1.AddIntactProteoformToProteolysisProducts(7);
-            Assert.AreEqual(1, noBiomarkerProtein1.ProteolysisProducts.Count());
+            noTruncationProtein1.AddIntactProteoformToProteolysisProducts(7);
+            Assert.AreEqual(1, noTruncationProtein1.ProteolysisProducts.Count());
 
-            Protein noBiomarkerProtein2 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
-            Assert.AreEqual(0, noBiomarkerProtein2.ProteolysisProducts.Count());
+            Protein noTruncationProtein2 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
+            Assert.AreEqual(0, noTruncationProtein2.ProteolysisProducts.Count());
 
-            noBiomarkerProtein2.AddIntactProteoformToProteolysisProducts(7);
-            Assert.AreEqual(1, noBiomarkerProtein2.ProteolysisProducts.Count());
+            noTruncationProtein2.AddIntactProteoformToProteolysisProducts(7);
+            Assert.AreEqual(1, noTruncationProtein2.ProteolysisProducts.Count());
 
-            Protein noBiomarkerProtein3 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
-            Assert.AreEqual(0, noBiomarkerProtein3.ProteolysisProducts.Count());
+            Protein noTruncationProtein3 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
+            Assert.AreEqual(0, noTruncationProtein3.ProteolysisProducts.Count());
 
-            noBiomarkerProtein3.AddIntactProteoformToProteolysisProducts(7);
-            Assert.AreEqual(1, noBiomarkerProtein3.ProteolysisProducts.Count());
+            noTruncationProtein3.AddIntactProteoformToProteolysisProducts(7);
+            Assert.AreEqual(1, noTruncationProtein3.ProteolysisProducts.Count());
 
             Protein biomarkerProtein1 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: true);
             Assert.AreEqual(11, biomarkerProtein1.ProteolysisProducts.Count());

@@ -237,7 +237,7 @@ namespace Proteomics
         /// Gets peptides for digestion of a protein
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
-            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownBiomarkerSearch = false)
+            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false)
         {
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
@@ -253,7 +253,7 @@ namespace Proteomics
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
-                    digestion.Digestion(this, topDownBiomarkerSearch);
+                    digestion.Digestion(this, topDownTruncationSearch);
 
             if (digestionParams.KeepNGlycopeptide || digestionParams.KeepOGlycopeptide)
             {

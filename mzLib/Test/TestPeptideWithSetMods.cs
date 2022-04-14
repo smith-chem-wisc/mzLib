@@ -939,7 +939,7 @@ namespace Test
                 DecoyType.None, null, false, null, out var unknownModifications, addTruncations: true)[0];
 
             Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
+            List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulinTruncations.Count);
         }
 
@@ -951,9 +951,9 @@ namespace Test
                 DecoyType.Reverse, null, false, null, out var unknownModifications, addTruncations: true);
 
             Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
+            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulintTargetTruncations.Count);
-            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownBiomarkerSearch: true).ToList();
+            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulintDecoyTruncations.Count);
         }
 
