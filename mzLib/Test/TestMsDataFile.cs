@@ -152,6 +152,15 @@ namespace Test
             Assert.AreEqual(0, isolatedMassesAndCharges.Count); //Isolation range is null, so we get an empty set
 
             Assert.Throws<MzLibException>(() => theSpectrum.RefineSelectedMzAndIntensity(_mzSpectrumA)); //no isolation Mz throws error 
+
+            theSpectrum.SetOneBasedPrecursorScanNumber(6);
+            Assert.AreEqual(6, theSpectrum.OneBasedPrecursorScanNumber);
+
+            theSpectrum.SetNativeID("bubba");
+            Assert.AreEqual("bubba", theSpectrum.NativeId);
+
+            theSpectrum.SetIsolationMz(42);
+            Assert.AreEqual(42, theSpectrum.IsolationMz);
         }
 
         [Test]
