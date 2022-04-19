@@ -17,26 +17,26 @@ namespace Test
             Protein noTruncationProtein1 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
             Assert.AreEqual(0, noTruncationProtein1.ProteolysisProducts.Count());
 
-            noTruncationProtein1.AddIntactProteoformToProteolysisProducts(7);
+            noTruncationProtein1.AddIntactProteoformToTruncationsProducts(7);
             Assert.AreEqual(1, noTruncationProtein1.ProteolysisProducts.Count());
 
             Protein noTruncationProtein2 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
             Assert.AreEqual(0, noTruncationProtein2.ProteolysisProducts.Count());
 
-            noTruncationProtein2.AddIntactProteoformToProteolysisProducts(7);
+            noTruncationProtein2.AddIntactProteoformToTruncationsProducts(7);
             Assert.AreEqual(1, noTruncationProtein2.ProteolysisProducts.Count());
 
             Protein noTruncationProtein3 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
             Assert.AreEqual(0, noTruncationProtein3.ProteolysisProducts.Count());
 
-            noTruncationProtein3.AddIntactProteoformToProteolysisProducts(7);
+            noTruncationProtein3.AddIntactProteoformToTruncationsProducts(7);
             Assert.AreEqual(1, noTruncationProtein3.ProteolysisProducts.Count());
 
             Protein biomarkerProtein1 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: true);
             Assert.AreEqual(11, biomarkerProtein1.ProteolysisProducts.Count());
 
             Protein biomarkerProtein2 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addTruncations: false);
-            biomarkerProtein2.AddIntactProteoformToProteolysisProducts(7);
+            biomarkerProtein2.AddIntactProteoformToTruncationsProducts(7);
             Assert.AreEqual(1, biomarkerProtein2.ProteolysisProducts.Count());
         }
 
@@ -50,7 +50,7 @@ namespace Test
                 DecoyType.None, null, false, null, out var unknownModifications1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml1.ProteolysisProducts.Count());
-            insulinProteinFromXml1.AddTruncationsToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
+            insulinProteinFromXml1.AddTruncationsToExistingProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
             Assert.AreEqual(20, insulinProteinFromXml1.ProteolysisProducts.Count());
 
             Protein insulinProteinFromXml2
@@ -58,7 +58,7 @@ namespace Test
                 DecoyType.None, null, false, null, out var unknownModifications2, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml2.ProteolysisProducts.Count());
-            insulinProteinFromXml2.AddTruncationsToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
+            insulinProteinFromXml2.AddTruncationsToExistingProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
             Assert.AreEqual(20, insulinProteinFromXml2.ProteolysisProducts.Count());
 
             Protein insulinProteinFromXml3
@@ -66,7 +66,7 @@ namespace Test
                 DecoyType.None, null, false, null, out var unknownModifications3, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml3.ProteolysisProducts.Count());
-            insulinProteinFromXml3.AddTruncationsToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
+            insulinProteinFromXml3.AddTruncationsToExistingProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "biomarker");
             Assert.AreEqual(20, insulinProteinFromXml3.ProteolysisProducts.Count());
         }
 
@@ -109,8 +109,8 @@ namespace Test
             Assert.AreEqual(1, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type == "full-length proteoform").Count());
             Assert.AreEqual(16, insulinProteinFromFasta.ProteolysisProducts.Where(p => p.Type.Contains("biomarker")).Count());
 
-            List<int> expectedBegins = new List<int> { 1, 2, 3, 4, 5, 6, 7, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1 };
-            List<int> expectedEnds = new List<int> { 110, 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 109, 108, 107, 106, 105 };
+            List<int> expectedBegins = new() { 1, 2, 3, 4, 5, 6, 7, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1 };
+            List<int> expectedEnds = new() { 110, 110, 110, 110, 110, 110, 110, 109, 108, 107, 106, 105, 109, 108, 107, 106, 105 };
 
             CollectionAssert.AreEquivalent(expectedBegins, insulinProteinFromFasta.ProteolysisProducts.Select(p => p.OneBasedBeginPosition).ToList());
             CollectionAssert.AreEquivalent(expectedEnds, insulinProteinFromFasta.ProteolysisProducts.Select(p => p.OneBasedEndPosition).ToList());
@@ -159,7 +159,7 @@ namespace Test
             Protein insulinProteinFromFasta = ProteinDbLoader.LoadProteinFasta(fastaDatabase, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
                 ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, addTruncations: false)[0];
 
-            Protein noMethionine = new Protein(insulinProteinFromFasta.BaseSequence.Substring(1,insulinProteinFromFasta.BaseSequence.Length-1), insulinProteinFromFasta.Accession);
+            Protein noMethionine = new(insulinProteinFromFasta.BaseSequence.Substring(1,insulinProteinFromFasta.BaseSequence.Length-1), insulinProteinFromFasta.Accession);
 
             Assert.AreEqual(0, noMethionine.ProteolysisProducts.Count());
             noMethionine.AddTruncations();

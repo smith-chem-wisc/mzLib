@@ -586,8 +586,12 @@ namespace Proteomics
             }
             return validModDictionary;
         }
+        /// <summary>
+        /// Protein XML files contain annotated proteolysis products for many proteins (e.g. signal peptides, chain peptides).
+        /// This method adds N- and C-terminal truncations to these products.
+        /// </summary>
 
-        public void AddTruncationsToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionTruncations, bool addCterminalDigestionTruncations, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        public void AddTruncationsToExistingProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionTruncations, bool addCterminalDigestionTruncations, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
@@ -633,7 +637,9 @@ namespace Proteomics
                 }
             }
         }
-
+        /// <summary>
+        /// Returns of list of proteoforms with the specified number of C-terminal amino acid truncations subject to minimum length criteria
+        /// </summary>
         private void AddCterminalTruncations(int lengthOfProteolysis, int fullProteinOneBasedEnd, int fullProteinOneBasedBegin, int minProductBaseSequenceLength, string proteolyisisProductName)
         {
             for (int i = 1; i <= lengthOfProteolysis; i++)
@@ -646,6 +652,9 @@ namespace Proteomics
                 }
             }
         }
+        /// <summary>
+        /// Returns of list of proteoforms with the specified number of N-terminal amino acid truncations subject to minimum length criteria
+        /// </summary>
 
         private void AddNterminalTruncations(int lengthOfProteolysis, int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, int minProductBaseSequenceLength, string proteolyisisProductName)
         {
@@ -678,14 +687,14 @@ namespace Proteomics
         {
             if (addFullProtein) //this loop adds the intact protoeoform and its proteolysis products to the proteolysis products list
             {
-                AddIntactProteoformToProteolysisProducts(minProductBaseSequenceLength);
+                AddIntactProteoformToTruncationsProducts(minProductBaseSequenceLength);
                 if (addNterminalDigestionTruncations)
                 {
-                    AddTruncationsToProteolysisProducts(1, BaseSequence.Length, true, false, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion biomarker");
+                    AddTruncationsToExistingProteolysisProducts(1, BaseSequence.Length, true, false, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion biomarker");
                 }
                 if (addCterminalDigestionTruncations)
                 {
-                    AddTruncationsToProteolysisProducts(1, BaseSequence.Length, false, true, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion biomarker");
+                    AddTruncationsToExistingProteolysisProducts(1, BaseSequence.Length, false, true, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion biomarker");
                 }
             }
 
@@ -705,19 +714,21 @@ namespace Proteomics
                         //the original proteolysis product is already on the list so we don't need to duplicate
                         if (addNterminalDigestionTruncations)
                         {
-                            AddTruncationsToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, true, false, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+                            AddTruncationsToExistingProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, true, false, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
                         }
                         if (addCterminalDigestionTruncations)
                         {
-                            AddTruncationsToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, false, true, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+                            AddTruncationsToExistingProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, false, true, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
                         }
                     }
                 }
             }
             CleaveOnceBetweenProteolysisProducts();
         }
-
-        public void AddIntactProteoformToProteolysisProducts(int minProductBaseSequenceLength)
+        /// <summary>
+        /// This method adds proteoforms with N- and C-terminal amino acid loss to the list of species included in top-down search
+        /// </summary>
+        public void AddIntactProteoformToTruncationsProducts(int minProductBaseSequenceLength)
         {
             if (BaseSequence.Length >= minProductBaseSequenceLength)
             {
@@ -729,7 +740,6 @@ namespace Proteomics
         /// proteins with multiple proteolysis products are not always full cleaved. we observed proteolysis products w/ missed cleavages.
         /// This method allows for one missed cleavage between proteolysis products.
         /// </summary>
-        /// <param name="minimumProductLength"></param>
 
         public void CleaveOnceBetweenProteolysisProducts(int minimumProductLength = 7)
         {
