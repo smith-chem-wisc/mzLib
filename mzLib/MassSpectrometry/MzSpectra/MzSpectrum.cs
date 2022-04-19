@@ -23,7 +23,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
+using System.Linq; 
+
 
 namespace MassSpectrometry
 {
@@ -92,6 +93,18 @@ namespace MassSpectrometry
             YArray = new double[count];
             Buffer.BlockCopy(mzintensities, 0, XArray, 0, sizeof(double) * count);
             Buffer.BlockCopy(mzintensities, sizeof(double) * count, YArray, 0, sizeof(double) * count);
+            peakList = new MzPeak[Size];
+        }
+        public MzSpectrum(List<MzPeak> mzPeakList)
+		{
+            XArray = mzPeakList.Select(i => i.Mz).ToArray();
+            YArray = mzPeakList.Select(i => i.Intensity).ToArray();
+            peakList = new MzPeak[Size]; 
+		}
+        public MzSpectrum(IEnumerable<MzPeak> mzPeakList)
+        {
+            XArray = mzPeakList.Select(i => i.Mz).ToArray();
+            YArray = mzPeakList.Select(i => i.Intensity).ToArray();
             peakList = new MzPeak[Size];
         }
 
@@ -811,5 +824,9 @@ namespace MassSpectrometry
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
+        public void DeconvoluteWithUniDec()
+		{
+
+		}
     }
 }
