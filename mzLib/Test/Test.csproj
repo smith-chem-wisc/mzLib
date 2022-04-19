@@ -286,14 +286,10 @@
     <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans781_783.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-<<<<<<< HEAD:Test/Test.csproj
     <None Update="DataFiles\LowResMS1ScanForDecon.raw">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\SingleSmallProtein.raw">
-=======
-    <None Update="DataFiles\P08709.xml">
->>>>>>> f21583e894c3d26f4d28e45f00018135fb074ae7:mzLib/Test/Test.csproj
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\sliced_ethcd.mzML">

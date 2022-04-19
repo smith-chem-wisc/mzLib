@@ -33,21 +33,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "Test\Test.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFlashLFQ", "TestFlashLFQ\TestFlashLFQ.csproj", "{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}"
 EndProject
-<<<<<<< HEAD
-<<<<<<< HEAD:mzLib/mzLib.sln
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UniDecMinimal", "UniDecMinimal\UniDecMinimal.vcxproj", "{DE89C923-DAD5-478B-A44A-B4F72355C64C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UniDecAPI", "UniDecAPI\UniDecAPI.csproj", "{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}"
-=======
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UniDecAPI", "UniDecAPI\UniDecAPI.csproj", "{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestDLL", "TestDLL\TestDLL.vcxproj", "{90158CBD-B589-49B3-9CF5-9BA3691E5E29}"
->>>>>>> fb77c72 (Unidec dll ported, still working compatibility):mzLib.sln
-=======
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UniDecAPI", "UniDecAPI\UniDecAPI.csproj", "{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestDLL", "TestDLL\TestDLL.vcxproj", "{90158CBD-B589-49B3-9CF5-9BA3691E5E29}"
->>>>>>> 72a497eb6694b627016e72b7ec0aba21f57937c1
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -272,6 +262,22 @@ Global
 		{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}.TestAndRelease|x64.Build.0 = Release|x64
 		{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}.TestAndRelease|x86.ActiveCfg = Release|x64
 		{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}.TestAndRelease|x86.Build.0 = Release|x64
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Debug|x64.ActiveCfg = Debug|x64
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Debug|x64.Build.0 = Debug|x64
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Debug|x86.ActiveCfg = Debug|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Debug|x86.Build.0 = Debug|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Release|Any CPU.ActiveCfg = Release|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Release|x64.ActiveCfg = Release|x64
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Release|x64.Build.0 = Release|x64
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Release|x86.ActiveCfg = Release|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.Release|x86.Build.0 = Release|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.TestAndRelease|Any CPU.ActiveCfg = Debug|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.TestAndRelease|Any CPU.Build.0 = Debug|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.TestAndRelease|x64.Build.0 = Release|x64
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.TestAndRelease|x86.ActiveCfg = Release|Win32
+		{DE89C923-DAD5-478B-A44A-B4F72355C64C}.TestAndRelease|x86.Build.0 = Release|Win32
 		{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -290,8 +296,6 @@ Global
 		{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}.TestAndRelease|x64.Build.0 = Release|Any CPU
 		{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}.TestAndRelease|x86.ActiveCfg = Release|Any CPU
 		{64A9FC0D-22D1-4550-A559-1E4655D1ACCA}.TestAndRelease|x86.Build.0 = Release|Any CPU
-<<<<<<< HEAD
-=======
 		{90158CBD-B589-49B3-9CF5-9BA3691E5E29}.Debug|Any CPU.ActiveCfg = Debug|Win32
 		{90158CBD-B589-49B3-9CF5-9BA3691E5E29}.Debug|x64.ActiveCfg = Debug|x64
 		{90158CBD-B589-49B3-9CF5-9BA3691E5E29}.Debug|x64.Build.0 = Debug|x64
@@ -308,7 +312,6 @@ Global
 		{90158CBD-B589-49B3-9CF5-9BA3691E5E29}.TestAndRelease|x64.Build.0 = Release|x64
 		{90158CBD-B589-49B3-9CF5-9BA3691E5E29}.TestAndRelease|x86.ActiveCfg = Release|Win32
 		{90158CBD-B589-49B3-9CF5-9BA3691E5E29}.TestAndRelease|x86.Build.0 = Release|Win32
->>>>>>> 72a497eb6694b627016e72b7ec0aba21f57937c1
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
