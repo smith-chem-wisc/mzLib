@@ -24,5 +24,6 @@ struct Input {
 
 __declspec(dllexport) Input SetupInputs(void);
 __declspec(dllexport) void FreeInputs(Input inp);
+__declspec(dllexport) Input SetupInputsSafe(Input* inp); 
 
 #endif /* Input_h */
