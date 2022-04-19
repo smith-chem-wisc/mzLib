@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include "fftw3.h"
 #include "ArrayIndexing.h"
+#include <math.h>
+
 float secderndis(float m, float s, float x);
 int compare_function(const void* a, const void* b);
 

@@ -13,7 +13,7 @@
 #include "MathUtilities.h"
 #include "ArrayIndexing.h"
 
-float max1d(float* blur, int lengthmz);
+__declspec(dllexport) float max1d(float* blur, int lengthmz);
 
 float min1d(float* blur, int lengthmz);
 
