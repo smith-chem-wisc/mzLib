@@ -7,20 +7,22 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
-
 namespace Test
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestRawFileReader
     {
+        /// <summary>
+        /// Tests LoadAllStaticData for ThermoRawFileReader
+        /// </summary>
+        /// <param name="infile"></param>
+        /// <param name="outfile1"></param>
+        /// <param name="outfile2"></param>
         [Test]
         [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
         [TestCase("small.raw", "a.mzML", "aa.mzML")]
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
-        /// <summary>
-        /// Tests LoadAllStaticData for ThermoRawFileReader
-        /// </summary>
         public static void TestLoadAllStaticDataRawFileReader(string infile, string outfile1, string outfile2)
         {
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
@@ -36,11 +38,10 @@ namespace Test
             Mzml.LoadAllStaticData(outfile2);
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
-
-        [Test]
         /// <summary>
-        /// Tests the dynamic connection for ThermoRawFileReader
+        /// Tests the dynamic connection for thermorawfilereader
         /// </summary>
+        [Test]
         public static void TestDynamicConnectionRawFileReader()
         {
             Stopwatch stopwatch = new Stopwatch();
@@ -71,14 +72,14 @@ namespace Test
 
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
-
+        /// <summary>
+        /// Test Peak Filtering for ThermoRawFileReader
+        /// </summary>
+        /// <param name="infile"></param>
         [Test]
         [TestCase("testFileWMS2.raw")]
         [TestCase("small.raw")]
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw")]
-        /// <summary>
-        /// Tests peak filtering for ThermoRawFileReader
-        /// </summary>
         public static void TestPeakFilteringRawFileReader(string infile)
         {
             Stopwatch stopwatch = new Stopwatch();
@@ -121,11 +122,10 @@ namespace Test
             Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h " +
                 $"{stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
-
-        [Test]
         /// <summary>
-        /// Just makes sure the Thermo RawFileReader licence is accessible...
+        /// Test Thermo License for ThermoRawFileReader
         /// </summary>
+        [Test]
         public static void TestThermoLicence()
         {
             Stopwatch stopwatch = new Stopwatch();
@@ -136,7 +136,10 @@ namespace Test
 
             Console.WriteLine($"Analysis time for TestThermoLicence: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
-
+        /// <summary>
+        /// Test that raw files can be opened dynamically in ThermoRawFileReader
+        /// </summary>
+        /// <param name="fileName"></param>
         [Test]
         [TestCase("small.RAW")]
         [TestCase("testFileWMS2.raw")]
@@ -199,7 +202,9 @@ namespace Test
                 }
             }
         }
-
+        /// <summary>
+        /// Tests that you can read EtHCD files in ThermoRawFileReader
+        /// </summary>
         [Test]
         public static void TestEthcdReading()
         {
