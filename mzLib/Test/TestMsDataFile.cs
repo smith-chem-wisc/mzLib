@@ -164,6 +164,18 @@ namespace Test
         }
 
         [Test]
+        public void MoreMsDataFilesTests()
+        {
+            MsDataFile fakeDataFile = new MsDataFile(new MsDataScan[1], new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null));
+            Assert.AreEqual(1, fakeDataFile.NumSpectra);
+            Assert.AreEqual("scan number only nativeID format", fakeDataFile.SourceFile.NativeIdFormat);
+            Assert.AreEqual("mzML format", fakeDataFile.SourceFile.MassSpectrometerFileFormat);
+            Assert.IsNull(fakeDataFile.SourceFile.CheckSum);
+            Assert.AreEqual("SHA-1", fakeDataFile.SourceFile.FileChecksumType);
+            Assert.IsNull(fakeDataFile.SourceFile.Id);
+        }
+
+        [Test]
         public void TestAMoreRealFile()
         {
             var theScan = myMsDataFile.GetOneBasedScan(2);
