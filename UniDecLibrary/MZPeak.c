@@ -14,7 +14,7 @@
 // MZ Peak
 
 
-//Function for defining m/z peak shape. Other peak shape functions could be easily added her.
+//Function for defining m/z peak shape. Other peak shape functions could be easily added here.
 float mzpeakshape(float x, float y, float sig, int psfun)
 {
     if (sig == 0) { printf("Error: mzpeakshape sigma is 0\n"); exit(103); }

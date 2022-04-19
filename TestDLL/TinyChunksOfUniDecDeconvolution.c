@@ -398,7 +398,7 @@ Decon MainDeconWithMinimalControlFlow(Config config, Input inp) {
     float betafactor = 1;
     if (dmax > 1) { betafactor = dmax; }
     
-    //Something wrong with KillB. 
+
     TestingKillBFunction(inp.dataInt, barr, config.intthresh, config.lengthmz, config.numz, 
         config.isolength, inp.isotopepos, inp.isotopeval);
     decon.blur = calloc(config.lengthmz * config.numz, sizeof(float));

@@ -528,11 +528,10 @@ namespace Test
 			var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "LowResMS1ScanForDecon.raw");
 			List<MsDataScan> testScan = ThermoRawFileReader.LoadAllStaticData(path).GetAllScansList();
 			MzSpectrum scan =  testScan[0].MassSpectrum;
-			scan.DeconvoluteWithUniDec(out DeconResults deconResults);
-			Console.WriteLine(string.Join("\n", deconResults.DScores.ToList())); 
+			//scan.DeconvoluteWithUniDec(out DeconResults deconResults);
 		}
-		[Test]
-		public void TestGenerateGaussianKernel()
+		//[Test]
+		/*public void TestGenerateGaussianKernel()
 		{
 			UniDecDeconEngine engine = new();
 			double[] result = engine.GenerateGuassianKernel(1, 5);
@@ -541,8 +540,8 @@ namespace Test
 			{
 				Assert.AreEqual(expected[i], result[i], 0.001); 
 			}
-		}
-		[Test]
+		}*/
+		/*[Test]
 		public void TestConvoluteFull()
 		{
 			UniDecDeconEngine engine = new(); 
@@ -553,7 +552,7 @@ namespace Test
 			double[] result = engine.ConvoluteFull(testSignal, kernel);
 			Console.WriteLine(string.Join("\n", result.ToList())); 
 			// TODO: Write and actual assert statement here
-		}
+		}*/
 
 		[Test]
 		public void TestCreateChargeAndMZMatrix()
@@ -590,62 +589,48 @@ namespace Test
 			// setup
 			UniDecDeconEngine engine = new();
 			double[] yarray = engine.LinearizeMassSpectrum(testScan, 0.5, out double[] xarray);
+			int[] chargeArray = Enumerable.Range(5, 45).ToArray();
 			/*
-			 * iteration = delta functions * measured spectrum / charge axis convolved with peak shape 
-			 * 
-			 * delta functions are smoothed by convoluting with a filter before proceeding with the deconvolution
-			 **/
+			 *	1) Sum deltas along z axis. 
+			 *	2) Convolution steps
+			 *	3) elementwise division of h/c
+			 *	4) apply the ratio h/c to the 2D matrix elementwise. 
+			 *	5) smoothing
+			 *	6) sum down. 
+			 *	7) rinse and repeat. 
+			*/
+			double binsize = xarray[1] - xarray[0]; 
+			double[] gaussKernel1D = engine.GenerateGuassianKernel(binsize, 0.01433, 10);
+			double[,] gaussKernel2D = engine.GenerateGaussianKernel2D(0.01433, 4); 
+			double[] gaussKernelHat = engine.FlippedPSF(gaussKernel1D);
+			double[,] chargeMZMatrix = engine.CreateChargeAndMZMatrix(yarray, 5, 50);
 
-			// create the gaussian kernel. 
-			// spacing for this example is 0.1 between each measured m/z. 
-			// so the minimum standard deviation of a kernel is going to be 2 * 0.1. 
-			// This makes sense since you can't meaningfully convolute a signal with a function that is the min frequency/2. 
-			double[] gaussKernel1D = engine.GenerateGuassianKernel(1, 10);
-
-			
-			// f^(t=0) = intensity data 
-			double[,] initialFt = engine.CreateChargeAndMZMatrix(yarray, 5, 50);
-			initialFt = engine.ApplyLogMeanFilter(initialFt, 25);
-
-			double[] initialSummedChargeAxis = engine.SumChargeAxis(initialFt);
-			double[] initialConvolutedChargeAxis = engine.ConvoluteSummedChargeAxis(initialSummedChargeAxis, gaussKernel1D);
-			double[] invConvChargeAxis = engine.TakeReciprocalOfArray(initialConvolutedChargeAxis);
-
-			double[] temp = engine.ElementwiseMultiplyArrays(yarray, invConvChargeAxis);
-			double[] iterationResult = engine.ElementwiseMultiplyArrays(yarray, temp);
-			
-			double[,] ft = new double[45, xarray.Length];
-			double[,] smoothedIterationResult = new double[45, xarray.Length]; 
-			double[] summedChargeAxis = new double[xarray.Length];
-			double[] convolutedChargeAxis = new double[xarray.Length];
-			double[] recipChargeAxis = new double[xarray.Length]; 
-			
-			for (int i = 0; i < 50; i++)
+			double[] zAxisSummedSpectra; 
+			for(int i = 0; i < 3; i++)
 			{
-				ft = engine.CreateChargeAndMZMatrix(iterationResult, 5, 50);
-				smoothedIterationResult = engine.ApplyLogMeanFilter(ft, 25); 
-				summedChargeAxis = engine.SumChargeAxis(smoothedIterationResult);
-				convolutedChargeAxis = engine.ConvoluteSummedChargeAxis(summedChargeAxis, gaussKernel1D);
-				// h(x) / c(x)
-				// reciprocal followed by multiplication should hypothetically be faster than element-wise division of the two arrays. 
-				recipChargeAxis = engine.TakeReciprocalOfArray(convolutedChargeAxis);
-				temp = engine.ElementwiseMultiplyArrays(yarray, recipChargeAxis);
-
-				// f^t * h(x) / c(x)
-				iterationResult = engine.ElementwiseMultiplyArrays(iterationResult, temp); 
+				// sum deltas along z axis. 
+				zAxisSummedSpectra = engine.ColSums(chargeMZMatrix);
+				// convolution step
+				double[] convolutedSummed = engine.ConvoluteFull(zAxisSummedSpectra, gaussKernel1D);
+				// create ratio step 
+				double[] ratios = yarray.AsEnumerable().Zip(convolutedSummed.AsEnumerable(), (x, y) => y != 0 ? x/y : 0).ToArray();
+				// convolve the ratios with the flipped psf as well: 
+				ratios = engine.ConvoluteFull(ratios, gaussKernelHat); 
+				// apply ratios to 2D matrix elementwise
+				engine.ElementwiseMultiplyArray(ref chargeMZMatrix, ratios);
+				// smoothing 
+				engine.ApplyLogMeanFilter(ref chargeMZMatrix, 3);
 			}
 
-			int[] chargeArray = Enumerable.Range(5, 45).ToArray();
-			double[,] massTable = engine.CreateChargeByMzTable(chargeArray, xarray, 1.007);
+			engine.CreateMassAxes(out double[] massAxis, out double[] massAxisVals, 50000, 5000, 10);
+			double[,] deconMassMatrix = engine.CreateChargeByMzTable(chargeArray, xarray, 1.007); 
+			double[,] deconMassTable = engine.CreateDeconvolutedMassTable(massAxis, chargeArray);
+			
+			engine.IntegrateTransform(deconMassMatrix, massAxis, ref massAxisVals, chargeMZMatrix, 
+				ref deconMassTable);
 
-			engine.CreateMassAxes(out double[] massaxis, out double[] massAxisVals, 50000, 5000, 0.5);
-			double[,] deconMassTable = engine.CreateDeconvolutedMassTable(massaxis, chargeArray); 
-			engine.IntegrateTransform(massTable, massaxis, ref massAxisVals, smoothedIterationResult, ref deconMassTable);
-
-			// PrintMatrix(deconMassTable);
-			Console.WriteLine(string.Join("\n", massAxisVals.AsEnumerable())); 
-			double[] deconMassSpectrum = engine.RowSums(deconMassTable);
-			CreateDeconMassSpectrum(massAxisVals, massaxis, "UniDecOuptut.pdf"); 
+			CreateDeconMassSpectrum(massAxisVals.AsEnumerable().Take(massAxisVals.Length - 1000).ToArray(),
+				massAxis.AsEnumerable().Take(massAxis.Length - 1000).ToArray(), "UniDecOutput.pdf"); 		
 		}
 		public void CreateDeconMassSpectrum(double[] deconMassSpec, double[] massAxis, string fileName)
 		{

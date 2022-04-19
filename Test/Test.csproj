@@ -286,6 +286,9 @@
     <None Update="DataFiles\LowResMS1ScanForDecon.raw">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\SingleSmallProtein.raw">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\sliced_ethcd.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

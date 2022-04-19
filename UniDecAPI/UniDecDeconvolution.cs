@@ -59,12 +59,12 @@ namespace UniDecAPI
 		{
 			return new MzSpectrum(spectrum.Extract(minMz, maxMz)); 
 		}
-		public double[] GaussianSmoothingFilter(MzSpectrum spectrum, double sigma, int kernelSize)
+		/*public double[] GaussianSmoothingFilter(MzSpectrum spectrum, double sigma, int kernelSize)
 		{
 			double deviation = (kernelSize - 1) / 6;
 			double[] kernel = GenerateGuassianKernel(deviation, kernelSize);
 			return ConvoluteFull(spectrum.YArray, kernel); 
-		}
+		}*/
 		public double[] ConvoluteFull(double[] signal, double[] kernel)
 		{
 			// Output needs padding. Length shouuld be 
@@ -133,22 +133,24 @@ namespace UniDecAPI
 			
 			return result;
 		}
-		public double[] GenerateGuassianKernel(double sigma, int size)
+		public double[] GenerateGuassianKernel(double binsize, double sigma, double threshold)
 		{
+			// binsize = diff between two m/z values
+
 			/* Gaussian formula: 
 			 * g(x) = alpha * exp{-(x-mu)^2/(2 * sigma^2)}
 			 * where alpha = 1/(sigma * sqrt(2*pi)) 
 			 */
+			int newrange = (int)(threshold / binsize); 
 
-			double[] kernel = new double[size];
-			int half = size / 2;
+			double[] kernel = new double[2 * newrange + 1];
 
 			double alpha = 1 / (sigma * Math.Sqrt(2 * Math.PI)); 
 
-			for(int i = 0; i < size; i++)
+			for(int i = -newrange; i <= newrange; i++)
 			{
-				double beta = -(i - half) * (i - half) / (2 * sigma * sigma);
-				kernel[i] = alpha * Math.Exp(beta);
+				double beta = -(0 - i * binsize) * (0 - i * binsize) / (2 * sigma * sigma);
+				kernel[i + newrange] = alpha * Math.Exp(beta);
 			}
 			return kernel; 
 		}
@@ -583,6 +585,16 @@ namespace UniDecAPI
 			}
 			return result; 
 		}
+		public void ElementwiseMultiplyArray(ref double[,] matrix, double[] array)
+		{
+			for (int i = 0; i < matrix.GetLength(0); i++)
+			{
+				for (int j = 0; j < matrix.GetLength(1); j++)
+				{
+					matrix[i, j] = matrix[i, j] * array[j];
+				}
+			}
+		}
 		public double[] ElementwiseMultiplyArrays(double[] array1, double[] array2)
 		{
 			double[] result = new double[array1.Length]; 
@@ -651,8 +663,9 @@ namespace UniDecAPI
 					{
 						int index2 = index + 1;
 						double interpos = LinearInterpolatePosition(massaxis[index], massaxis[index2], testmass);
+						
 						massaxisVal[index] += (1.0 - interpos) * newval;
-						deconMassTable[i,index] += (1.0 - interpos) * newval;
+						deconMassTable[i, index] += (1.0 - interpos) * newval;
 
 						massaxisVal[index2] += interpos * newval;
 						deconMassTable[i,index2] += interpos * newval; 
@@ -661,8 +674,10 @@ namespace UniDecAPI
 					{
 						int index2 = index - 1;
 						double interpos = LinearInterpolatePosition(massaxis[index], massaxis[index2], testmass);
+						
 						massaxisVal[index] += (1 - interpos) * newval;
 						deconMassTable[i,index] += (1.0 - interpos) * newval;
+						
 						massaxisVal[index2] += interpos * newval;
 						deconMassTable[i,index2] += interpos * newval;
 					}
@@ -714,71 +729,89 @@ namespace UniDecAPI
 			}
 			return result; 
 		}
-		public double[,] ApplyLogMeanFilter(double[,] matrix, int width)
+		public void ApplyLogMeanFilterToMatrix(ref double[,] matrix, int width)
 		{
-			double[,] result = new double[matrix.GetLength(0), matrix.GetLength(1)];
-			double frontTerm = 1 / (2 * width + 1); 
-
-			for (int y = 0; y < matrix.GetLength(1); y++)
+			for(int i = 0; i < matrix.GetLength(0); i++)
 			{
-				for (int x = 0; x < matrix.GetLength(0); x++)
+				double[] temp = ApplyLogMeanFilter(FetchRow(matrix, i), width);
+				for(int j = 0; j < temp.Length; j++)
 				{
-					double sum = 0;
-					for (int i = -width/2; i < width/2; i++)
-					{
-						int sourceY = y + i;
-						int sourceX = x + i;
-
-						if (sourceX < 0)
-							sourceX = 0;
-
-						if (sourceX >= matrix.GetLength(0))
-							sourceX = matrix.GetLength(0) - 1;
-
-						if (sourceY < 0)
-							sourceY = 0;
-
-						if (sourceY >= matrix.GetLength(1))
-							sourceY = matrix.GetLength(1) - 1;
-
-						if(matrix[sourceX, sourceY] > 0)
-						{
-							sum += Math.Log(matrix[sourceX, sourceY]);
-						}
-					}
-					result[x, y] = Math.Exp(sum * frontTerm);
+					matrix[i,j] = temp[j];  
 				}
 			}
-			return result;
 		}
 		public double[] ApplyLogMeanFilter(double[] array, int width)
 		{
 			double[] result = new double[array.Length];
-			double frontTerm = 1 / (2 * width + 1);
+			double frontTerm = 1.0D / (double)width;
+			int maxIDimension = array.Length - 1;
 
-			
-				for (int x = 0; x < array.Length; x++)
+			for(int i = 0; i < array.Length; i++)
+			{
+				double sum = 0; 
+				for(int k = -width/2; k <= width/2; k++)
 				{
-					double sum = 0;
-					for (int i = -width / 2; i < width / 2; i++)
+					int source = i + k; 
+					if(source < 0)
 					{
-						int sourceX = x + i;
+						source = 0; 
+					}
+					if(source > maxIDimension)
+					{
+						source = maxIDimension; 
+					}
+					if (!Double.IsInfinity(array[source]) && array[source] > 0)
+					{
+						sum += Math.Log(array[source]);
+					}
+				}
+				result[i] = Math.Exp(sum * frontTerm); 
+			}
+			return result; 
+		}
 
-						if (sourceX < 0)
-							sourceX = 0;
+		public void ApplyLogMeanFilter(ref double[,] matrix, int width)
+		{
+			List<(int, int)> indexTuples = new(); 
+			
+			for(int i = -width/2; i <= width/2; i++)
+			{
+				for(int j = -width/2; j <= width/2; j++)
+				{
+					indexTuples.Add(new (i, j)); 
+				}
+			}
+			double frontTerm = 1.0D / (double)(width * width);
 
-						if (sourceX >= array.GetLength(0))
-							sourceX = array.GetLength(0) - 1;
+			int maxIDimension = matrix.GetLength(0) - 1;
+			int maxJDimensions = matrix.GetLength(1) - 1; 
 
+			for(int i = 0; i < matrix.GetLength(0); i++)
+			{
+				double sum = 0; 
+				
+				for(int j = 0; j < matrix.GetLength(1); j++)
+				{
+					for(int k = 0; k < indexTuples.Count; k++)
+					{
+						int sourceX = i - indexTuples[k].Item1;
+						sourceX = sourceX < 0 ? 0 : sourceX;
+						sourceX = sourceX > maxIDimension ? maxIDimension : sourceX; 
 
-						if (array[sourceX] > 0)
+						int sourceY = i - indexTuples[k].Item2;
+						sourceY = sourceY < 0 ? 0 : sourceY;
+						sourceY = sourceY > maxJDimensions ? 0 : sourceY; 
+
+						if (!Double.IsInfinity(matrix[sourceX, sourceY]) 
+							&& matrix[sourceX, sourceY] > 0)
 						{
-							sum += Math.Log(array[sourceX]);
+							sum += Math.Log(matrix[sourceX, sourceY]);
 						}
 					}
-					result[x] = Math.Exp(sum * frontTerm);
+					matrix[i, j] = Math.Exp(sum * frontTerm); 
 				}
-			return result;
+			}
+
 		}
 		public double[] LinearizeMassSpectrum(MzSpectrum spectrum, double binWidth, out double[] mzAxisNew)
 		{
@@ -840,12 +873,47 @@ namespace UniDecAPI
 					double sum = 0;
 					for (int k = low; k < high; k++)
 					{
-						sum += matrix[j, i] = sum / (double)(1 + 2 * width); 
+						// SUM += 
 					}
+					matrix[j, i] = sum / (double)(1 + 2 * width);
 				}
 			}
 			return matrix; 
 		}
+		public double[,] CreateInitialChargeMZMatrix(int[] chargeArray, double[] intArray)
+		{
+			double[,] matrix = new double[chargeArray.Length, intArray.Length]; 
+			for(int i = 0; i < matrix.GetLength(0); i++)
+			{
+				for(int j = 0; j < matrix.GetLength(1); j++)
+				{
+					matrix[i, j] = intArray[j];
+				}
+			}
+			return matrix; 
+		}
+
+		public double[] FetchRow(double[,] matrix, int rowIndex)
+		{
+			return Enumerable.Range(0, matrix.GetLength(1))
+				.Select(x => matrix[rowIndex, x]).ToArray(); 
+		}
+		public double[] FetchCol(double[,] matrix, int  colIndex)
+		{
+			return Enumerable.Range(0, matrix.GetLength(0))
+				.Select(x => matrix[x, colIndex])
+				.ToArray(); 
+		}
+		public double[] FlippedPSF(double[] array)
+		{
+			double[] result = new double[array.Length]; 
+			for(int i = 0; i < result.Length; i++)
+			{
+				result[i] = array[^(i+1)]; 
+			}
+			return result; 
+		}
+
 
 	}
 

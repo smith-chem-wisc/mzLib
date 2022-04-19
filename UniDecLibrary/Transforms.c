@@ -243,6 +243,7 @@ void IntegrateTransform(const int lengthmz, const int numz, const float* mtab, f
                     float interpos = LinearInterpolatePosition(massaxis[index], massaxis[index2], testmass);
                     massaxisval[index] += (1.0 - interpos) * newval;
                     massgrid[index2D(numz, index, j)] += (1.0 - interpos) * newval;
+                    
                     massaxisval[index2] += (interpos)*newval;
                     massgrid[index2D(numz, index2, j)] += (interpos)*newval;
                 }
@@ -251,8 +252,9 @@ void IntegrateTransform(const int lengthmz, const int numz, const float* mtab, f
                 {
                     int index2 = index - 1;
                     float interpos = LinearInterpolatePosition(massaxis[index], massaxis[index2], testmass);
-                    massaxisval[index] += (1 - interpos) * newval;
-                    massgrid[index2D(numz, index, j)] += (1 - interpos) * newval;
+                    massaxisval[index] += (1.0 - interpos) * newval;
+                    massgrid[index2D(numz, index, j)] += (1.0 - interpos) * newval;
+                    
                     massaxisval[index2] += (interpos)*newval;
                     massgrid[index2D(numz, index2, j)] += (interpos)*newval;
                 }

@@ -6,8 +6,8 @@ numit 50
 numz 46
 endz 50
 startz 5
-zzsig 1.0
-psig 1.0
+zzsig 5.0
+psig 0.0
 beta 0.0
 mzsig 0.01433
 psfun 0
