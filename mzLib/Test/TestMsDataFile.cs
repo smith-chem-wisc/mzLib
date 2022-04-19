@@ -145,6 +145,16 @@ namespace Test
         }
 
         [Test]
+        public void TestFunctionsOfMsDataScan()
+        {
+            MsDataScan theSpectrum = new MsDataScan(_mzSpectrumA, 1, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 1, null, "scan=1");
+            List<IsotopicEnvelope> isolatedMassesAndCharges = theSpectrum.GetIsolatedMassesAndCharges(_mzSpectrumA, 1, 10, 10, 1).ToList();
+            Assert.AreEqual(0, isolatedMassesAndCharges.Count); //Isolation range is null, so we get an empty set
+
+            Assert.Throws<MzLibException>(() => theSpectrum.RefineSelectedMzAndIntensity(_mzSpectrumA)); //no isolation Mz throws error 
+        }
+
+        [Test]
         public void TestAMoreRealFile()
         {
             var theScan = myMsDataFile.GetOneBasedScan(2);
