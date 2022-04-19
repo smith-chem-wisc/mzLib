@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{de89c923-dad5-478b-a44a-b4f72355c64c}</ProjectGuid>
+    <RootNamespace>UniDecMinimal</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>false</CLRSupport>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>false</CLRSupport>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>false</CLRSupport>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>false</CLRSupport>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <PublicIncludeDirectories>$(PublicIncludeDirectories)</PublicIncludeDirectories>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <PublicIncludeDirectories>$(PublicIncludeDirectories)</PublicIncludeDirectories>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <PublicIncludeDirectories>$(PublicIncludeDirectories)</PublicIncludeDirectories>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <PublicIncludeDirectories>$(PublicIncludeDirectories)</PublicIncludeDirectories>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;UNIDECMINIMAL_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libfftw3-3.lib</AdditionalDependencies>
+      <ModuleDefinitionFile>libfftw3-3.def</ModuleDefinitionFile>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;UNIDECMINIMAL_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libfftw3-3.lib</AdditionalDependencies>
+      <ModuleDefinitionFile>libfftw3-3.def</ModuleDefinitionFile>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;UNIDECMINIMAL_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libfftw3-3.lib</AdditionalDependencies>
+      <ModuleDefinitionFile>libfftw3-3.def</ModuleDefinitionFile>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;UNIDECMINIMAL_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libfftw3-3.lib</AdditionalDependencies>
+      <ModuleDefinitionFile>libfftw3-3.def</ModuleDefinitionFile>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\UniDecLibrary\ArgMax.h" />
+    <ClInclude Include="..\UniDecLibrary\ArrayIndexing.h" />
+    <ClInclude Include="..\UniDecLibrary\BlurFunctions.h" />
+    <ClInclude Include="..\UniDecLibrary\Confidence.h" />
+    <ClInclude Include="..\UniDecLibrary\Config.h" />
+    <ClInclude Include="..\UniDecLibrary\Convolution.h" />
+    <ClInclude Include="..\UniDecLibrary\Decon.h" />
+    <ClInclude Include="..\UniDecLibrary\ErrorFunctions.h" />
+    <ClInclude Include="..\UniDecLibrary\FitFunctions.h" />
+    <ClInclude Include="..\UniDecLibrary\GeneralUtility.h" />
+    <ClInclude Include="..\UniDecLibrary\Header.h" />
+    <ClInclude Include="..\UniDecLibrary\Input.h" />
+    <ClInclude Include="..\UniDecLibrary\Integration.h" />
+    <ClInclude Include="..\UniDecLibrary\Interpolation.h" />
+    <ClInclude Include="..\UniDecLibrary\Isotopes.h" />
+    <ClInclude Include="..\UniDecLibrary\Kernel.h" />
+    <ClInclude Include="..\UniDecLibrary\MathUtilities.h" />
+    <ClInclude Include="..\UniDecLibrary\MZPeak.h" />
+    <ClInclude Include="..\UniDecLibrary\Normalization.h" />
+    <ClInclude Include="..\UniDecLibrary\PointSmoothing.h" />
+    <ClInclude Include="..\UniDecLibrary\Sorting.h" />
+    <ClInclude Include="..\UniDecLibrary\TestMasses.h" />
+    <ClInclude Include="..\UniDecLibrary\Transforms.h" />
+    <ClInclude Include="..\UniDecLibrary\UD_analysis.h" />
+    <ClInclude Include="..\UniDecLibrary\UD_score.h" />
+    <ClInclude Include="..\UniDecLibrary\UniDec_Main.h" />
+    <ClInclude Include="dependency\FFTW3-LIB\fftw3.h" />
+    <ClInclude Include="framework.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\UniDecLibrary\ArgMax.c" />
+    <ClCompile Include="..\UniDecLibrary\ArrayIndexing.c" />
+    <ClCompile Include="..\UniDecLibrary\BlurFunctions.c" />
+    <ClCompile Include="..\UniDecLibrary\Confidence.c" />
+    <ClCompile Include="..\UniDecLibrary\Config.c" />
+    <ClCompile Include="..\UniDecLibrary\Convolution.c" />
+    <ClCompile Include="..\UniDecLibrary\Decon.c" />
+    <ClCompile Include="..\UniDecLibrary\ErrorFunctions.c" />
+    <ClCompile Include="..\UniDecLibrary\FitFunctions.c" />
+    <ClCompile Include="..\UniDecLibrary\GeneralUtility.c" />
+    <ClCompile Include="..\UniDecLibrary\Input.c" />
+    <ClCompile Include="..\UniDecLibrary\Integration.c" />
+    <ClCompile Include="..\UniDecLibrary\Interpolation.c" />
+    <ClCompile Include="..\UniDecLibrary\Isotopes.c" />
+    <ClCompile Include="..\UniDecLibrary\MathUtilities.c" />
+    <ClCompile Include="..\UniDecLibrary\MZPeak.c" />
+    <ClCompile Include="..\UniDecLibrary\Normalization.c" />
+    <ClCompile Include="..\UniDecLibrary\PointSmoothing.c" />
+    <ClCompile Include="..\UniDecLibrary\Sorting.c" />
+    <ClCompile Include="..\UniDecLibrary\TestMasses.c" />
+    <ClCompile Include="..\UniDecLibrary\Transforms.c" />
+    <ClCompile Include="..\UniDecLibrary\UD_analysis.c" />
+    <ClCompile Include="..\UniDecLibrary\UD_score.c" />
+    <ClCompile Include="..\UniDecLibrary\UniDec.c" />
+    <ClCompile Include="..\UniDecLibrary\UniDec_Main.c" />
+    <ClCompile Include="dllmain.c" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
