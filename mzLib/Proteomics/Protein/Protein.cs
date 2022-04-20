@@ -680,7 +680,6 @@ namespace Proteomics
         /// <param name="addForEachOrigninalProteolysisProduct"> the original products are there but those resulting from N- or C-terminal degradation still need to be added</param>
         /// <param name="addNterminalDigestionTruncations"></param>
         /// <param name="addCterminalDigestionTruncations"></param>
-        /// <param name="initiatorMethionineBehavior"> this effects the intact proteoform as well as any original proteolysis products containing the N-terminus</param>
         /// <param name="minProductBaseSequenceLength"> the same as the min detectable peptide</param>
         /// <param name="lengthOfProteolysis"> the number of amino acids that can be removed from either end.</param>
         public void AddTruncations(bool addFullProtein = true, bool addForEachOrigninalProteolysisProduct = true, bool addNterminalDigestionTruncations = true, bool addCterminalDigestionTruncations = true, int minProductBaseSequenceLength = 7, int lengthOfProteolysis = 5)
