@@ -145,6 +145,37 @@ namespace Test
         }
 
         [Test]
+        public void TestFunctionsOfMsDataScan()
+        {
+            MsDataScan theSpectrum = new MsDataScan(_mzSpectrumA, 1, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 1, null, "scan=1");
+            List<IsotopicEnvelope> isolatedMassesAndCharges = theSpectrum.GetIsolatedMassesAndCharges(_mzSpectrumA, 1, 10, 10, 1).ToList();
+            Assert.AreEqual(0, isolatedMassesAndCharges.Count); //Isolation range is null, so we get an empty set
+
+            Assert.Throws<MzLibException>(() => theSpectrum.RefineSelectedMzAndIntensity(_mzSpectrumA)); //no isolation Mz throws error 
+
+            theSpectrum.SetOneBasedPrecursorScanNumber(6);
+            Assert.AreEqual(6, theSpectrum.OneBasedPrecursorScanNumber);
+
+            theSpectrum.SetNativeID("bubba");
+            Assert.AreEqual("bubba", theSpectrum.NativeId);
+
+            theSpectrum.SetIsolationMz(42);
+            Assert.AreEqual(42, theSpectrum.IsolationMz);
+        }
+
+        [Test]
+        public void MoreMsDataFilesTests()
+        {
+            MsDataFile fakeDataFile = new MsDataFile(new MsDataScan[1], new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null));
+            Assert.AreEqual(1, fakeDataFile.NumSpectra);
+            Assert.AreEqual("scan number only nativeID format", fakeDataFile.SourceFile.NativeIdFormat);
+            Assert.AreEqual("mzML format", fakeDataFile.SourceFile.MassSpectrometerFileFormat);
+            Assert.IsNull(fakeDataFile.SourceFile.CheckSum);
+            Assert.AreEqual("SHA-1", fakeDataFile.SourceFile.FileChecksumType);
+            Assert.IsNull(fakeDataFile.SourceFile.Id);
+        }
+
+        [Test]
         public void TestAMoreRealFile()
         {
             var theScan = myMsDataFile.GetOneBasedScan(2);
