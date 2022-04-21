@@ -38,6 +38,7 @@ namespace Test
             Mzml.LoadAllStaticData(outfile2);
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
+
         /// <summary>
         /// Tests the dynamic connection for thermorawfilereader
         /// </summary>
@@ -72,8 +73,9 @@ namespace Test
 
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
+
         /// <summary>
-        /// Test Peak Filtering for ThermoRawFileReader
+        /// Tests peak filtering for ThermoRawFileReader
         /// </summary>
         /// <param name="infile"></param>
         [Test]
@@ -122,6 +124,7 @@ namespace Test
             Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h " +
                 $"{stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
+
         /// <summary>
         /// Test Thermo License for ThermoRawFileReader
         /// </summary>
@@ -136,6 +139,7 @@ namespace Test
 
             Console.WriteLine($"Analysis time for TestThermoLicence: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
+
         /// <summary>
         /// Test that raw files can be opened dynamically in ThermoRawFileReader
         /// </summary>
@@ -202,6 +206,7 @@ namespace Test
                 }
             }
         }
+
         /// <summary>
         /// Tests that you can read EtHCD files in ThermoRawFileReader
         /// </summary>

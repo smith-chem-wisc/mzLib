@@ -188,9 +188,9 @@ namespace Test
 
             var precursorScan = myMsDataFile.GetOneBasedScan(theScan.OneBasedPrecursorScanNumber.Value);
             theScan.RefineSelectedMzAndIntensity(precursorScan.MassSpectrum);
-            Assert.AreEqual(.32872, theScan.SelectedIonIntensity, 0.01);
-            Assert.AreEqual(693.9892, theScan.SelectedIonMZ, 0.01);
-            Assert.AreEqual(693.655, theScan.SelectedIonMonoisotopicGuessMz, 0.001);
+            Assert.AreEqual(.32872, (double)theScan.SelectedIonIntensity, 0.01);
+            Assert.AreEqual(693.9892, (double)theScan.SelectedIonMZ, 0.01);
+            Assert.AreEqual(693.655, (double)theScan.SelectedIonMonoisotopicGuessMz, 0.001);
 
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
 
