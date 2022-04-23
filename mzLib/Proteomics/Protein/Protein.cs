@@ -670,7 +670,7 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// This the main entry point for adding sequences in a top-down biomarker search.
+        /// This the main entry point for adding sequences in a top-down truncation search.
         /// The way this is designed is such at all base sequences to be searched end up in the list Protein.ProteolysisProducts
         /// This includes the intact protein. IT DOES NOT INCLUDE ANY DOUBLY (BOTH ENDS) DIGESTED PRODUCTS.
         /// The original proteolysis products (if any) are already in that list. These are annotated in protein.xml files.
@@ -689,22 +689,22 @@ namespace Proteomics
                 AddIntactProteoformToTruncationsProducts(minProductBaseSequenceLength);
                 if (addNterminalDigestionTruncations)
                 {
-                    AddTruncationsToExistingProteolysisProducts(1, BaseSequence.Length, true, false, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion biomarker");
+                    AddTruncationsToExistingProteolysisProducts(1, BaseSequence.Length, true, false, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform N-terminal digestion truncation");
                 }
                 if (addCterminalDigestionTruncations)
                 {
-                    AddTruncationsToExistingProteolysisProducts(1, BaseSequence.Length, false, true, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion biomarker");
+                    AddTruncationsToExistingProteolysisProducts(1, BaseSequence.Length, false, true, minProductBaseSequenceLength, lengthOfProteolysis, "full-length proteoform C-terminal digestion truncation");
                 }
             }
 
             if (addForEachOrigninalProteolysisProduct) // this does not include the original intact proteoform
             {
-                List<ProteolysisProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("biomarker") && !p.Type.Contains("full-length proteoform")).ToList();
+                List<ProteolysisProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
                 foreach (ProteolysisProduct product in existingProducts)
                 {
                     if (product.OneBasedBeginPosition.HasValue && product.OneBasedEndPosition.HasValue)
                     {
-                        string proteolyisisProductName = "biomarker";
+                        string proteolyisisProductName = "truncation";
 
                         if (!String.IsNullOrEmpty(product.Type))
                         {
@@ -743,7 +743,7 @@ namespace Proteomics
         public void CleaveOnceBetweenProteolysisProducts(int minimumProductLength = 7)
         {
             List<int> cleavagePostions = new();
-            List<ProteolysisProduct> localProducts = _proteolysisProducts.Where(p => !p.Type.Contains("biomarker") && !p.Type.Contains("full-length proteoform")).ToList();
+            List<ProteolysisProduct> localProducts = _proteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
             List<int> proteolysisProductEndPositions = localProducts.Where(p => p.OneBasedEndPosition.HasValue).Select(p => p.OneBasedEndPosition.Value).ToList();
             if (proteolysisProductEndPositions.Count > 0)
             {

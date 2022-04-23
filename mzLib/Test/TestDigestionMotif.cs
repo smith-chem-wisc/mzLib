@@ -259,7 +259,7 @@ namespace Test
             bool addCterminalDigestionTruncations = false;
             int minProductBaseSequenceLength = 2;
             int lengthOfProteolysis = 3;
-            string proteolyisisProductName = "biomarker";
+            string proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(4, products.Count);
@@ -277,7 +277,7 @@ namespace Test
             addCterminalDigestionTruncations = false;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(4, products.Count);
             productSequences = new List<string>();
@@ -295,7 +295,7 @@ namespace Test
             addCterminalDigestionTruncations = false;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
@@ -313,7 +313,7 @@ namespace Test
             addCterminalDigestionTruncations = false;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
             productSequences = new List<string>();
@@ -330,7 +330,7 @@ namespace Test
             addCterminalDigestionTruncations = false;
             minProductBaseSequenceLength = 6;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(2, products.Count);
@@ -354,7 +354,7 @@ namespace Test
             bool addCterminalDigestionTruncations = true;
             int minProductBaseSequenceLength = 2;
             int lengthOfProteolysis = 3;
-            string proteolyisisProductName = "biomarker";
+            string proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(6, products.Count);
@@ -372,7 +372,7 @@ namespace Test
             addCterminalDigestionTruncations = true;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(6, products.Count);
             productSequences = new List<string>();
@@ -389,7 +389,7 @@ namespace Test
             addCterminalDigestionTruncations = true;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
@@ -407,7 +407,7 @@ namespace Test
             addCterminalDigestionTruncations = true;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
@@ -430,7 +430,7 @@ namespace Test
             bool addCterminalDigestionTruncations = true;
             int minProductBaseSequenceLength = 2;
             int lengthOfProteolysis = 3;
-            string proteolyisisProductName = "biomarker";
+            string proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(10, products.Count);
@@ -448,7 +448,7 @@ namespace Test
             addCterminalDigestionTruncations = true;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(10, products.Count);
             productSequences = new List<string>();
@@ -465,7 +465,7 @@ namespace Test
             addCterminalDigestionTruncations = true;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(6, products.Count);
@@ -483,7 +483,7 @@ namespace Test
             addCterminalDigestionTruncations = true;
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(6, products.Count);
@@ -501,7 +501,7 @@ namespace Test
             addCterminalDigestionTruncations = true;
             minProductBaseSequenceLength = 6;
             lengthOfProteolysis = 3;
-            proteolyisisProductName = "biomarker";
+            proteolyisisProductName = "truncation";
             p.AddTruncationsToExistingProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionTruncations, addCterminalDigestionTruncations, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(5, products.Count);
             productSequences = new List<string>();
