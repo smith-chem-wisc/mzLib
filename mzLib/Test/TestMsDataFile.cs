@@ -216,23 +216,21 @@ namespace Test
             return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
         [Test]
-        public static void DeleteThisJunk()
+        public static void SkipEmptyScansWhenReadingMzml()
         {
-            string dataFilePath = @"C:\Users\mrsho\Downloads\Pf_C1-593_MixES-Sol_SG-1_rKCTi_VO2_101.mzML";
+            //this original mzML has four scans including 1 MS1 and three MS2s. The second MS2 scan does
+            //not have mz or intensity values. We skip this scan when reading.
+            string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", @"badScan7192.mzml");
+
             Mzml data = Mzml.LoadAllStaticData(dataFilePath);
 
-            List<string> myOUt = new();
-            int j = 1;
-            foreach (MsDataScan item in data)
-            {
-                myOUt.Add(j + "\t" + item.OneBasedScanNumber);
-                j++;
-            }
+            MsDataScan[] ms1Scans = data.GetMS1Scans().ToArray();
+            MsDataScan[] allScans = data.GetAllScansList().ToArray();
 
-            File.WriteAllLines(@"C:\Users\mrsho\Downloads\myout.txt", myOUt);
-
-            Assert.AreEqual(5, 3);
-            Assert.IsTrue(false);
+            Assert.AreEqual(1, ms1Scans.Length);
+            Assert.AreEqual(3, allScans.Length);
+            List<int> expectedScanNumbers = new() { 1, 2, 4 };
+            CollectionAssert.AreEquivalent(expectedScanNumbers, allScans.Select(s => s.OneBasedScanNumber).ToList());
         }
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
