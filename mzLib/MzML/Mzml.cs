@@ -200,12 +200,10 @@ namespace IO.MzML
                 string sendCheckSum;
                 using (FileStream stream = File.OpenRead(filePath))
                 {
-                    using (SHA1Managed sha = new SHA1Managed())
-                    {
-                        byte[] checksum = sha.ComputeHash(stream);
-                        sendCheckSum = BitConverter.ToString(checksum)
-                            .Replace("-", string.Empty);
-                    }
+                    SHA1 sha = SHA1.Create();
+                    byte[] checksum = sha.ComputeHash(stream);
+                    sendCheckSum = BitConverter.ToString(checksum)
+                        .Replace("-", string.Empty);
                 }
                 sourceFile = new SourceFile(
                     @"no nativeID format",

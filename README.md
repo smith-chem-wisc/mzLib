@@ -2,7 +2,6 @@
 
 A library for mass spectrometry projects.
 
-
 [![GitHub Action Builds](https://github.com/smith-chem-wisc/mzLib/actions/workflows/dotnet.yml/badge.svg)](https://github.com/smith-chem-wisc/mzLib/actions/workflows/dotnet.yml)
 [![codecov](https://codecov.io/gh/smith-chem-wisc/mzLib/branch/master/graph/badge.svg)](https://codecov.io/gh/smith-chem-wisc/mzLib)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/10000/badge.svg)](https://scan.coverity.com/projects/mzlib)

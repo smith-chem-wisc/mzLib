@@ -346,43 +346,6 @@ namespace FlashLFQ
             {
                 if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
                 {
-                    // calculate reference protein intensity (top 3 most intense peptides).
-                    // the reference intensity is just a scaling factor because the median polish
-                    // algorithm will return a normalized number that does not scale w/ intensity
-                    // (it's more like a fold-change). so that number will be multiplied by this reference
-                    // intensity to get a protein intensity
-                    double referenceProteinIntensity = 0;
-                    int topNPeaks = 3;
-
-                    foreach (var group in filesGroupedByCondition)
-                    {
-                        List<double> highestIntensities = new List<double>();
-
-                        foreach (var peptide in peptidesForThisProtein)
-                        {
-                            double max = 0;
-
-                            foreach (var sample in group)
-                            {
-                                double peptideIntensity = peptide.GetIntensity(sample);
-
-                                if (!double.IsNaN(peptideIntensity))
-                                {
-                                    max = Math.Max(max, peptideIntensity);
-                                }
-                            }
-
-                            highestIntensities.Add(max);
-                        }
-
-                        referenceProteinIntensity = highestIntensities.OrderByDescending(p => p).Take(topNPeaks).Sum();
-
-                        if (referenceProteinIntensity > 0)
-                        {
-                            break;
-                        }
-                    }
-
                     // set up peptide intensity table
                     int numSamples = 0;
                     foreach (var condition in SpectraFiles.GroupBy(p => p.Condition))
@@ -451,6 +414,7 @@ namespace FlashLFQ
 
                     // do median polish protein quantification
                     MedianPolish(peptideIntensityMatrix, 10, 0.0001, out var rowEffects, out var columnEffects, out var overallEffect);
+                    double referenceProteinIntensity = Math.Pow(2, overallEffect);
 
                     // set the sample protein intensities
                     sampleN = 0;
@@ -480,6 +444,12 @@ namespace FlashLFQ
                             if (!isMissingValue)
                             {
                                 proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
+
+                                // TODO: this will fix cases where protein quantities are the identical as a result of a median polish issue
+                                if (columnEffects[sampleN] == 0)
+                                {
+                                    proteinGroup.SetIntensity(sample.First(), double.NaN);
+                                }
                             }
 
                             sampleN++;
