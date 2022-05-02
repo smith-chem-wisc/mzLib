@@ -231,6 +231,10 @@ namespace Test
             Assert.AreEqual(3, allScans.Length);
             List<int> expectedScanNumbers = new() { 1, 2, 4 };
             CollectionAssert.AreEquivalent(expectedScanNumbers, allScans.Select(s => s.OneBasedScanNumber).ToList());
+            Assert.AreEqual(1, allScans[2].OneBasedPrecursorScanNumber);
+
+            //even with the deleted scan, the second MS2Scan should still refer to the correct MS1
+            Assert.AreEqual(1, allScans[3].OneBasedPrecursorScanNumber);
         }
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
