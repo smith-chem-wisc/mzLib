@@ -226,8 +226,7 @@ namespace IO.MzML
                     scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
                 }
             });
-            MsDataScan[] notNull = scans.Where(s=>s != null).ToArray();
-            scans = notNull;
+            scans = scans.Where(s=>s !=null).ToArray();
 
 
             //Mzml sometimes have scan numbers specified, but usually not.
@@ -356,8 +355,10 @@ namespace IO.MzML
             }
 
             if (!msOrder.HasValue || !isCentroid.HasValue)
+                //one instance when this if statment is true (i.e. not false) is when there is no mz/intensity data
+                //so, we return null and skip the scan
                 return null;
-                //throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
+                
 
             double[] masses = new double[0];
             double[] intensities = new double[0];
@@ -377,6 +378,8 @@ namespace IO.MzML
                     intensityArray |= cv.accession.Equals(_intensityArray);
                 }
 
+                //When the scan has not mz/intensity, we want to return a null MsDataScan instead of just crashing. This try/catch block returns null when there is no data
+                //It's possible that the try statment never fails because empty scans often get flagged by this statement above: if (!msOrder.HasValue || !isCentroid.HasValue)
                 try
                 {
                     double[] data = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
@@ -390,7 +393,7 @@ namespace IO.MzML
                         intensities = data;
                     }
                 }
-                catch
+                catch // return a null MsDataScan instead of crashing
                 {
                     return null;
                 }
