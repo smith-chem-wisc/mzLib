@@ -23,9 +23,11 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
 using UsefulProteomicsDatabases.Generated;
 
@@ -118,7 +120,7 @@ namespace UsefulProteomicsDatabases
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
         {
             var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
-            Regex digitsOnly = new Regex(@"[^\d]");
+            Regex digitsOnly = new(@"[^\d]");
             return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
         }
 
@@ -160,7 +162,18 @@ namespace UsefulProteomicsDatabases
             {
                 UpdateUniprot(uniprotLocation);
             }
-            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var errors).OfType<Modification>();
+            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _).OfType<Modification>();
+        }
+
+        public static void DownloadContent(string url, string outputFile)
+        {
+            Uri uri = new(url);
+            HttpClient client = new();
+            HttpResponseMessage urlResponse = Task.Run(() => client.GetAsync(uri)).Result;
+            using (FileStream stream = new(outputFile, FileMode.CreateNew))
+            {
+                Task.Run(() => urlResponse.Content.CopyToAsync(stream)).Wait();
+            }
         }
 
         private static bool FilesAreEqual_Hash(string first, string second)
@@ -183,34 +196,22 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadPsiMod(string psimodLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
-            }
+            DownloadContent(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
         }
 
         private static void DownloadUnimod(string unimodLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
-            }
+            DownloadContent(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
         }
 
         private static void DownloadElements(string elementLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", elementLocation + ".temp");
-            }
+            DownloadContent(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", elementLocation + ".temp");
         }
 
         private static void DownloadUniprot(string uniprotLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
-            }
+            DownloadContent(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
         }
     }
 }

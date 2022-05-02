@@ -118,10 +118,10 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    //for now we are not going to write top-down biomarkers generated for top-down biomarker search. 
+                    //for now we are not going to write top-down truncations generated for top-down truncation search. 
                     //some day we could write those if observed
-                    //the biomarker designation is contained in the "type" field of ProteolysisProduct
-                    List<ProteolysisProduct> proteolysisProducts = protein.ProteolysisProducts.Where(p => !p.Type.Contains("biomarker")).ToList();
+                    //the truncation designation is contained in the "type" field of ProteolysisProduct
+                    List<ProteolysisProduct> proteolysisProducts = protein.ProteolysisProducts.Where(p => !p.Type.Contains("truncation")).ToList();
                     foreach (var proteolysisProduct in proteolysisProducts)
                     {
                         writer.WriteStartElement("feature");

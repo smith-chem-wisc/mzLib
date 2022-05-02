@@ -2,7 +2,6 @@
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net;
 
 namespace UsefulProteomicsDatabases
 {
@@ -67,11 +66,8 @@ namespace UsefulProteomicsDatabases
                 }
                 if (htmlQueryString.Length > 0)
                 {
-                    using (WebClient Client = new WebClient())
-                    {
-                        Client.DownloadFile(htmlQueryString, absolutePathToStorageDirectory + filename);
-                        return absolutePathToStorageDirectory + filename;
-                    }
+                    Loaders.DownloadContent(htmlQueryString, absolutePathToStorageDirectory + filename);
+                    return absolutePathToStorageDirectory + filename;
                 }
                 //we don't support other file types yet.
                 return null;
@@ -84,20 +80,17 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// downloades and then returns the filepath to a compressed (.gz), tab-delimited text file of the available proteomes. Line one is the header.
         /// </summary>
-        /// <param name="filepath">filepath to the downloaded filefilepath</param>
+        /// <param name="destinationFolder">filepath to the downloaded filefilepath</param>
         /// <returns></returns>
-        public static string DownloadAvailableUniProtProteomes(string filepath)
+        public static string DownloadAvailableUniProtProteomes(string destinationFolder)
         {
-            if (Directory.Exists(filepath))
+            if (Directory.Exists(destinationFolder))
             {
                 string htmlQueryString = "https://www.uniprot.org/proteomes/?query=*&format=tab&compress=yes&columns=id,name,organism-id,proteincount,busco,cpd,assembly%20representation";
-                string filename = "\\availableUniProtProteomes.txt.gz";
+                string filename = "availableUniProtProteomes.txt.gz";
 
-                filepath += filename;
-                using (WebClient Client = new WebClient())
-                {
-                    Client.DownloadFile(htmlQueryString, filepath);
-                }
+                string filepath = Path.Combine(destinationFolder, filename);
+                Loaders.DownloadContent(htmlQueryString, filepath);
 
                 if (File.Exists(filepath))
                 {
@@ -126,37 +119,34 @@ namespace UsefulProteomicsDatabases
         {
             if (File.Exists(completePathToAvailableUniProtProteomes))
             {
-                Dictionary<string, string> dictionaryOfAvailableProteomes = new Dictionary<string, string>();
-                List<string> idNameList = new List<string>();
-
+                Dictionary<string, string> dictionaryOfAvailableProteomes = new();
                 string fileExtension = Path.GetExtension(completePathToAvailableUniProtProteomes);
-
                 switch (fileExtension)
                 {
                     case ".gz":
-                        idNameList = ReadAllGZippedLines(completePathToAvailableUniProtProteomes).ToList();
-                        foreach (string item in idNameList)
+                        foreach (string item in ReadAllGZippedLines(completePathToAvailableUniProtProteomes).ToList())
                         {
                             var lineValuesArray = item.Split("\t");
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
                         }
                         return dictionaryOfAvailableProteomes;
+
                     case ".zip":
-                        idNameList = ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList();
-                        foreach (string item in idNameList)
+                        foreach (string item in ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList())
                         {
                             var lineValuesArray = item.Split("\t");
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
                         }
                         return dictionaryOfAvailableProteomes;
+
                     case ".txt":
-                        idNameList = File.ReadAllLines(completePathToAvailableUniProtProteomes).ToList();
-                        foreach (string item in idNameList)
+                        foreach (string item in File.ReadAllLines(completePathToAvailableUniProtProteomes).ToList())
                         {
                             var lineValuesArray = item.Split("\t");
                             dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
                         }
                         return dictionaryOfAvailableProteomes;
+
                     default:
                         return null; //no file with the appropriate extension is present
                 };
@@ -174,7 +164,7 @@ namespace UsefulProteomicsDatabases
         {
             string currentDirectory = Directory.GetCurrentDirectory();
             string filePath = Path.Combine(currentDirectory, "UniProtKB_columnNamesForProgrammaticAccess.txt");
-            Dictionary<string, string> d = new Dictionary<string, string>();
+            Dictionary<string, string> d = new();
             string[] idNameList = File.ReadAllLines(filePath);
             foreach (string item in idNameList)
             {
