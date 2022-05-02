@@ -226,6 +226,9 @@ namespace IO.MzML
                     scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
                 }
             });
+            MsDataScan[] notNull = scans.Where(s=>s != null).ToArray();
+            scans = notNull;
+
 
             //Mzml sometimes have scan numbers specified, but usually not.
             //In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
@@ -353,7 +356,8 @@ namespace IO.MzML
             }
 
             if (!msOrder.HasValue || !isCentroid.HasValue)
-                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
+                return null;
+                //throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
 
             double[] masses = new double[0];
             double[] intensities = new double[0];
@@ -373,16 +377,24 @@ namespace IO.MzML
                     intensityArray |= cv.accession.Equals(_intensityArray);
                 }
 
-                double[] data = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
-                if (mzArray)
+                try
                 {
-                    masses = data;
+                    double[] data = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
+                    if (mzArray)
+                    {
+                        masses = data;
+                    }
+
+                    if (intensityArray)
+                    {
+                        intensities = data;
+                    }
+                }
+                catch
+                {
+                    return null;
                 }
 
-                if (intensityArray)
-                {
-                    intensities = data;
-                }
             }
 
             double high = double.NaN;

@@ -215,7 +215,25 @@ namespace Test
             Array.Sort(allMassesArray, allIntensitiessArray);
             return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
+        [Test]
+        public static void DeleteThisJunk()
+        {
+            string dataFilePath = @"C:\Users\mrsho\Downloads\Pf_C1-593_MixES-Sol_SG-1_rKCTi_VO2_101.mzML";
+            Mzml data = Mzml.LoadAllStaticData(dataFilePath);
 
+            List<string> myOUt = new();
+            int j = 1;
+            foreach (MsDataScan item in data)
+            {
+                myOUt.Add(j + "\t" + item.OneBasedScanNumber);
+                j++;
+            }
+
+            File.WriteAllLines(@"C:\Users\mrsho\Downloads\myout.txt", myOUt);
+
+            Assert.AreEqual(5, 3);
+            Assert.IsTrue(false);
+        }
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
@@ -240,7 +258,7 @@ namespace Test
                 notActuallyMzS = new MzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
                 notActuallyMzS.ReplaceXbyApplyingFunction(s => s.Mz.ToMz(minCharge));
             }
-
+             
             var allMassesArray = allMasses.ToArray();
             var allIntensitiessArray = allIntensitiess.ToArray();
 
