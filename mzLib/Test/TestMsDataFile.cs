@@ -246,7 +246,27 @@ namespace Test
             Array.Sort(allMassesArray, allIntensitiessArray);
             return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
+        [Test]
+        public static void SkipEmptyScansWhenReadingMzml()
+        {
+            //this original mzML has four scans including 1 MS1 and three MS2s. The second MS2 scan does
+            //not have mz or intensity values. We skip this scan when reading.
+            string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", @"badScan7192.mzml");
 
+            Mzml data = Mzml.LoadAllStaticData(dataFilePath);
+
+            MsDataScan[] ms1Scans = data.GetMS1Scans().ToArray();
+            MsDataScan[] allScans = data.GetAllScansList().ToArray();
+
+            Assert.AreEqual(1, ms1Scans.Length);
+            Assert.AreEqual(3, allScans.Length);
+            List<int> expectedScanNumbers = new() { 1, 2, 4 };
+            CollectionAssert.AreEquivalent(expectedScanNumbers, allScans.Select(s => s.OneBasedScanNumber).ToList());
+            Assert.AreEqual(1, allScans[1].OneBasedPrecursorScanNumber);
+
+            //even with the deleted scan, the second MS2Scan should still refer to the correct MS1
+            Assert.AreEqual(1, allScans[2].OneBasedPrecursorScanNumber);
+        }
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
@@ -271,7 +291,7 @@ namespace Test
                 notActuallyMzS = new MzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
                 notActuallyMzS.ReplaceXbyApplyingFunction(s => s.Mz.ToMz(minCharge));
             }
-
+             
             var allMassesArray = allMasses.ToArray();
             var allIntensitiessArray = allIntensitiess.ToArray();
 
