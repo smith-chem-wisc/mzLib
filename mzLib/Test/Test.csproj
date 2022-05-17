@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0-windows</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <Platforms>x64</Platforms>
   </PropertyGroup>
@@ -12,27 +12,35 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <NoStdLib>false</NoStdLib>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <NoStdLib>false</NoStdLib>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NUnit" Version="3.12.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="3.16.1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
+    <PackageReference Include="NetSerializer" Version="4.1.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
-    <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
-    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
-    <ProjectReference Include="..\Mgf\Mgf.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
     <ProjectReference Include="..\MzML\MzML.csproj" />
-    <ProjectReference Include="..\mzPlot\mzPlot.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+    <ProjectReference Include="..\Mgf\Mgf.csproj" />
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="NetSerializer" />
+    <None Remove="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
   <ItemGroup>
     <None Update="DatabaseTests\b_availableUniProtProteomes.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -348,4 +356,7 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="TestMzPlot.cs" />
+  </ItemGroup>
 </Project>
