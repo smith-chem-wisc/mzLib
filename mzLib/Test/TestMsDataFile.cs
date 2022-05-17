@@ -145,6 +145,37 @@ namespace Test
         }
 
         [Test]
+        public void TestFunctionsOfMsDataScan()
+        {
+            MsDataScan theSpectrum = new MsDataScan(_mzSpectrumA, 1, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 1, null, "scan=1");
+            List<IsotopicEnvelope> isolatedMassesAndCharges = theSpectrum.GetIsolatedMassesAndCharges(_mzSpectrumA, 1, 10, 10, 1).ToList();
+            Assert.AreEqual(0, isolatedMassesAndCharges.Count); //Isolation range is null, so we get an empty set
+
+            Assert.Throws<MzLibException>(() => theSpectrum.RefineSelectedMzAndIntensity(_mzSpectrumA)); //no isolation Mz throws error 
+
+            theSpectrum.SetOneBasedPrecursorScanNumber(6);
+            Assert.AreEqual(6, theSpectrum.OneBasedPrecursorScanNumber);
+
+            theSpectrum.SetNativeID("bubba");
+            Assert.AreEqual("bubba", theSpectrum.NativeId);
+
+            theSpectrum.SetIsolationMz(42);
+            Assert.AreEqual(42, theSpectrum.IsolationMz);
+        }
+
+        [Test]
+        public void MoreMsDataFilesTests()
+        {
+            MsDataFile fakeDataFile = new MsDataFile(new MsDataScan[1], new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null));
+            Assert.AreEqual(1, fakeDataFile.NumSpectra);
+            Assert.AreEqual("scan number only nativeID format", fakeDataFile.SourceFile.NativeIdFormat);
+            Assert.AreEqual("mzML format", fakeDataFile.SourceFile.MassSpectrometerFileFormat);
+            Assert.IsNull(fakeDataFile.SourceFile.CheckSum);
+            Assert.AreEqual("SHA-1", fakeDataFile.SourceFile.FileChecksumType);
+            Assert.IsNull(fakeDataFile.SourceFile.Id);
+        }
+
+        [Test]
         public void TestAMoreRealFile()
         {
             var theScan = myMsDataFile.GetOneBasedScan(2);
@@ -157,9 +188,9 @@ namespace Test
 
             var precursorScan = myMsDataFile.GetOneBasedScan(theScan.OneBasedPrecursorScanNumber.Value);
             theScan.RefineSelectedMzAndIntensity(precursorScan.MassSpectrum);
-            Assert.AreEqual(.32872, theScan.SelectedIonIntensity, 0.01);
-            Assert.AreEqual(693.9892, theScan.SelectedIonMZ, 0.01);
-            Assert.AreEqual(693.655, theScan.SelectedIonMonoisotopicGuessMz, 0.001);
+            Assert.AreEqual(.32872, (double)theScan.SelectedIonIntensity, 0.01);
+            Assert.AreEqual(693.9892, (double)theScan.SelectedIonMZ, 0.01);
+            Assert.AreEqual(693.655, (double)theScan.SelectedIonMonoisotopicGuessMz, 0.001);
 
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
 
@@ -215,7 +246,27 @@ namespace Test
             Array.Sort(allMassesArray, allIntensitiessArray);
             return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
+        [Test]
+        public static void SkipEmptyScansWhenReadingMzml()
+        {
+            //this original mzML has four scans including 1 MS1 and three MS2s. The second MS2 scan does
+            //not have mz or intensity values. We skip this scan when reading.
+            string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", @"badScan7192.mzml");
 
+            Mzml data = Mzml.LoadAllStaticData(dataFilePath);
+
+            MsDataScan[] ms1Scans = data.GetMS1Scans().ToArray();
+            MsDataScan[] allScans = data.GetAllScansList().ToArray();
+
+            Assert.AreEqual(1, ms1Scans.Length);
+            Assert.AreEqual(3, allScans.Length);
+            List<int> expectedScanNumbers = new() { 1, 2, 4 };
+            CollectionAssert.AreEquivalent(expectedScanNumbers, allScans.Select(s => s.OneBasedScanNumber).ToList());
+            Assert.AreEqual(1, allScans[1].OneBasedPrecursorScanNumber);
+
+            //even with the deleted scan, the second MS2Scan should still refer to the correct MS1
+            Assert.AreEqual(1, allScans[2].OneBasedPrecursorScanNumber);
+        }
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
@@ -240,7 +291,7 @@ namespace Test
                 notActuallyMzS = new MzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
                 notActuallyMzS.ReplaceXbyApplyingFunction(s => s.Mz.ToMz(minCharge));
             }
-
+             
             var allMassesArray = allMasses.ToArray();
             var allIntensitiessArray = allIntensitiess.ToArray();
 

@@ -92,7 +92,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
         internal List<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
-            int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownBiomarkerSearch = false)
+            int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownTruncationSearch = false)
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
 
@@ -111,7 +111,7 @@ namespace Proteomics.ProteolyticDigestion
             //top-down
             else if (CleavageSpecificity == CleavageSpecificity.None)
             {
-                if (!topDownBiomarkerSearch)//standard top-down
+                if (!topDownTruncationSearch)//standard top-down
                 {
                     // retain methionine
                     if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M')
