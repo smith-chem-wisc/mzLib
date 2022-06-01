@@ -200,12 +200,10 @@ namespace IO.MzML
                 string sendCheckSum;
                 using (FileStream stream = File.OpenRead(filePath))
                 {
-                    using (SHA1Managed sha = new SHA1Managed())
-                    {
-                        byte[] checksum = sha.ComputeHash(stream);
-                        sendCheckSum = BitConverter.ToString(checksum)
-                            .Replace("-", string.Empty);
-                    }
+                    SHA1 sha = SHA1.Create();
+                    byte[] checksum = sha.ComputeHash(stream);
+                    sendCheckSum = BitConverter.ToString(checksum)
+                        .Replace("-", string.Empty);
                 }
                 sourceFile = new SourceFile(
                     @"no nativeID format",
@@ -226,6 +224,8 @@ namespace IO.MzML
                     scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
                 }
             });
+
+            scans = scans.Where(s => s.MassSpectrum != null).ToArray();
 
             //Mzml sometimes have scan numbers specified, but usually not.
             //In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
@@ -352,8 +352,55 @@ namespace IO.MzML
                 }
             }
 
+            double rtInMinutes = double.NaN;
+            string scanFilter = null;
+            double? injectionTime = null;
+            int oneBasedScanNumber = oneBasedIndex;
+            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].cvParam != null)
+            {
+                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].cvParam)
+                {
+                    if (cv.accession.Equals(_retentionTime))
+                    {
+                        rtInMinutes = double.Parse(cv.value, CultureInfo.InvariantCulture);
+                        if (cv.unitName == "second")
+                        {
+                            rtInMinutes /= 60;
+                        }
+                    }
+                    if (cv.accession.Equals(_filterString))
+                    {
+                        scanFilter = cv.value;
+                    }
+                    if (cv.accession.Equals(_ionInjectionTime))
+                    {
+                        injectionTime = double.Parse(cv.value, CultureInfo.InvariantCulture);
+                    }
+                    if (cv.accession.Equals(_oneBasedScanNumber)) //get the real one based spectrum number (if available), the other assumes they are in order. This is present in .mgf->.mzml conversions from MSConvert
+                    {
+                        oneBasedScanNumber = int.Parse(cv.value);
+                    }
+                }
+            }
+
             if (!msOrder.HasValue || !isCentroid.HasValue)
-                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
+                //one instance when this if statment is true (i.e. not false) is when there is no mz/intensity data
+                //so, we return the MsDataScan object with a null spectrum
+                //scans w/ null spectra are checked later and the scan numbers associated w those scans are returned to the reader.
+                return new MsDataScan(
+                    null,
+                    oneBasedScanNumber,
+                    msOrder.Value,
+                    false, //have to return a value here b/c it is not nullable
+                    polarity,
+                    rtInMinutes,
+                    null,
+                    scanFilter,
+                    analyzer,
+                    tic,
+                    injectionTime,
+                    null,
+                    nativeId);
 
             double[] masses = new double[0];
             double[] intensities = new double[0];
@@ -373,6 +420,8 @@ namespace IO.MzML
                     intensityArray |= cv.accession.Equals(_intensityArray);
                 }
 
+                //in the futurem we may see scass w/ no data and there will be a crash here. if that happens, you can retrun an MsDataScan with null as the mzSpectrum
+                //the scans with no spectra will be reported to the reader and left out of the scan list.
                 double[] data = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
                 if (mzArray)
                 {
@@ -426,37 +475,6 @@ namespace IO.MzML
 
             Array.Sort(masses, intensities);
             var mzmlMzSpectrum = new MzSpectrum(masses, intensities, false);
-
-            double rtInMinutes = double.NaN;
-            string scanFilter = null;
-            double? injectionTime = null;
-            int oneBasedScanNumber = oneBasedIndex;
-            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].cvParam != null)
-            {
-                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].cvParam)
-                {
-                    if (cv.accession.Equals(_retentionTime))
-                    {
-                        rtInMinutes = double.Parse(cv.value, CultureInfo.InvariantCulture);
-                        if (cv.unitName == "second")
-                        {
-                            rtInMinutes /= 60;
-                        }
-                    }
-                    if (cv.accession.Equals(_filterString))
-                    {
-                        scanFilter = cv.value;
-                    }
-                    if (cv.accession.Equals(_ionInjectionTime))
-                    {
-                        injectionTime = double.Parse(cv.value, CultureInfo.InvariantCulture);
-                    }
-                    if (cv.accession.Equals(_oneBasedScanNumber)) //get the real one based spectrum number (if available), the other assumes they are in order. This is present in .mgf->.mzml conversions from MSConvert
-                    {
-                        oneBasedScanNumber = int.Parse(cv.value);
-                    }
-                }
-            }
 
             if (msOrder.Value == 1)
             {
