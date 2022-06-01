@@ -51,8 +51,8 @@ namespace MassSpectrometry.MzSpectra
 
 
         /// <summary>
-        /// All peaks with mz less than the cutOff will be filtered out. 
-        private static List<(double, double)> FilterOutIonsBelowThisMz(double[] spectrumX, double[] spectrumY,double filterOutBelowThisMz)
+        /// All peaks with mz less than the cutOff will be filtered out. default to zero to remove an mz values that are accidentally negative. this is an unexpected error. 
+        private static List<(double, double)> FilterOutIonsBelowThisMz(double[] spectrumX, double[] spectrumY,double filterOutBelowThisMz = 0)
         {
             if (spectrumY.Length == 0)
             {
@@ -66,7 +66,8 @@ namespace MassSpectrometry.MzSpectra
             List<(double, double)> spectrumWithMzCutoff = new List<(double, double)>();
             for (int i = 0; i < spectrumX.Length; i++)
             {
-                if (spectrumX[i] >= filterOutBelowThisMz)
+                //second conditional to avoid getting an accidental negative intensities
+                if (spectrumX[i] >= filterOutBelowThisMz && spectrumY[i] >= 0)
                 {
                     spectrumWithMzCutoff.Add((spectrumX[i], spectrumY[i]));
                 }
