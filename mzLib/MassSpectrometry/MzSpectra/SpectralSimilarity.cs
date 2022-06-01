@@ -319,7 +319,7 @@ namespace MassSpectrometry.MzSpectra
             double divergence = 0;
             foreach (var pair in intensityPairs)
             {
-                if(pair.Item2 != 0)
+                if(pair.Item1 != 0 && pair.Item2 != 0)
                 {
                     divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
                 } 
