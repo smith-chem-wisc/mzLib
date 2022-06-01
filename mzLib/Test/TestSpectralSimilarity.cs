@@ -353,5 +353,19 @@ namespace Test
             Assert.That(s.PearsonsCorrelation(), Is.Null);
             Assert.That(s.DotProduct(), Is.Null);
         }
+
+        [Test]
+        public void TestKullbackLeiblerDivergence()
+        {
+            double ppmTolerance = 10;
+            double[] p_XArray = new double[] { 1, 2, 3 };
+            double[] p_YArray = new double[] { 9.0/25.0, 12.0/25.0, 4.0/25.0 };
+            double[] q_XArray = new double[] { 1, 2, 3 };
+            double[] q_YArray = new double[] { 1.0/3.0, 1.0 / 3.0, 1.0 / 3.0 };
+
+            //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
+            SpectralSimilarity s = new SpectralSimilarity(p_XArray,p_YArray,q_XArray,q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
+        }
     }
 }
