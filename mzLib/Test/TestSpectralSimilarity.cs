@@ -364,7 +364,7 @@ namespace Test
             double[] q_YArray = new double[] { 1.0/3.0, 1.0 / 3.0, 1.0 / 3.0 };
 
             //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
-            SpectralSimilarity s = new SpectralSimilarity(p_XArray,p_YArray,q_XArray,q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            SpectralSimilarity s = new(p_XArray,p_YArray,q_XArray,q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
 
             // ignore negative intensity
@@ -374,7 +374,7 @@ namespace Test
             q_YArray = new double[] { 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0 };
 
             //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
-            s = new SpectralSimilarity(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
 
             // ignore negative mz
@@ -384,7 +384,7 @@ namespace Test
             q_YArray = new double[] { 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0 };
 
             //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
-            s = new SpectralSimilarity(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
         }
     }
