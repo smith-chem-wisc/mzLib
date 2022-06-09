@@ -302,6 +302,34 @@ namespace MassSpectrometry.MzSpectra
             return sum;
         }
 
+        // Requires
+        // Normalization method to be SpectrumSum and allPeaks to be true
+        public double? SpectralEntropy()
+        {
+            if (_intensityPairs.First().Item1 == -1)
+            {
+                return null;
+            }
+            double theoreticalEntropy = 0;
+            foreach (double intensity in theoreticalYArray)
+            {
+                theoreticalEntropy += -1 * intensity * Math.Log(intensity);
+            }
+            double experimentalEntropy = 0;
+            foreach (double intensity in experimentalYArray)
+            {
+                experimentalEntropy += -1 * intensity * Math.Log(intensity);
+            }
+
+            double combinedEntropy = 0;
+            foreach ( (double,double) intensityPair in _intensityPairs)
+            {
+                double combinedIntensity = intensityPair.Item1 / 2 + intensityPair.Item2 / 2;
+                combinedEntropy += -1* combinedIntensity * Math.Log(combinedIntensity);
+            }
+            return 1 - (2*combinedEntropy - theoreticalEntropy - experimentalEntropy)/Math.Log(4) ;
+        }
+
         #endregion similarityMethods
 
         //use Math.Max() in the denominator for consistancy

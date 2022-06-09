@@ -47,6 +47,8 @@ namespace Test
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.17).Within(0.01));
 
+            double? test = s.SpectralEntropy();
+
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true,0);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.41).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.27).Within(0.01));
