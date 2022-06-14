@@ -302,6 +302,24 @@ namespace MassSpectrometry.MzSpectra
             return sum;
         }
 
+        public double? SearleSimilarity()
+        {
+            if (_intensityPairs.First().Item1 == -1)
+            {
+                return null;
+            }
+            double squaredSumDifferences = 0;
+            foreach ((double, double) pair in _intensityPairs)
+            {
+                squaredSumDifferences += Math.Pow((pair.Item1 - pair.Item2),2);
+            }
+            if(squaredSumDifferences > 0)
+            {
+                return Math.Log(Math.Pow(squaredSumDifferences,-1));   
+            }
+            return null;
+        }
+
         #endregion similarityMethods
 
         //use Math.Max() in the denominator for consistancy

@@ -27,6 +27,7 @@ namespace Test
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.66).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.42).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.17).Within(0.01));
+            Assert.That(s.SearleSimilarity(), Is.EqualTo(2.4391).Within(0.01));
 
             //Test all normalization schemes
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
