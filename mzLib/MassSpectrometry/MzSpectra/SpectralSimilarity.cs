@@ -15,6 +15,7 @@ namespace MassSpectrometry.MzSpectra
             theoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             theoreticalXArray = FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             localPpmTolerance = toleranceInPpm;
+            normalizationScheme = scheme;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -25,6 +26,7 @@ namespace MassSpectrometry.MzSpectra
             theoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             theoreticalXArray = FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             localPpmTolerance = toleranceInPpm;
+            normalizationScheme = scheme;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -32,6 +34,8 @@ namespace MassSpectrometry.MzSpectra
         public double[] experimentalXArray { get; private set; }
         public double[] theoreticalYArray { get; private set; }
         public double[] theoreticalXArray { get; private set; }
+
+        private SpectrumNormalizationScheme normalizationScheme;
 
         private double localPpmTolerance;
 
@@ -302,8 +306,8 @@ namespace MassSpectrometry.MzSpectra
             return sum;
         }
 
-        // Requires
-        // Normalization method to be SpectrumSum and allPeaks to be true
+        // This method should only be used with the SpectrumSum normalization method
+        // This method should only be used when allPeaks is set to true
         public double? SpectralEntropy()
         {
             if (_intensityPairs.First().Item1 == -1)
@@ -327,7 +331,9 @@ namespace MassSpectrometry.MzSpectra
                 double combinedIntensity = intensityPair.Item1 / 2 + intensityPair.Item2 / 2;
                 combinedEntropy += -1* combinedIntensity * Math.Log(combinedIntensity);
             }
-            return 1 - (2*combinedEntropy - theoreticalEntropy - experimentalEntropy)/Math.Log(4) ;
+
+            double similarityScore = 1 - (2 * combinedEntropy - theoreticalEntropy - experimentalEntropy) / Math.Log(4);
+            return similarityScore;
         }
 
         #endregion similarityMethods

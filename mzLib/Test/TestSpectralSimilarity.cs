@@ -27,6 +27,8 @@ namespace Test
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.66).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.42).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.17).Within(0.01));
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true, 0);
+            Assert.That(s.SpectralEntropy(), Is.EqualTo(0.79).Within(0.01));
 
             //Test all normalization schemes
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
@@ -46,8 +48,6 @@ namespace Test
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.17).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.17).Within(0.01));
-
-            double? test = s.SpectralEntropy();
 
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true,0);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.41).Within(0.01));
