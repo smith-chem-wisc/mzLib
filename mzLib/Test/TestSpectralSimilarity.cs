@@ -155,6 +155,13 @@ namespace Test
             Assert.AreEqual(3, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
+
+            //Test SearleSimilarity with both spectra are identical
+            primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
+            secondary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
+            s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false, 0);
+
+            Assert.AreEqual(s.SearleSimilarity(), double.MaxValue);
         }
 
         [Test]

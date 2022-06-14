@@ -317,7 +317,7 @@ namespace MassSpectrometry.MzSpectra
             {
                 return Math.Log(Math.Pow(squaredSumDifferences,-1));   
             }
-            return null;
+            return double.MaxValue;
         }
 
         #endregion similarityMethods
