@@ -302,13 +302,12 @@ namespace MassSpectrometry.MzSpectra
             return sum;
         }
 
+        //This formula created by Brian Searle and reported at ASMS 2022 in poster "Scribe: next generation library searching for DDA experiments"
         public double? SearleSimilarity()
         {
-            if (_intensityPairs.First().Item1 == -1)
-            {
-                return null;
-            }
             double squaredSumDifferences = 0;
+
+            //there must be some legitimate pairs to enter this function so no need to test if pairs exist
             foreach ((double, double) pair in _intensityPairs)
             {
                 squaredSumDifferences += Math.Pow((pair.Item1 - pair.Item2),2);
