@@ -232,9 +232,9 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>
-        public IEnumerable<ProteolyticPeptide> Digestion(Protein protein, bool topDownBiomarkerSearch = false)
+        public IEnumerable<ProteolyticPeptide> Digestion(Protein protein, bool topDownTruncationSearch = false)
         {
-            return Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownBiomarkerSearch);
+            return Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
         }
     }
 }

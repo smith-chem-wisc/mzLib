@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
+using System.Xml;
 using System.Xml.Serialization;
 
 namespace IO.MzML
@@ -974,12 +974,12 @@ namespace IO.MzML
 
             if (!writeIndexed)
             {
-                using (TextWriter writer = new StreamWriter(outputFile))
+                using (XmlWriter writer = XmlWriter.Create(outputFile, new() { NewLineChars = "\n", Indent = true }))
                 {
                     mzmlSerializer.Serialize(writer, mzML);
                 }
             }
-            else if (writeIndexed)
+            else
             {
                 Generated.indexedmzML indexedMzml = new Generated.indexedmzML();
                 indexedMzml.mzML = mzML;
@@ -992,9 +992,8 @@ namespace IO.MzML
                 };
 
                 // write the initial file to disk (just the mzML data in an indexedmzML wrapper, without the completed index)
-                using (TextWriter writer = new StreamWriter(outputFile))
+                using (XmlWriter writer = XmlWriter.Create(outputFile, new() { NewLineChars = "\n", Indent = true }))
                 {
-                    writer.NewLine = NewLine;
                     indexedSerializer.Serialize(writer, indexedMzml);
                 }
 
@@ -1095,9 +1094,8 @@ namespace IO.MzML
 
                 // write file w/ correct index and temporary checksum
                 indexedMzml.fileChecksum = "0";
-                using (TextWriter writer = new StreamWriter(outputFile))
+                using (XmlWriter writer = XmlWriter.Create(outputFile, new() { NewLineChars = "\n", Indent = true }))
                 {
-                    writer.NewLine = NewLine;
                     indexedSerializer.Serialize(writer, indexedMzml);
                 }
 
@@ -1106,9 +1104,8 @@ namespace IO.MzML
                 indexedMzml.fileChecksum = BitConverter.ToString(hash.Hash).Replace("-", string.Empty).ToLowerInvariant();
 
                 // write the final file w/ correct index and correct checksum
-                using (TextWriter writer = new StreamWriter(outputFile))
+                using (XmlWriter writer = XmlWriter.Create(outputFile, new() { NewLineChars = "\n", Indent = true }))
                 {
-                    writer.NewLine = NewLine;
                     indexedSerializer.Serialize(writer, indexedMzml);
                 }
             }
