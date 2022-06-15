@@ -312,11 +312,7 @@ namespace MassSpectrometry.MzSpectra
             {
                 squaredSumDifferences += Math.Pow((pair.Item1 - pair.Item2),2);
             }
-            if(squaredSumDifferences > 0)
-            {
-                return Math.Log(Math.Pow(squaredSumDifferences,-1));   
-            }
-            return double.MaxValue;
+            return squaredSumDifferences > 0 ? Math.Log(Math.Pow(squaredSumDifferences, -1)) : double.MaxValue;
         }
 
         #endregion similarityMethods
