@@ -329,6 +329,7 @@ namespace MassSpectrometry.MzSpectra
         }
 
         //This formula created by Brian Searle and reported at ASMS 2022 in poster "Scribe: next generation library searching for DDA experiments"
+        //Please you the square root normalization with this calculation
         public double? SearleSimilarity()
         {
             double squaredSumDifferences = 0;
