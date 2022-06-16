@@ -40,6 +40,7 @@ namespace Test
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.22).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.33).Within(0.01));
+            var x = s.SpectralEntropy;
 
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true,0);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.27).Within(0.01));

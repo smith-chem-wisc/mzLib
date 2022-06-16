@@ -15,7 +15,8 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             LocalPpmTolerance = toleranceInPpm;
-            normalizationScheme = scheme;
+            NormalizationScheme = scheme;
+            AllPeaks = allPeaks;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -26,7 +27,8 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             LocalPpmTolerance = toleranceInPpm;
-            normalizationScheme = scheme;
+            NormalizationScheme = scheme;
+            AllPeaks = allPeaks;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -37,6 +39,8 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(Q_XArray, Q_YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMz(Q_XArray, Q_YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             LocalPpmTolerance = toleranceInPpm;
+            NormalizationScheme = scheme;
+            AllPeaks = allPeaks;
             _intensityPairs = IntensityPairs(allPeaks);
         }
         public double[] ExperimentalYArray { get; private set; }
@@ -44,7 +48,9 @@ namespace MassSpectrometry.MzSpectra
         public double[] TheoreticalYArray { get; private set; }
         public double[] TheoreticalXArray { get; private set; }
 
-        private SpectrumNormalizationScheme normalizationScheme;
+        private SpectrumNormalizationScheme NormalizationScheme;
+
+        private bool AllPeaks;
 
         private double LocalPpmTolerance;
 
@@ -326,6 +332,14 @@ namespace MassSpectrometry.MzSpectra
             if (_intensityPairs.First().Item1 == -1)
             {
                 return null;
+            }
+            if (!AllPeaks)
+            {
+                #warning SpectralEntropy should only be used when allPeaks is set to true 
+            }
+            if (NormalizationScheme != SpectrumNormalizationScheme.spectrumSum)
+            {
+                #warning SpectralEntropy should only be used when normalization method is set to spectrumSum
             }
             double theoreticalEntropy = 0;
             foreach (double intensity in TheoreticalYArray)
