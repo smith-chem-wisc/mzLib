@@ -328,6 +328,20 @@ namespace MassSpectrometry.MzSpectra
             return divergence;
         }
 
+        //This formula created by Brian Searle and reported at ASMS 2022 in poster "Scribe: next generation library searching for DDA experiments"
+        //Please you the square root normalization with this calculation
+        public double? SearleSimilarity()
+        {
+            double squaredSumDifferences = 0;
+
+            //there must be some legitimate pairs to enter this function so no need to test if pairs exist
+            foreach ((double, double) pair in _intensityPairs)
+            {
+                squaredSumDifferences += Math.Pow((pair.Item1 - pair.Item2),2);
+            }
+            return squaredSumDifferences > 0 ? Math.Log(Math.Pow(squaredSumDifferences, -1)) : double.MaxValue;
+        }
+
         #endregion similarityMethods
 
         //use Math.Max() in the denominator for consistancy
