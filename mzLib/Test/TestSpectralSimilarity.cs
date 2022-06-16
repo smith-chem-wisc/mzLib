@@ -27,6 +27,7 @@ namespace Test
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.66).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.42).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.17).Within(0.01));
+            Assert.That(s.SearleSimilarity(), Is.EqualTo(2.4391).Within(0.01));
 
             //Test all normalization schemes
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
@@ -154,6 +155,13 @@ namespace Test
             Assert.AreEqual(3, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
+
+            //Test SearleSimilarity with both spectra are identical
+            primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
+            secondary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
+            s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false, 0);
+
+            Assert.AreEqual(s.SearleSimilarity(), double.MaxValue);
         }
 
         [Test]
@@ -352,6 +360,40 @@ namespace Test
             Assert.That(s.BrayCurtis(), Is.Null);
             Assert.That(s.PearsonsCorrelation(), Is.Null);
             Assert.That(s.DotProduct(), Is.Null);
+        }
+
+        [Test]
+        public void TestKullbackLeiblerDivergence()
+        {
+            double ppmTolerance = 10;
+            double[] p_XArray = new double[] { 1, 2, 3 };
+            double[] p_YArray = new double[] { 9.0/25.0, 12.0/25.0, 4.0/25.0 };
+            double[] q_XArray = new double[] { 1, 2, 3 };
+            double[] q_YArray = new double[] { 1.0/3.0, 1.0 / 3.0, 1.0 / 3.0 };
+
+            //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
+            SpectralSimilarity s = new(p_XArray,p_YArray,q_XArray,q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
+
+            // ignore negative intensity
+            p_XArray = new double[] { 1, 2, 3,4 };
+            p_YArray = new double[] { 9.0 / 25.0, 12.0 / 25.0, 4.0 / 25.0, -1.0/25.0 };
+            q_XArray = new double[] { 1, 2, 3 };
+            q_YArray = new double[] { 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0 };
+
+            //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
+            s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
+
+            // ignore negative mz
+            p_XArray = new double[] { 1, 2, 3, -4.0 };
+            p_YArray = new double[] { 9.0 / 25.0, 12.0 / 25.0, 4.0 / 25.0, 1.0 / 25.0 };
+            q_XArray = new double[] { 1, 2, 3 };
+            q_YArray = new double[] { 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0 };
+
+            //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
+            s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
         }
     }
 }
