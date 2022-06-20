@@ -323,10 +323,6 @@ namespace MassSpectrometry.MzSpectra
         // This method should only be used when allPeaks is set to true
         public double? SpectralEntropy()
         {
-            if (_intensityPairs.First().Item1 == -1)
-            {
-                return null;
-            }
             double theoreticalEntropy = 0;
             foreach (double intensity in TheoreticalYArray)
             {
