@@ -161,6 +161,12 @@ namespace Test
 
             theSpectrum.SetIsolationMz(42);
             Assert.AreEqual(42, theSpectrum.IsolationMz);
+
+            double[] newXAxis = new double[] { 0, 1, 2 };
+            double[] newYAxis = new double[] { 3, 4, 5 };
+            theSpectrum.SetMassSpectrum(new MzSpectrum(newXAxis, newYAxis, true));
+            Assert.That(theSpectrum.MassSpectrum.XArray.SequenceEqual(newXAxis));
+            Assert.That(theSpectrum.MassSpectrum.YArray.SequenceEqual(newYAxis));
         }
 
         [Test]
