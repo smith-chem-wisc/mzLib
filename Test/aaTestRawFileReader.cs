@@ -16,7 +16,7 @@ namespace Test
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public sealed class TestRawFileReader
+    public sealed class aaTestRawFileReader
     {
         [Test]
         [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
