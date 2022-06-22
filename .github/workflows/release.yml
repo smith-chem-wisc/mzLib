@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 6.0.x
+      - name: Set up NuGet
+        uses: nuget/setup-nuget@v1
+        with:
+          nuget-version: '6.x'
+      - name: Verify commit exists in origin/master
+        run: |
+          git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+          git branch --remote --contains | grep origin/${env:RELEASE_BRANCH}
+        env:
+          RELEASE_BRANCH: master
+      - name: Restore dependencies
+        run: |
+          cd mzLib
+          dotnet restore
+      - name: Build
+        run: |
+          $version= &git describe --tags
+          cd mzLib
+          dotnet build --no-restore --configuration Release /p:Version=${version}
+      - name: Test
+        run: |
+          $version= &git describe --tags
+          cd mzLib
+          dotnet test --configuration Release /p:Version=${version} --no-build
+      - name: Pack and Push NuGet Package
+        run: |
+          $version= &git describe --tags
+          cd mzLib
+          nuget pack mzLib.nuspec -Version ${version} -Properties Configuration=Release
+          dotnet nuget push mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
+        env:
+          GITHUB_TOKEN: ${{ secrets.NUGET_KEY }}
