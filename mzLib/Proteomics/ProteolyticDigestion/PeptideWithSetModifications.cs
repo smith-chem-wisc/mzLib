@@ -1089,6 +1089,44 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
+
+        private HashSet<double> AddNeutralLossesFromMods(Modification mod, HashSet<double> allNeutralLossesSoFar, DissociationType dissociationType)
+        {
+            // add neutral losses specific to this dissociation type
+            if (mod != null
+                && mod.NeutralLosses != null
+                && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLossesFromMod))
+            {
+                foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
+                {
+                    if (allNeutralLossesSoFar == null)
+                    {
+                        allNeutralLossesSoFar = new HashSet<double>();
+                    }
+
+                    allNeutralLossesSoFar.Add(neutralLoss);
+                }
+            }
+
+            // add neutral losses that are generic to any dissociation type
+            if (mod != null
+                && mod.NeutralLosses != null
+                && mod.NeutralLosses.TryGetValue(DissociationType.AnyActivationType, out neutralLossesFromMod))
+            {
+                foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
+                {
+                    if (allNeutralLossesSoFar == null)
+                    {
+                        allNeutralLossesSoFar = new HashSet<double>();
+                    }
+
+                    allNeutralLossesSoFar.Add(neutralLoss);
+                }
+            }
+
+            return allNeutralLossesSoFar;
+        }
+
         //This function maintains the amino acids associated with the protease motif and reverses all other amino acids.
         //N-terminal modificatons are preserved. Other modifications travel with their respective amino acids. this results
         //in a decoy peptide composed the same amino acids and modifications as the original. 
