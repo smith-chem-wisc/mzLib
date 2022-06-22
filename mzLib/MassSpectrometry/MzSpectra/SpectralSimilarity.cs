@@ -15,6 +15,7 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             LocalPpmTolerance = toleranceInPpm;
+            normalizationScheme = scheme;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -25,6 +26,7 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             LocalPpmTolerance = toleranceInPpm;
+            normalizationScheme = scheme;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -41,6 +43,8 @@ namespace MassSpectrometry.MzSpectra
         public double[] ExperimentalXArray { get; private set; }
         public double[] TheoreticalYArray { get; private set; }
         public double[] TheoreticalXArray { get; private set; }
+
+        private SpectrumNormalizationScheme normalizationScheme;
 
         private double LocalPpmTolerance;
 
@@ -315,6 +319,33 @@ namespace MassSpectrometry.MzSpectra
             return sum;
         }
 
+        // This method should only be used with the SpectrumSum normalization method
+        // This method should only be used when allPeaks is set to true
+        public double? SpectralEntropy()
+        {
+            double theoreticalEntropy = 0;
+            foreach (double intensity in TheoreticalYArray)
+            {
+                theoreticalEntropy += -1 * intensity * Math.Log(intensity);
+            }
+            double experimentalEntropy = 0;
+            foreach (double intensity in ExperimentalYArray)
+            {
+                experimentalEntropy += -1 * intensity * Math.Log(intensity);
+            }
+
+            double combinedEntropy = 0;
+            foreach ( (double,double) intensityPair in _intensityPairs)
+            {
+                double combinedIntensity = intensityPair.Item1 / 2 + intensityPair.Item2 / 2;
+                combinedEntropy += -1* combinedIntensity * Math.Log(combinedIntensity);
+            }
+
+            double similarityScore = 1 - (2 * combinedEntropy - theoreticalEntropy - experimentalEntropy) / Math.Log(4);
+            return similarityScore;
+        }
+      
+        
         public double? KullbackLeiblerDivergence_P_Q()
         {
             double divergence = 0;
