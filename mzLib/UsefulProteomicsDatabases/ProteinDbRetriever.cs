@@ -45,7 +45,7 @@ namespace UsefulProteomicsDatabases
                     {
                         filename += ".gz";
                     }
-                    htmlQueryString = "https://www.uniprot.org/uniprot/?query=proteome:" + proteomeID + " reviewed:" + reviewed + "&compress=" + compress + "&format=" + format + "&include:" + include;
+                    htmlQueryString = "https://legacy.uniprot.org/uniprot/?query=proteome:" + proteomeID + " reviewed:" + reviewed + "&compress=" + compress + "&format=" + format + "&include:" + include;
                 }
                 else if (format == ProteomeFormat.xml)
                 {
@@ -62,7 +62,7 @@ namespace UsefulProteomicsDatabases
                     {
                         filename += ".gz";
                     }
-                    htmlQueryString = "https://www.uniprot.org/uniprot/?query=proteome:" + proteomeID + " reviewed:" + reviewed + "&compress=" + compress + "&format=" + format;
+                    htmlQueryString = "https://legacy.uniprot.org/uniprot/?query=proteome:" + proteomeID + " reviewed:" + reviewed + "&compress=" + compress + "&format=" + format;
                 }
                 if (htmlQueryString.Length > 0)
                 {
@@ -86,7 +86,7 @@ namespace UsefulProteomicsDatabases
         {
             if (Directory.Exists(destinationFolder))
             {
-                string htmlQueryString = "https://www.uniprot.org/proteomes/?query=*&format=tab&compress=yes&columns=id,name,organism-id,proteincount,busco,cpd,assembly%20representation";
+                string htmlQueryString = "https://legacy.uniprot.org/proteomes/?query=*&format=tab&compress=yes&columns=id,name,organism-id,proteincount,busco,cpd,assembly%20representation";
                 string filename = "availableUniProtProteomes.txt.gz";
 
                 string filepath = Path.Combine(destinationFolder, filename);
@@ -224,7 +224,7 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Columns to select for retrieving results in tab or xls format.
-        /// https://www.uniprot.org/help/uniprotkb_column_names
+        /// https://legacy.uniprot.org/help/uniprotkb_column_names
         /// </summary>
         public enum Columns
         {
