@@ -170,7 +170,7 @@ namespace UsefulProteomicsDatabases
             Uri uri = new(url);
             HttpClient client = new();
             HttpResponseMessage urlResponse = Task.Run(() => client.GetAsync(uri)).Result;
-            using (FileStream stream = new(outputFile, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            using (FileStream stream = new(outputFile, FileMode.CreateNew))
             {
                 Task.Run(() => urlResponse.Content.CopyToAsync(stream)).Wait();
             }
