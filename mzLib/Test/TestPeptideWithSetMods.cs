@@ -760,7 +760,6 @@ namespace Test
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
             Assert.AreEqual(p.Protein.BaseSequence.Length, reverse.Protein.BaseSequence.Length);//we replaced the original with the new so the protein should have the same length
-            Assert.AreEqual(reverse.PeptideDescription, p.FullSequence);
 
             List<Product> decoyProducts = new List<Product>();
             reverse.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, decoyProducts);
@@ -773,35 +772,30 @@ namespace Test
             PeptideWithSetModifications p_argC_reverse = p_argC.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("RKEITPREP", p_argC_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 0, 8, 7, 5, 4, 3, 6, 2, 1 }, newAminoAcidPositions);
-            Assert.AreEqual(p_argC_reverse.PeptideDescription, p_argC.FullSequence);
 
             //  Asp-N -- Cleave before D
             newAminoAcidPositions = new int["DPEPTIDEK".Length];
             PeptideWithSetModifications p_aspN = new PeptideWithSetModifications(new Protein("DPEPTIDEK", "DECOY_ASPN"), new DigestionParams(protease: "Asp-N"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_aspN_reverse = p_aspN.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("DKEITPDEP", p_aspN_reverse.BaseSequence);
-            Assert.AreEqual(p_aspN.FullSequence, p_aspN_reverse.PeptideDescription);
 
             //  chymotrypsin (don't cleave before proline)
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
             PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin (don't cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymoP_reverse = p_chymoP.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
-            Assert.AreEqual(p_chymoP.FullSequence, p_chymoP_reverse.PeptideDescription);
 
             //  chymotrypsin (don't cleave before proline)
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
             PeptideWithSetModifications p_chymo = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMO"), new DigestionParams(protease: "chymotrypsin (cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGFPGWSWPAYRYPK", p_chymo_reverse.BaseSequence);
-            Assert.AreEqual(p_chymo.FullSequence, p_chymo_reverse.PeptideDescription);
 
             //  CNBr cleave after M
             newAminoAcidPositions = new int["MPEPTIMEK".Length];
             PeptideWithSetModifications p_cnbr = new PeptideWithSetModifications(new Protein("MPEPTIMEK", "DECOY_CNBR"), new DigestionParams(protease: "CNBr"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_cnbr_reverse = p_cnbr.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("MKEITPMEP", p_cnbr_reverse.BaseSequence);
-            Assert.AreEqual(p_cnbr.FullSequence, p_cnbr_reverse.PeptideDescription);
 
             //  elastase cleave after A, V, S, G, L, I,
             newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
@@ -831,8 +825,7 @@ namespace Test
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(7));//moved T-phospho from 3 to 7
             Assert.IsTrue(p_tryp_reverse.Protein.IsDecoy);
-            Assert.AreEqual(p_tryp.FullSequence, p_tryp_reverse.PeptideDescription);
-
+            
         }
 
         [Test]
@@ -931,74 +924,31 @@ namespace Test
         }
 
         [Test]
-        public static void TestPeptideWithSetModsReturnsTruncationsInTopDown()
+        public static void TestExtensionMethod_AllIndexesOf()
         {
-            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+            string testString = new string("testString");
+            List<int> t_locations = testString.AllIndexesOf("t");
+            Assert.AreEqual(new List<int> { 0, 3, 5 }, t_locations);
 
-            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications, addTruncations: true)[0];
-
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulinTruncations.Count);
+            var ex = Assert.Throws<ArgumentException>(() => testString.AllIndexesOf(null));
         }
 
         [Test]
-        public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
+        public static void TestExtensionMethod_Fill()
         {
-            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, addTruncations: true);
-
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintTargetTruncations.Count);
-            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintDecoyTruncations.Count);
+            char[] characterArray = new char[5];
+            characterArray.Fill('5');
+            for (int i = 0; i < characterArray.Length; i++)
+            {
+                Assert.AreEqual('5', characterArray[i]);
+            }
         }
 
         [Test]
-        public static void CheckFullChemicalFormula()
+        public static void TestExtensionMethod_Reverse()
         {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula small_pep_cf = ChemicalFormula.ParseFormula("C34H53N7O15");
-            Assert.AreEqual(small_pep.FullChemicalFormula, small_pep_cf);
-
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula large_pep_cf = ChemicalFormula.ParseFormula("C134H220N38O50S1Se2");
-            Assert.AreEqual(large_pep.FullChemicalFormula, large_pep_cf);
-
-            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_s);
-            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_s, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
-            Dictionary<int, Modification> modDict_small = new Dictionary<int, Modification>();
-            modDict_small.Add(4, phosphorylation);
-
-            PeptideWithSetModifications small_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, modDict_small, 0, null);
-            ChemicalFormula small_pep_mod_cf = ChemicalFormula.ParseFormula("C33H52N7O18P1");
-            Assert.AreEqual(small_pep_mod.FullChemicalFormula, small_pep_mod_cf);
-
-            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
-            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3O"));
-            Dictionary<int, Modification> modDict_large = new Dictionary<int, Modification>();
-            modDict_large.Add(4, phosphorylation);
-            modDict_large.Add(11, phosphorylation);
-            modDict_large.Add(8, acetylation);
-
-            PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
-            ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
-            Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
-        }
-
-        [Test]
-        public static void CheckMostAbundantMonoisotopicMass()
-        {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            double small_pep_most_abundant_mass_prospector = 800.36724 - 1.0079;
-            Assert.That(small_pep.MostAbundantMonoisotopicMass, Is.EqualTo(small_pep_most_abundant_mass_prospector).Within(0.01));
-
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 42, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            double large_pep_most_abundant_mass_prospector = 4709.12020 - 1.0079;
-            Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
+            string testString = "Reverse";
+            Assert.AreEqual("esreveR", ProteomicsExtenstionMethods.Reverse(testString));
         }
     }
 }
