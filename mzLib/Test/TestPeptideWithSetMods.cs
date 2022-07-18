@@ -750,7 +750,7 @@ namespace Test
 
             Modification nTermAcet = new Modification(_originalId: "n-acetyl", _modificationType: "CommonBiological", _target: null, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"));
 
-            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { { 1, nTermAcet }, { 4, phosphorylation }, { 9, acetylation } };
+            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { { 1, nTermAcet }, { 6, phosphorylation }, { 9, acetylation } };
 
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
 
@@ -834,7 +834,34 @@ namespace Test
             Assert.AreEqual(p_tryp.FullSequence, p_tryp_reverse.PeptideDescription);
 
         }
+        [Test]
+        public static void TestScrambledDecoyFromTarget()
+        {
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif_p);
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_p, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
 
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
+            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+
+            Modification nTermAcet = new Modification(_originalId: "n-acetyl", _modificationType: "CommonBiological", _target: null, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"));
+
+            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { { 1, nTermAcet }, { 5, phosphorylation }, { 9, acetylation } };
+
+            PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
+            int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
+            PeptideWithSetModifications testScrambled = p.GetScrambledDecoyFromTarget(newAminoAcidPositions);
+            Assert.AreEqual("ETPEIPDK", testScrambled.BaseSequence);
+            Assert.AreEqual(new int[] { 6, 3, 0, 1, 4, 2, 5, 7 }, newAminoAcidPositions);
+            // Check n-term acetyl
+            Assert.AreEqual(p.AllModsOneIsNterminus[1], testScrambled.AllModsOneIsNterminus[1]); 
+            // Check phosphorylated Ile originally at position 6
+            Assert.AreEqual(p.AllModsOneIsNterminus[5], testScrambled.AllModsOneIsNterminus[3]);
+            Assert.IsTrue(testScrambled.Protein.IsDecoy);
+            Assert.AreEqual(p.Protein.BaseSequence.Length, testScrambled.Protein.BaseSequence.Length);
+            // Check that the scrambled PeptideDescription is equivalent to the original peptide's full sequence
+            Assert.AreEqual(testScrambled.PeptideDescription, p.FullSequence);
+
+        }
         [Test]
         public static void TestReverseDecoyFromPeptideFromProteinXML()
         {
