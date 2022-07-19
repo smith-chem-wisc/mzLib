@@ -14,7 +14,7 @@ namespace Proteomics.ProteolyticDigestion
     {
         public string FullSequence { get; private set; } //sequence with modifications
         public readonly int NumFixedMods;
-
+        public int? DecoyHash { get; private set; }
         /// <summary>
         /// Dictionary of modifications on the peptide. The N terminus is index 1.
         /// The key indicates which residue modification is on (with 1 being N terminus).
@@ -28,14 +28,12 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
-
-
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
         public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
-           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null)
+           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null, int? decoyHash = null)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription, baseSequence)
         {
             _allModsOneIsNterminus = allModsOneIsNterminus;
@@ -44,6 +42,7 @@ namespace Proteomics.ProteolyticDigestion
             DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
+            DecoyHash = decoyHash; // Added decoyHash as a nullable integer
         }
 
         /// <summary>
@@ -53,7 +52,7 @@ namespace Proteomics.ProteolyticDigestion
         public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
             DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
             int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue,
-            CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null)
+            CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null, int? decoyHash = null)
             : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
         {
             if (sequence.Contains("|"))
@@ -66,6 +65,7 @@ namespace Proteomics.ProteolyticDigestion
             GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
+            decoyHash = null; // Added decoyHash as a nullable integer
 
             if (p != null)
             {
@@ -1217,16 +1217,25 @@ namespace Proteomics.ProteolyticDigestion
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = this.DigestionParams;
 
+            int targetHash = GetHashCode();
+            PeptideWithSetModifications decoyPeptide;
             //Make the "peptideDescription" store the corresponding target's sequence
             if (newBaseString != this.BaseSequence)
             {
-                return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                decoyPeptide = new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                DecoyHash = decoyPeptide.GetHashCode();
+                decoyPeptide.DecoyHash = targetHash;
+                return decoyPeptide;
+
             }
             else
             {
                 //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
                 //we retrun the mirror image peptide.
-                return this.GetPeptideMirror(revisedAminoAcidOrder);
+                decoyPeptide = this.GetPeptideMirror(revisedAminoAcidOrder);
+                DecoyHash = decoyPeptide.GetHashCode();
+                decoyPeptide.DecoyHash = targetHash;
+                return decoyPeptide;
             }
 
         }
@@ -1260,6 +1269,7 @@ namespace Proteomics.ProteolyticDigestion
             proteinSequence = aStringBuilder.ToString();
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+
             DigestionParams d = this.DigestionParams;
 
             //now fill in the revised amino acid order
