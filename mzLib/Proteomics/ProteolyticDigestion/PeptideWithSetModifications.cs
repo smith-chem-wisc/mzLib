@@ -14,6 +14,8 @@ namespace Proteomics.ProteolyticDigestion
     {
         public string FullSequence { get; private set; } //sequence with modifications
         public readonly int NumFixedMods;
+        // Parameter to store a hash code corresponding to a Decoy peptide
+        // If 
         public int? DecoyHash { get; private set; }
         /// <summary>
         /// Dictionary of modifications on the peptide. The N terminus is index 1.
@@ -42,7 +44,7 @@ namespace Proteomics.ProteolyticDigestion
             DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
-            DecoyHash = decoyHash; // Added decoyHash as a nullable integer
+            DecoyHash = decoyHash; // Added DecoyHash as a nullable integer
         }
 
         /// <summary>
@@ -65,7 +67,7 @@ namespace Proteomics.ProteolyticDigestion
             GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
-            decoyHash = null; // Added decoyHash as a nullable integer
+            DecoyHash = decoyHash; // Added DecoyHash as a nullable integer
 
             if (p != null)
             {
@@ -1223,7 +1225,9 @@ namespace Proteomics.ProteolyticDigestion
             if (newBaseString != this.BaseSequence)
             {
                 decoyPeptide = new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                // Sets DecoyHash of the original target peptie to the Hash Code of the decoy sequence               
                 DecoyHash = decoyPeptide.GetHashCode();
+                // Sets DecoyHash of the decoy peptide to the hash code of the target sequence
                 decoyPeptide.DecoyHash = targetHash;
                 return decoyPeptide;
 
