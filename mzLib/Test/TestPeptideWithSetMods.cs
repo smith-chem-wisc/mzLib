@@ -756,12 +756,12 @@ namespace Test
 
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be DecoyHash for reverse
+            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
             int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be DecoyHash for target
+            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
             int testDecoyHash = reverse.GetHashCode(); 
-            Assert.AreEqual(reverse.DecoyHash, testTargetHash);
-            Assert.AreEqual(p.DecoyHash, testDecoyHash);
+            Assert.AreEqual(reverse.PairedTargetDecoyHash, testTargetHash);
+            Assert.AreEqual(p.PairedTargetDecoyHash, testDecoyHash);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
@@ -832,12 +832,12 @@ namespace Test
             newAminoAcidPositions = new int["VTIRTVR".Length];
             PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, VTIRTVR_modsDictionary, 0, null);
             PeptideWithSetModifications p_tryp_reverse = p_tryp.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be DecoyHash for reverse
+            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
             int testMirrorTargetHash = p_tryp.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be DecoyHash for target
+            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
             int testMirrorDecoyHash = p_tryp_reverse.GetHashCode();
-            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.DecoyHash);
-            Assert.AreEqual(testMirrorDecoyHash, p_tryp.DecoyHash);
+            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoyHash);
+            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoyHash);
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl

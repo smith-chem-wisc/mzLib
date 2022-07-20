@@ -16,7 +16,7 @@ namespace Proteomics.ProteolyticDigestion
         public readonly int NumFixedMods;
         // Parameter to store a hash code corresponding to a Decoy peptide
         // If 
-        public int? DecoyHash { get; private set; }
+        public int? PairedTargetDecoyHash { get; private set; }
         /// <summary>
         /// Dictionary of modifications on the peptide. The N terminus is index 1.
         /// The key indicates which residue modification is on (with 1 being N terminus).
@@ -35,7 +35,7 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
-           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null, int? decoyHash = null)
+           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null, int? pairedTargetDecoyHash = null)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription, baseSequence)
         {
             _allModsOneIsNterminus = allModsOneIsNterminus;
@@ -44,7 +44,7 @@ namespace Proteomics.ProteolyticDigestion
             DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
-            DecoyHash = decoyHash; // Added DecoyHash as a nullable integer
+            PairedTargetDecoyHash = pairedTargetDecoyHash; // Added pairedTargetDecoyHash as a nullable integer
         }
 
         /// <summary>
@@ -54,7 +54,7 @@ namespace Proteomics.ProteolyticDigestion
         public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
             DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
             int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue,
-            CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null, int? decoyHash = null)
+            CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null, int? pairedTargetDecoyHash = null)
             : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
         {
             if (sequence.Contains("|"))
@@ -67,7 +67,7 @@ namespace Proteomics.ProteolyticDigestion
             GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
-            DecoyHash = decoyHash; // Added DecoyHash as a nullable integer
+            PairedTargetDecoyHash = pairedTargetDecoyHash; // Added pairedTargetDecoyHash as a nullable integer
 
             if (p != null)
             {
@@ -1226,9 +1226,9 @@ namespace Proteomics.ProteolyticDigestion
             {
                 decoyPeptide = new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
                 // Sets DecoyHash of the original target peptie to the Hash Code of the decoy sequence               
-                DecoyHash = decoyPeptide.GetHashCode();
+                PairedTargetDecoyHash = decoyPeptide.GetHashCode();
                 // Sets DecoyHash of the decoy peptide to the hash code of the target sequence
-                decoyPeptide.DecoyHash = targetHash;
+                decoyPeptide.PairedTargetDecoyHash = targetHash;
                 return decoyPeptide;
 
             }
@@ -1237,8 +1237,8 @@ namespace Proteomics.ProteolyticDigestion
                 //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
                 //we retrun the mirror image peptide.
                 decoyPeptide = this.GetPeptideMirror(revisedAminoAcidOrder);
-                DecoyHash = decoyPeptide.GetHashCode();
-                decoyPeptide.DecoyHash = targetHash;
+                PairedTargetDecoyHash = decoyPeptide.GetHashCode();
+                decoyPeptide.PairedTargetDecoyHash = targetHash;
                 return decoyPeptide;
             }
 
