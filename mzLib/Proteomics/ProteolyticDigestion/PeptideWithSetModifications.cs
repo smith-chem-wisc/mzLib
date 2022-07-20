@@ -1311,7 +1311,8 @@ namespace Proteomics.ProteolyticDigestion
                 // residueNums is a list containing array indices for each element of evaporatingBase
                 // Once each amino acid is added, its index is removed from residueNums to prevent the same AA from being added 2x
                 List<int> residueNums = new List<int>();
-                for(int i = 0; i < evaporatingBase.Length; i++)
+                int evaporatingBaseLength = evaporatingBase.Length;
+                for(int i = 0; i < evaporatingBaseLength; i++)
                 {
                     residueNums.Add(i);
                 }
@@ -1321,7 +1322,8 @@ namespace Proteomics.ProteolyticDigestion
                 Array.Copy(newBase, tempNewBase, newBase.Length);
 
                 // I am not sure why I need the second counter, but it always works when I have it
-                while (fillPosition < this.BaseSequence.Length && characterCounter < this.BaseSequence.Length)
+                int seqLength = this.BaseSequence.Length;
+                while (fillPosition < seqLength && characterCounter < seqLength)
                 {
                     residueNumsIndex = rand.Next(residueNums.Count);
                     extractPosition = residueNums[residueNumsIndex];
@@ -1353,7 +1355,7 @@ namespace Proteomics.ProteolyticDigestion
                  * the sequence. Additionally, for peptides with a large amount of a certain amino acid,
                  * it will be very difficult to generate a low homology sequence.
                  */
-                percentIdentity = GetPercetIdentity(tempNewBase, evaporatingBase);
+                percentIdentity = GetPercentIdentity(tempNewBase, evaporatingBase);
                 // Check that the percent identity is below the maximum identity threshold and set actual values to the temporary values
                 if (percentIdentity < maxIdentity)
                 {
@@ -1364,11 +1366,11 @@ namespace Proteomics.ProteolyticDigestion
                 // If max scrambles are reached, make the new sequence identical to the original to trigger mirroring
                 else if (scrambleAttempt == maxScrambles)
                 {
-                    for(int ind = 0; ind < newBase.Length; ind++)
+                    for(int j = 0; j < newBase.Length; j++)
                     {
-                        if (newBase[ind] == '0')
+                        if (newBase[j] == '0')
                         {
-                            newBase[ind] = evaporatingBase[ind];
+                            newBase[j] = evaporatingBase[j];
                         }
                     }
                 }
@@ -1399,17 +1401,25 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
         
-        private static double GetPercetIdentity(char[] scrambledSequence, char[] unscrambledSequence)
+        /// <summary>
+        /// Method to get the percent identity between two peptide sequences stored as char[]
+        /// Does not account for PTMs as of now, however this will cause dissimilarity to be underestimated not overestimated
+        /// </summary>
+        /// <param name="scrambledSequence"></param>
+        /// <param name="unscrambledSequence"></param>
+        /// <returns></returns>
+        private static double GetPercentIdentity(char[] scrambledSequence, char[] unscrambledSequence)
         {
             double rawScore = 0;
             double effectiveLength = Convert.ToDouble(unscrambledSequence.Length);
-            for(int seqIndexer = 0; seqIndexer < scrambledSequence.Length; seqIndexer++)
+            int seqLength = scrambledSequence.Length;
+            for(int i = 0; i < seqLength; i++)
             {
-                if (scrambledSequence[seqIndexer] == unscrambledSequence[seqIndexer] && unscrambledSequence[seqIndexer] != '0')
+                if (scrambledSequence[i] == unscrambledSequence[i] && unscrambledSequence[i] != '0')
                 {
                     rawScore += 1;
                 }
-                else if (unscrambledSequence[seqIndexer] == '0')
+                else if (unscrambledSequence[i] == '0')
                 {
                     effectiveLength -= 1;
                 }
