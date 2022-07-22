@@ -1355,12 +1355,13 @@ namespace Proteomics.ProteolyticDigestion
                  * the sequence. Additionally, for peptides with a large amount of a certain amino acid,
                  * it will be very difficult to generate a low homology sequence.
                  */
-                percentIdentity = GetPercentIdentity(tempNewBase, evaporatingBase);
+                percentIdentity = GetPercentIdentity(tempNewBase, evaporatingBase, tempModificationsDictionary, this.AllModsOneIsNterminus);
                 // Check that the percent identity is below the maximum identity threshold and set actual values to the temporary values
                 if (percentIdentity < maxIdentity)
                 {
                     newBase = tempNewBase;
                     newModificationsDictionary = tempModificationsDictionary;
+                    // Code checking similarity between theoretical spectra could go here
                 }
 
                 // If max scrambles are reached, make the new sequence identical to the original to trigger mirroring
@@ -1403,32 +1404,40 @@ namespace Proteomics.ProteolyticDigestion
         
         /// <summary>
         /// Method to get the percent identity between two peptide sequences stored as char[]
-        /// Does not account for PTMs as of now, however this will cause dissimilarity to be underestimated not overestimated
         /// </summary>
-        /// <param name="scrambledSequence"></param>
-        /// <param name="unscrambledSequence"></param>
+        /// <param name="scrambledSequence">Character array of the scrambled sequence</param>
+        /// <param name="unscrambledSequence">Character array of the unscrambled sequence</param> 
+        /// <param name="scrambledMods">Dictionary containing the scrambled sequence's modifications</param>
+        /// <param name="unscrambledMods">Dictionary containing the unscrambled sequence's modifications</param>
         /// <returns></returns>
-        private static double GetPercentIdentity(char[] scrambledSequence, char[] unscrambledSequence)
+        private static double GetPercentIdentity(char[] scrambledSequence, char[] unscrambledSequence, Dictionary<int, Modification> scrambledMods, Dictionary<int, Modification> unscrambledMods)
         {
             double rawScore = 0;
-            double effectiveLength = Convert.ToDouble(unscrambledSequence.Length);
             int seqLength = scrambledSequence.Length;
             for(int i = 0; i < seqLength; i++)
             {
-                if (scrambledSequence[i] == unscrambledSequence[i] && unscrambledSequence[i] != '0')
+                if (scrambledSequence[i] == unscrambledSequence[i] || unscrambledSequence[i] == '0')
                 {
-                    rawScore += 1;
-                }
-                else if (unscrambledSequence[i] == '0')
-                {
-                    effectiveLength -= 1;
+                    Modification scrambledMod;
+                    if (scrambledMods.TryGetValue(i + 2, out scrambledMod) && unscrambledSequence[i] != '0')
+                    {
+                        Modification unscrambledMod;
+                        if (unscrambledMods.TryGetValue(i + 2, out unscrambledMod))
+                        {
+                            if (scrambledMod == unscrambledMod)
+                            {
+                                rawScore += 1;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        rawScore += 1; 
+                    }
+                    
                 }
             }
-            if (effectiveLength <= 0)
-            {
-                effectiveLength = 1;
-            }
-            return rawScore / effectiveLength;
+            return rawScore / seqLength;
         }
         
         //Returns a PeptideWithSetModifications mirror image. Used when reverse decoy sequence is same as target sequence

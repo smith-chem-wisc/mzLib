@@ -850,12 +850,12 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications testScrambled = p.GetScrambledDecoyFromTarget(newAminoAcidPositions);
-            Assert.AreEqual("ETPEIPDK", testScrambled.BaseSequence);
-            Assert.AreEqual(new int[] { 6, 3, 0, 1, 4, 2, 5, 7 }, newAminoAcidPositions);
+            Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
+            Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
             // Check n-term acetyl
             Assert.AreEqual(p.AllModsOneIsNterminus[1], testScrambled.AllModsOneIsNterminus[1]); 
-            // Check phosphorylated Ile originally at position 6
-            Assert.AreEqual(p.AllModsOneIsNterminus[5], testScrambled.AllModsOneIsNterminus[3]);
+            // Check phosphorylated Thr originally at position 5
+            Assert.AreEqual(p.AllModsOneIsNterminus[5], testScrambled.AllModsOneIsNterminus[6]);
             Assert.IsTrue(testScrambled.Protein.IsDecoy);
             Assert.AreEqual(p.Protein.BaseSequence.Length, testScrambled.Protein.BaseSequence.Length);
             // Check that the scrambled PeptideDescription is equivalent to the original peptide's full sequence
