@@ -1298,7 +1298,7 @@ namespace Proteomics.ProteolyticDigestion
                         for (int i = 0; i < cleavingMotif.Length; i++)
                         {
                             newBase[location + i] = motifArray[i];
-                            revisedAminoAcidOrder[location + i] = location + i;//
+                            revisedAminoAcidOrder[location + i] = location + i;
                             //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
                             if (this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
                             {
@@ -1312,10 +1312,11 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
-            //Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
+            //Now we will fill the remaining open positions in the decoy with the scrambled amino acids from the target.
             int extractPosition;
             int fillPosition;
             int residueNumsIndex;
+            // Specify seed to ensure that the same decoy sequence is always generated from the target
             Random rand = new(56);
             double percentIdentity = 1;
             int scrambleAttempt = 0;
@@ -1330,12 +1331,7 @@ namespace Proteomics.ProteolyticDigestion
                 fillPosition = 0;
                 // residueNums is a list containing array indices for each element of evaporatingBase
                 // Once each amino acid is added, its index is removed from residueNums to prevent the same AA from being added 2x
-                List<int> residueNums = new List<int>();
-                int evaporatingBaseLength = evaporatingBase.Length;
-                for(int i = 0; i < evaporatingBaseLength; i++)
-                {
-                    residueNums.Add(i);
-                }
+                var residueNums = Enumerable.Range(0, evaporatingBase.Length).ToList();                
                 characterCounter = 0;
                 char[] tempNewBase = new char[newBase.Length];
                 // Create a copy of the newBase character array for the scrambling attempt
