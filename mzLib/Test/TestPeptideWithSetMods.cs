@@ -900,7 +900,11 @@ namespace Test
             // Check for preserved cleavage motif positions
             Assert.AreEqual(testArgC.BaseSequence[6], scrambledArgC.BaseSequence[6]);
 
-
+            // Tests that peptide is mirrored when the maximum number of scramble attempts is reached
+            newAminoAcidPositions = new int["AVLRRRKKRDEF".Length];
+            PeptideWithSetModifications forceMirror = new PeptideWithSetModifications(new Protein("AVLRRRKKRDEF", "ACCESSIION"), new DigestionParams(), 1, 12, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
+            PeptideWithSetModifications mirroredTarget = forceMirror.GetScrambledDecoyFromTarget(newAminoAcidPositions);
+            Assert.AreEqual(new int[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
         }
         [Test]
         public static void TestReverseDecoyFromPeptideFromProteinXML()
