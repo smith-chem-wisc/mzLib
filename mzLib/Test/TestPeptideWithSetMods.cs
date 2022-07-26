@@ -873,16 +873,19 @@ namespace Test
             // Check that the scrambled PeptideDescription is equivalent to the original peptide's full sequence
             Assert.AreEqual(testScrambled.PeptideDescription, p.FullSequence);
 
-            // Test for complex cleavage motif pattern
-            Dictionary<int, Modification> complexTrypticMods = new Dictionary<int, Modification> { { 1, nTermAcet }, { 13, phosphorylation }, { 12, acetylation } };
-            PeptideWithSetModifications complexTryptic = new PeptideWithSetModifications(new Protein("PEPTIDEGRKKSAMPLGGEAVLDGYAVGDR", "COMPLEX_TRYP"), new DigestionParams(), 1, 30, CleavageSpecificity.Full, null, 0, complexTrypticMods, 0, null);
-            int[] complexAAorder = new int["PEPTIDEGRKKSAMPLGGEAVLDGYAVGDR".Length];
-            PeptideWithSetModifications complexScrambled = complexTryptic.GetScrambledDecoyFromTarget(complexAAorder);
+            // Test for complex cleavage motif patterns
+            Dictionary<int, Modification> complexTrypticMods = new Dictionary<int, Modification> { { 1, nTermAcet }, { 89, acetylation } };
+            Loaders.LoadElements();
+            string insulinFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
+            string insulinSeq = ProteinDbLoader.LoadProteinFasta(insulinFile, true, DecoyType.None, false, out var dbError)[0].BaseSequence;
+            PeptideWithSetModifications insulinTryptic = new PeptideWithSetModifications(new Protein(insulinSeq, "COMPLEX_TRYP"), new DigestionParams(), 1, 110, CleavageSpecificity.Full, null, 0, complexTrypticMods, 0, null);
+            int[] insulinScrambledOrder = new int[insulinSeq.Length];
+            PeptideWithSetModifications insulinScrambled = insulinTryptic.GetScrambledDecoyFromTarget(insulinScrambledOrder);
             // Check that cleavage motif positions are preserved in the more complex case
-            Assert.AreEqual(complexTryptic.BaseSequence[8], complexScrambled[8]);
-            Assert.AreEqual(complexScrambled.BaseSequence[10], complexTryptic.BaseSequence[10]);          
+            Assert.AreEqual(insulinTryptic.BaseSequence[5], insulinScrambled[5]);
+            Assert.AreEqual(insulinScrambled.BaseSequence[55], insulinTryptic.BaseSequence[55]);          
             // Check that modified cleavage motif residues are preserved
-            Assert.AreEqual(complexScrambled.AllModsOneIsNterminus[12], complexTryptic.AllModsOneIsNterminus[12]);
+            Assert.AreEqual(insulinScrambled.AllModsOneIsNterminus[89], insulinTryptic.AllModsOneIsNterminus[89]);
 
             // Test with Arg-C as the protease
             newAminoAcidPositions = new int["RPEPTIREAVLKK".Length];
