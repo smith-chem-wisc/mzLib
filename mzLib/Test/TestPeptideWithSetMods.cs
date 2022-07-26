@@ -862,6 +862,12 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications testScrambled = p.GetScrambledDecoyFromTarget(newAminoAcidPositions);
+            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
+            int testTargetHash = p.GetHashCode();
+            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
+            int testDecoyHash = testScrambled.GetHashCode();
+            Assert.AreEqual(testScrambled.PairedTargetDecoyHash, testTargetHash);
+            Assert.AreEqual(p.PairedTargetDecoyHash, testDecoyHash);
             Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
             Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
             // Check n-term acetyl

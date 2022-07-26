@@ -1404,17 +1404,28 @@ namespace Proteomics.ProteolyticDigestion
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = this.DigestionParams;
-
+            // Creates a hash code corresponding to the target's sequence
+            int targetHash = GetHashCode();
+            PeptideWithSetModifications decoyPeptide;
             //Make the "peptideDescription" store the corresponding target's sequence
             if (newBaseString != this.BaseSequence)
             {
-                return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                decoyPeptide = new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                // Sets PairedTargetDecoyHash of the original target peptie to the hash hode of the decoy sequence           
+                PairedTargetDecoyHash = decoyPeptide.GetHashCode();
+                // Sets PairedTargetDecoyHash of the decoy peptide to the hash code of the target sequence
+                decoyPeptide.PairedTargetDecoyHash = targetHash;
+                return decoyPeptide;
+
             }
             else
             {
-                //The scrambled decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
+                //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
                 //we retrun the mirror image peptide.
-                return this.GetPeptideMirror(revisedAminoAcidOrder);
+                decoyPeptide = this.GetPeptideMirror(revisedAminoAcidOrder);
+                PairedTargetDecoyHash = decoyPeptide.GetHashCode();
+                decoyPeptide.PairedTargetDecoyHash = targetHash;
+                return decoyPeptide;
             }
         }
         
