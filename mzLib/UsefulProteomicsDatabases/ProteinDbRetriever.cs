@@ -19,17 +19,22 @@ namespace UsefulProteomicsDatabases
         /// <param name="reviewed">if yes file contains only reviewd proteins</param>
         /// <param name="compress">if yes file is saved as .gz</param>
         /// <param name="absolutePathToStorageDirectory"></param>
-        public static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format, Reviewed reviewed, Compress compress, IncludeIsoforms include)
+        public static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format, 
+            Reviewed reviewed, Compress compress, IncludeIsoforms include)
         {
             if (Directory.Exists(absolutePathToStorageDirectory))
             {
                 string htmlQueryString = "";
                 string filename = "\\" + proteomeID;
+                bool compressBool = false; 
+                bool isoformBool = false; 
+                bool reviewedBool = false; 
                 if (format == ProteomeFormat.fasta)
                 {
                     if (reviewed == Reviewed.yes)
                     {
                         filename += "_reviewed";
+                        reviewedBool = true; 
                     }
                     else
                     {
@@ -39,19 +44,25 @@ namespace UsefulProteomicsDatabases
                     if (include == IncludeIsoforms.yes)
                     {
                         filename += "_isoform";
+                        isoformBool = true;
                     }
                     filename += ".fasta";
                     if (compress == Compress.yes)
                     {
                         filename += ".gz";
+                        compressBool = true;
                     }
-                    htmlQueryString = "https://www.uniprot.org/uniprot/?query=proteome:" + proteomeID + " reviewed:" + reviewed + "&compress=" + compress + "&format=" + format + "&include:" + include;
+
+                    htmlQueryString = "https://rest.uniprot.org/uniprot/search?query=" + proteomeID + "+AND+" + "reviewed:" + reviewedBool.ToString().ToLower() + 
+                        "&compressed=" + compressBool.ToString().ToLower() + "&format=" + format + "&includeIsoforms:" + isoformBool.ToString().ToLower();
+
                 }
                 else if (format == ProteomeFormat.xml)
                 {
                     if (reviewed == Reviewed.yes)
                     {
                         filename += "_reviewed";
+                        reviewedBool = true; 
                     }
                     else
                     {
@@ -61,8 +72,11 @@ namespace UsefulProteomicsDatabases
                     if (compress == Compress.yes)
                     {
                         filename += ".gz";
+                        compressBool = true; 
                     }
-                    htmlQueryString = "https://www.uniprot.org/uniprot/?query=proteome:" + proteomeID + " reviewed:" + reviewed + "&compress=" + compress + "&format=" + format;
+                    htmlQueryString = "https://rest.uniprot.org/proteome/search?query=" + proteomeID + "+AND+reviewed:" + reviewedBool.ToString().ToLower()
+                        + "&compressed=" + compressBool.ToString().ToLower() + "&format=" + format;
+
                 }
                 if (htmlQueryString.Length > 0)
                 {
@@ -85,8 +99,9 @@ namespace UsefulProteomicsDatabases
         public static string DownloadAvailableUniProtProteomes(string destinationFolder)
         {
             if (Directory.Exists(destinationFolder))
-            {
-                string htmlQueryString = "https://www.uniprot.org/proteomes/?query=*&format=tab&compress=yes&columns=id,name,organism-id,proteincount,busco,cpd,assembly%20representation";
+            {   
+                string htmlQueryString = "https://rest.uniprot.org/proteomes/search?query=*&format=tsv&compressed=true";
+
                 string filename = "availableUniProtProteomes.txt.gz";
 
                 string filepath = Path.Combine(destinationFolder, filename);
@@ -224,7 +239,7 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Columns to select for retrieving results in tab or xls format.
-        /// https://www.uniprot.org/help/uniprotkb_column_names
+        /// https://legacy.uniprot.org/help/uniprotkb_column_names
         /// </summary>
         public enum Columns
         {
