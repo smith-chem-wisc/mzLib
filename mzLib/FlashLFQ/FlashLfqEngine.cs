@@ -538,6 +538,19 @@ namespace FlashLFQ
                     continue;
                 }
 
+                if (idDonorPeaks.Where(p => p.Identifications.First().BaseSequence.Contains("MAVLNEQ")).Any())
+                {
+                    var x = idDonorPeaks.Where(p => p.Identifications.First().BaseSequence.Contains("MAVLNEQ"));
+                    int placeholder = 0;
+                }
+
+                if (acceptorFileIdentifiedPeaks.Where(p => p.Identifications[0].BaseSequence.Contains("MAVLNEQ")).Any() & 
+                    idAcceptorFile.FilenameWithoutExtension.Contains("K13"))
+                {
+                    var x = acceptorFileIdentifiedPeaks.Where(p => p.Identifications[0].BaseSequence.Contains("MAVLNEQ"));
+                    int placeholder = 0;
+                }
+
                 bool donorSampleIsFractionated = _results.SpectraFiles
                     .Where(p => p.Condition == idDonorFile.Condition && p.BiologicalReplicate == idDonorFile.BiologicalReplicate)
                     .Select(p => p.Fraction)

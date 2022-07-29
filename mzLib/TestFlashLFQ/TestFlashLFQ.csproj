@@ -40,8 +40,26 @@
     <None Update="TestData\f1r2_sliced_mbr.raw">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="TestData\PSMsForMbrTest.psmtsv">
+    <None Update="TestData\IDsForFlashLFQ.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\J3_02ng_2_TestSlice.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\K13_02ng_2_TestSlice.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\NoEnvelopeSlice_DEQLESLFQR_632_81mz.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\PSMsforDEQ.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\PSMsForMbrTest.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\PSMsForSC.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="TestData\SilacTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
