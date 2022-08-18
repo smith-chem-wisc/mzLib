@@ -344,17 +344,38 @@ namespace MassSpectrometry.MzSpectra
             double similarityScore = 1 - (2 * combinedEntropy - theoreticalEntropy - experimentalEntropy) / Math.Log(4);
             return similarityScore;
         }
-      
-        
+
+        // should only be used with SpectrumSum normalization scheme.
         public double? KullbackLeiblerDivergence_P_Q()
         {
             double divergence = 0;
+            bool correctionNeeded = false;
             foreach (var pair in intensityPairs)
             {
-                if(pair.Item1 != 0 && pair.Item2 != 0)
+                if (pair.Item1 != 0 && pair.Item2 != 0)
                 {
                     divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
-                } 
+                }
+                else
+                {
+                    correctionNeeded = true;
+                }
+            }
+            if (correctionNeeded)
+            {
+                // correct by adding 1e-8 to every intensity value (minimum probability for isotope distribution calculation) and renormalize
+                TheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + 1e-8).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                ExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + 1e-8).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                List<(double, double)> correctedIntensityPairs = IntensityPairs(allPeaks: true);
+
+                divergence = 0;
+                foreach (var pair in correctedIntensityPairs)
+                {
+                    if (pair.Item1 != 0 && pair.Item2 != 0)
+                    {
+                        divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
+                    }
+                }
             }
             return divergence;
         }

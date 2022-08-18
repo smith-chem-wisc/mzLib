@@ -396,6 +396,17 @@ namespace Test
             //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
             s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
+
+            // correct for 0 intensity values
+            p_XArray = new double[] { 1, 2, 3, 4 };
+            p_YArray = new double[] { 9.0 / 25.0, 12.0 / 25.0, 4.0 / 25.0, 0.0 };
+            q_XArray = new double[] { 1, 2, 3, 4 };
+            q_YArray = new double[] { 1.0 / 3.0, 11.0 / 25.0, 1.0 / 3.0, 1.0 / 25.0 };
+
+            //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
+            s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            // With correction, this should increase divergence for missing peaks
+            Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.GreaterThan(0.0853));
         }
     }
 }
