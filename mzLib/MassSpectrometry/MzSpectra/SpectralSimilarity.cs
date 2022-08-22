@@ -361,8 +361,10 @@ namespace MassSpectrometry.MzSpectra
                     zeroCount++;
                 }
             }
-            if (zeroCount == 0) return divergence;
-            else if (zeroCount > 0 & zeroCount < intensityPairs.Count)
+
+            if (zeroCount == 0) return divergence; // No correction is needed if no zero-values are present
+            if (zeroCount == intensityPairs.Count) return null; // Return null if no peaks overlap
+            else
             {
                 TheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
                 ExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
@@ -378,7 +380,6 @@ namespace MassSpectrometry.MzSpectra
                 }
                 return divergence;
             }
-            else return null; //Returns null in cases where no peaks overlap
         }
 
         //This formula created by Brian Searle and reported at ASMS 2022 in poster "Scribe: next generation library searching for DDA experiments"
