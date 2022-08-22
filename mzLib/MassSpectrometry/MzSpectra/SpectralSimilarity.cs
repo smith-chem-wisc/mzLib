@@ -378,8 +378,6 @@ namespace MassSpectrometry.MzSpectra
                 }
             }
             else return null; //Returns null in cases where no peaks overlap
-            
-            return divergence;
         }
 
         //This formula created by Brian Searle and reported at ASMS 2022 in poster "Scribe: next generation library searching for DDA experiments"
