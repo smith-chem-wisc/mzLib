@@ -407,6 +407,7 @@ namespace Test
             s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
             // With correction, this should increase divergence for missing peaks
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.GreaterThan(0.0853));
+            Assert.That(s.KullbackLeiblerDivergence_P_Q() != s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-7));
 
             // Test for no overlapping peaks
             p_XArray = new double[] { 1, 2, 3, 4 };

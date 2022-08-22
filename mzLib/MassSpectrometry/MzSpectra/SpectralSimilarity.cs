@@ -346,7 +346,7 @@ namespace MassSpectrometry.MzSpectra
         }
 
         // should only be used with SpectrumSum normalization scheme.
-        public double? KullbackLeiblerDivergence_P_Q()
+        public double? KullbackLeiblerDivergence_P_Q(double correctionConstant = 1e-8)
         {
             double divergence = 0;
             int zeroCount = 0;
@@ -364,9 +364,8 @@ namespace MassSpectrometry.MzSpectra
             if (zeroCount == 0) return divergence;
             else if (zeroCount > 0 & zeroCount < intensityPairs.Count)
             {
-                // correct by adding 1e-8 to every intensity value (minimum probability for isotope distribution calculation) and renormalize
-                TheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + 1e-8).ToArray(), SpectrumNormalizationScheme.spectrumSum);
-                ExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + 1e-8).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                TheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                ExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
                 List<(double, double)> correctedIntensityPairs = IntensityPairs(allPeaks: true);
 
                 divergence = 0;
