@@ -349,7 +349,7 @@ namespace MassSpectrometry.MzSpectra
         public double? KullbackLeiblerDivergence_P_Q()
         {
             double divergence = 0;
-            bool correctionNeeded = false;
+            int zeroCount = 0;
             foreach (var pair in intensityPairs)
             {
                 if (pair.Item1 != 0 && pair.Item2 != 0)
@@ -358,10 +358,11 @@ namespace MassSpectrometry.MzSpectra
                 }
                 else
                 {
-                    correctionNeeded = true;
+                    zeroCount++;
                 }
             }
-            if (correctionNeeded)
+            if (zeroCount == 0) return divergence;
+            else if (zeroCount > 0 & zeroCount < intensityPairs.Count)
             {
                 // correct by adding 1e-8 to every intensity value (minimum probability for isotope distribution calculation) and renormalize
                 TheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + 1e-8).ToArray(), SpectrumNormalizationScheme.spectrumSum);
@@ -377,6 +378,8 @@ namespace MassSpectrometry.MzSpectra
                     }
                 }
             }
+            else return null; //Returns null in cases where no peaks overlap
+            
             return divergence;
         }
 

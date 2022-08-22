@@ -407,6 +407,16 @@ namespace Test
             s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
             // With correction, this should increase divergence for missing peaks
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.GreaterThan(0.0853));
+
+            // Test for no overlapping peaks
+            p_XArray = new double[] { 1, 2, 3, 4 };
+            p_YArray = new double[] { 9.0 / 25.0, 12.0 / 25.0, 0.0 / 25.0, 0.0 };
+            q_XArray = new double[] { 1, 2, 3, 4 };
+            q_YArray = new double[] { 0.0 / 3.0, 0.0 / 25.0, 1.0 / 3.0, 8.0 / 25.0 };
+
+            s = new(p_XArray, p_YArray, q_XArray, q_YArray, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true, 0);
+            // With correction, this should increase divergence for missing peaks
+            Assert.That(s.KullbackLeiblerDivergence_P_Q() == null);
         }
     }
 }
