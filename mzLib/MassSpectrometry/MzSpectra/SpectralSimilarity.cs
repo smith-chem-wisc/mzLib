@@ -376,6 +376,7 @@ namespace MassSpectrometry.MzSpectra
                         divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
                     }
                 }
+                return divergence;
             }
             else return null; //Returns null in cases where no peaks overlap
         }
