@@ -408,10 +408,10 @@ namespace Test
             s = new(p_XArray, p_YArray, q_XArray, q_YArray,
                 SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true, 0);
             // With correction, this should increase divergence for missing peaks
-            double? corrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-8);
-            double? uncorrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0);
-            double? testCorrect = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1.0/50.0);
-            double? defaultValue = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-9);
+            //double? corrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-8);
+            //double? uncorrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0);
+            //double? testCorrect = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1.0/50.0);
+            //double? defaultValue = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-9);
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.GreaterThan(3));
             Assert.That(s.KullbackLeiblerDivergence_P_Q() > s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0));
 
@@ -425,9 +425,9 @@ namespace Test
             s = new(p_XArray, p_YArray, q_XArray, q_YArray,
                 SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true, 0);
             // With correction, this should increase divergence for missing peaks
-            corrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-8);
-            uncorrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0);
-            testCorrect = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1.0 / 50.0);
+            //corrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-8);
+            //uncorrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0);
+            //testCorrect = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1.0 / 50.0);
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.GreaterThan(3));
             Assert.That(s.KullbackLeiblerDivergence_P_Q() > s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0));
 
