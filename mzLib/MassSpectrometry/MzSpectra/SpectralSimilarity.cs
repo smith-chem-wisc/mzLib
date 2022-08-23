@@ -173,6 +173,67 @@ namespace MassSpectrometry.MzSpectra
             return intensityPairs;
         }
 
+        //This function is used for calculating correctedIntensityPairs after renormalization
+        private List<(double, double)> CorrectedIntensityPairs(double[] tempExperimentalY, double[] tempTheoreticalY, bool allPeaks)
+        {
+            if (tempExperimentalY == null || tempTheoreticalY == null)
+            {
+                //when all mz of theoretical peaks or experimental peaks are less than mz cut off , it is treated as no corresponding library spectrum is found and later the similarity score will be assigned as null.
+                return new List<(double, double)> { (-1, -1) };
+            }
+
+            List<(double, double)> intensityPairs = new();
+            List<(double, double)> experimental = new();
+            List<(double, double)> theoretical = new();
+
+            for (int i = 0; i < ExperimentalXArray.Length; i++)
+            {
+                experimental.Add((ExperimentalXArray[i], tempExperimentalY[i]));
+            }
+            for (int i = 0; i < TheoreticalXArray.Length; i++)
+            {
+                theoretical.Add((TheoreticalXArray[i], tempTheoreticalY[i]));
+            }
+
+            experimental = experimental.OrderByDescending(i => i.Item2).ToList();
+            theoretical = theoretical.OrderByDescending(i => i.Item2).ToList();
+
+            foreach ((double, double) xyPair in theoretical)
+            {
+                int index = 0;
+                while (experimental.Count > 0 && index < experimental.Count)
+                {
+                    if (Within(experimental[index].Item1, xyPair.Item1))
+                    {
+                        intensityPairs.Add((experimental[index].Item2, xyPair.Item2));
+                        experimental.RemoveAt(index);
+                        index = -1;
+                        break;
+                    }
+                    index++;
+                }
+                if (experimental.Count == 0)
+                {
+                    index++;
+                }
+                if (index > 0)
+                {
+                    //didn't find a experimental mz in range
+                    intensityPairs.Add((0, xyPair.Item2));
+                }
+            }
+
+            //If we're keeping all experimental and theoretical peaks, then we add intensity pairs for all unpaired experimental peaks here.
+            if (experimental.Count > 0 && allPeaks)
+            {
+                foreach ((double, double) xyPair in experimental)
+                {
+                    intensityPairs.Add((xyPair.Item2, 0));
+                }
+            }
+            return intensityPairs;
+        }
+
         #region normalization
 
         private double[] NormalizeSquareRootSpectrumSum(double[] spectrum)
@@ -345,32 +406,38 @@ namespace MassSpectrometry.MzSpectra
             return similarityScore;
         }
 
-        // should only be used with SpectrumSum normalization scheme.
-        public double? KullbackLeiblerDivergence_P_Q(double correctionConstant = 1e-8)
+        /// <summary>
+        /// This is used to calculate the KullbackLeibler divergence between a theoretical and experimental isotopic envelope
+        /// When using, the allPeaks argument in the SpectralSimilarity constructor should be set to "true"
+        /// </summary>
+        /// <param name="correctionConstant"> A constant value added to each intensity pair in order to penalize zero peaks.
+        /// Default is 1e-9 (one OoM smalller than the theoretical isotopic intensity minimum)</param>
+        /// <returns> A nullable double between 0 and positive infinity. More similar envelopes score lower </returns>
+        public double? KullbackLeiblerDivergence_P_Q(double correctionConstant = 1e-9)
         {
+            // counts the number of zero values. If zeroCount == intensityPairs.Count, then there are no shared peaks
+            int zeroCount = intensityPairs.Count(p => p.Item1 == 0 | p.Item2 == 0);
+            if (zeroCount == intensityPairs.Count) return null;
             double divergence = 0;
-            int zeroCount = 0;
-            foreach (var pair in intensityPairs)
+
+            if (zeroCount == 0) // | correctionConstant == 0)
             {
-                if (pair.Item1 != 0 && pair.Item2 != 0)
+                foreach (var pair in intensityPairs)
                 {
-                    divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
-                }
-                else
-                {
-                    zeroCount++;
+                    if (pair.Item1 != 0 && pair.Item2 != 0)
+                    {
+                        divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
+                    }
                 }
             }
-
-            if (zeroCount == 0) return divergence; // No correction is needed if no zero-values are present
-            if (zeroCount == intensityPairs.Count) return null; // Return null if no peaks overlap
             else
             {
-                TheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
-                ExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
-                List<(double, double)> correctedIntensityPairs = IntensityPairs(allPeaks: true);
+                // Add correctionConstant and renormalize
+                // Need to use temp variables to avoid modifiying the Y array fields
+                double[] tempExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                double[] tempTheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                List<(double, double)> correctedIntensityPairs = CorrectedIntensityPairs(tempExperimentalYArray, tempTheoreticalYArray, allPeaks: true);
 
-                divergence = 0;
                 foreach (var pair in correctedIntensityPairs)
                 {
                     if (pair.Item1 != 0 && pair.Item2 != 0)
@@ -378,8 +445,9 @@ namespace MassSpectrometry.MzSpectra
                         divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
                     }
                 }
-                return divergence;
             }
+
+            return divergence;
         }
 
         //This formula created by Brian Searle and reported at ASMS 2022 in poster "Scribe: next generation library searching for DDA experiments"
