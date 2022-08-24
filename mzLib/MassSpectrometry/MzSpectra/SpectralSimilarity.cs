@@ -113,9 +113,12 @@ namespace MassSpectrometry.MzSpectra
         /// </summary>
 
 
-        private List<(double, double)> IntensityPairs(bool allPeaks)
+        private List<(double, double)> IntensityPairs(bool allPeaks, double[] experimentalYArray = null, double[] theoreticalYArray = null)
         {
-            if (ExperimentalYArray==null || TheoreticalYArray == null)
+            if (experimentalYArray == null) experimentalYArray = ExperimentalYArray;
+            if (theoreticalYArray == null) theoreticalYArray = TheoreticalYArray;
+
+            if (experimentalYArray==null || theoreticalYArray == null)
             {
                 //when all mz of theoretical peaks or experimental peaks are less than mz cut off , it is treated as no corresponding library spectrum is found and later the similarity score will be assigned as null.
                 return new List<(double, double)> { (-1, -1) };
@@ -127,11 +130,11 @@ namespace MassSpectrometry.MzSpectra
 
             for (int i = 0; i < ExperimentalXArray.Length; i++)
             {
-                experimental.Add((ExperimentalXArray[i], ExperimentalYArray[i]));
+                experimental.Add((ExperimentalXArray[i], experimentalYArray[i]));
             }
             for (int i = 0; i < TheoreticalXArray.Length; i++)
             {
-                theoretical.Add((TheoreticalXArray[i], TheoreticalYArray[i]));
+                theoretical.Add((TheoreticalXArray[i], theoreticalYArray[i]));
             }
             
             experimental = experimental.OrderByDescending(i => i.Item2).ToList();
@@ -164,67 +167,6 @@ namespace MassSpectrometry.MzSpectra
 
             //If we're keeping all experimental and theoretical peaks, then we add intensity pairs for all unpaired experimental peaks here.
             if(experimental.Count > 0 && allPeaks)
-            {
-                foreach ((double, double) xyPair in experimental)
-                {
-                    intensityPairs.Add((xyPair.Item2, 0));
-                }
-            }
-            return intensityPairs;
-        }
-
-        //This function is used for calculating correctedIntensityPairs after renormalization
-        private List<(double, double)> CorrectedIntensityPairs(double[] tempExperimentalY, double[] tempTheoreticalY, bool allPeaks)
-        {
-            if (tempExperimentalY == null || tempTheoreticalY == null)
-            {
-                //when all mz of theoretical peaks or experimental peaks are less than mz cut off , it is treated as no corresponding library spectrum is found and later the similarity score will be assigned as null.
-                return new List<(double, double)> { (-1, -1) };
-            }
-
-            List<(double, double)> intensityPairs = new();
-            List<(double, double)> experimental = new();
-            List<(double, double)> theoretical = new();
-
-            for (int i = 0; i < ExperimentalXArray.Length; i++)
-            {
-                experimental.Add((ExperimentalXArray[i], tempExperimentalY[i]));
-            }
-            for (int i = 0; i < TheoreticalXArray.Length; i++)
-            {
-                theoretical.Add((TheoreticalXArray[i], tempTheoreticalY[i]));
-            }
-
-            experimental = experimental.OrderByDescending(i => i.Item2).ToList();
-            theoretical = theoretical.OrderByDescending(i => i.Item2).ToList();
-
-            foreach ((double, double) xyPair in theoretical)
-            {
-                int index = 0;
-                while (experimental.Count > 0 && index < experimental.Count)
-                {
-                    if (Within(experimental[index].Item1, xyPair.Item1))
-                    {
-                        intensityPairs.Add((experimental[index].Item2, xyPair.Item2));
-                        experimental.RemoveAt(index);
-                        index = -1;
-                        break;
-                    }
-                    index++;
-                }
-                if (experimental.Count == 0)
-                {
-                    index++;
-                }
-                if (index > 0)
-                {
-                    //didn't find a experimental mz in range
-                    intensityPairs.Add((0, xyPair.Item2));
-                }
-            }
-
-            //If we're keeping all experimental and theoretical peaks, then we add intensity pairs for all unpaired experimental peaks here.
-            if (experimental.Count > 0 && allPeaks)
             {
                 foreach ((double, double) xyPair in experimental)
                 {
@@ -436,7 +378,10 @@ namespace MassSpectrometry.MzSpectra
                 // Need to use temp variables to avoid modifiying the Y array fields
                 double[] tempExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
                 double[] tempTheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
-                List<(double, double)> correctedIntensityPairs = CorrectedIntensityPairs(tempExperimentalYArray, tempTheoreticalYArray, allPeaks: true);
+                List<(double, double)> correctedIntensityPairs = IntensityPairs(
+                    allPeaks: true,
+                    experimentalYArray: tempExperimentalYArray,
+                    theoreticalYArray: tempTheoreticalYArray);
 
                 foreach (var pair in correctedIntensityPairs)
                 {
