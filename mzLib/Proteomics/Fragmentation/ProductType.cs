@@ -32,7 +32,7 @@ namespace Proteomics.Fragmentation
         x,
         y,
         y_NH3,
-        YH2O,
+        y_H2O,
         zPlusOne,//This is zDot plus H
         zDot,
         M, //this is the molecular ion // [M]

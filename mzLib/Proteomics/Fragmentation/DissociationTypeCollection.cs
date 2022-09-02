@@ -1,9 +1,10 @@
 ﻿using Chemistry;
 using MassSpectrometry;
+using Proteomics.Fragmentation;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Proteomics.Fragmentation
+namespace Fragmentation
 {
     public class DissociationTypeCollection
     {
@@ -22,7 +23,6 @@ namespace Proteomics.Fragmentation
             { DissociationType.Custom, new List<ProductType>() },
             { DissociationType.ISCID, new List<ProductType>() }
         };
-
         public static List<ProductType> GetTerminusSpecificProductTypesFromDissociation(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
             if (!TerminusSpecificProductTypesFromDissociation.TryGetValue((dissociationType, fragmentationTerminus), out List<ProductType> productTypes))
@@ -61,7 +61,7 @@ namespace Proteomics.Fragmentation
                 case DissociationType.EThcD:
                     if(fragmentationTerminus == FragmentationTerminus.N || fragmentationTerminus == FragmentationTerminus.Both)
                     {
-                        productList.AddRange(ProductType.b_H2O,ProductType.b_NH3);
+                        productList.AddRange(ProductType.b_H2O, ProductType.b_NH3);
                     }
                     if (fragmentationTerminus == FragmentationTerminus.C || fragmentationTerminus == FragmentationTerminus.Both)
                     {
@@ -95,7 +95,7 @@ namespace Proteomics.Fragmentation
             { ProductType.x, null},//+C1 +O2
             { ProductType.y, null},//+O +H2
             { ProductType.y_NH3, null},//+O -H -N
-            { ProductType.YH2O, null},//no change
+            { ProductType.y_HSO, null},//no change
             { ProductType.zDot, null },// +O -NH + e- + p+
             { ProductType.zPlusOne, null},//+O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
             { ProductType.M, null},// neutral Molecular product can be used with neutral loss as fragment
