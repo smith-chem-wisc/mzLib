@@ -25,11 +25,9 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using UsefulProteomicsDatabases;
+
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
