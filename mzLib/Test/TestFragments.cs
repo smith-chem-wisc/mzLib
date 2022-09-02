@@ -25,11 +25,8 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -93,9 +90,9 @@ namespace Test
         [TestCase(DissociationType.ETD, new[] { ProductType.c, ProductType.y, ProductType.zDot })]
         [TestCase(DissociationType.EThcD, new[] { ProductType.b, ProductType.y })]
         [TestCase(DissociationType.AnyActivationType, new[] { ProductType.b, ProductType.y })]
-        public void TestDissociationProductTypes(DissociationType dissociationType, IEnumerable<ProductType> expectedProductTypes)
+        public void TestDissociationProductTypes(DissociationType dissociationType, IEnumerable<Proteomics.Fragmentation.ProductType> expectedProductTypes)
         {
-            List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[dissociationType];
+            List<Proteomics.Fragmentation.ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[dissociationType];
             Assert.IsTrue(expectedProductTypes.All(productType => d.Contains(productType)));
         }
 
