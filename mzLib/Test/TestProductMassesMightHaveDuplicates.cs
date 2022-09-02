@@ -38,7 +38,7 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
 
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
-            var fragments = new List<Product>();
+            var fragments = new List<ProductType>();
             aPeptideWithSetModifications.Fragment(DissociationType.Unknown, FragmentationTerminus.Both, fragments);
 
             var allFragmentIonMzs = new HashSet<int>(fragments.Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));

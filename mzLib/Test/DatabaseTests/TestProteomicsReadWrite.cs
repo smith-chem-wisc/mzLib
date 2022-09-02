@@ -507,7 +507,7 @@ namespace Test
             var peptides = fastaProteins.First().Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
             foreach (PeptideWithSetModifications peptide in peptides)
             {
-                List<Product> fragments = new List<Product>();
+                List<ProductType> fragments = new List<ProductType>();
                 peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
             }
 

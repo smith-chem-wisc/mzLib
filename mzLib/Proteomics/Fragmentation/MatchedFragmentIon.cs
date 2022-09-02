@@ -5,7 +5,7 @@ namespace Proteomics.Fragmentation
 {
     public class MatchedFragmentIon
     {
-        public readonly Product NeutralTheoreticalProduct;
+        public readonly ProductType NeutralTheoreticalProduct;
         public readonly double Mz;
         public readonly double Intensity;
         public readonly int Charge;
@@ -13,7 +13,7 @@ namespace Proteomics.Fragmentation
         /// <summary>
         /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
         /// </summary>
-        public MatchedFragmentIon(ref Product neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
+        public MatchedFragmentIon(ref ProductType neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
         {
             NeutralTheoreticalProduct = neutralTheoreticalProduct;
             Mz = experMz;

@@ -209,7 +209,7 @@ namespace Proteomics.ProteolyticDigestion
         /// Generates theoretical fragments for given dissociation type for this peptide. 
         /// The "products" parameter is filled with these fragments.
         /// </summary>
-        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products)
+        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<ProductType> products)
         {
             // This code is specifically written to be memory- and CPU -efficient because it is 
             // called millions of times for a typical search (i.e., at least once per peptide). 
@@ -324,18 +324,18 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (dissociationType == DissociationType.LowCID)
                         {
-                            if (!haveSeenNTermStarIon && (nTermProductTypes[i] == ProductType.aStar || nTermProductTypes[i] == ProductType.bStar))
+                            if (!haveSeenNTermStarIon && (nTermProductTypes[i] == ProductType.a_NH3 || nTermProductTypes[i] == ProductType.b_NH3))
                             {
                                 continue;
                             }
 
-                            if (!haveSeenNTermDegreeIon && (nTermProductTypes[i] == ProductType.aDegree || nTermProductTypes[i] == ProductType.bDegree))
+                            if (!haveSeenNTermDegreeIon && (nTermProductTypes[i] == ProductType.a_H2O || nTermProductTypes[i] == ProductType.b_H2O))
                             {
                                 continue;
                             }
                         }
 
-                        products.Add(new Product(
+                        products.Add(new ProductType(
                             nTermProductTypes[i],
                             FragmentationTerminus.N,
                             nTermMass + massCaps.Item1[i],
@@ -349,7 +349,7 @@ namespace Proteomics.ProteolyticDigestion
                         {
                             foreach (double neutralLoss in nTermNeutralLosses)
                             {
-                                products.Add(new Product(
+                                products.Add(new ProductType(
                                     nTermProductTypes[i],
                                     FragmentationTerminus.N,
                                     nTermMass + massCaps.Item1[i] - neutralLoss,
@@ -410,18 +410,18 @@ namespace Proteomics.ProteolyticDigestion
 
                         if (dissociationType == DissociationType.LowCID)
                         {
-                            if (!haveSeenCTermStarIon && cTermProductTypes[i] == ProductType.yStar)
+                            if (!haveSeenCTermStarIon && cTermProductTypes[i] == ProductType.y_NH3)
                             {
                                 continue;
                             }
 
-                            if (!haveSeenCTermDegreeIon && cTermProductTypes[i] == ProductType.yDegree)
+                            if (!haveSeenCTermDegreeIon && cTermProductTypes[i] == ProductType.YH2O)
                             {
                                 continue;
                             }
                         }
 
-                        products.Add(new Product(
+                        products.Add(new ProductType(
                             cTermProductTypes[i],
                             FragmentationTerminus.C,
                             cTermMass + massCaps.Item2[i],
@@ -435,7 +435,7 @@ namespace Proteomics.ProteolyticDigestion
                         {
                             foreach (double neutralLoss in cTermNeutralLosses)
                             {
-                                products.Add(new Product(
+                                products.Add(new ProductType(
                                     cTermProductTypes[i],
                                     FragmentationTerminus.C,
                                     cTermMass + massCaps.Item2[i] - neutralLoss,
@@ -469,7 +469,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 // generate zDot product
-                products.Add(new Product(
+                products.Add(new ProductType(
                     ProductType.zDot,
                     FragmentationTerminus.C,
                     cTermMass + DissociationTypeCollection.GetMassShiftFromProductType(ProductType.zDot),
@@ -483,7 +483,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     foreach (double neutralLoss in cTermNeutralLosses)
                     {
-                        products.Add(new Product(
+                        products.Add(new ProductType(
                             ProductType.zDot,
                             FragmentationTerminus.C,
                             cTermMass + DissociationTypeCollection.GetMassShiftFromProductType(ProductType.zDot) - neutralLoss,
@@ -503,7 +503,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (neutralLoss != 0)
                         {
-                            products.Add(new Product(ProductType.M, FragmentationTerminus.Both, MonoisotopicMass - neutralLoss, 0, 0, neutralLoss));
+                            products.Add(new ProductType(ProductType.M, FragmentationTerminus.Both, MonoisotopicMass - neutralLoss, 0, 0, neutralLoss));
                         }
                     }
                 }
@@ -514,7 +514,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (neutralLoss != 0)
                         {
-                            products.Add(new Product(ProductType.M, FragmentationTerminus.Both, MonoisotopicMass - neutralLoss, 0, 0, neutralLoss));
+                            products.Add(new ProductType(ProductType.M, FragmentationTerminus.Both, MonoisotopicMass - neutralLoss, 0, 0, neutralLoss));
                         }
                     }
                 }
@@ -532,7 +532,7 @@ namespace Proteomics.ProteolyticDigestion
                 int diagnosticIonLabel = (int)Math.Round(diagnosticIon.ToMz(1), 0);
 
                 // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
-                products.Add(new Product(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0));
+                products.Add(new ProductType(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0));
             }
         }
 
@@ -543,7 +543,7 @@ namespace Proteomics.ProteolyticDigestion
         /// TODO: Implement neutral losses (e.g. phospho)
         /// TODO: Implement Star/Degree ions from CID
         /// </summary>
-        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products)
+        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<ProductType> products)
         {
             products.Clear();
 
@@ -595,7 +595,7 @@ namespace Proteomics.ProteolyticDigestion
                             {
                                 double massCap2 = massCaps.Item2[j];
                                 //do c, then n terminal ions
-                                products.Add(new Product(cTermProductTypes[j], FragmentationTerminus.None, fragmentMass + massCap + massCap2 - WaterMonoisotopicMass,
+                                products.Add(new ProductType(cTermProductTypes[j], FragmentationTerminus.None, fragmentMass + massCap + massCap2 - WaterMonoisotopicMass,
                                     n + 1, c - n + 1, 0, nTermProductTypes[i], c + 1));
                             }
                         }

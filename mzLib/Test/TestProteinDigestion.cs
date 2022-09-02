@@ -135,7 +135,7 @@ namespace Test
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
 
-            var test = new List<Product>();
+            var test = new List<ProductType>();
             pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both, test);
 
             foreach (var huh in test)
@@ -179,7 +179,7 @@ namespace Test
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
 
-            var fragments = new List<Product>();
+            var fragments = new List<ProductType>();
             pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
             foreach (var huh in fragments)
             {
@@ -188,7 +188,7 @@ namespace Test
 
             var pep2 = ye[1];
             Assert.IsNaN(pep2.MonoisotopicMass);
-            var cool = new List<Product>();
+            var cool = new List<ProductType>();
             pep2.Fragment(DissociationType.HCD, FragmentationTerminus.Both, cool);
             Assert.IsTrue(cool[0].NeutralMass > 0);
             Assert.IsTrue(cool[1].NeutralMass > 0);
@@ -384,7 +384,7 @@ namespace Test
             Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
 
             // calculate fragments. just check that they exist and it doesn't crash
-            List<Product> theoreticalFragments = new List<Product>();
+            List<ProductType> theoreticalFragments = new List<ProductType>();
             peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theoreticalFragments);
             Assert.That(theoreticalFragments.Count > 0);
         }

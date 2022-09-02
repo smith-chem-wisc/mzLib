@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Proteomics.Fragmentation
 {
-    public struct Product
+    public struct ProductType
     {
         public readonly double NeutralMass;
         public readonly ProductType ProductType;
@@ -19,7 +19,7 @@ namespace Proteomics.Fragmentation
         /// The ProductType describes where along the backbone the fragmentaiton occurred (e.g. b-, y-, c-, zdot-). The neutral loss mass (if any) that 
         /// occurred from a mod on the fragment is listed as a mass. Finally the neutral mass of the whole fragment is provided.
         /// </summary>
-        public Product(ProductType productType, FragmentationTerminus terminus, double neutralMass,
+        public ProductType(ProductType productType, FragmentationTerminus terminus, double neutralMass,
             int fragmentNumber, int aminoAcidPosition, double neutralLoss, ProductType? secondaryProductType = null, int secondaryFragmentNumber = 0)
         {
             NeutralMass = neutralMass;
@@ -40,7 +40,7 @@ namespace Proteomics.Fragmentation
 
                 if (SecondaryProductType == null)
                 {
-                    sb.Append(ProductType);
+                    sb.Append((object)ProductType);
 
                     // for "normal" fragments this is just the fragment number (e.g., the 3 in the b3 ion)
                     // for diagnostic ions, it's the m/z assuming z=1
@@ -51,7 +51,7 @@ namespace Proteomics.Fragmentation
                 {
                     //internal fragment ion, annotation used here: 10.1007/s13361-015-1078-1
                     //example: yIb[18-36]
-                    sb.Append(ProductType + "I" + SecondaryProductType.Value + "[" + FragmentNumber + "-" + SecondaryFragmentNumber + "]");
+                    sb.Append((string)(ProductType + "I" + SecondaryProductType.Value + "[" + FragmentNumber + "-" + SecondaryFragmentNumber + "]"));
                 }
                 if (NeutralLoss != 0)
                 {
@@ -80,7 +80,7 @@ namespace Proteomics.Fragmentation
 
         public override bool Equals(object obj)
         {
-            Product other = (Product)obj;
+            ProductType other = (ProductType)obj;
 
             return this.ProductType == other.ProductType
                 && this.NeutralMass == other.NeutralMass

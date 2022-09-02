@@ -22,17 +22,17 @@ namespace Proteomics.Fragmentation
         //z             [C]+[M]-NH2
 
         a,
-        aStar,
-        aDegree,
+        a_NH3,
+        a_H2O,
         b,
-        bStar,
-        bDegree,
+        b_NH3,
+        b_H2O,
         //BnoB1ions,
         c,
         x,
         y,
-        yStar,
-        yDegree,
+        y_NH3,
+        YH2O,
         zPlusOne,//This is zDot plus H
         zDot,
         M, //this is the molecular ion // [M]

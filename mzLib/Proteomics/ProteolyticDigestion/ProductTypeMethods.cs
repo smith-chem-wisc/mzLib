@@ -8,7 +8,7 @@ namespace Proteomics.ProteolyticDigestion
     {
         public static FragmentationTerminus IdentifyTerminusType(List<ProductType> productTypes)
         {
-            if ((productTypes.Contains(ProductType.b) || productTypes.Contains(ProductType.c) || productTypes.Contains(ProductType.aDegree))
+            if ((productTypes.Contains(ProductType.b) || productTypes.Contains(ProductType.c) || productTypes.Contains(ProductType.a_H2O))
                 && (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zDot) || productTypes.Contains(ProductType.zPlusOne) 
                 || productTypes.Contains(ProductType.x)))
             {

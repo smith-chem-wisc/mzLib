@@ -768,7 +768,7 @@ namespace Test
             Assert.AreEqual(p.Protein.BaseSequence.Length, reverse.Protein.BaseSequence.Length);//we replaced the original with the new so the protein should have the same length
             Assert.AreEqual(reverse.PeptideDescription, p.FullSequence);
 
-            List<Product> decoyProducts = new List<Product>();
+            List<ProductType> decoyProducts = new List<ProductType>();
             reverse.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, decoyProducts);
 
             Assert.AreEqual(14, decoyProducts.Count);

@@ -11,7 +11,7 @@ namespace Proteomics.Fragmentation
         {
             { DissociationType.Unknown, new List<ProductType>() },
             { DissociationType.CID, new List<ProductType>{ ProductType.b, ProductType.y } },
-            { DissociationType.LowCID, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.aStar, ProductType.bStar, ProductType.yStar, ProductType.aDegree, ProductType.bDegree, ProductType.yDegree } },
+            { DissociationType.LowCID, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.a_NH3, ProductType.b_NH3, ProductType.y_NH3, ProductType.a_H2O, ProductType.b_H2O, ProductType.YH2O } },
             { DissociationType.IRMPD, new List<ProductType>{ ProductType.b, ProductType.y } },
             { DissociationType.ECD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zDot } },
             { DissociationType.PQD, new List<ProductType>() },
@@ -42,23 +42,60 @@ namespace Proteomics.Fragmentation
 
             return productTypes;
         }
+        /// <summary>
+        /// Returns the subset of product types for water and ammonia loss for the respective fragmentation types.
+        /// </summary>
+        /// <param name="dissociationType"></param>
+        /// <param name="fragmentationTerminus"></param>
+        /// <returns></returns>
+        public static List<ProductType> GetWaterAndAmmoniaLossProductIonsForDissociationType(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
+        {
+            List<ProductType> productList = new();
 
+            switch (dissociationType)
+            {
+                case DissociationType.CID:
+                case DissociationType.IRMPD:
+                case DissociationType.HCD:
+                case DissociationType.AnyActivationType:
+                case DissociationType.EThcD:
+                    if(fragmentationTerminus == FragmentationTerminus.N || fragmentationTerminus == FragmentationTerminus.Both)
+                    {
+                        productList.AddRange(ProductType.b_H2O,ProductType.b_NH3);
+                    }
+                    if (fragmentationTerminus == FragmentationTerminus.C || fragmentationTerminus == FragmentationTerminus.Both)
+                    {
+                        productList.AddRange(ProductType.y_H2O, ProductType.y_NH3);
+                    }
+                    break;
+                case DissociationType.ECD:
+                case DissociationType.ETD:
+                    if (fragmentationTerminus == FragmentationTerminus.C || fragmentationTerminus == FragmentationTerminus.Both)
+                    {
+                        productList.AddRange(ProductType.y_H2O, ProductType.y_NH3);
+                    }
+                    break;
+                default:
+                    break;
+            }
+            return productList;
+        }
         private static Dictionary<(DissociationType, FragmentationTerminus), List<ProductType>> TerminusSpecificProductTypesFromDissociation
             = new Dictionary<(DissociationType, FragmentationTerminus), List<ProductType>>();
 
         private static Dictionary<ProductType, double?> NeutralMassShiftFromProductType = new Dictionary<ProductType, double?>
         {
             { ProductType.a, null},//-C -O
-            { ProductType.aStar, null},//-C -O -N -H3
-            { ProductType.aDegree, null},//-C -O2 -H2
+            { ProductType.a_NH3, null},//-C -O -N -H3
+            { ProductType.a_H2O, null},//-C -O2 -H2
             { ProductType.b, null},//no change
-            { ProductType.bStar, null},//-N -H3
-            { ProductType.bDegree, null},//-H2 -O1
+            { ProductType.b_NH3, null},//-N -H3
+            { ProductType.b_H2O, null},//-H2 -O1
             { ProductType.c, null},//+N1 +H3
             { ProductType.x, null},//+C1 +O2
             { ProductType.y, null},//+O +H2
-            { ProductType.yStar, null},//+O -H -N
-            { ProductType.yDegree, null},//no change
+            { ProductType.y_NH3, null},//+O -H -N
+            { ProductType.YH2O, null},//no change
             { ProductType.zDot, null },// +O -NH + e- + p+
             { ProductType.zPlusOne, null},//+O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
             { ProductType.M, null},// neutral Molecular product can be used with neutral loss as fragment
@@ -103,16 +140,16 @@ namespace Proteomics.Fragmentation
                     switch (productType)
                     {
                         case ProductType.a: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-1").MonoisotopicMass; break;
-                        case ProductType.aStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-1N-1H-3").MonoisotopicMass; break;
-                        case ProductType.aDegree: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-2H-2").MonoisotopicMass; break; // -46.0054793036,-C -O2 -H2
+                        case ProductType.a_NH3: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-1N-1H-3").MonoisotopicMass; break;
+                        case ProductType.a_H2O: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-2H-2").MonoisotopicMass; break; // -46.0054793036,-C -O2 -H2
                         case ProductType.b: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
-                        case ProductType.bStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("N-1H-3").MonoisotopicMass; break;// -17.02654910112, -N -H3
-                        case ProductType.bDegree: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H-2O-1").MonoisotopicMass; break;// -18.01056468403, -H2 -O1
+                        case ProductType.b_NH3: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("N-1H-3").MonoisotopicMass; break;// -17.02654910112, -N -H3
+                        case ProductType.b_H2O: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H-2O-1").MonoisotopicMass; break;// -18.01056468403, -H2 -O1
                         case ProductType.c: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("N1H3").MonoisotopicMass; break;// 17.02654910112, +N1 +H3
                         case ProductType.x: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C1O2").MonoisotopicMass; break;// 43.98982923914, +C1 +O2
                         case ProductType.y: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H2O1").MonoisotopicMass; break;// 18.01056468403, +O +H2
-                        case ProductType.yStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass; break;// 0.98401558291000057, +O -H -N
-                        case ProductType.yDegree: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
+                        case ProductType.y_NH3: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass; break;// 0.98401558291000057, +O -H -N
+                        case ProductType.YH2O: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
                         case ProductType.zDot: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1N-1H-1").MonoisotopicMass + Constants.ElectronMass + Constants.ProtonMass; break; //1.991840552567, +O -NH + e- + p+
                         case ProductType.zPlusOne: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H1N-1").MonoisotopicMass; break;//; 2.9996656473699996, +O +H -N:
                         case ProductType.M: NeutralMassShiftFromProductType[productType] = 0; break;// no change
