@@ -667,11 +667,11 @@ namespace Test
             myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, theseTheoreticalFragments);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
 
             Assert.AreEqual(aStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.aStar).Count());
-            Assert.AreEqual(bStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bStar).Count());
+            Assert.AreEqual(bStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.b_NH3).Count());
             Assert.AreEqual(aDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.aDegree).Count());
-            Assert.AreEqual(bDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bDegree).Count());
-            Assert.AreEqual(yStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.yStar).Count());
-            Assert.AreEqual(yDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.yDegree).Count());
+            Assert.AreEqual(bDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.b_H2O).Count());
+            Assert.AreEqual(yStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.y_NH3).Count());
+            Assert.AreEqual(yDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.y_H2O).Count());
             Assert.AreEqual(totalFragmentCount, theseTheoreticalFragments.Count());
         }
 
@@ -699,11 +699,11 @@ namespace Test
                         Assert.AreEqual(0, mass);
                         break;
 
-                    case ProductType.bDegree:
+                    case ProductType.b_H2O:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-2O-1").MonoisotopicMass).Value, mass);
                         break;
 
-                    case ProductType.bStar:
+                    case ProductType.b_NH3:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("N-1H-3").MonoisotopicMass).Value, mass);
                         break;
 
@@ -735,11 +735,11 @@ namespace Test
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H2O1").MonoisotopicMass).Value, mass);
                         break;
 
-                    case ProductType.yDegree:
+                    case ProductType.y_H2O:
                         Assert.AreEqual(0, mass);
                         break;
 
-                    case ProductType.yStar:
+                    case ProductType.y_NH3:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass).Value, mass);
                         break;
 
