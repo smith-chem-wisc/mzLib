@@ -17,6 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -467,6 +468,24 @@ namespace Test
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
             HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;248.10084-0" };
             CollectionAssert.AreEquivalent(expectedCTerminalMassesLabels, cTerminalMassesLabels);
+        }
+
+        [Test]
+        public static void Test_WaterAndAmmoniaLossFragmentProductIons()
+        {
+            CollectionAssert.AreEquivalent(new List<ProductType>(){ ProductType.b_H2O, ProductType.b_NH3, ProductType.y_NH3, ProductType.y_H2O }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.b_H2O, ProductType.b_NH3, ProductType.y_NH3, ProductType.y_H2O }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.IRMPD, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.b_H2O, ProductType.b_NH3, ProductType.y_NH3, ProductType.y_H2O }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.HCD, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.b_H2O, ProductType.b_NH3, ProductType.y_NH3, ProductType.y_H2O }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.EThcD, FragmentationTerminus.Both));
+
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.y_NH3, ProductType.y_H2O }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ECD, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.y_NH3, ProductType.y_H2O }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ETD, FragmentationTerminus.Both));
+
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.b_H2O, ProductType.b_NH3 }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.N));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.y_NH3, ProductType.y_H2O }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.C));
+
+            CollectionAssert.IsEmpty(DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.Unknown, FragmentationTerminus.Both));
+
         }
 
         [Test]
