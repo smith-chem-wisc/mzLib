@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using Easy.Common.Extensions;
 using MassSpectrometry;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,6 +42,42 @@ namespace Proteomics.Fragmentation
             }
 
             return productTypes;
+        }
+
+        public static List<ProductType> GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
+        {
+            List<ProductType> productList = new();
+
+            switch (dissociationType)
+            {
+                case DissociationType.CID:
+                case DissociationType.IRMPD:
+                case DissociationType.HCD:
+                case DissociationType.AnyActivationType:
+                case DissociationType.EThcD:
+                    if (fragmentationTerminus == FragmentationTerminus.N || fragmentationTerminus == FragmentationTerminus.Both)
+                    {
+                        productList.Add(ProductType.b_H2O);
+                        productList.Add(ProductType.b_NH3);
+                    }
+                    if (fragmentationTerminus == FragmentationTerminus.C || fragmentationTerminus == FragmentationTerminus.Both)
+                    {
+                        productList.Add(ProductType.y_H2O);
+                        productList.Add(ProductType.y_NH3);
+                    }
+                    break;
+                case DissociationType.ECD:
+                case DissociationType.ETD:
+                    if (fragmentationTerminus == FragmentationTerminus.C || fragmentationTerminus == FragmentationTerminus.Both)
+                    {
+                        productList.Add(ProductType.y_H2O);
+                        productList.Add(ProductType.y_NH3);
+                    }
+                    break;
+                default:
+                    break;
+            }
+            return productList;
         }
 
         private static Dictionary<(DissociationType, FragmentationTerminus), List<ProductType>> TerminusSpecificProductTypesFromDissociation
