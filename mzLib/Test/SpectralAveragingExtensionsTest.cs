@@ -31,9 +31,15 @@ namespace Test
         [Test]
         public static void TestCombineSpectra()
         {
-            MzSpectrum compositeMsDataScanSpectrum = Scans.Take(5).ToList().CombineSpectra(Options);
-            MzSpectrum compositeMzSpectrumSpectrum = Scans.Select(p => p.MassSpectrum).Take(5).ToList()
-                .CombineSpectra(Options);
+            List<MsDataScan> scans = SpectraFileHandler.LoadAllScansFromFile(SpectraPath).Take(5).ToList();
+            List<MzSpectrum> spectra = new();
+            foreach (var scan in scans)
+            {
+                spectra.Add(new(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true));
+            }
+
+            MzSpectrum compositeMsDataScanSpectrum = scans.CombineSpectra(Options);
+            MzSpectrum compositeMzSpectrumSpectrum = spectra.CombineSpectra(Options);
             Assert.That(compositeMzSpectrumSpectrum.Equals(compositeMsDataScanSpectrum));
         }
 
@@ -55,7 +61,7 @@ namespace Test
         [Test]
         public static void TestMultipleObjectAbsoluteNormalization()
         {
-            List<MsDataScan> scans = Scans.Take(5).ToList();
+            List<MsDataScan> scans = Scans.GetRange(10, 5).ToList();
             List<MzSpectrum> spectra = new();
             foreach (var scan in scans)
             {
@@ -78,7 +84,7 @@ namespace Test
         [Test]
         public static void TestMultipleObjectRelativeNormalization()
         {
-            List<MsDataScan> scans = Scans.Take(5).ToList();
+            List<MsDataScan> scans = Scans.GetRange(20, 5).ToList();
             List<MzSpectrum> spectra = new();
             foreach (var scan in scans)
             {

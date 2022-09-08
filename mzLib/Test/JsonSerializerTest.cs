@@ -68,7 +68,7 @@ namespace Test
         [Test]
         public static void SerializeMzSpectrum()
         {
-            string scanspath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\TDYeastFractionMS1.mzML");
+            string scanspath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTestData\TDYeastFractionMS1.mzML");
             string filepath = Path.Combine(OutputDirectory, @"scan.txt");
             List<MsDataScan> scans = SpectraFileHandler.LoadAllScansFromFile(scanspath);
             List<MzSpectrum> spectra = scans.Select(p => p.MassSpectrum).ToList();

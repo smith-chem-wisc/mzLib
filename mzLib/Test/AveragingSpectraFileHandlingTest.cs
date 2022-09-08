@@ -24,7 +24,7 @@ namespace Test
         public static void OneTimeSetup()
         {
             ActualScans = SpectraFileHandler.LoadAllScansFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"DataFiles\TDYeastFractionMS1.mzML"));
+                @"AveragingTestData\TDYeastFractionMS1.mzML"));
             MzLibSpectralAveragingOptions = new();
             MzLibSpectralAveragingOptions.SpectralAveragingOptions.RejectionType = RejectionType.NoRejection;
             MzLibSpectralAveragingOptions.SpectralAveragingOptions.WeightingType = WeightingType.NoWeight;
