@@ -1,9 +1,8 @@
 ﻿using IO.MzML;
 using IO.ThermoRawFileReader;
 using MassSpectrometry;
-using MzLibUtil;
 
-namespace SpectralAveragingExtensions.Util
+namespace SpectralAveragingExtensions
 {
     public static class SpectraFileHandler
     {
@@ -55,34 +54,6 @@ namespace SpectralAveragingExtensions.Util
             {
                 throw new ArgumentException("Cannot access SourceFile");
             }
-        }
-
-        /// <summary>
-        /// Creates a List of MsDataScans from a spectra file
-        /// </summary>
-        /// <param name="filepath"></param>
-        /// <param name="start">OneBasedScanNumber of the first scan</param>
-        /// <param name="end">Optional: will return only one scan if blank</param>
-        /// <returns></returns>
-        public static List<MsDataScan> LoadSelectScansFromFile(string filepath, int start, int end = -1)
-        {
-            if (end == -1)
-            {
-                end = start + 1;
-            }
-            List<MsDataScan> scans = LoadAllScansFromFile(filepath);
-            List<MsDataScan> trimmedScans = scans.GetRange(start - 1, end - start);
-            return trimmedScans;
-        }
-
-        /// <summary>
-        /// returns the MS1's only from a file
-        /// </summary>
-        /// <param name="filepath"></param>
-        /// <returns></returns>
-        public static List<MsDataScan> LoadMS1ScansFromFile(string filepath)
-        {
-            return LoadAllScansFromFile(filepath).Where(p => p.MsnOrder == 1).ToList();
         }
     }
 }

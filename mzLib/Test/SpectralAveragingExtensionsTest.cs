@@ -8,7 +8,6 @@ using MassSpectrometry;
 using NUnit.Framework;
 using SpectralAveraging;
 using SpectralAveragingExtensions;
-using SpectralAveragingExtensions.Util;
 
 namespace Test
 {

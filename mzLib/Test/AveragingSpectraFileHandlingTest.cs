@@ -8,7 +8,6 @@ using MassSpectrometry;
 using NUnit.Framework;
 using SpectralAveraging;
 using SpectralAveragingExtensions;
-using SpectralAveragingExtensions.Util;
 
 namespace Test
 {
@@ -408,6 +407,44 @@ namespace Test
                 null, 1, 1, 1, null, 5, 5, 5, null, 9, 9, 9, 9, 9, 9, 9, 9, 9
             };
             Assert.AreEqual(expectedNullable, averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray());
+        }
+
+        [Test]
+        public static void TestLoadingRawFilesAndSourceFiles()
+        {
+            string spectraPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles/small.raw");
+            List<MsDataScan> scans = SpectraFileHandler.LoadAllScansFromFile(spectraPath);
+            Assert.That(scans.Count == 48);
+
+            SourceFile file = SpectraFileHandler.GetSourceFile(spectraPath);
+            Assert.That(file.NativeIdFormat == "Thermo nativeID format");
+
+            string badPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles/small.toml");
+            try
+            {
+                SpectraFileHandler.LoadAllScansFromFile(badPath);
+            }
+            catch (ArgumentException e)
+            {
+                Assert.That(e.Message == "Cannot load spectra");
+            }
+            catch (Exception e)
+            {
+                Assert.That(false);
+            }
+
+            try
+            {
+                SpectraFileHandler.GetSourceFile(badPath);
+            }
+            catch (ArgumentException e)
+            {
+                Assert.That(e.Message == "Cannot access SourceFile");
+            }
+            catch (Exception e)
+            {
+                Assert.That(false);
+            }
         }
     }
 }

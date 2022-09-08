@@ -1,12 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using IO.MzML;
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using MathNet.Numerics.Statistics;
-using MzLibUtil;
 using SpectralAveraging;
 
 namespace SpectralAveragingExtensions

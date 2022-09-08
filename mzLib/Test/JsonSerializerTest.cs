@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MassSpectrometry;
 using Newtonsoft.Json;
-using SpectralAveragingExtensions.Util;
+using SpectralAveragingExtensions;
 
 namespace Test
 {

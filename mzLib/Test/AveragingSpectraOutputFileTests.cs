@@ -10,7 +10,6 @@ using MassSpectrometry;
 using NUnit.Framework;
 using SpectralAveraging;
 using SpectralAveragingExtensions;
-using SpectralAveragingExtensions.Util;
 using OutputType = SpectralAveragingExtensions.OutputType;
 using SpectraFileProcessingType = SpectralAveragingExtensions.SpectraFileProcessingType;
 
