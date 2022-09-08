@@ -16,6 +16,7 @@
     <PackageReference Include="NUnit" Version="3.13.3" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.3.0-alpha-net7.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
+    <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
   </ItemGroup>
 
   <ItemGroup>
