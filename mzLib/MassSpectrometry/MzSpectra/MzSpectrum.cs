@@ -787,6 +787,20 @@ namespace MassSpectrometry
             return numerator / denominator;
         }
 
+        public override bool Equals(object spectrumToCompare)
+        {
+            if (spectrumToCompare.GetType() != typeof(MzSpectrum))
+                return false;
+
+            MzSpectrum typedSpectrum = (MzSpectrum)spectrumToCompare;
+            if (!typedSpectrum.XArray.SequenceEqual(XArray))
+                return false;
+            if (!typedSpectrum.YArray.SequenceEqual(YArray))
+                return false;
+            
+            return true;
+        }
+
         private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
         {
             var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;

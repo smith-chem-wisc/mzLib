@@ -313,5 +313,14 @@ namespace Test
 
             Assert.AreEqual(7, thisSpectrum.GetClosestPeakXvalue(8));
         }
+
+        [Test]
+        public void TestEquals()
+        {
+            MzSpectrum identicalSpectrum = new(_mzSpectrumA.XArray, _mzSpectrumA.YArray, true);
+            Assert.IsTrue(identicalSpectrum.Equals(_mzSpectrumA));
+            identicalSpectrum.XArray[1] += 10;
+            Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+        }
     }
 }
