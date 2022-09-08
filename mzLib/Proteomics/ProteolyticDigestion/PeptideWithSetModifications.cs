@@ -324,12 +324,12 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (dissociationType == DissociationType.LowCID)
                         {
-                            if (!haveSeenNTermStarIon && (nTermProductTypes[i] == ProductType.aStar || nTermProductTypes[i] == ProductType.bStar))
+                            if (!haveSeenNTermStarIon && (nTermProductTypes[i] == ProductType.aStar || nTermProductTypes[i] == ProductType.bAmmoniaLoss))
                             {
                                 continue;
                             }
 
-                            if (!haveSeenNTermDegreeIon && (nTermProductTypes[i] == ProductType.aDegree || nTermProductTypes[i] == ProductType.bDegree))
+                            if (!haveSeenNTermDegreeIon && (nTermProductTypes[i] == ProductType.aDegree || nTermProductTypes[i] == ProductType.bWaterLoss))
                             {
                                 continue;
                             }
@@ -410,12 +410,12 @@ namespace Proteomics.ProteolyticDigestion
 
                         if (dissociationType == DissociationType.LowCID)
                         {
-                            if (!haveSeenCTermStarIon && cTermProductTypes[i] == ProductType.yStar)
+                            if (!haveSeenCTermStarIon && cTermProductTypes[i] == ProductType.yAmmoniaLoss)
                             {
                                 continue;
                             }
 
-                            if (!haveSeenCTermDegreeIon && cTermProductTypes[i] == ProductType.yDegree)
+                            if (!haveSeenCTermDegreeIon && cTermProductTypes[i] == ProductType.yWaterLoss)
                             {
                                 continue;
                             }
