@@ -119,7 +119,7 @@ namespace IO.ThermoRawFileReader
             var scanStats = rawFile.GetScanStatsForScanNumber(scanNumber);
             double scanRangeHigh = scanStats.HighMass;
             double scanRangeLow = scanStats.LowMass;
-            MzRange scanWindowRange = new MzRange(scanRangeLow, scanRangeHigh);
+            MzRange scanWindowRange = new(scanRangeLow, scanRangeHigh);
 
             double? ionInjectionTime = null;
             double? precursorSelectedMonoisotopicIonMz = null;
