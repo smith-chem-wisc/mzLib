@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MassSpectrometry;
 using NUnit.Framework;
 using SpectralAveraging;
@@ -11,6 +10,8 @@ using SpectralAveragingExtensions;
 
 namespace Test
 {
+    [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class AveragingSpectraFileHandlingTest
     {
         public static List<MsDataScan> DummyAllMs1Scans { get; set; }

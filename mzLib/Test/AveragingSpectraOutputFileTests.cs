@@ -1,20 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Diagnostics;
 using IO.MzML;
 using MassSpectrometry;
 using NUnit.Framework;
-using SpectralAveraging;
 using SpectralAveragingExtensions;
 using OutputType = SpectralAveragingExtensions.OutputType;
 using SpectraFileProcessingType = SpectralAveragingExtensions.SpectraFileProcessingType;
 
 namespace Test
 {
+    [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class AveragingSpectraOutputFileTests
     {
         public static string OutputDirectory;

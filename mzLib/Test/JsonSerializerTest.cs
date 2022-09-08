@@ -1,16 +1,17 @@
 ﻿using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MassSpectrometry;
 using Newtonsoft.Json;
 using SpectralAveragingExtensions;
 
 namespace Test
 {
+    [TestFixture]
+    [ExcludeFromCodeCoverage]
     public  class JsonSerializerTest
     {
 

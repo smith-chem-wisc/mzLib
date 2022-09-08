@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MassSpectrometry;
 using NUnit.Framework;
 using SpectralAveraging;
@@ -11,6 +10,8 @@ using SpectralAveragingExtensions;
 
 namespace Test
 {
+    [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class SpectralAveragingExtensionsTest
     {
         public static string OutputDirectory;
@@ -101,6 +102,28 @@ namespace Test
                 Assert.That(scans[i].MassSpectrum.YArray.SequenceEqual(expectedYs[i]));
                 Assert.That(spectra[i].YArray.SequenceEqual(expectedYs[i]));
             }
+        }
+
+        [Test]
+        public static void TestMzLibSpectralAveragingOptions()
+        {
+            MzLibSpectralAveragingOptions options = new();
+            Assert.That(options.NumberOfScansToAverage == 5);
+            Assert.That(options.ScanOverlap == 2);
+            Assert.That(options.OutputType == OutputType.mzML);
+            Assert.That(options.SpectraFileProcessingType == SpectraFileProcessingType.AverageAll);
+
+            options.SetValues(SpectraFileProcessingType.AverageDDAScansWithOverlap, 3, 1, OutputType.txt);
+            Assert.That(options.NumberOfScansToAverage == 3);
+            Assert.That(options.ScanOverlap == 1);
+            Assert.That(options.OutputType == OutputType.txt);
+            Assert.That(options.SpectraFileProcessingType == SpectraFileProcessingType.AverageDDAScansWithOverlap);
+
+            options.SetDefaultValues();
+            Assert.That(options.NumberOfScansToAverage == 5);
+            Assert.That(options.ScanOverlap == 2);
+            Assert.That(options.OutputType == OutputType.mzML);
+            Assert.That(options.SpectraFileProcessingType == SpectraFileProcessingType.AverageAll);
         }
     }
 }
