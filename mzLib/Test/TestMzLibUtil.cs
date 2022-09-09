@@ -26,6 +26,8 @@ namespace Test
         [TestCase("/home/seth/Pictures/penguin", "penguin")]
         [TestCase("penguin.jpg", "penguin")]
         [TestCase("penguin", "penguin")]
+        [TestCase("penguin.jpg.gz", "penguin")]
+        [TestCase("penguin.jpg.zip", "penguin")]
         public static void TestPeriodTolerantFilenameWithoutExtension(string filenameAndOrPath, string expectedResult)
         {
             string result = PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(filenameAndOrPath);

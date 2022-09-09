@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.IO;
+using System.Linq;
 
 namespace MzLibUtil
 {
@@ -6,33 +7,22 @@ namespace MzLibUtil
     {
         public static string GetPeriodTolerantFilenameWithoutExtension(string filepathAndOrName)
         {
-            string windowsSplit = filepathAndOrName.Split('\\').Last();
-            string linuxSplit = filepathAndOrName.Split('/').Last();
+            string filenameWithOrWithoutExtension = Path.GetFileName(filepathAndOrName);
 
-            if(windowsSplit.Length <= linuxSplit.Length)
+            int periodBeforeExtension = filenameWithOrWithoutExtension.LastIndexOf('.');
+            if (periodBeforeExtension > 0)
             {
-                int periodBeforeExtension = windowsSplit.LastIndexOf('.');
-                if (periodBeforeExtension > 0)
+                string compressedQuestionMark = filenameWithOrWithoutExtension[periodBeforeExtension..];
+                if(compressedQuestionMark == ".gz" || compressedQuestionMark == ".zip")
                 {
-                    return windowsSplit[..periodBeforeExtension];
-                }
-                else
-                {
-                    return windowsSplit;
+                    periodBeforeExtension = filenameWithOrWithoutExtension[..periodBeforeExtension].LastIndexOf('.');
                 }  
+                return filenameWithOrWithoutExtension[..periodBeforeExtension];
             }
             else
             {
-                int periodBeforeExtension = linuxSplit.LastIndexOf('.');
-                if (periodBeforeExtension > 0)
-                {
-                    return linuxSplit[..periodBeforeExtension];
-                }
-                else
-                {
-                    return linuxSplit;
-                }
-            }
+                return filenameWithOrWithoutExtension;
+            }  
         }
     }
 }
