@@ -17,6 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -25,11 +26,9 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using UsefulProteomicsDatabases;
+
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -472,6 +471,24 @@ namespace Test
         }
 
         [Test]
+        public static void Test_WaterAndAmmoniaLossFragmentProductIons()
+        {
+            CollectionAssert.AreEquivalent(new List<ProductType>(){ ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.IRMPD, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.HCD, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.EThcD, FragmentationTerminus.Both));
+
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ECD, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ETD, FragmentationTerminus.Both));
+
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.N));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.C));
+
+            CollectionAssert.IsEmpty(DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.Unknown, FragmentationTerminus.Both));
+
+        }
+
+        [Test]
         public static void Test_GetTheoreticalFragments_ProductTypeLabel()
         {
             Protein p = new Protein("PET", "accession");
@@ -669,11 +686,11 @@ namespace Test
             myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, theseTheoreticalFragments);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
 
             Assert.AreEqual(aStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.aStar).Count());
-            Assert.AreEqual(bStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bStar).Count());
+            Assert.AreEqual(bStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bAmmoniaLoss).Count());
             Assert.AreEqual(aDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.aDegree).Count());
-            Assert.AreEqual(bDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bDegree).Count());
-            Assert.AreEqual(yStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.yStar).Count());
-            Assert.AreEqual(yDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.yDegree).Count());
+            Assert.AreEqual(bDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bWaterLoss).Count());
+            Assert.AreEqual(yStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.yAmmoniaLoss).Count());
+            Assert.AreEqual(yDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.yWaterLoss).Count());
             Assert.AreEqual(totalFragmentCount, theseTheoreticalFragments.Count());
         }
 
@@ -701,11 +718,11 @@ namespace Test
                         Assert.AreEqual(0, mass);
                         break;
 
-                    case ProductType.bDegree:
+                    case ProductType.bWaterLoss:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-2O-1").MonoisotopicMass).Value, mass);
                         break;
 
-                    case ProductType.bStar:
+                    case ProductType.bAmmoniaLoss:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("N-1H-3").MonoisotopicMass).Value, mass);
                         break;
 
@@ -737,11 +754,11 @@ namespace Test
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H2O1").MonoisotopicMass).Value, mass);
                         break;
 
-                    case ProductType.yDegree:
+                    case ProductType.yWaterLoss:
                         Assert.AreEqual(0, mass);
                         break;
 
-                    case ProductType.yStar:
+                    case ProductType.yAmmoniaLoss:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass).Value, mass);
                         break;
 
