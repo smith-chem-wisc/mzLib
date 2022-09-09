@@ -636,6 +636,14 @@ namespace MassSpectrometry
             Buffer.BlockCopy(YArray, 0, data, size * Size, size * Size);
             return data;
         }
+        public virtual double[,] CopyTo2DArray(double[] xArray, double[] yArray)
+        {
+            double[,] data = new double[2, Size];
+            const int size = sizeof(double);
+            Buffer.BlockCopy(xArray, 0, data, 0, size * Size);
+            Buffer.BlockCopy(yArray, 0, data, size * Size, size * Size);
+            return data; 
+        }
 
         public double? GetClosestPeakXvalue(double x)
         {
@@ -810,6 +818,81 @@ namespace MassSpectrometry
         private MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
+        }
+        /// <summary>
+        /// This method smooths a mass spectrum by using a Kolmogorov–Zurbenko (KZ).
+        /// High quality spectral smoothing is the first step in my deconvolultion algorithm.
+        /// Algorithm employed is the Kolmogorov-Zurbenko algorithm originally written in C for R:
+        /// https://github.com/cran/kza/blob/master/src/kz.c
+        /// </summary>
+        public double[,] SmoothSpectrumKZ(int window, int iterations)
+        {
+            double[] smoothedIntArray = KZ1D(YArray, window, iterations);
+            if(smoothedIntArray.Length < YArray.Length)
+            {
+                throw new ArgumentException("output length is unequal to input length"); 
+            }
+            return CopyTo2DArray(XArray, smoothedIntArray); 
+        }
+        /// <summary>
+        /// Implements the KZ filter for one-dimensional data. 
+        /// </summary>
+        /// <param name="x"></param><summary>double array (double[]) of the intensity values.</summary>
+        /// <param name="window"></param><summary>The window size over which to perform the filtering.</summary>
+        /// <param name="iterations"></param><summary>The number of smoothering iterations to perform.</summary>
+        /// <returns></returns>
+        public static double[] KZ1D(double[] x, int window, int iterations)
+        {
+            int m = 2 * window + 1;
+            int p = (m - 1) / 2;
+
+            // iterations are performed in this function. The result from the first iteration is
+            // copied and the next iteration is performed on the result of the first one.
+            // Note that the code I ported this function from was initially written in R,
+            // which intentionally doesn't use reference semantics. So I'm sure there's a way to
+            // optimize this procedure, and I'm open to suggestions.
+
+            double[] result = new double[x.Length];
+            double[] xCopy = new double[x.Length];
+            // remember that block copy requires the total number of bytes to copy as the
+            // last parameter.
+            Buffer.BlockCopy(x, 0, xCopy, 0, x.Length * sizeof(double));
+
+            for(int k = 0; k < iterations; k++)
+            {
+                for(int i = 0; i < x.Length; i++)
+                {
+                    result[i] = Mavg1D(xCopy, i, p); 
+                }
+                Buffer.BlockCopy(result, 0, xCopy, 0, result.Length * sizeof(double));  
+            }
+            return result; 
+        }
+        /// <summary>
+        /// Computes the moving average for a given window. Used in conjuction with the KZ1D method. 
+        /// </summary>
+        /// <param name="v"></param><summary>The source data array.</summary>
+        /// <param name="col"></param><summary>The starting index in the source data.</summary>
+        /// <param name="w"></param><summary>The length of the window over which to calculate the moving average.</summary>
+        /// <returns></returns>
+        private static double Mavg1D(double[] v, int col, int w)
+        {
+            int startcol = col - w > 0 ? col - w : 0;
+            int endcol = col + w < v.Length - 1 ? col + w + 1 : v.Length - 1;
+
+            int z = 0;
+            double s = 0.0; 
+
+            for(int i = startcol; i < endcol; i++)
+            {
+                z++;
+                s += v[i];
+            }
+            if (z == 0)
+            {
+                return double.NaN; 
+            }
+            return s / (double)z; 
         }
     }
 }
