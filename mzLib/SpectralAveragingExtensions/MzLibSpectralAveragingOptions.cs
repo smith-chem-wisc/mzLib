@@ -15,8 +15,7 @@ namespace SpectralAveragingExtensions
 
         public MzLibSpectralAveragingOptions(SpectralAveragingOptions? spectralAveragingOptions = null)
         {
-            if (spectralAveragingOptions == null)
-                SpectralAveragingOptions = new SpectralAveragingOptions();
+            SpectralAveragingOptions = spectralAveragingOptions ?? new SpectralAveragingOptions();
             SetDefaultValues();
         }
 
