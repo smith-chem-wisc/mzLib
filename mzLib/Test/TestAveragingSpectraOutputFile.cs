@@ -1,19 +1,19 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using IO.MzML;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using SpectralAveragingExtensions;
-using OutputType = SpectralAveragingExtensions.OutputType;
-using SpectraFileProcessingType = SpectralAveragingExtensions.SpectraFileProcessingType;
 
 namespace Test
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    public class AveragingSpectraOutputFileTests
+    public class TestAveragingSpectraOutputFile
     {
         public static string OutputDirectory;
         public static string SpectraPath;
@@ -53,6 +53,7 @@ namespace Test
         [Test]
         public static void OutputAveragedSpectraAsMzMLTest()
         {
+            // test that it outputs correctly
             Assert.That(Options.OutputType == OutputType.mzML);
             AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, SpectraPath);
             string averagedSpectraPath = Path.Combine(OutputDirectory,
@@ -69,6 +70,21 @@ namespace Test
                     mzandInt.Where(p => p.Value != 0).ToDictionary(p => p.Key, p => p.Value);
                 MzSpectrum trimmedDdaSpectrum = new MzSpectrum(trimmedMzAndInt.Keys.ToArray(), trimmedMzAndInt.Values.ToArray(), false);
                 Assert.That(loadedScans[i].MassSpectrum.Equals(trimmedDdaSpectrum));
+            }
+
+            // test errors
+            try
+            {
+                AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, "");
+                Assert.That(false);
+            }
+            catch (MzLibException e)
+            {
+                Assert.That(e.Message == "Cannot Access Spectra Directory");
+            }
+            catch (Exception)
+            {
+                Assert.That(false);
             }
         }
 
@@ -112,6 +128,21 @@ namespace Test
             double[] yArr = mzAndInt.Select(p => double.Parse(p.Split(',')[1])).ToArray();
             MzSpectrum loadedSpectrum = new(xArr, yArr, true);
             Assert.That(loadedSpectrum.Equals(AverageAllCompositeSpectra[0].MassSpectrum));
+
+            // test errors
+            try
+            {
+                AveragedSpectraOutputter.OutputAveragedScans(AverageAllCompositeSpectra, Options, "");
+                Assert.That(false);
+            }
+            catch (MzLibException e)
+            {
+                Assert.That(e.Message == "Cannot Access Spectra Directory");
+            }
+            catch (Exception)
+            {
+                Assert.That(false);
+            }
         }
     }
 }

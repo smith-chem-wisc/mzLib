@@ -13,7 +13,7 @@ namespace SpectralAveragingExtensions
 
         #endregion
 
-        public MzLibSpectralAveragingOptions(SpectralAveragingOptions spectralAveragingOptions = null)
+        public MzLibSpectralAveragingOptions(SpectralAveragingOptions? spectralAveragingOptions = null)
         {
             if (spectralAveragingOptions == null)
                 SpectralAveragingOptions = new SpectralAveragingOptions();

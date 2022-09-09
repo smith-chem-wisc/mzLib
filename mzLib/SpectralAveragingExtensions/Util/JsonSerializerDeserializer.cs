@@ -57,7 +57,6 @@ namespace SpectralAveragingExtensions
         /// Objects must be serialized with each having a new line in the txt file
         /// </summary>
         /// <param name="filepath"></param>
-        /// <param name="type"></param>
         /// <returns></returns>
         public static IEnumerable<T> DeserializeCollection<T>(string filepath)
         {
@@ -72,8 +71,9 @@ namespace SpectralAveragingExtensions
         /// <summary>
         /// Converts a txt file with a single json string to the specified type
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="filepath"></param>
+        /// <typeparam name="T">type of object to construct</typeparam>
+        /// <param name="jsonString">Json string representation of the object</param>
+        /// <param name="stringIsFilePath">if string is a filepath to txt of json string</param>
         /// <returns></returns>
         public static T Deserialize<T>(string jsonString, bool stringIsFilePath)
         {

@@ -12,7 +12,7 @@ namespace Test
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    public class AveragingSpectraFileHandlingTest
+    public class TestAveragingSpectraFileHandling
     {
         public static List<MsDataScan> DummyAllMs1Scans { get; set; }
         public static List<MsDataScan> DummyDDAScansInOrder { get; set; }

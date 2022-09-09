@@ -321,6 +321,8 @@ namespace Test
             Assert.IsTrue(identicalSpectrum.Equals(_mzSpectrumA));
             identicalSpectrum.XArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            identicalSpectrum.YArray[1] += 10;
+            Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
         }
     }
 }

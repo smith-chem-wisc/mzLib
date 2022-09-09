@@ -1,5 +1,6 @@
 ﻿using IO.MzML;
 using MassSpectrometry;
+using MzLibUtil;
 
 namespace SpectralAveragingExtensions
 {
@@ -39,9 +40,9 @@ namespace SpectralAveragingExtensions
         private static void OutputAveragedSpectraAsMzML(MsDataScan[] averagedScans,
             string spectraPath)
         {
+            var spectraDirectory = Path.GetDirectoryName(spectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");
             SourceFile sourceFile = SpectraFileHandler.GetSourceFile(spectraPath);
             MsDataFile msDataFile = new(averagedScans, sourceFile);
-            string spectraDirectory = Path.GetDirectoryName(spectraPath);
             string averagedPath = Path.Combine(spectraDirectory,
                 "Averaged_" + Path.GetFileNameWithoutExtension(spectraPath) + ".mzML");
 
@@ -51,7 +52,7 @@ namespace SpectralAveragingExtensions
         private static void OutputAveragedSpectraAsTxtFile(MsDataScan[] averagedScans, MzLibSpectralAveragingOptions options,
             string spectraPath)
         {
-            string spectraDirectory = Path.GetDirectoryName(spectraPath);
+            var spectraDirectory = Path.GetDirectoryName(spectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");
             if (options.SpectraFileProcessingType != SpectraFileProcessingType.AverageAll)
             {
                 spectraDirectory = Path.Combine(spectraDirectory, "AveragedSpectra");
@@ -67,13 +68,11 @@ namespace SpectralAveragingExtensions
                 if (options.SpectraFileProcessingType != SpectraFileProcessingType.AverageAll)
                     averagedPath = Path.Combine(spectraDirectory,
                         "Averaged_" + Path.GetFileNameWithoutExtension(spectraPath) + "_" + scan.OneBasedScanNumber + ".txt");
-                using (StreamWriter writer = new StreamWriter(File.Create(averagedPath)))
-                {
+                using StreamWriter writer = new StreamWriter(File.Create(averagedPath));
 
-                    for (int i = 0; i < scan.MassSpectrum.XArray.Length; i++)
-                    {
-                        writer.WriteLine(scan.MassSpectrum.XArray[i] + "," + scan.MassSpectrum.YArray[i]);
-                    }
+                for (int i = 0; i < scan.MassSpectrum.XArray.Length; i++)
+                {
+                    writer.WriteLine(scan.MassSpectrum.XArray[i] + "," + scan.MassSpectrum.YArray[i]);
                 }
             }
         }

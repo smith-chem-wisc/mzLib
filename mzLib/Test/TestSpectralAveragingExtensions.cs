@@ -12,7 +12,7 @@ namespace Test
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    public class SpectralAveragingExtensionsTest
+    public class TestSpectralAveragingExtensions
     {
         public static string OutputDirectory;
         public static string SpectraPath;

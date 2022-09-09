@@ -12,7 +12,7 @@ namespace Test
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    public  class JsonSerializerTest
+    public class TestJsonSerializer
     {
 
         public static string OutputDirectory;
@@ -46,7 +46,8 @@ namespace Test
             double[] testArray = new double[] { 14, 23, 37, 42 };
             filepath = Path.Combine(OutputDirectory, @"test2.txt");
             JsonSerializerDeserializer.SerializeToNewFile(testArray, filepath);
-            double[] testArrayReturned = (double[])JsonConvert.DeserializeObject(File.ReadAllText(filepath), typeof(double[]));
+            double[] testArrayReturned =
+                (double[])JsonConvert.DeserializeObject(File.ReadAllText(filepath), typeof(double[]));
             Assert.That(testArray.SequenceEqual(testArrayReturned));
 
             // Serializing and Deserializing appended collection
@@ -69,7 +70,8 @@ namespace Test
         [Test]
         public static void SerializeMzSpectrum()
         {
-            string scanspath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTestData\TDYeastFractionMS1.mzML");
+            string scanspath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"AveragingTestData\TDYeastFractionMS1.mzML");
             string filepath = Path.Combine(OutputDirectory, @"scan.txt");
             List<MsDataScan> scans = SpectraFileHandler.LoadAllScansFromFile(scanspath);
             List<MzSpectrum> spectra = scans.Select(p => p.MassSpectrum).ToList();
@@ -92,7 +94,7 @@ namespace Test
                 Assert.That(twentySpectra[i].XArray.SequenceEqual(deserialized[i].XArray));
                 Assert.That(twentySpectra[i].YArray.SequenceEqual(deserialized[i].YArray));
             }
-
         }
     }
 }
+
