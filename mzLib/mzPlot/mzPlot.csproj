@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="OxyPlot.Wpf" Version="2.0.0" />
+    <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
   </ItemGroup>
 
   <ItemGroup>

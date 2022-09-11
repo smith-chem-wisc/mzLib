@@ -324,12 +324,12 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (dissociationType == DissociationType.LowCID)
                         {
-                            if (!haveSeenNTermStarIon && (nTermProductTypes[i] == ProductType.aStar || nTermProductTypes[i] == ProductType.bStar))
+                            if (!haveSeenNTermStarIon && (nTermProductTypes[i] == ProductType.aStar || nTermProductTypes[i] == ProductType.bAmmoniaLoss))
                             {
                                 continue;
                             }
 
-                            if (!haveSeenNTermDegreeIon && (nTermProductTypes[i] == ProductType.aDegree || nTermProductTypes[i] == ProductType.bDegree))
+                            if (!haveSeenNTermDegreeIon && (nTermProductTypes[i] == ProductType.aDegree || nTermProductTypes[i] == ProductType.bWaterLoss))
                             {
                                 continue;
                             }
@@ -410,12 +410,12 @@ namespace Proteomics.ProteolyticDigestion
 
                         if (dissociationType == DissociationType.LowCID)
                         {
-                            if (!haveSeenCTermStarIon && cTermProductTypes[i] == ProductType.yStar)
+                            if (!haveSeenCTermStarIon && cTermProductTypes[i] == ProductType.yAmmoniaLoss)
                             {
                                 continue;
                             }
 
-                            if (!haveSeenCTermDegreeIon && cTermProductTypes[i] == ProductType.yDegree)
+                            if (!haveSeenCTermDegreeIon && cTermProductTypes[i] == ProductType.yWaterLoss)
                             {
                                 continue;
                             }
@@ -1174,7 +1174,7 @@ namespace Proteomics.ProteolyticDigestion
                     foreach (int location in cleavageMotifLocations)
                     {
                         char[] motifArray = BaseSequence.Substring(location, cleavingMotif.Length).ToCharArray();
-                        
+
                         for (int i = 0; i < cleavingMotif.Length; i++)
                         {
                             newBase[location + i] = motifArray[i];
@@ -1191,8 +1191,9 @@ namespace Proteomics.ProteolyticDigestion
                 }
             }
 
-            //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
-            //Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
+            // We've kept amino acids in the digestion motif in the same position in the decoy peptide.
+            // Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
+            // Part to change to scramble
             int fillPosition = 0;
             int extractPosition = this.BaseSequence.Length - 1;
             while (fillPosition < this.BaseSequence.Length && extractPosition >= 0)
@@ -1250,7 +1251,222 @@ namespace Proteomics.ProteolyticDigestion
             }
 
         }
+        /// <summary>
+        /// This function generates a decoy peptide from a target by scrambling the target peptide's amino acid sequence
+        /// This preserves any digestion motifs and keeps modifications with their amino acids
+        /// To help generate only high quality decoys, a homology cutoff of 30 % sequence similarity is used
+        /// If after 10 attempts no sufficient decoy is generated, the mirror sequence is returned
+        /// </summary>
+        /// <param name="revisedAminoAcidOrder">Array to store the new amino acid order in</param>
+        /// <param name="maximumHomology">Parameter specifying the homology cutoff to be used</param>
+        /// <returns></returns>
+        public PeptideWithSetModifications GetScrambledDecoyFromTarget(int[] revisedAminoAcidOrder, double maximumHomology = 0.3)
+        {
+            Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
+            //Copy N-terminal modifications from target dictionary to decoy dictionary.
+            if (this.AllModsOneIsNterminus.ContainsKey(1))
+            {
+                newModificationsDictionary.Add(1, this.AllModsOneIsNterminus[1]);
+            }
+            char[] newBase = new char[this.BaseSequence.Length];
+            Array.Fill(newBase, '0');
+            char[] evaporatingBase = this.BaseSequence.ToCharArray();
+            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            if (motifs != null && motifs.Count > 0)
+            {
+                foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
+                {
+                    string cleavingMotif = motif.InducingCleavage;
+                    List<int> cleavageMotifLocations = new List<int>();
 
+                    for (int i = 0; i < BaseSequence.Length; i++)
+                    {
+                        bool fits;
+                        bool prevents;
+                        (fits, prevents) = motif.Fits(BaseSequence, i);
+
+                        if (fits && !prevents)
+                        {
+                            cleavageMotifLocations.Add(i);
+                        }
+                    }
+
+                    foreach (int location in cleavageMotifLocations)
+                    {
+                        char[] motifArray = BaseSequence.Substring(location, cleavingMotif.Length).ToCharArray();
+                        
+                        for (int i = 0; i < cleavingMotif.Length; i++)
+                        {
+                            newBase[location + i] = motifArray[i];
+                            revisedAminoAcidOrder[location + i] = location + i;
+                            //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
+                            if (this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
+                            {
+                                newModificationsDictionary.Add(location + i + 2, this.AllModsOneIsNterminus[location + i + 2]);
+                            }
+
+                            evaporatingBase[location + i] = '0';//can null a char so i use a number which doesnt' appear in peptide string
+                        }
+                    }
+                }
+            }
+
+            //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
+            //Now we will fill the remaining open positions in the decoy with the scrambled amino acids from the target.
+            int extractPosition;
+            int fillPosition;
+            int residueNumsIndex;
+            // Specify seed to ensure that the same decoy sequence is always generated from the target
+            Random rand = new(56);
+            double percentIdentity = 1;
+            int scrambleAttempt = 0;
+            int maxScrambles = 10;
+            double maxIdentity = maximumHomology;
+            int characterCounter;
+
+            while(scrambleAttempt < maxScrambles && percentIdentity > maxIdentity)
+            {
+                // Copies the newModificationsDictionary for the scramble attempt
+                Dictionary<int, Modification> tempModificationsDictionary = new(newModificationsDictionary);
+                fillPosition = 0;
+                // residueNums is a list containing array indices for each element of evaporatingBase
+                // Once each amino acid is added, its index is removed from residueNums to prevent the same AA from being added 2x
+                var residueNums = Enumerable.Range(0, evaporatingBase.Length).ToList();                
+                characterCounter = 0;
+                char[] tempNewBase = new char[newBase.Length];
+                // Create a copy of the newBase character array for the scrambling attempt
+                Array.Copy(newBase, tempNewBase, newBase.Length);
+
+                // I am not sure why I need the second counter, but it always works when I have it
+                int seqLength = this.BaseSequence.Length;
+                while (fillPosition < seqLength && characterCounter < seqLength)
+                {
+                    residueNumsIndex = rand.Next(residueNums.Count);
+                    extractPosition = residueNums[residueNumsIndex];
+                    char targetAA = evaporatingBase[extractPosition];
+                    residueNums.RemoveAt(residueNumsIndex);
+                    if (targetAA != '0')
+                    {
+                        while (tempNewBase[fillPosition] != '0')
+                        {
+                            fillPosition++;
+                        }
+                        tempNewBase[fillPosition] = targetAA;
+                        revisedAminoAcidOrder[fillPosition] = extractPosition;
+                        if (this.AllModsOneIsNterminus.ContainsKey(extractPosition + 2))
+                        {
+                            tempModificationsDictionary.Add(fillPosition + 2, this.AllModsOneIsNterminus[extractPosition + 2]);
+                        }
+                        fillPosition++;
+                    }
+                    characterCounter ++;
+                }
+                scrambleAttempt++;
+                /* 
+                 * Any homology scoring mechanism can go here, percent identity is probably not the best
+                 * In terms of generating a decoy sequence that will have a different mass spectrum than
+                 * the original, it is far more important to vary the amino acids on the edges than 
+                 * those in the middle. Changes on the edges will offset the entire b and y sequences
+                 * leading to an effective decoy spectrum even if there is high identity in the middle of
+                 * the sequence. Additionally, for peptides with a large amount of a certain amino acid,
+                 * it will be very difficult to generate a low homology sequence.
+                 */
+                percentIdentity = GetPercentIdentity(tempNewBase, evaporatingBase, tempModificationsDictionary, this.AllModsOneIsNterminus);
+                // Check that the percent identity is below the maximum identity threshold and set actual values to the temporary values
+                if (percentIdentity < maxIdentity)
+                {
+                    newBase = tempNewBase;
+                    newModificationsDictionary = tempModificationsDictionary;
+                    // Code checking similarity between theoretical spectra could go here
+                }
+
+                // If max scrambles are reached, make the new sequence identical to the original to trigger mirroring
+                else if (scrambleAttempt == maxScrambles)
+                {
+                    for(int j = 0; j < newBase.Length; j++)
+                    {
+                        if (newBase[j] == '0')
+                        {
+                            newBase[j] = evaporatingBase[j];
+                        }
+                    }
+                }
+            }
+            
+
+            string newBaseString = new string(newBase);
+
+            var proteinSequence = this.Protein.BaseSequence;
+            var aStringBuilder = new StringBuilder(proteinSequence);
+            aStringBuilder.Remove(this.OneBasedStartResidueInProtein - 1, this.BaseSequence.Length);
+            aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
+            proteinSequence = aStringBuilder.ToString();
+
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            DigestionParams d = this.DigestionParams;
+            // Creates a hash code corresponding to the target's sequence
+            int targetHash = GetHashCode();
+            PeptideWithSetModifications decoyPeptide;
+            //Make the "peptideDescription" store the corresponding target's sequence
+            if (newBaseString != this.BaseSequence)
+            {
+                decoyPeptide = new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                // Sets PairedTargetDecoyHash of the original target peptie to the hash hode of the decoy sequence           
+                PairedTargetDecoyHash = decoyPeptide.GetHashCode();
+                // Sets PairedTargetDecoyHash of the decoy peptide to the hash code of the target sequence
+                decoyPeptide.PairedTargetDecoyHash = targetHash;
+                return decoyPeptide;
+
+            }
+            else
+            {
+                //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
+                //we retrun the mirror image peptide.
+                decoyPeptide = this.GetPeptideMirror(revisedAminoAcidOrder);
+                PairedTargetDecoyHash = decoyPeptide.GetHashCode();
+                decoyPeptide.PairedTargetDecoyHash = targetHash;
+                return decoyPeptide;
+            }
+        }
+        
+        /// <summary>
+        /// Method to get the percent identity between two peptide sequences stored as char[]
+        /// </summary>
+        /// <param name="scrambledSequence">Character array of the scrambled sequence</param>
+        /// <param name="unscrambledSequence">Character array of the unscrambled sequence</param> 
+        /// <param name="scrambledMods">Dictionary containing the scrambled sequence's modifications</param>
+        /// <param name="unscrambledMods">Dictionary containing the unscrambled sequence's modifications</param>
+        /// <returns></returns>
+        private static double GetPercentIdentity(char[] scrambledSequence, char[] unscrambledSequence, Dictionary<int, Modification> scrambledMods, Dictionary<int, Modification> unscrambledMods)
+        {
+            double rawScore = 0;
+            int seqLength = scrambledSequence.Length;
+            for(int i = 0; i < seqLength; i++)
+            {
+                if (scrambledSequence[i] == unscrambledSequence[i] || unscrambledSequence[i] == '0')
+                {
+                    Modification scrambledMod;
+                    if (scrambledMods.TryGetValue(i + 2, out scrambledMod) && unscrambledSequence[i] != '0')
+                    {
+                        Modification unscrambledMod;
+                        if (unscrambledMods.TryGetValue(i + 2, out unscrambledMod))
+                        {
+                            if (scrambledMod == unscrambledMod)
+                            {
+                                rawScore += 1;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        rawScore += 1; 
+                    }
+                    
+                }
+            }
+            return rawScore / seqLength;
+        }
+        
         //Returns a PeptideWithSetModifications mirror image. Used when reverse decoy sequence is same as target sequence
         public PeptideWithSetModifications GetPeptideMirror(int[] revisedOrderNisOne)
         {

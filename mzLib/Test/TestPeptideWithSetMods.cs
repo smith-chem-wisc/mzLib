@@ -750,7 +750,7 @@ namespace Test
 
             Modification nTermAcet = new Modification(_originalId: "n-acetyl", _modificationType: "CommonBiological", _target: null, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"));
 
-            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { { 1, nTermAcet }, { 4, phosphorylation }, { 9, acetylation } };
+            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { { 1, nTermAcet }, { 6, phosphorylation }, { 9, acetylation } };
 
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
 
@@ -846,7 +846,66 @@ namespace Test
             Assert.AreEqual(p_tryp.FullSequence, p_tryp_reverse.PeptideDescription);
 
         }
+        [Test]
+        public static void TestScrambledDecoyFromTarget()
+        {
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif_p);
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_p, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
 
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
+            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+
+            Modification nTermAcet = new Modification(_originalId: "n-acetyl", _modificationType: "CommonBiological", _target: null, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"));
+
+            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { { 1, nTermAcet }, { 5, phosphorylation }, { 9, acetylation } };
+
+            PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
+            int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
+            PeptideWithSetModifications testScrambled = p.GetScrambledDecoyFromTarget(newAminoAcidPositions);
+            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
+            int testTargetHash = p.GetHashCode();
+            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
+            int testDecoyHash = testScrambled.GetHashCode();
+            Assert.AreEqual(testScrambled.PairedTargetDecoyHash, testTargetHash);
+            Assert.AreEqual(p.PairedTargetDecoyHash, testDecoyHash);
+            Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
+            Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
+            // Check n-term acetyl
+            Assert.AreEqual(p.AllModsOneIsNterminus[1], testScrambled.AllModsOneIsNterminus[1]); 
+            // Check phosphorylated Thr originally at position 5
+            Assert.AreEqual(p.AllModsOneIsNterminus[5], testScrambled.AllModsOneIsNterminus[6]);
+            Assert.IsTrue(testScrambled.Protein.IsDecoy);
+            Assert.AreEqual(p.Protein.BaseSequence.Length, testScrambled.Protein.BaseSequence.Length);
+            // Check that the scrambled PeptideDescription is equivalent to the original peptide's full sequence
+            Assert.AreEqual(testScrambled.PeptideDescription, p.FullSequence);
+
+            // Test for complex cleavage motif patterns
+            Dictionary<int, Modification> complexTrypticMods = new Dictionary<int, Modification> { { 1, nTermAcet }, { 89, acetylation } };
+            Loaders.LoadElements();
+            string insulinFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
+            string insulinSeq = ProteinDbLoader.LoadProteinFasta(insulinFile, true, DecoyType.None, false, out var dbError)[0].BaseSequence;
+            PeptideWithSetModifications insulinTryptic = new PeptideWithSetModifications(new Protein(insulinSeq, "COMPLEX_TRYP"), new DigestionParams(), 1, 110, CleavageSpecificity.Full, null, 0, complexTrypticMods, 0, null);
+            int[] insulinScrambledOrder = new int[insulinSeq.Length];
+            PeptideWithSetModifications insulinScrambled = insulinTryptic.GetScrambledDecoyFromTarget(insulinScrambledOrder);
+            // Check that cleavage motif positions are preserved in the more complex case
+            Assert.AreEqual(insulinTryptic.BaseSequence[5], insulinScrambled[5]);
+            Assert.AreEqual(insulinScrambled.BaseSequence[55], insulinTryptic.BaseSequence[55]);          
+            // Check that modified cleavage motif residues are preserved
+            Assert.AreEqual(insulinScrambled.AllModsOneIsNterminus[89], insulinTryptic.AllModsOneIsNterminus[89]);
+
+            // Test with Arg-C as the protease
+            newAminoAcidPositions = new int["RPEPTIREAVLKK".Length];
+            PeptideWithSetModifications testArgC = new PeptideWithSetModifications(new Protein("RPEPTIREAVLKK", "DECOY_ARGC"), new DigestionParams(protease: "Arg-C"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications scrambledArgC = testArgC.GetScrambledDecoyFromTarget(newAminoAcidPositions);
+            // Check for preserved cleavage motif positions
+            Assert.AreEqual(testArgC.BaseSequence[6], scrambledArgC.BaseSequence[6]);
+
+            // Tests that peptide is mirrored when the maximum number of scramble attempts is reached
+            newAminoAcidPositions = new int["AVLRRRKKRDEF".Length];
+            PeptideWithSetModifications forceMirror = new PeptideWithSetModifications(new Protein("AVLRRRKKRDEF", "ACCESSIION"), new DigestionParams(), 1, 12, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
+            PeptideWithSetModifications mirroredTarget = forceMirror.GetScrambledDecoyFromTarget(newAminoAcidPositions);
+            Assert.AreEqual(new int[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
+        }
         [Test]
         public static void TestReverseDecoyFromPeptideFromProteinXML()
         {
