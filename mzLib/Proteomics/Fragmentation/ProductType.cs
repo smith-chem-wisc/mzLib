@@ -25,14 +25,14 @@ namespace Proteomics.Fragmentation
         aStar,
         aDegree,
         b,
-        b_NH3,
-        b_H2O,
+        bAmmoniaLoss,
+        bWaterLoss,
         //BnoB1ions,
         c,
         x,
         y,
-        y_NH3,
-        y_H2O,
+        yAmmoniaLoss,
+        yWaterLoss,
         zPlusOne,//This is zDot plus H
         zDot,
         M, //this is the molecular ion // [M]
