@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -1417,7 +1418,6 @@ namespace Test
         [TestCase("small.raw", false)]
         [TestCase("testFileWMS2.raw", true)]
         [TestCase("testFileWMS2.raw", false)]
-        [TestCase("testFileWMS2.raw", false)]
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", true)]
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", false)]
         public static void TestDynamicMzml(string fileName, bool writeIndexed = false)
@@ -1431,8 +1431,10 @@ namespace Test
                 fileName = mzmlFilename;
                 string mzmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(raw, mzmlPath, writeIndexed);
+                Task task = Task.Run(() => MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(raw, mzmlPath, writeIndexed));
+                while (!task.IsCompleted) { }
             }
+                
 
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 

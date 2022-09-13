@@ -20,10 +20,12 @@ using Chemistry;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 namespace MassSpectrometry
 {
@@ -785,6 +787,27 @@ namespace MassSpectrometry
 
             //return dot product
             return numerator / denominator;
+        }
+
+        public override bool Equals(object spectrumToCompare)
+        {
+            if (spectrumToCompare.GetType() != typeof(MzSpectrum))
+                return false;
+
+            MzSpectrum typedSpectrum = (MzSpectrum)spectrumToCompare;
+            if (!typedSpectrum.XArray.SequenceEqual(XArray))
+                return false;
+            if (!typedSpectrum.YArray.SequenceEqual(YArray))
+                return false;
+            
+            return true;
+        }
+
+        public override int GetHashCode()
+        {
+            return ((IStructuralEquatable)XArray).GetHashCode(EqualityComparer<double>.Default) +
+                   ((IStructuralEquatable)YArray).GetHashCode(EqualityComparer<double>.Default) + 
+                   XArray.Sum().GetHashCode() + YArray.Sum().GetHashCode();
         }
 
         private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
