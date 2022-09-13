@@ -10,40 +10,53 @@ namespace MassSpectrometry.MzSpectra
     {
         public SpectralSimilarity(MzSpectrum experimentalSpectrum, MzSpectrum theoreticalSpectrum, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
-            experimentalYArray = Normalize(FilterOutIonsBelowThisMz(experimentalSpectrum.XArray,experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p=>p.Item2).ToArray(),scheme);
-            experimentalXArray = FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
-            theoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
-            theoreticalXArray = FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
-            localPpmTolerance = toleranceInPpm;
+            ExperimentalYArray = Normalize(FilterOutIonsBelowThisMz(experimentalSpectrum.XArray,experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p=>p.Item2).ToArray(),scheme);
+            ExperimentalXArray = FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            TheoreticalXArray = FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            LocalPpmTolerance = toleranceInPpm;
+            normalizationScheme = scheme;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
         public SpectralSimilarity(MzSpectrum experimentalSpectrum, double[] theoreticalX, double[] theoreticalY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
-            experimentalYArray = Normalize(FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
-            experimentalXArray = FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
-            theoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
-            theoreticalXArray = FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
-            localPpmTolerance = toleranceInPpm;
+            ExperimentalYArray = Normalize(FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            ExperimentalXArray = FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            TheoreticalXArray = FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            LocalPpmTolerance = toleranceInPpm;
+            normalizationScheme = scheme;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
-        public double[] experimentalYArray { get; private set; }
-        public double[] experimentalXArray { get; private set; }
-        public double[] theoreticalYArray { get; private set; }
-        public double[] theoreticalXArray { get; private set; }
+        public SpectralSimilarity(double[] P_XArray, double[] P_YArray, double[] Q_XArray, double[] Q_YArray, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
+        {
+            ExperimentalYArray = Normalize(FilterOutIonsBelowThisMz(P_XArray, P_YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            ExperimentalXArray = FilterOutIonsBelowThisMz(P_XArray, P_YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(Q_XArray, Q_YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            TheoreticalXArray = FilterOutIonsBelowThisMz(Q_XArray, Q_YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            LocalPpmTolerance = toleranceInPpm;
+            _intensityPairs = IntensityPairs(allPeaks);
+        }
+        public double[] ExperimentalYArray { get; private set; }
+        public double[] ExperimentalXArray { get; private set; }
+        public double[] TheoreticalYArray { get; private set; }
+        public double[] TheoreticalXArray { get; private set; }
 
-        private double localPpmTolerance;
+        private SpectrumNormalizationScheme normalizationScheme;
 
-        private List<(double, double)> _intensityPairs = new List<(double, double)>();
+        private double LocalPpmTolerance;
+
+        private readonly List<(double, double)> _intensityPairs = new();
         
         public List<(double, double)> intensityPairs
         { get { return _intensityPairs; } }
 
 
         /// <summary>
-        /// All peaks with mz less than the cutOff will be filtered out. 
-        private List<(double, double)> FilterOutIonsBelowThisMz(double[] spectrumX, double[] spectrumY,double filterOutBelowThisMz)
+        /// All peaks with mz less than the cutOff will be filtered out. default to zero to remove an mz values that are accidentally negative. this is an unexpected error. 
+        private static List<(double, double)> FilterOutIonsBelowThisMz(double[] spectrumX, double[] spectrumY,double filterOutBelowThisMz = 0)
         {
             if (spectrumY.Length == 0)
             {
@@ -57,7 +70,8 @@ namespace MassSpectrometry.MzSpectra
             List<(double, double)> spectrumWithMzCutoff = new List<(double, double)>();
             for (int i = 0; i < spectrumX.Length; i++)
             {
-                if (spectrumX[i] >= filterOutBelowThisMz)
+                //second conditional to avoid getting an accidental negative intensities
+                if (spectrumX[i] >= filterOutBelowThisMz && spectrumY[i] >= 0)
                 {
                     spectrumWithMzCutoff.Add((spectrumX[i], spectrumY[i]));
                 }
@@ -93,28 +107,33 @@ namespace MassSpectrometry.MzSpectra
         /// Experimental spectrum defaults to 200 peaks and is therefore usually longer.
         /// We sort intensities in descending order so that when we make peak pairs, we're choosing pairs with the highest intensity so long as they are with mz range. 
         /// Sometimes you could have two peaks in mz range and I don't think you want to pair the lesser intensity peak first just because it is closer in mass.
+        /// 
+        /// Intensity Pair: (Experimental Intensity , Theoretical Intensity)
+        /// 
         /// </summary>
-        /// <returns></returns>
 
-        private List<(double, double)> IntensityPairs(bool allPeaks)
+        private List<(double, double)> IntensityPairs(bool allPeaks, double[] experimentalYArray = null, double[] theoreticalYArray = null)
         {
+            if (experimentalYArray == null) experimentalYArray = ExperimentalYArray;
+            if (theoreticalYArray == null) theoreticalYArray = TheoreticalYArray;
+
             if (experimentalYArray==null || theoreticalYArray == null)
             {
                 //when all mz of theoretical peaks or experimental peaks are less than mz cut off , it is treated as no corresponding library spectrum is found and later the similarity score will be assigned as null.
                 return new List<(double, double)> { (-1, -1) };
             }
 
-            List<(double, double)> intensityPairs = new List<(double, double)>();
-            List<(double, double)> experimental = new List<(double, double)>();
-            List<(double, double)> theoretical = new List<(double, double)>();
+            List<(double, double)> intensityPairs = new();
+            List<(double, double)> experimental = new();
+            List<(double, double)> theoretical = new();
 
-            for (int i = 0; i < experimentalXArray.Length; i++)
+            for (int i = 0; i < ExperimentalXArray.Length; i++)
             {
-                experimental.Add((experimentalXArray[i], experimentalYArray[i]));
+                experimental.Add((ExperimentalXArray[i], experimentalYArray[i]));
             }
-            for (int i = 0; i < theoreticalXArray.Length; i++)
+            for (int i = 0; i < TheoreticalXArray.Length; i++)
             {
-                theoretical.Add((theoreticalXArray[i], theoreticalYArray[i]));
+                theoretical.Add((TheoreticalXArray[i], theoreticalYArray[i]));
             }
             
             experimental = experimental.OrderByDescending(i => i.Item2).ToList();
@@ -302,12 +321,99 @@ namespace MassSpectrometry.MzSpectra
             return sum;
         }
 
+        // This method should only be used with the SpectrumSum normalization method
+        // This method should only be used when allPeaks is set to true
+        public double? SpectralEntropy()
+        {
+            double theoreticalEntropy = 0;
+            foreach (double intensity in TheoreticalYArray)
+            {
+                theoreticalEntropy += -1 * intensity * Math.Log(intensity);
+            }
+            double experimentalEntropy = 0;
+            foreach (double intensity in ExperimentalYArray)
+            {
+                experimentalEntropy += -1 * intensity * Math.Log(intensity);
+            }
+
+            double combinedEntropy = 0;
+            foreach ( (double,double) intensityPair in _intensityPairs)
+            {
+                double combinedIntensity = intensityPair.Item1 / 2 + intensityPair.Item2 / 2;
+                combinedEntropy += -1* combinedIntensity * Math.Log(combinedIntensity);
+            }
+
+            double similarityScore = 1 - (2 * combinedEntropy - theoreticalEntropy - experimentalEntropy) / Math.Log(4);
+            return similarityScore;
+        }
+
+        /// <summary>
+        /// This is used to calculate the KullbackLeibler divergence between a theoretical and experimental isotopic envelope
+        /// When using, the allPeaks argument in the SpectralSimilarity constructor should be set to "true"
+        /// </summary>
+        /// <param name="correctionConstant"> A constant value added to each intensity pair in order to penalize zero peaks.
+        /// Default is 1e-9 (one OoM smalller than the theoretical isotopic intensity minimum)</param>
+        /// <returns> A nullable double between 0 and positive infinity. More similar envelopes score lower </returns>
+        public double? KullbackLeiblerDivergence_P_Q(double correctionConstant = 1e-9)
+        {
+            // counts the number of zero values. If zeroCount == intensityPairs.Count, then there are no shared peaks
+            int zeroCount = intensityPairs.Count(p => p.Item1 == 0 | p.Item2 == 0);
+            if (zeroCount == intensityPairs.Count) return null;
+            double divergence = 0;
+
+            if (zeroCount == 0) // | correctionConstant == 0)
+            {
+                foreach (var pair in intensityPairs)
+                {
+                    if (pair.Item1 != 0 && pair.Item2 != 0)
+                    {
+                        divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
+                    }
+                }
+            }
+            else
+            {
+                // Add correctionConstant and renormalize
+                // Need to use temp variables to avoid modifiying the Y array fields
+                double[] tempExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                double[] tempTheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                List<(double, double)> correctedIntensityPairs = IntensityPairs(
+                    allPeaks: true,
+                    experimentalYArray: tempExperimentalYArray,
+                    theoreticalYArray: tempTheoreticalYArray);
+
+                foreach (var pair in correctedIntensityPairs)
+                {
+                    if (pair.Item1 != 0 && pair.Item2 != 0)
+                    {
+                        divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
+                    }
+                }
+            }
+
+            return divergence;
+        }
+
+        //This formula created by Brian Searle and reported at ASMS 2022 in poster "Scribe: next generation library searching for DDA experiments"
+        //Please you the square root normalization with this calculation
+        public double? SearleSimilarity()
+        {
+            double squaredSumDifferences = 0;
+
+            //there must be some legitimate pairs to enter this function so no need to test if pairs exist
+            foreach ((double, double) pair in _intensityPairs)
+            {
+                squaredSumDifferences += Math.Pow((pair.Item1 - pair.Item2),2);
+            }
+            return squaredSumDifferences > 0 ? Math.Log(Math.Pow(squaredSumDifferences, -1)) : double.MaxValue;
+        }
+
         #endregion similarityMethods
 
         //use Math.Max() in the denominator for consistancy
         private bool Within(double mz1, double mz2)
         {
-            return ((Math.Abs(mz1 - mz2) / Math.Max(mz1,mz2) * 1000000.0) < localPpmTolerance);
+            return ((Math.Abs(mz1 - mz2) / Math.Max(mz1,mz2) * 1000000.0) < LocalPpmTolerance);
         }
 
         public enum SpectrumNormalizationScheme

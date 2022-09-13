@@ -15,7 +15,6 @@ trypsin	"K|,R|"			full	MS:1001313	Trypsin/P	(?<=[KR])
 tryptophan oxidation	W|			full					
 non-specific	X|			full	MS:1001956	unspecific cleavage			
 top-down				none	MS:1001955	no cleavage			
-top-down biomarker				none	MS:1001955	no cleavage			
 singleN				SingleN	MS:1001957	single cleavage			
 singleC				SingleC	MS:1001958	single cleavage			
 peptidomics				none		no cleavage			
@@ -23,3 +22,4 @@ collagenase	GPX|GPX			full
 StcE-trypsin	"TX|T,TX|S,SX|T,SX|S,K|,R|"			full		StcE/Trpsin			
 CNBr_old	M|			full	MS:1001307	CNBr	(?<=M)		
 CNBr_N	|M			full	MS:1001307	CNBr	(?<=M)	Test on M	
+ProAlanase	"P|,A|"			full					

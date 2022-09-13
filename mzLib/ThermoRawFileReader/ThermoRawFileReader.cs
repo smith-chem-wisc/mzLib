@@ -85,12 +85,10 @@ namespace IO.ThermoRawFileReader
             string sendCheckSum;
             using (FileStream stream = File.OpenRead(filePath))
             {
-                using (SHA1Managed sha = new SHA1Managed())
-                {
-                    byte[] checksum = sha.ComputeHash(stream);
-                    sendCheckSum = BitConverter.ToString(checksum)
-                        .Replace("-", string.Empty);
-                }
+                SHA1 sha = SHA1.Create();
+                byte[] checksum = sha.ComputeHash(stream);
+                sendCheckSum = BitConverter.ToString(checksum)
+                    .Replace("-", string.Empty);
             }
 
             SourceFile sourceFile = new SourceFile(
@@ -121,7 +119,7 @@ namespace IO.ThermoRawFileReader
             var scanStats = rawFile.GetScanStatsForScanNumber(scanNumber);
             double scanRangeHigh = scanStats.HighMass;
             double scanRangeLow = scanStats.LowMass;
-            MzRange scanWindowRange = new MzRange(scanRangeLow, scanRangeHigh);
+            MzRange scanWindowRange = new(scanRangeLow, scanRangeHigh);
 
             double? ionInjectionTime = null;
             double? precursorSelectedMonoisotopicIonMz = null;
