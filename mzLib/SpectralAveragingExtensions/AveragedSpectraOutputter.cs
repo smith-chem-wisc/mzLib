@@ -27,7 +27,7 @@ namespace SpectralAveragingExtensions
                     OutputAveragedSpectraAsTxtFile(averagedScans, options, spectraPath);
                     break;
 
-                default: throw new NotImplementedException("Output type not implemented");
+                default: throw new MzLibException("Output averaged scans type not implemented");
             }
 
         }
@@ -44,7 +44,7 @@ namespace SpectralAveragingExtensions
             SourceFile sourceFile = SpectraFileHandler.GetSourceFile(spectraPath);
             MsDataFile msDataFile = new(averagedScans, sourceFile);
             string averagedPath = Path.Combine(spectraDirectory,
-                "Averaged_" + Path.GetFileNameWithoutExtension(spectraPath) + ".mzML");
+                "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(spectraPath) + ".mzML");
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, averagedPath, true);
         }
@@ -60,14 +60,17 @@ namespace SpectralAveragingExtensions
                     Directory.CreateDirectory(spectraDirectory);
             }
 
+            
             string averagedPath = Path.Combine(spectraDirectory,
-                "Averaged_" + Path.GetFileNameWithoutExtension(spectraPath)  + ".txt");
+                "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(spectraPath)  + ".txt");
 
             foreach (var scan in averagedScans)
             {
                 if (options.SpectraFileProcessingType != SpectraFileProcessingType.AverageAll)
                     averagedPath = Path.Combine(spectraDirectory,
-                        "Averaged_" + Path.GetFileNameWithoutExtension(spectraPath) + "_" + scan.OneBasedScanNumber + ".txt");
+                        "Averaged_" +
+                        PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(spectraPath) +
+                        "_" + scan.OneBasedScanNumber + ".txt");
                 using StreamWriter writer = new StreamWriter(File.Create(averagedPath));
 
                 for (int i = 0; i < scan.MassSpectrum.XArray.Length; i++)

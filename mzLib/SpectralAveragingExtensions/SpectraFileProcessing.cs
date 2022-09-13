@@ -1,5 +1,6 @@
 ﻿using MassSpectrometry;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
 using SpectralAveraging;
 
 namespace SpectralAveragingExtensions
@@ -30,7 +31,7 @@ namespace SpectralAveragingExtensions
                 case SpectraFileProcessingType.AverageDDAScansWithOverlap:
                     return AverageDDAScans(scans, options);
 
-                default: throw new ArgumentOutOfRangeException(nameof(options));
+                default: throw new MzLibException("Averaging spectra file processing type not yet implemented");
             }
         }
 
