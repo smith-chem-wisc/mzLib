@@ -12,7 +12,7 @@
   
   <ItemGroup>
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
-    <PackageReference Include="NetSerializer" Version="4.1.2" />
+    <PackageReference Include="NetSerializer" Version="4.1.1" />
     <PackageReference Include="SharpLearning.Optimization" Version="[0.28.0]" />
   </ItemGroup>
 
