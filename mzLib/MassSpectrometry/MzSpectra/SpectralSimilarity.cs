@@ -112,7 +112,6 @@ namespace MassSpectrometry.MzSpectra
         /// 
         /// </summary>
 
-
         private List<(double, double)> IntensityPairs(bool allPeaks)
         {
             if (ExperimentalYArray==null || TheoreticalYArray == null)
