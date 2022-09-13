@@ -44,9 +44,9 @@ namespace MassSpectrometry.MzSpectra
         public double[] TheoreticalYArray { get; private set; }
         public double[] TheoreticalXArray { get; private set; }
 
-        private SpectrumNormalizationScheme normalizationScheme;
+        private readonly SpectrumNormalizationScheme normalizationScheme;
 
-        private double LocalPpmTolerance;
+        private readonly double LocalPpmTolerance;
 
         private readonly List<(double, double)> _intensityPairs = new();
         
@@ -115,8 +115,8 @@ namespace MassSpectrometry.MzSpectra
 
         private List<(double, double)> IntensityPairs(bool allPeaks, double[] experimentalYArray = null, double[] theoreticalYArray = null)
         {
-            if (experimentalYArray == null) experimentalYArray = ExperimentalYArray;
-            if (theoreticalYArray == null) theoreticalYArray = TheoreticalYArray;
+            experimentalYArray ??= ExperimentalYArray;
+            theoreticalYArray ??= TheoreticalYArray;
 
             if (experimentalYArray==null || theoreticalYArray == null)
             {
