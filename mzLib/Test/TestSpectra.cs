@@ -315,14 +315,23 @@ namespace Test
         }
 
         [Test]
-        public void TestEquals()
+        public void TestEqualsAndHashCode()
         {
+            // identical spectra, x and y arrays deep copied
             MzSpectrum identicalSpectrum = new(_mzSpectrumA.XArray, _mzSpectrumA.YArray, true);
+            Assert.AreEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
             Assert.IsTrue(identicalSpectrum.Equals(_mzSpectrumA));
+
+            // changed x value
             identicalSpectrum.XArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
+            identicalSpectrum.XArray[1] -= 10;
+
+            // changed y value
             identicalSpectrum.YArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
         }
     }
 }
