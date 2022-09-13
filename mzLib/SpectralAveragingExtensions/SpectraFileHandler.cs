@@ -1,6 +1,7 @@
 ﻿using IO.MzML;
 using IO.ThermoRawFileReader;
 using MassSpectrometry;
+using MzLibUtil;
 
 namespace SpectralAveragingExtensions
 {
@@ -28,7 +29,7 @@ namespace SpectralAveragingExtensions
             }
             else
             {
-                throw new ArgumentException("Cannot load spectra");
+                throw new MzLibException("Cannot load spectra");
             }
             return scans;
         }
@@ -52,7 +53,7 @@ namespace SpectralAveragingExtensions
             }
             else
             {
-                throw new ArgumentException("Cannot access SourceFile");
+                throw new MzLibException("Cannot access SourceFile");
             }
         }
     }

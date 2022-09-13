@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using SpectralAveraging;
 using SpectralAveragingExtensions;
@@ -425,7 +426,7 @@ namespace Test
             {
                 SpectraFileHandler.LoadAllScansFromFile(badPath);
             }
-            catch (ArgumentException e)
+            catch (MzLibException e)
             {
                 Assert.That(e.Message == "Cannot load spectra");
             }
@@ -438,7 +439,7 @@ namespace Test
             {
                 SpectraFileHandler.GetSourceFile(badPath);
             }
-            catch (ArgumentException e)
+            catch (MzLibException e)
             {
                 Assert.That(e.Message == "Cannot access SourceFile");
             }
