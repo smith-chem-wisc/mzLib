@@ -112,10 +112,12 @@ namespace MassSpectrometry.MzSpectra
         /// 
         /// </summary>
 
-
-        private List<(double, double)> IntensityPairs(bool allPeaks)
+        private List<(double, double)> IntensityPairs(bool allPeaks, double[] experimentalYArray = null, double[] theoreticalYArray = null)
         {
-            if (ExperimentalYArray==null || TheoreticalYArray == null)
+            if (experimentalYArray == null) experimentalYArray = ExperimentalYArray;
+            if (theoreticalYArray == null) theoreticalYArray = TheoreticalYArray;
+
+            if (experimentalYArray==null || theoreticalYArray == null)
             {
                 //when all mz of theoretical peaks or experimental peaks are less than mz cut off , it is treated as no corresponding library spectrum is found and later the similarity score will be assigned as null.
                 return new List<(double, double)> { (-1, -1) };
@@ -127,11 +129,11 @@ namespace MassSpectrometry.MzSpectra
 
             for (int i = 0; i < ExperimentalXArray.Length; i++)
             {
-                experimental.Add((ExperimentalXArray[i], ExperimentalYArray[i]));
+                experimental.Add((ExperimentalXArray[i], experimentalYArray[i]));
             }
             for (int i = 0; i < TheoreticalXArray.Length; i++)
             {
-                theoretical.Add((TheoreticalXArray[i], TheoreticalYArray[i]));
+                theoretical.Add((TheoreticalXArray[i], theoreticalYArray[i]));
             }
             
             experimental = experimental.OrderByDescending(i => i.Item2).ToList();
@@ -344,18 +346,51 @@ namespace MassSpectrometry.MzSpectra
             double similarityScore = 1 - (2 * combinedEntropy - theoreticalEntropy - experimentalEntropy) / Math.Log(4);
             return similarityScore;
         }
-      
-        
-        public double? KullbackLeiblerDivergence_P_Q()
+
+        /// <summary>
+        /// This is used to calculate the KullbackLeibler divergence between a theoretical and experimental isotopic envelope
+        /// When using, the allPeaks argument in the SpectralSimilarity constructor should be set to "true"
+        /// </summary>
+        /// <param name="correctionConstant"> A constant value added to each intensity pair in order to penalize zero peaks.
+        /// Default is 1e-9 (one OoM smalller than the theoretical isotopic intensity minimum)</param>
+        /// <returns> A nullable double between 0 and positive infinity. More similar envelopes score lower </returns>
+        public double? KullbackLeiblerDivergence_P_Q(double correctionConstant = 1e-9)
         {
+            // counts the number of zero values. If zeroCount == intensityPairs.Count, then there are no shared peaks
+            int zeroCount = intensityPairs.Count(p => p.Item1 == 0 | p.Item2 == 0);
+            if (zeroCount == intensityPairs.Count) return null;
             double divergence = 0;
-            foreach (var pair in intensityPairs)
+
+            if (zeroCount == 0) // | correctionConstant == 0)
             {
-                if(pair.Item1 != 0 && pair.Item2 != 0)
+                foreach (var pair in intensityPairs)
                 {
-                    divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
-                } 
+                    if (pair.Item1 != 0 && pair.Item2 != 0)
+                    {
+                        divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
+                    }
+                }
             }
+            else
+            {
+                // Add correctionConstant and renormalize
+                // Need to use temp variables to avoid modifiying the Y array fields
+                double[] tempExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                double[] tempTheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                List<(double, double)> correctedIntensityPairs = IntensityPairs(
+                    allPeaks: true,
+                    experimentalYArray: tempExperimentalYArray,
+                    theoreticalYArray: tempTheoreticalYArray);
+
+                foreach (var pair in correctedIntensityPairs)
+                {
+                    if (pair.Item1 != 0 && pair.Item2 != 0)
+                    {
+                        divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
+                    }
+                }
+            }
+
             return divergence;
         }
 
