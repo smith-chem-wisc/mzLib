@@ -19,16 +19,34 @@ using UsefulProteomicsDatabases;
 
 namespace Readers
 {
-    public class ThermoRawFileReader : MsDataFile
+    /// <summary>
+    ///
+    /// </summary>
+    // I think that ThermoRawFileReader should be used to store the data from the files, 
+    // but the actual implementation details should be completely hidden. 
+    public class ThermoRawFileReader : IDataReader
     {
-        protected ThermoRawFileReader(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        public MsDataScan[] Scans { get; }
+        public SourceFile SourceFile { get; }
+
+        public List<MsDataScan> LoadAllScansFromFile(string filepath, IFilteringParams filteringParams, int maxThreads = -1)
         {
+            return ThermoReaderMethods.LoadAllStaticData(filepath, filteringParams, maxThreads).ToList(); 
         }
 
+        public SourceFile GetSourceFile(string filepath)
+        {
+            return ThermoReaderMethods.GetSourceFile(filepath); 
+        }
+    }
+    public class ThermoReaderMethods 
+    {
         /// <summary>
         /// Loads all scan data from a Thermo .raw file.
         /// </summary>
-        public static ThermoRawFileReader LoadAllStaticData(string filePath, IFilteringParams filterParams = null, int maxThreads = -1)
+        public static MsDataScan[]? LoadAllStaticData(string filePath, 
+            IFilteringParams filterParams = null, 
+            int maxThreads = -1)
         {
             if (!File.Exists(filePath))
             {
@@ -81,7 +99,11 @@ namespace Readers
             });
 
             rawFileAccessor.Dispose();
+            return msDataScans;
+        }
 
+        public static SourceFile GetSourceFile(string filePath)
+        {
             string sendCheckSum;
             using (FileStream stream = File.OpenRead(filePath))
             {
@@ -98,8 +120,7 @@ namespace Readers
                 @"SHA-1",
                 filePath,
                 Path.GetFileNameWithoutExtension(filePath));
-
-            return new ThermoRawFileReader(msDataScans, sourceFile);
+            return sourceFile;
         }
 
         public static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
