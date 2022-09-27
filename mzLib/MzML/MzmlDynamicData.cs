@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using UsefulProteomicsDatabases;
 
-namespace IO.MzML
+namespace Readers
 {
     public class MzmlDynamicData : DynamicDataConnection
     {
