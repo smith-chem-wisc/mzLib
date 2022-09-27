@@ -10,7 +10,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
 
-namespace IO.MzML
+namespace Readers
 {
     public static class MzmlMethods
     {

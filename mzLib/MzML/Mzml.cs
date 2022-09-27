@@ -30,7 +30,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 
-namespace IO.MzML
+namespace Readers
 {
     public class Mzml : MsDataFile
     {

@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
 
-namespace IO.Mgf
+namespace Readers
 {
     public class Mgf : MsDataFile
     {
