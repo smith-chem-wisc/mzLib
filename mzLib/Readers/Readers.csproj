@@ -7,8 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="OpenMcdf" Version="2.2.1.12" />
-    <PackageReference Include="OpenMcdf.Extensions" Version="2.2.1.4" />
     <PackageReference Include="System.Data.SQLite" Version="1.0.116" />
   </ItemGroup>
 
@@ -31,31 +29,6 @@
     <Reference Include="ThermoFisher.CommonCore.RawFileReader">
       <HintPath>dll\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
     </Reference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="baf2sql_c.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="baf2sql_c.lib">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ThermoFisher.CommonCore.BackgroundSubtraction.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ThermoFisher.CommonCore.Data.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ThermoFisher.CommonCore.RawFileReader.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="SummedMsDataFile.cs" />
   </ItemGroup>
 
 </Project>

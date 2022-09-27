@@ -19,36 +19,18 @@ using UsefulProteomicsDatabases;
 
 namespace Readers
 {
-    /// <summary>
-    ///
-    /// </summary>
-    // I think that ThermoRawFileReader should be used to store the data from the files, 
-    // but the actual implementation details should be completely hidden. 
     public class ThermoRawFileReader : MsDataFile
     {
-        public ThermoRawFileReader(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
+        protected ThermoRawFileReader(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
-            Scans = new MsDataScan[numSpectra];
-            SourceFile = sourceFile;
-        }
-        public ThermoRawFileReader(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
-        {
-            Scans = scans;
-            SourceFile = sourceFile;
         }
 
-        public ThermoRawFileReader()
+        /// <summary>
+        /// Loads all scan data from a Thermo .raw file.
+        /// </summary>
+        public static ThermoRawFileReader LoadAllStaticData(string filePath, IFilteringParams filterParams = null, int maxThreads = -1)
         {
-
-        }
-
-        public ThermoRawFileReader(string path) : base(path)
-        {
-
-        }
-        public override void LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
-        {
-            if (!File.Exists(FilePath))
+            if (!File.Exists(filePath))
             {
                 throw new FileNotFoundException();
             }
@@ -56,9 +38,9 @@ namespace Readers
             Loaders.LoadElements();
 
             // I don't know why this line needs to be here, but it does...
-            var temp = RawFileReaderAdapter.FileFactory(FilePath);
+            var temp = RawFileReaderAdapter.FileFactory(filePath);
 
-            var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath);
+            var threadManager = RawFileReaderFactory.CreateThreadManager(filePath);
             var rawFileAccessor = threadManager.CreateThreadAccessor();
 
             if (!rawFileAccessor.IsOpen)
@@ -88,7 +70,7 @@ namespace Readers
                 {
                     try
                     {
-                        var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
+                        var scan = GetOneBasedScan(myThreadDataReader, filterParams, s + 1);
                         msDataScans[s] = scan;
                     }
                     catch (Exception ex)
@@ -99,14 +81,9 @@ namespace Readers
             });
 
             rawFileAccessor.Dispose();
-            Scans = msDataScans;
-            SourceFile = GetSourceFile();
-        }
 
-        public override SourceFile GetSourceFile()
-        {
             string sendCheckSum;
-            using (FileStream stream = File.OpenRead(FilePath))
+            using (FileStream stream = File.OpenRead(filePath))
             {
                 SHA1 sha = SHA1.Create();
                 byte[] checksum = sha.ComputeHash(stream);
@@ -119,11 +96,13 @@ namespace Readers
                 @"Thermo RAW format",
                 sendCheckSum,
                 @"SHA-1",
-                FilePath,
-                Path.GetFileNameWithoutExtension(FilePath));
-            return sourceFile;
+                filePath,
+                Path.GetFileNameWithoutExtension(filePath));
+
+            return new ThermoRawFileReader(msDataScans, sourceFile);
         }
-        private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
+
+        public static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
         {
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
 
@@ -355,8 +334,7 @@ namespace Readers
                 double scanRangeHigh = scanStats.HighMass;
                 double scanRangeLow = scanStats.LowMass;
 
-                WindowModeHelper.Run(ref intensityArray, ref mzArray, filterParams,
-                    scanRangeLow, scanRangeHigh);
+                WindowModeHelper(ref intensityArray, ref mzArray, filterParams, scanRangeLow, scanRangeHigh);
 
                 Array.Sort(mzArray, intensityArray);
                 spectrum = new MzSpectrum(mzArray, intensityArray, false);
@@ -408,114 +386,6 @@ namespace Readers
 
                 default: return DissociationType.Unknown;
             }
-        }
-
-
-        private IRawDataPlus dynamicConnection;
-        private int[] MsOrdersByScan;
-
-        /// <summary>
-        /// Gets all the MS orders of all scans in a dynamic connection. This is useful if you want to open all MS1 scans
-        /// without loading all of the other MSn scans.
-        /// </summary>
-        private int[] GetMsOrdersByScanInDynamicConnection()
-        {
-            if (dynamicConnection != null)
-            {
-                int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
-                var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
-
-                int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
-
-                return msorders;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Initiates a dynamic connection with a Thermo .raw file. Data can be "streamed" instead of loaded all at once. Use 
-        /// GetOneBasedScanFromDynamicConnection to get data from a particular scan. Use CloseDynamicConnection to close the 
-        /// dynamic connection after all desired data has been retrieved from the dynamic connection.
-        /// </summary>
-        public override void InitiateDynamicConnection()
-        {
-            if (!File.Exists(FilePath))
-            {
-                throw new FileNotFoundException();
-            }
-
-            Loaders.LoadElements();
-
-            if (dynamicConnection != null)
-            {
-                dynamicConnection.Dispose();
-            }
-
-            dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
-
-            if (!dynamicConnection.IsOpen)
-            {
-                throw new MzLibException("Unable to access RAW file!");
-            }
-
-            if (dynamicConnection.IsError)
-            {
-                throw new MzLibException("Error opening RAW file!");
-            }
-
-            if (dynamicConnection.InAcquisition)
-            {
-                throw new MzLibException("RAW file still being acquired!");
-            }
-
-            dynamicConnection.SelectInstrument(Device.MS, 1);
-            GetMsOrdersByScanInDynamicConnection();
-        }
-
-        /// <summary>
-        /// Allows access to a .raw file one scan at a time via an open dynamic connection. Returns null if the raw file does not contain the 
-        /// scan number specified. Use InitiateDynamicConnection to open a dynamic connection before using this method.
-        /// </summary>
-        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
-        {
-            if (dynamicConnection == null)
-            {
-                throw new MzLibException("The dynamic connection has not been created yet!");
-            }
-
-            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
-            {
-                return null;
-            }
-
-            return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
-        }
-
-        /// <summary>
-        /// Disposes of the dynamic connection, if one is open.
-        /// </summary>
-        public override void CloseDynamicConnection()
-        {
-            if (dynamicConnection != null)
-            {
-                dynamicConnection.Dispose();
-            }
-        }
-
-        public override int[] GetMsOrderByScanInDynamicConnection()
-        {
-            if (dynamicConnection != null)
-            {
-                int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
-                var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
-
-                int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
-
-                return msorders;
-            }
-
-            return null;
         }
     }
 }
