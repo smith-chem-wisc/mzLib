@@ -161,6 +161,30 @@ namespace Test
         }
 
         [Test]
+        public void TestPsiModLoading()
+        {
+            Loaders.LoadElements();
+            string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+
+            var psiMods = Loaders.ReadPsiModFile(psiModPath);
+
+            // N6,N6,N6-trimethyllysine
+            var trimethylLysine = psiMods.First(b => b.Id.Equals("MOD:00083"));
+            Assert.AreEqual("1+", 
+                trimethylLysine.ValuePairs
+                    .First(b => b.Value.Contains("FormalCharge")).GetFormalChargeString());
+
+            // Phosphoserine
+            bool resultBool = psiMods.First(b => b.Id.Equals("MOD:00046"))
+                .ValuePairs.Any(i => i.Value.Contains("FormalCharge")); 
+            Assert.IsFalse(resultBool);
+
+            // ensure that there are negative numbers in the formal charges
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiMods);
+            bool anyNegativeValue = formalChargesDictionary.Values.Any(i => i < 0); 
+            Assert.IsTrue(anyNegativeValue);
+        }
+        [Test]
         public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
         {
             Loaders.LoadElements();
