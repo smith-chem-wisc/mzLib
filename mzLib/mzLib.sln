@@ -35,6 +35,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFlashLFQ", "TestFlashLF
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SpectralAveraging", "SpectralAveraging\SpectralAveraging.csproj", "{891888CA-E5CC-4168-B6F2-2B2CED74EA37}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BrukerFileReader", "BrukerFileReader\BrukerFileReader.csproj", "{06D9E756-FCE7-49D9-9C62-9E6EFAC1C1F8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Readers", "Readers\Readers.csproj", "{E27A5C14-0C05-466A-91CE-ABB5151A69C4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64

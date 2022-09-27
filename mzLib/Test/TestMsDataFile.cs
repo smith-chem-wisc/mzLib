@@ -17,7 +17,7 @@
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using IO.MzML;
+using Readers;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;

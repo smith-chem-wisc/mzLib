@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using UsefulProteomicsDatabases;
 
-namespace IO.Mgf
+namespace Readers
 {
     public class MgfDynamicData : DynamicDataConnection
     {

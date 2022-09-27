@@ -1,4 +1,4 @@
-﻿using IO.Mgf;
+﻿using Readers;
 using NUnit.Framework;
 using System;
 using System.IO;
