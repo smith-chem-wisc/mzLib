@@ -644,15 +644,15 @@ namespace Test
 
             var peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup>());
             var peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
-            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\t\t\t\t0\tNotDetected\t");
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\t\t\t\t0\tNotDetected");
 
             peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup });
             peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
-            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession\tGene\tOrganism\t0\tNotDetected\t");
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession\tGene\tOrganism\t0\tNotDetected");
 
             peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup, new ProteinGroup("Accession2", "Gene2", "Organism2") });
             peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
-            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession;Accession2\tGene;Gene2\tOrganism;Organism2\t0\tNotDetected\t");
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession;Accession2\tGene;Gene2\tOrganism;Organism2\t0\tNotDetected");
         }
 
         [Test]
