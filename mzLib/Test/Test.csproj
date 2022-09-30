@@ -25,14 +25,12 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
-    <ProjectReference Include="..\Mgf\Mgf.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
-    <ProjectReference Include="..\MzML\MzML.csproj" />
     <ProjectReference Include="..\mzPlot\mzPlot.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
+    <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\SpectralAveragingExtensions\SpectralAveragingExtensions.csproj" />
-    <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
 

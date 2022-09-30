@@ -12,8 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
-    <ProjectReference Include="..\MzML\MzML.csproj" />
-    <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
   </ItemGroup>
 
 </Project>
