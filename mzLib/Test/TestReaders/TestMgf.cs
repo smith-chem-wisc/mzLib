@@ -5,8 +5,10 @@ using System.IO;
 using MassSpectrometry;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using MzLibUtil;
 using System.Linq;
+using MsDataFile = Readers.MsDataFile;
 
 namespace Test
 {
@@ -32,17 +34,25 @@ namespace Test
         [Test]
         public static void TestLoadMgf()
         {
-            try
-            {
-                Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf"));
-                Assert.IsTrue(false);
-            }
-            catch
-            {
-                //woohoo, there was an exception!
-            }
-            Mgf a = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
-            var ya = a.GetOneBasedScan(14);
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf"); 
+            //try
+            //{
+            //    Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf"));
+            //    Assert.IsTrue(false);
+            //}
+            //catch
+            //{
+            //    //woohoo, there was an exception!
+            //}
+            //Mgf a = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+
+
+            // new way 
+            var dataReader = ReaderCreator.CreateReader(path);
+            dataReader.LoadAllStaticData();
+            var ya = dataReader.GetOneBasedScan(14); 
+
             Assert.AreEqual(192, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
             Assert.AreEqual(14, ya.OneBasedScanNumber);
@@ -55,19 +65,21 @@ namespace Test
             Assert.AreEqual(1294963.5999999996, ya.TotalIonCurrent);
             Assert.AreEqual(110.0719, ya.ScanWindowRange.Minimum);
             Assert.AreEqual(1038.8018, ya.ScanWindowRange.Maximum);
-            var ya2 = a.GetOneBasedScan(20).MassSpectrum;
+            var ya2 = dataReader.GetOneBasedScan(20).MassSpectrum;
             Assert.AreEqual(165, ya2.Size);
-            var ya3 = a.GetOneBasedScan(2).MassSpectrum;
+            var ya3 = dataReader.GetOneBasedScan(2).MassSpectrum;
             Assert.AreEqual(551, ya3.Size);
         }
 
         [Test]
         public static void TestLoadMgfTabSeparated()
         {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "Tab_separated_peak_list.mgf");
+            var dataReader = ReaderCreator.CreateReader(path); 
+            dataReader.LoadAllStaticData();
+            
+            var ya = dataReader.GetOneBasedScan(14);
 
-            Mgf a = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "Tab_separated_peak_list.mgf"));
-
-            var ya = a.GetOneBasedScan(2);
             Assert.AreEqual(19, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
             Assert.AreEqual(2, ya.OneBasedScanNumber);
@@ -87,19 +99,20 @@ namespace Test
         {
 
             //read the mgf file. zero intensity peaks should be eliminated during read
-            Mgf readfile = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf"));
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf");
 
+            var reader = ReaderCreator.CreateReader(path); 
+            reader.LoadAllStaticData();
             //insure that read scans contain no zero intensity peaks
-            Assert.IsFalse(readfile.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
-            Assert.IsFalse(readfile.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
+            Assert.IsFalse(reader.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
+            Assert.IsFalse(reader.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
 
-            MgfDynamicData dynamicMgf = new MgfDynamicData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf"));
-            MsDataScan dynamicScan1 = dynamicMgf.GetOneBasedScanFromDynamicConnection(1);
-            MsDataScan dynamicScan2 = dynamicMgf.GetOneBasedScanFromDynamicConnection(2);
-
+            reader.InitiateDynamicConnection();
+            MsDataScan dynamicScan1 = reader.GetOneBasedScanFromDynamicConnection(1);
+            MsDataScan dynamicScan2 = reader.GetOneBasedScanFromDynamicConnection(2);
             Assert.IsFalse(dynamicScan1.MassSpectrum.YArray.Contains(0));
             Assert.IsFalse(dynamicScan2.MassSpectrum.YArray.Contains(0));
-
+            reader.CloseDynamicConnection();
         }
 
 
@@ -107,8 +120,11 @@ namespace Test
         public static void TestLoadCorruptMgf()
         {
             //tester_corrupt.mgf is extracted from tester.mgf except it contains empty lines or unknow words. You can compare the two files and find the differences.
-            Mgf a = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester_corrupt.mgf"));
-            var ya = a.GetOneBasedScan(14);
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester_corrupt.mgf"); 
+            var reader = ReaderCreator.CreateReader(path);
+            reader.LoadAllStaticData();
+            var ya = reader.GetOneBasedScan(14); 
+
             Assert.AreEqual(192, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
             Assert.AreEqual(14, ya.OneBasedScanNumber);
@@ -131,12 +147,13 @@ namespace Test
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-            Mgf staticMgf = Mgf.LoadAllStaticData(filePath);
-            MgfDynamicData dynamicMgf = new MgfDynamicData(filePath);
+            var reader = ReaderCreator.CreateReader(filePath); 
+            reader.LoadAllStaticData();
+            reader.InitiateDynamicConnection();
 
-            foreach (MsDataScan staticScan in staticMgf.GetAllScansList())
+            foreach (MsDataScan staticScan in reader.GetAllScansList())
             {
-                MsDataScan dynamicScan = dynamicMgf.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan = reader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
 
                 Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
                 Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);

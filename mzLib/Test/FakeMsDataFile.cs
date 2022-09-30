@@ -15,11 +15,13 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using MassSpectrometry;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using MassSpectrometry;
+using MsDataFile = Readers.MsDataFile;
+using SourceFile = Readers.SourceFile;
 
 namespace Test
 {
@@ -31,7 +33,7 @@ namespace Test
             this.Scans = FakeScans;
         }
 
-        public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
+        public int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             int ok = Array.BinarySearch(Scans.Select(b => b.RetentionTime).ToArray(), retentionTime);
             if (ok < 0)
@@ -39,12 +41,37 @@ namespace Test
             return ok + 1;
         }
 
-        public override IEnumerable<MsDataScan> GetMS1Scans()
+        public override void LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
             throw new NotImplementedException();
         }
 
-        public override MsDataScan GetOneBasedScan(int scanNumber)
+        public override SourceFile GetSourceFile()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void CloseDynamicConnection()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void InitiateDynamicConnection()
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<MsDataScan> GetMS1Scans()
+        {
+            throw new NotImplementedException();
+        }
+
+        public MsDataScan GetOneBasedScan(int scanNumber)
         {
             return Scans[scanNumber - 1];
         }
