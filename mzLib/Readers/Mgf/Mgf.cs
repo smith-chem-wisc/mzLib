@@ -5,26 +5,35 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UsefulProteomicsDatabases;
 
 namespace Readers
 {
     public class Mgf : MsDataFile
     {
-        private MsDataScan[] indexedScans;
-
-        private Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        public Mgf(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
         {
-            indexedScans = new MsDataScan[scans[scans.Length - 1].OneBasedScanNumber];
-            foreach (MsDataScan scan in scans)
-            {
-                indexedScans[scan.OneBasedScanNumber - 1] = scan;
-            }
+            Scans = new MsDataScan[numSpectra];
+            SourceFile = sourceFile;
+        }
+        public Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        {
+            Scans = scans;
+            SourceFile = sourceFile;
+        }
+        public Mgf()
+        {
+
         }
 
-        public static Mgf LoadAllStaticData(string filePath, FilteringParams filterParams = null)
+        public Mgf(string filePath) : base(filePath)
         {
-            if (!File.Exists(filePath))
+
+        }
+        public override void LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
+        {
+            if (!File.Exists(FilePath))
             {
                 throw new FileNotFoundException();
             }
@@ -34,7 +43,7 @@ namespace Readers
             List<MsDataScan> scans = new List<MsDataScan>();
             HashSet<int> checkForDuplicateScans = new HashSet<int>();
 
-            using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (FileStream fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 using (BufferedStream bs = new BufferedStream(fs))
                 {
@@ -55,18 +64,61 @@ namespace Readers
                     }
                 }
             }
-
-            SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);
-
-            return new Mgf(scans.OrderBy(x => x.OneBasedScanNumber).ToArray(), sourceFile);
+            SourceFile = GetSourceFile(); 
+            Scans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
         }
-
-        public override MsDataScan GetOneBasedScan(int scanNumber)
+        public override SourceFile GetSourceFile()
         {
-            return indexedScans[scanNumber - 1];
+            return new SourceFile("no nativeID format", "mgf format", null, null, null);
+        }
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
+        {
+            if (_streamReader == null)
+            {
+                throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
+            }
+
+            if (_scanByteOffset.TryGetValue(scanNumber, out long byteOffset))
+            {
+                // seek to the byte of the scan
+                _streamReader.BaseStream.Position = byteOffset;
+                _streamReader.DiscardBufferedData();
+
+                return Mgf.GetNextMsDataOneBasedScanFromConnection(_streamReader, new HashSet<int>(), filterParams, scanNumber);
+            }
+            else
+            {
+                throw new MzLibException("The specified scan number: " + scanNumber + " does not exist in " + FilePath);
+            }
         }
 
-        public static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
+        public override void CloseDynamicConnection()
+        {
+            if (_streamReader != null)
+            {
+                _streamReader.Dispose();
+            }
+        }
+
+        public override void InitiateDynamicConnection()
+        {
+            if (!File.Exists(FilePath))
+            {
+                throw new FileNotFoundException();
+            }
+
+            if (Path.GetExtension(FilePath).ToUpper() != ".MGF")
+            {
+                throw new InvalidDataException();
+            }
+
+            Loaders.LoadElements();
+            _streamReader = new StreamReader(FilePath);
+
+            BuildIndex();
+        }
+
+        private static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {
             List<double> mzs = new List<double>();
@@ -146,7 +198,8 @@ namespace Readers
             // peak filtering
             if (filterParams != null && intensityArray.Length > 0 && filterParams.ApplyTrimmingToMsMs)
             {
-                MsDataFile.WindowModeHelper(ref intensityArray, ref mzArray, filterParams, scanRange.Minimum, scanRange.Maximum);
+                MsDataFileHelpers.WindowModeHelper(ref intensityArray, ref mzArray, 
+                    filterParams, scanRange.Minimum, scanRange.Maximum);
             }
 
             MzSpectrum spectrum = new MzSpectrum(mzArray, intensityArray, false);
@@ -158,10 +211,12 @@ namespace Readers
 
             scanNumbersAlreadyObserved.Add(scanNumber);
 
-            return new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative,
+            return new MsDataScan(spectrum, scanNumber, 2, true,
+                charge > 0 ? Polarity.Positive : Polarity.Negative,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                intensities.Sum(), 0, null, null, precursorMz, charge, null, precursorMz, null,
-                DissociationType.Unknown, null, precursorMz);
+                intensities.Sum(), 0, null, null, precursorMz, charge, 
+                null, precursorMz, null,  DissociationType.Unknown, 
+                null, precursorMz);
         }
 
         private static void ParsePeakLine(string line, List<double> mzs, List<double> intensities)
@@ -170,6 +225,56 @@ namespace Readers
 
             mzs.Add(Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture));
             intensities.Add(Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture));
+        }
+
+
+        private StreamReader _streamReader;
+        private Dictionary<int, long> _scanByteOffset; 
+        private static Regex _scanNumberparser = new Regex(@"(^|\s)SCANS=(.*?)($|\D)");
+
+        private void BuildIndex()
+        {
+            _scanByteOffset = new Dictionary<int, long>();
+            int oneBasedScanNumber = 0;
+            long currentPositionByteOffset = 0;
+            long oneBasedScanByteOffset = 0;
+            bool scanHasAScanNumber = false;
+
+            while (_streamReader.Peek() > 0)
+            {
+                currentPositionByteOffset = TextFileReading.GetByteOffsetAtCurrentPosition(_streamReader);
+
+                string line = _streamReader.ReadLine();
+
+                if (line.StartsWith("BEGIN IONS", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    oneBasedScanByteOffset = currentPositionByteOffset;
+                    scanHasAScanNumber = false;
+                }
+                else if (line.StartsWith("SCANS=", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    scanHasAScanNumber = true;
+
+                    Match result = _scanNumberparser.Match(line);
+                    var scanString = result.Groups[2].Value;
+                    oneBasedScanNumber = int.Parse(scanString);
+                }
+                else if (line.StartsWith("END IONS", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    if (!scanHasAScanNumber)
+                    {
+                        oneBasedScanNumber++;
+                    }
+
+                    if (_scanByteOffset.ContainsKey(oneBasedScanNumber))
+                    {
+                        throw new MzLibException("Scan number " + oneBasedScanNumber.ToString() +
+                                                 " appeared multiple times in " + FilePath + ", which is not allowed because we assume all scan numbers are unique.");
+                    }
+
+                    _scanByteOffset.Add(oneBasedScanNumber, oneBasedScanByteOffset);
+                }
+            }
         }
     }
 }

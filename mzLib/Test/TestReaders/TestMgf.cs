@@ -32,35 +32,26 @@ namespace Test
         }
 
         [Test]
-        public void TestMgfConstructors()
-        {
-            var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
-            reader.LoadAllStaticData();
-
-            Mgf reader1 = new Mgf();
-            Mgf reader2 = new Mgf(5, reader.SourceFile);
-            Mgf reader3 = new Mgf(reader.SourceFile.FileName);
-            Mgf reader4 = new Mgf(reader.Scans, reader.SourceFile);
-        }
-        [Test]
         public static void TestLoadMgf()
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
-                "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf");
-            var reader = ReaderCreator.CreateReader(path); 
+                "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf"); 
+            //try
+            //{
+            //    Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf"));
+            //    Assert.IsTrue(false);
+            //}
+            //catch
+            //{
+            //    //woohoo, there was an exception!
+            //}
+            //Mgf a = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
 
-            try
-            {
-                reader.LoadAllStaticData();
-                Assert.IsTrue(false);
-            }
-            catch
-            {
-                //woohoo, there was an exception!
-            }
-            reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
-            reader.LoadAllStaticData();
-            var ya = reader.GetOneBasedScan(14); 
+
+            // new way 
+            var dataReader = ReaderCreator.CreateReader(path);
+            dataReader.LoadAllStaticData();
+            var ya = dataReader.GetOneBasedScan(14); 
 
             Assert.AreEqual(192, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
@@ -74,9 +65,9 @@ namespace Test
             Assert.AreEqual(1294963.5999999996, ya.TotalIonCurrent);
             Assert.AreEqual(110.0719, ya.ScanWindowRange.Minimum);
             Assert.AreEqual(1038.8018, ya.ScanWindowRange.Maximum);
-            var ya2 = reader.GetOneBasedScan(20).MassSpectrum;
+            var ya2 = dataReader.GetOneBasedScan(20).MassSpectrum;
             Assert.AreEqual(165, ya2.Size);
-            var ya3 = reader.GetOneBasedScan(2).MassSpectrum;
+            var ya3 = dataReader.GetOneBasedScan(2).MassSpectrum;
             Assert.AreEqual(551, ya3.Size);
         }
 
@@ -87,7 +78,7 @@ namespace Test
             var dataReader = ReaderCreator.CreateReader(path); 
             dataReader.LoadAllStaticData();
             
-            var ya = dataReader.GetOneBasedScan(2);
+            var ya = dataReader.GetOneBasedScan(14);
 
             Assert.AreEqual(19, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
@@ -104,25 +95,9 @@ namespace Test
         }
 
         [Test]
-        public void TestMgfDynamicConnection()
-        {
-            var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
-            var fileDoesntExistReader = ReaderCreator.CreateReader("fakeFile.mgf");
-            
-            Assert.Throws<FileNotFoundException>(() =>
-            {
-                fileDoesntExistReader.InitiateDynamicConnection();
-            });
-            IFilteringParams filter = new FilteringParams(1, 0.01);
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf");
-            var readerReal = ReaderCreator.CreateReader(path); 
-            readerReal.InitiateDynamicConnection();
-            readerReal.GetOneBasedScanFromDynamicConnection(2, filter); 
-        }
-
-        [Test]
         public void EliminateZeroIntensityPeaksFromMgfOnFileLoad()
         {
+
             //read the mgf file. zero intensity peaks should be eliminated during read
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf");
 
@@ -144,7 +119,7 @@ namespace Test
         [Test]
         public static void TestLoadCorruptMgf()
         {
-            //tester_corrupt.mgf is extracted from tester.mgf except it contains empty lines or unknown words. You can compare the two files and find the differences.
+            //tester_corrupt.mgf is extracted from tester.mgf except it contains empty lines or unknow words. You can compare the two files and find the differences.
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester_corrupt.mgf"); 
             var reader = ReaderCreator.CreateReader(path);
             reader.LoadAllStaticData();

@@ -26,8 +26,10 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml;
 using UsefulProteomicsDatabases;
 
 namespace Readers
@@ -113,24 +115,43 @@ namespace Readers
             { "unknown dissociation type", DissociationType.Unknown},
         };
 
-        private Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        Generated.mzMLType _mzMLConnection;
+
+        public Mzml(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
         {
+            Scans = new MsDataScan[numSpectra];
+            SourceFile = sourceFile;
+        }
+        public Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        {
+            Scans = scans;
+            SourceFile = sourceFile;
         }
 
-        public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null, int maxThreads = -1)
+        public Mzml() : base()
         {
-            if (!File.Exists(filePath))
+
+        }
+
+        public Mzml(string filePath) : base(filePath)
+        {
+            FilePath = filePath; 
+        }
+
+        public override void LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
+        {
+            if (!File.Exists(FilePath))
             {
                 throw new FileNotFoundException();
             }
 
             Loaders.LoadElements();
 
-            Generated.mzMLType _mzMLConnection;
+
 
             try
             {
-                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (FileStream fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     var _indexedmzMLConnection = (Generated.indexedmzML)MzmlMethods.indexedSerializer.Deserialize(fs);
                     _mzMLConnection = _indexedmzMLConnection.mzML;
@@ -138,10 +159,82 @@ namespace Readers
             }
             catch
             {
-                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (FileStream fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                     _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
             }
 
+            SourceFile = GetSourceFile(); 
+
+            var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
+            MsDataScan[] scans = new MsDataScan[numSpecta];
+
+            Parallel.ForEach(Partitioner.Create(0, numSpecta), new ParallelOptions 
+                { MaxDegreeOfParallelism = maxThreads }, fff =>
+            {
+                for (int i = fff.Item1; i < fff.Item2; i++)
+                {
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
+                }
+            });
+
+            scans = scans.Where(s => s.MassSpectrum != null).ToArray();
+
+            //Mzml sometimes have scan numbers specified, but usually not.
+            //In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
+            //Check to make sure that the scans are in order and that there are no duplicate scans
+            HashSet<int> checkForDuplicateScans = new HashSet<int>();
+            bool ordered = true;
+            int previousScanNumber = -1;
+            foreach (MsDataScan scan in scans)
+            {
+                //check if no duplicates
+                if (!checkForDuplicateScans.Add(scan.OneBasedScanNumber)) //returns false if the scan already exists
+                {
+                    throw new MzLibException("Scan number " + scan.OneBasedScanNumber.ToString() + " appeared multiple times in " + FilePath);
+                }
+                //check if scans are in order
+                if (previousScanNumber > scan.OneBasedScanNumber)
+                {
+                    ordered = false;
+                }
+                previousScanNumber = scan.OneBasedScanNumber;
+            }
+
+            if (!ordered) //reassign indexes if not ordered
+            {
+                MsDataScan[] indexedScans = new MsDataScan[checkForDuplicateScans.Max()];
+                foreach (MsDataScan scan in scans)
+                {
+                    indexedScans[scan.OneBasedScanNumber - 1] = scan;
+                }
+                scans = indexedScans;
+            }
+
+            //make reference pervious ms1 scan
+            // we weren't able to get the precursor scan number, so we'll have to guess;
+            // loop back to find precursor scan
+            // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
+            // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
+            for (int i = 0; i < scans.Length; i++)
+            {
+                if (scans[i].MsnOrder > 1 && scans[i].OneBasedPrecursorScanNumber == null)
+                {
+                    for (int j = i; j >= 0; j--)
+                    {
+                        if (scans[i].MsnOrder - scans[j].MsnOrder == 1)
+                        {
+                            scans[i].SetOneBasedPrecursorScanNumber(scans[j].OneBasedScanNumber);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            Scans = scans;
+        }
+
+        public override SourceFile GetSourceFile()
+        {
             SourceFile sourceFile;
             if (_mzMLConnection.fileDescription.sourceFileList != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0] != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0].cvParam != null)
             {
@@ -198,7 +291,7 @@ namespace Readers
             else
             {
                 string sendCheckSum;
-                using (FileStream stream = File.OpenRead(filePath))
+                using (FileStream stream = File.OpenRead(FilePath))
                 {
                     SHA1 sha = SHA1.Create();
                     byte[] checksum = sha.ComputeHash(stream);
@@ -210,75 +303,397 @@ namespace Readers
                     @"mzML format",
                     sendCheckSum,
                     @"SHA-1",
-                    Path.GetFullPath(filePath),
-                    Path.GetFileNameWithoutExtension(filePath));
+                    Path.GetFullPath(FilePath),
+                    Path.GetFileNameWithoutExtension(FilePath));
             }
+            return sourceFile;
+        }
+        /// <summary>
+        /// Gets the scan with the specified one-based scan number.
+        /// </summary>
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+        {
+            MsDataScan scan = null;
 
-            var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
-            MsDataScan[] scans = new MsDataScan[numSpecta];
-
-            Parallel.ForEach(Partitioner.Create(0, numSpecta), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, fff =>
+            if (ScanNumberToByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))
             {
-                for (int i = fff.Item1; i < fff.Item2; i++)
-                {
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
-                }
-            });
+                // seek to the byte of the scan
+                reader.BaseStream.Position = byteOffset;
+                reader.DiscardBufferedData();
 
-            scans = scans.Where(s => s.MassSpectrum != null).ToArray();
+                // DO NOT USE THIS METHOD! it does not seek reliably
+                //stream.BaseStream.Seek(byteOffset, SeekOrigin.Begin);
 
-            //Mzml sometimes have scan numbers specified, but usually not.
-            //In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
-            //Check to make sure that the scans are in order and that there are no duplicate scans
-            HashSet<int> checkForDuplicateScans = new HashSet<int>();
-            bool ordered = true;
-            int previousScanNumber = -1;
-            foreach (MsDataScan scan in scans)
-            {
-                //check if no duplicates
-                if (!checkForDuplicateScans.Add(scan.OneBasedScanNumber)) //returns false if the scan already exists
+                // read the scan
+                using (XmlReader xmlReader = XmlReader.Create(reader))
                 {
-                    throw new MzLibException("Scan number " + scan.OneBasedScanNumber.ToString() + " appeared multiple times in " + filePath);
-                }
-                //check if scans are in order
-                if (previousScanNumber > scan.OneBasedScanNumber)
-                {
-                    ordered = false;
-                }
-                previousScanNumber = scan.OneBasedScanNumber;
-            }
-
-            if (!ordered) //reassign indexes if not ordered
-            {
-                MsDataScan[] indexedScans = new MsDataScan[checkForDuplicateScans.Max()];
-                foreach (MsDataScan scan in scans)
-                {
-                    indexedScans[scan.OneBasedScanNumber - 1] = scan;
-                }
-                scans = indexedScans;
-            }
-
-            //make reference pervious ms1 scan
-            // we weren't able to get the precursor scan number, so we'll have to guess;
-            // loop back to find precursor scan
-            // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
-            // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
-            for (int i = 0; i < scans.Length; i++)
-            {
-                if (scans[i].MsnOrder > 1 && scans[i].OneBasedPrecursorScanNumber == null)
-                {
-                    for (int j = i; j >= 0; j--)
+                    string nativeId = null;
+                    while (xmlReader.Read())
                     {
-                        if (scans[i].MsnOrder - scans[j].MsnOrder == 1)
+                        // this skips whitespace
+                        string upperName = xmlReader.Name.ToUpper();
+                        if (upperName == "SPECTRUM" && xmlReader.IsStartElement())
                         {
-                            scans[i].SetOneBasedPrecursorScanNumber(scans[j].OneBasedScanNumber);
+                            nativeId = xmlReader["id"];
                             break;
+                        }
+                    }
+
+                    // deserializing the scan's data doesn't work well. the spectrum type is deserialized
+                    // but sub-elements aren't. this is probably because we're trying to deserialize only
+                    // a part of the XML file... deserialization would probably be cleaner code than
+                    // using the current implementation but I couldn't get it to work
+                    //var deserializedSpectrum = (IO.MzML.Generated.SpectrumType)serializer.Deserialize(xmlReader.ReadSubtree());
+
+                    MzSpectrum spectrum = null;
+                    int? msOrder = 0;
+                    bool? isCentroid = false;
+                    Polarity polarity = Polarity.Unknown;
+                    double retentionTime = double.NaN;
+                    MzRange range = null;
+                    string scanFilter = null;
+                    MZAnalyzerType mzAnalyzerType = MZAnalyzerType.Unknown;
+                    double tic = 0;
+                    double? injTime = null;
+                    double[,] noiseData = null; // TODO: read this
+                    double? selectedIonMz = null;
+                    int? selectedCharge = null;
+                    double? selectedIonIntensity = null;
+                    double? isolationMz = null; // TODO: should this be refined? or taken from the scan header?
+                    double? isolationWidth = null;
+                    DissociationType? dissociationType = null;
+                    int? oneBasedPrecursorScanNumber = null;
+                    double? selectedIonMonoisotopicGuessMz = null;
+
+                    double scanLowerLimit = double.NaN;
+                    double scanUpperLimit = double.NaN;
+                    double isolationWindowLowerOffset = double.NaN;
+                    double isolationWindowUpperOffset = double.NaN;
+
+                    bool compressed = false;
+                    bool readingMzs = false;
+                    bool readingIntensities = false;
+                    bool is32bit = true;
+                    double[] mzs = null;
+                    double[] intensities = null;
+
+                    while (xmlReader.Read())
+                    {
+                        switch (xmlReader.Name.ToUpper())
+                        {
+                            // controlled vocabulary parameter
+                            case "CVPARAM":
+                                string cvParamAccession = xmlReader["accession"];
+
+                                if (Mzml.DissociationDictionary.ContainsKey(cvParamAccession))
+                                {
+                                    dissociationType = Mzml.DissociationDictionary[cvParamAccession];
+                                    break;
+                                }
+
+                                if (Mzml.PolarityDictionary.ContainsKey(cvParamAccession))
+                                {
+                                    polarity = Mzml.PolarityDictionary[cvParamAccession];
+                                    break;
+                                }
+
+                                switch (cvParamAccession)
+                                {
+                                    // MS order
+                                    case "MS:1000511":
+                                        msOrder = int.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // centroid mode
+                                    case "MS:1000127":
+                                        isCentroid = true;
+                                        break;
+
+                                    // profile mode
+                                    case "MS:1000128":
+                                        isCentroid = false;
+                                        throw new MzLibException("Reading profile mode mzmls not supported");
+                                    //break;
+
+                                    // total ion current
+                                    case "MS:1000285":
+                                        tic = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // retention time
+                                    case "MS:1000016":
+                                        retentionTime = double.Parse(xmlReader["value"]);
+
+                                        // determine units (e.g., minutes or seconds)
+                                        string units = xmlReader["unitAccession"];
+
+                                        if (units != null && units == "UO:0000010")
+                                        {
+                                            // convert from seconds to minutes
+                                            retentionTime /= 60;
+                                        }
+                                        else if (units != null && units == "UO:0000031")
+                                        {
+                                            // do nothing; the RT is already in minutes
+                                        }
+                                        else
+                                        {
+                                            throw new MzLibException("The retention time for scan " + oneBasedScanNumber + " could not be interpreted because there was " +
+                                                "no value for units (e.g., minutes or seconds)");
+                                        }
+
+                                        break;
+
+                                    // filter string
+                                    case "MS:1000512":
+                                        scanFilter = xmlReader["value"];
+                                        break;
+
+                                    // ion injection time
+                                    case "MS:1000927":
+                                        injTime = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // scan lower limit
+                                    case "MS:1000501":
+                                        scanLowerLimit = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // scan upper limit
+                                    case "MS:1000500":
+                                        scanUpperLimit = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // isolation window lower offset
+                                    case "MS:1000828":
+                                        isolationWindowLowerOffset = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // isolation window upper offset
+                                    case "MS:1000829":
+                                        isolationWindowUpperOffset = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // isolated m/z
+                                    case "MS:1000827":
+                                        isolationMz = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // selected ion m/z
+                                    case "MS:1000744":
+                                        selectedIonMz = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // selected charge state
+                                    case "MS:1000041":
+                                        selectedCharge = int.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // selected intensity
+                                    case "MS:1000042":
+                                        selectedIonIntensity = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // mass analyzer types
+                                    case "MS:1000081":
+                                        mzAnalyzerType = MZAnalyzerType.Quadrupole;
+                                        break;
+
+                                    case "MS:1000291":
+                                        mzAnalyzerType = MZAnalyzerType.IonTrap2D;
+                                        break;
+
+                                    case "MS:1000082":
+                                        mzAnalyzerType = MZAnalyzerType.IonTrap3D;
+                                        break;
+
+                                    case "MS:1000484":
+                                        mzAnalyzerType = MZAnalyzerType.Orbitrap;
+                                        break;
+
+                                    case "MS:1000084":
+                                        mzAnalyzerType = MZAnalyzerType.TOF;
+                                        break;
+
+                                    case "MS:1000079":
+                                        mzAnalyzerType = MZAnalyzerType.FTICR;
+                                        break;
+
+                                    case "MS:1000080":
+                                        mzAnalyzerType = MZAnalyzerType.Sector;
+                                        break;
+
+                                    case "MS:1000523":
+                                        is32bit = false;
+                                        break;
+
+                                    case "MS:1000521":
+                                        is32bit = true;
+                                        break;
+
+                                    case "MS:1000576":
+                                        compressed = false;
+                                        break;
+
+                                    case "MS:1000574":
+                                        compressed = true;
+                                        break;
+
+                                    case "MS:1000514":
+                                        readingMzs = true;
+                                        break;
+
+                                    case "MS:1000515":
+                                        readingIntensities = true;
+                                        break;
+                                }
+                                break;
+
+                            // binary data array (e.g., m/z or intensity array)
+                            case "BINARY":
+                                if (!readingMzs && !readingIntensities)
+                                {
+                                    break;
+                                }
+
+                                while (string.IsNullOrWhiteSpace(xmlReader.Value))
+                                {
+                                    xmlReader.Read();
+                                }
+
+                                string binaryString = xmlReader.Value;
+
+                                byte[] binaryData = Convert.FromBase64String(binaryString);
+
+                                double[] data = Mzml.ConvertBase64ToDoubles(binaryData, compressed, is32bit);
+
+                                if (readingMzs)
+                                {
+                                    mzs = data;
+                                    readingMzs = false;
+                                }
+                                else if (readingIntensities)
+                                {
+                                    intensities = data;
+                                    readingIntensities = false;
+                                }
+
+                                break;
+
+                            case "PRECURSOR":
+                                if (xmlReader.IsStartElement())
+                                {
+                                    // TODO: note that the precursor scan info may not be available in the .mzML. in this case the precursor
+                                    // scan number will incorrectly be null. one fix would be to go backwards through the scans to find
+                                    // the precursor scan and then set the scan num here, which would be very time consuming.
+                                    string precursorScanInfo = xmlReader["spectrumRef"];
+
+                                    if (precursorScanInfo != null)
+                                    {
+                                        oneBasedPrecursorScanNumber = NativeIdToScanNumber[precursorScanInfo];
+                                    }
+                                }
+                                break;
+
+                            case "USERPARAM":
+                                if (xmlReader.IsStartElement() && xmlReader["name"] != null && xmlReader["name"] == "[mzLib]Monoisotopic M/Z:")
+                                {
+                                    selectedIonMonoisotopicGuessMz = double.Parse(xmlReader["value"]);
+                                }
+                                break;
+
+                            // done reading spectrum
+                            case "SPECTRUM":
+                                if (!xmlReader.IsStartElement())
+                                {
+                                    if (msOrder > 1)
+                                    {
+                                        isolationWidth = isolationWindowUpperOffset + isolationWindowLowerOffset;
+
+                                        if (dissociationType == null)
+                                        {
+                                            dissociationType = DissociationType.Unknown;
+                                        }
+                                    }
+
+                                    if (!msOrder.HasValue || !isCentroid.HasValue)
+                                    {
+                                        throw new MzLibException("Could not determine the MS order or centroid/profile status");
+                                    }
+
+                                    //Remove Zero Intensity Peaks
+                                    double zeroEquivalentIntensity = 0.01;
+                                    int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
+                                    int intensityValueCount = intensities.Count();
+                                    if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
+                                    {
+                                        Array.Sort(intensities, mzs);
+                                        double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
+                                        double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
+                                        intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                        mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                        Array.Sort(mzs, intensities);
+                                    }
+
+
+                                    // peak filtering
+                                    if (filterParams != null && intensities.Length > 0 &&
+                                        ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
+                                    {
+                                        MsDataFileHelpers.WindowModeHelper(ref intensities, ref mzs, filterParams, scanLowerLimit, scanUpperLimit);
+                                    }
+
+                                    Array.Sort(mzs, intensities);
+
+                                    range = new MzRange(scanLowerLimit, scanUpperLimit);
+                                    spectrum = new MzSpectrum(mzs, intensities, false);
+
+                                    scan = new MsDataScan(spectrum, oneBasedScanNumber, msOrder.Value, isCentroid.Value, polarity,
+                                        retentionTime, range, scanFilter, mzAnalyzerType, tic, injTime, noiseData,
+                                        nativeId, selectedIonMz, selectedCharge, selectedIonIntensity, isolationMz, isolationWidth,
+                                        dissociationType, oneBasedPrecursorScanNumber, selectedIonMonoisotopicGuessMz);
+
+                                    return scan;
+                                }
+                                else
+                                {
+                                    throw new MzLibException("Spectrum data is malformed");
+                                }
                         }
                     }
                 }
             }
 
-            return new Mzml(scans, sourceFile);
+            return scan;
+        }
+        public override void CloseDynamicConnection()
+        {
+            if (reader != null)
+            {
+                reader.Dispose();
+            }
+        }
+
+        public override void InitiateDynamicConnection()
+        {
+
+            if (!File.Exists(FilePath))
+            {
+                throw new FileNotFoundException();
+            }
+
+            if (Path.GetExtension(FilePath).ToUpper() != ".MZML")
+            {
+                throw new InvalidDataException();
+            }
+
+            Loaders.LoadElements();
+            reader = new StreamReader(FilePath);
+
+            ScanNumberToByteOffset = new Dictionary<int, long>();
+            NativeIdToScanNumber = new Dictionary<string, int>();
+
+            FindOrCreateIndex();
         }
 
         private static MsDataScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedIndex, IFilteringParams filterParams)
@@ -470,7 +885,7 @@ namespace Readers
 
             if (filterParams != null && intensities.Length > 0 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
             {
-                WindowModeHelper(ref intensities, ref masses, filterParams, low, high);
+                MsDataFileHelpers.WindowModeHelper(ref intensities, ref masses, filterParams, low, high);
             }
 
             Array.Sort(masses, intensities);
@@ -665,6 +1080,221 @@ namespace Readers
                 oneBasedSpectrumNumber--;
             } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
             return oneBasedSpectrumNumber;
+        }
+
+
+        private Dictionary<int, long> ScanNumberToByteOffset;
+        private Dictionary<string, int> NativeIdToScanNumber;
+        private StreamReader reader;
+        public static readonly Regex nativeIdScanNumberParser = new Regex(@"(^|\s)scan=(.*?)($|\D)");
+
+        /// <summary>
+        /// Finds the index in the .mzML file. If the index doesn't exist or can't be found,
+        /// then an index is created by the method CreateIndexFromUnindexedMzml().
+        /// </summary>
+        private void FindOrCreateIndex()
+        {
+            // look for the index in the mzML file
+            try
+            {
+                LookForIndex();
+            }
+            catch (Exception)
+            {
+                // something went wrong reading the index
+                // the index will need to be created instead
+                ScanNumberToByteOffset.Clear();
+                NativeIdToScanNumber.Clear();
+            }
+
+            // the index could not be found or could not be read. we will need to build it
+            if (!ScanNumberToByteOffset.Any())
+            {
+                CreateIndexFromUnindexedMzml();
+            }
+        }
+
+        /// <summary>
+        /// Looks for the index in the .mzML file.
+        /// </summary>
+        private void LookForIndex()
+        {
+            long? indexByteOffset = null;
+
+            // check the bottom of the file for the index
+            // this is super annoying... we need to read the file backwards starting from the end 
+            // and then parse the xml...
+            ReverseLineReader rlr = new ReverseLineReader(FilePath);
+
+            foreach (string line in rlr)
+            {
+                string trimmedline = line.Trim();
+
+                if (trimmedline.StartsWith("<indexListOffset>", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    trimmedline = trimmedline.Replace("<indexListOffset>", "");
+                    trimmedline = trimmedline.Replace("</indexListOffset>", "");
+
+                    indexByteOffset = long.Parse(trimmedline);
+                    break;
+                }
+                else if (trimmedline.StartsWith("</mzML", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    break;
+                }
+            }
+
+            if (indexByteOffset.HasValue)
+            {
+                ReadIndex(indexByteOffset.Value);
+            }
+        }
+
+        /// <summary>
+        /// Reads the index, once its position in the file is known.
+        /// </summary>
+        private void ReadIndex(long byteOffsetOfIndex)
+        {
+            // seek to the position of the index in the file
+            reader.BaseStream.Position = byteOffsetOfIndex;
+            reader.DiscardBufferedData();
+
+            bool readingScanIndex = false;
+
+            // some nativeID formats don't have a scan number specified. 
+            // in this case, use a counter to determine the scan number.
+            int scanNumber = 0;
+
+            using (XmlReader xmlReader = XmlReader.Create(reader))
+            {
+                while (xmlReader.Read())
+                {
+                    if (xmlReader.IsStartElement())
+                    {
+                        string upperName = xmlReader.Name.ToUpper();
+
+                        // found the scan index
+                        if (upperName == "INDEX" && xmlReader["name"] != null && xmlReader["name"].ToUpper() == "SPECTRUM")
+                        {
+                            readingScanIndex = true;
+                        }
+
+                        // read element of the scan index
+                        else if (readingScanIndex && upperName == "OFFSET")
+                        {
+                            var spectrumInfo = xmlReader["idRef"];
+                            long byteOffset = 0;
+
+                            Match result = nativeIdScanNumberParser.Match(spectrumInfo);
+
+                            if (result.Groups[2].Success)
+                            {
+                                // TODO: throw some kind of exception here if it doesn't parse
+                                scanNumber = int.Parse(result.Groups[2].Value);
+                            }
+                            else
+                            {
+                                scanNumber++;
+                            }
+
+                            NativeIdToScanNumber.Add(spectrumInfo, scanNumber);
+
+                            if (xmlReader.Read())
+                            {
+                                var textNode = xmlReader.Value.Trim();
+
+                                // TODO: throw some kind of exception here if it doesn't parse
+                                byteOffset = long.Parse(textNode);
+                            }
+                            else
+                            {
+                                // TODO: throw exception
+                            }
+
+                            ScanNumberToByteOffset.Add(scanNumber, byteOffset);
+                        }
+                    }
+                    else if (readingScanIndex && xmlReader.NodeType == XmlNodeType.EndElement)
+                    {
+                        string upperName = xmlReader.Name.ToUpper();
+
+                        // reached the end of the scan index
+                        if (upperName == "INDEX")
+                        {
+                            readingScanIndex = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// This creates a scan number-to-byte index for .mzML files that have no index.
+        /// This means that a dynamic connection can be created with unindexed .mzML files,
+        /// it just takes longer because we have to read the entire file one line at a time 
+        /// to create the index via code.
+        /// 
+        /// This does NOT write an index to the .mzML file. This is intentional. This .mzML reader
+        /// does not modify the .mzML data file at all. It just creates an index in memory 
+        /// via code if one is not provided in the .mzML file.
+        /// </summary>
+        private void CreateIndexFromUnindexedMzml()
+        {
+            reader.BaseStream.Position = 0;
+            reader.DiscardBufferedData();
+
+            int scanNumber = 0;
+
+            while (reader.Peek() > 0)
+            {
+                // this byte offset might be a little different than what it technically 
+                // should be because of white space but it will work out ok
+                long byteOffset = TextFileReading.GetByteOffsetAtCurrentPosition(reader);
+                var line = reader.ReadLine();
+
+                line = line.Trim();
+
+                if (line.StartsWith("<spectrum ", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    Match result = nativeIdScanNumberParser.Match(line);
+                    int ind = line.IndexOf("id=\"");
+                    string nativeId;
+
+                    if (ind >= 0)
+                    {
+                        StringBuilder nativeIdBuilder = new StringBuilder();
+
+                        for (int r = ind + 4; r < line.Length; r++)
+                        {
+                            if (line[r] == '"')
+                            {
+                                break;
+                            }
+
+                            nativeIdBuilder.Append(line[r]);
+                        }
+
+                        nativeId = nativeIdBuilder.ToString();
+                    }
+                    else
+                    {
+                        throw new MzLibException("Could not get nativeID from line: " + line);
+                    }
+
+                    if (result.Groups[2].Success)
+                    {
+                        scanNumber = int.Parse(result.Groups[2].Value);
+                    }
+                    else
+                    {
+                        scanNumber++;
+                    }
+
+                    NativeIdToScanNumber.Add(nativeId, scanNumber);
+                    ScanNumberToByteOffset.Add(scanNumber, byteOffset);
+                }
+            }
         }
     }
 }
