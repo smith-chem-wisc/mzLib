@@ -166,7 +166,8 @@ namespace Test
         [Test]
         public void MoreMsDataFilesTests()
         {
-            MsDataFile fakeDataFile = new MsDataFile(new MsDataScan[1], new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null));
+            GenericMsDataFile fakeDataFile = new GenericMsDataFile(new MsDataScan[1], 
+                new Readers.SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null));
             Assert.AreEqual(1, fakeDataFile.NumSpectra);
             Assert.AreEqual("scan number only nativeID format", fakeDataFile.SourceFile.NativeIdFormat);
             Assert.AreEqual("mzML format", fakeDataFile.SourceFile.MassSpectrometerFileFormat);
@@ -219,11 +220,12 @@ namespace Test
         public static void TestXicExtraction()
         {
             string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
-            var data = Mzml.LoadAllStaticData(dataFilePath);
+            var reader = ReaderCreator.CreateReader(dataFilePath); 
+            reader.LoadAllStaticData();
             
             var peptide = new PeptideWithSetModifications("KAPAGGAADAAAK", new Dictionary<string, Modification>());
 
-            var xic = data.ExtractIonChromatogram(peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
+            var xic = reader.ExtractIonChromatogram(peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
             Assert.That(xic.Data.Count(p => p.Y > 0) == 4);
         }
 
@@ -253,10 +255,11 @@ namespace Test
             //not have mz or intensity values. We skip this scan when reading.
             string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", @"badScan7192.mzml");
 
-            Mzml data = Mzml.LoadAllStaticData(dataFilePath);
+            var reader = ReaderCreator.CreateReader(dataFilePath); 
+            reader.LoadAllStaticData();
 
-            MsDataScan[] ms1Scans = data.GetMS1Scans().ToArray();
-            MsDataScan[] allScans = data.GetAllScansList().ToArray();
+            MsDataScan[] ms1Scans = reader.GetMS1Scans().ToArray();
+            MsDataScan[] allScans = reader.GetAllScansList().ToArray();
 
             Assert.AreEqual(1, ms1Scans.Length);
             Assert.AreEqual(3, allScans.Length);

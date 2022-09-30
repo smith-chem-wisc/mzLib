@@ -35,23 +35,21 @@ namespace Test
         public static void TestLoadMgf()
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
-                "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf"); 
-            //try
-            //{
-            //    Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf"));
-            //    Assert.IsTrue(false);
-            //}
-            //catch
-            //{
-            //    //woohoo, there was an exception!
-            //}
-            //Mgf a = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+                "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf");
+            var reader = ReaderCreator.CreateReader(path); 
 
-
-            // new way 
-            var dataReader = ReaderCreator.CreateReader(path);
-            dataReader.LoadAllStaticData();
-            var ya = dataReader.GetOneBasedScan(14); 
+            try
+            {
+                reader.LoadAllStaticData();
+                Assert.IsTrue(false);
+            }
+            catch
+            {
+                //woohoo, there was an exception!
+            }
+            reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+            reader.LoadAllStaticData();
+            var ya = reader.GetOneBasedScan(14); 
 
             Assert.AreEqual(192, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
@@ -65,9 +63,9 @@ namespace Test
             Assert.AreEqual(1294963.5999999996, ya.TotalIonCurrent);
             Assert.AreEqual(110.0719, ya.ScanWindowRange.Minimum);
             Assert.AreEqual(1038.8018, ya.ScanWindowRange.Maximum);
-            var ya2 = dataReader.GetOneBasedScan(20).MassSpectrum;
+            var ya2 = reader.GetOneBasedScan(20).MassSpectrum;
             Assert.AreEqual(165, ya2.Size);
-            var ya3 = dataReader.GetOneBasedScan(2).MassSpectrum;
+            var ya3 = reader.GetOneBasedScan(2).MassSpectrum;
             Assert.AreEqual(551, ya3.Size);
         }
 
@@ -78,7 +76,7 @@ namespace Test
             var dataReader = ReaderCreator.CreateReader(path); 
             dataReader.LoadAllStaticData();
             
-            var ya = dataReader.GetOneBasedScan(14);
+            var ya = dataReader.GetOneBasedScan(2);
 
             Assert.AreEqual(19, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
@@ -119,7 +117,7 @@ namespace Test
         [Test]
         public static void TestLoadCorruptMgf()
         {
-            //tester_corrupt.mgf is extracted from tester.mgf except it contains empty lines or unknow words. You can compare the two files and find the differences.
+            //tester_corrupt.mgf is extracted from tester.mgf except it contains empty lines or unknown words. You can compare the two files and find the differences.
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester_corrupt.mgf"); 
             var reader = ReaderCreator.CreateReader(path);
             reader.LoadAllStaticData();

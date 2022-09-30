@@ -135,7 +135,7 @@ namespace Readers
 
         public Mzml(string filePath) : base(filePath)
         {
-            FilePath = filePath; 
+
         }
 
         public override void LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
