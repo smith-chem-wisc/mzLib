@@ -60,7 +60,9 @@ namespace Test
                 "Averaged_" + Path.GetFileNameWithoutExtension(SpectraPath) + ".mzML");
             Assert.That(File.Exists(averagedSpectraPath));
 
-            MsDataScan[] loadedScans = Mzml.LoadAllStaticData(averagedSpectraPath).GetAllScansList().ToArray();
+            var reader = ReaderCreator.CreateReader(averagedSpectraPath); 
+            reader.LoadAllStaticData();
+            MsDataScan[] loadedScans = reader.GetMsDataScans(); 
             for (var i = 0; i < loadedScans.Length; i++)
             {
                 Dictionary<double, double> mzandInt = DdaCompositeSpectra[i].MassSpectrum.XArray

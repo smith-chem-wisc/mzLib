@@ -71,9 +71,10 @@ namespace Test
             double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-            Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
+            var reader = ReaderCreator.CreateReader(singleScan); 
+            reader.LoadAllStaticData();
 
-            List<MsDataScan> singlescan = singleMZML.GetAllScansList();
+            List<MsDataScan> singlescan = reader.GetAllScansList();
             
             MzSpectrum singlespec = singlescan[0].MassSpectrum;
             MzRange singleRange = new MzRange(singlespec.XArray.Min(), singlespec.XArray.Max());

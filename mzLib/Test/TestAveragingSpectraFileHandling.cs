@@ -418,7 +418,7 @@ namespace Test
             List<MsDataScan> scans = SpectraFileHandler.LoadAllScansFromFile(spectraPath);
             Assert.That(scans.Count == 48);
 
-            SourceFile file = SpectraFileHandler.GetSourceFile(spectraPath);
+            Readers.SourceFile file = SpectraFileHandler.GetSourceFile(spectraPath);
             Assert.That(file.NativeIdFormat == "Thermo nativeID format");
 
             string badPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles/small.toml");

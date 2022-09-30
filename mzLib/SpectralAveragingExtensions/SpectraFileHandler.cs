@@ -1,7 +1,7 @@
 ﻿using Readers;
-using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using MzLibUtil;
+using SourceFile = Readers.SourceFile;
 
 namespace SpectralAveragingExtensions
 {
@@ -16,22 +16,9 @@ namespace SpectralAveragingExtensions
         /// <exception cref="ArgumentException">thrown if file type is not supported</exception>
         public static List<MsDataScan> LoadAllScansFromFile(string filepath)
         {
-            List<MsDataScan> scans = new();
-            if (filepath.EndsWith(".mzML"))
-            {
-                var temp = Mzml.LoadAllStaticData(filepath);
-                scans = temp.GetAllScansList();
-            }
-            else if (filepath.EndsWith(".raw"))
-            {
-                var temp = ThermoRawFileReader.LoadAllStaticData(filepath);
-                scans = temp.GetAllScansList();
-            }
-            else
-            {
-                throw new MzLibException("Cannot load spectra");
-            }
-            return scans;
+            var reader = ReaderCreator.CreateReader(filepath);
+            reader.LoadAllStaticData();
+            return reader.GetAllScansList();
         }
 
         /// <summary>
@@ -42,19 +29,10 @@ namespace SpectralAveragingExtensions
         /// <exception cref="ArgumentException">throws if file type is not supported</exception>
         public static SourceFile GetSourceFile(string filepath)
         {
-            List<MsDataScan> scans = new();
-            if (filepath.EndsWith(".mzML"))
-            {
-                return Mzml.LoadAllStaticData(filepath).SourceFile;
-            }
-            else if (filepath.EndsWith(".raw"))
-            {
-                return ThermoRawFileReader.LoadAllStaticData(filepath).SourceFile;
-            }
-            else
-            {
-                throw new MzLibException("Cannot access SourceFile");
-            }
+            var reader = ReaderCreator.CreateReader(filepath);
+            reader.GetSourceFile(); 
+            return reader.SourceFile;
+
         }
     }
 }

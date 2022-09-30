@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+    <ProjectReference Include="..\Readers\Readers.csproj" />
   </ItemGroup>
 
 </Project>

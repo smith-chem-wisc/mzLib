@@ -41,8 +41,8 @@ namespace SpectralAveragingExtensions
             string spectraPath)
         {
             var spectraDirectory = Path.GetDirectoryName(spectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");
-            SourceFile sourceFile = SpectraFileHandler.GetSourceFile(spectraPath);
-            MsDataFile msDataFile = new(averagedScans, sourceFile);
+            Readers.SourceFile sourceFile = SpectraFileHandler.GetSourceFile(spectraPath);
+            GenericMsDataFile msDataFile = new(averagedScans, sourceFile);
             string averagedPath = Path.Combine(spectraDirectory,
                 "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(spectraPath) + ".mzML");
 
