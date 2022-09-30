@@ -97,7 +97,8 @@ namespace Readers
         }
         public virtual MsDataScan GetOneBasedScan(int scanNumber)
         {
-            return Scans[scanNumber - 1];
+
+            return Scans.SingleOrDefault(i => i.OneBasedScanNumber == scanNumber);
         }
         public virtual IEnumerable<MsDataScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
         {
