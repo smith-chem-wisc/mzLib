@@ -54,4 +54,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="SummedMsDataFile.cs" />
+  </ItemGroup>
+
 </Project>
