@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using MassSpectrometry; 
 
-namespace MassSpectrometry
+namespace Readers
 {
     internal class GeneratedPeak : MzPeak
     {
