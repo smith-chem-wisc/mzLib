@@ -21,6 +21,7 @@ public class TestGenericMsDataFile
     private MzSpectrum _mzSpectrumA;
     private MzSpectrum _ms1;
     private MzSpectrum _ms2;
+    private MzSpectrum _ms12; 
     private MsDataScan[] _scans; 
 
     [OneTimeSetUp]
@@ -36,11 +37,11 @@ public class TestGenericMsDataFile
         var peptide = new Peptide("KQEEQMETEQQNKDEGK");
 
          _ms1 = CreateSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
+         _ms12 = CreateSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
          _ms2 = CreateMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
         _scans = new MsDataScan[2];
         _scans[0] = new MsDataScan(_ms1, 1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, _ms1.SumOfAllY, 1, null, "scan=1");
-
         _scans[1] = new MsDataScan(_ms2, 2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, _ms2.SumOfAllY, 1, null, "scan=2", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 693.6550);
     }
     [Test]
@@ -80,7 +81,7 @@ public class TestGenericMsDataFile
             gFile.InitiateDynamicConnection();
         }); 
     }
-    
+
     private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
     {
         IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);

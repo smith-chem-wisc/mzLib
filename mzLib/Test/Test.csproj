@@ -370,4 +370,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="TestSummedDataFile.cs" />
+  </ItemGroup>
+
 </Project>
