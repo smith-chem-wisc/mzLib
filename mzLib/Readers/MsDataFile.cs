@@ -107,7 +107,7 @@ namespace Readers
                 yield return GetOneBasedScan(oneBasedSpectrumNumber);
             }
         }
-        public IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
+        public virtual IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             while (oneBasedSpectrumNumber <= NumSpectra)
@@ -125,7 +125,7 @@ namespace Readers
                 oneBasedSpectrumNumber++;
             }
         }
-        public int GetClosestOneBasedSpectrumNumber(double retentionTime)
+        public virtual int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             // TODO need to convert this to a binary search of some sort. Or if the data is indexedMZML see if the indices work better.
             double bestDiff = double.MaxValue;
@@ -138,10 +138,15 @@ namespace Readers
             }
             return NumSpectra;
         }
-        public IEnumerator<MsDataScan> GetEnumerator()
+        public virtual IEnumerator<MsDataScan> GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
-#endregion 
+
+        public virtual int[] GetMsOrderByScanInDynamicConnection()
+        {
+            throw new NotImplementedException();
+        }
+        #endregion
     }
 }
