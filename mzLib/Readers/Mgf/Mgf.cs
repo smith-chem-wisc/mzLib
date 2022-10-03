@@ -198,7 +198,7 @@ namespace Readers
             // peak filtering
             if (filterParams != null && intensityArray.Length > 0 && filterParams.ApplyTrimmingToMsMs)
             {
-                MsDataFileHelpers.WindowModeHelper(ref intensityArray, ref mzArray, 
+                WindowModeHelper.Run(ref intensityArray, ref mzArray, 
                     filterParams, scanRange.Minimum, scanRange.Maximum);
             }
 

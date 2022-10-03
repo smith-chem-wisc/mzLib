@@ -78,7 +78,7 @@ namespace Readers
 
         public virtual List<MsDataScan> GetAllScansList()
         {
-            if (Scans != null)
+            if (Scans.Length > 0)
             {
                 return Scans.ToList();
             }
@@ -89,7 +89,7 @@ namespace Readers
             for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
-                if (scan.MsnOrder == 1)
+                if (scan != null && scan.MsnOrder == 1)
                 {
                     yield return scan;
                 }

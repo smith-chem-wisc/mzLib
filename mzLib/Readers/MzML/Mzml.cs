@@ -119,36 +119,25 @@ namespace Readers
 
         public Mzml(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
         {
-            Scans = new MsDataScan[numSpectra];
-            SourceFile = sourceFile;
+            InitializeConnection();
         }
         public Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
-            Scans = scans;
-            SourceFile = sourceFile;
+            InitializeConnection();
         }
 
         public Mzml() : base()
         {
-
+            InitializeConnection();
         }
 
         public Mzml(string filePath) : base(filePath)
         {
-
+            InitializeConnection();
         }
 
-        public override void LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
+        private void InitializeConnection()
         {
-            if (!File.Exists(FilePath))
-            {
-                throw new FileNotFoundException();
-            }
-
-            Loaders.LoadElements();
-
-
-
             try
             {
                 using (FileStream fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -162,7 +151,17 @@ namespace Readers
                 using (FileStream fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                     _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
             }
+        }
 
+        public override void LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
+        {
+            if (!File.Exists(FilePath))
+            {
+                throw new FileNotFoundException();
+            }
+
+            Loaders.LoadElements();
+            
             SourceFile = GetSourceFile(); 
 
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
@@ -640,7 +639,7 @@ namespace Readers
                                     if (filterParams != null && intensities.Length > 0 &&
                                         ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
                                     {
-                                        MsDataFileHelpers.WindowModeHelper(ref intensities, ref mzs, filterParams, scanLowerLimit, scanUpperLimit);
+                                        WindowModeHelper.Run(ref intensities, ref mzs, filterParams, scanLowerLimit, scanUpperLimit);
                                     }
 
                                     Array.Sort(mzs, intensities);
@@ -885,7 +884,7 @@ namespace Readers
 
             if (filterParams != null && intensities.Length > 0 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
             {
-                MsDataFileHelpers.WindowModeHelper(ref intensities, ref masses, filterParams, low, high);
+                WindowModeHelper.Run(ref intensities, ref masses, filterParams, low, high);
             }
 
             Array.Sort(masses, intensities);

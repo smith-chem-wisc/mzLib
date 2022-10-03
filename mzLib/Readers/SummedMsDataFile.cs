@@ -28,14 +28,6 @@ namespace Readers
             this.ppmToleranceForPeakCombination = ppmToleranceForPeakCombination;
         }
 
-        public SummedMsDataFile(MsDataScan[] scans, SourceFile sf, int numScansToAverage,
-            double ppmToleranceForPeakCombination)
-            : base(scans, sf)
-        {
-            numScansToAverage = this.numScansToAverage;
-            ppmToleranceForPeakCombination = this.ppmToleranceForPeakCombination; 
-        }
-
         public override void LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
             throw new NotImplementedException();
