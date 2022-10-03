@@ -1,5 +1,4 @@
 ﻿using Readers;
-using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using NUnit.Framework;
 using System;
@@ -31,11 +30,13 @@ namespace Test
 
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            var a = ThermoRawFileReader.LoadAllStaticData(path, maxThreads: 1);
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
-            var aa = Mzml.LoadAllStaticData(outfile1);
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
-            Mzml.LoadAllStaticData(outfile2);
+            var reader = ReaderCreator.CreateReader(path); 
+            reader.LoadAllStaticData(null, maxThreads: 1);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile1, false);
+            reader.LoadAllStaticData(); 
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile2, true);
+            var readerMzml = ReaderCreator.CreateReader(outfile2); 
+            readerMzml.LoadAllStaticData();
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
@@ -49,29 +50,30 @@ namespace Test
             stopwatch.Start();
 
             var path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
-            var dynamicConnection1 = new ThermoDynamicData(path1);
+            var thermoDynamic1 = ReaderCreator.CreateReader(path1);
+            thermoDynamic1.InitiateDynamicConnection();
 
             var path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.raw");
-            var dynamicConnection2 = new ThermoDynamicData(path2);
+            var thermoDynamic2 = ReaderCreator.CreateReader(path2);
+            thermoDynamic2.InitiateDynamicConnection();
 
-            var msOrders = dynamicConnection1.MsOrdersByScan;
+            var msOrders = thermoDynamic1.GetMsOrderByScanInDynamicConnection(); 
             Assert.That(msOrders != null && msOrders.Length > 0);
 
-            var a = dynamicConnection1.GetOneBasedScanFromDynamicConnection(1);
+            var a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(a != null);
 
-            var b = dynamicConnection2.GetOneBasedScanFromDynamicConnection(1);
+            var b = thermoDynamic2.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(b != null);
 
             Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
 
-            a = dynamicConnection1.GetOneBasedScanFromDynamicConnection(10000);
-            Assert.That(a == null);
-
-            dynamicConnection1.CloseDynamicConnection();
-            dynamicConnection2.CloseDynamicConnection();
+            a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(10000);
+            thermoDynamic1.CloseDynamicConnection();
+            thermoDynamic2.CloseDynamicConnection();
 
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+            Assert.That(a == null);
         }
 
         /// <summary>
@@ -89,17 +91,18 @@ namespace Test
             var filterParams = new FilteringParams(200, 0.01, 0, 1, false, true, true);
 
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
-
-            var a = ThermoRawFileReader.LoadAllStaticData(path, filterParams, maxThreads: 1);
-            var rawScans = a.GetAllScansList();
+            var reader = ReaderCreator.CreateReader(path); 
+            reader.LoadAllStaticData(filterParams, maxThreads: 1);
+            var rawScans = reader.GetAllScansList();
             foreach (var scan in rawScans)
             {
                 Assert.That(scan.MassSpectrum.XArray.Length <= 200);
             }
 
             string outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", Path.GetFileNameWithoutExtension(infile) + ".mzML");
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
-            var mzml = Mzml.LoadAllStaticData(outfile1, filterParams, maxThreads: 1);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile1, false);
+            var mzml = ReaderCreator.CreateReader(outfile1); 
+            mzml.LoadAllStaticData(filterParams, maxThreads: 1);
 
             var mzmlScans = mzml.GetAllScansList();
             for (int i = 0; i < mzmlScans.Count; i++)
@@ -151,13 +154,14 @@ namespace Test
         public static void TestDynamicRaw(string fileName)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
-
-            ThermoRawFileReader staticRaw = ThermoRawFileReader.LoadAllStaticData(filePath);
-            ThermoDynamicData dynamicRaw = new ThermoDynamicData(filePath);
+            
+            var staticRaw = ReaderCreator.CreateReader(filePath);
+            staticRaw.LoadAllStaticData();
+            staticRaw.InitiateDynamicConnection();
 
             foreach (MsDataScan staticScan in staticRaw.GetAllScansList())
             {
-                MsDataScan dynamicScan = dynamicRaw.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan = staticRaw.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
 
                 Assert.IsFalse(staticScan.MassSpectrum.YArray.Contains(0));
                 Assert.IsFalse(dynamicScan.MassSpectrum.YArray.Contains(0));
@@ -214,7 +218,8 @@ namespace Test
         public static void TestEthcdReading()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "sliced_ethcd.raw");
-            var spectra = ThermoRawFileReader.LoadAllStaticData(filePath, null, 1);
+            var spectra = ReaderCreator.CreateReader(filePath); 
+            spectra.LoadAllStaticData(null, 1);
             var hcdScan = spectra.GetOneBasedScan(5);
             Assert.That(hcdScan.DissociationType == DissociationType.HCD);
             var ethcdScan = spectra.GetOneBasedScan(6);

@@ -69,7 +69,7 @@ namespace Readers
 
         public BrukerReaderFactory(string filePath) : base(filePath)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
     }
 }
