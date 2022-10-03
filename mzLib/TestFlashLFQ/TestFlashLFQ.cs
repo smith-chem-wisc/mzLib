@@ -825,7 +825,7 @@ namespace Test
 
             Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
 
-            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"SilacTest.mzML"), "", 0, 0, 0);
+            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\SilacTest.mzML"), "", 0, 0, 0);
             FlashLfqEngine engine = new FlashLfqEngine(
                 new List<Identification>
                 {
