@@ -1,7 +1,6 @@
 ﻿using Readers;
 using MassSpectrometry;
 using MzLibUtil;
-using SourceFile = Readers.SourceFile;
 
 namespace SpectralAveragingExtensions
 {
@@ -30,8 +29,7 @@ namespace SpectralAveragingExtensions
         public static SourceFile GetSourceFile(string filepath)
         {
             var reader = ReaderCreator.CreateReader(filepath);
-            reader.GetSourceFile(); 
-            return reader.SourceFile;
+            return reader.GetSourceFile();
 
         }
     }

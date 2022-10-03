@@ -428,7 +428,7 @@ namespace Test
             }
             catch (MzLibException e)
             {
-                Assert.That(e.Message == "Cannot load spectra");
+                Assert.That(e.Message == "File extension not supported.");
             }
             catch (Exception e)
             {
@@ -441,7 +441,7 @@ namespace Test
             }
             catch (MzLibException e)
             {
-                Assert.That(e.Message == "Cannot access SourceFile");
+                Assert.That(e.Message == "File extension not supported.");
             }
             catch (Exception e)
             {

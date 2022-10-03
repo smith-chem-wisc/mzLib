@@ -2,8 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MassSpectrometry;
 
-namespace MassSpectrometry
+namespace Readers
 {
     public class SummedMsDataFile : MsDataFile
     {
@@ -25,6 +26,31 @@ namespace MassSpectrometry
             this.raw = raw;
             this.numScansToAverage = numScansToAverage;
             this.ppmToleranceForPeakCombination = ppmToleranceForPeakCombination;
+        }
+
+        public override void LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override SourceFile GetSourceFile()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void CloseDynamicConnection()
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void InitiateDynamicConnection()
+        {
+            throw new NotImplementedException();
         }
 
         public override List<MsDataScan> GetAllScansList()
