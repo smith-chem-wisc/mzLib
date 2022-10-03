@@ -12,7 +12,4 @@ namespace Readers
         MsDataFile Reader { get; }
         MsDataFile CreateReader();
     }
-
-    
-
 }
