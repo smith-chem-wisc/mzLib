@@ -507,5 +507,20 @@ namespace Readers
                 dynamicConnection.Dispose();
             }
         }
+
+        public override int[] GetMsOrderByScanInDynamicConnection()
+        {
+            if (dynamicConnection != null)
+            {
+                int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
+                var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
+
+                int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
+
+                return msorders;
+            }
+
+            return null;
+        }
     }
 }
