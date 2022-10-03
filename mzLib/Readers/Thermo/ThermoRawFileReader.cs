@@ -355,7 +355,7 @@ namespace Readers
                 double scanRangeHigh = scanStats.HighMass;
                 double scanRangeLow = scanStats.LowMass;
 
-                MsDataFileHelpers.WindowModeHelper(ref intensityArray, ref mzArray, filterParams,
+                WindowModeHelper.Run(ref intensityArray, ref mzArray, filterParams,
                     scanRangeLow, scanRangeHigh);
 
                 Array.Sort(mzArray, intensityArray);
