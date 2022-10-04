@@ -192,7 +192,7 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
-            sb.Append("" + MassError + "\t");
+            sb.Append("" + MassError);
             
             return sb.ToString();
         }
