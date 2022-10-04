@@ -18,16 +18,19 @@
 using Chemistry;
 using Easy.Common.Extensions;
 using MassSpectrometry;
+using Microsoft.VisualStudio.TestPlatform.Utilities;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using UsefulProteomicsDatabases;
+using static System.Net.Mime.MediaTypeNames;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -124,7 +127,40 @@ namespace Test
             Loaders.UpdatePsiMod(psimodLocation);
             Loaders.UpdatePsiMod(psimodLocation);
         }
+        [Test]
+        public void TestUpdatePsiModObo()
+        {
+            var psiModOboLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "psi-mod.obo");
 
+            using (StringWriter sw = new())
+            {
+                Console.SetOut(sw);
+                Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
+                Assert.AreEqual(expected, sw.ToString());
+
+                sw.Close();
+
+            }
+
+            using (StringWriter sw = new())
+            {
+                Console.SetOut(sw);
+                Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
+                Assert.AreEqual(expected, sw.ToString());
+            }
+            
+            File.Delete(psiModOboLocation);
+            // Now you have to restore default output stream
+            var standardOutput = new StreamWriter(Console.OpenStandardOutput())
+            {
+                AutoFlush = true
+            };
+            Console.SetOut(standardOutput);
+        }
         [Test]
         public void TestUpdateElements()
         {
