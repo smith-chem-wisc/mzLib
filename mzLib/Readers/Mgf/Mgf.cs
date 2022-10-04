@@ -106,12 +106,6 @@ namespace Readers
             {
                 throw new FileNotFoundException();
             }
-
-            if (Path.GetExtension(FilePath).ToUpper() != ".MGF")
-            {
-                throw new InvalidDataException();
-            }
-
             Loaders.LoadElements();
             _streamReader = new StreamReader(FilePath);
 
