@@ -32,6 +32,17 @@ namespace Test
         }
 
         [Test]
+        public void TestMgfConstructors()
+        {
+            var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+            reader.LoadAllStaticData();
+
+            Mgf reader1 = new Mgf();
+            Mgf reader2 = new Mgf(5, reader.SourceFile);
+            Mgf reader3 = new Mgf(reader.SourceFile.FileName);
+            Mgf reader4 = new Mgf(reader.Scans, reader.SourceFile);
+        }
+        [Test]
         public static void TestLoadMgf()
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
@@ -90,6 +101,18 @@ namespace Test
             Assert.That(ya.TotalIonCurrent, Is.EqualTo(1737).Within(0.1));
             Assert.That(ya.ScanWindowRange.Minimum, Is.EqualTo(227.787).Within(0.1));
             Assert.That(ya.ScanWindowRange.Maximum, Is.EqualTo(565.64).Within(0.1));
+        }
+
+        [Test]
+        public void TestMgfDynamicConnection()
+        {
+            var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+            var fileDoesntExistReader = ReaderCreator.CreateReader("fakeFile.mgf");
+            
+            Assert.Throws<FileNotFoundException>(() =>
+            {
+                fileDoesntExistReader.InitiateDynamicConnection();
+            });
         }
 
         [Test]
