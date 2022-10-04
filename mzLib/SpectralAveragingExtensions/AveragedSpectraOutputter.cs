@@ -1,6 +1,7 @@
 ﻿using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
+using System.IO;
 
 namespace SpectralAveragingExtensions
 {

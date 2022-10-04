@@ -2,6 +2,7 @@
 using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using MzLibUtil;
+using System.Collections.Generic;
 
 namespace SpectralAveragingExtensions
 {

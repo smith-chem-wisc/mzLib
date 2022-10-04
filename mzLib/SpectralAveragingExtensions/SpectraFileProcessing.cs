@@ -2,6 +2,8 @@
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using SpectralAveraging;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SpectralAveragingExtensions
 {

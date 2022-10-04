@@ -2,10 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
-
+	
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+	<DebugType>full</DebugType>
+	<DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+	
   <ItemGroup>
     <PackageReference Include="SpectralAveraging" Version="1.0.3" />
   </ItemGroup>

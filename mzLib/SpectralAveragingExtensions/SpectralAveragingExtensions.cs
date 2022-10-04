@@ -1,5 +1,7 @@
 ﻿using MassSpectrometry;
 using SpectralAveraging;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SpectralAveragingExtensions
 {
@@ -91,6 +93,7 @@ namespace SpectralAveragingExtensions
         }
 
         #endregion
+
 
     }
 }
