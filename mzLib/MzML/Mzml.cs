@@ -143,7 +143,10 @@ namespace IO.MzML
             }
 
             SourceFile sourceFile;
-            if (_mzMLConnection.fileDescription.sourceFileList != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0] != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0].cvParam != null)
+            if (_mzMLConnection.fileDescription.sourceFileList != null 
+                && _mzMLConnection.fileDescription.sourceFileList.sourceFile != null 
+                && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0] != null 
+                && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0].cvParam != null)
             {
                 var simpler = _mzMLConnection.fileDescription.sourceFileList.sourceFile[0];
                 string nativeIdFormat = null;
