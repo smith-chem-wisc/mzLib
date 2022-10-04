@@ -121,7 +121,7 @@ namespace FlashLFQ
                 str.Append(GetDetectionType(file) + "\t");
             }
 
-            return str.ToString();
+            return str.ToString().TrimEnd('\t');
         }
 
         public override bool Equals(object obj)

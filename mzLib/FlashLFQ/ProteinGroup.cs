@@ -98,8 +98,8 @@ namespace FlashLFQ
                     }
                 }
             }
-
-            return sb.ToString();
+            
+            return sb.ToString().TrimEnd('\t');
         }
 
         public override bool Equals(object obj)

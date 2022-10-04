@@ -54,7 +54,6 @@ namespace Test
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
-
         [Test]
         public static void MergeACoupleProteins()
         {
