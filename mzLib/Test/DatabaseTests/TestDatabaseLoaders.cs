@@ -18,19 +18,14 @@
 using Chemistry;
 using Easy.Common.Extensions;
 using MassSpectrometry;
-using Microsoft.VisualStudio.TestPlatform.Utilities;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
 using UsefulProteomicsDatabases;
-using static System.Net.Mime.MediaTypeNames;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
