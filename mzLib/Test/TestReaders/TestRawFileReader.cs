@@ -12,6 +12,18 @@ namespace Test
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestRawFileReader
     {
+        [Test]
+        public void TestConstructors()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw"); 
+            var reader = new ThermoRawReaderFactory(path).Reader;
+            reader.LoadAllStaticData();
+            var reader1 = new ThermoRawFileReader();
+            var reader2 = new ThermoRawFileReader(5, reader.SourceFile);
+            var reader3 = new ThermoRawFileReader(reader.Scans, reader.SourceFile);
+            var reader4 = new ThermoRawFileReader(reader.SourceFile.FileName);
+            Assert.Pass();
+        }
         /// <summary>
         /// Tests LoadAllStaticData for ThermoRawFileReader
         /// </summary>
@@ -27,7 +39,18 @@ namespace Test
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
             outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile1);
             outfile2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile2);
-
+            
+            string dummyPath = "aaljienxmbelsiemxmbmeba.raw";
+            Assert.Throws<FileNotFoundException>(() =>
+            {
+                var dummyReader = ReaderCreator.CreateReader(dummyPath);
+                dummyReader.LoadAllStaticData();
+            }); 
+            
+            // testing load with multiple threads 
+            var parallelReader = ReaderCreator.CreateReader(path); 
+            parallelReader.LoadAllStaticData(null, maxThreads: 4);
+            
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
             var reader = ReaderCreator.CreateReader(path); 
@@ -40,6 +63,15 @@ namespace Test
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
+        [Test]
+        public void TestThermoGetSourceFile()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var reader = ReaderCreator.CreateReader(path);
+            SourceFile sf = reader.GetSourceFile();
+            Assert.That(sf.NativeIdFormat, Is.EqualTo(@"Thermo nativeID format"));
+        }
+        
         /// <summary>
         /// Tests the dynamic connection for thermorawfilereader
         /// </summary>
