@@ -133,9 +133,7 @@ namespace Test
 
                 string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
                 Assert.AreEqual(expected, sw.ToString());
-
                 sw.Close();
-
             }
 
             using (StringWriter sw = new())
@@ -145,6 +143,7 @@ namespace Test
 
                 string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
                 Assert.AreEqual(expected, sw.ToString());
+                sw.Close ();
             }
             
             File.Delete(psiModOboLocation);
