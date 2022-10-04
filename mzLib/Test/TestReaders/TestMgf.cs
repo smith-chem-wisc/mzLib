@@ -113,12 +113,16 @@ namespace Test
             {
                 fileDoesntExistReader.InitiateDynamicConnection();
             });
+            IFilteringParams filter = new FilteringParams(1, 0.01);
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf");
+            var readerReal = ReaderCreator.CreateReader(path); 
+            readerReal.InitiateDynamicConnection();
+            readerReal.GetOneBasedScanFromDynamicConnection(2, filter); 
         }
 
         [Test]
         public void EliminateZeroIntensityPeaksFromMgfOnFileLoad()
         {
-
             //read the mgf file. zero intensity peaks should be eliminated during read
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf");
 

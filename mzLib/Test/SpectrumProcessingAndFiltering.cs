@@ -225,38 +225,40 @@ namespace Test
             Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
         }
 
-        //[Test]
-        //public static void ProcessXcorrInB6MzSpectrum()
-        //{
-        //    Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
-        //    string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\sliced_b6.mzML");
-        //    FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, false);
+        [Test]
+        public static void ProcessXcorrInB6MzSpectrum()
+        {
+            Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\sliced_b6.mzML");
+            FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, false);
 
-        //    string expectedResultFile = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\Working_86.tsv");
+            string expectedResultFile = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\Working_86.tsv");
 
-        //    List<string> expectedResults = File.ReadAllLines(expectedResultFile, Encoding.UTF8).ToList();
+            List<string> expectedResults = File.ReadAllLines(expectedResultFile, Encoding.UTF8).ToList();
 
-        //    MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
+            var reader = ReaderCreator.CreateReader(origDataFile); 
+            reader.LoadAllStaticData(filter, 1);
+            MyMsDataFiles[origDataFile] = reader;
 
-        //    var scans = MyMsDataFiles[origDataFile].GetAllScansList();
+            var scans = MyMsDataFiles[origDataFile].GetAllScansList();
 
-        //    List<double> xArrayProcessed = new List<double>();
-        //    foreach (MsDataScan scan in scans.Where(s => s.MsnOrder > 1))
-        //    {
-        //        if(scan.OneBasedScanNumber == 86)
-        //        {
-        //            scan.MassSpectrum.XCorrPrePreprocessing(0, 1969, scan.IsolationMz.Value);
-        //            xArrayProcessed = scan.MassSpectrum.XArray.ToList();
-        //        }
+            List<double> xArrayProcessed = new List<double>();
+            foreach (MsDataScan scan in scans.Where(s => s.MsnOrder > 1))
+            {
+                if(scan.OneBasedScanNumber == 86)
+                {
+                    scan.MassSpectrum.XCorrPrePreprocessing(0, 1969, scan.IsolationMz.Value);
+                    xArrayProcessed = scan.MassSpectrum.XArray.ToList();
+                }
                 
-        //    }
+            }
 
-        //    for (int i = 0; i < expectedResults.Count; i++)
-        //    {
-        //        Assert.That(double.Parse(expectedResults[i]), Is.EqualTo(xArrayProcessed[i]).Within(0.001));
-        //    }
+            for (int i = 0; i < expectedResults.Count; i++)
+            {
+                Assert.That(double.Parse(expectedResults[i]), Is.EqualTo(xArrayProcessed[i]).Within(0.001));
+            }
             
-        //}
+        }
 
         [Test]
         public static void XcorrTestBorrowedFromMM()

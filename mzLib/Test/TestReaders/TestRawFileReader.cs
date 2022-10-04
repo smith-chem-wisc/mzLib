@@ -24,6 +24,17 @@ namespace Test
             var reader4 = new ThermoRawFileReader(reader.SourceFile.FileName);
             Assert.Pass();
         }
+
+        [Test]
+        public void TestFileDoesntExist()
+        {
+            string fakePath = "fakePath.raw";
+            var reader = ReaderCreator.CreateReader(fakePath);
+            Assert.Throws<FileNotFoundException>(() =>
+            {
+                reader.InitiateDynamicConnection();
+            });
+        }
         /// <summary>
         /// Tests LoadAllStaticData for ThermoRawFileReader
         /// </summary>

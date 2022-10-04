@@ -8,6 +8,7 @@ namespace Test;
 public class TestBrukerReader
 {
     [Test]
+    [ExcludeFromCodeCoverage]
     public void TestBrukerFactory()
     {
         string dummyPath = "fakeFilePath.d";
