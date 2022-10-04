@@ -445,11 +445,6 @@ namespace Readers
                 throw new FileNotFoundException();
             }
 
-            if (Path.GetExtension(FilePath).ToUpper() != ".RAW")
-            {
-                throw new InvalidDataException();
-            }
-
             Loaders.LoadElements();
 
             if (dynamicConnection != null)
