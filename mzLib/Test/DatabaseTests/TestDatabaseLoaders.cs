@@ -124,7 +124,9 @@ namespace Test
         [Test]
         public void TestUpdatePsiModObo()
         {
-            var psiModOboLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "psi-mod.obo");
+            string testDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "obo");
+            Directory.CreateDirectory(testDirectory);
+            var psiModOboLocation = Path.Combine(testDirectory, "psi-mod.obo");
 
             using (StringWriter sw = new())
             {
@@ -145,8 +147,28 @@ namespace Test
                 Assert.AreEqual(expected, sw.ToString());
                 sw.Close ();
             }
-            
-            File.Delete(psiModOboLocation);
+
+            //create and empty obo that will be seen as different from the downloaded file and then be updated.
+            File.WriteAllText(psiModOboLocation, "");
+
+            using (StringWriter sw = new())
+            {
+                Console.SetOut(sw);
+                Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                string expected = "psi-mod.obo database updated, saving old version as backup\r\n";
+                Assert.AreEqual(expected, sw.ToString());
+                sw.Close();
+            }
+
+            string[] files = Directory.GetFiles(testDirectory);
+            foreach (string file in files)
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+                File.Delete(file);
+            }
+            Directory.Delete(testDirectory, false);
+
             // Now you have to restore default output stream
             var standardOutput = new StreamWriter(Console.OpenStandardOutput())
             {
