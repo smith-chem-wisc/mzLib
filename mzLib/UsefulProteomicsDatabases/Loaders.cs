@@ -30,6 +30,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using UsefulProteomicsDatabases.Generated;
+using TopDownProteomics.IO.Obo;
 
 namespace UsefulProteomicsDatabases
 {
@@ -117,11 +118,53 @@ namespace UsefulProteomicsDatabases
             }
         }
 
+        public static IEnumerable<OboTerm> ReadPsiModFile(string psimodLocation)
+        {
+            OboParser oboParser = new();
+            return oboParser.Parse(psimodLocation); 
+        }
+
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
         {
-            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
+            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>()
+                .Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
             Regex digitsOnly = new(@"[^\d]");
             return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
+        }
+
+        public static string GetFormalChargeString(this OboTagValuePair tvPair)
+        {
+            return GetStringFromOboTagValuePairValue(tvPair, pattern: @"[\d](?:\+|\-)"); 
+        }
+
+        private static string GetStringFromOboTagValuePairValue(OboTagValuePair oboTerms, 
+            string pattern)
+        {
+            var matchGroup = Regex.Match(oboTerms.Value, pattern); 
+            return matchGroup.Groups[0].Value; 
+        }
+
+        public static Dictionary<string, int> GetFormalChargesDictionary(IEnumerable<OboTerm> terms)
+        {
+            var formalCharges =
+                from i in terms
+                from j in i.ValuePairs
+                where j.Value.Contains("FormalCharge")
+                select (i.Id, j.Value);
+            Regex digitsOnly = new(@"[^\d]");
+            var modifiedResults = formalCharges
+                .Select
+                (
+                    id => ("PSI-MOD; " + id.Id,
+                        int.Parse(GetChargeString(id.Value) + digitsOnly.Replace(id.Value, "")))
+                );
+            return modifiedResults.ToDictionary(i => i.Item1, i => i.Item2);
+        }
+        // This method is used to fix an issue where the polarity of the formal charge is not read correctly. 
+        private static string GetChargeString(string entry)
+        {
+            var chargeMatch = Regex.Match(entry, @"(\+|\-)");
+            return chargeMatch.Groups[1].Value;
         }
 
         public static void LoadElements()
