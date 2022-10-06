@@ -13,9 +13,15 @@ namespace MzLibSpectralAveraging
 
         #endregion
 
-        public MzLibSpectralAveragingOptions(SpectralAveragingOptions? spectralAveragingOptions = null)
+        public MzLibSpectralAveragingOptions(SpectralAveragingOptions spectralAveragingOptions)
         {
             SpectralAveragingOptions = spectralAveragingOptions ?? new SpectralAveragingOptions();
+            SetDefaultValues();
+        }
+
+        public MzLibSpectralAveragingOptions()
+        {
+            SpectralAveragingOptions = new();
             SetDefaultValues();
         }
 
@@ -44,6 +50,7 @@ namespace MzLibSpectralAveraging
             NumberOfScansToAverage = 5;
             ScanOverlap = 2;
             OutputType = OutputType.mzML;
+            SpectralAveragingOptions.SetDefaultValues();
         }
     }
 }
