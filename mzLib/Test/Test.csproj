@@ -17,6 +17,7 @@
     <PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
     <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
+    <PackageReference Include="TopDownProteomics" Version="0.0.287" />
   </ItemGroup>
 
   <ItemGroup>
@@ -131,6 +132,9 @@
     </None>
     <None Update="DatabaseTests\ProteoformClassificationUnitTest.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\PSI-MOD.obo">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\ranges1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -284,6 +288,9 @@
     </None>
     <None Update="DataFiles\P08709.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\PSI-MOD.obo">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\sliced_ethcd.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
