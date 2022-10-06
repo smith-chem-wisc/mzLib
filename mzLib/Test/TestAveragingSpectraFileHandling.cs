@@ -4,10 +4,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
+using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
 using SpectralAveraging;
-using SpectralAveragingExtensions;
 
 namespace Test
 {

@@ -33,7 +33,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "Test\Test.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFlashLFQ", "TestFlashLFQ\TestFlashLFQ.csproj", "{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SpectralAveragingExtensions", "SpectralAveragingExtensions\SpectralAveragingExtensions.csproj", "{7F1F785D-4BD9-489B-83BF-746E6C5E7454}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MzLibSpectralAveraging", "MzLibSpectralAveraging\MzLibSpectralAveraging.csproj", "{891888CA-E5CC-4168-B6F2-2B2CED74EA37}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -90,8 +90,8 @@ Global
 		{77BB63CF-30D2-4081-B397-6CB444DFB2DC}.Release|x64.Build.0 = Release|x64
 		{77BB63CF-30D2-4081-B397-6CB444DFB2DC}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{77BB63CF-30D2-4081-B397-6CB444DFB2DC}.TestAndRelease|x64.Build.0 = Release|x64
-		{9697BC5E-1F2C-4E3C-BC53-3532CBDFFCC7}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{9697BC5E-1F2C-4E3C-BC53-3532CBDFFCC7}.Debug|x64.Build.0 = Debug|Any CPU
+		{9697BC5E-1F2C-4E3C-BC53-3532CBDFFCC7}.Debug|x64.ActiveCfg = Debug|x64
+		{9697BC5E-1F2C-4E3C-BC53-3532CBDFFCC7}.Debug|x64.Build.0 = Debug|x64
 		{9697BC5E-1F2C-4E3C-BC53-3532CBDFFCC7}.Release|x64.ActiveCfg = Release|x64
 		{9697BC5E-1F2C-4E3C-BC53-3532CBDFFCC7}.Release|x64.Build.0 = Release|x64
 		{9697BC5E-1F2C-4E3C-BC53-3532CBDFFCC7}.TestAndRelease|x64.ActiveCfg = Release|x64
@@ -132,12 +132,12 @@ Global
 		{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}.Release|x64.Build.0 = Release|x64
 		{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}.TestAndRelease|x64.Build.0 = Release|x64
-		{7F1F785D-4BD9-489B-83BF-746E6C5E7454}.Debug|x64.ActiveCfg = Debug|x64
-		{7F1F785D-4BD9-489B-83BF-746E6C5E7454}.Debug|x64.Build.0 = Debug|x64
-		{7F1F785D-4BD9-489B-83BF-746E6C5E7454}.Release|x64.ActiveCfg = Release|x64
-		{7F1F785D-4BD9-489B-83BF-746E6C5E7454}.Release|x64.Build.0 = Release|x64
-		{7F1F785D-4BD9-489B-83BF-746E6C5E7454}.TestAndRelease|x64.ActiveCfg = Release|x64
-		{7F1F785D-4BD9-489B-83BF-746E6C5E7454}.TestAndRelease|x64.Build.0 = Release|x64
+		{891888CA-E5CC-4168-B6F2-2B2CED74EA37}.Debug|x64.ActiveCfg = Debug|x64
+		{891888CA-E5CC-4168-B6F2-2B2CED74EA37}.Debug|x64.Build.0 = Debug|x64
+		{891888CA-E5CC-4168-B6F2-2B2CED74EA37}.Release|x64.ActiveCfg = Release|x64
+		{891888CA-E5CC-4168-B6F2-2B2CED74EA37}.Release|x64.Build.0 = Release|x64
+		{891888CA-E5CC-4168-B6F2-2B2CED74EA37}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{891888CA-E5CC-4168-B6F2-2B2CED74EA37}.TestAndRelease|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
