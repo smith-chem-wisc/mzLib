@@ -19,11 +19,7 @@ namespace MzLibSpectralAveraging
             SetDefaultValues();
         }
 
-        public MzLibSpectralAveragingOptions()
-        {
-            SpectralAveragingOptions = new();
-            SetDefaultValues();
-        }
+        public MzLibSpectralAveragingOptions() => this.SetDefaultValues();
 
         /// <summary>
         /// Can be used to set the values of the options in a single call
@@ -50,7 +46,10 @@ namespace MzLibSpectralAveraging
             NumberOfScansToAverage = 5;
             ScanOverlap = 2;
             OutputType = OutputType.mzML;
-            SpectralAveragingOptions.SetDefaultValues();
+            if (SpectralAveragingOptions == null)
+                SpectralAveragingOptions = new();
+            else
+                SpectralAveragingOptions.SetDefaultValues();
         }
     }
 }
