@@ -9,6 +9,7 @@ using System.ComponentModel.DataAnnotations;
 using MzLibUtil;
 using System.Linq;
 using MsDataFile = Readers.MsDataFile;
+using Proteomics.Fragmentation;
 
 namespace Test
 {
@@ -78,6 +79,17 @@ namespace Test
             Assert.AreEqual(165, ya2.Size);
             var ya3 = reader.GetOneBasedScan(2).MassSpectrum;
             Assert.AreEqual(551, ya3.Size);
+        }
+
+        [Test]
+        public static void TestErrorMgfContainsDuplicateScanNumbers()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "Tab_separated_peak_listWithDuplicateScan.mgf");
+            MsDataFile dataReader = ReaderCreator.CreateReader(path);
+            dataReader.LoadAllStaticData();
+
+            //There are two scans with scan #3. This is not allowed and an MzLibException is thrown
+            Assert.Throws<MzLibException>(() => dataReader.InitiateDynamicConnection());
         }
 
         [Test]

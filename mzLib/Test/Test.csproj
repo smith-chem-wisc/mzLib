@@ -308,7 +308,10 @@
     <None Update="DataFiles\SmallCalibratibleYeast_mixed_bits.mzml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="DataFiles\Tab_separated_peak_list.mgf">
+    <None Update="DataFiles\Tab_separated_peak_list - Copy.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\Tab_separated_peak_listWithDuplicateScan.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="AveragingTestData\TDYeastFractionMMResult.psmtsv">
