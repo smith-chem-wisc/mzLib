@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
 using SpectralAveraging;
+using UsefulProteomicsDatabases.Generated;
 
 namespace Test
 {
@@ -196,6 +198,64 @@ namespace Test
                 formattedScans.Add(newScan);
             }
             DummyDDAScansOutOfOrder = formattedScans;
+        }
+
+        [Test]
+        public static void TestMzLibSpectralAveragingOptionsConstructors()
+        {
+            MzLibSpectralAveragingOptions defaultOptions = new();
+            defaultOptions.SetDefaultValues();
+            MzLibSpectralAveragingOptions testMzLibOptions = new();
+            // testing if values are equal to one another
+            foreach (var property in defaultOptions.GetType().GetProperties())
+            {
+                var propertyType = property.PropertyType;
+                var defaultProperty = Convert.ChangeType(defaultOptions.GetType().GetProperty(property.Name)?.GetValue(defaultOptions), propertyType);
+                var testProperty = Convert.ChangeType(testMzLibOptions.GetType().GetProperty(property.Name)?.GetValue(testMzLibOptions),
+                    propertyType);
+                if (propertyType == typeof(SpectralAveragingOptions))
+                {
+                    foreach (var averagingProperty in ((SpectralAveragingOptions)defaultProperty)?.GetType().GetProperties())
+                    {
+                        // ensure wrapped property is equal to base property
+                        defaultProperty =
+                            Convert.ChangeType(
+                                defaultOptions.GetType().GetProperty(averagingProperty.Name)?.GetValue(defaultOptions),
+                                averagingProperty.PropertyType);
+                        var defaultAvgProperty =
+                            Convert.ChangeType(
+                                defaultOptions.SpectralAveragingOptions.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(defaultOptions.SpectralAveragingOptions), averagingProperty.PropertyType);
+                        Assert.That(defaultProperty?.ToString() == defaultAvgProperty?.ToString());
+
+                        // ensure wrapped property is equal to base property
+                        testProperty =
+                            Convert.ChangeType(
+                                testMzLibOptions.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(testMzLibOptions), averagingProperty.PropertyType);
+                        var testAvgProperty =
+                            Convert.ChangeType(
+                                testMzLibOptions.SpectralAveragingOptions.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(testMzLibOptions.SpectralAveragingOptions),
+                                averagingProperty.PropertyType);
+                        Assert.That(testProperty?.ToString() == testAvgProperty?.ToString());
+                        Assert.That(testAvgProperty?.ToString() == defaultAvgProperty?.ToString());
+                    }
+                }
+                else
+                {
+                    Assert.That(defaultProperty?.ToString() == testProperty?.ToString());
+                }
+            }
+            
+            SpectralAveragingOptions options = new SpectralAveragingOptions();
+            options.BinSize = 2;
+            options.MaxSigmaValue = 4;
+            MzLibSpectralAveragingOptions mzLibOptions = new(options);
+            Assert.That(Math.Abs(mzLibOptions.SpectralAveragingOptions.BinSize - 2) < 0.001);
+            Assert.That(Math.Abs(mzLibOptions.BinSize - 2) < 0.001);
+            Assert.That(Math.Abs(mzLibOptions.SpectralAveragingOptions.MaxSigmaValue - 4) < 0.001);
+            Assert.That(Math.Abs(mzLibOptions.MaxSigmaValue - 4) < 0.001);
         }
 
         [Test]
@@ -430,7 +490,7 @@ namespace Test
             {
                 Assert.That(e.Message == "Cannot load spectra");
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 Assert.That(false);
             }
@@ -443,7 +503,7 @@ namespace Test
             {
                 Assert.That(e.Message == "Cannot access SourceFile");
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 Assert.That(false);
             }

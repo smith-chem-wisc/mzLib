@@ -11,12 +11,64 @@ namespace MzLibSpectralAveraging
         public int ScanOverlap { get; set; }
         public OutputType OutputType { get; set; }
 
+        #region SpectralAveragingOptions Wrapped Properties
+
+        public RejectionType RejectionType
+        {
+            get => SpectralAveragingOptions.RejectionType;
+            set => SpectralAveragingOptions.RejectionType = value;
+        }
+
+        public WeightingType WeightingType
+        {
+            get => SpectralAveragingOptions.WeightingType;
+            set => SpectralAveragingOptions.WeightingType = value;
+        }
+
+        public SpectrumMergingType SpectrumMergingType
+        {
+            get => SpectralAveragingOptions.SpectrumMergingType;
+            set => SpectralAveragingOptions.SpectrumMergingType = value;
+        }
+
+        public bool PerformNormalization
+        {
+            get => SpectralAveragingOptions.PerformNormalization;
+            set => SpectralAveragingOptions.PerformNormalization = value;
+        }
+
+        public double Percentile
+        {
+            get => SpectralAveragingOptions.Percentile;
+            set => SpectralAveragingOptions.Percentile = value;
+        }
+
+        public double MinSigmaValue
+        {
+            get => SpectralAveragingOptions.MinSigmaValue;
+            set => SpectralAveragingOptions.MinSigmaValue = value;
+        }
+
+        public double MaxSigmaValue
+        {
+            get => SpectralAveragingOptions.MaxSigmaValue;
+            set => SpectralAveragingOptions.MaxSigmaValue = value;  
+        }
+
+        public double BinSize
+        {
+            get => SpectralAveragingOptions.BinSize;
+            set => SpectralAveragingOptions.BinSize = value;
+        }
+
+        #endregion
+
         #endregion
 
         public MzLibSpectralAveragingOptions(SpectralAveragingOptions spectralAveragingOptions)
         {
-            SpectralAveragingOptions = spectralAveragingOptions ?? new SpectralAveragingOptions();
-            SetDefaultValues();
+            SpectralAveragingOptions = spectralAveragingOptions;
+            SetDefaultValues(true);
         }
 
         public MzLibSpectralAveragingOptions() => this.SetDefaultValues();
@@ -40,7 +92,7 @@ namespace MzLibSpectralAveraging
         /// <summary>
         /// Sets the values of the options to their defaults
         /// </summary>
-        public void SetDefaultValues()
+        public void SetDefaultValues(bool resetOnlyMzLibValues = false)
         {
             SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
             NumberOfScansToAverage = 5;
@@ -48,7 +100,7 @@ namespace MzLibSpectralAveraging
             OutputType = OutputType.mzML;
             if (SpectralAveragingOptions == null)
                 SpectralAveragingOptions = new();
-            else
+            else if (!resetOnlyMzLibValues)
                 SpectralAveragingOptions.SetDefaultValues();
         }
     }
