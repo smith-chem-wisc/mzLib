@@ -247,7 +247,33 @@ namespace Test
                     Assert.That(defaultProperty?.ToString() == testProperty?.ToString());
                 }
             }
-            
+
+            testMzLibOptions.RejectionType = RejectionType.AveragedSigmaClipping;
+            testMzLibOptions.WeightingType = WeightingType.CauchyDistribution;
+            testMzLibOptions.SpectrumMergingType = SpectrumMergingType.MostSimilarSpectrum;
+            testMzLibOptions.PerformNormalization = false;
+            testMzLibOptions.Percentile = 2;
+            testMzLibOptions.MinSigmaValue = 2;
+            testMzLibOptions.MaxSigmaValue = 2;
+            testMzLibOptions.BinSize = 2;
+
+            Assert.That(testMzLibOptions.RejectionType == RejectionType.AveragedSigmaClipping);
+            Assert.That(testMzLibOptions.SpectralAveragingOptions.RejectionType == RejectionType.AveragedSigmaClipping);
+            Assert.That(testMzLibOptions.WeightingType == WeightingType.CauchyDistribution);
+            Assert.That(testMzLibOptions.SpectralAveragingOptions.WeightingType == WeightingType.CauchyDistribution);
+            Assert.That(testMzLibOptions.SpectrumMergingType == SpectrumMergingType.MostSimilarSpectrum);
+            Assert.That(testMzLibOptions.SpectralAveragingOptions.SpectrumMergingType == SpectrumMergingType.MostSimilarSpectrum);
+            Assert.That(testMzLibOptions.PerformNormalization == false);
+            Assert.That(testMzLibOptions.SpectralAveragingOptions.PerformNormalization == false);
+            Assert.That(Math.Abs(testMzLibOptions.Percentile - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.SpectralAveragingOptions.Percentile - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.MinSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.SpectralAveragingOptions.MinSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.MaxSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.SpectralAveragingOptions.MaxSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.BinSize - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.SpectralAveragingOptions.BinSize - 2) < 0.001);
+
             SpectralAveragingOptions options = new SpectralAveragingOptions();
             options.BinSize = 2;
             options.MaxSigmaValue = 4;
