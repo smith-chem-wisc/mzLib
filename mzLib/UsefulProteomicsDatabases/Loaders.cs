@@ -118,10 +118,32 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        public static IEnumerable<OboTerm> ReadPsiModFile(string psimodLocation)
+        public static void UpdatePsiModObo(string psiModOboLocation)
+        {
+            DownloadPsiModObo(psiModOboLocation);
+            if (!File.Exists(psiModOboLocation))
+            {
+                Console.WriteLine("psi-mod.obo database did not exist, writing to disk");
+                File.Move(psiModOboLocation + ".temp", psiModOboLocation);
+                return;
+            }
+            if (FilesAreEqual_Hash(psiModOboLocation + ".temp", psiModOboLocation))
+            {
+                Console.WriteLine("psi-mod.obo database is up to date, doing nothing");
+                File.Delete(psiModOboLocation + ".temp");
+            }
+            else
+            {
+                Console.WriteLine("psi-mod.obo database updated, saving old version as backup");
+                File.Move(psiModOboLocation, psiModOboLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
+                File.Move(psiModOboLocation + ".temp", psiModOboLocation);
+            }
+        }
+
+        public static IEnumerable<OboTerm> ReadPsiModFile(string psiModOboLocation)
         {
             OboParser oboParser = new();
-            return oboParser.Parse(psimodLocation); 
+            return oboParser.Parse(psiModOboLocation); 
         }
 
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
@@ -244,7 +266,10 @@ namespace UsefulProteomicsDatabases
         {
             DownloadContent(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
         }
-
+        private static void DownloadPsiModObo(string psiModOboLocation)
+        {
+            DownloadContent(@"https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo?raw=true", psiModOboLocation + ".temp");
+        }
         private static void DownloadUnimod(string unimodLocation)
         {
             DownloadContent(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
