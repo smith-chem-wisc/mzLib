@@ -508,31 +508,18 @@ namespace Test
             Assert.That(file.NativeIdFormat == "Thermo nativeID format");
 
             string badPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles/small.toml");
-            try
+
+            var exception = Assert.Throws<MzLibException>(() =>
             {
                 SpectraFileHandler.LoadAllScansFromFile(badPath);
-            }
-            catch (MzLibException e)
-            {
-                Assert.That(e.Message == "Cannot load spectra");
-            }
-            catch (Exception)
-            {
-                Assert.That(false);
-            }
+            });
+            Assert.That(exception.Message == "Cannot load spectra");
 
-            try
+            exception = Assert.Throws<MzLibException>(() =>
             {
                 SpectraFileHandler.GetSourceFile(badPath);
-            }
-            catch (MzLibException e)
-            {
-                Assert.That(e.Message == "Cannot access SourceFile");
-            }
-            catch (Exception)
-            {
-                Assert.That(false);
-            }
+            });
+            Assert.That(exception.Message == "Cannot access SourceFile");
         }
     }
 }

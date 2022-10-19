@@ -73,19 +73,11 @@ namespace Test
             }
 
             // test errors
-            try
+            var exception = Assert.Throws<MzLibException>(() =>
             {
                 AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, "");
-                Assert.That(false);
-            }
-            catch (MzLibException e)
-            {
-                Assert.That(e.Message == "Cannot Access Spectra Directory");
-            }
-            catch (Exception)
-            {
-                Assert.That(false);
-            }
+            });
+            Assert.That(exception.Message == "Cannot Access Spectra Directory");
         }
 
         [Test]
@@ -130,19 +122,12 @@ namespace Test
             Assert.That(loadedSpectrum.Equals(AverageAllCompositeSpectra[0].MassSpectrum));
 
             // test errors
-            try
-            {
-                AveragedSpectraOutputter.OutputAveragedScans(AverageAllCompositeSpectra, Options, "");
-                Assert.That(false);
-            }
-            catch (MzLibException e)
-            {
-                Assert.That(e.Message == "Cannot Access Spectra Directory");
-            }
-            catch (Exception)
-            {
-                Assert.That(false);
-            }
+            var exception = Assert.Throws<MzLibException>(() => 
+            { 
+                AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, "");
+            } );
+            Assert.That(exception.Message == "Cannot Access Spectra Directory");
+
         }
     }
 }
