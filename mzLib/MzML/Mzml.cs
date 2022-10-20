@@ -663,11 +663,19 @@ namespace IO.MzML
         private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
             string precursorID = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef;
-            do
+            if (!string.IsNullOrEmpty(precursorID) && precursorID.Contains("scan"))
             {
-                oneBasedSpectrumNumber--;
-            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
-            return oneBasedSpectrumNumber;
+                string[] spectrumRefFields = precursorID.Split("=");
+                return Convert.ToInt32(spectrumRefFields.Last()); ;
+            }
+            else
+            {
+                do
+                {
+                    oneBasedSpectrumNumber--;
+                } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
+                return oneBasedSpectrumNumber;
+            }
         }
     }
 }

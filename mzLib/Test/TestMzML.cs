@@ -76,6 +76,20 @@ namespace Test
         }
 
         [Test]
+        public void DeleteThisJunk()
+        {
+            string origDataFile = Path.Combine(@"C:\Users\mrsho\Downloads\2019_09_16_StcEmix_35trig_EThcD25_rep1_calibrated-FIX.mzML");
+            FilteringParams filter = new(200, 0.01, 1, null, false, false, true);
+
+            MsDataFile myFile = Mzml.LoadAllStaticData(origDataFile, filter, 1);
+
+            var scans = myFile.GetAllScansList();
+
+
+            Assert.IsTrue(false);
+        }
+
+        [Test]
         public static void ReadMzMlInNewEra()
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
