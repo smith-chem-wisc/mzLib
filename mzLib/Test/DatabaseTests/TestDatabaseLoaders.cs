@@ -25,8 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -94,7 +92,6 @@ namespace Test
                     count++;
                 }
             }
-
             Assert.AreEqual(2, count);
         }
 
@@ -124,7 +121,61 @@ namespace Test
             Loaders.UpdatePsiMod(psimodLocation);
             Loaders.UpdatePsiMod(psimodLocation);
         }
+        [Test]
+        public void TestUpdatePsiModObo()
+        {
+            string testDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "obo");
+            Directory.CreateDirectory(testDirectory);
+            var psiModOboLocation = Path.Combine(testDirectory, "psi-mod.obo");
 
+            using (StringWriter sw = new())
+            {
+                Console.SetOut(sw);
+                Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
+                Assert.AreEqual(expected, sw.ToString());
+                sw.Close();
+            }
+
+            using (StringWriter sw = new())
+            {
+                Console.SetOut(sw);
+                Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
+                Assert.AreEqual(expected, sw.ToString());
+                sw.Close ();
+            }
+
+            //create and empty obo that will be seen as different from the downloaded file and then be updated.
+            File.WriteAllText(psiModOboLocation, "");
+
+            using (StringWriter sw = new())
+            {
+                Console.SetOut(sw);
+                Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                string expected = "psi-mod.obo database updated, saving old version as backup\r\n";
+                Assert.AreEqual(expected, sw.ToString());
+                sw.Close();
+            }
+
+            string[] files = Directory.GetFiles(testDirectory);
+            foreach (string file in files)
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+                File.Delete(file);
+            }
+            Directory.Delete(testDirectory, false);
+
+            // Now you have to restore default output stream
+            var standardOutput = new StreamWriter(Console.OpenStandardOutput())
+            {
+                AutoFlush = true
+            };
+            Console.SetOut(standardOutput);
+        }
         [Test]
         public void TestUpdateElements()
         {
