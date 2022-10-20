@@ -286,6 +286,9 @@
     <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans781_783.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\noPrecursorScans.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\P08709.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

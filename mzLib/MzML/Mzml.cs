@@ -117,7 +117,7 @@ namespace IO.MzML
         {
         }
 
-        public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null, int maxThreads = -1)
+        public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null, int maxThreads = -1, bool searchForCorrectMs1PrecursorScan = true)
         {
             if (!File.Exists(filePath))
             {
@@ -224,7 +224,7 @@ namespace IO.MzML
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
                 {
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams, searchForCorrectMs1PrecursorScan);
                 }
             });
 
@@ -284,7 +284,7 @@ namespace IO.MzML
             return new Mzml(scans, sourceFile);
         }
 
-        private static MsDataScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedIndex, IFilteringParams filterParams)
+        private static MsDataScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedIndex, IFilteringParams filterParams, bool searchForCorrectMs1PrecursorScan)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -359,6 +359,16 @@ namespace IO.MzML
             string scanFilter = null;
             double? injectionTime = null;
             int oneBasedScanNumber = oneBasedIndex;
+            if (!searchForCorrectMs1PrecursorScan)
+            {
+                if (nativeId.Contains("scan"))
+                {
+                    string[] nativeIdFields = nativeId.Split("=");
+                    int scanNumberFromField = oneBasedIndex;
+                    int.TryParse(nativeIdFields.Last(), out scanNumberFromField);
+                    oneBasedScanNumber = scanNumberFromField;
+                }
+            }
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].cvParam != null)
             {
                 foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].cvParam)
@@ -586,12 +596,12 @@ namespace IO.MzML
             }
             else
             {
-                precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedIndex);
+                precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedIndex, searchForCorrectMs1PrecursorScan);
             }
 
             return new MsDataScan(
                 mzmlMzSpectrum,
-                oneBasedIndex,
+                oneBasedScanNumber,
                 msOrder.Value,
                 isCentroid.Value,
                 polarity,
@@ -660,21 +670,25 @@ namespace IO.MzML
             return convertedArray;
         }
 
-        private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
+        private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, bool searchForPrecursorScan)
         {
             string precursorID = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef;
-            if (!string.IsNullOrEmpty(precursorID) && precursorID.Contains("scan"))
-            {
-                string[] spectrumRefFields = precursorID.Split("=");
-                return Convert.ToInt32(spectrumRefFields.Last()); ;
-            }
-            else
+            if (searchForPrecursorScan)
             {
                 do
                 {
                     oneBasedSpectrumNumber--;
                 } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
                 return oneBasedSpectrumNumber;
+            }
+            else if (!string.IsNullOrEmpty(precursorID) && precursorID.Contains("scan"))
+            {
+                string[] spectrumRefFields = precursorID.Split("=");
+                return Convert.ToInt32(spectrumRefFields.Last()); ;
+            }
+            else
+            {
+                throw new MzLibException("Precursor scan number not define for scan=" + (oneBasedSpectrumNumber -1).ToString() +" in mzml file");
             }
         }
     }

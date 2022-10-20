@@ -76,17 +76,17 @@ namespace Test
         }
 
         [Test]
-        public void DeleteThisJunk()
+        public void TestUseProvidedScanAndPrecursorScanNumbers()
         {
-            string origDataFile = Path.Combine(@"C:\Users\mrsho\Downloads\2019_09_16_StcEmix_35trig_EThcD25_rep1_calibrated-FIX.mzML");
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noPrecursorScans.mzML");
             FilteringParams filter = new(200, 0.01, 1, null, false, false, true);
-
-            MsDataFile myFile = Mzml.LoadAllStaticData(origDataFile, filter, 1);
-
+            bool lookForPrecursorScans = false;
+            MsDataFile myFile = Mzml.LoadAllStaticData(origDataFile, filter, 1, lookForPrecursorScans);
             var scans = myFile.GetAllScansList();
-
-
-            Assert.IsTrue(false);
+            List<int> expectedScanNumbers = new() { 20000, 20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008, 20009};
+            CollectionAssert.AreEquivalent(expectedScanNumbers, scans.Select(s => s.OneBasedScanNumber).ToList());
+            List<int> expectedPrecursorScanNumbers = new() { 19975, 19975, 19990, 19990, 19990, 19975, 19975, 19975, 19975, 19975 };
+            CollectionAssert.AreEquivalent(expectedPrecursorScanNumbers, scans.Select(s => s.OneBasedPrecursorScanNumber).ToList());
         }
 
         [Test]
