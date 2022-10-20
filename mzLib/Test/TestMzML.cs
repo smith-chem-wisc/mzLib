@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using System.Xml.Serialization;
 using TopDownProteomics.IO;
 using TopDownProteomics.IO.Obo;
+using static System.Net.WebRequestMethods;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -90,6 +91,15 @@ namespace Test
         }
 
         [Test]
+        public void TextScanNumberNotReportedInMzml()
+        {
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noScanNumber.mzML");
+            FilteringParams filter = new(200, 0.01, 1, null, false, false, true);
+            bool lookForPrecursorScans = false;
+            Assert.Throws<AggregateException>(() => Mzml.LoadAllStaticData(origDataFile, filter, 1, lookForPrecursorScans), "Precursor scan number not define for scan=1");
+        }
+
+        [Test]
         public static void ReadMzMlInNewEra()
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
@@ -107,7 +117,7 @@ namespace Test
         [Test]
         public void LoadBadMzml()
         {
-            File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "asdfasdfasdfasdfasdf.mzML")); // just to be sure
+            System.IO.File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "asdfasdfasdfasdfasdf.mzML")); // just to be sure
             Assert.Throws<FileNotFoundException>(() => Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")));
         }
 
@@ -666,7 +676,7 @@ namespace Test
             Assert.IsFalse(readFile.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
             Assert.IsFalse(readFile.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
 
-            File.Delete("mzMLWithZeros.mzML");
+            System.IO.File.Delete("mzMLWithZeros.mzML");
         }
 
         [Test]

@@ -681,14 +681,23 @@ namespace IO.MzML
                 } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
                 return oneBasedSpectrumNumber;
             }
-            else if (!string.IsNullOrEmpty(precursorID) && precursorID.Contains("scan"))
+            else 
             {
-                string[] spectrumRefFields = precursorID.Split("=");
-                return Convert.ToInt32(spectrumRefFields.Last()); ;
-            }
-            else
-            {
-                throw new MzLibException("Precursor scan number not define for scan=" + (oneBasedSpectrumNumber -1).ToString() +" in mzml file");
+                bool idFormatedCorretly = !string.IsNullOrEmpty(precursorID) && precursorID.Contains("scan");
+                if (idFormatedCorretly)
+                {
+                    string[] spectrumRefFields = precursorID.Split("=");
+                    int number;
+                    if(spectrumRefFields.Length > 1)
+                    {
+                        bool success = int.TryParse(spectrumRefFields.Last(), out number);
+                        if (success)
+                        {
+                            return number;
+                        }
+                    }
+                }
+                throw new MzLibException("Precursor scan number not define for scan=" + (oneBasedSpectrumNumber - 1).ToString() + " in mzml file");
             }
         }
     }
