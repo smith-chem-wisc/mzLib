@@ -376,7 +376,7 @@ namespace MassSpectrometry
             //add "most intense peak"
             var listOfObservedPeaks = new List<(double, double)> { (candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity) };
             var listOfRatios = new List<double> { theoreticalIntensities[0] / candidateForMostIntensePeakIntensity }; // theoreticalIntensities and theoreticalMasses are sorted by intensity, so first is most intense
-
+            // Assuming the test peak is most intense...
             // Try to find the rest of the isotopes!
             double differenceBetweenTheorAndActualMass = testMostIntenseMass - theoreticalMasses[0]; //mass difference actual-theoretical for the tallest peak (not necessarily the monoisotopic)
             double totalIntensity = candidateForMostIntensePeakIntensity;
