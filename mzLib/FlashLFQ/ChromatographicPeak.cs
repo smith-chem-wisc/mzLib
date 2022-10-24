@@ -160,7 +160,7 @@ namespace FlashLFQ
             }
 
             sb.Append("" + Identifications.First().PrecursorChargeState + '\t');
-            sb.Append("" + Chemistry.ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
+            sb.Append("" + ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
             sb.Append("" + Intensity + "\t");
 
             if (Apex != null)

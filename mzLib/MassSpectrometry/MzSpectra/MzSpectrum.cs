@@ -232,7 +232,7 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// Shortreed's idea for topdown ms1 deconvolution (Jan. 6, 2020)
+        /// Shortreed's idea for top-down ms1 deconvolution (Jan. 6, 2020)
         /// Potential utility for non-isotopically resolved envelopes
         /// deconvolute the whole spectrum by treating every peak as charge 1, 2, 3, etc and recording the masses
         /// do a histogram to find which masses have multiple charge states: those with high overlap are the real species
@@ -374,12 +374,9 @@ namespace MassSpectrometry
             double[] theoreticalMasses = allMasses[massIndex];
             double[] theoreticalIntensities = allIntensities[massIndex];
             //add "most intense peak"
-            var listOfObservedPeaks = new List<(double, double)> { (candidateForMostIntensePeakMz,
-                candidateForMostIntensePeakIntensity) };
+            var listOfObservedPeaks = new List<(double, double)> { (candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity) };
+            var listOfRatios = new List<double> { theoreticalIntensities[0] / candidateForMostIntensePeakIntensity }; // theoreticalIntensities and theoreticalMasses are sorted by intensity, so first is most intense
 
-            // theoreticalIntensities and theoreticalMasses are sorted by intensity, so first is most intense
-            var listOfRatios = new List<double> { theoreticalIntensities[0] / candidateForMostIntensePeakIntensity };            // Assuming the test peak is most intense...
-            
             // Try to find the rest of the isotopes!
             double differenceBetweenTheorAndActualMass = testMostIntenseMass - theoreticalMasses[0]; //mass difference actual-theoretical for the tallest peak (not necessarily the monoisotopic)
             double totalIntensity = candidateForMostIntensePeakIntensity;
@@ -576,13 +573,6 @@ namespace MassSpectrometry
             XcorrProcessed = true;
         }
 
-        /// <summary>
-        /// Extract the indices of the spectrum that covers some number of thompsons on either side of the a given peak
-        /// (Possibly the most intense peak)
-        /// </summary>
-        /// <param name="minX"></param>
-        /// <param name="maxX"></param>
-        /// <returns></returns>
         public (int start, int end) ExtractIndices(double minX, double maxX)
         {
             int ind = Array.BinarySearch(XArray, minX);
