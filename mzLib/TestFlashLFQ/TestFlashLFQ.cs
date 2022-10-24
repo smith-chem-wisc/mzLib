@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Easy.Common.Extensions;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -383,9 +384,19 @@ namespace Test
 
             Assert.That(peak.Intensity > 0);
             Assert.That(peak.Intensity == otherFilePeak.Intensity);
+            Assert.That(peak.RtHypothesis.HasValue);
+            Assert.That(peak.RtHypothesis, Is.EqualTo(1.04).Within(0.01));
+            double[] rtDiffs = new double[5];
+            for (int i = 0; i < 5; i++)
+            {
+                rtDiffs[i] = Math.Abs(file1Rt[i] - file2Rt[i]);
+            }
+            Assert.That(peak.RtStdDev.HasValue);
+            Assert.That(peak.RtStdDev, Is.EqualTo(rtDiffs.StandardDeviation()).Within(0.01));
 
             Assert.That(results.Peaks[file1].Count == 5);
             Assert.That(results.Peaks[file1].Where(p => p.IsMbrPeak).Count() == 0);
+            Assert.That(results.Peaks[file1].Where(p => p.RtHypothesis.HasValue).Count() == 0);
 
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file1) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file2) > 0);

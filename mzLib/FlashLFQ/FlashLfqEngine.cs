@@ -764,6 +764,7 @@ namespace FlashLFQ
 
                                     acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
                                     acceptorPeak.CalculateIntensityForThisFeature(Integrate);
+                                    acceptorPeak.SetRtWindow(acceptorFileRtHypothesis, rtRange/6);
                                     CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
 
                                     var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak));

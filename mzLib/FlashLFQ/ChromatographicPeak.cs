@@ -14,7 +14,6 @@ namespace FlashLFQ
         public double SplitRT;
         public readonly bool IsMbrPeak;
         public double MbrScore;
-        public double PosteriorErrorProbability { get { return NumIdentificationsByFullSeq > 1 ? 1 : Identifications.Min(p => p.PosteriorErrorProbability); } }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
@@ -35,6 +34,8 @@ namespace FlashLFQ
         public int NumIdentificationsByBaseSeq { get; private set; }
         public int NumIdentificationsByFullSeq { get; private set; }
         public double MassError { get; private set; }
+        public double? RtHypothesis { get; private set; }
+        public double? RtStdDev { get; private set;  }
 
         public static string TabSeparatedHeader
         {
@@ -66,6 +67,12 @@ namespace FlashLFQ
                 //sb.Append("Timepoints");
                 return sb.ToString();
             }
+        }
+
+        public void SetRtWindow(double rtHypothesis, double rtStdDev)
+        {
+            RtHypothesis = rtHypothesis;
+            RtStdDev = rtStdDev;
         }
 
         public void CalculateIntensityForThisFeature(bool integrate)
@@ -153,7 +160,7 @@ namespace FlashLFQ
             }
 
             sb.Append("" + Identifications.First().PrecursorChargeState + '\t');
-            sb.Append("" + ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
+            sb.Append("" + Chemistry.ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
             sb.Append("" + Intensity + "\t");
 
             if (Apex != null)
