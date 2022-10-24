@@ -908,7 +908,7 @@ namespace FlashLFQ
                         if (peak.Apex.IndexedPeak.RetentionTime > start && peak.Apex.IndexedPeak.RetentionTime < end)
                         {
                             best.MergeFeatureWith(peak, Integrate);
-
+                            best.PeakSearchTimeHalfWidth = (start - end) / 2;
                             peaksToRemoveFromHypotheses.Add(peak);
                         }
                     }

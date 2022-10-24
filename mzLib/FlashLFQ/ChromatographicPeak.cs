@@ -12,6 +12,7 @@ namespace FlashLFQ
         public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public double SplitRT;
+        public double PeakSearchTimeHalfWidth;
         public readonly bool IsMbrPeak;
         public double MbrScore;
         public double PosteriorErrorProbability { get { return NumIdentificationsByFullSeq > 1 ? 1 : Identifications.Min(p => p.PosteriorErrorProbability); } }
@@ -19,6 +20,20 @@ namespace FlashLFQ
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
             SplitRT = 0;
+            NumChargeStatesObserved = 0;
+            MassError = double.NaN;
+            NumIdentificationsByBaseSeq = 1;
+            NumIdentificationsByFullSeq = 1;
+            Identifications = new List<Identification>() { id };
+            IsotopicEnvelopes = new List<IsotopicEnvelope>();
+            IsMbrPeak = isMbrPeak;
+            SpectraFileInfo = fileInfo;
+        }
+
+        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, double peakHalfWidth)
+        {
+            SplitRT = 0;
+            PeakSearchTimeHalfWidth = peakHalfWidth;
             NumChargeStatesObserved = 0;
             MassError = double.NaN;
             NumIdentificationsByBaseSeq = 1;
