@@ -30,6 +30,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using UsefulProteomicsDatabases.Generated;
+using TopDownProteomics.IO.Obo;
 
 namespace UsefulProteomicsDatabases
 {
@@ -117,11 +118,75 @@ namespace UsefulProteomicsDatabases
             }
         }
 
+        public static void UpdatePsiModObo(string psiModOboLocation)
+        {
+            DownloadPsiModObo(psiModOboLocation);
+            if (!File.Exists(psiModOboLocation))
+            {
+                Console.WriteLine("psi-mod.obo database did not exist, writing to disk");
+                File.Move(psiModOboLocation + ".temp", psiModOboLocation);
+                return;
+            }
+            if (FilesAreEqual_Hash(psiModOboLocation + ".temp", psiModOboLocation))
+            {
+                Console.WriteLine("psi-mod.obo database is up to date, doing nothing");
+                File.Delete(psiModOboLocation + ".temp");
+            }
+            else
+            {
+                Console.WriteLine("psi-mod.obo database updated, saving old version as backup");
+                File.Move(psiModOboLocation, psiModOboLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
+                File.Move(psiModOboLocation + ".temp", psiModOboLocation);
+            }
+        }
+
+        public static IEnumerable<OboTerm> ReadPsiModFile(string psiModOboLocation)
+        {
+            OboParser oboParser = new();
+            return oboParser.Parse(psiModOboLocation); 
+        }
+
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
         {
-            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
+            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>()
+                .Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
             Regex digitsOnly = new(@"[^\d]");
             return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
+        }
+
+        public static string GetFormalChargeString(this OboTagValuePair tvPair)
+        {
+            return GetStringFromOboTagValuePairValue(tvPair, pattern: @"[\d](?:\+|\-)"); 
+        }
+
+        private static string GetStringFromOboTagValuePairValue(OboTagValuePair oboTerms, 
+            string pattern)
+        {
+            var matchGroup = Regex.Match(oboTerms.Value, pattern); 
+            return matchGroup.Groups[0].Value; 
+        }
+
+        public static Dictionary<string, int> GetFormalChargesDictionary(IEnumerable<OboTerm> terms)
+        {
+            var formalCharges =
+                from i in terms
+                from j in i.ValuePairs
+                where j.Value.Contains("FormalCharge")
+                select (i.Id, j.Value);
+            Regex digitsOnly = new(@"[^\d]");
+            var modifiedResults = formalCharges
+                .Select
+                (
+                    id => ("PSI-MOD; " + id.Id,
+                        int.Parse(GetChargeString(id.Value) + digitsOnly.Replace(id.Value, "")))
+                );
+            return modifiedResults.ToDictionary(i => i.Item1, i => i.Item2);
+        }
+        // This method is used to fix an issue where the polarity of the formal charge is not read correctly. 
+        private static string GetChargeString(string entry)
+        {
+            var chargeMatch = Regex.Match(entry, @"(\+|\-)");
+            return chargeMatch.Groups[1].Value;
         }
 
         public static void LoadElements()
@@ -201,7 +266,10 @@ namespace UsefulProteomicsDatabases
         {
             DownloadContent(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
         }
-
+        private static void DownloadPsiModObo(string psiModOboLocation)
+        {
+            DownloadContent(@"https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo?raw=true", psiModOboLocation + ".temp");
+        }
         private static void DownloadUnimod(string unimodLocation)
         {
             DownloadContent(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
