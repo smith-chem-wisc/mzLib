@@ -122,6 +122,40 @@ namespace MassSpectrometry
             return MzSpectrum.Get64Bitarray(GetNoiseDataBaseline(NoiseData));
         }
 
+        /// <summary>
+        /// Get deconvoluted isotopic envelopes with peaks within the isolation range
+        /// </summary>
+        /// <param name="type">deconvolution type to be performed</param>
+        /// <param name="deconParams">deconvolution parameters</param>
+        /// <returns></returns>
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(DeconvolutionTypes type,
+            DeconvolutionParams deconParams)
+        {
+            Deconvoluter deconvoluter = new Deconvoluter(type, deconParams);
+            var allDeconvolutedEnvelopes = deconvoluter.Deconvolute(this);
+            return allDeconvolutedEnvelopes.Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+        }
+
+        /// <summary>
+        /// Meant to bridge the gap between the classic version and the new structure
+        /// Will eventually be obsolete
+        /// </summary>
+        /// <param name="minAssumedChargeState"></param>
+        /// <param name="maxAssumedChargeState"></param>
+        /// <param name="deconvolutionTolerancePpm"></param>
+        /// <param name="intensityRatio"></param>
+        /// <returns></returns>
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(int minAssumedChargeState,
+            int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
+        {
+            DeconvolutionParams deconParams =
+                new DeconvolutionParams(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm)
+                    { IntensityRatioLimit = intensityRatio };
+            return GetIsolatedMassesAndCharges(DeconvolutionTypes.ClassicDeconvolution, deconParams);
+
+        }
+
+        [Obsolete]
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState,
             int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
         {
@@ -129,7 +163,7 @@ namespace MassSpectrometry
             {
                 yield break;
             }
-            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), 
+            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5),
                 minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio)
                                                   .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz))))
             {
