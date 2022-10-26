@@ -123,6 +123,17 @@ namespace MassSpectrometry
         }
 
         /// <summary>
+        /// Get deconvoluted isotopic envelopes with peaks within isolation range
+        /// </summary>
+        /// <param name="deconvoluter">Deconvoluter with formatted params</param>
+        /// <returns></returns>
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(Deconvoluter deconvoluter)
+        {
+            var allDeconvolutedEnvelopes = deconvoluter.Deconvolute(this);
+            return allDeconvolutedEnvelopes.Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+        }
+
+        /// <summary>
         /// Get deconvoluted isotopic envelopes with peaks within the isolation range
         /// </summary>
         /// <param name="type">deconvolution type to be performed</param>
@@ -132,28 +143,9 @@ namespace MassSpectrometry
             DeconvolutionParams deconParams)
         {
             Deconvoluter deconvoluter = new Deconvoluter(type, deconParams);
-            var allDeconvolutedEnvelopes = deconvoluter.Deconvolute(this);
-            return allDeconvolutedEnvelopes.Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            return GetIsolatedMassesAndCharges(deconvoluter);
         }
 
-        /// <summary>
-        /// Meant to bridge the gap between the classic version and the new structure
-        /// Will eventually be obsolete
-        /// </summary>
-        /// <param name="minAssumedChargeState"></param>
-        /// <param name="maxAssumedChargeState"></param>
-        /// <param name="deconvolutionTolerancePpm"></param>
-        /// <param name="intensityRatio"></param>
-        /// <returns></returns>
-        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(int minAssumedChargeState,
-            int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
-        {
-            DeconvolutionParams deconParams =
-                new DeconvolutionParams(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm)
-                    { IntensityRatioLimit = intensityRatio };
-            return GetIsolatedMassesAndCharges(DeconvolutionTypes.ClassicDeconvolution, deconParams);
-
-        }
 
         [Obsolete]
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState,

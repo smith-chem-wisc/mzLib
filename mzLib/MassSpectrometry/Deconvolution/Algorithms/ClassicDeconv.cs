@@ -151,6 +151,20 @@ namespace MassSpectrometry
                     }
                 }
             }
+
+            HashSet<double> seen = new HashSet<double>();
+            foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => b.Score))
+            {
+                if (seen.Overlaps(ok.Peaks.Select(b => b.mz)))
+                {
+                    continue;
+                }
+                foreach (var ah in ok.Peaks.Select(b => b.mz))
+                {
+                    seen.Add(ah);
+                }
+                yield return ok;
+            }
         }
 
         protected override bool CheckAlgorithmParameterCompatibility()
