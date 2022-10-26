@@ -1,11 +1,11 @@
-﻿using MassSpectrometry;
+﻿using System.Collections.Generic;
+using System.Linq;
+using MassSpectrometry;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using SpectralAveraging;
-using System.Collections.Generic;
-using System.Linq;
 
-namespace SpectralAveragingExtensions
+namespace MzLibSpectralAveraging
 {
     /// <summary>
     /// Manages the spectra files being averaged

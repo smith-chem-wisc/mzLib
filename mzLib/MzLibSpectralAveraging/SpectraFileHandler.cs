@@ -1,10 +1,11 @@
-﻿using IO.MzML;
+﻿using System;
+using System.Collections.Generic;
+using IO.MzML;
 using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using MzLibUtil;
-using System.Collections.Generic;
 
-namespace SpectralAveragingExtensions
+namespace MzLibSpectralAveraging
 {
     public static class SpectraFileHandler
     {
