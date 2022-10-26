@@ -14,6 +14,9 @@ namespace MassSpectrometry
         AlexDeconvolution,
     }
 
+    /// <summary>
+    /// Context class for all deconvolution
+    /// </summary>
     public class Deconvoluter
     {
         private readonly DeconvolutionAlgorithm deconvolutionAlgorithm;
@@ -34,6 +37,8 @@ namespace MassSpectrometry
                 case DeconvolutionTypes.AlexDeconvolution:
                     deconvolutionAlgorithm = new AlexDeconv(deconParams);
                     break;
+
+                default: throw new MzLibException("DeconvoltionType not yet supported");
             }
         }
 
@@ -50,7 +55,9 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// 
+        /// Deconvolute an MzSpectrum with its isolation range
+        /// NOTE: Range may only be required for ClassicDeconv, not sure yet
+        /// if so, this should be removed
         /// </summary>
         /// <param name="spectrum"></param>
         /// <param name="range"></param>

@@ -11,7 +11,7 @@ namespace MassSpectrometry
     {
         public AlexDeconv(DeconvolutionParams deconParams) : base(deconParams)
         {
-            
+
         }
 
         public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum)

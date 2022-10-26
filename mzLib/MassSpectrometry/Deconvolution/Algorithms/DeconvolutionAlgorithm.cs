@@ -10,6 +10,7 @@ namespace MassSpectrometry
 {
     public abstract class DeconvolutionAlgorithm
     {
+        // For ClassicDeconv. If not used elsewhere, move to that class
         #region Averagine Stuff
 
         protected const int numAveraginesToGenerate = 1500;
@@ -62,6 +63,11 @@ namespace MassSpectrometry
 
         protected readonly DeconvolutionParams deconvolutionParams;
 
+        /// <summary>
+        /// Constructor for deconvolution algorithms, nothing should be added to child constructors
+        /// </summary>
+        /// <param name="deconParams">parameters to use for deconvolution</param>
+        /// <exception cref="MzLibException">thrown in deconvolution parameters did not instantiate fields required by algorithm</exception>
         protected DeconvolutionAlgorithm(DeconvolutionParams deconParams)
         {
             deconvolutionParams = deconParams;

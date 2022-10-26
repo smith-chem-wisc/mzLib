@@ -18,6 +18,11 @@ namespace MassSpectrometry
 
         }
 
+        /// <summary>
+        /// Override to deconvolute the spectra using the Classic Deconvolution algorithm
+        /// </summary>
+        /// <param name="spectrumToDeconvolute">spectrum to deconvolute</param>
+        /// <returns></returns>
         public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute)
         {
             spectrum = spectrumToDeconvolute;

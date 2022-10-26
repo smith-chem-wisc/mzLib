@@ -132,8 +132,10 @@ namespace Test
             MsDataScan scan = myMsDataFile.GetAllScansList()[0];
 
             // The ones marked 2 are for checking an overload method
+
             DeconvolutionParams deconParams = new DeconvolutionParams(1, 60, 4) { IntensityRatioLimit = 3 };
             Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionTypes.ClassicDeconvolution, deconParams);
+
             List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(DeconvolutionTypes.ClassicDeconvolution, deconParams).ToList();
             List<IsotopicEnvelope> isolatedMasses2 = scan.GetIsolatedMassesAndCharges(deconvoluter).ToList();
 
@@ -175,7 +177,9 @@ namespace Test
             Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionTypes.ClassicDeconvolution, deconParams);
 
             //check assigned correctly
+
             List<IsotopicEnvelope> lie2 = deconvoluter.Deconvolute(singlespec, singleRange).ToList();
+
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
             Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
 
