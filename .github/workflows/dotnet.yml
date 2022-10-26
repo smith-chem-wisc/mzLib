@@ -39,3 +39,6 @@ jobs:
         files: mzLib/Test/TestResults/*/coverage.cobertura.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
         flags: unittests
         fail_ci_if_error: true
+      run:  
+        curl -Os https://uploader.codecov.io/latest/windows/codecov
+        chmod +x codecov
