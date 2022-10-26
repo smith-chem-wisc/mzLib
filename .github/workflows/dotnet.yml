@@ -36,9 +36,5 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         verbose: true
-        files: mzLib/Test/TestResults/*/coverage.cobertura.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
-        flags: unittests
+        files: ./mzLib/Test/TestResults/*/coverage.cobertura.xml, ./mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: true
-      run:  
-        curl -Os https://uploader.codecov.io/latest/windows/codecov
-        chmod +x codecov
