@@ -34,5 +34,6 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         verbose: true
-        files: ./mzLib/Test/TestResults/*/coverage.cobertura.xml, ./mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
+        files: mzLib/Test/TestResults/*/coverage.cobertura.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: true
+        token: 43bcca93-43c9-4506-af34-34de20ebbe16
