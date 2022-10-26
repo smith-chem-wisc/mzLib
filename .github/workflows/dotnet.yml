@@ -33,7 +33,7 @@ jobs:
     - name: TestFlashLFQ
       run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./TestFlashLFQ/TestFlashLFQ.csproj
     - name: Codecov
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v3
       with:
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
