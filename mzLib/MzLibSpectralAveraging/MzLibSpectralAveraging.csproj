@@ -1,17 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <Platforms>x64</Platforms>
+	<Platforms>x64</Platforms>
   </PropertyGroup>
-	
+
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
 	<DebugType>full</DebugType>
 	<DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
-	
+
   <ItemGroup>
-    <PackageReference Include="SpectralAveraging" Version="1.0.5" />
+    <PackageReference Include="SpectralAveraging" Version="1.0.6" />
   </ItemGroup>
 
   <ItemGroup>

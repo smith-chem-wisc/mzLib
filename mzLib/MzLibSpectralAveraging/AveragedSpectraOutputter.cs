@@ -1,9 +1,10 @@
-﻿using IO.MzML;
+﻿using System;
+using System.IO;
+using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
-using System.IO;
 
-namespace SpectralAveragingExtensions
+namespace MzLibSpectralAveraging
 {
     public static class AveragedSpectraOutputter
     {
