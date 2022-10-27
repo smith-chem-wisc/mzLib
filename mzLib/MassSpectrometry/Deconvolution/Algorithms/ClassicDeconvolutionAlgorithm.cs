@@ -6,14 +6,15 @@ using System.Threading.Tasks;
 using Chemistry;
 using Easy.Common.Extensions;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public class ClassicDeconv : DeconvolutionAlgorithm
+    public class ClassicDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
         private MzSpectrum spectrum;
 
-        public ClassicDeconv(DeconvolutionParams deconParams) : base(deconParams)
+        public ClassicDeconvolutionAlgorithm(DeconvolutionParameters deconParameters) : base(deconParameters)
         {
 
         }
@@ -25,6 +26,7 @@ namespace MassSpectrometry
         /// <returns></returns>
         public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute)
         {
+            var deconParams = DeconvolutionParameters as ClassicDeconvolutionParameters ?? throw new MzLibException("Deconvolution params and algorithm do not match");
             spectrum = spectrumToDeconvolute;
             //if no peaks, stop
             if (spectrum.Size == 0)
@@ -34,7 +36,7 @@ namespace MassSpectrometry
 
             var isolatedMassesAndCharges = new List<IsotopicEnvelope>();
 
-            (int start, int end) indexes = ExtractIndices(deconvolutionParams.Range.Minimum, deconvolutionParams.Range.Maximum);
+            (int start, int end) indexes = ExtractIndices(deconParams.Range.Minimum, deconParams.Range.Maximum);
 
             //find the most intense peak in the range
             double maxIntensity = 0;
@@ -74,14 +76,14 @@ namespace MassSpectrometry
                             int charge =
                                 (int)Math.Floor(1 /
                                                 deltaMass); //e.g. deltaMass = 0.4 Th, charge is now 2 (but might be 3)
-                            if (charge >= deconvolutionParams.MinAssumedChargeState && charge <= deconvolutionParams.MaxAssumedChargeState)
+                            if (charge >= deconParams.MinAssumedChargeState && charge <= deconParams.MaxAssumedChargeState)
                             {
                                 allPossibleChargeStates.Add(charge);
                             }
 
                             //get the upper bound charge state
                             charge++;
-                            if (charge >= deconvolutionParams.MinAssumedChargeState && charge <= deconvolutionParams.MaxAssumedChargeState)
+                            if (charge >= deconParams.MinAssumedChargeState && charge <= deconParams.MaxAssumedChargeState)
                             {
                                 allPossibleChargeStates.Add(charge);
                             }
@@ -122,7 +124,7 @@ namespace MassSpectrometry
                         //Look for other isotopes using the assumed charge state
                         IsotopicEnvelope putativeIsotopicEnvelope = FindIsotopicEnvelope(massIndex,
                             candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity,
-                            testMostIntenseMass, chargeState, deconvolutionParams.DeconvolutionTolerancePpm, deconvolutionParams.IntensityRatioLimit.Value,
+                            testMostIntenseMass, chargeState, deconParams.DeconvolutionTolerancePpm, deconParams.IntensityRatioLimit,
                             monoisotopicMassPredictions);
 
                         if (putativeIsotopicEnvelope.Peaks.Count >= 2) //if there are at least two isotopes
@@ -130,8 +132,8 @@ namespace MassSpectrometry
                             //look for other charge states, using them for scoring and monoisotopic mass estimates
                             //need to use this method before comparing scores because it changes the score of the test envelope
                             int numOtherChargeStatesObserved = ObserveAdjacentChargeStates(putativeIsotopicEnvelope,
-                                candidateForMostIntensePeakMz, massIndex, deconvolutionParams.DeconvolutionTolerancePpm,
-                                deconvolutionParams.IntensityRatioLimit.Value, deconvolutionParams.MinAssumedChargeState, deconvolutionParams.MaxAssumedChargeState,
+                                candidateForMostIntensePeakMz, massIndex, deconParams.DeconvolutionTolerancePpm,
+                                deconParams.IntensityRatioLimit, deconParams.MinAssumedChargeState, deconParams.MaxAssumedChargeState,
                                 monoisotopicMassPredictions);
 
                             //is this the best charge state for this peak?
@@ -170,14 +172,6 @@ namespace MassSpectrometry
                 }
                 yield return ok;
             }
-        }
-
-        protected override bool CheckAlgorithmParameterCompatibility()
-        {
-            return !deconvolutionParams.MinAssumedChargeState.IsDefault() &&
-                   !deconvolutionParams.MaxAssumedChargeState.IsDefault() &&
-                   !deconvolutionParams.IntensityRatioLimit.IsDefault() &&
-                   !deconvolutionParams.DeconvolutionTolerancePpm.IsDefault();
         }
 
         private IsotopicEnvelope FindIsotopicEnvelope(int massIndex, double candidateForMostIntensePeakMz, double candidateForMostIntensePeakIntensity, double testMostIntenseMass, int chargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)

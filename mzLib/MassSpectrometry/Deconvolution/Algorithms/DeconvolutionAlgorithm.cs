@@ -61,18 +61,16 @@ namespace MassSpectrometry
 
         #endregion
 
-        protected readonly DeconvolutionParams deconvolutionParams;
+        protected readonly DeconvolutionParameters DeconvolutionParameters;
 
         /// <summary>
         /// Constructor for deconvolution algorithms, nothing should be added to child constructors
         /// </summary>
-        /// <param name="deconParams">parameters to use for deconvolution</param>
+        /// <param name="deconParameters">parameters to use for deconvolution</param>
         /// <exception cref="MzLibException">thrown in deconvolution parameters did not instantiate fields required by algorithm</exception>
-        protected DeconvolutionAlgorithm(DeconvolutionParams deconParams)
+        protected DeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
         {
-            deconvolutionParams = deconParams;
-            if (!CheckAlgorithmParameterCompatibility())
-                throw new MzLibException("Deconvolution parameters does not match algorithm type");
+            DeconvolutionParameters = deconParameters;
         }
 
         /// <summary>
@@ -82,11 +80,5 @@ namespace MassSpectrometry
         /// <param name="deconvolutionParams">parameters for the deconvolution</param>
         /// <returns></returns>
         public abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum);
-
-        /// <summary>
-        /// Ensures that the private deconvolution parameters has all fields
-        /// initialized that are required by the selected deconvolution algorithm
-        /// </summary>
-        protected abstract bool CheckAlgorithmParameterCompatibility();
     }
 }

@@ -220,7 +220,7 @@ namespace MassSpectrometry
         //}
 
         // Mass tolerance must account for different isotope spacing!
-        [Obsolete]
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState,
             int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
         {
@@ -346,7 +346,7 @@ namespace MassSpectrometry
             }
         }
 
-        [Obsolete]
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         public IsotopicEnvelope FindIsotopicEnvelope(int massIndex, double candidateForMostIntensePeakMz, double candidateForMostIntensePeakIntensity, double testMostIntenseMass, int chargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
         {
             double[] theoreticalMasses = allMasses[massIndex];
@@ -388,7 +388,7 @@ namespace MassSpectrometry
             return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, Statistics.StandardDeviation(listOfRatios), massIndex);
         }
 
-        [Obsolete]
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         public int ObserveAdjacentChargeStates(IsotopicEnvelope originalEnvelope, double mostIntensePeakMz, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, double minChargeToLookFor, double maxChargeToLookFor, List<double> monoisotopicMassPredictions)
         {
             //look for the higher and lower charge states using the proposed mass
@@ -424,7 +424,7 @@ namespace MassSpectrometry
             return numAdjacentChargeStatesObserved;
         }
 
-        [Obsolete]
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         private bool FindChargeStateOfMass(IsotopicEnvelope originalEnvelope, int zToInvestigate, double mostAbundantNeutralIsotopeToInvestigate, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
         {
             //we know the mass and the charge that we're looking for, just see if the expected m/z and its isotopes are there or not
@@ -461,7 +461,7 @@ namespace MassSpectrometry
             }
         }
 
-        [Obsolete]
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         public (int start, int end) ExtractIndices(double minX, double maxX)
         {
             int ind = Array.BinarySearch(XArray, minX);
@@ -485,7 +485,7 @@ namespace MassSpectrometry
             }
         }
 
-        [Obsolete]
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
         {
             var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;

@@ -19,27 +19,15 @@ namespace MassSpectrometry
     /// </summary>
     public class Deconvoluter
     {
-        private readonly DeconvolutionAlgorithm deconvolutionAlgorithm;
-        private readonly DeconvolutionParams deconvolutionParams;
+        public DeconvolutionAlgorithm DeconvolutionAlgorithm { get; private set; }
+        public  DeconvolutionTypes DeconvolutionType { get; }
+        public DeconvolutionParameters DeconvolutionParameters { get; }
 
-        public Deconvoluter(DeconvolutionTypes deconType, DeconvolutionParams deconParams)
+        public Deconvoluter(DeconvolutionTypes deconType, DeconvolutionParameters deconParameters)
         {
-            // verify parameters are compatible with algorithm
-            deconvolutionParams = deconParams;
-
-            // construct algorithm object
-            switch (deconType)
-            {
-                case DeconvolutionTypes.ClassicDeconvolution:
-                    deconvolutionAlgorithm = new ClassicDeconv(deconParams);
-                    break;
-
-                case DeconvolutionTypes.AlexDeconvolution:
-                    deconvolutionAlgorithm = new AlexDeconv(deconParams);
-                    break;
-
-                default: throw new MzLibException("DeconvoltionType not yet supported");
-            }
+            DeconvolutionParameters = deconParameters;
+            DeconvolutionType = deconType;
+            ConstructDeconvolutionAlgorithm(deconParameters);
         }
 
         /// <summary>
@@ -49,23 +37,43 @@ namespace MassSpectrometry
         /// <returns></returns>
         public IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan)
         {
-            var range =
-                new MzRange(scan.IsolationRange.Minimum - 8.5, scan.IsolationRange.Maximum + 8.5);
-            return Deconvolute(scan.MassSpectrum, range);
+            // set deconvolution parameters that are only present in the MsDataScan
+            switch (DeconvolutionType)
+            {
+                case DeconvolutionTypes.ClassicDeconvolution:
+                    ((ClassicDeconvolutionParameters)DeconvolutionParameters).Range = new MzRange(scan.IsolationRange.Minimum - 8.5, scan.IsolationRange.Maximum + 8.5);
+                    break;
+
+                case DeconvolutionTypes.AlexDeconvolution:
+
+                    break;
+            }
+
+            return DeconvolutionAlgorithm.Deconvolute(scan.MassSpectrum);
         }
 
+ 
+
         /// <summary>
-        /// Deconvolute an MzSpectrum with its isolation range
-        /// NOTE: Range may only be required for ClassicDeconv, not sure yet
-        /// if so, this should be removed
+        /// Constructs the relevant deconvolution algorithm
         /// </summary>
-        /// <param name="spectrum"></param>
-        /// <param name="range"></param>
-        /// <returns></returns>
-        public IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
+        /// <param name="deconParameters"></param>
+        /// <exception cref="MzLibException">if a type of enum is used that is not supported</exception>
+        private void ConstructDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
         {
-            deconvolutionParams.Range = range;
-            return deconvolutionAlgorithm.Deconvolute(spectrum);
+            // construct algorithm object
+            switch (DeconvolutionType)
+            {
+                case DeconvolutionTypes.ClassicDeconvolution:
+                    DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
+                    break;
+
+                case DeconvolutionTypes.AlexDeconvolution:
+                    DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithm(deconParameters);
+                    break;
+
+                default: throw new MzLibException("DeconvolutionType not yet supported");
+            }
         }
     }
 }

@@ -137,12 +137,12 @@ namespace MassSpectrometry
         /// Get deconvoluted isotopic envelopes with peaks within the isolation range
         /// </summary>
         /// <param name="type">deconvolution type to be performed</param>
-        /// <param name="deconParams">deconvolution parameters</param>
+        /// <param name="deconParameters">deconvolution parameters</param>
         /// <returns></returns>
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(DeconvolutionTypes type,
-            DeconvolutionParams deconParams)
+            DeconvolutionParameters deconParameters)
         {
-            Deconvoluter deconvoluter = new Deconvoluter(type, deconParams);
+            Deconvoluter deconvoluter = new Deconvoluter(type, deconParameters);
             return GetIsolatedMassesAndCharges(deconvoluter);
         }
 
