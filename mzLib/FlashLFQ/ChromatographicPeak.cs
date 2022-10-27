@@ -36,6 +36,7 @@ namespace FlashLFQ
         public double MassError { get; private set; }
         public double? RtHypothesis { get; private set; }
         public double? RtStdDev { get; private set;  }
+        public double? RtInterquartileRange { get; private set; }
 
         public static string TabSeparatedHeader
         {
@@ -69,10 +70,11 @@ namespace FlashLFQ
             }
         }
 
-        public void SetRtWindow(double rtHypothesis, double rtStdDev)
+        public void SetRtWindow(double rtHypothesis, double? rtStdDev, double? rtInterquartileRange)
         {
             RtHypothesis = rtHypothesis;
             RtStdDev = rtStdDev;
+            RtInterquartileRange = rtInterquartileRange;
         }
 
         public void CalculateIntensityForThisFeature(bool integrate)

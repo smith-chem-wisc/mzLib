@@ -685,6 +685,7 @@ namespace FlashLFQ
 
                             // default range (if only 1 datapoint, or SD is 0, range is very high, etc)
                             double rtRange = MbrRtWindow;
+                            bool interquartileRangeUsed = false;
 
                             if (nearbyCalibrationPoints.Count < 6 && nearbyCalibrationPoints.Count > 1 && rtDiffs.StandardDeviation() > 0)
                             {
@@ -693,6 +694,7 @@ namespace FlashLFQ
                             else if (nearbyCalibrationPoints.Count >= 6 && rtDiffs.InterquartileRange() > 0)
                             {
                                 rtRange = rtDiffs.InterquartileRange() * 4.5;
+                                interquartileRangeUsed = true;
                             }
 
                             rtRange = Math.Min(rtRange, MbrRtWindow);
@@ -761,10 +763,19 @@ namespace FlashLFQ
 
                                     var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorIdentification.PeakfindingMass, z, idAcceptorFile, mbrTol);
                                     List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorIdentification, z);
-
                                     acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
                                     acceptorPeak.CalculateIntensityForThisFeature(Integrate);
-                                    acceptorPeak.SetRtWindow(acceptorFileRtHypothesis, rtRange/6);
+                                    if (interquartileRangeUsed)
+                                    {
+                                        acceptorPeak.SetRtWindow(acceptorFileRtHypothesis, rtStdDev: null,
+                                            rtInterquartileRange: rtRange / 4.5);
+                                    }
+                                    else
+                                    {
+                                        acceptorPeak.SetRtWindow(acceptorFileRtHypothesis, rtStdDev: rtRange / 6,
+                                            rtInterquartileRange: null);
+                                    }
+                                    
                                     CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
 
                                     var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak));
