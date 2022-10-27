@@ -20,7 +20,7 @@ namespace MassSpectrometry
     public class Deconvoluter
     {
         public DeconvolutionAlgorithm DeconvolutionAlgorithm { get; private set; }
-        public  DeconvolutionTypes DeconvolutionType { get; }
+        public DeconvolutionTypes DeconvolutionType { get; }
         public DeconvolutionParameters DeconvolutionParameters { get; }
 
         public Deconvoluter(DeconvolutionTypes deconType, DeconvolutionParameters deconParameters)
