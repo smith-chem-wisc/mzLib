@@ -36,4 +36,5 @@ jobs:
         verbose: true
         files: mzLib/Test/TestResults/*/coverage.cobertura.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: true
-        token: 43bcca93-43c9-4506-af34-34de20ebbe16
+    - name: Valid codecov.yml
+      uses: formsort/action-check-codecov-config@v1
