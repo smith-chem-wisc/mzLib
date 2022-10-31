@@ -38,6 +38,5 @@ jobs:
         verbose: true
         files: mzLib/Test/TestResults/*/coverage.cobertura.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: true
-        gcov: true
     - name: Valid codecov.yml
       uses: formsort/action-check-codecov-config@v1
