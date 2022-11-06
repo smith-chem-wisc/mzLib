@@ -174,7 +174,9 @@ namespace MassSpectrometry
             }
         }
 
-        private IsotopicEnvelope FindIsotopicEnvelope(int massIndex, double candidateForMostIntensePeakMz, double candidateForMostIntensePeakIntensity, double testMostIntenseMass, int chargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
+        private IsotopicEnvelope FindIsotopicEnvelope(int massIndex, double candidateForMostIntensePeakMz, double candidateForMostIntensePeakIntensity,
+            double testMostIntenseMass, int chargeState, double deconvolutionTolerancePpm, double intensityRatioLimit,
+            List<double> monoisotopicMassPredictions)
         {
             double[] theoreticalMasses = allMasses[massIndex];
             double[] theoreticalIntensities = allIntensities[massIndex];
@@ -215,7 +217,9 @@ namespace MassSpectrometry
             return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, Statistics.StandardDeviation(listOfRatios), massIndex);
         }
 
-        private int ObserveAdjacentChargeStates(IsotopicEnvelope originalEnvelope, double mostIntensePeakMz, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, double minChargeToLookFor, double maxChargeToLookFor, List<double> monoisotopicMassPredictions)
+        private int ObserveAdjacentChargeStates(IsotopicEnvelope originalEnvelope, double mostIntensePeakMz, int massIndex,
+            double deconvolutionTolerancePpm, double intensityRatioLimit, double minChargeToLookFor, double maxChargeToLookFor,
+            List<double> monoisotopicMassPredictions)
         {
             //look for the higher and lower charge states using the proposed mass
             int numAdjacentChargeStatesObserved = 0;
@@ -250,7 +254,8 @@ namespace MassSpectrometry
             return numAdjacentChargeStatesObserved;
         }
 
-        private bool FindChargeStateOfMass(IsotopicEnvelope originalEnvelope, int zToInvestigate, double mostAbundantNeutralIsotopeToInvestigate, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
+        private bool FindChargeStateOfMass(IsotopicEnvelope originalEnvelope, int zToInvestigate, double mostAbundantNeutralIsotopeToInvestigate, int massIndex,
+            double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
         {
             //we know the mass and the charge that we're looking for, just see if the expected m/z and its isotopes are there or not
             double mostAbundantIsotopeMzForThisZTheoretical = mostAbundantNeutralIsotopeToInvestigate.ToMz(zToInvestigate);
