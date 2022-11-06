@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MassSpectrometry.Proteomics.Protein
+namespace MassSpectrometry.Proteomics
 {
     public class SequenceVariantDescription
     {

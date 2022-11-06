@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 
-namespace MassSpectrometry.Proteomics.Modifications
+namespace MassSpectrometry.Proteomics
 {
     /// <summary>
     /// Silac labels used to modify unlabeled proteins

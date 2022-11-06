@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using MassSpectrometry.Proteomics.ProteolyticDigestion;
 
-namespace MassSpectrometry.Proteomics.Protein
+namespace MassSpectrometry.Proteomics
 {
     public static class ProteoformLevelClassifier
     {

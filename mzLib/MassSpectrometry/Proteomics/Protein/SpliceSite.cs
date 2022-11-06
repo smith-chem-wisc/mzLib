@@ -1,4 +1,4 @@
-﻿namespace MassSpectrometry.Proteomics.Protein
+﻿namespace MassSpectrometry.Proteomics
 {
     public class SpliceSite
     {

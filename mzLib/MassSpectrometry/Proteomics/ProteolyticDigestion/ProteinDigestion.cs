@@ -1,7 +1,5 @@
 ﻿using System.Collections.Generic;
 using MassSpectrometry.Proteomics.Fragmentation;
-using MassSpectrometry.Proteomics.Modifications;
-using MassSpectrometry.Proteomics.Protein;
 
 namespace MassSpectrometry.Proteomics.ProteolyticDigestion
 {
@@ -42,7 +40,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>
-        public IEnumerable<ProteolyticPeptide> SpeedySemiSpecificDigestion(Protein.Protein protein) //We are only getting fully specific peptides of the maximum cleaved residues here
+        public IEnumerable<ProteolyticPeptide> SpeedySemiSpecificDigestion(Protein protein) //We are only getting fully specific peptides of the maximum cleaved residues here
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = Protease.GetDigestionSiteIndices(protein.BaseSequence); //get peptide bonds to cleave SPECIFICALLY (termini included)
@@ -233,7 +231,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>
-        public IEnumerable<ProteolyticPeptide> Digestion(Protein.Protein protein, bool topDownTruncationSearch = false)
+        public IEnumerable<ProteolyticPeptide> Digestion(Protein protein, bool topDownTruncationSearch = false)
         {
             return Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
         }

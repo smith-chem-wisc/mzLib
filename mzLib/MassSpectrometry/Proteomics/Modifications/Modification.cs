@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Chemistry;
 
-namespace MassSpectrometry.Proteomics.Modifications
+namespace MassSpectrometry.Proteomics
 {
     public class Modification
     {

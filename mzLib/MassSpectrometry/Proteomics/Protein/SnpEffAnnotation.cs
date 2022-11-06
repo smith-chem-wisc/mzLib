@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace MassSpectrometry.Proteomics.Protein
+namespace MassSpectrometry.Proteomics
 {
     /// <summary>
     /// Specifications are described here: http://snpeff.sourceforge.net/VCFannotationformat_v1.0.pdf

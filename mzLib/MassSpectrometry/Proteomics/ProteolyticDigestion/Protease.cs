@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MassSpectrometry.Proteomics.Modifications;
+using MassSpectrometry.Proteomics;
 
 namespace MassSpectrometry.Proteomics.ProteolyticDigestion
 {
@@ -49,7 +49,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <param name="endIndex"></param>
         /// <param name="retainMethionine"></param>
         /// <returns></returns>
-        public CleavageSpecificity GetCleavageSpecificity(Protein.Protein protein, int startIndex, int endIndex, bool retainMethionine)
+        public CleavageSpecificity GetCleavageSpecificity(Protein protein, int startIndex, int endIndex, bool retainMethionine)
         {
             int cleavableMatches = 0;
             if (CleavageSpecificity != CleavageSpecificity.SingleN && CleavageSpecificity != CleavageSpecificity.SingleC) //if it's single protease, don't bother
@@ -92,7 +92,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <param name="minPeptideLength"></param>
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
-        internal List<ProteolyticPeptide> GetUnmodifiedPeptides(Protein.Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
+        internal List<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
             int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownTruncationSearch = false)
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
@@ -249,7 +249,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <param name="minPeptideLength"></param>
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
-        private IEnumerable<ProteolyticPeptide> FullDigestion(Protein.Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
+        private IEnumerable<ProteolyticPeptide> FullDigestion(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
             int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength)
         {
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
@@ -361,7 +361,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <param name="minPeptideLength"></param>
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
-        private IEnumerable<ProteolyticPeptide> SemiProteolyticDigestion(Protein.Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
+        private IEnumerable<ProteolyticPeptide> SemiProteolyticDigestion(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
             int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength)
         {
             List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
@@ -501,7 +501,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <param name="minPeptideLength"></param>
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
-        private static IEnumerable<ProteolyticPeptide> FixedTermini(int nTerminusProtein, int cTerminusProtein, Protein.Protein protein, bool cleave, bool retain, int minPeptideLength, int maxPeptideLength, HashSet<int> localOneBasedIndicesToCleaveAfter)
+        private static IEnumerable<ProteolyticPeptide> FixedTermini(int nTerminusProtein, int cTerminusProtein, Protein protein, bool cleave, bool retain, int minPeptideLength, int maxPeptideLength, HashSet<int> localOneBasedIndicesToCleaveAfter)
         {
             bool preventMethionineFromBeingDuplicated = nTerminusProtein == 1 && cleave && retain; //prevents duplicate sequences containing N-terminal methionine
             List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
@@ -554,7 +554,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <param name="maxPeptideLength"></param>
         /// <param name="specificProtease"></param>
         /// <returns></returns>
-        private List<ProteolyticPeptide> SingleN_Digestion(Protein.Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
+        private List<ProteolyticPeptide> SingleN_Digestion(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
             int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength, Protease specificProtease)
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
@@ -641,7 +641,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <param name="maxPeptideLength"></param>
         /// <param name="specificProtease"></param>
         /// <returns></returns>
-        private List<ProteolyticPeptide> SingleC_Digestion(Protein.Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
+        private List<ProteolyticPeptide> SingleC_Digestion(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
             int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength, Protease specificProtease)
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();

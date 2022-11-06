@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MassSpectrometry.Proteomics.Modifications
+namespace MassSpectrometry.Proteomics
 {
     public static class ModificationLocalization
     {
@@ -46,7 +46,7 @@ namespace MassSpectrometry.Proteomics.Modifications
             return true;
         }
 
-        public static bool UniprotModExists(Protein.Protein protein, int i, Modification attemptToLocalize)
+        public static bool UniprotModExists(Protein protein, int i, Modification attemptToLocalize)
         {
             // uniprot mods with same mass takes precedence over variable mods
             if (protein.OneBasedPossibleLocalizedModifications.TryGetValue(i, out List<Modification> modsAtThisLocation)) {

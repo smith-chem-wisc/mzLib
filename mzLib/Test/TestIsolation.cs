@@ -19,7 +19,7 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics.AminoAcidPolymer;
+using MassSpectrometry.Proteomics.AminoAcidPolymer;
 using System;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;

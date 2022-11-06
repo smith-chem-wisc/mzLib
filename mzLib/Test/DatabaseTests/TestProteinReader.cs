@@ -17,7 +17,7 @@
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using NUnit.Framework;
-using Proteomics;
+using MassSpectrometry.Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;

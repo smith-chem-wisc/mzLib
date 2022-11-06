@@ -1,5 +1,5 @@
 ﻿using Chemistry;
-using Proteomics;
+using MassSpectrometry.Proteomics;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;

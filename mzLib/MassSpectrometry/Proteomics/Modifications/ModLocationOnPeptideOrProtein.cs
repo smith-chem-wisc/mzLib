@@ -1,4 +1,4 @@
-﻿namespace MassSpectrometry.Proteomics.Modifications
+﻿namespace MassSpectrometry.Proteomics
 {
     public enum ModLocationOnPeptideOrProtein
     {

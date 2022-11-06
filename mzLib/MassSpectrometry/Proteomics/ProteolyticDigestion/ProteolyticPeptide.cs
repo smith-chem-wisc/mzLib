@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MassSpectrometry.Proteomics.Modifications;
+using MassSpectrometry.Proteomics;
 
 namespace MassSpectrometry.Proteomics.ProteolyticDigestion
 {
@@ -14,7 +14,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
     {
         protected string _baseSequence;
 
-        internal ProteolyticPeptide(Protein.Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null, string baseSequence = null)
+        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null, string baseSequence = null)
         {
             _protein = protein;
             OneBasedStartResidueInProtein = oneBasedStartResidueInProtein;
@@ -25,7 +25,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
             _baseSequence = baseSequence;
         }
 
-        [NonSerialized] private Protein.Protein _protein; // protein that this peptide is a digestion product of
+        [NonSerialized] private Protein _protein; // protein that this peptide is a digestion product of
         public int OneBasedStartResidueInProtein { get; } // the residue number at which the peptide begins (the first residue in a protein is 1)
         public int OneBasedEndResidueInProtein { get; } // the residue number at which the peptide ends
         public int MissedCleavages { get; } // the number of missed cleavages this peptide has with respect to the digesting protease
@@ -49,7 +49,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
             }
         }
 
-        public Protein.Protein Protein
+        public Protein Protein
         {
             get { return _protein; }
             protected set { _protein = value; }

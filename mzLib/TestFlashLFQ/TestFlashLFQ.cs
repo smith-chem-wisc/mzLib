@@ -5,7 +5,7 @@ using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics.AminoAcidPolymer;
+using MassSpectrometry.Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -316,7 +316,7 @@ namespace Test
 
                 for (int p = 0; p < pepSequences.Count; p++)
                 {
-                    ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
+                    ChemicalFormula cf = new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
                     IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
                     double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
                     double[] intensities = dist.Intensities.Select(v => v * intensity).ToArray();
@@ -348,25 +348,25 @@ namespace Test
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
             Identification id1 = new Identification(file1, "PEPTIDE", "PEPTIDE",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file1Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file1Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id2 = new Identification(file1, "PEPTIDEV", "PEPTIDEV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id3 = new Identification(file1, "PEPTIDEVV", "PEPTIDEVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id4 = new Identification(file1, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id5 = new Identification(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
             Identification id6 = new Identification(file2, "PEPTIDE", "PEPTIDE",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id7 = new Identification(file2, "PEPTIDEV", "PEPTIDEV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
             // missing ID 8 - MBR feature
             Identification id9 = new Identification(file2, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id10 = new Identification(file2, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
@@ -408,7 +408,7 @@ namespace Test
 
             for (int s = 0; s < scans.Length; s++)
             {
-                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+                ChemicalFormula cf = new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
                 IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
                 double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
                 double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
@@ -430,7 +430,7 @@ namespace Test
             var pg = new ProteinGroup("MyProtein", "gene", "org");
 
             Identification id1 = new Identification(file1, peptide, peptide,
-                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.7 + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.7 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
@@ -462,7 +462,7 @@ namespace Test
 
             for (int s = 0; s < scans.Length; s++)
             {
-                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+                ChemicalFormula cf = new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
                 IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
                 double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
                 double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
@@ -484,7 +484,7 @@ namespace Test
             var pg = new ProteinGroup("MyProtein", "gene", "org");
 
             Identification id1 = new Identification(file1, peptide, peptide,
-                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
@@ -516,7 +516,7 @@ namespace Test
 
             for (int s = 0; s < scans.Length; s++)
             {
-                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+                ChemicalFormula cf = new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
                 IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
                 double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
                 double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
@@ -544,7 +544,7 @@ namespace Test
             var pg = new ProteinGroup("MyProtein", "gene", "org");
 
             Identification id1 = new Identification(file1, peptide, peptide,
-                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
@@ -576,7 +576,7 @@ namespace Test
 
             for (int s = 0; s < scans.Length; s++)
             {
-                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+                ChemicalFormula cf = new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
                 IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
                 double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
                 double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
@@ -604,7 +604,7 @@ namespace Test
             var pg = new ProteinGroup("MyProtein", "gene", "org");
 
             Identification id1 = new Identification(file1, peptide, peptide,
-                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
@@ -716,7 +716,7 @@ namespace Test
 
                 for (int p = 0; p < pepSequences.Count; p++)
                 {
-                    ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
+                    ChemicalFormula cf = new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
                     IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
                     double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
                     double[] intensities = dist.Intensities.Select(v => v * intensity).ToArray();
@@ -750,25 +750,25 @@ namespace Test
             var myMbrProteinGroup = new ProteinGroup("MyMbrProtein", "MbrGene", "org");
 
             Identification id1 = new Identification(file1, "PEPTIDE", "PEPTIDE",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file1Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file1Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id2 = new Identification(file1, "PEPTIDEV", "PEPTIDEV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id3 = new Identification(file1, "PEPTIDEVV", "PEPTIDEVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { myMbrProteinGroup });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { myMbrProteinGroup });
             Identification id4 = new Identification(file1, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id5 = new Identification(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
             Identification id6 = new Identification(file2, "PEPTIED", "PEPTIED",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIED").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIED").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id7 = new Identification(file2, "PEPTIEDV", "PEPTIEDV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIEDV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
             // missing ID 8 - MBR feature
             Identification id9 = new Identification(file2, "PEPTIEDVVV", "PEPTIEDVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id10 = new Identification(file2, "PEPTIEDVVVV", "PEPTIEDVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+                new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             var results = engine.Run();
@@ -1021,7 +1021,7 @@ namespace Test
 
             MsDataScan[] scans = new MsDataScan[10];
 
-            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(sequence).GetChemicalFormula();
+            ChemicalFormula cf = new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(sequence).GetChemicalFormula();
 
             IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
             double[] mz = dist.Masses.Select(v => v.ToMz(charge)).ToArray();

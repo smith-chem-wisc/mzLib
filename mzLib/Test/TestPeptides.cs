@@ -19,9 +19,9 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
-using Proteomics.ProteolyticDigestion;
+using MassSpectrometry.Proteomics.AminoAcidPolymer;
+using MassSpectrometry.Proteomics.Fragmentation;
+using MassSpectrometry.Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;

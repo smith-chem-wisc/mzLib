@@ -5,8 +5,6 @@ using System.Text;
 using Chemistry;
 using MassSpectrometry.Proteomics.AminoAcidPolymer;
 using MassSpectrometry.Proteomics.Fragmentation;
-using MassSpectrometry.Proteomics.Modifications;
-using MassSpectrometry.Proteomics.Protein;
 
 namespace MassSpectrometry.Proteomics.ProteolyticDigestion
 {
@@ -35,7 +33,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
-        public PeptideWithSetModifications(Protein.Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
+        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null, int? pairedTargetDecoyHash = null)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription, baseSequence)
@@ -54,7 +52,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// Useful for reading in MetaMorpheus search engine output into mzLib objects.
         /// </summary>
         public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
-            DigestionParams digestionParams = null, Protein.Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
+            DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
             int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue,
             CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null, int? pairedTargetDecoyHash = null)
             : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
@@ -953,7 +951,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
         /// </summary>
-        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein.Protein> accessionToProtein, DigestionParams dp)
+        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein, DigestionParams dp)
         {
             GetModsAfterDeserialization(idToMod);
             GetProteinAfterDeserialization(accessionToProtein);
@@ -1020,9 +1018,9 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
             }
         }
 
-        private void GetProteinAfterDeserialization(Dictionary<string, Protein.Protein> idToProtein)
+        private void GetProteinAfterDeserialization(Dictionary<string, Protein> idToProtein)
         {
-            Protein.Protein protein = null;
+            Protein protein = null;
 
             if (ProteinAccession != null && !idToProtein.TryGetValue(ProteinAccession, out protein))
             {
@@ -1224,7 +1222,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
             aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
             proteinSequence = aStringBuilder.ToString();
 
-            Protein.Protein decoyProtein = new Protein.Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = this.DigestionParams;
 
             // Creates a hash code corresponding to the target's sequence
@@ -1403,7 +1401,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
             aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
             proteinSequence = aStringBuilder.ToString();
 
-            Protein.Protein decoyProtein = new Protein.Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = this.DigestionParams;
             // Creates a hash code corresponding to the target's sequence
             int targetHash = GetHashCode();
@@ -1496,7 +1494,7 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
             aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
             proteinSequence = aStringBuilder.ToString();
 
-            Protein.Protein decoyProtein = new Protein.Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
 
             DigestionParams d = this.DigestionParams;
 
