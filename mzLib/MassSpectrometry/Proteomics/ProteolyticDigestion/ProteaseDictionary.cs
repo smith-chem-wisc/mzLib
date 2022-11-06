@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using MassSpectrometry.Proteomics;
 using MzLibUtil;
+using MassSpectrometry.Proteomics;
 
 namespace MassSpectrometry.Proteomics.ProteolyticDigestion
 {
@@ -17,8 +17,8 @@ namespace MassSpectrometry.Proteomics.ProteolyticDigestion
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MetaMorpheus") :
                 AppDomain.CurrentDomain.BaseDirectory;
 
+            string path = Path.Combine(dataDirectory, "Proteomics", "ProteolyticDigestion", "proteases.tsv");
             Dictionary = LoadProteaseDictionary(path);
-        
         }
 
         public static Dictionary<string, Protease> Dictionary { get; set; }
