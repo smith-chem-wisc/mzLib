@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
-using Proteomics;
-using Proteomics.ProteolyticDigestion;
-using Proteomics.RetentionTimePrediction;
+using MassSpectrometry.Proteomics;
+using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using MassSpectrometry.Proteomics.RetentionTimePrediction;
 using System;
 using System.Collections.Generic;
 using Stopwatch = System.Diagnostics.Stopwatch;

@@ -1,6 +1,6 @@
 ﻿using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using MassSpectrometry.Proteomics;
 using System;
 using System.IO;
 using System.Linq;

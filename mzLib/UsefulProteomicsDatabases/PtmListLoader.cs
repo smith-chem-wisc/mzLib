@@ -1,7 +1,7 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
-using Proteomics;
+using MassSpectrometry.Proteomics;
 using System;
 using System.Collections.Generic;
 using System.Globalization;

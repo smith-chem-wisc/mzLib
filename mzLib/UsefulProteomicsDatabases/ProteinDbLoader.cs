@@ -1,5 +1,5 @@
-﻿using Proteomics;
-using Proteomics.AminoAcidPolymer;
+﻿using MassSpectrometry.Proteomics;
+using MassSpectrometry.Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;

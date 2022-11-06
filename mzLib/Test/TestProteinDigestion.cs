@@ -1,10 +1,10 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
-using Proteomics;
-using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
-using Proteomics.ProteolyticDigestion;
+using MassSpectrometry.Proteomics;
+using MassSpectrometry.Proteomics.AminoAcidPolymer;
+using MassSpectrometry.Proteomics.Fragmentation;
+using MassSpectrometry.Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -59,7 +59,7 @@ namespace Test
             Assert.That(File.Exists(path));
 
             var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
-            ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ProteolyticDigestion", "proteases.tsv"), proteaseMods);
+            ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Proteomics", "ProteolyticDigestion", "proteases.tsv"), proteaseMods);
             var protease1 = proteaseDict["CNBr"];
             DigestionParams digestionParams1 = new DigestionParams(
                 protease: protease1.Name,
