@@ -122,6 +122,32 @@ namespace MassSpectrometry
             return MzSpectrum.Get64Bitarray(GetNoiseDataBaseline(NoiseData));
         }
 
+        /// <summary>
+        /// Get deconvoluted isotopic envelopes with peaks within isolation range
+        /// </summary>
+        /// <param name="deconvoluter">Deconvoluter with formatted params</param>
+        /// <returns></returns>
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(Deconvoluter deconvoluter)
+        {
+            var allDeconvolutedEnvelopes = deconvoluter.Deconvolute(this);
+            return allDeconvolutedEnvelopes.Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+        }
+
+        /// <summary>
+        /// Get deconvoluted isotopic envelopes with peaks within the isolation range
+        /// </summary>
+        /// <param name="type">deconvolution type to be performed</param>
+        /// <param name="deconParameters">deconvolution parameters</param>
+        /// <returns></returns>
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(DeconvolutionTypes type,
+            DeconvolutionParameters deconParameters)
+        {
+            Deconvoluter deconvoluter = new Deconvoluter(type, deconParameters);
+            return GetIsolatedMassesAndCharges(deconvoluter);
+        }
+
+
+        [Obsolete]
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState,
             int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
         {
@@ -129,7 +155,7 @@ namespace MassSpectrometry
             {
                 yield break;
             }
-            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), 
+            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5),
                 minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio)
                                                   .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz))))
             {
