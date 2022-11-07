@@ -57,8 +57,8 @@ namespace Chemistry
         }
 
         // Clone() produces shallow copies, but because double is a primitive type, this is acceptable
-        public double[] Masses { get { return (double[]) masses.Clone(); } }
-        public double[] Intensities { get { return (double[]) intensities.Clone(); } }
+        public double[] Masses => (double[]) masses.Clone();
+        public double[] Intensities => (double[]) intensities.Clone();
 
         public static IsotopicDistribution GetDistribution(ChemicalFormula formula)
         {
