@@ -7,11 +7,13 @@ using Chemistry;
 using MassSpectrometry.Deconvolution.Parameters;
 using MassSpectrometry.Proteomics;
 using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using MzLibUtil;
 
 namespace MassSpectrometry.Deconvolution.Algorithms
 {
     public class SpectralDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
+        // TODO: Make a charge state envelope class, complete with "MostAbundantChargeState"
         public Dictionary<Protein, List<IsotopicEnvelope>> EnvelopeDictionary;
         public int MaxThreads;
 
@@ -34,33 +36,32 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         {
             EnvelopeDictionary = new();
             var deconvolutionParameters = DeconvolutionParameters as SpectralDeconvolutionParameters;
-            if (deconvolutionParameters != null)
+            if (deconvolutionParameters == null)
             {
-                // TODO: Parallelize this section of the code
-                foreach (Protein protein in deconvolutionParameters.Proteins)
+                throw new MzLibException(
+                    "Improper Deconvolution Parameters were pass to the SpectralDeconvolutionAlgorithm");
+            } 
+
+            //TODO: Parallelize this section of the code
+            foreach (Protein protein in deconvolutionParameters.Proteins)
+            {
+                EnvelopeDictionary.Add(protein, new List<IsotopicEnvelope>());
+                // I'm not sure if calling protein.Digest within the foreach statement would call the method anew for every loop
+                IEnumerable<PeptideWithSetModifications> uniquePeptides = protein.Digest(
+                    deconvolutionParameters.DigestionParams, deconvolutionParameters.FixedModifications,
+                    deconvolutionParameters.VariableModifications, deconvolutionParameters.SilacLabels,
+                    topDownTruncationSearch: deconvolutionParameters.FindTopDownTruncationProducts);
+                foreach (PeptideWithSetModifications pwsm in uniquePeptides)
                 {
-                    EnvelopeDictionary.Add(protein, new List<IsotopicEnvelope>());
-                    // I'm not sure if calling protein.Digest within the foreach statement would call the method anew for every loop
-                    IEnumerable<PeptideWithSetModifications> uniquePeptides = protein.Digest(
-                        deconvolutionParameters.DigestionParams, deconvolutionParameters.FixedModifications,
-                        deconvolutionParameters.VariableModifications, deconvolutionParameters.SilacLabels,
-                        topDownTruncationSearch: deconvolutionParameters.FindTopDownTruncationProducts);
-                    foreach (PeptideWithSetModifications pwsm in uniquePeptides)
+                    IsotopicDistribution pwsmDistribution = IsotopicDistribution.GetDistribution(pwsm.FullChemicalFormula);
+                    for (int charge = deconvolutionParameters.MinAssumedChargeState;
+                         charge <= deconvolutionParameters.MinAssumedChargeState;
+                         charge++)
                     {
-                        IsotopicDistribution pwsmDistribution = IsotopicDistribution.GetDistribution(pwsm.FullChemicalFormula);
-                        for (int charge = deconvolutionParameters.MinAssumedChargeState;
-                             charge <= deconvolutionParameters.MinAssumedChargeState;
-                             charge++)
-                        {
-                            EnvelopeDictionary[protein].Add(new IsotopicEnvelope(pwsmDistribution, charge));
-                        }
+                        EnvelopeDictionary[protein].Add(new IsotopicEnvelope(pwsmDistribution, charge));
                     }
                 }
-            }
-            else
-            {
-                throw new ArgumentException(
-                    "Improper Deconvolution Parameters were pass to the SpectralDeconvolutionAlgorithm");
+                
             }
 
         }

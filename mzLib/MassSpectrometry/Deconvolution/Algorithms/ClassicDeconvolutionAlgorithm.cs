@@ -26,7 +26,12 @@ namespace MassSpectrometry
         /// <returns></returns>
         public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute)
         {
-            var deconParams = DeconvolutionParameters as ClassicDeconvolutionParameters ?? throw new MzLibException("Deconvolution params and algorithm do not match");
+            var deconParams = DeconvolutionParameters as ClassicDeconvolutionParameters;
+            if (deconParams == null)
+            {
+                throw new MzLibException("Deconvolution params and algorithm do not match");
+            }
+
             spectrum = spectrumToDeconvolute;
             //if no peaks, stop
             if (spectrum.Size == 0)
