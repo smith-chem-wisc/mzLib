@@ -56,8 +56,9 @@ namespace Chemistry
             intensities = new double[count];
         }
 
-        public IEnumerable<double> Masses { get { return masses; } }
-        public IEnumerable<double> Intensities { get { return intensities; } }
+        // Clone() produces shallow copies, but because double is a primitive type, this is acceptable
+        public double[] Masses { get { return (double[]) masses.Clone(); } }
+        public double[] Intensities { get { return (double[]) intensities.Clone(); } }
 
         public static IsotopicDistribution GetDistribution(ChemicalFormula formula)
         {
