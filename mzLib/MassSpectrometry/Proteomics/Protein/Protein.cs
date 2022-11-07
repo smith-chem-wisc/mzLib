@@ -236,9 +236,11 @@ namespace MassSpectrometry.Proteomics
 
         /// <summary>
         /// Gets peptides for digestion of a protein
+        /// TODO: Refactor to employ yield returns
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
-            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false)
+            List<Modification> variableModifications, List<SilacLabel> silacLabels = null,
+            (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false)
         {
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();

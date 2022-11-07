@@ -56,6 +56,22 @@ namespace Chemistry
             intensities = new double[count];
         }
 
+        public double MostIntenseMass
+        {
+            get
+            {
+                double maxIntensity = intensities.Max();
+                for (int i = 0; i < masses.Length; i++)
+                {
+                    if (Math.Abs(intensities[i] - maxIntensity) < 0.0001)
+                    {
+                        return (masses[i]);
+                    }
+                }
+                return Double.NaN;
+            }
+        }
+
         public IEnumerable<double> Masses { get { return masses; } }
         public IEnumerable<double> Intensities { get { return intensities; } }
 

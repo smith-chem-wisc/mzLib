@@ -15,18 +15,25 @@ namespace MassSpectrometry.Deconvolution.Parameters
         public List<Modification> FixedModifications;
         public List<Modification> VariableModifications;
         public Protease Protease;
+        public DigestionParams DigestionParams;
+        public List<SilacLabel> SilacLabels;
+        public bool FindTopDownTruncationProducts;
         private bool FindNonDatabasePeaks; // This should be linked to a method that generates Averagine envelopes
 
 
         public SpectralDeconvolutionParameters(int minAssumedChargeState, int maxAssumedChargeState,
             double deconvolutionTolerancePpm, List<Protein> proteins, List<Modification> fixedModifications,
-            List<Modification> variableModifications, Protease protease, bool findNonDatabasePeaks = false) :
+            List<Modification> variableModifications, Protease protease, DigestionParams digestionParams,
+            List<SilacLabel> silacLabels, bool findTopDownTruncationProducts, bool findNonDatabasePeaks = false) :
             base(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm)
         {
             Proteins = proteins;
             FixedModifications = fixedModifications;
             VariableModifications = variableModifications;
             Protease = protease;
+            DigestionParams = digestionParams;
+            SilacLabels = silacLabels;
+            FindTopDownTruncationProducts = findTopDownTruncationProducts;
             FindNonDatabasePeaks = findNonDatabasePeaks;
         }
     }
