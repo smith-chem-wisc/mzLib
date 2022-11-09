@@ -56,7 +56,7 @@ namespace Chemistry
             intensities = new double[count];
         }
 
-        public double MostIntenseMass
+        public double MostAbundantMass
         {
             get
             {
@@ -71,6 +71,8 @@ namespace Chemistry
                 return Double.NaN;
             }
         }
+
+        public double MonoIsotopicMass => masses[0];
 
         public IEnumerable<double> Masses { get { return masses; } }
         public IEnumerable<double> Intensities { get { return intensities; } }

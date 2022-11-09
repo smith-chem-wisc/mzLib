@@ -42,7 +42,7 @@ namespace MassSpectrometry
         {
             Peaks = theoreticalDistribution.Masses.Zip(theoreticalDistribution.Intensities,
                 (first, second) => (first.ToMz(charge), (double)second)).ToList();
-            MonoisotopicMass = theoreticalDistribution.Masses.Min(); // I think this is right, need to test it tho
+            MonoisotopicMass = theoreticalDistribution.MonoIsotopicMass; // I think this is right, need to test it tho
             MostAbundantObservedIsotopicMass = GetMostAbundantObservedIsotopicMass(Peaks, charge);
             Charge = charge;
 
@@ -54,7 +54,7 @@ namespace MassSpectrometry
         {
             if (!_mostAbundantObservedIsotopicMass.HasValue)
             {
-                _mostAbundantObservedIsotopicMass = (peaks.OrderByDescending(p => p.intensity).ToList()[0].Item1) * charge;
+                _mostAbundantObservedIsotopicMass = (peaks.OrderByDescending(p => p.intensity).ToList()[0].Item1).ToMz(charge);
             }
 
             return (double)_mostAbundantObservedIsotopicMass;

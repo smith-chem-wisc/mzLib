@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MassSpectrometry.Proteomics;
 using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using MzLibUtil;
 
 namespace MassSpectrometry.Deconvolution.Parameters
 {
@@ -17,6 +18,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
         public Protease Protease;
         public DigestionParams DigestionParams;
         public List<SilacLabel> SilacLabels;
+        public DoubleRange ScanRange;
         public bool FindTopDownTruncationProducts;
         private bool FindNonDatabasePeaks; // This should be linked to a method that generates Averagine envelopes
 
@@ -24,7 +26,8 @@ namespace MassSpectrometry.Deconvolution.Parameters
         public SpectralDeconvolutionParameters(int minAssumedChargeState, int maxAssumedChargeState,
             double deconvolutionTolerancePpm, List<Protein> proteins, List<Modification> fixedModifications,
             List<Modification> variableModifications, Protease protease, DigestionParams digestionParams,
-            List<SilacLabel> silacLabels, bool findTopDownTruncationProducts, bool findNonDatabasePeaks = false) :
+            List<SilacLabel> silacLabels, bool findTopDownTruncationProducts, double ,
+            bool findNonDatabasePeaks = false) :
             base(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm)
         {
             Proteins = proteins;
@@ -34,6 +37,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
             DigestionParams = digestionParams;
             SilacLabels = silacLabels;
             FindTopDownTruncationProducts = findTopDownTruncationProducts;
+            ScanRange = scanRange;
             FindNonDatabasePeaks = findNonDatabasePeaks;
         }
     }

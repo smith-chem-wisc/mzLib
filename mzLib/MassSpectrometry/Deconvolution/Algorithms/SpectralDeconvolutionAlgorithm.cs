@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
+using Easy.Common.Extensions;
 using MassSpectrometry.Deconvolution.Parameters;
 using MassSpectrometry.Proteomics;
 using MassSpectrometry.Proteomics.ProteolyticDigestion;
@@ -58,6 +59,8 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                          charge <= deconvolutionParameters.MinAssumedChargeState;
                          charge++)
                     {
+                        deconvolutionParameters.
+                        if(pwsm.MonoisotopicMass )
                         EnvelopeDictionary[protein].Add(new IsotopicEnvelope(pwsmDistribution, charge));
                     }
                 }

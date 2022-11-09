@@ -17,7 +17,7 @@ namespace Test
         [Test]
         public static void TestIsotopicDistributionToEnvelope()
         {
-            Protein myProtein = new Protein("SEQUENEK", "accession");
+            Protein myProtein = new Protein("PEPTIDEK", "accession");
 
             DigestionParams digest = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
@@ -28,7 +28,7 @@ namespace Test
             IsotopicDistribution distribution = IsotopicDistribution.GetDistribution(pwsm.FullChemicalFormula, 0.125, 1e-8);
             IsotopicEnvelope envelope = new(distribution, charge: 2);
 
-            double distributionMostAbundant = distribution.MostIntenseMass;
+            double distributionMostAbundant = distribution.MostAbundantMass;
             double envelopeMostAbundant = envelope.MostAbundantObservedIsotopicMass;
             Assert.AreEqual(envelopeMostAbundant, envelopeMostAbundant);
         }

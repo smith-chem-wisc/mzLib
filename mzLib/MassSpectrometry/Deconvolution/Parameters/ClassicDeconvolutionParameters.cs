@@ -28,9 +28,6 @@ namespace MassSpectrometry
         {
             Range = range;
             IntensityRatioLimit = intensityRatio;
-            //DeconvolutionTolerancePpm = deconPpm;
-            //MinAssumedChargeState = minCharge;
-            //MaxAssumedChargeState = maxCharge;
         }
     }
 }
