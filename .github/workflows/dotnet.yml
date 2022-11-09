@@ -32,13 +32,12 @@ jobs:
       run: cd mzLib/TestFlashLFQ && dotnet add package coverlet.collector
     - name: Test
       run: cd mzLib/Test && dotnet test --no-build --verbosity normal 
-        /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
-        /p:CoverletOutput='../../coverage.xml'
+        --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
     - name: TestFlashLFQ
       run: cd mzLib/TestFlashLFQ && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
     - name: Upload to Codecov
       uses: codecov/codecov-action@v2
       with:
         verbose: true
-        files: ./coverage.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
+        files: Test/TestResults/*/coverage.cobertura.xml, TestFlashLFQ/TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: true
