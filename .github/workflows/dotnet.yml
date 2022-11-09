@@ -40,5 +40,5 @@ jobs:
       uses: codecov/codecov-action@v2
       with:
         verbose: true
-        files: .coverage.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
+        files: ./coverage.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: true
