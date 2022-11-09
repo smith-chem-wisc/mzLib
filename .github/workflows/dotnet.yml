@@ -2,14 +2,16 @@ name: Build and Test
 
 on:
   push:
+    branches: [ master ]
   pull_request:
+    branches: [ master ]
 
 jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v2
       with: 
         fetch-depth: 10
     - name: Set up .NET
@@ -29,14 +31,14 @@ jobs:
     - name: Add coverlet collector (TestFlashLFQ)
       run: cd mzLib/TestFlashLFQ && dotnet add package coverlet.collector
     - name: Test
-      run: cd mzLib/Test && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
+      run: cd mzLib/Test && dotnet test --no-build --verbosity normal 
+        /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+        /p:CoverletOutput='../../coverage.xml'
     - name: TestFlashLFQ
       run: cd mzLib/TestFlashLFQ && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
     - name: Upload to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v2
       with:
         verbose: true
-        files: mzLib/Test/TestResults/*/coverage.cobertura.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
+        files: .coverage.xml, mzLib/TestFlashLFQ/TestResults/*/coverage.cobertura.xml
         fail_ci_if_error: true
-    - name: Valid codecov.yml
-      uses: formsort/action-check-codecov-config@v1
