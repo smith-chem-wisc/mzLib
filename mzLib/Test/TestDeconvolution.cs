@@ -197,6 +197,16 @@ namespace Test
         public void TestSpectralDecon()
         {
 
+            //PEPTIDEK vs PEPTIDEPEPTIDEK
+            Protein myProtein = new Protein("PEPTIDEKPEPTIDEPEPTIDEK", "accession");
+
+            DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+           
+            List<PeptideWithSetModifications> pep1 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).ToList();
+
+            int placeholder = 0;
+
+            // Now, construct spectraldecon params, check shit is indexed correctly;
 
         }
         #endregion
