@@ -46,7 +46,7 @@
     <file src="MassSpectrometry\bin\x64\Release\net6.0\MassSpectrometry.dll" target="lib\net6.0" />
     <file src="Mgf\bin\x64\Release\net6.0\Mgf.dll" target="lib\net6.0" />	
     <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0" />
-	<file src="MzLibSpectralAveraging\bin\x64\Release\net6.0\MzLibSpectralAveraging.dll" target="lib\net6.0" /> 
+	  <file src="MzLibSpectralAveraging\bin\x64\Release\net6.0\MzLibSpectralAveraging.dll" target="lib\net6.0" /> 
     <file src="MzLibUtil\bin\x64\Release\net6.0\MzLibUtil.dll" target="lib\net6.0" />
     <file src="MzML\bin\x64\Release\net6.0\MzML.dll" target="lib\net6.0" />
     <file src="PepXML\bin\x64\Release\net6.0\PepXML.dll" target="lib\net6.0" /> 
@@ -67,7 +67,7 @@
     <file src="MassSpectrometry\bin\x64\Release\net6.0\MassSpectrometry.dll" target="lib\net6.0-windows7.0" />
     <file src="Mgf\bin\x64\Release\net6.0\Mgf.dll" target="lib\net6.0-windows7.0" />	
     <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0-windows7.0" />
-	<file src="MzLibSpectralAveraging\bin\x64\Release\net6.0\MzLibSpectralAveraging.dll" target="lib\net6.0-windows7.0" />
+	  <file src="MzLibSpectralAveraging\bin\x64\Release\net6.0\MzLibSpectralAveraging.dll" target="lib\net6.0-windows7.0" />
     <file src="MzLibUtil\bin\x64\Release\net6.0\MzLibUtil.dll" target="lib\net6.0-windows7.0" />
     <file src="MzML\bin\x64\Release\net6.0\MzML.dll" target="lib\net6.0-windows7.0" />
     <file src="PepXML\bin\x64\Release\net6.0\PepXML.dll" target="lib\net6.0-windows7.0" /> 
