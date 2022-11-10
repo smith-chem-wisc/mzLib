@@ -59,8 +59,11 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                          charge <= deconvolutionParameters.MinAssumedChargeState;
                          charge++)
                     {
-                        deconvolutionParameters.
-                        if(pwsm.MonoisotopicMass )
+                        double theoreticalMz = pwsm.MonoisotopicMass.ToMz(charge);
+                        if (deconvolutionParameters.ScanRange.Contains(pwsm.MonoisotopicMass.ToMz(charge)))
+                        {
+                            if (deconvolutionParameters.ScanRange.CompareTo())
+                        }
                         EnvelopeDictionary[protein].Add(new IsotopicEnvelope(pwsmDistribution, charge));
                     }
                 }

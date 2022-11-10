@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MassSpectrometry.Proteomics;
 using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using MathNet.Numerics.Optimization;
 using MzLibUtil;
 
 namespace MassSpectrometry.Deconvolution.Parameters
@@ -26,7 +27,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
         public SpectralDeconvolutionParameters(int minAssumedChargeState, int maxAssumedChargeState,
             double deconvolutionTolerancePpm, List<Protein> proteins, List<Modification> fixedModifications,
             List<Modification> variableModifications, Protease protease, DigestionParams digestionParams,
-            List<SilacLabel> silacLabels, bool findTopDownTruncationProducts, double ,
+            List<SilacLabel> silacLabels, bool findTopDownTruncationProducts, double scanMinimumMz, double scanMaximumMz,
             bool findNonDatabasePeaks = false) :
             base(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm)
         {
@@ -37,7 +38,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
             DigestionParams = digestionParams;
             SilacLabels = silacLabels;
             FindTopDownTruncationProducts = findTopDownTruncationProducts;
-            ScanRange = scanRange;
+            ScanRange = new DoubleRange(scanMinimumMz, scanMaximumMz);
             FindNonDatabasePeaks = findNonDatabasePeaks;
         }
     }

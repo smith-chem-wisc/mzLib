@@ -79,6 +79,12 @@ namespace MzLibUtil
             return $"[{Minimum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)};{Maximum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)}]";
         }
 
+        /// <summary>
+        /// Compares value of the instance to the value of the 'item' passed in.
+        /// Returns a negative integer if the instance is less than 'item'
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
         public int CompareTo(double item)
         {
             if (Minimum.CompareTo(item) > 0)
