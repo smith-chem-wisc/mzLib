@@ -21,6 +21,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
         public List<SilacLabel> SilacLabels;
         public DoubleRange ScanRange;
         public bool FindTopDownTruncationProducts;
+        public int BinsPerDalton;
         private bool FindNonDatabasePeaks; // This should be linked to a method that generates Averagine envelopes
 
 
@@ -28,7 +29,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
             double deconvolutionTolerancePpm, List<Protein> proteins, List<Modification> fixedModifications,
             List<Modification> variableModifications, Protease protease, DigestionParams digestionParams,
             List<SilacLabel> silacLabels, bool findTopDownTruncationProducts, double scanMinimumMz, double scanMaximumMz,
-            bool findNonDatabasePeaks = false) :
+            int binsPerDalton = 100, bool findNonDatabasePeaks = false) :
             base(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm)
         {
             Proteins = proteins;
@@ -39,6 +40,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
             SilacLabels = silacLabels;
             FindTopDownTruncationProducts = findTopDownTruncationProducts;
             ScanRange = new DoubleRange(scanMinimumMz, scanMaximumMz);
+            BinsPerDalton = binsPerDalton;
             FindNonDatabasePeaks = findNonDatabasePeaks;
         }
     }
