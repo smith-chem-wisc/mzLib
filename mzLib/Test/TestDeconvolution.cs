@@ -189,5 +189,16 @@ namespace Test
         }
 
         #endregion
+
+        #region SpectralDecon
+
+        [ Test ]
+
+        public void TestSpectralDecon()
+        {
+
+
+        }
+        #endregion
     }
 }
