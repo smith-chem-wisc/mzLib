@@ -71,11 +71,9 @@ namespace Chemistry
                 return Double.NaN;
             }
         }
-
         public double MonoIsotopicMass => masses[0];
-
-        public IEnumerable<double> Masses { get { return masses; } }
-        public IEnumerable<double> Intensities { get { return intensities; } }
+        public double[] Masses => (double[]) masses.Clone();
+        public double[] Intensities => (double[]) intensities.Clone();
 
         public static IsotopicDistribution GetDistribution(ChemicalFormula formula)
         {
