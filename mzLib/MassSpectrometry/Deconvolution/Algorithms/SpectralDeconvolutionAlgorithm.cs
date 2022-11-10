@@ -15,12 +15,14 @@ namespace MassSpectrometry.Deconvolution.Algorithms
     public class SpectralDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
         // TODO: Make a charge state envelope class, complete with "MostAbundantChargeState"
-        public Dictionary<Protein, List<IsotopicEnvelope>> EnvelopeDictionary;
+        public Dictionary<PeptideWithSetModifications, List<IsotopicEnvelope>> EnvelopeDictionary;
+        public List<Protein> ProteinsInLibrary;
         public int MaxThreads;
 
         public SpectralDeconvolutionAlgorithm(SpectralDeconvolutionParameters parameters) : base(parameters)
         {
             // Calculate every species you expect to see
+            FindLibraryEnvelopes();
             // Index envelopes
         }
 
@@ -46,14 +48,15 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             //TODO: Parallelize this section of the code
             foreach (Protein protein in deconvolutionParameters.Proteins)
             {
-                EnvelopeDictionary.Add(protein, new List<IsotopicEnvelope>());
                 // I'm not sure if calling protein.Digest within the foreach statement would call the method anew for every loop
                 IEnumerable<PeptideWithSetModifications> uniquePeptides = protein.Digest(
                     deconvolutionParameters.DigestionParams, deconvolutionParameters.FixedModifications,
                     deconvolutionParameters.VariableModifications, deconvolutionParameters.SilacLabels,
                     topDownTruncationSearch: deconvolutionParameters.FindTopDownTruncationProducts);
+
                 foreach (PeptideWithSetModifications pwsm in uniquePeptides)
                 {
+                    EnvelopeDictionary.Add(pwsm, new List<IsotopicEnvelope>());
                     IsotopicDistribution pwsmDistribution = IsotopicDistribution.GetDistribution(pwsm.FullChemicalFormula);
                     for (int charge = deconvolutionParameters.MinAssumedChargeState;
                          charge <= deconvolutionParameters.MinAssumedChargeState;
@@ -62,7 +65,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                         double theoreticalMz = pwsm.MonoisotopicMass.ToMz(charge);
                         if (deconvolutionParameters.ScanRange.Contains(theoreticalMz))
                         {
-                            EnvelopeDictionary[protein].Add(new IsotopicEnvelope(pwsmDistribution, charge));
+                            EnvelopeDictionary[pwsm].Add(new IsotopicEnvelope(pwsmDistribution, charge));
                         }
                         else if (deconvolutionParameters.ScanRange.CompareTo(theoreticalMz) < 0)
                         {
@@ -70,9 +73,15 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                         }
                     }
                 }
-                
-            }
 
+            }
+        }
+
+        private void IndexEnvelopes()
+        {
+            throw new NotImplementedException();
+            // Because we've already generated all the isotopic envelopes we need, we should instead store their location by (Protein
+            // Need to link (PWSM, charge) keys to mz and intensity arrays 
         }
     }
 }

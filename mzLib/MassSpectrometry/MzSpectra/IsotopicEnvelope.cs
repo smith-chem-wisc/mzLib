@@ -9,6 +9,8 @@ namespace MassSpectrometry
     public class IsotopicEnvelope
     {
         public readonly List<(double mz, double intensity)> Peaks;
+        public  double[] mzArray => Peaks.Select(p => p.mz).ToArray();
+        public double[]  intensityArray => Peaks.Select(p => p.intensity).ToArray();
         public double MonoisotopicMass { get; private set; }
         public double MostAbundantObservedIsotopicMass { get; }
         private double? _mostAbundantObservedIsotopicMass;
