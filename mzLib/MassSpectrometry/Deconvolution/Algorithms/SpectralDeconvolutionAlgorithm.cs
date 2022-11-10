@@ -18,6 +18,8 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         // TODO: Make a charge state envelope class, complete with "MostAbundantChargeState"
         public Dictionary<PeptideWithSetModifications, List<IsotopicEnvelope>> EnvelopeDictionary;
         private List<MinimalSpectrum>[] IndexedLibrarySpectra;
+        // SpectrumIndexToPwsmMap maps the location of each spectrum within IndexedLibrarySpectra to its respective PeptideWithSetMods and charge
+        private Dictionary<(int, int), (PeptideWithSetModifications, int charge)> SpectrumIndexToPwsmMap;
         public int MaxThreads; // This should maybe be in the Parameters abstract
         public SpectralDeconvolutionParameters SpectralParams;
 
@@ -88,32 +90,40 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         private void IndexEnvelopes()
         {
 
-            //throw new NotImplementedException();
-
-            // Because we've already generated all the isotopic envelopes we need, we should instead store their location by Protein
-            // Need to link (PWSM, charge) keys to mz and intensity arrays 
-
             int numberOfBinsForIndexing = (int) ((SpectralParams.ScanRange.Maximum -
                                           SpectralParams.ScanRange.Minimum) *
                                           SpectralParams.BinsPerDalton).Ceiling(0);
             IndexedLibrarySpectra = new List<MinimalSpectrum>[numberOfBinsForIndexing];
+            SpectrumIndexToPwsmMap = new();
 
             foreach (var keyValuePair in EnvelopeDictionary)
             {
                 foreach (IsotopicEnvelope envelope in keyValuePair.Value)
                 {
-                    int binIndex =
-                        (int)Math.Round(envelope.MostAbundantObservedIsotopicMass * SpectralParams.BinsPerDalton, 0);
+                    int binIndex = (int)Math.Round(envelope.MostAbundantObservedIsotopicMass * SpectralParams.BinsPerDalton, 0);
 
+                    MinimalSpectrum envelopeMinimalSpectrum = new MinimalSpectrum(envelope.MzArray, envelope.IntensityArray);
+                    IndexedLibrarySpectra[binIndex].Add(envelopeMinimalSpectrum);
+                    SpectrumIndexToPwsmMap.Add(
+                        (binIndex, IndexedLibrarySpectra[binIndex].Count - 1), // tuple consisting of bin index and list position of MinimalSpectrum object
+                        (keyValuePair.Key, envelope.Charge) // tuple consisting of PeptideWithSetMods and charge state
+                        );
 
+                    // In situations where the most abundant isotope frequency is close to the second most abundant isotope's frequency
+                    // ( ratio >= IsotopicEnvelope.AmbiguityRatioMinimum),
+                    // The Spectrum is stored in the index of the second most abundant isotope as well
+                    if(envelope.SecondMostAbundantObservedIsotopicMass > 0)
+                    {
+                        binIndex = (int)Math.Round((double)envelope.SecondMostAbundantObservedIsotopicMass * SpectralParams.BinsPerDalton, 0);
+                        IndexedLibrarySpectra[binIndex].Add(envelopeMinimalSpectrum);
+                        SpectrumIndexToPwsmMap.Add(
+                            (binIndex, IndexedLibrarySpectra[binIndex].Count - 1),
+                            (keyValuePair.Key, envelope.Charge) 
+                            );
+                    }
                 }
             }
         }
 
-        private int GetBinIndex()
-        {
-            return 0;
-
-        }
     }
 }
