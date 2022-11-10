@@ -86,7 +86,7 @@ namespace MzLibUtil
         /// If the 'item' falls within the range, 0 is returned
         /// </summary>
         /// <param name="item"> A double the range will be compared against </param>
-        /// <returns></returns>
+        /// <returns> 1, 0, or -1 </returns>
         public int CompareTo(double item)
         {
             if (Minimum.CompareTo(item) > 0)
