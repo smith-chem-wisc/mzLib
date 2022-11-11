@@ -11,6 +11,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Easy.Common.Extensions;
+using MassSpectrometry.Deconvolution.Algorithms;
+using MassSpectrometry.Deconvolution.Parameters;
 
 namespace Test
 {
@@ -192,21 +195,40 @@ namespace Test
 
         #region SpectralDecon
 
-        [ Test ]
+        [Test]
 
         public void TestSpectralDecon()
         {
 
             //PEPTIDEK vs PEPTIDEPEPTIDEK
             Protein myProtein = new Protein("PEPTIDEKPEPTIDEPEPTIDEK", "accession");
-
             DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-           
-            List<PeptideWithSetModifications> pep1 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).ToList();
 
+            List<PeptideWithSetModifications> pep = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).ToList();
+
+            int minAssumedChargeState = 1;
+            int maxAssumedChargeState = 60;
+            double deconvolutionTolerancePpm = 20;
+
+            SpectralDeconvolutionParameters spectralDeconParams = new SpectralDeconvolutionParameters(
+                minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
+                new List<Protein>() { myProtein },
+                new List<Modification>(), new List<Modification>(), digest1,
+                new List<SilacLabel>(), false, scanMinimumMz: 450, scanMaximumMz: 2000);
+
+            SpectralDeconvolutionAlgorithm spectralDecon = new SpectralDeconvolutionAlgorithm(spectralDeconParams);
+
+            PeptideWithSetModifications peptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEK")).First();
+            PeptideWithSetModifications doublePeptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEPEPTIDEK")).First();
+            Assert.That(spectralDecon.EnvelopeDictionary.ContainsKey(peptidek) & spectralDecon.EnvelopeDictionary.ContainsKey(doublePeptidek));
+            Assert.That(spectralDecon.EnvelopeDictionary[peptidek].Count == 2);
+
+            var x = spectralDecon.IndexedLibrarySpectra.Where(l => l.IsNotNullOrEmpty()).ToList();
+
+
+            // PEPTIDEPEPTIDEK Monoisotopic = 1708.8
+            // PEPTIDEK Monoisotopic = 927.4
             int placeholder = 0;
-
-            // Now, construct spectraldecon params, check shit is indexed correctly;
 
         }
         #endregion

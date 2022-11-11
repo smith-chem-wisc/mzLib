@@ -20,11 +20,12 @@ namespace MassSpectrometry
         public double[] MzArray => Peaks.OrderBy(p => p.mz).Select(p => p.mz).ToArray();
         public double[] IntensityArray => Peaks.OrderBy(p => p.mz).Select(p => p.intensity).ToArray();
 
-        public double MostAbundantObservedIsotopicMass => _mostAbundantObservedIsotopicMass ?? 0;
-        public double SecondMostAbundantObservedIsotopicMass => _secondMostAbundantObservedIsotopicMass ?? 0;
-        private double? _mostAbundantObservedIsotopicMass;
-        private double? _secondMostAbundantObservedIsotopicMass;
-        public double AmbiguityRatioMinimum;
+        public double MostAbundantObservedIsotopicMz => _mostAbundantObservedIsotopicMz ?? 0;
+        public double MostAbundantObservedIsotopicMass => MostAbundantObservedIsotopicMz.ToMass(Charge);
+        public double SecondMostAbundantObservedIsotopicMz => _secondMostAbundantObservedIsotopicMz ?? 0;
+        private double? _mostAbundantObservedIsotopicMz;
+        private double? _secondMostAbundantObservedIsotopicMz;
+        public double AmbiguityRatioMinimum { get; }
         public double Score { get; private set; }
 
         public IsotopicEnvelope(List<(double mz, double intensity)> bestListOfPeaks, double bestMonoisotopicMass,
@@ -33,7 +34,7 @@ namespace MassSpectrometry
             Peaks = bestListOfPeaks;
             MonoisotopicMass = bestMonoisotopicMass;
             Charge = bestChargeState;
-            FindMostAbundantObservedIsotopicMass();
+            FindMostAbundantObservedIsotopicMz();
 
             TotalIntensity = bestTotalIntensity;
             StDev = bestStDev;
@@ -54,7 +55,7 @@ namespace MassSpectrometry
             MonoisotopicMass = theoreticalDistribution.MonoIsotopicMass; // I think this is right, need to test it tho
             Charge = charge;
             AmbiguityRatioMinimum = ambiguityRatioMinimum;
-            FindMostAbundantObservedIsotopicMass();
+            FindMostAbundantObservedIsotopicMz();
 
         }
 
@@ -64,16 +65,16 @@ namespace MassSpectrometry
         /// in the _secondMostAbundantObservedIsotopicMass field
         /// </summary>
         /// <returns></returns>
-        public void FindMostAbundantObservedIsotopicMass()
+        public void FindMostAbundantObservedIsotopicMz()
         {
-            if (!_mostAbundantObservedIsotopicMass.HasValue)
+            if (!_mostAbundantObservedIsotopicMz.HasValue)
             {
                 List<(double mz, double intensity)> intensityOrderedPeaks = Peaks.OrderByDescending(p => p.intensity).ToList();
-                _mostAbundantObservedIsotopicMass = intensityOrderedPeaks.Select(p => p.mz).First().ToMz(Charge);
+                _mostAbundantObservedIsotopicMz = intensityOrderedPeaks.Select(p => p.mz).First();
                 if (intensityOrderedPeaks[1].intensity / intensityOrderedPeaks[0].intensity >= AmbiguityRatioMinimum &&
                     AmbiguityRatioMinimum > 0)
                 {
-                    _secondMostAbundantObservedIsotopicMass = intensityOrderedPeaks[1].mz;
+                    _secondMostAbundantObservedIsotopicMz = intensityOrderedPeaks[1].mz;
                 }
             }
         }

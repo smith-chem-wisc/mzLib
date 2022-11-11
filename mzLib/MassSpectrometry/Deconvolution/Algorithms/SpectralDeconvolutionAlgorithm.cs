@@ -16,12 +16,14 @@ namespace MassSpectrometry.Deconvolution.Algorithms
     public class SpectralDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
         // TODO: Make a charge state envelope class, complete with "MostAbundantChargeState"
-        public Dictionary<PeptideWithSetModifications, List<IsotopicEnvelope>> EnvelopeDictionary;
-        private List<MinimalSpectrum>[] IndexedLibrarySpectra;
+        public Dictionary<PeptideWithSetModifications, List<IsotopicEnvelope>> EnvelopeDictionary { get; private set; }
+
+        // Consider defining this as a jagged array to increase performance
+        public List<MinimalSpectrum>[] IndexedLibrarySpectra { get; private set; }
         // SpectrumIndexToPwsmMap maps the location of each spectrum within IndexedLibrarySpectra to its respective PeptideWithSetMods and charge
-        private Dictionary<(int, int), (PeptideWithSetModifications, int charge)> SpectrumIndexToPwsmMap;
-        public int MaxThreads; // This should maybe be in the Parameters abstract
-        public SpectralDeconvolutionParameters SpectralParams;
+        public Dictionary<(int, int), (PeptideWithSetModifications, int charge)> SpectrumIndexToPwsmMap { get; private set; }
+        public int MaxThreads; // This should be in the Parameters abstract {
+        public SpectralDeconvolutionParameters SpectralParams { get; }
 
         public SpectralDeconvolutionAlgorithm(SpectralDeconvolutionParameters parameters) : base(parameters)
         {
@@ -39,6 +41,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             // Calculate every species you expect to see
             FindLibraryEnvelopes();
             // Index envelopes
+            IndexEnvelopes();
         }
 
         public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum)
@@ -67,7 +70,10 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                 foreach (PeptideWithSetModifications pwsm in uniquePeptides)
                 {
                     EnvelopeDictionary.Add(pwsm, new List<IsotopicEnvelope>());
-                    IsotopicDistribution pwsmDistribution = IsotopicDistribution.GetDistribution(pwsm.FullChemicalFormula);
+                    IsotopicDistribution pwsmDistribution = IsotopicDistribution.GetDistribution(pwsm.FullChemicalFormula,
+                        fineResolution: SpectralParams.FineResolutionForIsotopicDistribution,
+                        minProbability: SpectralParams.MinProbabilityForIsotopicDistribution);
+
                     for (int charge = SpectralParams.MinAssumedChargeState;
                          charge <= SpectralParams.MinAssumedChargeState;
                          charge++)
@@ -100,8 +106,9 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             {
                 foreach (IsotopicEnvelope envelope in keyValuePair.Value)
                 {
-                    int binIndex = (int)Math.Round(envelope.MostAbundantObservedIsotopicMass * SpectralParams.BinsPerDalton, 0);
-
+                    int binIndex = (int)Math.Round( (envelope.MostAbundantObservedIsotopicMass - SpectralParams.ScanRange.Minimum) * 
+                                                    SpectralParams.BinsPerDalton, 0);
+                    if (IndexedLibrarySpectra[binIndex] == null) IndexedLibrarySpectra[binIndex] = new();
                     MinimalSpectrum envelopeMinimalSpectrum = new MinimalSpectrum(envelope.MzArray, envelope.IntensityArray);
                     IndexedLibrarySpectra[binIndex].Add(envelopeMinimalSpectrum);
                     SpectrumIndexToPwsmMap.Add(
@@ -112,9 +119,11 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                     // In situations where the most abundant isotope frequency is close to the second most abundant isotope's frequency
                     // ( ratio >= IsotopicEnvelope.AmbiguityRatioMinimum),
                     // The Spectrum is stored in the index of the second most abundant isotope as well
-                    if(envelope.SecondMostAbundantObservedIsotopicMass > 0)
+                    if(envelope.SecondMostAbundantObservedIsotopicMz > 0)
                     {
-                        binIndex = (int)Math.Round((double)envelope.SecondMostAbundantObservedIsotopicMass * SpectralParams.BinsPerDalton, 0);
+                        binIndex = (int)Math.Round( ((double)envelope.SecondMostAbundantObservedIsotopicMz - SpectralParams.ScanRange.Minimum )
+                                                    * SpectralParams.BinsPerDalton, 0);
+                        if (IndexedLibrarySpectra[binIndex] == null) IndexedLibrarySpectra[binIndex] = new();
                         IndexedLibrarySpectra[binIndex].Add(envelopeMinimalSpectrum);
                         SpectrumIndexToPwsmMap.Add(
                             (binIndex, IndexedLibrarySpectra[binIndex].Count - 1),

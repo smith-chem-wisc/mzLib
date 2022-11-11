@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace MassSpectrometry.Deconvolution
 {
-    internal class MinimalSpectrum
+    // Consider defining this as a struct to increase performance
+    public class MinimalSpectrum
     {
         public readonly double[] MzArray;
         public readonly double[] IntensityArray;
