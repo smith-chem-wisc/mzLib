@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Easy.Common.Extensions;
 using MassSpectrometry;
+using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
 using SpectralAveraging;
-using SpectralAveragingExtensions;
+using UsefulProteomicsDatabases.Generated;
 
 namespace Test
 {
@@ -196,6 +198,90 @@ namespace Test
                 formattedScans.Add(newScan);
             }
             DummyDDAScansOutOfOrder = formattedScans;
+        }
+
+        [Test]
+        public static void TestMzLibSpectralAveragingOptionsConstructors()
+        {
+            MzLibSpectralAveragingOptions defaultOptions = new();
+            defaultOptions.SetDefaultValues();
+            MzLibSpectralAveragingOptions testMzLibOptions = new();
+            // testing if values are equal to one another
+            foreach (var property in defaultOptions.GetType().GetProperties())
+            {
+                var propertyType = property.PropertyType;
+                var defaultProperty = Convert.ChangeType(defaultOptions.GetType().GetProperty(property.Name)?.GetValue(defaultOptions), propertyType);
+                var testProperty = Convert.ChangeType(testMzLibOptions.GetType().GetProperty(property.Name)?.GetValue(testMzLibOptions),
+                    propertyType);
+                if (propertyType == typeof(SpectralAveragingOptions))
+                {
+                    foreach (var averagingProperty in ((SpectralAveragingOptions)defaultProperty)?.GetType().GetProperties())
+                    {
+                        // ensure wrapped property is equal to base property
+                        defaultProperty =
+                            Convert.ChangeType(
+                                defaultOptions.GetType().GetProperty(averagingProperty.Name)?.GetValue(defaultOptions),
+                                averagingProperty.PropertyType);
+                        var defaultAvgProperty =
+                            Convert.ChangeType(
+                                defaultOptions.SpectralAveragingOptions.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(defaultOptions.SpectralAveragingOptions), averagingProperty.PropertyType);
+                        Assert.That(defaultProperty?.ToString() == defaultAvgProperty?.ToString());
+
+                        // ensure wrapped property is equal to base property
+                        testProperty =
+                            Convert.ChangeType(
+                                testMzLibOptions.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(testMzLibOptions), averagingProperty.PropertyType);
+                        var testAvgProperty =
+                            Convert.ChangeType(
+                                testMzLibOptions.SpectralAveragingOptions.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(testMzLibOptions.SpectralAveragingOptions),
+                                averagingProperty.PropertyType);
+                        Assert.That(testProperty?.ToString() == testAvgProperty?.ToString());
+                        Assert.That(testAvgProperty?.ToString() == defaultAvgProperty?.ToString());
+                    }
+                }
+                else
+                {
+                    Assert.That(defaultProperty?.ToString() == testProperty?.ToString());
+                }
+            }
+
+            testMzLibOptions.RejectionType = RejectionType.AveragedSigmaClipping;
+            testMzLibOptions.WeightingType = WeightingType.CauchyDistribution;
+            testMzLibOptions.SpectrumMergingType = SpectrumMergingType.MostSimilarSpectrum;
+            testMzLibOptions.PerformNormalization = false;
+            testMzLibOptions.Percentile = 2;
+            testMzLibOptions.MinSigmaValue = 2;
+            testMzLibOptions.MaxSigmaValue = 2;
+            testMzLibOptions.BinSize = 2;
+
+            Assert.That(testMzLibOptions.RejectionType == RejectionType.AveragedSigmaClipping);
+            Assert.That(testMzLibOptions.SpectralAveragingOptions.RejectionType == RejectionType.AveragedSigmaClipping);
+            Assert.That(testMzLibOptions.WeightingType == WeightingType.CauchyDistribution);
+            Assert.That(testMzLibOptions.SpectralAveragingOptions.WeightingType == WeightingType.CauchyDistribution);
+            Assert.That(testMzLibOptions.SpectrumMergingType == SpectrumMergingType.MostSimilarSpectrum);
+            Assert.That(testMzLibOptions.SpectralAveragingOptions.SpectrumMergingType == SpectrumMergingType.MostSimilarSpectrum);
+            Assert.That(testMzLibOptions.PerformNormalization == false);
+            Assert.That(testMzLibOptions.SpectralAveragingOptions.PerformNormalization == false);
+            Assert.That(Math.Abs(testMzLibOptions.Percentile - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.SpectralAveragingOptions.Percentile - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.MinSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.SpectralAveragingOptions.MinSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.MaxSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.SpectralAveragingOptions.MaxSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.BinSize - 2) < 0.001);
+            Assert.That(Math.Abs(testMzLibOptions.SpectralAveragingOptions.BinSize - 2) < 0.001);
+
+            SpectralAveragingOptions options = new SpectralAveragingOptions();
+            options.BinSize = 2;
+            options.MaxSigmaValue = 4;
+            MzLibSpectralAveragingOptions mzLibOptions = new(options);
+            Assert.That(Math.Abs(mzLibOptions.SpectralAveragingOptions.BinSize - 2) < 0.001);
+            Assert.That(Math.Abs(mzLibOptions.BinSize - 2) < 0.001);
+            Assert.That(Math.Abs(mzLibOptions.SpectralAveragingOptions.MaxSigmaValue - 4) < 0.001);
+            Assert.That(Math.Abs(mzLibOptions.MaxSigmaValue - 4) < 0.001);
         }
 
         [Test]
@@ -422,31 +508,18 @@ namespace Test
             Assert.That(file.NativeIdFormat == "Thermo nativeID format");
 
             string badPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles/small.toml");
-            try
+
+            var exception = Assert.Throws<MzLibException>(() =>
             {
                 SpectraFileHandler.LoadAllScansFromFile(badPath);
-            }
-            catch (MzLibException e)
-            {
-                Assert.That(e.Message == "Cannot load spectra");
-            }
-            catch (Exception e)
-            {
-                Assert.That(false);
-            }
+            });
+            Assert.That(exception.Message == "Cannot load spectra");
 
-            try
+            exception = Assert.Throws<MzLibException>(() =>
             {
                 SpectraFileHandler.GetSourceFile(badPath);
-            }
-            catch (MzLibException e)
-            {
-                Assert.That(e.Message == "Cannot access SourceFile");
-            }
-            catch (Exception e)
-            {
-                Assert.That(false);
-            }
+            });
+            Assert.That(exception.Message == "Cannot access SourceFile");
         }
     }
 }
