@@ -23,6 +23,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
         public int BinsPerDalton { get; }
         public double FineResolutionForIsotopicDistribution { get; }
         public double MinProbabilityForIsotopicDistribution { get; }
+        public double AmbiguityThresholdForIsotopicDistribution { get; }
         private bool FindNonDatabasePeaks { get; } // This should be linked to a method that generates Averagine envelopes
 
 
@@ -31,7 +32,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
             List<Modification> variableModifications, DigestionParams digestionParams,
             List<SilacLabel> silacLabels, bool findTopDownTruncationProducts, double scanMinimumMz, double scanMaximumMz,
             int binsPerDalton = 10, double fineResolutionForIsotopicDistribution = 0.125, double minProbabilityForIsotopicDistribution = 1e-8,
-            bool findNonDatabasePeaks = false) :
+            double ambiguityThresholdForIsotopicDistribution = 0.9, bool findNonDatabasePeaks = false) :
             base(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm)
         {
             Proteins = proteins;
@@ -44,6 +45,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
             BinsPerDalton = binsPerDalton;
             FineResolutionForIsotopicDistribution = fineResolutionForIsotopicDistribution;
             MinProbabilityForIsotopicDistribution = minProbabilityForIsotopicDistribution;
+            AmbiguityThresholdForIsotopicDistribution = ambiguityThresholdForIsotopicDistribution;
             FindNonDatabasePeaks = findNonDatabasePeaks;
         }
     }

@@ -14,6 +14,8 @@ using System.Linq;
 using Easy.Common.Extensions;
 using MassSpectrometry.Deconvolution.Algorithms;
 using MassSpectrometry.Deconvolution.Parameters;
+using TopDownProteomics.MassSpectrometry;
+using IsotopicDistribution = Chemistry.IsotopicDistribution;
 
 namespace Test
 {
@@ -196,12 +198,27 @@ namespace Test
         #region SpectralDecon
 
         [Test]
+        public static void TestGetSecondMostAbundantSpecies()
+        {
+            Protein testProtein = new Protein("PEPTIDEFPEPTIDEK", "Accession");
+            DigestionParams digestionParams = new DigestionParams();
+            PeptideWithSetModifications pwsm = new PeptideWithSetModifications(testProtein, digestionParams, 1, testProtein.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
+            IsotopicDistribution isotopicDistribution = IsotopicDistribution.GetDistribution(pwsm.FullChemicalFormula, 
+                fineResolution: 0.125, minProbability: 0.001);
+
+            int charge = 1;
+            IsotopicEnvelope testEnvelope = new IsotopicEnvelope(isotopicDistribution, charge);
+            Assert.That(testEnvelope.MostAbundantObservedIsotopicMz, Is.EqualTo(pwsm.MonoisotopicMass.ToMz(charge)).Within(0.1));
+            Assert.That(testEnvelope.SecondMostAbundantObservedIsotopicMz, Is.EqualTo(isotopicDistribution.Masses[1].ToMz(charge)).Within(0.1));
+        }
+
+        [Test]
 
         public void TestSpectralDecon()
         {
 
             //PEPTIDEK vs PEPTIDEPEPTIDEK
-            Protein myProtein = new Protein("PEPTIDEKPEPTIDEPEPTIDEK", "accession");
+            Protein myProtein = new Protein("PEPTIDEKPEPTIDEFPEPTIDEK", "accession");
             DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             List<PeptideWithSetModifications> pep = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).ToList();
@@ -214,12 +231,13 @@ namespace Test
                 minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
                 new List<Protein>() { myProtein },
                 new List<Modification>(), new List<Modification>(), digest1,
-                new List<SilacLabel>(), false, scanMinimumMz: 450, scanMaximumMz: 2000);
+                new List<SilacLabel>(), false, scanMinimumMz: 460, scanMaximumMz: 2000,
+                ambiguityThresholdForIsotopicDistribution: 0.9, binsPerDalton: 1);
 
             SpectralDeconvolutionAlgorithm spectralDecon = new SpectralDeconvolutionAlgorithm(spectralDeconParams);
 
             PeptideWithSetModifications peptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEK")).First();
-            PeptideWithSetModifications doublePeptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEPEPTIDEK")).First();
+            PeptideWithSetModifications doublePeptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEFPEPTIDEK")).First();
             Assert.That(spectralDecon.EnvelopeDictionary.ContainsKey(peptidek) & spectralDecon.EnvelopeDictionary.ContainsKey(doublePeptidek));
             //Assert.That(spectralDecon.EnvelopeDictionary[peptidek].Count == 2);
 

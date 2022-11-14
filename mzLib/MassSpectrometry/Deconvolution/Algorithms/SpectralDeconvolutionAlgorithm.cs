@@ -74,14 +74,18 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                         fineResolution: SpectralParams.FineResolutionForIsotopicDistribution,
                         minProbability: SpectralParams.MinProbabilityForIsotopicDistribution);
 
-                    for (int charge = SpectralParams.MinAssumedChargeState;
-                         charge <= SpectralParams.MinAssumedChargeState;
-                         charge++)
+                    // iterates through all possible charge states, from largest to smallest.
+                    // Any isotopic envelope whose most abundant peak would fall within the scan range is written to the envelope dictionary
+                    // Once the mass to charge ratio of the most abundant peak is greater than the scan range maximum, the loop breaks
+                    for (int charge = SpectralParams.MaxAssumedChargeState;
+                         charge >= SpectralParams.MinAssumedChargeState;
+                         charge--)
                     {
-                        double theoreticalMz = pwsm.MonoisotopicMass.ToMz(charge);
+                        double theoreticalMz = pwsm.MostAbundantMonoisotopicMass.ToMz(charge);
                         if (SpectralParams.ScanRange.Contains(theoreticalMz))
                         {
-                            EnvelopeDictionary[pwsm].Add(new IsotopicEnvelope(pwsmDistribution, charge));
+                            EnvelopeDictionary[pwsm].Add(new 
+                                IsotopicEnvelope(pwsmDistribution, charge, SpectralParams.AmbiguityThresholdForIsotopicDistribution));
                         }
                         else if (SpectralParams.ScanRange.CompareTo(theoreticalMz) < 0)
                         {
@@ -96,9 +100,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         private void IndexEnvelopes()
         {
 
-            int numberOfBinsForIndexing = (int) ((SpectralParams.ScanRange.Maximum -
-                                          SpectralParams.ScanRange.Minimum) *
-                                          SpectralParams.BinsPerDalton).Ceiling(0);
+            int numberOfBinsForIndexing = (int) (SpectralParams.ScanRange.Width * SpectralParams.BinsPerDalton).Ceiling(0);
             IndexedLibrarySpectra = new List<MinimalSpectrum>[numberOfBinsForIndexing];
             SpectrumIndexToPwsmMap = new();
 
@@ -106,8 +108,8 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             {
                 foreach (IsotopicEnvelope envelope in keyValuePair.Value)
                 {
-                    int binIndex = (int)Math.Round( (envelope.MostAbundantObservedIsotopicMass - SpectralParams.ScanRange.Minimum) * 
-                                                    SpectralParams.BinsPerDalton, 0);
+                    int binIndex = (int)Math.Floor((envelope.MostAbundantObservedIsotopicMz - SpectralParams.ScanRange.Minimum) * 
+                                                     SpectralParams.BinsPerDalton);
                     if (IndexedLibrarySpectra[binIndex] == null) IndexedLibrarySpectra[binIndex] = new();
                     MinimalSpectrum envelopeMinimalSpectrum = new MinimalSpectrum(envelope.MzArray, envelope.IntensityArray);
                     IndexedLibrarySpectra[binIndex].Add(envelopeMinimalSpectrum);
@@ -117,16 +119,18 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                         );
 
                     // In situations where the most abundant isotope frequency is close to the second most abundant isotope's frequency
-                    // ( ratio >= IsotopicEnvelope.AmbiguityRatioMinimum),
+                    // ( ratio >= IsotopicEnvelope.AmbiguityRatioMinimum), 
                     // The Spectrum is stored in the index of the second most abundant isotope as well
-                    if(envelope.SecondMostAbundantObservedIsotopicMz > 0)
+                    if(envelope.SecondMostAbundantObservedIsotopicMz > 0 )
                     {
-                        binIndex = (int)Math.Round( ((double)envelope.SecondMostAbundantObservedIsotopicMz - SpectralParams.ScanRange.Minimum )
-                                                    * SpectralParams.BinsPerDalton, 0);
-                        if (IndexedLibrarySpectra[binIndex] == null) IndexedLibrarySpectra[binIndex] = new();
-                        IndexedLibrarySpectra[binIndex].Add(envelopeMinimalSpectrum);
+                        // Ceiling or floor????
+                        int secondBinIndex = (int)Math.Floor( ((double)envelope.SecondMostAbundantObservedIsotopicMz - SpectralParams.ScanRange.Minimum )
+                                                    * SpectralParams.BinsPerDalton);
+                        if (secondBinIndex != binIndex)
+                        if (IndexedLibrarySpectra[secondBinIndex] == null) IndexedLibrarySpectra[secondBinIndex] = new();
+                        IndexedLibrarySpectra[secondBinIndex].Add(envelopeMinimalSpectrum);
                         SpectrumIndexToPwsmMap.Add(
-                            (binIndex, IndexedLibrarySpectra[binIndex].Count - 1),
+                            (secondBinIndex, IndexedLibrarySpectra[secondBinIndex].Count - 1),
                             (keyValuePair.Key, envelope.Charge) 
                             );
                     }
