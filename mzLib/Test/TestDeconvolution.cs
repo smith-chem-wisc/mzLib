@@ -249,7 +249,7 @@ namespace Test
             // so they should be stored in different bins for the +1, +2, and +4 charge states (the +3 charge state masses fall within the same bin [619 Thompsons])
             // The shorter peptide is approximately 1/2 the mass of the longer peptide. With bin sizes of one dalton,
             // every spectra for the shorter peptide should share a bin with a peptide from a longer spectra.
-            // This assertion does a lot of heavy listing in testing the indexing engine. 
+            // This assertion does a lot of heavy lifting in testing the indexing engine. 
             // DO NOT CHANGE unless you understand what is being tested here
             Assert.That(indexedSpectra.Count == 7);
 
