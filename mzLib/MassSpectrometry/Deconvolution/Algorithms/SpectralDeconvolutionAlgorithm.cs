@@ -124,15 +124,17 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                     if(envelope.SecondMostAbundantObservedIsotopicMz > 0 )
                     {
                         // Ceiling or floor????
-                        int secondBinIndex = (int)Math.Floor( ((double)envelope.SecondMostAbundantObservedIsotopicMz - SpectralParams.ScanRange.Minimum )
-                                                    * SpectralParams.BinsPerDalton);
+                        int secondBinIndex = (int)Math.Floor( 
+                            ((double)envelope.SecondMostAbundantObservedIsotopicMz - SpectralParams.ScanRange.Minimum ) * SpectralParams.BinsPerDalton);
                         if (secondBinIndex != binIndex)
-                        if (IndexedLibrarySpectra[secondBinIndex] == null) IndexedLibrarySpectra[secondBinIndex] = new();
-                        IndexedLibrarySpectra[secondBinIndex].Add(envelopeMinimalSpectrum);
-                        SpectrumIndexToPwsmMap.Add(
-                            (secondBinIndex, IndexedLibrarySpectra[secondBinIndex].Count - 1),
-                            (keyValuePair.Key, envelope.Charge) 
+                        {
+                            if (IndexedLibrarySpectra[secondBinIndex] == null) IndexedLibrarySpectra[secondBinIndex] = new();
+                            IndexedLibrarySpectra[secondBinIndex].Add(envelopeMinimalSpectrum);
+                            SpectrumIndexToPwsmMap.Add(
+                                (secondBinIndex, IndexedLibrarySpectra[secondBinIndex].Count - 1),
+                                (keyValuePair.Key, envelope.Charge)
                             );
+                        }
                     }
                 }
             }
