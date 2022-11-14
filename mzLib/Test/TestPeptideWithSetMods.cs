@@ -1065,11 +1065,11 @@ namespace Test
         {
             PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             double small_pep_most_abundant_mass_prospector = 800.36724 - 1.0079;
-            Assert.That(small_pep.MostAbundantMonoisotopicMass, Is.EqualTo(small_pep_most_abundant_mass_prospector).Within(0.01));
+            Assert.That(small_pep.MostAbundantMass, Is.EqualTo(small_pep_most_abundant_mass_prospector).Within(0.01));
 
             PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 42, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             double large_pep_most_abundant_mass_prospector = 4709.12020 - 1.0079;
-            Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
+            Assert.That(large_pep.MostAbundantMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
         }
     }
 }
