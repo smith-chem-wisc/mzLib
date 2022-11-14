@@ -81,7 +81,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                          charge >= SpectralParams.MinAssumedChargeState;
                          charge--)
                     {
-                        double theoreticalMz = pwsm.MostAbundantMonoisotopicMass.ToMz(charge);
+                        double theoreticalMz = pwsm.MostAbundantMass.ToMz(charge);
                         if (SpectralParams.ScanRange.Contains(theoreticalMz))
                         {
                             EnvelopeDictionary[pwsm].Add(new 

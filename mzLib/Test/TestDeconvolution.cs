@@ -76,7 +76,7 @@ namespace Test
             Protein test1 = new Protein(peptide, "Accession");
             DigestionParams d = new DigestionParams();
             PeptideWithSetModifications pw = new PeptideWithSetModifications(test1, d, 1, test1.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
-            double mostAbundantMz = pw.MostAbundantMonoisotopicMass.ToMz(charge);
+            double mostAbundantMz = pw.MostAbundantMass.ToMz(charge);
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
             Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
@@ -162,7 +162,7 @@ namespace Test
             Protein test1 = new Protein(peptide, "Accession");
             DigestionParams d = new DigestionParams();
             PeptideWithSetModifications pw = new PeptideWithSetModifications(test1, d, 1, test1.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
-            double pwsmMonoisotopicMass = pw.MostAbundantMonoisotopicMass;
+            double pwsmMonoisotopicMass = pw.MostAbundantMass;
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
             Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
