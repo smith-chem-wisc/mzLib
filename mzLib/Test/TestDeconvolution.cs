@@ -12,6 +12,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Easy.Common.Extensions;
+using MassSpectrometry.Deconvolution;
 using MassSpectrometry.Deconvolution.Algorithms;
 using MassSpectrometry.Deconvolution.Parameters;
 using TopDownProteomics.MassSpectrometry;
@@ -214,10 +215,9 @@ namespace Test
 
         [Test]
 
-        public void TestSpectralDecon()
+        public void TestIndexingForSpectralDecon()
         {
-
-            //PEPTIDEK vs PEPTIDEPEPTIDEK
+            //PEPTIDEK vs PEPTIDEFPEPTIDEK (the longer peptide has ~ twice the mass of the shorter, enabling a test of the indexing system
             Protein myProtein = new Protein("PEPTIDEKPEPTIDEFPEPTIDEK", "accession");
             DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
@@ -226,27 +226,44 @@ namespace Test
             int minAssumedChargeState = 1;
             int maxAssumedChargeState = 60;
             double deconvolutionTolerancePpm = 20;
+            int binsPerDalton = 1;
+            int scanMinimum = 460;
 
             SpectralDeconvolutionParameters spectralDeconParams = new SpectralDeconvolutionParameters(
                 minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
                 new List<Protein>() { myProtein },
                 new List<Modification>(), new List<Modification>(), digest1,
-                new List<SilacLabel>(), false, scanMinimumMz: 460, scanMaximumMz: 2000,
-                ambiguityThresholdForIsotopicDistribution: 0.9, binsPerDalton: 1);
+                new List<SilacLabel>(), false, scanMinimumMz: scanMinimum, scanMaximumMz: 2000,
+                ambiguityThresholdForIsotopicDistribution: 0.9, binsPerDalton: binsPerDalton);
 
             SpectralDeconvolutionAlgorithm spectralDecon = new SpectralDeconvolutionAlgorithm(spectralDeconParams);
 
             PeptideWithSetModifications peptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEK")).First();
             PeptideWithSetModifications doublePeptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEFPEPTIDEK")).First();
             Assert.That(spectralDecon.EnvelopeDictionary.ContainsKey(peptidek) & spectralDecon.EnvelopeDictionary.ContainsKey(doublePeptidek));
-            //Assert.That(spectralDecon.EnvelopeDictionary[peptidek].Count == 2);
+            Assert.That(spectralDecon.EnvelopeDictionary[peptidek].Count == 2 & spectralDecon.EnvelopeDictionary[doublePeptidek].Count == 4);
 
-            var x = spectralDecon.IndexedLibrarySpectra.Where(l => l.IsNotNullOrEmpty()).ToList();
+            List<List<MinimalSpectrum>> indexedSpectra = spectralDecon.IndexedLibrarySpectra.Where(l => l.IsNotNullOrEmpty()).ToList();
+            
+            // For the longer peptide, the first and second isotopes have extremely similar abundances,
+            // so they should be stored in different bins for the +1, +2, and +4 charge states (the +3 charge state masses fall within the same bin [619 Thompsons])
+            // The shorter peptide is approximately 1/2 the mass of the longer peptide. With bin sizes of one dalton,
+            // every spectra for the shorter peptide should share a bin with a peptide from a longer spectra.
+            // This assertion does a lot of heavy listing in testing the indexing engine. 
+            // DO NOT CHANGE unless you understand what is being tested here
+            Assert.That(indexedSpectra.Count == 7);
 
+            int binIndex = (int)Math.Floor(binsPerDalton * (peptidek.MonoisotopicMass.ToMz(charge: 2) - scanMinimum));
+            Assert.That(spectralDecon.SpectrumIndexToPwsmMap.TryGetValue((binIndex, 0), out var peptidek2ChargeTuple));
+            Assert.That(spectralDecon.SpectrumIndexToPwsmMap.TryGetValue((binIndex, 1), out var doublePeptideK4ChargeTuple));
+            Assert.That(peptidek2ChargeTuple.pwsm.BaseSequence.Equals(peptidek.BaseSequence));
+            Assert.That(doublePeptideK4ChargeTuple.pwsm.BaseSequence.Equals(doublePeptidek.BaseSequence));
 
-            // PEPTIDEPEPTIDEK Monoisotopic = 1708.8
-            // PEPTIDEK Monoisotopic = 927.4
-            int placeholder = 0;
+            binIndex = (int)Math.Floor(binsPerDalton * (doublePeptidek.MonoisotopicMass.ToMz(charge: 1) - scanMinimum));
+            Assert.That(spectralDecon.SpectrumIndexToPwsmMap.TryGetValue((binIndex, 0), out var doublePeptideK1ChargeTuple) && 
+                        !spectralDecon.SpectrumIndexToPwsmMap.TryGetValue((binIndex, 1), out var doesNotExist));
+            Assert.That(doublePeptideK1ChargeTuple.pwsm == doublePeptideK4ChargeTuple.pwsm);
+            Assert.That(doublePeptideK1ChargeTuple.charge == 1);
 
         }
         #endregion

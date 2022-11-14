@@ -21,7 +21,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         // Consider defining this as a jagged array to increase performance
         public List<MinimalSpectrum>[] IndexedLibrarySpectra { get; private set; }
         // SpectrumIndexToPwsmMap maps the location of each spectrum within IndexedLibrarySpectra to its respective PeptideWithSetMods and charge
-        public Dictionary<(int, int), (PeptideWithSetModifications, int charge)> SpectrumIndexToPwsmMap { get; private set; }
+        public Dictionary<(int, int), (PeptideWithSetModifications pwsm, int charge)> SpectrumIndexToPwsmMap { get; private set; }
         public int MaxThreads; // This should be in the Parameters abstract {
         public SpectralDeconvolutionParameters SpectralParams { get; }
 
