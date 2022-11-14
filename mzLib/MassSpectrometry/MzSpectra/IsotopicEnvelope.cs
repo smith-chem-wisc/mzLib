@@ -67,11 +67,12 @@ namespace MassSpectrometry
         /// <returns></returns>
         public void FindMostAbundantObservedIsotopicMz()
         {
-            if (!_mostAbundantObservedIsotopicMz.HasValue)
+            if (!_mostAbundantObservedIsotopicMz.HasValue | MostAbundantObservedIsotopicMass == 0)
             {
                 List<(double mz, double intensity)> intensityOrderedPeaks = Peaks.OrderByDescending(p => p.intensity).ToList();
                 _mostAbundantObservedIsotopicMz = intensityOrderedPeaks.Select(p => p.mz).First();
-                if (intensityOrderedPeaks[1].intensity / intensityOrderedPeaks[0].intensity >= AmbiguityRatioMinimum &&
+                if (intensityOrderedPeaks.Count > 1 &&
+                    intensityOrderedPeaks[1].intensity / intensityOrderedPeaks[0].intensity >= AmbiguityRatioMinimum &&
                     AmbiguityRatioMinimum > 0)
                 {
                     _secondMostAbundantObservedIsotopicMz = intensityOrderedPeaks[1].mz;
