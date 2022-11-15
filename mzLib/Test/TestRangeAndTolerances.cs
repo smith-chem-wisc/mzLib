@@ -42,6 +42,40 @@ namespace Test
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
+        #region DoubleRangeTests
+
+        [Test]
+        public void RangeCompareToTest()
+        {
+            // In C#, the convention is that when writing CompareTo methods,
+            // the instance is compared to the object (argument)
+            // If the instance is less than the argument, a negative value is returned
+            // If the instance is greater than the argument, a positive value is returned
+            // An example of this is given below
+            Double five = 5;
+            double ten = 10;
+            Assert.That(five.CompareTo(ten) < 0);
+
+            // Range is greater than value
+            var range = new DoubleRange(3, 10);
+            int value = 1;
+
+            int comparison = range.CompareTo(value);
+            Assert.AreEqual(1, comparison);
+
+            // Range contains value
+            value = 5;
+
+            comparison = range.CompareTo(value);
+            Assert.AreEqual(0, comparison);
+            
+            //Range is less than value
+            value = 12;
+
+            comparison = range.CompareTo(value);
+            Assert.AreEqual(-1, comparison);
+        }
+
         [Test]
         public void RangeSubRange()
         {
@@ -163,39 +197,6 @@ namespace Test
         }
 
         [Test]
-        public void RangeCompareToBelow()
-        {
-            var range = new DoubleRange(3, 10);
-            int value = 1;
-
-            int comp = range.CompareTo(value);
-
-            Assert.AreEqual(-1, comp);
-        }
-
-        [Test]
-        public void RangeCompareToWithin()
-        {
-            var range = new DoubleRange(3, 10);
-            int value = 5;
-
-            int comp = range.CompareTo(value);
-
-            Assert.AreEqual(0, comp);
-        }
-
-        [Test]
-        public void RangeCompareToAbove()
-        {
-            var range = new DoubleRange(3, 10);
-            int value = 12;
-
-            int comp = range.CompareTo(value);
-
-            Assert.AreEqual(1, comp);
-        }
-
-        [Test]
         public void RangesAreEquivalentNotReference()
         {
             var range1 = new DoubleRange(3, 10);
@@ -203,6 +204,9 @@ namespace Test
 
             Assert.AreNotSame(range1, range2);
         }
+
+
+        #endregion
 
         [Test]
         public void ToleranceParseAndWithin()
