@@ -12,12 +12,14 @@ namespace MassSpectrometry.Deconvolution
         public readonly double[] MzArray;
         public readonly double[] IntensityArray;
         public readonly double MostAbundantMz;
+        public readonly int Charge;
 
-        internal MinimalSpectrum(double[] mzArray, double[] intensityArray)
+        internal MinimalSpectrum(double[] mzArray, double[] intensityArray, int charge = 0)
         {
             MzArray = mzArray;
             IntensityArray = intensityArray;
             MostAbundantMz = GetMostAbundantMz(mzArray, intensityArray);
+            Charge = charge;
         }
 
         internal double[] GetMzs()
@@ -32,6 +34,15 @@ namespace MassSpectrometry.Deconvolution
             double[] intensityArrayCopy = new double[IntensityArray.Length];
             Array.Copy(MzArray, intensityArrayCopy, IntensityArray.Length);
             return intensityArrayCopy;
+        }
+
+        /// <summary>
+        /// Returns the charge, or 0 if charge was not assigned
+        /// </summary>
+        /// <returns></returns>
+        internal int GetCharge()
+        {
+            return Charge;
         }
 
         internal static double GetMostAbundantMz(double[] mzArray, double[] intensityArray)
