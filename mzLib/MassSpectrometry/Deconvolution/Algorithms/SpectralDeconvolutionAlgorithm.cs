@@ -22,7 +22,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         public List<MinimalSpectrum>[] IndexedLibrarySpectra { get; private set; }
         // SpectrumIndexToPwsmMap maps the location of each spectrum within IndexedLibrarySpectra to its respective PeptideWithSetMods and charge
         public Dictionary<(int, int), (PeptideWithSetModifications pwsm, int charge)> SpectrumIndexToPwsmMap { get; private set; }
-        public int MaxThreads; // This should be in the Parameters abstract {
+        public int MaxThreads; // This should be in the Parameters abstract 
         public SpectralDeconvolutionParameters SpectralParams { get; }
 
         public SpectralDeconvolutionAlgorithm(SpectralDeconvolutionParameters parameters) : base(parameters)
@@ -38,14 +38,35 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                 SpectralParams = deconvolutionParameters;
             }
 
-            // Calculate every species you expect to see
             FindLibraryEnvelopes();
-            // Index envelopes
             IndexEnvelopes();
+
         }
 
         public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum)
         {
+
+            if (spectrum == null || spectrum.Size == 0)
+            {
+                yield break;
+            } 
+
+            // For each charge state (key) store the indices corresponding to every potential isotopic envelope (value)
+            Dictionary<int, List<int[]>> potentialEnvelopes = new();
+
+            for(int spacing = SpectralParams.MinAssumedChargeState; spacing <= SpectralParams.MaxAssumedChargeState; spacing++)
+            {
+                for(int i = 0; i < spectrum.Size; i++)
+                {
+                    double currentPeak = spectrum.XArray[i];
+                    for (int j = 0; j < spectrum.Size; j++)
+                    {
+
+                    }
+                }
+                
+            }
+
             throw new NotImplementedException();
         }
 
