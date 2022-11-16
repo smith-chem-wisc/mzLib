@@ -24,6 +24,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         public Dictionary<(int, int), (PeptideWithSetModifications pwsm, int charge)> SpectrumIndexToPwsmMap { get; private set; }
         public int MaxThreads; // This should be in the Parameters abstract 
         public SpectralDeconvolutionParameters SpectralParams { get; }
+        public PpmTolerance PpmTolerance { get; }
 
         public SpectralDeconvolutionAlgorithm(SpectralDeconvolutionParameters parameters) : base(parameters)
         {
@@ -37,6 +38,8 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             {
                 SpectralParams = deconvolutionParameters;
             }
+
+            PpmTolerance = new PpmTolerance(parameters.DeconvolutionTolerancePpm);
 
             FindLibraryEnvelopes();
             IndexEnvelopes();
@@ -52,17 +55,39 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             } 
 
             // For each charge state (key) store the indices corresponding to every potential isotopic envelope (value)
-            Dictionary<int, List<int[]>> potentialEnvelopes = new();
+            Dictionary<int, List<List<int>>> potentialEnvelopes = new();
 
-            for(int spacing = SpectralParams.MinAssumedChargeState; spacing <= SpectralParams.MaxAssumedChargeState; spacing++)
+            for(int charge = SpectralParams.MinAssumedChargeState; charge <= SpectralParams.MaxAssumedChargeState; charge++)
             {
+                List<int> indicesOfKnownPeaks = new();
+
+                // Spectrum Search Loop
                 for(int i = 0; i < spectrum.Size; i++)
                 {
-                    double currentPeak = spectrum.XArray[i];
-                    for (int j = 0; j < spectrum.Size; j++)
-                    {
+                    List<int> oneEnvelope = new();
+                    oneEnvelope.Add(i);
 
+                    // Envelope Search Loop
+                    for (int j = i+1; j < spectrum.Size; j++)
+                    {
+                        if (PpmTolerance.Within(spectrum.XArray[j], spectrum.XArray[i]+Constants.C13MinusC12/charge) )
+                        {
+                            oneEnvelope.Add(j);
+                        } else if (spectrum.XArray[j] > PpmTolerance.GetMaximumValue(spectrum.XArray[oneEnvelope.Last()] + 
+                                       (1 + SpectralParams.MaxConsecutiveMissedIsotopicPeaks) * Constants.C13MinusC12 / charge))
+                        {
+                            // exit the Envelope loop if we missed more consecutive isotopic peaks than were allowed
+                            break;
+                        }
                     }
+
+                    if (oneEnvelope.Count > 1)
+                    {
+                        if (!potentialEnvelopes.ContainsKey(charge)) potentialEnvelopes.Add(charge, new());
+                        potentialEnvelopes[charge].Add(oneEnvelope);
+                        indicesOfKnownPeaks.AddRange(oneEnvelope);
+                    }
+
                 }
                 
             }
