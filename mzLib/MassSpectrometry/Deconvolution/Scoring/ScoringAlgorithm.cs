@@ -4,19 +4,20 @@ using System.Dynamic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MzLibUtil;
 
 
 namespace MassSpectrometry.Deconvolution.Scoring
 {
     public abstract class ScoringAlgorithm
     {
-        public IScoreArgs ScoreArguments { get; }
+        public PpmTolerance PpmTolerance { get; }
 
-        public ScoringAlgorithm(IScoreArgs scoreArguments)
+        public ScoringAlgorithm(PpmTolerance tolerance)
         {
-            ScoreArguments = scoreArguments;
+            PpmTolerance = tolerance;
         }
-        public abstract double Score();
+        public abstract double GetScore(IScoreArgs args);
     }
 
     public interface IScoreArgs
@@ -25,8 +26,14 @@ namespace MassSpectrometry.Deconvolution.Scoring
 
     public class MinimalSpectraArgs : IScoreArgs
     {
-        public MinimalSpectrum experimentalSpectrum { get; set; }
-        public MinimalSpectrum theoreticalSpectgurm { get; set; }
+        public MinimalSpectrum ExperimentalSpectrum { get; set; }
+        public MinimalSpectrum TheoreticalSpectrum { get; set; }
+
+        public MinimalSpectraArgs(MinimalSpectrum experimentalSpectrum, MinimalSpectrum theoreticalSpectrum)
+        {
+            ExperimentalSpectrum = experimentalSpectrum;
+            TheoreticalSpectrum = theoreticalSpectrum;
+        }
     }
 
     public class IsotopicEnvelopeArgs : IScoreArgs

@@ -7,6 +7,7 @@ using Chemistry;
 using Easy.Common.Extensions;
 using MassSpectrometry.Deconvolution.Parameters;
 using MassSpectrometry.Deconvolution;
+using MassSpectrometry.Deconvolution.Scoring;
 using MassSpectrometry.Proteomics;
 using MassSpectrometry.Proteomics.ProteolyticDigestion;
 using MzLibUtil;
@@ -25,6 +26,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         public int MaxThreads; // This should be in the Parameters abstract 
         public SpectralDeconvolutionParameters SpectralParams { get; }
         public PpmTolerance PpmTolerance { get; }
+        public Scorer Scorer { get; }
 
         public SpectralDeconvolutionAlgorithm(SpectralDeconvolutionParameters parameters) : base(parameters)
         {
@@ -43,6 +45,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 
             FindLibraryEnvelopes();
             IndexEnvelopes();
+            Scorer = new Scorer(Scorer.ScoringMethods.SpectralContrastAngle, PpmTolerance);
 
         }
 
@@ -52,7 +55,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             if (spectrum == null || spectrum.Size == 0)
             {
                 yield break;
-            } 
+            }
 
             // For each charge state (key) store the indices corresponding to every potential isotopic envelope (value)
             Dictionary<int, List<List<int>>> potentialEnvelopes = FindPotentialEnvelopes(spectrum);
@@ -71,7 +74,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                     // Score against matching theoretical envelopes
                     foreach (MinimalSpectrum librarySpectrum in IndexedLibrarySpectra[massBinIndex, chargeBinIndex])
                     {
-                        // Score Strategy goes here
+                       // Scorer.Score()
                     }
                 }
             }

@@ -1,4 +1,5 @@
 ﻿using System;
+using MzLibUtil;
 
 namespace MassSpectrometry.Deconvolution.Scoring;
 
@@ -10,28 +11,38 @@ public class Scorer
         KullbackLeibler,
         SpectralContrastAngle
     }
-    public ScoringAlgorithm ScoringAlgorithm { get; }
+    public ScoringAlgorithm ScoringAlgorithm { get; private set; }
     public ScoringMethods ScoringMethod { get; }
 
-    public Scorer(ScoringMethods scoringMethod)
+    public Scorer(ScoringMethods scoringMethod, PpmTolerance tolerance)
     {
         ScoringMethod = scoringMethod;
-        ScoringAlgorithm = ConstructScoringAlgorithm(scoringMethod);
+        ConstructScoringAlgorithm(scoringMethod, tolerance);
     }
 
-    public static ScoringAlgorithm ConstructScoringAlgorithm(ScoringMethods method)
+    public double Score(IScoreArgs args)
+    {
+        return ScoringAlgorithm.GetScore(args);
+    }
+
+    public double Score(MinimalSpectrum experimentalSpectrum, MinimalSpectrum theoreticalSpectrum)
+    {
+        IScoreArgs args = new MinimalSpectraArgs(experimentalSpectrum, theoreticalSpectrum);
+        return ScoringAlgorithm.GetScore(args);
+    }
+
+    private void ConstructScoringAlgorithm(ScoringMethods method, PpmTolerance tolerance)
     {
         switch (method)
         {
             case ScoringMethods.KullbackLeibler:
                 throw new NotImplementedException();
             case ScoringMethods.SpectralContrastAngle:
-                throw new NotImplementedException();
+                ScoringAlgorithm = new SpectralContrastAlgorithm(tolerance);
+                break;
             default:
                 throw new NotImplementedException();
         }
-
-        return null;
     }
 
 }
