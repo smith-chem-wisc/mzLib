@@ -17,41 +17,6 @@ namespace MassSpectrometry.Deconvolution.Scoring
             ScoreArguments = scoreArguments;
         }
         public abstract double Score();
-
-        #region normalization
-        protected double[] NormalizeSquareRootSpectrumSum(double[] spectrum)
-        {
-            double sqrtSum = spectrum.Select(y => Math.Sqrt(y)).Sum();
-
-            for (int i = 0; i < spectrum.Length; i++)
-            {
-                spectrum[i] = Math.Sqrt(spectrum[i]) / sqrtSum;
-            }
-            return spectrum;
-        }
-
-        protected double[] NormalizeMostAbundantPeak(double[] spectrum)
-        {
-            double max = spectrum.Max();
-
-            for (int i = 0; i < spectrum.Length; i++)
-            {
-                spectrum[i] = spectrum[i] / max;
-            }
-            return spectrum;
-        }
-
-        protected double[] NormalizeSpectrumSum(double[] spectrum)
-        {
-            double sum = spectrum.Sum();
-
-            for (int i = 0; i < spectrum.Length; i++)
-            {
-                spectrum[i] = spectrum[i] / sum;
-            }
-            return spectrum;
-        }
-        #endregion
     }
 
     public interface IScoreArgs
