@@ -177,7 +177,7 @@ namespace MassSpectrometry.MzSpectra
 
         #region normalization
 
-        public double[] NormalizeSquareRootSpectrumSum(double[] spectrum)
+        public static double[] NormalizeSquareRootSpectrumSum(double[] spectrum)
         {
             double sqrtSum = spectrum.Select(y => Math.Sqrt(y)).Sum();
             double[] normalizedSpectrum = new double[spectrum.Length];
@@ -189,7 +189,7 @@ namespace MassSpectrometry.MzSpectra
             return normalizedSpectrum;
         }
 
-        public double[] NormalizeMostAbundantPeak(double[] spectrum)
+        public static double[] NormalizeMostAbundantPeak(double[] spectrum)
         {
             double max = spectrum.Max();
             double[] normalizedSpectrum = new double[spectrum.Length];
@@ -201,7 +201,7 @@ namespace MassSpectrometry.MzSpectra
             return normalizedSpectrum;
         }
 
-        public double[] NormalizeSpectrumSum(double[] spectrum)
+        public static double[] NormalizeSpectrumSum(double[] spectrum)
         {
             double sum = spectrum.Sum();
             double[] normalizedSpectrum = new double[spectrum.Length];
