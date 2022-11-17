@@ -11,7 +11,7 @@ namespace MassSpectrometry
     public enum DeconvolutionTypes
     {
         ClassicDeconvolution,
-        AlexDeconvolution,
+        SpectralDeconvolution,
     }
 
     /// <summary>
@@ -41,10 +41,11 @@ namespace MassSpectrometry
             switch (DeconvolutionType)
             {
                 case DeconvolutionTypes.ClassicDeconvolution:
-                    ((ClassicDeconvolutionParameters)DeconvolutionParameters).Range = new MzRange(scan.IsolationRange.Minimum - 8.5, scan.IsolationRange.Maximum + 8.5);
+                    ((ClassicDeconvolutionParameters)DeconvolutionParameters).Range = 
+                        new MzRange(scan.IsolationRange.Minimum - 8.5, scan.IsolationRange.Maximum + 8.5);
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
+                case DeconvolutionTypes.SpectralDeconvolution:
 
                     break;
             }
@@ -68,7 +69,7 @@ namespace MassSpectrometry
                     DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
+                case DeconvolutionTypes.SpectralDeconvolution:
                     DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithm(deconParameters);
                     break;
 
