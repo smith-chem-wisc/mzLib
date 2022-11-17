@@ -79,13 +79,6 @@ namespace MzLibUtil
             return $"[{Minimum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)};{Maximum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)}]";
         }
 
-        /// Compares the DoubleRange to a double 'item' passed in.
-        /// If the 'item' falls below the range, 1 is returned (the range is greater than the item)
-        /// If the 'item' falls above the range, -1 is returned (the range is less than the item)
-        /// If the 'item' falls within the range, 0 is returned
-        /// </summary>
-        /// <param name="item"> A double the range will be compared against </param>
-        /// <returns> 1, 0, or -1 </returns>
         public int CompareTo(double item)
         {
             if (Minimum.CompareTo(item) > 0)
