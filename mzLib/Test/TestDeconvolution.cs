@@ -14,7 +14,6 @@ using System.Linq;
 using Easy.Common.Extensions;
 using MassSpectrometry.Deconvolution;
 using MassSpectrometry.Deconvolution.Algorithms;
-using MassSpectrometry.Deconvolution.Parameters;
 using TopDownProteomics.MassSpectrometry;
 using IsotopicDistribution = Chemistry.IsotopicDistribution;
 
@@ -318,8 +317,8 @@ namespace Test
             Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass, Is.EqualTo(pwsmMonoisotopicMass).Within(0.05));
 
             //check that if already assigned, skips assignment and just recalls same value
-            List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
-            Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
+            //List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
+            //Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
         }
         #endregion
     }
