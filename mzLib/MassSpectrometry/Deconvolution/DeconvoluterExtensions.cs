@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MassSpectrometry.Deconvolution.Parameters;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -24,6 +25,21 @@ namespace MassSpectrometry
             {
                 ((ClassicDeconvolutionParameters)deconvoluter.DeconvolutionParameters).Range = range;
                 return deconvoluter.DeconvolutionAlgorithm.Deconvolute(spectrum);
+            }
+        }
+
+        public static IEnumerable<IsotopicEnvelope> SpectralDeconvoluteMzSpectra(this Deconvoluter deconvoluter,
+            MzSpectrum spectrum, MzRange range)
+        {
+            if (deconvoluter.DeconvolutionType != DeconvolutionTypes.SpectralDeconvolution)
+            {
+                throw new MzLibException("Deconvoluter is not of correct type for this extension method");
+            }
+            else
+            {
+                ((SpectralDeconvolutionParameters)deconvoluter.DeconvolutionParameters).ScanRange = range;
+                return deconvoluter.DeconvolutionAlgorithm.Deconvolute(spectrum);
+
             }
         }
     }

@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
 using Easy.Common.Extensions;
-using MassSpectrometry.Deconvolution.Parameters;
 using MassSpectrometry.Deconvolution;
 using MassSpectrometry.Deconvolution.Scoring;
 using MassSpectrometry.Proteomics;
@@ -28,7 +27,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         public PpmTolerance PpmTolerance { get; }
         public Scorer Scorer { get; }
 
-        public SpectralDeconvolutionAlgorithm(SpectralDeconvolutionParameters parameters) : base(parameters)
+        public SpectralDeconvolutionAlgorithm(DeconvolutionParameters parameters) : base(parameters)
         {
             var deconvolutionParameters = DeconvolutionParameters as SpectralDeconvolutionParameters;
             if (deconvolutionParameters == null)
@@ -70,17 +69,52 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                     double mostAbundantMass =  GetMostAbundantMass(spectrum, envelopeIndices);
                     int massBinIndex = (int)Math.Floor((mostAbundantMass - SpectralParams.ScanRange.Minimum) *
                                                    SpectralParams.BinsPerDalton);
+                    if (!IndexedLibrarySpectra[massBinIndex, chargeBinIndex].IsNotNullOrEmpty()) continue; // continue if there are no corresponding library spectra
 
+                    int? bestMatchListPosition = null;
+                    int currentListPosition = 0;
+                    double bestScore = Scorer.PoorScore;
+                    MinimalSpectrum experimentalSpectrum = GetMinimalSpectrumFromIndices(spectrum, envelopeIndices, keyValuePair.Key);
                     // Score against matching theoretical envelopes
-                    foreach (MinimalSpectrum librarySpectrum in IndexedLibrarySpectra[massBinIndex, chargeBinIndex])
+                    foreach (MinimalSpectrum theoreticalSpectrum in IndexedLibrarySpectra[massBinIndex, chargeBinIndex])
                     {
-                       // Scorer.Score()
+                        if (Scorer.Compare(
+                                Scorer.Score(experimentalSpectrum,theoreticalSpectrum),
+                                bestScore,
+                                out double betterScore)
+                            )
+                        {
+                            bestMatchListPosition = currentListPosition;
+                            bestScore = betterScore;
+                        }
+                        currentListPosition++;
                     }
+
+                    if (bestMatchListPosition.HasValue && 
+                        SpectrumIndexToPwsmMap.TryGetValue((massBinIndex, chargeBinIndex, (int)bestMatchListPosition), out var pwsmMatch))
+                    {
+                        yield return new IsotopicEnvelope(experimentalSpectrum, pwsmMatch, bestScore);
+                    }
+                    else
+                    {
+                        //TODO: Add some averagine bullshit here
+                    }
+                    
                 }
             }
+        }
 
+        private static MinimalSpectrum GetMinimalSpectrumFromIndices(MzSpectrum spectrum, List<int> indices, int charge = 0)
+        {
+            double[] mzArray = new double[indices.Count];
+            double[] intensityArray = new double[indices.Count];
+            for (int i = 0; i < indices.Count; i++)
+            {
+                mzArray[i] = spectrum.XArray[indices[i]];
+                intensityArray[i] = spectrum.YArray[indices[i]];
+            }
 
-            throw new NotImplementedException();
+            return new MinimalSpectrum(mzArray, intensityArray, charge);
         }
 
         /// <summary>

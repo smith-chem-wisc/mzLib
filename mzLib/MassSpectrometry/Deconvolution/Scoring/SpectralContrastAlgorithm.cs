@@ -23,7 +23,7 @@ namespace MassSpectrometry.Deconvolution.Scoring
                     SpectralSimilarity spectralSimilarity =
                         new(spectraArgs.ExperimentalSpectrum.MzArray, spectraArgs.ExperimentalSpectrum.IntensityArray,
                             spectraArgs.TheoreticalSpectrum.MzArray, spectraArgs.TheoreticalSpectrum.IntensityArray,
-                            SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, spectraArgs.PpmTolerance.Value,
+                            SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, PpmTolerance.Value,
                             allPeaks: true, filterOutBelowThisMz: 1);
                     return spectralSimilarity.SpectralContrastAngle() ?? 0;
                 default:

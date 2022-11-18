@@ -274,6 +274,53 @@ namespace Test
             Assert.That(doublePeptideK1Charge == doublePeptideK4Charge);
 
         }
+
+        [Test]
+        [TestCase("APSGGKK", "12-18-17_frac7_calib_ms1_663_665.mzML", 2)]
+        [TestCase("PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK", "FXN11_tr1_032017-calib_ms1_scans716_718.mzML", 8)]
+        [TestCase("PKRKVSSAEGAAKEEPKRRSARLSAKPPAKVEAKPKKAAAKDKSSDKKVQTKGKRGAKGKQAEVANQETKEDLPAENGETKTEESPASDEAGEKEAKSD", "FXN11_tr1_032017-calib_ms1_scans781_783.mzML", 16)]
+        public static void CheckSpectralGetMostAbundantObservedIsotopicMass(string peptide, string file, int charge)
+        {
+            Protein myProtein = new Protein(peptide, "Accession");
+            DigestionParams digest1 = new DigestionParams("top-down");
+            PeptideWithSetModifications pw = new PeptideWithSetModifications(myProtein, digest1, 1, myProtein.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
+            double pwsmMonoisotopicMass = pw.MostAbundantMass;
+
+            string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
+            Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
+
+            List<MsDataScan> singlescan = singleMZML.GetAllScansList();
+
+            MzSpectrum singlespec = singlescan[0].MassSpectrum;
+            MzRange singleRange = new MzRange(singlespec.XArray.Min(), singlespec.XArray.Max());
+
+
+            int minAssumedChargeState = 1;
+            int maxAssumedChargeState = 60;
+            double deconvolutionTolerancePpm = 20;
+            int binsPerDalton = 1;
+            int scanMinimum = 460;
+
+            DeconvolutionParameters deconParams = new SpectralDeconvolutionParameters(
+                minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
+                new List<Protein>() { myProtein },
+                new List<Modification>(), new List<Modification>(), digest1,
+                new List<SilacLabel>(), false, scanMinimumMz: singleRange.Minimum, scanMaximumMz: singleRange.Maximum,
+                ambiguityThresholdForIsotopicDistribution: 0.9, binsPerDalton: binsPerDalton);
+
+            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionTypes.SpectralDeconvolution, deconParams);
+
+            //check assigned correctly
+
+            List<IsotopicEnvelope> lie2 = deconvoluter.SpectralDeconvoluteMzSpectra(singlespec, singleRange).ToList();
+
+            List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass, Is.EqualTo(pwsmMonoisotopicMass).Within(0.05));
+
+            //check that if already assigned, skips assignment and just recalls same value
+            List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
+            Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
+        }
         #endregion
     }
 }

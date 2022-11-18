@@ -8,7 +8,7 @@ using MassSpectrometry.Proteomics.ProteolyticDigestion;
 using MathNet.Numerics.Optimization;
 using MzLibUtil;
 
-namespace MassSpectrometry.Deconvolution.Parameters
+namespace MassSpectrometry
 {
 
     public class SpectralDeconvolutionParameters : DeconvolutionParameters
@@ -18,7 +18,8 @@ namespace MassSpectrometry.Deconvolution.Parameters
         public List<Modification> VariableModifications { get; }
         public DigestionParams DigestionParams { get; }
         public List<SilacLabel> SilacLabels { get; }
-        public DoubleRange ScanRange { get; }
+        // TODO: convert double range to MzRange
+        public DoubleRange ScanRange { get; set; }
         public bool FindTopDownTruncationProducts { get; }
         public int BinsPerDalton { get; }
         public double FineResolutionForIsotopicDistribution { get; }

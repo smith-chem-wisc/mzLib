@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
+using MassSpectrometry.Deconvolution;
+using MassSpectrometry.Proteomics.ProteolyticDigestion;
 
 namespace MassSpectrometry
 {
@@ -27,6 +29,7 @@ namespace MassSpectrometry
         private double? _secondMostAbundantObservedIsotopicMz;
         public double AmbiguityRatioMinimum { get; }
         public double Score { get; private set; }
+        public PeptideWithSetModifications BestPwsmMatch { get; }
 
         public IsotopicEnvelope(List<(double mz, double intensity)> bestListOfPeaks, double bestMonoisotopicMass,
             int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex)
@@ -56,7 +59,17 @@ namespace MassSpectrometry
             Charge = charge;
             AmbiguityRatioMinimum = ambiguityRatioMinimum;
             FindMostAbundantObservedIsotopicMz();
+        }
 
+        public IsotopicEnvelope(MinimalSpectrum experimentalSpectrum, PeptideWithSetModifications bestPwsmMatch, double spectralScore = 0)
+        {
+            Peaks = experimentalSpectrum.MzArray.Zip(experimentalSpectrum.IntensityArray, (first, second) =>
+                (first, second)).ToList();
+            MonoisotopicMass = bestPwsmMatch.MonoisotopicMass;
+            Charge = experimentalSpectrum.Charge;
+            FindMostAbundantObservedIsotopicMz();
+            BestPwsmMatch = bestPwsmMatch;
+            Score = spectralScore;
         }
 
         /// <summary>
