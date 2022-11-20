@@ -17,7 +17,8 @@ namespace Proteomics.RetentionTimePrediction
     {
         private readonly double ColumnLength; //in meters
         private readonly double VoltsPerMeter; //in volts/meter
-        public CZE(double columnLength, double voltsPerMeter)
+        //Default values set at 100cm with 300kV/m
+        public CZE(double columnLength = 0.1, double voltsPerMeter = 300000)
         {
             ColumnLength = columnLength;
             VoltsPerMeter = voltsPerMeter;
