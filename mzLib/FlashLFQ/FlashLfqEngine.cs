@@ -767,11 +767,13 @@ namespace FlashLFQ
                                     acceptorPeak.CalculateIntensityForThisFeature(Integrate);
                                     if (interquartileRangeUsed)
                                     {
+                                        // Dividing by 4.5 to convert from rtRange to interquartile range (see line 696)
                                         acceptorPeak.SetRtWindow(acceptorFileRtHypothesis, rtStdDev: null,
                                             rtInterquartileRange: rtRange / 4.5);
                                     }
                                     else
                                     {
+                                        // Dividing by 6 to convert from rtRange to std dev (see line 692)
                                         acceptorPeak.SetRtWindow(acceptorFileRtHypothesis, rtStdDev: rtRange / 6,
                                             rtInterquartileRange: null);
                                     }
