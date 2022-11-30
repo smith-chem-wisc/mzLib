@@ -62,7 +62,7 @@ public class Scorer
     /// <param name="betterScore"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    public bool Compare(double instanceScore, double argumentScore, out double betterScore)
+    public bool TestForScoreImprovement(double instanceScore, double argumentScore, out double betterScore)
     {
         switch (ScoringMethod)
         {

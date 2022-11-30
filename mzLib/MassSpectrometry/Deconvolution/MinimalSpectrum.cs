@@ -47,15 +47,19 @@ namespace MassSpectrometry.Deconvolution
 
         internal static double GetMostAbundantMz(double[] mzArray, double[] intensityArray)
         {
-            double maxIntensity = intensityArray.Max();
+            double mostAbundantMz = 0;
+            double maxIntensity = 0;
             for (int i = 0; i < mzArray.Length; i++)
             {
-                if (Math.Abs(intensityArray[i] - maxIntensity) < 0.001)
+                if (intensityArray[i] > maxIntensity)
                 {
-                    return (mzArray[i]);
+                    maxIntensity = intensityArray[i];
+                    mostAbundantMz = mzArray[i];
                 }
             }
-            return double.NaN;
+
+            return mostAbundantMz;
+
         }
     }
 }
