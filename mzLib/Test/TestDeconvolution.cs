@@ -320,6 +320,13 @@ namespace Test
             //List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
             //Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
         }
+
+        [Test]
+        public static void ScorerTest()
+        {
+            // Test goes here
+            Assert.That(true);
+        }
         #endregion
     }
 }
