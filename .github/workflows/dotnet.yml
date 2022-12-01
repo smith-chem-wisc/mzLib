@@ -34,7 +34,8 @@ jobs:
       run: cd mzLib/Test && dotnet test --no-build --verbosity normal 
         --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
     - name: TestFlashLFQ
-      run: cd mzLib/TestFlashLFQ && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
+      run: cd mzLib/TestFlashLFQ && dotnet test --no-build --verbosity normal 
+        --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
     - name: Upload to Codecov
       uses: codecov/codecov-action@v2
       with:
