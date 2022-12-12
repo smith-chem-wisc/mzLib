@@ -20,7 +20,7 @@ using System.Collections;
 using System.Collections.Generic;
 using MzLibUtil;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     public class ModificationWithMultiplePossibilitiesCollection : OldSchoolModification, IEnumerable<OldSchoolModification>
     {

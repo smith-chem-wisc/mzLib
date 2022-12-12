@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using MassSpectrometry.Proteomics.Fragmentation;
+using Proteomics.Fragmentation;
 
-namespace MassSpectrometry.Proteomics.ProteolyticDigestion
+namespace Proteomics.ProteolyticDigestion
 {
     public static class ProductTypeMethods
     {

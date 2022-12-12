@@ -285,7 +285,7 @@ namespace FlashLFQ
                     double massDiff = id.MonoisotopicMass;
                     if (!String.IsNullOrEmpty(id.BaseSequence))
                     {
-                        MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide baseSequence = new MassSpectrometry.Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
+                        Proteomics.AminoAcidPolymer.Peptide baseSequence = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
                         formula = baseSequence.GetChemicalFormula();
                         // add averagine for any unknown mass difference (i.e., a modification)
                         massDiff -= baseSequence.MonoisotopicMass;

@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using MzLibUtil;
 
-namespace MassSpectrometry.Proteomics.ProteolyticDigestion
+namespace Proteomics.ProteolyticDigestion
 {
     public class DigestionMotif
     {

@@ -18,7 +18,7 @@
 
 using Chemistry;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     public class OldSchoolChemicalFormulaModification : OldSchoolModification, IHasChemicalFormula
     {

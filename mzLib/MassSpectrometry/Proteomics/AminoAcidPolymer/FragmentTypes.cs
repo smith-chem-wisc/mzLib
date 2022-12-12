@@ -21,7 +21,7 @@ using System.Collections.Generic;
 using Chemistry;
 using MzLibUtil;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     [Flags]
     public enum FragmentTypes

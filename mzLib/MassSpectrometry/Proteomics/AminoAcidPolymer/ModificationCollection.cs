@@ -24,7 +24,7 @@ using System.Text;
 using Chemistry;
 using MzLibUtil;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     public class ModificationCollection : ICollection<IHasMass>, IEquatable<ModificationCollection>, IHasChemicalFormula
     {

@@ -1,8 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
+using MassSpectrometry;
 
-namespace MassSpectrometry.Proteomics.Fragmentation
+namespace Proteomics.Fragmentation
 {
     public class DissociationTypeCollection
     {

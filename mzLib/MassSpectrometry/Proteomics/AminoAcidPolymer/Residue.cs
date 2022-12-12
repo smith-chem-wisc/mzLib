@@ -19,7 +19,7 @@
 using System.Collections.Generic;
 using Chemistry;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     public class Residue : IHasChemicalFormula
     {

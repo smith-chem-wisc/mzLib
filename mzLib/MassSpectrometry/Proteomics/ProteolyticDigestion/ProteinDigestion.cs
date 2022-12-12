@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using MassSpectrometry.Proteomics.Fragmentation;
+using Proteomics.Fragmentation;
 
-namespace MassSpectrometry.Proteomics.ProteolyticDigestion
+namespace Proteomics.ProteolyticDigestion
 {
     public class ProteinDigestion
     {

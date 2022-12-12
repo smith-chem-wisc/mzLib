@@ -20,7 +20,7 @@ using System;
 using System.Globalization;
 using Chemistry;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     /// <summary>
     /// Represents a modification with a mass and name and default amino acid sites of modification

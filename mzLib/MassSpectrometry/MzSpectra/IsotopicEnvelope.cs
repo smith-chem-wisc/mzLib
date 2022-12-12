@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
 using MassSpectrometry.Deconvolution;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using Proteomics.ProteolyticDigestion;
 
 namespace MassSpectrometry
 {

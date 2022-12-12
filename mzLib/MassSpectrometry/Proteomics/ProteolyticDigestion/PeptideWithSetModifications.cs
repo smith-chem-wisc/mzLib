@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Chemistry;
-using MassSpectrometry.Proteomics.AminoAcidPolymer;
-using MassSpectrometry.Proteomics.Fragmentation;
+using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
+using MassSpectrometry;
 
-namespace MassSpectrometry.Proteomics.ProteolyticDigestion
+namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
     public class PeptideWithSetModifications : ProteolyticPeptide

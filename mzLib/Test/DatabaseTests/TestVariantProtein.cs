@@ -1,6 +1,6 @@
 ﻿using NUnit.Framework;
-using MassSpectrometry.Proteomics;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.IO;

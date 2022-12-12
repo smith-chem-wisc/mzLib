@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using MzLibUtil;
-using MassSpectrometry.Proteomics;
+using Proteomics;
 
-namespace MassSpectrometry.Proteomics.ProteolyticDigestion
+namespace Proteomics.ProteolyticDigestion
 {
     public static class ProteaseDictionary
     {

@@ -21,7 +21,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Chemistry;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     public class Fragment : IHasMass, IEquatable<Fragment>
     {

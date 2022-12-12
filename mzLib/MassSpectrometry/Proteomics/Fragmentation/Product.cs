@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace MassSpectrometry.Proteomics.Fragmentation
+namespace Proteomics.Fragmentation
 {
     public struct Product
     {

@@ -25,7 +25,7 @@ using System.Text;
 using Chemistry;
 using MzLibUtil;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     /// <summary>
     /// A linear polymer of amino acids

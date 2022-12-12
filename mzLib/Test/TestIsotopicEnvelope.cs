@@ -5,8 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
 using MassSpectrometry;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
-using MassSpectrometry.Proteomics;
+using Proteomics.ProteolyticDigestion;
+using Proteomics;
 using NUnit.Framework;
 
 namespace Test

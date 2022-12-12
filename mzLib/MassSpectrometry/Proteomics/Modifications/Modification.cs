@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Chemistry;
+using MassSpectrometry;
 
-namespace MassSpectrometry.Proteomics
+namespace Proteomics
 {
     public class Modification
     {

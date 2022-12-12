@@ -18,7 +18,7 @@
 
 using Chemistry;
 using NUnit.Framework;
-using MassSpectrometry.Proteomics.AminoAcidPolymer;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using Stopwatch = System.Diagnostics.Stopwatch;

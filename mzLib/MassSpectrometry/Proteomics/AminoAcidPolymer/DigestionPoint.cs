@@ -1,4 +1,4 @@
-﻿namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+﻿namespace Proteomics.AminoAcidPolymer
 {
     public class DigestionPointAndLength
     {

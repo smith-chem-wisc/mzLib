@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using Proteomics.ProteolyticDigestion;
 
-namespace MassSpectrometry.Proteomics.RetentionTimePrediction
+namespace Proteomics.RetentionTimePrediction
 {
     /**
     /*

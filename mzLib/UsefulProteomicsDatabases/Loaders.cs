@@ -16,7 +16,7 @@
 // License along with UsefulProteomicsDatabases. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using MassSpectrometry.Proteomics;
+using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.Globalization;

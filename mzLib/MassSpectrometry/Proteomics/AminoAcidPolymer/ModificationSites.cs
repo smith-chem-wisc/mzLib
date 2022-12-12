@@ -19,7 +19,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace MassSpectrometry.Proteomics.AminoAcidPolymer
+namespace Proteomics.AminoAcidPolymer
 {
     [Flags]
     public enum ModificationSites

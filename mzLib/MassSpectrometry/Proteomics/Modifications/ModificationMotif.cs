@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace MassSpectrometry.Proteomics
+namespace Proteomics
 {
     public class ModificationMotif
     {

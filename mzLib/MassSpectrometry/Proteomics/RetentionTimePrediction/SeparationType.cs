@@ -1,4 +1,4 @@
-﻿namespace MassSpectrometry.Proteomics.RetentionTimePrediction
+﻿namespace Proteomics.RetentionTimePrediction
 {
     public enum SeparationType
     {

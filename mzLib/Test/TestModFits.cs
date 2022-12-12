@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
-using MassSpectrometry.Proteomics;
+using Proteomics;
 using System;
 using Stopwatch = System.Diagnostics.Stopwatch;
 

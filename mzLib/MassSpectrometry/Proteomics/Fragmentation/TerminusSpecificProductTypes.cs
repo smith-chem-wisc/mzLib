@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace MassSpectrometry.Proteomics.Fragmentation
+namespace Proteomics.Fragmentation
 {
     public class TerminusSpecificProductTypes
     {

@@ -7,8 +7,8 @@ using Chemistry;
 using Easy.Common.Extensions;
 using MassSpectrometry.Deconvolution;
 using MassSpectrometry.Deconvolution.Scoring;
-using MassSpectrometry.Proteomics;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using MzLibUtil;
 
 namespace MassSpectrometry.Deconvolution.Algorithms

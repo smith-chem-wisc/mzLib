@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using Proteomics.ProteolyticDigestion;
 
-namespace MassSpectrometry.Proteomics
+namespace Proteomics
 {
     public static class ProteoformLevelClassifier
     {

@@ -20,7 +20,7 @@ using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using MassSpectrometry.Proteomics;
+using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;

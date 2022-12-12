@@ -1,8 +1,8 @@
 ﻿using MassSpectrometry;
 using NUnit.Framework;
-using MassSpectrometry.Proteomics;
-using MassSpectrometry.Proteomics.Fragmentation;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using Proteomics;
+using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.IO;

@@ -1,4 +1,4 @@
-﻿namespace MassSpectrometry.Proteomics.ProteolyticDigestion
+﻿namespace Proteomics.ProteolyticDigestion
 {
     public enum InitiatorMethionineBehavior
     {

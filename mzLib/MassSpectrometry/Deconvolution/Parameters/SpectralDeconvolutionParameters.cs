@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using MassSpectrometry.Proteomics;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using MathNet.Numerics.Optimization;
 using MzLibUtil;
 

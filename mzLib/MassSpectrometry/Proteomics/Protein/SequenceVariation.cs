@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using MassSpectrometry.Proteomics;
+using Proteomics;
 
-namespace MassSpectrometry.Proteomics
+namespace Proteomics
 {
     public class SequenceVariation
     {

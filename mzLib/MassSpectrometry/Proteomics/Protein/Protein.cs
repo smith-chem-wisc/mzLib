@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using MassSpectrometry.Proteomics.Fragmentation;
-using MassSpectrometry.Proteomics;
-using MassSpectrometry.Proteomics.ProteolyticDigestion;
+using Proteomics.Fragmentation;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 
-namespace MassSpectrometry.Proteomics
+namespace Proteomics
 {
     public class Protein
     {

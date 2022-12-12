@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
-using MassSpectrometry.Proteomics;
+using Proteomics;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
