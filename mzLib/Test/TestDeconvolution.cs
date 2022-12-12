@@ -14,6 +14,7 @@ using System.Linq;
 using Easy.Common.Extensions;
 using MassSpectrometry.Deconvolution;
 using MassSpectrometry.Deconvolution.Algorithms;
+using MassSpectrometry.Deconvolution.Scoring;
 using TopDownProteomics.MassSpectrometry;
 using IsotopicDistribution = Chemistry.IsotopicDistribution;
 
@@ -320,13 +321,40 @@ namespace Test
             //List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
             //Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
         }
+        #endregion
+
+        #region scorerTests
 
         [Test]
         public static void ScorerTest()
         {
-            // Test goes here
-            Assert.That(true);
+            Scorer.ScoringMethods kullbackMethod = Scorer.ScoringMethods.KullbackLeibler;
+            Scorer.ScoringMethods spectralContrastMethod = Scorer.ScoringMethods.SpectralContrastAngle;
+
+            // KullbackLeibler hasn't been implemented yet
+            Assert.That(() => new Scorer(kullbackMethod, new PpmTolerance(5.0)), Throws.Exception.TypeOf<NotImplementedException>());
+            // Assert.That(kullbackScorer.PoorScore > 10);
+            // In kullback leibler, low scores are better. In spectral contrast angle, high scores are better
+            // Assert.That(kullbackScorer.TestForScoreImprovement(0.01, 0.03, out var better));
+
+
+            Scorer spectralScorer = new Scorer(spectralContrastMethod, new PpmTolerance(5.0));
+            Assert.That(spectralScorer.PoorScore <= 0);
+            Assert.That(!spectralScorer.TestForScoreImprovement(0.01, 0.03, out var betterScore));
+
+
+            MinimalSpectrum testSpectrum =
+                new MinimalSpectrum(new double[] { 1.0, 2.0, 3.0, 4.0 }, new double[] { 1.0, 2.0, 3.0, 4.0 });
+            MinimalSpectrum comparisonSpectrum =
+                new MinimalSpectrum(new double[] { 1.0, 2.0, 3.0, 4.0 }, new double[] { 2.0, 1.0, 4.0, 3.0 });
+
+            double spectralScore = spectralScorer.Score(testSpectrum, comparisonSpectrum);
+            Assert.That(spectralScore, Is.EqualTo(0.766).Within(0.001));
+            Assert.That(spectralScore, Is.EqualTo(spectralScorer.Score(comparisonSpectrum, testSpectrum) ).Within(0.01));
+
         }
+
         #endregion
+
     }
 }

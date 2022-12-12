@@ -14,7 +14,7 @@ namespace MassSpectrometry.Deconvolution
         public readonly double MostAbundantMz;
         public readonly int Charge;
 
-        internal MinimalSpectrum(double[] mzArray, double[] intensityArray, int charge = 0)
+        public MinimalSpectrum(double[] mzArray, double[] intensityArray, int charge = 0)
         {
             MzArray = mzArray;
             IntensityArray = intensityArray;
