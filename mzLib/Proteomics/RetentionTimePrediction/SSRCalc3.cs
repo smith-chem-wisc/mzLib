@@ -32,7 +32,6 @@ namespace Proteomics.RetentionTimePrediction
     /*     as close as possible to the original perl.
      */
 
-
     // ReSharper disable InconsistentNaming
     // ReSharper disable CharImplicitlyConvertedToNumeric
     public class SSRCalc3
