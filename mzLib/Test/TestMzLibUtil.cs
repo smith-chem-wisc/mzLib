@@ -37,6 +37,31 @@ namespace Test
             Assert.AreEqual(expectedResult, result);
         }
 
+        public MzSpectrum ActualSpectrum;
+
+        [OneTimeSetUp]
+        public void SetUp()
+        {
+            // Test with actual data
+            //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
+
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+
+            int mzIntensityPairsCount = spectrumLines.Length;
+            double[] ms1mzs = new double[mzIntensityPairsCount];
+            double[] ms1intensities = new double[mzIntensityPairsCount];
+
+            for (int i = 0; i < mzIntensityPairsCount; i++)
+            {
+                string[] pair = spectrumLines[i].Split('\t');
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
+            }
+
+            ActualSpectrum = new MzSpectrum(ms1mzs, ms1intensities, false);
+        }
+
         [Test]
         public void TestSpectrumTreeInsertion()
         {
@@ -111,29 +136,12 @@ namespace Test
             MzSpectrum reconstructedSpectrum = new(mz, intensity, false);
             Assert.That(orderedSpectrum.Equals(reconstructedSpectrum));
 
-            // Test with actual data
-            //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
-            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
-
-            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
-
-            int mzIntensityPairsCount = spectrumLines.Length;
-            double[] ms1mzs = new double[mzIntensityPairsCount];
-            double[] ms1intensities = new double[mzIntensityPairsCount];
-
-            for (int i = 0; i < mzIntensityPairsCount; i++)
-            {
-                string[] pair = spectrumLines[i].Split('\t');
-                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
-                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
-            }
-
-            MzSpectrum actualSpectrum = new MzSpectrum(ms1mzs, ms1intensities, false);
+            
             testTree = new();
-            testTree.BuildTreeFromSpectrum(actualSpectrum.XArray, actualSpectrum.YArray);
+            testTree.BuildTreeFromSpectrum(ActualSpectrum.XArray, ActualSpectrum.YArray);
 
-            mz = new double[mzIntensityPairsCount];
-            intensity = new double[mzIntensityPairsCount];
+            mz = new double[ActualSpectrum.Size];
+            intensity = new double[ActualSpectrum.Size];
             j = 0;
             foreach (Node node in testTree)
             {
@@ -143,7 +151,20 @@ namespace Test
             }
 
             reconstructedSpectrum = new(mz, intensity, false);
-            Assert.That(actualSpectrum.Equals(reconstructedSpectrum));
+            Assert.That(ActualSpectrum.Equals(reconstructedSpectrum));
+
+        }
+
+        [Test]
+        public void TestSpectrumTreeFindNearestPeak()
+        {
+            SpectrumTree testTree = new SpectrumTree(ActualSpectrum.XArray, ActualSpectrum.YArray);
+            PpmTolerance tol = new PpmTolerance(10); // 10 ppm is equal to 0.01 Th at 1000 Th
+            testTree.PopClosestPeak(1000.5, tol,out var mz, out var intensity);
+            Assert.That(tol.Within(1000.5, mz));
+            Assert.That(Math.Abs(1491094 - intensity) < 0.01);
+            // The peak should have been removed by the pop operation, so attempting to call it again should fail
+            Assert.That(!testTree.PopClosestPeak(1000.5, tol, out mz, out intensity));
 
         }
     }
