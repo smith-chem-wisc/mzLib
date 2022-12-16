@@ -130,7 +130,7 @@ namespace MzLibUtil
         {
             Node current = parent;
 
-            if (current.leftChild != null)
+            while (current.leftChild != null)
             {
                 current = current.leftChild;
             }
@@ -143,26 +143,32 @@ namespace MzLibUtil
             return new TreeEnumerator(_root);
         }
 
-        //public List<Node> GetNodeList()
-        //{
-        //    List<Node> allNodes = new();
-        //    Node currentNode = GetMinNode(Root);
-        //    while (currentNode != null)
-        //    {
-        //        allNodes.Add(currentNode);
-        //        currentNode = GetInOrderSuccessor(currentNode);
-        //    }
-        //    return allNodes;
-        //}
-
+        /// <summary>
+        /// This function assumes, but does not require, that the mzArray is ordered.
+        /// For ordered arrays, creates a balanced binary tree
+        /// Unordered arrays are fine, but then the resulting tree will not be balanced
+        /// </summary>
+        /// <param name="mzArray"></param>
+        /// <param name="intensityArray"></param>
         public void BuildTreeFromSpectrum(double[] mzArray, double[] intensityArray)
         {
-            int middleIndex = mzArray.Length / 2;
+            BuildTreeHelper(mzArray, intensityArray, 0, mzArray.Length-1);
         }
 
-        private void BuildTreeHelper(double[] mzArray, double[] intensityArray, int middleIndex)
+        private void BuildTreeHelper(double[] mzArray, double[] intensityArray, int minIndex, int maxIndex)
         {
+            // Base case - the array cannot be subdivided further
+            if (minIndex == maxIndex)
+            {
+                Insert( new Node(mzArray[minIndex], intensityArray[minIndex]) );
+                return;
+            }
+            if (maxIndex < minIndex) return; // Other base case, happens on right hand side of subsection
 
+            int midIndex = minIndex + (maxIndex-minIndex)/2;
+            Insert(new Node(mzArray[midIndex], intensityArray[midIndex]));
+            BuildTreeHelper(mzArray, intensityArray, minIndex, midIndex - 1);
+            BuildTreeHelper(mzArray, intensityArray, midIndex + 1, maxIndex);
         }
     }
 

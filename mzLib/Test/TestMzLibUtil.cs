@@ -88,5 +88,26 @@ namespace Test
             MzSpectrum reconstructedSpectrum = new(mz, intensity, false);
             Assert.That(orderedSpectrum.Equals(reconstructedSpectrum));
         }
+
+        [Test]
+        public void TestSpectrumTreeBuilder()
+        {
+            MzSpectrum orderedSpectrum = new(new double[] { 1, 2, 3, 4, 5, 6, 7, 8 }, new double[] { 2, 4, 6, 8, 10, 8, 6, 4 }, false);
+            SpectrumTree testTree = new();
+            testTree.BuildTreeFromSpectrum(orderedSpectrum.XArray, orderedSpectrum.YArray);
+
+            double[] mz = new double[8];
+            double[] intensity = new double[8];
+            int j = 0;
+            foreach (Node node in testTree)
+            {
+                mz[j] = node.Key;
+                intensity[j] = node.Value;
+                j++;
+            }
+
+            MzSpectrum reconstructedSpectrum = new(mz, intensity, false);
+            Assert.That(orderedSpectrum.Equals(reconstructedSpectrum));
+        }
     }
 }
