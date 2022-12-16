@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using MzLibUtil;
 using MassSpectrometry;
+using System.Globalization;
+using System.IO;
 
 namespace Test
 {
@@ -108,6 +110,41 @@ namespace Test
 
             MzSpectrum reconstructedSpectrum = new(mz, intensity, false);
             Assert.That(orderedSpectrum.Equals(reconstructedSpectrum));
+
+            // Test with actual data
+            //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
+
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+
+            int mzIntensityPairsCount = spectrumLines.Length;
+            double[] ms1mzs = new double[mzIntensityPairsCount];
+            double[] ms1intensities = new double[mzIntensityPairsCount];
+
+            for (int i = 0; i < mzIntensityPairsCount; i++)
+            {
+                string[] pair = spectrumLines[i].Split('\t');
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
+            }
+
+            MzSpectrum actualSpectrum = new MzSpectrum(ms1mzs, ms1intensities, false);
+            testTree = new();
+            testTree.BuildTreeFromSpectrum(actualSpectrum.XArray, actualSpectrum.YArray);
+
+            mz = new double[mzIntensityPairsCount];
+            intensity = new double[mzIntensityPairsCount];
+            j = 0;
+            foreach (Node node in testTree)
+            {
+                mz[j] = node.Key;
+                intensity[j] = node.Value;
+                j++;
+            }
+
+            reconstructedSpectrum = new(mz, intensity, false);
+            Assert.That(actualSpectrum.Equals(reconstructedSpectrum));
+
         }
     }
 }
