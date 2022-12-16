@@ -119,13 +119,31 @@ namespace MzLibUtil
 
         public void Delete(Node node)
         {
-            if (node.parent == null)
+            if (node == _root)
             {
-                _root = null;
-                return;
+                if (node.leftChild == null & node.rightChild == null)
+                {
+                    _root = null;
+                    return;
+                }
+                // One child deletion
+                if (node.leftChild == null & node.rightChild != null)
+                {
+                    _root = node.rightChild;
+                    node.rightChild.parent = null;
+                    return;
+                }
+                if (node.leftChild != null & node.rightChild == null)
+                {
+                    _root = node.leftChild;
+                    node.leftChild.parent = null;
+                    return;
+                }
+                Node inOrderSuccesor = GetInOrderSuccessor(node);
+                node.SwapKeyValuePair(inOrderSuccesor.Key, inOrderSuccesor.Value);
+                Delete(inOrderSuccesor);
             }
-
-            if (node.parent.leftChild == node)
+            else if (node.parent.leftChild == node)
             {
                 // Leaf deletion
                 if (node.leftChild == null & node.rightChild == null)
@@ -228,10 +246,7 @@ namespace MzLibUtil
                 {
                     current = current.rightChild;
                 }
-                else
-                {
-                    return current;
-                }
+                else return current;
             }
 
             return closestNode;

@@ -114,6 +114,54 @@ namespace Test
             MzSpectrum orderedSpectrum = new(new double[] { 1, 3, 5, 6, 7, 8 }, new double[] { 2, 6, 10, 8, 6, 4 }, false);
             MzSpectrum reconstructedSpectrum = new(mz, intensity, false);
             Assert.That(orderedSpectrum.Equals(reconstructedSpectrum));
+
+            foreach (Node node in testTree)
+            {
+                testTree.Delete(node);
+            }
+            Assert.That(testTree.Root == null);
+
+            // Testing with actual data. Deleting the middle 1000 entries from the tree, then
+            // checking for fidelity
+            PpmTolerance tolerance = new PpmTolerance(5);
+            testTree = new SpectrumTree(ActualSpectrum.XArray, ActualSpectrum.YArray);
+            for (int i = 1500; i < 2500; i++)
+            {
+                // we should be able to find every peak present in the spectrum
+                if (!testTree.PopClosestPeak(ActualSpectrum.XArray[i], tolerance,
+                        out var peakMz, out var peakIntensity))
+                {
+                    Assert.That(false);
+                }
+            }
+
+            double[] deletionMz = new double[3090];
+            double[] deletionIntensity = new double[3090];
+            double[] treeMz = new double[3090];
+            double[] treeIntensity = new double[3090];
+            for (int i = 0; i < 1500; ++i)
+            {
+                deletionMz[i] = ActualSpectrum.XArray[i];
+                deletionIntensity[i] = ActualSpectrum.YArray[i];
+            }
+            for (int i = 2500; i < 4090; i++)
+            {
+                deletionMz[i-1000] = ActualSpectrum.XArray[i];
+                deletionIntensity[i-1000] = ActualSpectrum.YArray[i];
+            }
+
+            j = 0;
+            foreach (Node node in testTree)
+            {
+                treeMz[j] = node.Key;
+                treeIntensity[j] = node.Value;
+                j++;
+            }
+
+            MzSpectrum deletionSpectrum = new MzSpectrum(deletionMz, deletionIntensity, true);
+            MzSpectrum treeSpectrum = new MzSpectrum(treeMz, treeIntensity, true);
+            Assert.That(treeSpectrum.Equals(deletionSpectrum));
+
         }
 
         [Test]
@@ -126,15 +174,18 @@ namespace Test
             double[] mz = new double[8];
             double[] intensity = new double[8];
             int j = 0;
+            Node lastNode = null;
             foreach (Node node in testTree)
             {
                 mz[j] = node.Key;
                 intensity[j] = node.Value;
                 j++;
+                lastNode = node;
             }
 
             MzSpectrum reconstructedSpectrum = new(mz, intensity, false);
             Assert.That(orderedSpectrum.Equals(reconstructedSpectrum));
+            Assert.That(lastNode.ToString().Equals("8,4"));
 
             
             testTree = new();
@@ -152,7 +203,6 @@ namespace Test
 
             reconstructedSpectrum = new(mz, intensity, false);
             Assert.That(ActualSpectrum.Equals(reconstructedSpectrum));
-
         }
 
         [Test]
