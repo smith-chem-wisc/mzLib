@@ -36,14 +36,7 @@ namespace MzLibUtil
             while (x != null)
             {
                 y = x;
-                if (newNode.Key < x.Key)
-                {
-                    x = x.leftChild;
-                }
-                else
-                {
-                    x = x.rightChild;
-                }
+                x = newNode.Key < x.Key ? x.leftChild : x.rightChild;
             }
             newNode.parent = y;
 
@@ -86,8 +79,8 @@ namespace MzLibUtil
                     node.leftChild.parent = node.parent;
                     return;
                 }
-                // If the node has two children, swap values (maybe not the best way to do this?)
-                Node inOrderSuccesor = GetInOrderSuccesor(node);
+                // If the node has two children, swap values with the succesor, then delete the successor
+                Node inOrderSuccesor = GetInOrderSuccessor(node);
                 node.SwapKeyValuePair(inOrderSuccesor.Key, inOrderSuccesor.Value);
                 Delete(inOrderSuccesor);
                 
@@ -110,21 +103,18 @@ namespace MzLibUtil
                     node.leftChild.parent = node.parent;
                     return;
                 }
-                Node inOrderSuccesor = GetInOrderSuccesor(node);
+                Node inOrderSuccesor = GetInOrderSuccessor(node);
                 node.SwapKeyValuePair(inOrderSuccesor.Key, inOrderSuccesor.Value);
                 Delete(inOrderSuccesor);
             }
         }
 
-        internal static Node GetInOrderSuccesor(Node predeccesor)
+        internal static Node GetInOrderSuccessor(Node predeccesor)
         {
             if (predeccesor.rightChild != null)
             {
                 return GetMinNode(predeccesor.rightChild);
-            } else if (predeccesor.parent.rightChild == predeccesor)
-            {
-                return null;
-            }
+            } 
 
             Node parent = predeccesor.parent;
             while (parent != null && predeccesor != parent.leftChild)
@@ -160,7 +150,7 @@ namespace MzLibUtil
         //    while (currentNode != null)
         //    {
         //        allNodes.Add(currentNode);
-        //        currentNode = GetInOrderSuccesor(currentNode);
+        //        currentNode = GetInOrderSuccessor(currentNode);
         //    }
         //    return allNodes;
         //}
@@ -180,7 +170,7 @@ namespace MzLibUtil
     {
         // Theoretically the key could be any IComparable, but then FindNearest wouldn't be possible
         private double _key;
-        internal double Key => _key;
+        public double Key => _key;
         private double _value;
         public double Value => _value;
 
@@ -225,7 +215,7 @@ namespace MzLibUtil
             if (_nextNode != null)
             {
                 _currentNode = _nextNode;
-                _nextNode = SpectrumTree.GetInOrderSuccesor(_currentNode);
+                _nextNode = SpectrumTree.GetInOrderSuccessor(_currentNode);
                 return true;
             }
 
