@@ -168,8 +168,9 @@ namespace MzLibUtil
                 Node inOrderSuccesor = GetInOrderSuccessor(node);
                 node.SwapKeyValuePair(inOrderSuccesor.Key, inOrderSuccesor.Value);
                 Delete(inOrderSuccesor);
-                
-            } else if (node.parent.rightChild == node)
+
+            }
+            else if (node.parent.rightChild == node)
             {
                 if (node.leftChild == null & node.rightChild == null)
                 {
@@ -199,7 +200,7 @@ namespace MzLibUtil
             if (predeccesor.rightChild != null)
             {
                 return GetMinNode(predeccesor.rightChild);
-            } 
+            }
 
             Node parent = predeccesor.parent;
             while (parent != null && predeccesor != parent.leftChild)
@@ -213,8 +214,9 @@ namespace MzLibUtil
 
         internal static Node GetMinNode(Node parent)
         {
-            Node current = parent;
+            if (parent == null) return null;
 
+            Node current = parent;
             while (current.leftChild != null)
             {
                 current = current.leftChild;
@@ -297,7 +299,7 @@ namespace MzLibUtil
         public TreeEnumerator(Node root)
         {
             _rootNode = root;
-            _nextNode = SpectrumTree.GetMinNode(_rootNode);
+            _nextNode = _rootNode != null ? SpectrumTree.GetMinNode(_rootNode) : null;
         }
 
         public bool MoveNext()
