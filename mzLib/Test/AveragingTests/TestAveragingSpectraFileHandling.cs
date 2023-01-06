@@ -247,7 +247,6 @@ namespace Test.AveragingTests
 
             testMzLibOptions.RejectionType = RejectionType.AveragedSigmaClipping;
             testMzLibOptions.WeightingType = WeightingType.CauchyDistribution;
-            testMzLibOptions.SpectrumMergingType = SpectrumMergingType.MostSimilarSpectrum;
             testMzLibOptions.PerformNormalization = false;
             testMzLibOptions.Percentile = 2;
             testMzLibOptions.MinSigmaValue = 2;
@@ -258,8 +257,6 @@ namespace Test.AveragingTests
             Assert.That(testMzLibOptions.SpectralAveragingOptions.RejectionType == RejectionType.AveragedSigmaClipping);
             Assert.That(testMzLibOptions.WeightingType == WeightingType.CauchyDistribution);
             Assert.That(testMzLibOptions.SpectralAveragingOptions.WeightingType == WeightingType.CauchyDistribution);
-            Assert.That(testMzLibOptions.SpectrumMergingType == SpectrumMergingType.MostSimilarSpectrum);
-            Assert.That(testMzLibOptions.SpectralAveragingOptions.SpectrumMergingType == SpectrumMergingType.MostSimilarSpectrum);
             Assert.That(testMzLibOptions.PerformNormalization == false);
             Assert.That(testMzLibOptions.SpectralAveragingOptions.PerformNormalization == false);
             Assert.That(Math.Abs(testMzLibOptions.Percentile - 2) < 0.001);

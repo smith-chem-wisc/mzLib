@@ -17,10 +17,10 @@ namespace MzLibSpectralAveraging
         public static MzSpectrum CombineSpectra(this List<MzSpectrum> spectraToAverage,
             SpectralAveragingOptions options)
         {
-            double[][] compositeSpectraValues = SpectralMerging.CombineSpectra(spectraToAverage.Select(p => p.XArray).ToArray(),
-                spectraToAverage.Select(p => p.YArray).ToArray(), spectraToAverage.Select(p => p.SumOfAllY).ToArray(),
-                spectraToAverage.Count(), options);
-            return new MzSpectrum(compositeSpectraValues[0], compositeSpectraValues[1], true);
+            BinnedSpectra binnedSpectra = new(spectraToAverage.Count);
+            binnedSpectra.ConsumeSpectra(spectraToAverage, options.BinSize);
+            binnedSpectra.RecalculateTics();
+            return SpectralMerging.CombineSpectra(binnedSpectra, options).ToMzSpectrum();
         }
 
         /// <summary>
@@ -32,6 +32,11 @@ namespace MzLibSpectralAveraging
         public static MzSpectrum CombineSpectra(this List<MsDataScan> scansToAverage, SpectralAveragingOptions options)
         {
             return scansToAverage.Select(p => p.MassSpectrum).ToList().CombineSpectra(options);
+        }
+
+        public static MzSpectrum ToMzSpectrum(this double[][] xyJagged)
+        {
+            return new MzSpectrum(xyJagged[0], xyJagged[1], true);
         }
 
         #endregion
