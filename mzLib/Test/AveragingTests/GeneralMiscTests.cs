@@ -21,12 +21,12 @@ namespace Test.AveragingTests
             SpectralAveragingOptions options6 = new SpectralAveragingOptions()
             {
                 RejectionType = RejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1,
-                WeightingType = WeightingType.NormalDistribution
+                SpectraWeightingType = WeightingType.NormalDistribution
             };
             SpectralAveragingOptions options7 = new SpectralAveragingOptions()
             {
                 RejectionType = RejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1,
-                WeightingType = WeightingType.NormalDistribution, PerformNormalization = false
+                SpectraWeightingType = WeightingType.NormalDistribution, PerformNormalization = false
             };
 
             string opt1String = options1.ToString();

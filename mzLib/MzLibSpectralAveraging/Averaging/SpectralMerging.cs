@@ -145,7 +145,7 @@ namespace MzLibSpectralAveraging
             trimmedArray = OutlierRejection.RejectOutliers(intInitialArray, options);
             if (trimmedArray.Where(p => p != 0).Count() <= 1)
                 return 0;
-            weights = BinWeighting.CalculateWeights(trimmedArray, options.WeightingType);
+            weights = BinWeighting.CalculateWeights(trimmedArray, options.SpectraWeightingType);
             average = MergePeakValuesToAverage(trimmedArray, weights);
             return average;
         }

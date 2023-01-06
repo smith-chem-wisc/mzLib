@@ -12,12 +12,12 @@ namespace MzLibSpectralAveraging
     /// </summary>
     public static class SpectraFileProcessing
     {
-        public static MsDataScan[] ProcessSpectra(List<MsDataScan> scans, MzLibSpectralAveragingOptions options)
+        public static MsDataScan[] ProcessSpectra(List<MsDataScan> scans, SpectralAveragingOptions options)
         {
             switch (options.SpectraFileProcessingType)
             {
                 case SpectraFileProcessingType.AverageAll:
-                    return AverageAll(scans, options.SpectralAveragingOptions);
+                    return AverageAll(scans, options);
 
                 case SpectraFileProcessingType.AverageEverynScans:
                     options.ScanOverlap = 0;
@@ -61,7 +61,7 @@ namespace MzLibSpectralAveraging
             return msDataScans;
         }
 
-        private static MsDataScan[] AverageEverynScans(List<MsDataScan> scans, MzLibSpectralAveragingOptions options)
+        private static MsDataScan[] AverageEverynScans(List<MsDataScan> scans, SpectralAveragingOptions options)
         {
             List<MsDataScan> averagedScans = new();
             int scanNumberIndex = 1;
@@ -84,7 +84,7 @@ namespace MzLibSpectralAveraging
 
                 // average scans
                 MsDataScan representativeScan = scansToProcess.First();
-                MzSpectrum averagedSpectrum = scansToProcess.CombineSpectra(options.SpectralAveragingOptions);
+                MzSpectrum averagedSpectrum = scansToProcess.CombineSpectra(options);
                 MsDataScan averagedScan = new(averagedSpectrum, scanNumberIndex, 1,
                     representativeScan.IsCentroid, representativeScan.Polarity, scansToProcess.Select(p => p.RetentionTime).Minimum(),
                     averagedSpectrum.Range, null, representativeScan.MzAnalyzer, scansToProcess.Select(p => p.TotalIonCurrent).Average(),
@@ -99,7 +99,7 @@ namespace MzLibSpectralAveraging
             return averagedScans.ToArray();
         }
 
-        private static MsDataScan[] AverageDDAScans(List<MsDataScan> scans, MzLibSpectralAveragingOptions options)
+        private static MsDataScan[] AverageDDAScans(List<MsDataScan> scans, SpectralAveragingOptions options)
         {
             List<MsDataScan> averagedScans = new();
             List<MsDataScan> ms1Scans = scans.Where(p => p.MsnOrder == 1).ToList();
@@ -131,7 +131,7 @@ namespace MzLibSpectralAveraging
 
                 // average scans and add to averaged list
                 MsDataScan representativeScan = scansToProcess.First();
-                MzSpectrum averagedSpectrum = scansToProcess.CombineSpectra(options.SpectralAveragingOptions);
+                MzSpectrum averagedSpectrum = scansToProcess.CombineSpectra(options);
                 MsDataScan averagedScan = new(averagedSpectrum, scanNumberIndex, 1,
                     representativeScan.IsCentroid, representativeScan.Polarity, representativeScan.RetentionTime,
                     averagedSpectrum.Range, null, representativeScan.MzAnalyzer, scansToProcess.Select(p => p.TotalIonCurrent).Average(),
@@ -164,12 +164,12 @@ namespace MzLibSpectralAveraging
             return averagedScans.ToArray();
         }
 
-        private static MsDataScan[] AverageMovingAverageAllScans(List<MsDataScan> scans, MzLibSpectralAveragingOptions options)
+        private static MsDataScan[] AverageMovingAverageAllScans(List<MsDataScan> scans, SpectralAveragingOptions options)
         {
             throw new NotImplementedException();
         }
 
-        private static MsDataScan[] AverageMovingAverageMs1Scans(List<MsDataScan> scans, MzLibSpectralAveragingOptions options)
+        private static MsDataScan[] AverageMovingAverageMs1Scans(List<MsDataScan> scans, SpectralAveragingOptions options)
         {
             throw new NotImplementedException();
         }

@@ -129,7 +129,7 @@ namespace Test.AveragingTests
 
 			options.SetDefaultValues();
 			Assert.That(options.RejectionType == RejectionType.NoRejection);
-			Assert.That(options.WeightingType == WeightingType.NoWeight);
+			Assert.That(options.SpectraWeightingType == WeightingType.NoWeight);
 			Assert.That(0.1, Is.EqualTo(options.Percentile));
 			Assert.That(1.5, Is.EqualTo(options.MinSigmaValue));
 			Assert.That(1.5, Is.EqualTo(options.MaxSigmaValue));
