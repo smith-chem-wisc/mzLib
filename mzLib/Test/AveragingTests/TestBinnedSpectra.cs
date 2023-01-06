@@ -170,20 +170,5 @@ public class TestBinnedSpectra
             Is.EqualTo(expectedWeights).Within(0.01));
     }
 
-    [Test]
-    public void TestProcessPixelStacks()
-    {
-        SpectralAveragingOptions options = new(); 
-        options.SetDefaultValues();
-        BinnedSpectra bs = new(this.numSpectra);
-        bs.ConsumeSpectra(xArrays, yArrays, numSpectra, binSize);
-        bs.RecalculateTics();
-        bs.PerformNormalization();
-        bs.CalculateNoiseEstimates();
-        bs.CalculateScaleEstimates();
-        bs.CalculateWeights();
-        bs.RejectOutliers(options);
-        bs.MergeSpectra();
-        bs.GetMergedSpectrum();
-    }
+
 }

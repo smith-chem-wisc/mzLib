@@ -61,21 +61,19 @@ namespace Test.AveragingTests
             SpectralAveragingOptions options = new();
             MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
             DummyMzCopy.CopyTo(mzSpectras);
-            double[][] compositeSpectraValues = SpectralMerging.CombineSpectra(mzSpectras.Select(p => p.XArray).ToArray(),
-                mzSpectras.Select(p => p.YArray).ToArray(),
-                mzSpectras.Select(p => p.SumOfAllY).ToArray(), mzSpectras.Count(), options);
+            var compositeSpectra = mzSpectras.CombineSpectra(options);
+                
+
             double[] expected = new double[] { 0, 3.2, 0, 0, 0, 0, 0, 6.4, 0 };
-            Assert.That(compositeSpectraValues[0].Length == compositeSpectraValues[1].Length);
-            Assert.That(expected.SequenceEqual(compositeSpectraValues[1]));
+            Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
+            Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
 
             options.PerformNormalization = false;
             DummyMzCopy.CopyTo(mzSpectras);
-            compositeSpectraValues = SpectralMerging.CombineSpectra(mzSpectras.Select(p => p.XArray).ToArray(),
-                mzSpectras.Select(p => p.YArray).ToArray(),
-                mzSpectras.Select(p => p.SumOfAllY).ToArray(), mzSpectras.Count(), options);
+            compositeSpectra = mzSpectras.CombineSpectra(options);
             expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
-            Assert.That(compositeSpectraValues[0].Length == compositeSpectraValues[1].Length);
-            Assert.That(expected.SequenceEqual(compositeSpectraValues[1]));
+            Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
+            Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
         }
 
 
@@ -105,30 +103,5 @@ namespace Test.AveragingTests
             }
         }
 
-        [Test]
-        public static void TestProcessSingleMzArray()
-        {
-            double[] arr = new double[] { 1, 2, 3, 4, 5 };
-            double[] arr1 = new double[] { 1, 0, 0, 0, 0 };
-            double[] arr2 = new double[] { 0, 0, 0, 0, 0};
-            double[] arr3 = new double[] { 100, 10, 1};
-            SpectralAveragingOptions options = new SpectralAveragingOptions();
-            options.RejectionType = RejectionType.NoRejection;
-            options.PerformNormalization = false;
-            options.RejectionType = RejectionType.NoRejection;
-
-            var normalResult = SpectralMerging.ProcessSingleMzArray(arr, options);
-            Assert.That(normalResult == 3);
-
-            var allZerosResult = SpectralMerging.ProcessSingleMzArray(arr2, options);
-            Assert.That(allZerosResult == 0);
-
-            var allButOneZeroResult = SpectralMerging.ProcessSingleMzArray(arr1, options);
-            Assert.That(allButOneZeroResult == 0);
-
-            options.RejectionType = RejectionType.MinMaxClipping;
-            var oneLeftResult = SpectralMerging.ProcessSingleMzArray(arr3, options);
-            Assert.That(oneLeftResult == 0);
-        }
     }
 }

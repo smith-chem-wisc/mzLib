@@ -14,10 +14,10 @@ namespace MzLibSpectralAveraging
         /// <param name="spectraToAverage">Spectra to average</param>
         /// <param name="options">Options for how to average spectra</param>
         /// <returns></returns>
-        public static MzSpectrum CombineSpectra(this List<MzSpectrum> spectraToAverage,
+        public static MzSpectrum CombineSpectra(this IEnumerable<MzSpectrum> spectraToAverage,
             SpectralAveragingOptions options)
         {
-            BinnedSpectra binnedSpectra = new(spectraToAverage.Count);
+            BinnedSpectra binnedSpectra = new(spectraToAverage.Count());
             binnedSpectra.ConsumeSpectra(spectraToAverage, options.BinSize);
             binnedSpectra.RecalculateTics();
             return SpectralMerging.CombineSpectra(binnedSpectra, options).ToMzSpectrum();
@@ -29,7 +29,7 @@ namespace MzLibSpectralAveraging
         /// <param name="scansToAverage">Scans to average</param>
         /// <param name="options">Options for how to average scans</param>
         /// <returns></returns>
-        public static MzSpectrum CombineSpectra(this List<MsDataScan> scansToAverage, SpectralAveragingOptions options)
+        public static MzSpectrum CombineSpectra(this IEnumerable<MsDataScan> scansToAverage, SpectralAveragingOptions options)
         {
             return scansToAverage.Select(p => p.MassSpectrum).ToList().CombineSpectra(options);
         }

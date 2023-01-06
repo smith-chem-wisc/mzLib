@@ -21,9 +21,9 @@ namespace MzLibSpectralAveraging
         public static double[][] MzBinning(BinnedSpectra binnedSpectra, SpectralAveragingOptions options)
         {
             if (options.PerformNormalization) binnedSpectra.PerformNormalization();
-            SpectraWeighting.CalculateSpectraWeights(binnedSpectra, SpectraWeightingType.MrsNoiseEstimation);
+            var weights = SpectraWeighting.CalculateSpectraWeights(binnedSpectra, options.SpectraWeightingType);
             binnedSpectra.RejectOutliers(options);
-            binnedSpectra.MergeSpectra();
+            binnedSpectra.MergeSpectra(weights);
             return binnedSpectra.GetMergedSpectrum();
         }
 
@@ -39,30 +39,30 @@ namespace MzLibSpectralAveraging
                 case SpectrumMergingType.MzBinning:
                     return SpectrumBinning(xArrays, yArrays, totalIonCurrents, options.BinSize, numSpectra, options);
                 
-                case SpectrumMergingType.MrsNoiseEstimate:
-                    return MrsNoiseEstimation(xArrays, yArrays, numSpectra, options); 
+                //case SpectrumMergingType.MrsNoiseEstimate:
+                //    return MrsNoiseEstimation(xArrays, yArrays, numSpectra, options); 
 
                 default :
                     throw new NotImplementedException("Spectrum Merging Type Not Yet Implemented");
             }
         }
 
-        public static double[][] MrsNoiseEstimation(double[][] xArrays, double[][] yArrays,
-            int numSpectra, SpectralAveragingOptions options)
-        {
-            BinnedSpectra binnedSpectra = new(numSpectra); 
-            binnedSpectra.ConsumeSpectra(xArrays, yArrays, numSpectra, options.BinSize);
-            binnedSpectra.RecalculateTics();
-            if(options.PerformNormalization) binnedSpectra.PerformNormalization();
-            // could be async
-            binnedSpectra.CalculateNoiseEstimates();
-            binnedSpectra.CalculateScaleEstimates();
-            binnedSpectra.CalculateWeights();
-            // end 
-            binnedSpectra.RejectOutliers(options);
-            binnedSpectra.MergeSpectra(); 
-            return binnedSpectra.GetMergedSpectrum(); 
-        }
+        //public static double[][] MrsNoiseEstimation(double[][] xArrays, double[][] yArrays,
+        //    int numSpectra, SpectralAveragingOptions options)
+        //{
+        //    BinnedSpectra binnedSpectra = new(numSpectra); 
+        //    binnedSpectra.ConsumeSpectra(xArrays, yArrays, numSpectra, options.BinSize);
+        //    binnedSpectra.RecalculateTics();
+        //    if(options.PerformNormalization) binnedSpectra.PerformNormalization();
+        //    // could be async
+        //    binnedSpectra.CalculateNoiseEstimates();
+        //    binnedSpectra.CalculateScaleEstimates();
+        //    binnedSpectra.CalculateWeights();
+        //    // end 
+        //    binnedSpectra.RejectOutliers(options);
+        //    //binnedSpectra.MergeSpectra(); 
+        //    return binnedSpectra.GetMergedSpectrum(); 
+        //}
 
         /// <summary>
         /// Merges spectra into a two dimensional array of (m/z, int) values based upon their bin 

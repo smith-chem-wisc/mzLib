@@ -157,4 +157,9 @@ public class PixelStack
         }
         MergedIntensityValue = numerator / denominator;
     }
+
+    public override string ToString()
+    {
+        return Mzs.Average() + " : " + Intensity.Average();
+    }
 }

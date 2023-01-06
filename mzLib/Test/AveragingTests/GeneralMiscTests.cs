@@ -37,13 +37,13 @@ namespace Test.AveragingTests
             string opt6String = options6.ToString();
             string opt7String = options7.ToString();
 
-            Assert.That(opt1String.Equals("NoRejection_NoWeight_Normalized_BinSize-0.01"));
-            Assert.That(opt2String.Equals("PercentileClipping_NoWeight_Normalized_Percentile-0.2_BinSize-0.01"));
-            Assert.That(opt3String.Equals("SigmaClipping_NoWeight_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
-            Assert.That(opt4String.Equals("AveragedSigmaClipping_NoWeight_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
-            Assert.That(opt5String.Equals("WinsorizedSigmaClipping_NoWeight_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
-            Assert.That(opt6String.Equals("WinsorizedSigmaClipping_NormalDistribution_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
-            Assert.That(opt7String.Equals("WinsorizedSigmaClipping_NormalDistribution_MinSigma-1_MaxSigma-1_BinSize-0.01"));
+            Assert.That(opt1String.Equals("NoRejection_None_Normalized_BinSize-0.01"));
+            Assert.That(opt2String.Equals("PercentileClipping_None_Normalized_Percentile-0.2_BinSize-0.01"));
+            Assert.That(opt3String.Equals("SigmaClipping_None_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
+            Assert.That(opt4String.Equals("AveragedSigmaClipping_None_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
+            Assert.That(opt5String.Equals("WinsorizedSigmaClipping_None_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
+            Assert.That(opt6String.Equals("WinsorizedSigmaClipping_None_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
+            Assert.That(opt7String.Equals("WinsorizedSigmaClipping_TicValue_MinSigma-1_MaxSigma-1_BinSize-0.01"));
         }
     }
 }

@@ -25,7 +25,7 @@ namespace MzLibSpectralAveraging
         // TODO: Concurrent dictionaries should be temporary, and these should be sorted Dictionaries. 
         public SortedDictionary<int, double> NoiseEstimates { get; private set; }
         public SortedDictionary<int, double> ScaleEstimates { get; private set; }
-        public SortedDictionary<int, double> Weights { get; private set; }
+        public SortedDictionary<int, double> Weights { get;  set; }
         public double[] Tics { get; private set; }
         public int NumSpectra { get; set; }
         public List<double[]> RecalculatedSpectra => PixelStackListToSpectra(); 
@@ -361,11 +361,11 @@ namespace MzLibSpectralAveraging
         /// Collapses the pixel stack into a single m/z and intensity value. 
         /// </summary>
         /// <remarks>Speed optimized by using a Parallel.Foreach loop.</remarks>
-        public void MergeSpectra()
+        public void MergeSpectra(SortedDictionary<int, double> weights = null)
         {
             Parallel.ForEach(PixelStacks, pixelStack =>
             {
-                pixelStack.Average(Weights);
+                pixelStack.Average(weights ?? Weights);
             });
         }
         /// <summary>
@@ -378,13 +378,17 @@ namespace MzLibSpectralAveraging
             double[] xArray = PixelStacks.Select(i => i.MergedMzValue).ToArray();
             double[] yArray = PixelStacks.Select(i => i.MergedIntensityValue).ToArray();
 
-            for (int i = 0; i < yArray.Length; i++)
+            var combined = new List<(double mz, double intensity)>();
+            for (int i = 0; i < xArray.Length; i++)
             {
-                
+                if (xArray[i] != 0)
+                {
+                    combined.Add((xArray[i], yArray[i]));
+                }
             }
 
-
-            return new[] { xArray, yArray };
+            return new[] { combined.Select(p => p.mz).ToArray(), 
+                                        combined.Select(p => p.intensity).ToArray() };
         }
 
         /// <summary>

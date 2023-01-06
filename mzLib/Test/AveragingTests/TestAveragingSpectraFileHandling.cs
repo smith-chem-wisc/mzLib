@@ -31,11 +31,11 @@ namespace Test.AveragingTests
             SpectralAveragingOptions.PerformNormalization = false;
 
             double[] xArray = new double[] { 100.1453781, 200, 300, 400, 500, 600, 700, 800, 900.4123745 };
-            double[] yArray1 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
-            double[] yArray2 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
-            double[] yArray3 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
-            double[] yArray4 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
-            double[] yArray5 = new double[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            double[] yArray1 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            double[] yArray2 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            double[] yArray3 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            double[] yArray4 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            double[] yArray5 = new double[] { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             List<MzSpectrum> mzSpectra = new();
             mzSpectra.Add(new(xArray, yArray1, true));
             mzSpectra.Add(new(xArray, yArray2, true));

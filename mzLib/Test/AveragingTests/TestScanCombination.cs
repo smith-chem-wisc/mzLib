@@ -122,8 +122,8 @@ namespace Test.AveragingTests
             Stopwatch sw = Stopwatch.StartNew();
             SpectralAveragingOptions options = new SpectralAveragingOptions();
             options.SetDefaultValues();
-            options.BinSize = 1.0; 
-            options.SpectrumMergingType = SpectrumMergingType.MrsNoiseEstimate;
+            options.BinSize = 1.0;
+            options.SpectraWeightingType = SpectraWeightingType.MrsNoiseEstimation;
             options.RejectionType = rejection; 
             // TODO: Generate multiple binned spectra from a set of xArrays given the 
             // number of spectra. 
