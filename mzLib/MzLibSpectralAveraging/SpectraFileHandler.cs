@@ -19,12 +19,12 @@ namespace MzLibSpectralAveraging
         public static List<MsDataScan> LoadAllScansFromFile(string filepath)
         {
             List<MsDataScan> scans = new();
-            if (filepath.EndsWith(".mzML"))
+            if (filepath.EndsWith(".mzML", StringComparison.InvariantCultureIgnoreCase))
             {
                 var temp = Mzml.LoadAllStaticData(filepath);
                 scans = temp.GetAllScansList();
             }
-            else if (filepath.EndsWith(".raw"))
+            else if (filepath.EndsWith(".raw", StringComparison.InvariantCultureIgnoreCase))
             {
                 var temp = ThermoRawFileReader.LoadAllStaticData(filepath);
                 scans = temp.GetAllScansList();
