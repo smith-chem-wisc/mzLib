@@ -134,7 +134,7 @@ namespace Test.AveragingTests
 			Assert.That(1.5, Is.EqualTo(options.MinSigmaValue));
 			Assert.That(1.5, Is.EqualTo(options.MaxSigmaValue));
 
-			options.SetValues(RejectionType.MinMaxClipping, WeightingType.NoWeight, SpectrumMergingType.SpectrumBinning, true, .8, 2, 4);
+			options.SetValues(RejectionType.MinMaxClipping, WeightingType.NoWeight, SpectrumMergingType.MzBinning, true, .8, 2, 4);
 			Assert.That(options.RejectionType == RejectionType.MinMaxClipping);
 			Assert.That(0.8, Is.EqualTo(options.Percentile));
 			Assert.That(2, Is.EqualTo(options.MinSigmaValue));

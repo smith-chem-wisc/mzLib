@@ -5,6 +5,29 @@ namespace MzLibSpectralAveraging
 {
     public static class SpectralMerging
     {
+
+        public static double[][] CombineSpectra(BinnedSpectra binnedSpectra, SpectralAveragingOptions options)
+        {
+            switch (options.SpectrumMergingType)
+            {
+                case SpectrumMergingType.MzBinning:
+                     return MzBinning(binnedSpectra, options);
+
+                default:
+                    throw new NotImplementedException("Spectrum Merging Type Not Yet Implemented");
+            }
+        }
+
+        public static double[][] MzBinning(BinnedSpectra binnedSpectra, SpectralAveragingOptions options)
+        {
+            if (options.PerformNormalization) binnedSpectra.PerformNormalization();
+            SpectraWeighting.CalculateSpectraWeights(binnedSpectra, SpectraWeightingType.MrsNoiseEstimation);
+            binnedSpectra.RejectOutliers(options);
+            binnedSpectra.MergeSpectra();
+            return binnedSpectra.GetMergedSpectrum();
+        }
+
+
         /// <summary>
         /// Calls the specific merging function based upon the current static field SpecrumMergingType
         /// </summary>
@@ -13,12 +36,9 @@ namespace MzLibSpectralAveraging
         {
             switch (options.SpectrumMergingType)
             {
-                case SpectrumMergingType.SpectrumBinning:
+                case SpectrumMergingType.MzBinning:
                     return SpectrumBinning(xArrays, yArrays, totalIonCurrents, options.BinSize, numSpectra, options);
-
-                case SpectrumMergingType.MostSimilarSpectrum:
-                    return MostSimilarSpectrum();
-
+                
                 case SpectrumMergingType.MrsNoiseEstimate:
                     return MrsNoiseEstimation(xArrays, yArrays, numSpectra, options); 
 
@@ -39,7 +59,7 @@ namespace MzLibSpectralAveraging
             binnedSpectra.CalculateScaleEstimates();
             binnedSpectra.CalculateWeights();
             // end 
-            binnedSpectra.ProcessPixelStacks(options);
+            binnedSpectra.RejectOutliers(options);
             binnedSpectra.MergeSpectra(); 
             return binnedSpectra.GetMergedSpectrum(); 
         }
@@ -107,10 +127,6 @@ namespace MzLibSpectralAveraging
             return new double[][] {xArray, yArray};
         }
 
-        public static double[][] MostSimilarSpectrum()
-        {
-            throw new NotImplementedException();
-        }
 
         /// <summary>
         /// Main Engine of this Binning method, processes a single array of intesnity values for a single mz and returns their average

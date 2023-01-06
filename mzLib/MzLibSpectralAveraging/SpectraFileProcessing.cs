@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using MassSpectrometry;
 using MathNet.Numerics.Statistics;
@@ -31,6 +32,15 @@ namespace MzLibSpectralAveraging
 
                 case SpectraFileProcessingType.AverageDDAScansWithOverlap:
                     return AverageDDAScans(scans, options);
+
+
+                    // TODO: Implement these two
+                case SpectraFileProcessingType.MovingAverageMs1Scans:
+                    return AverageMovingAverageMs1Scans(scans, options);
+
+                case SpectraFileProcessingType.MovingAverageAllScans:
+                    return AverageMovingAverageAllScans(scans, options);
+
 
                 default: throw new MzLibException("Averaging spectra file processing type not yet implemented");
             }
@@ -152,6 +162,16 @@ namespace MzLibSpectralAveraging
             }
             
             return averagedScans.ToArray();
+        }
+
+        private static MsDataScan[] AverageMovingAverageAllScans(List<MsDataScan> scans, MzLibSpectralAveragingOptions options)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static MsDataScan[] AverageMovingAverageMs1Scans(List<MsDataScan> scans, MzLibSpectralAveragingOptions options)
+        {
+            throw new NotImplementedException();
         }
     }
 }

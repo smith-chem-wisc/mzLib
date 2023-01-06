@@ -28,7 +28,7 @@ namespace MzLibSpectralAveraging
         /// <param name="percentile">percentile for percentile clipping rejection type</param>
         /// <param name="sigma">sigma value for sigma clipping rejection types</param>
         public void SetValues(RejectionType rejectionType = RejectionType.NoRejection,
-            WeightingType intensityWeighingType = WeightingType.NoWeight, SpectrumMergingType spectrumMergingType = SpectrumMergingType.SpectrumBinning,
+            WeightingType intensityWeighingType = WeightingType.NoWeight, SpectrumMergingType spectrumMergingType = SpectrumMergingType.MzBinning,
             bool performNormalization = true, double percentile = 0.1, double minSigma = 1.5, double maxSigma = 1.5, double binSize = 0.01)
         {
             RejectionType = rejectionType;
@@ -48,7 +48,7 @@ namespace MzLibSpectralAveraging
         {
             RejectionType = RejectionType.NoRejection;
             WeightingType = WeightingType.NoWeight;
-            SpectrumMergingType = SpectrumMergingType.SpectrumBinning;
+            SpectrumMergingType = SpectrumMergingType.MzBinning;
             PerformNormalization = true;
             Percentile = 0.1;
             MinSigmaValue = 1.5;

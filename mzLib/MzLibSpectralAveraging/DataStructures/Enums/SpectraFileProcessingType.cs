@@ -7,5 +7,7 @@
         AverageEverynScansWithOverlap,
         AverageDDAScans,
         AverageDDAScansWithOverlap,
+        MovingAverageMs1Scans,
+        MovingAverageAllScans,
     }
 }

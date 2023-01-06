@@ -9,7 +9,9 @@ using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading.Tasks;
+using MassSpectrometry;
 using MathNet.Numerics;
+using MathNet.Numerics.RootFinding;
 using Nett;
 
 namespace MzLibSpectralAveraging
@@ -26,8 +28,9 @@ namespace MzLibSpectralAveraging
         public SortedDictionary<int, double> Weights { get; private set; }
         public double[] Tics { get; private set; }
         public int NumSpectra { get; set; }
-        private List<double[]> RecalculatedSpectra => PixelStackListToSpectra(); 
+        public List<double[]> RecalculatedSpectra => PixelStackListToSpectra(); 
         public int ReferenceSpectra { get; }
+
         /// <summary>
         /// Creates a binned spectra object given the number of spectra to be averaged
         /// and the reference spectra. 
@@ -51,6 +54,7 @@ namespace MzLibSpectralAveraging
             Tics = new double[numSpectra];
             ReferenceSpectra = referenceSpectra; 
         }
+
         /// <summary>
         /// 
         /// </summary>
@@ -65,19 +69,42 @@ namespace MzLibSpectralAveraging
 
             return results; 
         }
+
         /// <summary>
         /// Perform rejection based on the SpectralAveragingOptions based as an argument.
         /// </summary>
         /// <remarks>This method is optimized by using Parallel.ForEach. This is the correct choice because we are iterating over many
         /// pixel stacks in the spectra, exceeding my general criteria for surpassing the additional overhead (roughly 1000 operations) that parallelization requires. </remarks>
         /// <param name="options"></param>
-        public void ProcessPixelStacks(SpectralAveragingOptions options)
+        public void RejectOutliers(SpectralAveragingOptions options)
         {
             Parallel.ForEach(PixelStacks, pixelStack =>
             {
                 pixelStack.PerformRejection(options);
             }); 
         }
+
+        /// <summary>
+        /// Consumer Spectra override for MsDataScan objects
+        /// </summary>
+        /// <param name="scans">Scans to be added to this bin of spectra</param>
+        /// <param name="binSize">size of bins along x array</param>
+        public void ConsumeSpectra(IEnumerable<MsDataScan> scans, double binSize)
+        {
+            ConsumeSpectra(scans.Select(p => p.MassSpectrum), binSize);
+        }
+
+        /// <summary>
+        /// Consume Spectra override for MzSpectrum objects
+        /// </summary>
+        /// <param name="spectra">Spectra to be added to this bin of spectra</param>
+        /// <param name="binSize">size of bins along x array</param>
+        public void ConsumeSpectra(IEnumerable<MzSpectrum> spectra, double binSize)
+        {
+            ConsumeSpectra(spectra.Select(p => p.XArray).ToArray(),
+                spectra.Select(p => p.YArray).ToArray(), spectra.Count(), binSize);
+        }
+
         /// <summary>
         /// Takes jagged arrays of x axis and y axis values and converts them into PixelStack objects. Further ensures that bins
         /// with multiple values in a given spectra are managed appropriately and that empty bins are zero filled in the y array and have the correct
@@ -177,6 +204,7 @@ namespace MzLibSpectralAveraging
                 PixelStacks.Add(new PixelStack(xVals, yVals));
             }
         }
+
         /// <summary>
         /// Performs normalization based on the total ion current value for each pixel stack.
         /// </summary>
@@ -313,6 +341,7 @@ namespace MzLibSpectralAveraging
                 Weights.TryAdd(entry.Key, weight);
             }
         }
+
         /// <summary>
         /// After spectra are consumed, spectra that had more than one value in a bin have had that value averaged.
         /// Therefore, the original tic value is incorrect and the tic need to be recalculated.
@@ -350,6 +379,7 @@ namespace MzLibSpectralAveraging
             double[] yArray = PixelStacks.Select(i => i.MergedIntensityValue).ToArray();
             return new[] { xArray, yArray };
         }
+
         /// <summary>
         /// Creates a List of BinValue records given the x and y axis of a spectra. The BinValue record maintains
         /// the x and y values while also recording the bin that each set of values belongs to.  

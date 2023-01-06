@@ -182,7 +182,7 @@ public class TestBinnedSpectra
         bs.CalculateNoiseEstimates();
         bs.CalculateScaleEstimates();
         bs.CalculateWeights();
-        bs.ProcessPixelStacks(options);
+        bs.RejectOutliers(options);
         bs.MergeSpectra();
         bs.GetMergedSpectrum();
     }
