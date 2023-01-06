@@ -3,7 +3,6 @@ using System.Linq;
 using MassSpectrometry;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
-using SpectralAveraging;
 
 namespace MzLibSpectralAveraging
 {

@@ -3,15 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
-using SpectralAveraging;
-using UsefulProteomicsDatabases.Generated;
 
-namespace Test
+namespace Test.AveragingTests
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

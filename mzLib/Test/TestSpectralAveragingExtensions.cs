@@ -6,7 +6,6 @@ using System.Linq;
 using MassSpectrometry;
 using MzLibSpectralAveraging;
 using NUnit.Framework;
-using SpectralAveraging;
 
 namespace Test
 {

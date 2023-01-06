@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -9,7 +8,7 @@ using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
 
-namespace Test
+namespace Test.AveragingTests
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

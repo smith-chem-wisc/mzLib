@@ -1,6 +1,4 @@
-﻿using SpectralAveraging;
-
-namespace MzLibSpectralAveraging
+﻿namespace MzLibSpectralAveraging
 {
     public class MzLibSpectralAveragingOptions
     {
