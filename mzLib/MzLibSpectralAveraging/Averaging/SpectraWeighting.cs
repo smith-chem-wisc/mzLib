@@ -9,33 +9,50 @@ namespace MzLibSpectralAveraging
 {
     public static class SpectraWeighting
     {
-        public static double[] CalculateSpectraWeights(BinnedSpectra binnedSpectra, SpectraWeightingType weightingType)
+        public static SortedDictionary<int, double> CalculateSpectraWeights(BinnedSpectra binnedSpectra, SpectraWeightingType weightingType)
         {
             switch (weightingType)
             {
                 case SpectraWeightingType.None:
-
-                    break;
+                    return WeightEvenly(binnedSpectra);
 
                 case SpectraWeightingType.TicValue:
-
-                    break;
+                    return WeightByTicValue(binnedSpectra);
 
                 case SpectraWeightingType.MrsNoiseEstimation:
+                    return WeightByMrsNoiseEstimation(binnedSpectra);
 
-                    break;
+                default:
+                    throw new NotImplementedException("Spectra Weighting Type Not Implemented");
             }
-
-            return new double[5];
         }
 
-        private static void WeightByTicValue()
+        private static SortedDictionary<int, double> WeightEvenly(BinnedSpectra binnedSpectra)
         {
+            var weights = new SortedDictionary<int, double>();
 
+            for (int i = 0; i < binnedSpectra.NumSpectra; i++)
+            {
+                weights.TryAdd(i, 1);
+            }
+            return weights;
         }
 
-        private static void WeightByMrsNoiseEstimation(BinnedSpectra binnedSpectra, SpectralAveragingOptions options)
+        private static SortedDictionary<int, double> WeightByTicValue(BinnedSpectra binnedSpectra)
         {
+            var weights = new SortedDictionary<int, double>();
+            var maxTic = binnedSpectra.Tics.Max();
+
+            for (int i = 0; i < binnedSpectra.NumSpectra; i++)
+            {
+                weights.TryAdd(i, binnedSpectra.Tics[i] / maxTic);
+            }
+            return weights;
+        }
+
+        private static SortedDictionary<int, double> WeightByMrsNoiseEstimation(BinnedSpectra binnedSpectra)
+        {
+            var weights = new SortedDictionary<int, double>();
             // get noise and scale estimates
             SortedDictionary<int, double> noiseEstimates = CalculateNoiseEstimates(binnedSpectra);
             SortedDictionary<int, double> scaleEstimates = CalculateScaleEstimates(binnedSpectra);
@@ -56,8 +73,10 @@ namespace MzLibSpectralAveraging
 
                 double weight = 1d / Math.Pow((k * noise), 2);
 
-                binnedSpectra.Weights.TryAdd(entry.Key, weight);
+                weights.TryAdd(entry.Key, weight);
             }
+
+            return weights;
         }
 
         #region MrsNoiseHelpers

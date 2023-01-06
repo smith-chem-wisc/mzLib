@@ -377,6 +377,13 @@ namespace MzLibSpectralAveraging
         {
             double[] xArray = PixelStacks.Select(i => i.MergedMzValue).ToArray();
             double[] yArray = PixelStacks.Select(i => i.MergedIntensityValue).ToArray();
+
+            for (int i = 0; i < yArray.Length; i++)
+            {
+                
+            }
+
+
             return new[] { xArray, yArray };
         }
 
