@@ -15,7 +15,7 @@ namespace MzLibSpectralAveraging
         /// <param name="options"></param>
         /// <param name="spectraPath"></param>
         /// <exception cref="NotImplementedException"></exception>
-        public static void OutputAveragedScans(MsDataScan[] averagedScans, MzLibSpectralAveragingOptions options,
+        public static void OutputAveragedScans(MsDataScan[] averagedScans, SpectralAveragingOptions options,
            string spectraPath)
         {
             
@@ -51,7 +51,7 @@ namespace MzLibSpectralAveraging
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, averagedPath, true);
         }
 
-        private static void OutputAveragedSpectraAsTxtFile(MsDataScan[] averagedScans, MzLibSpectralAveragingOptions options,
+        private static void OutputAveragedSpectraAsTxtFile(MsDataScan[] averagedScans, SpectralAveragingOptions options,
             string spectraPath)
         {
             var spectraDirectory = Path.GetDirectoryName(spectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");

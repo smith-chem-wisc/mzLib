@@ -129,12 +129,13 @@ namespace Test.AveragingTests
 
 			options.SetDefaultValues();
 			Assert.That(options.RejectionType == RejectionType.NoRejection);
-			Assert.That(options.SpectraWeightingType == WeightingType.NoWeight);
+			Assert.That(options.SpectraWeightingType == SpectraWeightingType.None);
 			Assert.That(0.1, Is.EqualTo(options.Percentile));
 			Assert.That(1.5, Is.EqualTo(options.MinSigmaValue));
 			Assert.That(1.5, Is.EqualTo(options.MaxSigmaValue));
 
-			options.SetValues(RejectionType.MinMaxClipping, WeightingType.NoWeight, SpectrumMergingType.MzBinning, true, .8, 2, 4);
+			options.SetValues(RejectionType.MinMaxClipping, SpectraWeightingType.None, SpectrumMergingType.MzBinning,
+                performNormalization: true, percentile: .8, minSigma: 2, maxSigma: 4);
 			Assert.That(options.RejectionType == RejectionType.MinMaxClipping);
 			Assert.That(0.8, Is.EqualTo(options.Percentile));
 			Assert.That(2, Is.EqualTo(options.MinSigmaValue));

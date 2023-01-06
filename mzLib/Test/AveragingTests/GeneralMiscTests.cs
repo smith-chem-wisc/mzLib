@@ -21,12 +21,12 @@ namespace Test.AveragingTests
             SpectralAveragingOptions options6 = new SpectralAveragingOptions()
             {
                 RejectionType = RejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1,
-                SpectraWeightingType = WeightingType.NormalDistribution
+                SpectraWeightingType = SpectraWeightingType.None
             };
             SpectralAveragingOptions options7 = new SpectralAveragingOptions()
             {
                 RejectionType = RejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1,
-                SpectraWeightingType = WeightingType.NormalDistribution, PerformNormalization = false
+                SpectraWeightingType = SpectraWeightingType.TicValue, PerformNormalization = false
             };
 
             string opt1String = options1.ToString();
@@ -44,13 +44,6 @@ namespace Test.AveragingTests
             Assert.That(opt5String.Equals("WinsorizedSigmaClipping_NoWeight_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
             Assert.That(opt6String.Equals("WinsorizedSigmaClipping_NormalDistribution_Normalized_MinSigma-1_MaxSigma-1_BinSize-0.01"));
             Assert.That(opt7String.Equals("WinsorizedSigmaClipping_NormalDistribution_MinSigma-1_MaxSigma-1_BinSize-0.01"));
-        }
-
-        [Test]
-        public static void TestZeroStatistics()
-        {
-            double[] toCalc = new double[] { 0, 0, 0, 0, 0 };
-
         }
     }
 }

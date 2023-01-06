@@ -16,7 +16,7 @@ namespace Test.AveragingTests
     {
         public static string OutputDirectory;
         public static string SpectraPath;
-        public static MzLibSpectralAveragingOptions Options;
+        public static SpectralAveragingOptions Options;
         public static List<MsDataScan> Scans;
         public static MsDataScan[] DdaCompositeSpectra;
         public static MsDataScan[] AverageAllCompositeSpectra;
@@ -24,7 +24,7 @@ namespace Test.AveragingTests
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
-            Options = new MzLibSpectralAveragingOptions();
+            Options = new SpectralAveragingOptions();
             OutputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTestData");
             SpectraPath = Path.Combine(OutputDirectory, "TDYeastFractionMS1.mzML");
             Scans = SpectraFileHandler.LoadAllScansFromFile(SpectraPath);
