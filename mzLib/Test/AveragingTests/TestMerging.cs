@@ -61,7 +61,7 @@ namespace Test.AveragingTests
             SpectralAveragingOptions options = new();
             MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
             DummyMzCopy.CopyTo(mzSpectras);
-            var compositeSpectra = mzSpectras.CombineSpectra(options);
+            var compositeSpectra = mzSpectras.AverageSpectra(options);
                 
 
             double[] expected = new double[] { 0, 3.2, 0, 0, 0, 0, 0, 6.4, 0 };
@@ -70,7 +70,7 @@ namespace Test.AveragingTests
 
             options.PerformNormalization = false;
             DummyMzCopy.CopyTo(mzSpectras);
-            compositeSpectra = mzSpectras.CombineSpectra(options);
+            compositeSpectra = mzSpectras.AverageSpectra(options);
             expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
             Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
             Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
@@ -81,16 +81,12 @@ namespace Test.AveragingTests
         public static void TestCombineSpectraError()
         {
             SpectralAveragingOptions options = new SpectralAveragingOptions();
-            options.SpectrumMergingType = (SpectrumMergingType)(-1);
+            options.SpectraMergingType = (SpectraMergingType)(-1);
             MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
             DummyMzCopy.CopyTo(mzSpectras);
             try
             {
-                double[][] compositeSpectraValues = SpectralMerging.CombineSpectra(
-                    mzSpectras.Select(p => p.XArray).ToArray(),
-                    mzSpectras.Select(p => p.YArray).ToArray(),
-                    mzSpectras.Select(p => p.SumOfAllY).ToArray(),
-                    mzSpectras.Count(), options);
+                var compositeSpectraValues = mzSpectras.AverageSpectra(options);
                 Assert.That(false);
             }
             catch (NotImplementedException)

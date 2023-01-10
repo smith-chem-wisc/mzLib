@@ -11,13 +11,13 @@ namespace MzLibSpectralAveraging;
 /// </summary>
 /// <remarks>This was the key object in maintaining the link between source spectra, data, and whether or not the data was rejected.
 /// It was originally a record, but ultimately required me to use an object. However, I don't remember the reason why.</remarks>
-internal class Pixel
+public class Peak
 {
     public int SpectraId;
     public double Intensity;
     public double Mz;
     public bool Rejected;
-    public Pixel(int spectraId, double mz, double intensity, bool rejected)
+    public Peak(int spectraId, double mz, double intensity, bool rejected)
     {
         SpectraId = spectraId;
         Intensity = intensity;
@@ -27,9 +27,9 @@ internal class Pixel
     /// <summary>
     /// Custom comparer that facilitates searching and sorting lists of pixel objects. 
     /// </summary>
-    internal class PixelComparer : IComparer<Pixel>
+    internal class PixelComparer : IComparer<Peak>
     {
-        public int Compare(Pixel? x, Pixel? y)
+        public int Compare(Peak? x, Peak? y)
         {
             return x.SpectraId.CompareTo(y.SpectraId);
         }

@@ -10,9 +10,9 @@ namespace MzLibSpectralAveraging
     /// <summary>
     /// Manages the spectra files being averaged
     /// </summary>
-    public static class SpectraFileProcessing
+    public static class SpectraFileAveraging
     {
-        public static MsDataScan[] ProcessSpectra(List<MsDataScan> scans, SpectralAveragingOptions options)
+        public static MsDataScan[] AverageSpectraFile(List<MsDataScan> scans, SpectralAveragingOptions options)
         {
             switch (options.SpectraFileProcessingType)
             {
@@ -34,7 +34,7 @@ namespace MzLibSpectralAveraging
                     return AverageDDAScans(scans, options);
 
 
-                    // TODO: Implement these two
+                // TODO: Implement these two
                 case SpectraFileProcessingType.MovingAverageMs1Scans:
                     return AverageMovingAverageMs1Scans(scans, options);
 
@@ -50,7 +50,7 @@ namespace MzLibSpectralAveraging
         {
             // average spectrum
             MsDataScan representativeScan = scans.First();
-            MzSpectrum averagedSpectrum = scans.CombineSpectra(options);
+            MzSpectrum averagedSpectrum = scans.AverageSpectra(options);
 
             // create output
             MsDataScan averagedScan = new(averagedSpectrum, 1, representativeScan.OneBasedScanNumber,
@@ -79,12 +79,12 @@ namespace MzLibSpectralAveraging
                 }
                 else // anywhere in the middle of the file
                 {
-                    scansToProcess = scans.GetRange(i , options.NumberOfScansToAverage);
+                    scansToProcess = scans.GetRange(i, options.NumberOfScansToAverage);
                 }
 
                 // average scans
                 MsDataScan representativeScan = scansToProcess.First();
-                MzSpectrum averagedSpectrum = scansToProcess.CombineSpectra(options);
+                MzSpectrum averagedSpectrum = scansToProcess.AverageSpectra(options);
                 MsDataScan averagedScan = new(averagedSpectrum, scanNumberIndex, 1,
                     representativeScan.IsCentroid, representativeScan.Polarity, scansToProcess.Select(p => p.RetentionTime).Minimum(),
                     averagedSpectrum.Range, null, representativeScan.MzAnalyzer, scansToProcess.Select(p => p.TotalIonCurrent).Average(),
@@ -116,11 +116,11 @@ namespace MzLibSpectralAveraging
                 {
                     break;
                 }
-                else 
+                else
                 {
                     scansToProcess = ms1Scans.GetRange(i, options.NumberOfScansToAverage);
                     // if next iteration breaks the loop (end of file), then add the rest of the MS2's
-                    if ((i + options.NumberOfScansToAverage - options.ScanOverlap) + options.NumberOfScansToAverage > ms1Scans.Count)
+                    if (i + options.NumberOfScansToAverage - options.ScanOverlap + options.NumberOfScansToAverage > ms1Scans.Count)
                         ms2ScansFromAveragedScans = ms2Scans.Where(p =>
                             scansToProcess.Any(m => m.OneBasedScanNumber == p.OneBasedPrecursorScanNumber));
                     // if not, add MS2 scans from MS1's that will not be averaged in the next iteration
@@ -131,13 +131,13 @@ namespace MzLibSpectralAveraging
 
                 // average scans and add to averaged list
                 MsDataScan representativeScan = scansToProcess.First();
-                MzSpectrum averagedSpectrum = scansToProcess.CombineSpectra(options);
+                MzSpectrum averagedSpectrum = scansToProcess.AverageSpectra(options);
                 MsDataScan averagedScan = new(averagedSpectrum, scanNumberIndex, 1,
                     representativeScan.IsCentroid, representativeScan.Polarity, representativeScan.RetentionTime,
                     averagedSpectrum.Range, null, representativeScan.MzAnalyzer, scansToProcess.Select(p => p.TotalIonCurrent).Average(),
-                    scansToProcess.Select(p => p.InjectionTime).Average(), representativeScan.NoiseData, 
-                    representativeScan.NativeId, representativeScan.SelectedIonMZ, representativeScan.SelectedIonChargeStateGuess, 
-                    representativeScan.SelectedIonIntensity, representativeScan.IsolationMz, representativeScan.IsolationWidth, 
+                    scansToProcess.Select(p => p.InjectionTime).Average(), representativeScan.NoiseData,
+                    representativeScan.NativeId, representativeScan.SelectedIonMZ, representativeScan.SelectedIonChargeStateGuess,
+                    representativeScan.SelectedIonIntensity, representativeScan.IsolationMz, representativeScan.IsolationWidth,
                     representativeScan.DissociationType, representativeScan.OneBasedPrecursorScanNumber, representativeScan.SelectedIonMonoisotopicGuessIntensity);
                 string newNativeID =
                     averagedScan.NativeId.Replace(averagedScan.NativeId.Split("=").Last(), scanNumberIndex.ToString());
@@ -150,8 +150,8 @@ namespace MzLibSpectralAveraging
                 {
                     MsDataScan newScan = new(scan.MassSpectrum, scanNumberIndex, scan.MsnOrder, scan.IsCentroid,
                         scan.Polarity, scan.RetentionTime, scan.ScanWindowRange, scan.ScanFilter, scan.MzAnalyzer,
-                        scan.TotalIonCurrent, scan.InjectionTime, scan.NoiseData, scan.NativeId, scan.SelectedIonMZ, 
-                        scan.SelectedIonChargeStateGuess, scan.SelectedIonIntensity, scan.IsolationMz, scan.IsolationWidth, 
+                        scan.TotalIonCurrent, scan.InjectionTime, scan.NoiseData, scan.NativeId, scan.SelectedIonMZ,
+                        scan.SelectedIonChargeStateGuess, scan.SelectedIonIntensity, scan.IsolationMz, scan.IsolationWidth,
                         scan.DissociationType, precursorScanIndex, scan.SelectedIonMonoisotopicGuessMz);
                     newNativeID =
                         newScan.NativeId.Replace(newScan.NativeId.Split("=").Last(), scanNumberIndex.ToString());
@@ -160,7 +160,7 @@ namespace MzLibSpectralAveraging
                     scanNumberIndex++;
                 }
             }
-            
+
             return averagedScans.ToArray();
         }
 

@@ -13,20 +13,20 @@ namespace MzLibSpectralAveraging
         /// </summary>
         /// <param name="averagedScans"></param>
         /// <param name="options"></param>
-        /// <param name="spectraPath"></param>
+        /// <param name="originalSpectraPath"></param>
         /// <exception cref="NotImplementedException"></exception>
         public static void OutputAveragedScans(MsDataScan[] averagedScans, SpectralAveragingOptions options,
-           string spectraPath)
+           string originalSpectraPath)
         {
             
             switch (options.OutputType)
             {
                 case OutputType.mzML:
-                    OutputAveragedSpectraAsMzML(averagedScans, spectraPath);
+                    OutputAveragedSpectraAsMzML(averagedScans, originalSpectraPath);
                     break;
 
                 case OutputType.txt:
-                    OutputAveragedSpectraAsTxtFile(averagedScans, options, spectraPath);
+                    OutputAveragedSpectraAsTxtFile(averagedScans, options, originalSpectraPath);
                     break;
 
                 default: throw new MzLibException("Output averaged scans type not implemented");
@@ -38,23 +38,30 @@ namespace MzLibSpectralAveraging
         /// Outputs averaged spectra in mzml format to same location
         /// </summary>
         /// <param name="averagedScans"></param>
-        /// <param name="spectraPath"></param>
+        /// <param name="originalSpectraPath"></param>
         private static void OutputAveragedSpectraAsMzML(MsDataScan[] averagedScans,
-            string spectraPath)
+            string originalSpectraPath)
         {
-            var spectraDirectory = Path.GetDirectoryName(spectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");
-            SourceFile sourceFile = SpectraFileHandler.GetSourceFile(spectraPath);
+            var spectraDirectory = Path.GetDirectoryName(originalSpectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");
+            SourceFile sourceFile = SpectraFileHandler.GetSourceFile(originalSpectraPath);
             MsDataFile msDataFile = new(averagedScans, sourceFile);
             string averagedPath = Path.Combine(spectraDirectory,
-                "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(spectraPath) + ".mzML");
+                "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(originalSpectraPath) + ".mzML");
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, averagedPath, true);
         }
 
+        /// <summary>
+        /// Outputs averaged spectra in text format, with each spectra being 
+        /// </summary>
+        /// <param name="averagedScans"></param>
+        /// <param name="options"></param>
+        /// <param name="originalSpectraPath"></param>
+        /// <exception cref="MzLibException"></exception>
         private static void OutputAveragedSpectraAsTxtFile(MsDataScan[] averagedScans, SpectralAveragingOptions options,
-            string spectraPath)
+            string originalSpectraPath)
         {
-            var spectraDirectory = Path.GetDirectoryName(spectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");
+            var spectraDirectory = Path.GetDirectoryName(originalSpectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");
             if (options.SpectraFileProcessingType != SpectraFileProcessingType.AverageAll)
             {
                 spectraDirectory = Path.Combine(spectraDirectory, "AveragedSpectra");
@@ -64,14 +71,14 @@ namespace MzLibSpectralAveraging
 
             
             string averagedPath = Path.Combine(spectraDirectory,
-                "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(spectraPath)  + ".txt");
+                "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(originalSpectraPath)  + ".txt");
 
             foreach (var scan in averagedScans)
             {
                 if (options.SpectraFileProcessingType != SpectraFileProcessingType.AverageAll)
                     averagedPath = Path.Combine(spectraDirectory,
                         "Averaged_" +
-                        PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(spectraPath) +
+                        PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(originalSpectraPath) +
                         "_" + scan.OneBasedScanNumber + ".txt");
                 using StreamWriter writer = new StreamWriter(File.Create(averagedPath));
 

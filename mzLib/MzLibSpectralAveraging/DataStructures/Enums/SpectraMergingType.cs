@@ -4,7 +4,7 @@
     ///  Enum of options for spectrum binning. Likely that MzBinning will be deprecated.
     /// Use MrsNoiseEstimate as the default. 
     /// </summary>
-    public enum SpectrumMergingType
+    public enum SpectraMergingType
     {
         MzBinning,
         MrsNoiseEstimate

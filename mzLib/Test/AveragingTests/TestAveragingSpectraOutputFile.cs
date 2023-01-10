@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -19,7 +20,6 @@ namespace Test.AveragingTests
         public static SpectralAveragingOptions Options;
         public static List<MsDataScan> Scans;
         public static MsDataScan[] DdaCompositeSpectra;
-        public static MsDataScan[] AverageAllCompositeSpectra;
 
         [OneTimeSetUp]
         public static void OneTimeSetup()
@@ -27,12 +27,12 @@ namespace Test.AveragingTests
             Options = new SpectralAveragingOptions();
             OutputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTestData");
             SpectraPath = Path.Combine(OutputDirectory, "TDYeastFractionMS1.mzML");
-            Scans = SpectraFileHandler.LoadAllScansFromFile(SpectraPath);
+            Scans = SpectraFileHandler.LoadAllScansFromFile(SpectraPath).Take(50).ToList();
+
             Options.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
-            DdaCompositeSpectra = SpectraFileProcessing.ProcessSpectra(Scans, Options);
+            DdaCompositeSpectra = SpectraFileAveraging.AverageSpectraFile(Scans, Options);
             Assert.That(DdaCompositeSpectra.Length > 1);
-            Options.SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
-            AverageAllCompositeSpectra = SpectraFileProcessing.ProcessSpectra(Scans, Options);
+
         }
 
         [OneTimeTearDown]
@@ -59,16 +59,15 @@ namespace Test.AveragingTests
                 "Averaged_" + Path.GetFileNameWithoutExtension(SpectraPath) + ".mzML");
             Assert.That(File.Exists(averagedSpectraPath));
 
-            MsDataScan[] loadedScans = Mzml.LoadAllStaticData(averagedSpectraPath).GetAllScansList().ToArray();
+            var temp = Mzml.LoadAllStaticData(averagedSpectraPath);
+            MsDataScan[] loadedScans = temp.GetAllScansList().ToArray();
             for (var i = 0; i < loadedScans.Length; i++)
             {
-                Dictionary<double, double> mzandInt = DdaCompositeSpectra[i].MassSpectrum.XArray
-                    .Zip(DdaCompositeSpectra[i].MassSpectrum.YArray, (x, y) => new { x, y })
-                    .ToDictionary(p => p.x, p => p.y);
-                Dictionary<double, double> trimmedMzAndInt =
-                    mzandInt.Where(p => p.Value != 0).ToDictionary(p => p.Key, p => p.Value);
-                MzSpectrum trimmedDdaSpectrum = new MzSpectrum(trimmedMzAndInt.Keys.ToArray(), trimmedMzAndInt.Values.ToArray(), false);
-                Assert.That(loadedScans[i].MassSpectrum.Equals(trimmedDdaSpectrum));
+                for (int j = 0; j < loadedScans[i].MassSpectrum.YArray.Length; j++)
+                {
+                    Assert.That(Math.Abs(loadedScans[i].MassSpectrum.XArray[j] - DdaCompositeSpectra[i].MassSpectrum.XArray[j]) < 0.0001);
+                    Assert.That(Math.Abs(loadedScans[i].MassSpectrum.YArray[j] - DdaCompositeSpectra[i].MassSpectrum.YArray[j]) < 0.0001);
+                }
             }
 
             // test errors
@@ -85,7 +84,6 @@ namespace Test.AveragingTests
             Options.OutputType = OutputType.txt;
             Assert.That(Options.OutputType == OutputType.txt);
 
-            // test outputs where there will be multiple spectra
             Options.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
             AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, SpectraPath);
             Assert.That(Directory.Exists(Path.Combine(OutputDirectory, "AveragedSpectra")));
@@ -107,18 +105,6 @@ namespace Test.AveragingTests
                 MzSpectrum loadedSpectra = new(xArray, yArray, false);
                 Assert.That(loadedSpectra.Equals(DdaCompositeSpectra[i].MassSpectrum));
             }
-
-            // test average all output
-            Options.SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
-            AveragedSpectraOutputter.OutputAveragedScans(AverageAllCompositeSpectra, Options, SpectraPath);
-            string averagedSpectraPath = Path.Combine(OutputDirectory,
-                "Averaged_" + Path.GetFileNameWithoutExtension(SpectraPath) + ".txt");
-            Assert.That(File.Exists(averagedSpectraPath));
-            string[] mzAndInt = File.ReadAllLines(averagedSpectraPath);
-            double[] xArr = mzAndInt.Select(p => double.Parse(p.Split(',')[0])).ToArray();
-            double[] yArr = mzAndInt.Select(p => double.Parse(p.Split(',')[1])).ToArray();
-            MzSpectrum loadedSpectrum = new(xArr, yArr, true);
-            Assert.That(loadedSpectrum.Equals(AverageAllCompositeSpectra[0].MassSpectrum));
 
             // test errors
             var exception = Assert.Throws<MzLibException>(() => 

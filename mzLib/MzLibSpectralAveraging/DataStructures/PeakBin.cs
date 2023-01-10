@@ -14,67 +14,74 @@ namespace MzLibSpectralAveraging;
 /// what I was doing violated the single responsibility principle and refactored the class, breaking out the storage of m/z, intensity,
 /// source spectra, and rejection status into the Pixel class. Now, this class only (1) performs operations on the pixel list and
 /// (2) provides handles to the pixel list</remarks>
-public class PixelStack
+public class PeakBin
 {
-    public int Length => _pixels.Count;
-    public int NonRejectedLength => _pixels.Count(i => i.Rejected == false); 
+    public int Length => _peaks.Count;
+    public int NonRejectedLength => _peaks.Count(i => i.Rejected == false); 
     public double MergedIntensityValue { get; private set; }
-    public double MergedMzValue => CalculateMzAverage(); 
-    public List<double> Intensity => GetIntensities().ToList();
-    public List<double> Mzs => GetMzValues().ToList(); 
-    public IEnumerable<double> UnrejectedIntensities => GetUnrejectedIntValues();
-    public IEnumerable<double> UnrejectedMzs => GetUnrejectedMzValues();  
-    private List<Pixel> _pixels { get; set; }
-    
-    public PixelStack(IEnumerable<double> xArray, IEnumerable<double> yArray)
+
+    /// <summary>
+    /// Average of Unrejected Mz Values
+    /// </summary>
+    public double UnrejectedMzAverage => _peaks.Where(j => j.Rejected == false).Average(j => j.Mz);
+
+    /// <summary>
+    /// Intensity values of each pixel in stack
+    /// </summary>
+    public List<double> Intensities => _peaks.Select(i => i.Intensity).ToList();
+
+    /// <summary>
+    /// Mz values of each pixel in stack
+    /// </summary>
+    public List<double> Mzs => _peaks.Select(i => i.Mz).ToList();
+
+    /// <summary>
+    /// Intensity value of each unrejected pixel in stack
+    /// </summary>
+    public IEnumerable<double> UnrejectedIntensities => _peaks.Where(i => i.Rejected == false)
+        .Select(i => i.Intensity);
+   
+    /// <summary>
+    /// Mz Value of each unrejected pixel in stack
+    /// </summary>
+    public IEnumerable<double> UnrejectedMzs => _peaks.Where(i => i.Rejected == false)
+        .Select(i => i.Mz);
+
+    private List<Peak> _peaks { get; set; }
+
+    public List<Peak> Peaks => _peaks;
+
+    public PeakBin(IEnumerable<double> xArray, IEnumerable<double> yArray)
     {
-        _pixels = xArray.Zip(yArray, (mz, its) => (mz,its))
-            .Select((m,n) => new Pixel(n, m.mz, m.its, rejected:false))
+        _peaks = xArray.Zip(yArray, (mz, its) => (mz,its))
+            .Select((m,n) => new Peak(n, m.mz, m.its, rejected:false))
             .ToList();
-        _pixels.Sort(new Pixel.PixelComparer());
+        _peaks.Sort(new Peak.PixelComparer());
     }
-    /// <summary>
-    /// Get all intensities in a pixel stack, regardless of rejection status. 
-    /// </summary>
-    /// <returns></returns>
-    private IEnumerable<double> GetIntensities()
+
+    public PeakBin(IEnumerable<Peak> peaks)
     {
-        return _pixels.Select(i => i.Intensity);
+        _peaks = peaks.ToList();
+        _peaks.Sort(new Peak.PixelComparer());
     }
-    /// <summary>
-    /// Gets all mz values in a pixel stack, regardless of rejection status. 
-    /// </summary>
-    /// <returns></returns>
-    private IEnumerable<double> GetMzValues()
-    {
-        return _pixels.Select(i => i.Mz); 
-    }
-    /// <summary>
-    /// Gets only intensities that are not rejected. 
-    /// </summary>
-    /// <returns>Unrejected intensity values.</returns>
-    private IEnumerable<double> GetUnrejectedIntValues()
-    {
-        return _pixels.Where(i => i.Rejected == false)
-            .Select(i => i.Intensity); 
-    }
-    /// <summary>
-    /// Gets only mz values from pixels that aren't rejected. 
-    /// </summary>
-    /// <returns>Unrejected mz values.</returns>
-    private IEnumerable<double> GetUnrejectedMzValues()
-    {
-        return _pixels.Where(i => i.Rejected == false)
-            .Select(i => i.Mz);
-    }
+
     /// <summary>
     /// Sets the Rejection property of a Pixel object at the index specified to true. 
     /// </summary>
     /// <param name="index">The index of a pixel to be rejected.</param>
     public void Reject(int index)
     {
-        _pixels[index].Rejected = true; 
+        _peaks[index].Rejected = true; 
     }
+
+    /// <summary>
+    /// Sets the Rejection property of all Pixel objects to true. 
+    /// </summary>
+    public void RejectAll()
+    {
+        _peaks.ForEach(p => p.Rejected = true);
+    }
+
     /// <summary>
     /// Returns the Rejection value of the given pixel object
     /// </summary>
@@ -82,8 +89,9 @@ public class PixelStack
     /// <returns>True is pixel is rejected. False if pixel is not rejected.</returns>
     public bool IsIndexRejected(int index)
     {
-        return _pixels[index].Rejected;
+        return _peaks[index].Rejected;
     }
+
     /// <summary>
     /// Modifies the intensity property of a pixel value at a given index. 
     /// </summary>
@@ -91,14 +99,9 @@ public class PixelStack
     /// <param name="value"></param>
     internal void ModifyPixelIntensity(int index, double value)
     {
-        _pixels[index].Intensity = value; 
+        _peaks[index].Intensity = value; 
     }
 
-    // not currently used. 
-    //internal void ModifyPixelMz(int index, double value)
-    //{
-    //    _pixels[index].Intensity = value; 
-    //}
     /// <summary>
     /// Returns the intensity property of a pixel at the given index. 
     /// </summary>
@@ -106,7 +109,7 @@ public class PixelStack
     /// <returns></returns>
     public double GetIntensityAtIndex(int index)
     {
-        return _pixels[index].Intensity; 
+        return _peaks[index].Intensity; 
     }
 
     /// <summary>
@@ -116,43 +119,28 @@ public class PixelStack
     /// <returns></returns>
     public double GetMzAtIndex(int index)
     {
-        return _pixels[index].Mz; 
+        return _peaks[index].Mz; 
     }
-    /// <summary>
-    /// Calculates the average mz value of only unrejected pixels. 
-    /// </summary>
-    /// <returns></returns>
-    private double CalculateMzAverage()
-    {
-        return _pixels.Where(j => j.Rejected == false)
-            .Average(j => j.Mz); 
-    }
-    /// <summary>
-    /// Performs rejection on this pixel stack. 
-    /// </summary>
-    /// <param name="options">SpectralAveragingOptions object.</param>
-    public void PerformRejection(SpectralAveragingOptions options)
-    {
-        OutlierRejection.RejectOutliers(this, options);
-    }
+
     /// <summary>
     /// Performs weighted average calculation givens a dictionary of weights.
     /// </summary>
     /// <param name="weightsDictionary">A dictionary of weights where the key is the source spectra and the value is the weight associated with that spectra.</param>
+    /// <param name="originalTics"></param>
     /// 
     public void Average(IDictionary<int, double> weightsDictionary)
     {
         double numerator = 0;
         double denominator = 0;
 
-        _pixels.Sort(new Pixel.PixelComparer());
+        _peaks.Sort(new Peak.PixelComparer());
 
         foreach (var weight in weightsDictionary)
         {
-            int index = _pixels.IndexOf(_pixels.Where(i => i.SpectraId == weight.Key).First()); 
-            if (_pixels[index].Rejected == true) continue;
+            int index = _peaks.IndexOf(_peaks.First(i => i.SpectraId == weight.Key)); 
+            if (_peaks[index].Rejected) continue;
 
-            numerator += weight.Value * _pixels[index].Intensity;
+            numerator += weight.Value * _peaks[index].Intensity;
             denominator += weight.Value; 
         }
         MergedIntensityValue = numerator / denominator;
@@ -160,6 +148,6 @@ public class PixelStack
 
     public override string ToString()
     {
-        return Mzs.Average() + " : " + Intensity.Average();
+        return Mzs.Average() + " : " + Intensities.Average();
     }
 }

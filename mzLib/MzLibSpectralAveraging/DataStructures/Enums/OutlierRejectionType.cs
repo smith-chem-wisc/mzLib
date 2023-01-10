@@ -3,7 +3,7 @@
     /// <summary>
     /// List of rejection types implemented. 
     /// </summary>
-    public enum RejectionType
+    public enum OutlierRejectionType
     {
         NoRejection,
         MinMaxClipping,
@@ -12,7 +12,6 @@
         WinsorizedSigmaClipping,
         AveragedSigmaClipping,
         BelowThresholdRejection,
-        Thermo
     }
 
 

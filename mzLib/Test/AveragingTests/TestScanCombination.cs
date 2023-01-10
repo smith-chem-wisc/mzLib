@@ -103,12 +103,12 @@ namespace Test.AveragingTests
         }
 
         [Test, 
-        TestCase(RejectionType.SigmaClipping), 
-        TestCase(RejectionType.WinsorizedSigmaClipping), 
-        TestCase(RejectionType.AveragedSigmaClipping), 
-        TestCase(RejectionType.MinMaxClipping), 
-        TestCase(RejectionType.PercentileClipping)]
-        public void TestCombination(RejectionType rejection)
+        TestCase(OutlierRejectionType.SigmaClipping), 
+        TestCase(OutlierRejectionType.WinsorizedSigmaClipping), 
+        TestCase(OutlierRejectionType.AveragedSigmaClipping), 
+        TestCase(OutlierRejectionType.MinMaxClipping), 
+        TestCase(OutlierRejectionType.PercentileClipping)]
+        public void TestCombination(OutlierRejectionType outlierRejection)
         {
             using (StreamWriter sr = new("noisyOutput.txt"))
             {
@@ -123,12 +123,11 @@ namespace Test.AveragingTests
             SpectralAveragingOptions options = new SpectralAveragingOptions();
             options.SetDefaultValues();
             options.BinSize = 1.0;
-            options.SpectraWeightingType = SpectraWeightingType.MrsNoiseEstimation;
-            options.RejectionType = rejection; 
+            options.SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation;
+            options.OutlierRejectionType = outlierRejection; 
             // TODO: Generate multiple binned spectra from a set of xArrays given the 
             // number of spectra. 
-            double[][] results = SpectralMerging.CombineSpectra(xArrays, yArrays,
-                tics, 25, options);
+            double[][] results = SpectralAveraging.AverageSpectra(xArrays, yArrays, options);
             sw.Stop();
             Console.WriteLine(sw.ElapsedMilliseconds);
 

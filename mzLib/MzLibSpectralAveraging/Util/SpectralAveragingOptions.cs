@@ -5,9 +5,9 @@ namespace MzLibSpectralAveraging
     public class SpectralAveragingOptions
     {
         #region Averaging Options
-        public RejectionType RejectionType { get; set; }
-        public SpectraWeightingType SpectraWeightingType { get; set; }
-        public SpectrumMergingType SpectrumMergingType { get; set; }
+        public OutlierRejectionType OutlierRejectionType { get; set; }
+        public SpectraWeightingType SpectralWeightingType { get; set; }
+        public SpectraMergingType SpectraMergingType { get; set; }
         public SpectraFileProcessingType SpectraFileProcessingType { get; set; }
         public OutputType OutputType { get; set; }
         public bool PerformNormalization { get; set; }
@@ -28,20 +28,20 @@ namespace MzLibSpectralAveraging
         /// <summary>
         /// Can be used to set the values of the options class in one method call
         /// </summary>
-        /// <param name="rejectionType">rejection type to be used</param>
+        /// <param name="outlierRejectionType">rejection type to be used</param>
         /// <param name="percentile">percentile for percentile clipping rejection type</param>
         /// <param name="sigma">sigma value for sigma clipping rejection types</param>
-        public void SetValues(RejectionType rejectionType = RejectionType.NoRejection,
+        public void SetValues(OutlierRejectionType outlierRejectionType = OutlierRejectionType.NoRejection,
             SpectraWeightingType spectraWeighingType = SpectraWeightingType.None,
-            SpectrumMergingType spectrumMergingType = SpectrumMergingType.MzBinning,
+            SpectraMergingType spectraMergingType = SpectraMergingType.MzBinning,
             SpectraFileProcessingType specProcessingType = SpectraFileProcessingType.AverageAll,
             OutputType outputType = OutputType.mzML, int numToAverage = 5, int overlap = 2,
             bool performNormalization = true, double percentile = 0.1, double minSigma = 1.5,
             double maxSigma = 1.5, double binSize = 0.01)
         {
-            RejectionType = rejectionType;
-            SpectraWeightingType = spectraWeighingType;
-            SpectrumMergingType = spectrumMergingType;
+            OutlierRejectionType = outlierRejectionType;
+            SpectralWeightingType = spectraWeighingType;
+            SpectraMergingType = spectraMergingType;
             PerformNormalization = performNormalization;
             SpectraFileProcessingType = specProcessingType;
             OutputType = outputType;
@@ -58,9 +58,9 @@ namespace MzLibSpectralAveraging
         /// </summary>
         public void SetDefaultValues()
         {
-            RejectionType = RejectionType.NoRejection;
-            SpectraWeightingType = SpectraWeightingType.None;
-            SpectrumMergingType = SpectrumMergingType.MzBinning;
+            OutlierRejectionType = OutlierRejectionType.NoRejection;
+            SpectralWeightingType = SpectraWeightingType.None;
+            SpectraMergingType = SpectraMergingType.MzBinning;
             SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
             OutputType = OutputType.mzML;
             PerformNormalization = true;
@@ -79,16 +79,16 @@ namespace MzLibSpectralAveraging
         public override string ToString()
         {
             StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.Append(RejectionType.ToString() + '_');
-            stringBuilder.Append(SpectraWeightingType.ToString() + '_');
+            stringBuilder.Append(OutlierRejectionType.ToString() + '_');
+            stringBuilder.Append(SpectralWeightingType.ToString() + '_');
             if (PerformNormalization)
                 stringBuilder.Append("Normalized_");
 
             // rejection type specific 
-            if (RejectionType == RejectionType.PercentileClipping)
+            if (OutlierRejectionType == OutlierRejectionType.PercentileClipping)
                 stringBuilder.Append("Percentile-" + Percentile + '_');
-            if (RejectionType is RejectionType.WinsorizedSigmaClipping or RejectionType.AveragedSigmaClipping
-                or RejectionType.SigmaClipping)
+            if (OutlierRejectionType is OutlierRejectionType.WinsorizedSigmaClipping or OutlierRejectionType.AveragedSigmaClipping
+                or OutlierRejectionType.SigmaClipping)
             {
                 stringBuilder.Append("MinSigma-" + MinSigmaValue + '_');
                 stringBuilder.Append("MaxSigma-" + MaxSigmaValue + '_');
