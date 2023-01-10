@@ -119,15 +119,23 @@ namespace Test.AveragingTests
         }
 
         [Test]
-        public static void TestLoadingRawFilesAndSourceFiles()
+        [TestCase("DataFiles/small.RAW", 48, "Thermo nativeID format")]
+        [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
+        [TestCase("DataFiles/SmallCalibratibleYeast.mzml",142, "Thermo nativeID format")]
+        [TestCase("DataFiles/tester.mzML", 7, null)]
+        public static void TestLoadingRawFilesAndSourceFiles(string filePath, int expectedScanCount, string sourceFormat)
         {
-            string spectraPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles/small.raw");
+            string spectraPath = Path.Combine(TestContext.CurrentContext.TestDirectory, filePath);
             List<MsDataScan> scans = SpectraFileHandler.LoadAllScansFromFile(spectraPath);
-            Assert.That(scans.Count == 48);
+            Assert.That(scans.Count == expectedScanCount);
 
             SourceFile file = SpectraFileHandler.GetSourceFile(spectraPath);
-            Assert.That(file.NativeIdFormat == "Thermo nativeID format");
+            Assert.That(file.NativeIdFormat == sourceFormat);
+        }
 
+        [Test]
+        public static void TestLoadingFileErrors()
+        {
             string badPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles/small.toml");
 
             var exception = Assert.Throws<MzLibException>(() =>

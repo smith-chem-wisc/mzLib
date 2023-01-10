@@ -45,11 +45,11 @@ namespace MzLibSpectralAveraging
         public static SourceFile GetSourceFile(string filepath)
         {
             List<MsDataScan> scans = new();
-            if (filepath.EndsWith(".mzML"))
+            if (filepath.EndsWith(".mzML", StringComparison.InvariantCultureIgnoreCase))
             {
                 return Mzml.LoadAllStaticData(filepath).SourceFile;
             }
-            else if (filepath.EndsWith(".raw"))
+            else if (filepath.EndsWith(".raw", StringComparison.InvariantCultureIgnoreCase))
             {
                 return ThermoRawFileReader.LoadAllStaticData(filepath).SourceFile;
             }

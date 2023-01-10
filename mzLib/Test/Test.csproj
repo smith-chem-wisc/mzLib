@@ -375,8 +375,4 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="AveragingTests\Happy With\" />
-  </ItemGroup>
-
 </Project>
