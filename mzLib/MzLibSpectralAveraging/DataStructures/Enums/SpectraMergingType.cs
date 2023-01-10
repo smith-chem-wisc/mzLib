@@ -6,7 +6,6 @@
     /// </summary>
     public enum SpectraMergingType
     {
-        MzBinning,
-        MrsNoiseEstimate
+        MzBinning
     }
 }

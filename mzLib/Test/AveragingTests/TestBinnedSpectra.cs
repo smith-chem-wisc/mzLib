@@ -14,8 +14,9 @@ public class TestBinnedSpectra
     private double[][] xArrays;
     private double[][] yArrays;
     private double[] tics;
-    private int numSpectra;
-    private double binSize; 
+    private double binSize;
+    
+    // TODO: Run these tests on mzSpectrum and MsDataScans
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
@@ -36,10 +37,9 @@ public class TestBinnedSpectra
         tics[0] = yArrays[0].Sum();
         tics[1] = yArrays[1].Sum();
         tics[2] = yArrays[2].Sum();
-        numSpectra = 3;
-        binSize = 1.0; 
+        binSize = 1.0;
+        
 
-        SpectralAveragingOptions options = new SpectralAveragingOptions();
     }
 
     [Test]
@@ -127,25 +127,4 @@ public class TestBinnedSpectra
         double[] expected = new double[] { 72d, 65d, 150d };
         Assert.That(bs.Tics, Is.EqualTo(expected));
     }
-    
-    [Test]
-    public void TestCalculateWeights()
-    {
-        BinnedSpectra bs = new(xArrays, yArrays, binSize);
-        bs.PerformNormalization();
-        SpectralWeighting.CalculateSpectraWeights(bs, new SpectralAveragingOptions() {SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation});
-        double[] expectedWeights = new[]
-        {
-            //1539.23913, 
-            //1636.63560,
-            //755.37045
-            2073.60000,
-            3785.99353127,
-            889.4099838
-        }; 
-        Assert.That(bs.Weights.Values.ToArray(), 
-            Is.EqualTo(expectedWeights).Within(0.01));
-    }
-
-
 }

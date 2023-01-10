@@ -405,12 +405,12 @@ public class TestOutlierRejection
 
         options.SetDefaultValues();
         Assert.That(options.OutlierRejectionType == OutlierRejectionType.NoRejection);
-        Assert.That(options.SpectralWeightingType == SpectraWeightingType.None);
+        Assert.That(options.SpectralWeightingType == SpectraWeightingType.WeightEvenly);
         Assert.That(0.1, Is.EqualTo(options.Percentile));
         Assert.That(1.5, Is.EqualTo(options.MinSigmaValue));
         Assert.That(1.5, Is.EqualTo(options.MaxSigmaValue));
 
-        options.SetValues(OutlierRejectionType.MinMaxClipping, SpectraWeightingType.None, SpectraMergingType.MzBinning,
+        options.SetValues(OutlierRejectionType.MinMaxClipping, SpectraWeightingType.WeightEvenly, SpectraMergingType.MzBinning,
             performNormalization: true, percentile: .8, minSigma: 2, maxSigma: 4);
         Assert.That(options.OutlierRejectionType == OutlierRejectionType.MinMaxClipping);
         Assert.That(0.8, Is.EqualTo(options.Percentile));

@@ -56,7 +56,7 @@ namespace Test.AveragingTests
         }
 
         [Test]
-        public static void TestSpectralBinning()
+        public static void TestMzBinning()
         {
             SpectralAveragingOptions options = new();
             MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
@@ -76,9 +76,25 @@ namespace Test.AveragingTests
             Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
         }
 
+        [Test]
+        public static void TestAverageSpectraExtensions()
+        {
+            SpectralAveragingOptions options = new();
+            List<MsDataScan> scans = ActualScans.Take(5).ToList();
+            List<MzSpectrum> spectra = new();
+            foreach (var scan in scans)
+            {
+                spectra.Add(new(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true));
+            }
+
+            MzSpectrum compositeMsDataScanSpectrum = scans.AverageSpectra(options);
+            MzSpectrum compositeMzSpectrumSpectrum = spectra.AverageSpectra(options);
+            Assert.That(compositeMzSpectrumSpectrum.Equals(compositeMsDataScanSpectrum));
+        }
+
 
         [Test]
-        public static void TestCombineSpectraError()
+        public static void TestAverageSpectraError()
         {
             SpectralAveragingOptions options = new SpectralAveragingOptions();
             options.SpectraMergingType = (SpectraMergingType)(-1);

@@ -59,6 +59,32 @@ namespace MzLibSpectralAveraging
             ConsumeSpectra(xArrays, yArrays, binSize);
         }
 
+        public BinnedSpectra(IEnumerable<MzSpectrum> spectra, double binSize, int referenceSpectra = 0)
+        {
+            PeakBins = new List<PeakBin>();
+            NoiseEstimates = new SortedDictionary<int, double>();
+            ScaleEstimates = new SortedDictionary<int, double>();
+            Weights = new SortedDictionary<int, double>();
+            NumSpectra = spectra.Count();
+            Tics = new double[NumSpectra];
+            ReferenceSpectra = referenceSpectra;
+            ConsumeSpectra(spectra.Select(p => p.XArray).ToArray(), 
+                spectra.Select(p => p.YArray).ToArray(), binSize);
+        }
+
+        public BinnedSpectra(IEnumerable<MsDataScan> scans, double binSize, int referenceSpectra = 0)
+        {
+            PeakBins = new List<PeakBin>();
+            NoiseEstimates = new SortedDictionary<int, double>();
+            ScaleEstimates = new SortedDictionary<int, double>();
+            Weights = new SortedDictionary<int, double>();
+            NumSpectra = scans.Count();
+            Tics = new double[NumSpectra];
+            ReferenceSpectra = referenceSpectra;
+            ConsumeSpectra(scans.Select(p => p.MassSpectrum.XArray).ToArray(),
+                scans.Select(p => p.MassSpectrum.YArray).ToArray(), binSize);
+        }
+
         /// <summary>
         /// Performs normalization based on the total ion current value for each pixel stack
         /// </summary>

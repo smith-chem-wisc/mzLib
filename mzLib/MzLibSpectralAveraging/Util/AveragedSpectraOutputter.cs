@@ -18,7 +18,7 @@ namespace MzLibSpectralAveraging
         public static void OutputAveragedScans(MsDataScan[] averagedScans, SpectralAveragingOptions options,
            string originalSpectraPath)
         {
-            
+
             switch (options.OutputType)
             {
                 case OutputType.mzML:
@@ -69,9 +69,9 @@ namespace MzLibSpectralAveraging
                     Directory.CreateDirectory(spectraDirectory);
             }
 
-            
+
             string averagedPath = Path.Combine(spectraDirectory,
-                "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(originalSpectraPath)  + ".txt");
+                "Averaged_" + PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(originalSpectraPath) + ".txt");
 
             foreach (var scan in averagedScans)
             {

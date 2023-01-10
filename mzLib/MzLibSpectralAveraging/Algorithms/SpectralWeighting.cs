@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MzLibUtil;
 
 namespace MzLibSpectralAveraging
 {
@@ -13,7 +14,7 @@ namespace MzLibSpectralAveraging
         {
             switch (options.SpectralWeightingType)
             {
-                case SpectraWeightingType.None:
+                case SpectraWeightingType.WeightEvenly:
                     WeightEvenly(binnedSpectra);
                     break;
 
@@ -26,7 +27,7 @@ namespace MzLibSpectralAveraging
                     break;
 
                 default:
-                    throw new NotImplementedException("Spectra Weighting Type Not Implemented");
+                    throw new MzLibException("Spectra Weighting Type Not Implemented");
             }
         }
 

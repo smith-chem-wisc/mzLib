@@ -27,7 +27,7 @@ namespace Test.AveragingTests
                 @"AveragingTestData\TDYeastFractionMS1.mzML")).Take(50).ToList();
             SpectralAveragingOptions = new();
             SpectralAveragingOptions.OutlierRejectionType = OutlierRejectionType.NoRejection;
-            SpectralAveragingOptions.SpectralWeightingType = SpectraWeightingType.None;
+            SpectralAveragingOptions.SpectralWeightingType = SpectraWeightingType.WeightEvenly;
             SpectralAveragingOptions.PerformNormalization = false;
 
             double[] xArray = new double[] { 100.1453781, 200, 300, 400, 500, 600, 700, 800, 900.4123745 };

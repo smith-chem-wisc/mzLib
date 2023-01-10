@@ -32,7 +32,7 @@ namespace MzLibSpectralAveraging
         /// <param name="percentile">percentile for percentile clipping rejection type</param>
         /// <param name="sigma">sigma value for sigma clipping rejection types</param>
         public void SetValues(OutlierRejectionType outlierRejectionType = OutlierRejectionType.NoRejection,
-            SpectraWeightingType spectraWeighingType = SpectraWeightingType.None,
+            SpectraWeightingType spectraWeighingType = SpectraWeightingType.WeightEvenly,
             SpectraMergingType spectraMergingType = SpectraMergingType.MzBinning,
             SpectraFileProcessingType specProcessingType = SpectraFileProcessingType.AverageAll,
             OutputType outputType = OutputType.mzML, int numToAverage = 5, int overlap = 2,
@@ -59,7 +59,7 @@ namespace MzLibSpectralAveraging
         public void SetDefaultValues()
         {
             OutlierRejectionType = OutlierRejectionType.NoRejection;
-            SpectralWeightingType = SpectraWeightingType.None;
+            SpectralWeightingType = SpectraWeightingType.WeightEvenly;
             SpectraMergingType = SpectraMergingType.MzBinning;
             SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
             OutputType = OutputType.mzML;

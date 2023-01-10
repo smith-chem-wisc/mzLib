@@ -26,7 +26,7 @@ namespace Test.AveragingTests
             SpectralAveragingOptions options6 = new SpectralAveragingOptions()
             {
                 OutlierRejectionType = OutlierRejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1,
-                SpectralWeightingType = SpectraWeightingType.None
+                SpectralWeightingType = SpectraWeightingType.WeightEvenly
             };
             SpectralAveragingOptions options7 = new SpectralAveragingOptions()
             {

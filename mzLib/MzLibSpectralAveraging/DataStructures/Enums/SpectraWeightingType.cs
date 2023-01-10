@@ -8,7 +8,7 @@ namespace MzLibSpectralAveraging
 {
     public enum SpectraWeightingType
     {
-        None,
+        WeightEvenly,
         MrsNoiseEstimation,
         TicValue
     }
