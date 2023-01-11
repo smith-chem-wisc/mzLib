@@ -17,20 +17,20 @@ namespace Test.AveragingTests
     {
         public static string OutputDirectory;
         public static string SpectraPath;
-        public static SpectralAveragingOptions Options;
+        public static SpectralAveragingParameters Parameters;
         public static List<MsDataScan> Scans;
         public static MsDataScan[] DdaCompositeSpectra;
 
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
-            Options = new SpectralAveragingOptions();
+            Parameters = new SpectralAveragingParameters();
             OutputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTestData");
             SpectraPath = Path.Combine(OutputDirectory, "TDYeastFractionMS1.mzML");
             Scans = SpectraFileHandler.LoadAllScansFromFile(SpectraPath).Take(50).ToList();
 
-            Options.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
-            DdaCompositeSpectra = SpectraFileAveraging.AverageSpectraFile(Scans, Options);
+            Parameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
+            DdaCompositeSpectra = SpectraFileAveraging.AverageSpectraFile(Scans, Parameters);
             Assert.That(DdaCompositeSpectra.Length > 1);
 
         }
@@ -53,8 +53,8 @@ namespace Test.AveragingTests
         public static void OutputAveragedSpectraAsMzMLTest()
         {
             // test that it outputs correctly
-            Assert.That(Options.OutputType == OutputType.mzML);
-            AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, SpectraPath);
+            Assert.That(Parameters.OutputType == OutputType.mzML);
+            AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
             string averagedSpectraPath = Path.Combine(OutputDirectory,
                 "Averaged_" + Path.GetFileNameWithoutExtension(SpectraPath) + ".mzML");
             Assert.That(File.Exists(averagedSpectraPath));
@@ -73,7 +73,7 @@ namespace Test.AveragingTests
             // test errors
             var exception = Assert.Throws<MzLibException>(() =>
             {
-                AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, "");
+                AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, "");
             });
             Assert.That(exception.Message == "Cannot Access Spectra Directory");
         }
@@ -81,11 +81,11 @@ namespace Test.AveragingTests
         [Test]
         public static void OutputAveragedSpectraAsTxt()
         {
-            Options.OutputType = OutputType.txt;
-            Assert.That(Options.OutputType == OutputType.txt);
+            Parameters.OutputType = OutputType.txt;
+            Assert.That(Parameters.OutputType == OutputType.txt);
 
-            Options.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
-            AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, SpectraPath);
+            Parameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
+            AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
             Assert.That(Directory.Exists(Path.Combine(OutputDirectory, "AveragedSpectra")));
             string[] txtFiles = Directory.GetFiles(Path.Combine(OutputDirectory, "AveragedSpectra"))
                 .OrderBy(p => double.Parse(p.Split('_').Last().Replace(".txt", ""))).ToArray();
@@ -109,7 +109,7 @@ namespace Test.AveragingTests
             // test errors
             var exception = Assert.Throws<MzLibException>(() => 
             { 
-                AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Options, "");
+                AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, "");
             } );
             Assert.That(exception.Message == "Cannot Access Spectra Directory");
 

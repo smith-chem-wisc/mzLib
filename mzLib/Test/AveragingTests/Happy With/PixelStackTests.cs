@@ -92,13 +92,13 @@ public class PixelStackTests
     [TestCase(OutlierRejectionType.NoRejection)]
     public void TestEmptyPixelStack(OutlierRejectionType outlierRejection)
     {
-        SpectralAveragingOptions options = new(); 
-        options.SetDefaultValues();
-        options.OutlierRejectionType = outlierRejection; 
+        SpectralAveragingParameters parameters = new(); 
+        parameters.SetDefaultValues();
+        parameters.OutlierRejectionType = outlierRejection; 
         List<double> emptyXarray = new();
         List<double> emptyYarray = new(); 
         PeakBin emptyStack = new(emptyXarray, emptyYarray);
-        OutlierRejection.RejectOutliers(emptyStack, options);
+        OutlierRejection.RejectOutliers(emptyStack, parameters);
 
 
     }

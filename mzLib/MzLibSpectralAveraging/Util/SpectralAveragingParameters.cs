@@ -1,16 +1,22 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 
 namespace MzLibSpectralAveraging
 {
-    public class SpectralAveragingOptions
+    public class SpectralAveragingParameters
     {
         #region Averaging Options
         public OutlierRejectionType OutlierRejectionType { get; set; }
         public SpectraWeightingType SpectralWeightingType { get; set; }
+        public NormalizationType NormalizationType { get; set; }
         public SpectraMergingType SpectraMergingType { get; set; }
         public SpectraFileProcessingType SpectraFileProcessingType { get; set; }
         public OutputType OutputType { get; set; }
+
+        [Obsolete]
         public bool PerformNormalization { get; set; }
+
+
         public double Percentile { get; set; }
         public double MinSigmaValue { get; set; }
         public double MaxSigmaValue { get; set; }
@@ -20,7 +26,7 @@ namespace MzLibSpectralAveraging
 
         #endregion
 
-        public SpectralAveragingOptions()
+        public SpectralAveragingParameters()
         {
             SetDefaultValues();
         }
@@ -34,6 +40,7 @@ namespace MzLibSpectralAveraging
         public void SetValues(OutlierRejectionType outlierRejectionType = OutlierRejectionType.NoRejection,
             SpectraWeightingType spectraWeighingType = SpectraWeightingType.WeightEvenly,
             SpectraMergingType spectraMergingType = SpectraMergingType.MzBinning,
+            NormalizationType normalizationType = NormalizationType.RelativeToTics,
             SpectraFileProcessingType specProcessingType = SpectraFileProcessingType.AverageAll,
             OutputType outputType = OutputType.mzML, int numToAverage = 5, int overlap = 2,
             bool performNormalization = true, double percentile = 0.1, double minSigma = 1.5,
@@ -42,6 +49,7 @@ namespace MzLibSpectralAveraging
             OutlierRejectionType = outlierRejectionType;
             SpectralWeightingType = spectraWeighingType;
             SpectraMergingType = spectraMergingType;
+            NormalizationType = normalizationType;
             PerformNormalization = performNormalization;
             SpectraFileProcessingType = specProcessingType;
             OutputType = outputType;
@@ -62,6 +70,7 @@ namespace MzLibSpectralAveraging
             SpectralWeightingType = SpectraWeightingType.WeightEvenly;
             SpectraMergingType = SpectraMergingType.MzBinning;
             SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
+            NormalizationType = NormalizationType.RelativeToTics;
             OutputType = OutputType.mzML;
             PerformNormalization = true;
             ScanOverlap = 2;

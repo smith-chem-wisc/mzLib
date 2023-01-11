@@ -1,340 +1,258 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
-namespace MzLibSpectralAveraging;
-
-public static class OutlierRejection
+namespace MzLibSpectralAveraging
 {
-    /// <summary>
-    /// Perform rejection based on the SpectralAveragingOptions based as an argument.
-    /// </summary>
-    /// <remarks>This method is optimized by using Parallel.ForEach. This is the correct choice because we are iterating over many
-    /// pixel stacks in the spectra, exceeding my general criteria for surpassing the additional overhead (roughly 1000 operations) that parallelization requires. </remarks>
-    /// <param name="peakBin">stack which should be checked for outliers</param>
-    /// <param name="options">which outlier rejection method to use</param>
-    public static void RejectOutliers(PeakBin peakBin, SpectralAveragingOptions options)
+    public static partial class OutlierRejection
     {
-        switch (options.OutlierRejectionType)
+        /// <summary>
+        /// Calls the specific rejection function based upon the current static field RejectionType
+        /// </summary>
+        /// <param name="valuesToCheckForRejection">list of mz values to evaluate<</param>
+        /// <returns></returns>
+        public static double[] RejectOutliers(double[] valuesToCheckForRejection, SpectralAveragingParameters parameters)
         {
-            case OutlierRejectionType.NoRejection:
-                break;
-
-            case OutlierRejectionType.MinMaxClipping:
-                MinMaxClipping(peakBin);
-                break;
-
-            case OutlierRejectionType.PercentileClipping:
-                PercentileClipping(peakBin, options.Percentile);
-                break;
-
-            case OutlierRejectionType.SigmaClipping:
-                SigmaClipping(peakBin, options.MinSigmaValue, options.MaxSigmaValue);
-                break;
-
-            case OutlierRejectionType.WinsorizedSigmaClipping:
-                WinsorizedSigmaClipping(peakBin, options.MinSigmaValue, options.MaxSigmaValue);
-                break;
-
-            case OutlierRejectionType.AveragedSigmaClipping:
-                AveragedSigmaClipping(peakBin, options.MinSigmaValue, options.MaxSigmaValue);
-                break;
-
-            case OutlierRejectionType.BelowThresholdRejection:
-                BelowThresholdRejection(peakBin);
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Perform rejection based on the SpectralAveragingOptions based as an argument.
-    /// Overload Method for binned spectra
-    /// </summary>
-    /// <remarks>This method is optimized by using Parallel.ForEach. This is the correct choice because we are iterating over many
-    /// pixel stacks in the spectra, exceeding my general criteria for surpassing the additional overhead (roughly 1000 operations) that parallelization requires. </remarks>
-    /// <param name="binnedSpectra">spectra whose outlier should be rejected</param>
-    /// <param name="options">which outlier rejection method to use</param>
-    public static void RejectOutliers(BinnedSpectra binnedSpectra, SpectralAveragingOptions options)
-    {
-        Parallel.ForEach(binnedSpectra.PeakBins, pixelStack =>
-        {
-            RejectOutliers(pixelStack, options);
-        });
-    }
-
-    /// <summary>
-    /// Perform rejection based on the SpectralAveragingOptions based as an argument.
-    /// Overload Method for binned spectra
-    /// </summary>
-    /// <remarks>This method is optimized by using Parallel.ForEach. This is the correct choice because we are iterating over many
-    /// pixel stacks in the spectra, exceeding my general criteria for surpassing the additional overhead (roughly 1000 operations) that parallelization requires. </remarks>
-    /// <param name="intensityArray">intensity values of spectra whose outliers should be rejected</param>
-    /// <param name="options">which outlier rejection method to use</param>
-    public static double[] RejectOutliers(double[] intensityArray, SpectralAveragingOptions options)
-    {
-        var xArray = new double[intensityArray.Length];
-        var stack = new PeakBin(xArray, intensityArray);
-        RejectOutliers(stack, options);
-        return stack.UnrejectedIntensities.ToArray();
-    }
-
-    /// <summary>
-    /// Reject the max and min of the set
-    /// </summary>
-    /// <param name="stack">array of mz values to evaluate</param>
-    /// <returns>list of mz values with outliers rejected</returns>
-    private static void MinMaxClipping(PeakBin stack)
-    {
-        if (stack.Intensities.Any())
-        {
-            int max = stack.Intensities.IndexOf(stack.Intensities.Max());
-            int min = stack.Intensities.IndexOf(stack.Intensities.Min());
-            stack.Reject(max);
-            stack.Reject(min);
-        }
-    }
-
-    /// <summary>
-    /// Removes values that fall outside of the central value by the defined percentile exclusively
-    /// </summary>
-    /// <param name="peakBin">list of mz values to evaluate</param>
-    /// <param name="percentile"></param>
-    /// <returns>list of mz values with outliers rejected</returns>
-    private static void PercentileClipping(PeakBin peakBin, double percentile)
-    {
-        if (!peakBin.Intensities.Any())
-        {
-            return; 
-        }
-
-        double trim = (1 - percentile) / 2;
-        double highPercentile = 1 - trim;
-        double median = BasicStatistics.CalculateMedian(peakBin.Intensities);
-        double highCutoff = median * (1 + highPercentile);
-        double lowCutoff = median * (1 - highPercentile);
-        // round to 4-6 decimal places
-        for (int i = 0; i < peakBin.Length; i++)
-        {
-            if (peakBin.Intensities[i] < highCutoff && peakBin.Intensities[i] > lowCutoff)
+            double[] trimmedMzValues = valuesToCheckForRejection;
+            switch (parameters.OutlierRejectionType)
             {
-                continue; 
+                case OutlierRejectionType.NoRejection:
+                    break;
+
+                case OutlierRejectionType.MinMaxClipping:
+                    trimmedMzValues = MinMaxClipping(valuesToCheckForRejection);
+                    break;
+
+                case OutlierRejectionType.PercentileClipping:
+                    trimmedMzValues = PercentileClipping(valuesToCheckForRejection, parameters.Percentile);
+                    break;
+
+                case OutlierRejectionType.SigmaClipping:
+                    trimmedMzValues = SigmaClipping(valuesToCheckForRejection, parameters.MinSigmaValue, parameters.MaxSigmaValue);
+                    break;
+
+                case OutlierRejectionType.WinsorizedSigmaClipping:
+                    trimmedMzValues = WinsorizedSigmaClipping(valuesToCheckForRejection, parameters.MinSigmaValue, parameters.MaxSigmaValue);
+                    break;
+
+                case OutlierRejectionType.AveragedSigmaClipping:
+                    trimmedMzValues = AveragedSigmaClipping(valuesToCheckForRejection, parameters.MinSigmaValue, parameters.MaxSigmaValue);
+                    break;
+
+                case OutlierRejectionType.BelowThresholdRejection:
+                    trimmedMzValues = BelowThresholdRejection(valuesToCheckForRejection);
+                    break;
             }
-            peakBin.Reject(i);
-        }
-    }
-
-    /// <summary>
-    /// Iteratively removes values that fall outside of the central value by the defined StandardDeviation amount
-    /// </summary>
-    /// <param name="peakBin">list of mz values to evaluate</param>
-    /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
-    /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
-    /// <returns></returns>
-    private static void SigmaClipping(PeakBin peakBin, double sValueMin, double sValueMax)
-    {
-        if (!peakBin.Intensities.Any())
-        {
-            return;
+            return trimmedMzValues;
         }
 
-        int n;
-        int iterationN = peakBin.Length; 
-        do
+        internal static List<BinnedPeak> RejectOutliers(List<BinnedPeak> peaks, SpectralAveragingParameters parameters)
         {
-            double median = BasicStatistics.CalculateMedian(peakBin.UnrejectedIntensities);
-            double standardDeviation = BasicStatistics.CalculateStandardDeviation(peakBin.UnrejectedIntensities);
-            n = 0; 
-            for (int i = 0; i < peakBin.Length; i++)
+            var unrejected = RejectOutliers(peaks.Select(p => p.Intensity).ToArray(), parameters);
+            for (int i = 0; i < peaks.Count; i++)
             {
-                if (peakBin.IsIndexRejected(i)) continue; 
-                if (SigmaClipping(peakBin.Intensities[i], median, standardDeviation, sValueMin, sValueMax))
+                if (!unrejected.Contains(peaks[i].Intensity))
                 {
-                    peakBin.Reject(i);
-                    n++;
+                    peaks.RemoveAt(i);
                 }
             }
-            iterationN -= n;
 
-        } while (n > 0 && iterationN > 3);
-    }
+            return peaks;
 
-    /// <summary>
-    /// Iteratively removes values that fall outside of a calculated deviation based upon the median of the values
-    /// </summary>
-    /// <param name="peakBin">list of mz values to evaluate</param>
-    /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
-    /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
-    /// <returns></returns>
-    private static void AveragedSigmaClipping(PeakBin peakBin, double sValueMin, double sValueMax)
-    {
-        if (!peakBin.Intensities.Any())
-        {
-            return;
-        }
-        double median = BasicStatistics.CalculateMedian(peakBin.UnrejectedIntensities);
-        
-        // calculate s
-        double numerator = 0;
-        double denominator = peakBin.Length - 1;
-        int n = 0;
-
-        for (int i = 0; i < peakBin.Length; i++)
-        {
-            numerator += (Math.Pow((peakBin.Intensities[i] - median), 2) / median);
         }
 
-        double s = Math.Sqrt(numerator / denominator);
-
-        int iterationUnrejectedLength = peakBin.NonRejectedLength;
-        do
+        /// <summary>
+        /// Reject the max and min of the set
+        /// </summary>
+        /// <param name="initialValues">array of mz values to evaluate</param>
+        /// <returns>list of mz values with outliers rejected</returns>
+        public static double[] MinMaxClipping(double[] initialValues)
         {
-            median = BasicStatistics.CalculateMedian(peakBin.UnrejectedIntensities);
-            double sigma = s * Math.Sqrt(median);
-            n = 0;
+            double max = initialValues.Max();
+            double min = initialValues.Min();
 
-            for (int i = 0; i < peakBin.Length; i++)
+            return initialValues.Where(p => p < max && p > min).ToArray();
+        }
+
+        /// <summary>
+        /// Removes values that fall outside of the central value by the defined percentile exclusively
+        /// </summary>
+        /// <param name="initialValues">list of mz values to evaluate</param>
+        /// <param name="percentile"></param>
+        /// <returns>list of mz values with outliers rejected</returns>
+        public static double[] PercentileClipping(double[] initialValues, double percentile)
+        {
+            double trim = (1 - percentile) / 2;
+            double highPercentile = 1 - trim;
+            double median = BasicStatistics.CalculateMedian(initialValues);
+            double highCutoff = median * (1 + highPercentile);
+            double lowCutoff = median * (1 - highPercentile); 
+            // round to 4-6 decimal places
+            return initialValues.Where(p => highCutoff > p && p > lowCutoff).ToArray();
+        }
+
+        /// <summary>
+        /// Itteratively removes values that fall outside of the central value by the defined StandardDeviation amount
+        /// </summary>
+        /// <param name="initialValues">list of mz values to evaluate</param>
+        /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
+        /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
+        /// <returns></returns>
+        public static double[] SigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
+        {
+            List<double> values = initialValues.ToList();
+            int n = 0;
+            do
             {
-                if (peakBin.IsIndexRejected(i)) continue;
-                if (SigmaClipping(peakBin.Intensities[i], median, sigma, sValueMin, sValueMax))
+                double median = BasicStatistics.CalculateMedian(values);
+                double standardDeviation = BasicStatistics.CalculateStandardDeviation(values);
+                n = 0;
+                for (int i = 0; i < values.Count; i++)
                 {
-                    peakBin.Reject(i);
-                    n++;
+                    if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
+                    {
+                        values.RemoveAt(i);
+                        n++;
+                        i--;
+                    }
+                }
+            } while (n > 0);
+            double[] val = values.ToArray();
+            return val;
+        }
+
+        /// <summary>
+        /// Itteratively replaces values that fall outside of the central value by the defined StandardDeviation amount with the values of the median * that standard deviation amount
+        /// </summary>
+        /// <param name="initialValues">list of mz values to evaluate</param>
+        /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
+        /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
+        /// <returns></returns>
+        public static double[] WinsorizedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
+        {
+            List<double> values = initialValues.ToList();
+            int n = 0;
+            double iterationLimitforHuberLoop = 0.00005;
+            double medianLeftBound;
+            double medianRightBound;
+            double windsorizedStandardDeviation;           
+            do
+            {
+                if (!values.Any())
+                    break;
+                double median = BasicStatistics.CalculateNonZeroMedian(values);
+                double standardDeviation = BasicStatistics.CalculateNonZeroStandardDeviation(values);
+                double[] toProcess = values.ToArray();
+                do // calculates a new median and standard deviation based on the values to do sigma clipping with (Huber loop)
+                {
+                    medianLeftBound = median - 1.5 * standardDeviation;
+                    medianRightBound = median + 1.5 * standardDeviation;
+                    toProcess.Winsorize(medianLeftBound, medianRightBound);
+                    median = BasicStatistics.CalculateMedian(toProcess);
+                    windsorizedStandardDeviation = standardDeviation;
+                    standardDeviation = BasicStatistics.CalculateStandardDeviation(toProcess) * 1.134;
+                } while (Math.Abs(standardDeviation - windsorizedStandardDeviation) / windsorizedStandardDeviation > iterationLimitforHuberLoop);
+
+                n = 0;
+                for (int i = 0; i < values.Count; i++)
+                {
+                    if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
+                    {
+
+                        values.RemoveAt(i);
+                        n++;
+                        i--;
+                    }
+                }
+            } while (n > 0 && values.Count > 1); // break loop if nothing was rejected, or only one value remains
+            return values.ToArray();
+        }
+
+        /// <summary>
+        /// Iteratively removes values that fall outside of a calculated deviation based upon the median of the values
+        /// </summary>
+        /// <param name="initialValues">list of mz values to evaluate</param>
+        /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
+        /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
+        /// <returns></returns>
+        public static double[] AveragedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
+        {
+            List<double> values = initialValues.ToList();
+            double median = BasicStatistics.CalculateNonZeroMedian(initialValues);
+            double deviation = BasicStatistics.CalculateNonZeroStandardDeviation(initialValues, median);
+            int n = 0;
+            double standardDeviation;
+            do
+            {
+                median = BasicStatistics.CalculateNonZeroMedian(values);
+                standardDeviation = deviation * Math.Sqrt(median) / 10;
+
+                n = 0;
+                for (int i = 0; i < values.Count; i++)
+                {
+                    double temp = (values[i] - median) / standardDeviation;
+                    if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
+                    {
+
+                        values.RemoveAt(i);
+                        n++;
+                        i--;
+                    }
+                }
+            } while (n > 0);
+            return values.ToArray();
+        }
+
+        /// <summary>
+        /// Sets the array of mz values to null if they have 20% or fewer values than the number of scans
+        /// </summary>
+        /// <param name="initialValues">array of mz values to evaluate</param>
+        /// <param name="cutoffValue">percent in decimal form of where to cutoff </param>
+        /// <returns></returns>
+        public static double[] BelowThresholdRejection(double[] initialValues, double cutoffValue = 0.2)
+        {
+            int scanCount = initialValues.Length;
+            if (initialValues.Count(p => p != 0) <= scanCount * cutoffValue)
+            {
+                initialValues = new double[scanCount];
+            }
+            return initialValues;
+        }
+
+        #region Private Helpers
+
+
+        /// <summary>
+        /// Helper method to mutate the array of doubles based upon the median value
+        /// </summary>
+        /// <param name="initialValues">initial values to process</param>
+        /// <param name="medianLeftBound">minimum the element in the dataset is allowed to be</param>
+        /// <param name="medianRightBound">maxamum the element in the dataset is allowed to be</param>
+        /// <returns></returns>
+        private static void Winsorize(this double[] initialValues, double medianLeftBound, double medianRightBound)
+        {
+            for (int i = 0; i < initialValues.Length; i++)
+            {
+                if (initialValues[i] < medianLeftBound)
+                {
+                    if (i < initialValues.Length && initialValues.Any(p => p > medianLeftBound))
+                        initialValues[i] = initialValues.First(p => p > medianLeftBound);
+                    else
+                        initialValues[i] = medianLeftBound;
+                }
+                else if (initialValues[i] > medianRightBound)
+                {
+                    if (i != 0 && initialValues.Any(p => p < medianRightBound))
+                        initialValues[i] = initialValues.Last(p => p < medianRightBound);
+                    else
+                        initialValues[i] = medianRightBound;
                 }
             }
-            iterationUnrejectedLength -= n;
+        }
 
-        } while (n > 0);
+        #endregion
+
     }
-
-    /// <summary>
-    /// Iteratively replaces values that fall outside of the central value by the defined StandardDeviation amount with the values of the median * that standard deviation amount
-    /// </summary>
-    /// <param name="peakBin">list of mz values to evaluate</param>
-    /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
-    /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
-    /// <returns></returns>
-    private static void WinsorizedSigmaClipping(PeakBin peakBin, double sValueMin, double sValueMax)
-    {
-        if (!peakBin.Intensities.Any())
-        {
-            return;
-        }
-
-        int n = 0; 
-        double iterationLimitforHuberLoop = 0.00005;
-        double medianLeftBound;
-        double medianRightBound;
-        double stddev_previous;
-        double stddev_current;
-        do
-        {
-            double median = BasicStatistics.CalculateMedian(peakBin.UnrejectedIntensities);
-            stddev_current = BasicStatistics.CalculateStandardDeviation(peakBin.UnrejectedIntensities);
-            List<double> tempIntensityValues = peakBin.UnrejectedIntensities.ToList();
-
-            do // calculates a new median and standard deviation based on the values to do sigma clipping with (Huber loop)
-            {
-                medianLeftBound = median - 1.5 * stddev_current;
-                medianRightBound = median + 1.5 * stddev_current;
-                Winsorize(tempIntensityValues, medianLeftBound, medianRightBound);
-                
-                median = BasicStatistics.CalculateMedian(tempIntensityValues);
-                
-                stddev_previous = stddev_current; 
-                stddev_current = BasicStatistics.CalculateStandardDeviation(tempIntensityValues) * 1.134;
-
-            } while (Math.Abs(stddev_current - stddev_previous) / stddev_previous > iterationLimitforHuberLoop);
-
-            n = 0;
-            for (int i = 0; i < peakBin.Length; i++)
-            {
-                if (peakBin.IsIndexRejected(i)) continue;
-                if (SigmaClipping(peakBin.Intensities[i], median, 
-                        stddev_current, sValueMin, sValueMax))
-                {
-                    peakBin.Reject(i);
-                    n++;
-                }
-            }
-        } while (n > 0 && peakBin.UnrejectedIntensities.Count() > 1); // break loop if nothing was rejected, or only one value remains
-    }
-
-    /// <summary>
-    /// Sets the array of mz values to null if they have 20% or fewer values than the number of scans
-    /// </summary>
-    /// <param name="peakBin">array of mz values to evaluate</param>
-    /// <param name="cutoffValue">percent in decimal form of where to cutoff </param>
-    /// <returns></returns>
-    private static void BelowThresholdRejection(PeakBin peakBin, double cutoffValue = 0.2)
-    {
-        if (!peakBin.Intensities.Any())
-        {
-            return;
-        }
-        
-        if (peakBin.Intensities.Count(p => p != 0) <= peakBin.Length * cutoffValue)
-        {
-            peakBin.RejectAll();
-        }
-    }
-
-    #region Helpers
-
-    /// <summary>
-    /// Helper method to mutate the array of doubles based upon the median value
-    /// </summary>
-    /// <param name="array">initial values to process</param>
-    /// <param name="medianLeftBound">minimum the element in the dataset is allowed to be</param>
-    /// <param name="medianRightBound">maxamum the element in the dataset is allowed to be</param>
-    /// <returns></returns>
-    private static void Winsorize(List<double> array, double medianLeftBound, double medianRightBound)
-    {
-        for (int i = 0; i < array.Count; i++)
-        {
-            array[i] = WinsorizeElement(array[i], medianLeftBound, medianRightBound); 
-        }
-    }
-
-    private static double WinsorizeElement(double value, double medianLeftBound, double medianRightBound)
-    {
-        if (value < medianLeftBound)
-        {
-            return medianLeftBound; 
-        }
-        if(value > medianRightBound)
-        {
-            return medianRightBound; 
-        }
-
-        return value; 
-    }
-
-    /// <summary>
-    /// Helper delegate method for sigma clipping
-    /// </summary>
-    /// <param name="value">the value in question</param>
-    /// <param name="median">median of the dataset</param>
-    /// <param name="standardDeviation">standard dev of the dataset</param>
-    /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
-    /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
-    /// <returns></returns>
-    private static bool SigmaClipping(double value, double median, double standardDeviation, double sValueMin, double sValueMax)
-    {
-        if ((median - value) / standardDeviation > sValueMin)
-        {
-            return true;
-        }
-        else if ((value - median) / standardDeviation > sValueMax)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-
-    #endregion
 }

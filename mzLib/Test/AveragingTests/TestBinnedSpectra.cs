@@ -45,10 +45,10 @@ public class TestBinnedSpectra
     [Test]
     public void TestConsumeSpectra()
     {
-        BinnedSpectra binnedSpectra = new(xArrays, yArrays, binSize); 
-        Assert.True(binnedSpectra.PeakBins.Count == 5);
-        Assert.That(binnedSpectra.PeakBins[0].UnrejectedMzAverage, Is.EqualTo(0.033333d).Within(0.01));
-        Assert.That(binnedSpectra.PeakBins[2].Intensities, 
+        PixelStack pixelStack = new(xArrays, yArrays, binSize); 
+        Assert.True(pixelStack.PeakBins.Count == 5);
+        Assert.That(pixelStack.PeakBins[0].UnrejectedMzAverage, Is.EqualTo(0.033333d).Within(0.01));
+        Assert.That(pixelStack.PeakBins[2].Intensities, 
             Is.EqualTo(new double[] {12, 13, 30}));
     }
 
@@ -74,7 +74,7 @@ public class TestBinnedSpectra
         yVals[1] = yAxis;
         yVals[2] = yAxis;
 
-        BinnedSpectra bs = new(multipleXvals, yVals, 1.0);
+        PixelStack bs = new(multipleXvals, yVals, 1.0);
         Assert.That(bs.PeakBins.Count == 5);
 
 
@@ -95,8 +95,8 @@ public class TestBinnedSpectra
     [TestCase(4, 3, new[] {4, 4, 4.1}, new[] {14.0, 15.0, 40.0})]
     public void TestConsumeSpectraUnequalArrayLength(int stackIndex, int stackCount, double[] expectedMz, double[] expectedIntensity)
     {
-        BinnedSpectra binnedSpectra = new(xArrays, yArrays, binSize);
-        var stack = binnedSpectra.PeakBins[stackIndex];
+        PixelStack pixelStack = new(xArrays, yArrays, binSize);
+        var stack = pixelStack.PeakBins[stackIndex];
         Assert.That(stack.Intensities.Count() == stackCount);
         Assert.That(stack.Mzs.SequenceEqual(expectedMz));
         Assert.That(stack.UnrejectedMzs.SequenceEqual(expectedMz));
@@ -111,7 +111,7 @@ public class TestBinnedSpectra
     [TestCase(2)]
     public void TestPerformNormalization(int spectraId)
     {
-        BinnedSpectra bs = new(xArrays, yArrays, binSize);
+        PixelStack bs = new(xArrays, yArrays, binSize);
         bs.PerformNormalization();
         List<Peak> peaksFromSpectra = new();
 
@@ -123,7 +123,7 @@ public class TestBinnedSpectra
     [Test]
     public void TestCalculateTics()
     {
-        BinnedSpectra bs = new(xArrays, yArrays, binSize);
+        PixelStack bs = new(xArrays, yArrays, binSize);
         double[] expected = new double[] { 72d, 65d, 150d };
         Assert.That(bs.Tics, Is.EqualTo(expected));
     }

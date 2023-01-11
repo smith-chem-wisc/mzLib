@@ -19,7 +19,7 @@ namespace MzLibSpectralAveraging
     /// <summary>
     /// Object to organize and unify operations performed on a set of spectra to be averaged.
     /// </summary>
-    public class BinnedSpectra
+    public class PixelStack
     {
         public List<PeakBin> PeakBins { get; set; }
         // TODO: Concurrent dictionaries should be temporary, and these should be sorted Dictionaries. 
@@ -46,7 +46,7 @@ namespace MzLibSpectralAveraging
         /// noise estimates alone. A bad spectrum will have a high noise estimate relative to other spectra in the set. But so will a "good" high
         /// SNR spectra: As signal increases, so too does noise. So pick a criteria that doesn't solely use noise if you want to "intelligently" select
         /// the reference spectra. -AVC </remarks>
-        public BinnedSpectra(double[][] xArrays, double[][] yArrays, double binSize,
+        public PixelStack(double[][] xArrays, double[][] yArrays, double binSize,
             int referenceSpectra = 0)
         {
             PeakBins = new List<PeakBin>();
@@ -59,7 +59,7 @@ namespace MzLibSpectralAveraging
             ConsumeSpectra(xArrays, yArrays, binSize);
         }
 
-        public BinnedSpectra(IEnumerable<MzSpectrum> spectra, double binSize, int referenceSpectra = 0)
+        public PixelStack(IEnumerable<MzSpectrum> spectra, double binSize, int referenceSpectra = 0)
         {
             PeakBins = new List<PeakBin>();
             NoiseEstimates = new SortedDictionary<int, double>();
@@ -72,18 +72,6 @@ namespace MzLibSpectralAveraging
                 spectra.Select(p => p.YArray).ToArray(), binSize);
         }
 
-        public BinnedSpectra(IEnumerable<MsDataScan> scans, double binSize, int referenceSpectra = 0)
-        {
-            PeakBins = new List<PeakBin>();
-            NoiseEstimates = new SortedDictionary<int, double>();
-            ScaleEstimates = new SortedDictionary<int, double>();
-            Weights = new SortedDictionary<int, double>();
-            NumSpectra = scans.Count();
-            Tics = new double[NumSpectra];
-            ReferenceSpectra = referenceSpectra;
-            ConsumeSpectra(scans.Select(p => p.MassSpectrum.XArray).ToArray(),
-                scans.Select(p => p.MassSpectrum.YArray).ToArray(), binSize);
-        }
 
         /// <summary>
         /// Performs normalization based on the total ion current value for each pixel stack
@@ -123,7 +111,7 @@ namespace MzLibSpectralAveraging
         /// Collapses the pixel stack into a single m/z and intensity value. 
         /// </summary>
         /// <remarks>Speed optimized by using a Parallel.Foreach loop.</remarks>
-        public double[][] MergeSpectra(SpectralAveragingOptions options)
+        public double[][] MergeSpectra(SpectralAveragingParameters parameters)
         {
             // average each pixel stack
             double averageTic = Tics.Average();
@@ -141,7 +129,7 @@ namespace MzLibSpectralAveraging
             {
                 if (xArray[i] != 0)
                 {
-                    combined.Add(options.PerformNormalization
+                    combined.Add(parameters.PerformNormalization
                         ? (xArray[i], yArray[i] * averageTic)
                         : (xArray[i], yArray[i]));
                 }
@@ -323,6 +311,8 @@ namespace MzLibSpectralAveraging
     /// <param name="Mz">Mz value.</param>
     /// <param name="Intensity">Intensity value.</param>
     internal readonly record struct BinValue(int Bin, double Mz, double Intensity, double SpectraId);
+
+    
 
     /// <summary>
     /// Custom comparer to use in override for List.BinarySearch() that accepts a custom comparer as an argument. 

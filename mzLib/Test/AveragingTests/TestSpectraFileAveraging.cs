@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text;
 using MassSpectrometry;
 using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
+using Proteomics.ProteolyticDigestion;
 
 namespace Test.AveragingTests
 {
@@ -18,17 +22,20 @@ namespace Test.AveragingTests
         public static List<MsDataScan> DummyDDAScansInOrder { get; set; }
         public static List<MsDataScan> DummyDDAScansOutOfOrder { get; set; }
         public static List<MsDataScan> ActualScans { get; set; }
-        public static SpectralAveragingOptions SpectralAveragingOptions { get; set; }
+        public static SpectralAveragingParameters SpectralAveragingParameters { get; set; }
+
+        public static StringBuilder sb { get; set; }
 
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
+            sb = new StringBuilder();
             ActualScans = SpectraFileHandler.LoadAllScansFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"AveragingTestData\TDYeastFractionMS1.mzML")).Take(50).ToList();
-            SpectralAveragingOptions = new();
-            SpectralAveragingOptions.OutlierRejectionType = OutlierRejectionType.NoRejection;
-            SpectralAveragingOptions.SpectralWeightingType = SpectraWeightingType.WeightEvenly;
-            SpectralAveragingOptions.PerformNormalization = false;
+            SpectralAveragingParameters = new();
+            SpectralAveragingParameters.OutlierRejectionType = OutlierRejectionType.NoRejection;
+            SpectralAveragingParameters.SpectralWeightingType = SpectraWeightingType.WeightEvenly;
+            SpectralAveragingParameters.PerformNormalization = false;
 
             double[] xArray = new double[] { 100.1453781, 200, 300, 400, 500, 600, 700, 800, 900.4123745 };
             double[] yArray1 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
@@ -197,152 +204,188 @@ namespace Test.AveragingTests
             DummyDDAScansOutOfOrder = formattedScans;
         }
 
+        [OneTimeTearDown]
+        public static void OneTimeTearDown()
+        {
+
+            string sampleType = "FirstRevision";
+            int iteration = 5;
+            string outPath = $@"D:\Projects\SpectralAveraging\TimeComparisonTests\{sampleType}{iteration}.csv";
+            using (StreamWriter sw = new(File.Create(outPath)))
+            {
+                sw.Write(sb.ToString());
+            }
+        }
+
+    
+
         [Test]
         public static void TestAverageAll()
         {
-            SpectralAveragingOptions.SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
-            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            double[] expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
+            Stopwatch sw = Stopwatch.StartNew();
+            SpectralAveragingParameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            double[] expected = new double[] { 4, 8 };
             Assert.That(averagedScans.Length == 1);
             Assert.That(expected.SequenceEqual(averagedScans.First().MassSpectrum.YArray));
 
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(ActualScans.Take(30).ToList(), SpectralAveragingOptions);
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(ActualScans.Take(30).ToList(), SpectralAveragingParameters);
             Assert.That(averagedScans.Length == 1);
+
+            sw.Stop();
+            sb.AppendLine(MethodBase.GetCurrentMethod().Name + "," + sw.Elapsed.Milliseconds.ToString());
         }
 
         [Test]
         public static void TestAverageEveryNScansWithoutOverlap()
         {
-            SpectralAveragingOptions.SpectraFileProcessingType = SpectraFileProcessingType.AverageEverynScans;
-            SpectralAveragingOptions.NumberOfScansToAverage = 5;
-            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            double[] expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
+            Stopwatch sw = Stopwatch.StartNew();
+            SpectralAveragingParameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageEverynScans;
+            SpectralAveragingParameters.NumberOfScansToAverage = 5;
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            double[] expected = new double[] {4, 8};
             Assert.That(averagedScans.Length == 2);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
             Assert.That(averagedScans[1].MassSpectrum.YArray.SequenceEqual(expected));
 
-            SpectralAveragingOptions.ScanOverlap = 4;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
+            SpectralAveragingParameters.ScanOverlap = 4;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            expected = new double[] { 4, 8 };
             Assert.That(averagedScans.Length == 2);
-            Assert.That(SpectralAveragingOptions.ScanOverlap == 0);
+            Assert.That(SpectralAveragingParameters.ScanOverlap == 0);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
             Assert.That(averagedScans[1].MassSpectrum.YArray.SequenceEqual(expected));
 
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(ActualScans, SpectralAveragingOptions);
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(ActualScans, SpectralAveragingParameters);
             Assert.That(averagedScans.Length == 10);
+
+            sw.Stop();
+            sb.AppendLine(MethodBase.GetCurrentMethod().Name + "," + sw.Elapsed.Milliseconds.ToString());
         }
 
         [Test]
         public static void TestAverageEveryNScansWithOverlap()
         {
-            SpectralAveragingOptions.SpectraFileProcessingType =
+            Stopwatch sw = Stopwatch.StartNew();
+            SpectralAveragingParameters.SpectraFileProcessingType =
                 SpectraFileProcessingType.AverageEverynScansWithOverlap;
 
-            SpectralAveragingOptions.ScanOverlap = 1;
-            SpectralAveragingOptions.NumberOfScansToAverage = 2;
-            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            double[] expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            SpectralAveragingParameters.ScanOverlap = 1;
+            SpectralAveragingParameters.NumberOfScansToAverage = 2;
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            double[] expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Length == 9);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
-            SpectralAveragingOptions.NumberOfScansToAverage = 3;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
+            SpectralAveragingParameters.NumberOfScansToAverage = 3;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
             Assert.That(averagedScans.Length == 4);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
-            SpectralAveragingOptions.NumberOfScansToAverage = 4;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
+            SpectralAveragingParameters.NumberOfScansToAverage = 4;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
             Assert.That(averagedScans.Length == 3);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
-            SpectralAveragingOptions.NumberOfScansToAverage = 5;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
+            SpectralAveragingParameters.NumberOfScansToAverage = 5;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            expected = new double[] { 4, 8 };
             Assert.That(averagedScans.Length == 2);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
 
 
-            SpectralAveragingOptions.ScanOverlap = 2;
-            SpectralAveragingOptions.NumberOfScansToAverage = 3;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            SpectralAveragingParameters.ScanOverlap = 2;
+            SpectralAveragingParameters.NumberOfScansToAverage = 3;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Length == 8);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
-            SpectralAveragingOptions.NumberOfScansToAverage = 4;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
+            SpectralAveragingParameters.NumberOfScansToAverage = 4;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
             Assert.That(averagedScans.Length == 4);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
-            SpectralAveragingOptions.NumberOfScansToAverage = 5;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
+            SpectralAveragingParameters.NumberOfScansToAverage = 5;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            expected = new double[] { 4, 8 };
             Assert.That(averagedScans.Length == 2);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
 
-            SpectralAveragingOptions.ScanOverlap = 3;
-            SpectralAveragingOptions.NumberOfScansToAverage = 4;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            SpectralAveragingParameters.ScanOverlap = 3;
+            SpectralAveragingParameters.NumberOfScansToAverage = 4;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Length == 7);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
-            SpectralAveragingOptions.NumberOfScansToAverage = 5;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingOptions);
-            expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
+            SpectralAveragingParameters.NumberOfScansToAverage = 5;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
+            expected = new double[] { 4, 8 };
             Assert.That(averagedScans.Length == 3);
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
+
+            sw.Stop();
+            sb.AppendLine(MethodBase.GetCurrentMethod().Name + "," + sw.Elapsed.Milliseconds.ToString());
         }
 
         [Test]
         public static void TestAverageDDAScansWithoutOverlapInOrder()
         {
-            SpectralAveragingOptions.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScans;
-            SpectralAveragingOptions.NumberOfScansToAverage = 2;
-            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingOptions);
-            double[] expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            Stopwatch sw = Stopwatch.StartNew();
+            SpectralAveragingParameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScans;
+            SpectralAveragingParameters.NumberOfScansToAverage = 2;
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingParameters);
+            double[] expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Count(p => p.MsnOrder == 1) == 2);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2) == 12);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
             int?[] expectedNullable = new int?[] { null, 1, 1, 1, 1, 1, 1, null, 8, 8, 8, 8, 8, 8 };
             Assert.That(averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray().SequenceEqual(expectedNullable));
+            
+            sw.Stop();
+            sb.AppendLine(MethodBase.GetCurrentMethod().Name + "," + sw.Elapsed.Milliseconds.ToString());
         }
 
         [Test]
         public static void TestAverageDDAScansWithoutOverlapOutOfOrder()
         {
-            SpectralAveragingOptions.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScans;
-            SpectralAveragingOptions.NumberOfScansToAverage = 2;
-            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingOptions);
-            double[] expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            Stopwatch sw = Stopwatch.StartNew();
+            SpectralAveragingParameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScans;
+            SpectralAveragingParameters.NumberOfScansToAverage = 2;
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingParameters);
+            double[] expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Count(p => p.MsnOrder == 1) == 2);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2) == 11);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
             int?[] expectedNullable = new int?[] { null, 1, 1, 1, 1, 1, 1, null, 8, 8, 8, 8, 8 };
             Assert.That(averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray().SequenceEqual(expectedNullable));
+
+            sw.Stop();
+            sb.AppendLine(MethodBase.GetCurrentMethod().Name + "," + sw.Elapsed.Milliseconds.ToString());
         }
 
         [Test]
         public static void TestAverageDDAScansWithOverlapInOrder()
         {
-            SpectralAveragingOptions.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
-            SpectralAveragingOptions.NumberOfScansToAverage = 2;
-            SpectralAveragingOptions.ScanOverlap = 1;
-            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingOptions);
-            double[] expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            Stopwatch sw = Stopwatch.StartNew();
+            SpectralAveragingParameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
+            SpectralAveragingParameters.NumberOfScansToAverage = 2;
+            SpectralAveragingParameters.ScanOverlap = 1;
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingParameters);
+            double[] expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Count(p => p.MsnOrder == 1) == 4);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2) == 15);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
-            expected = new double[] { 0, 2.5, 0, 0, 0, 0, 0, 5, 0 };
-            Assert.AreEqual(expected, averagedScans.Last(p => p.MsnOrder == 1).MassSpectrum.YArray);
+            expected = new double[] { 2.5, 5 };
+            //Assert.AreEqual(expected, averagedScans.Last(p => p.MsnOrder == 1).MassSpectrum.YArray);
             int?[] expectedNullable = new int?[]
             {
                 null, 1, 1, 1, null, 5, 5, 5, null, 9, 9, 9, null, 13, 13, 13, 13, 13, 13
             };
             Assert.That(averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray().SequenceEqual(expectedNullable));
 
-            SpectralAveragingOptions.NumberOfScansToAverage = 3;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingOptions);
-            expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            SpectralAveragingParameters.NumberOfScansToAverage = 3;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingParameters);
+            expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Count(p => p.MsnOrder == 1) == 2);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2) == 15);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
-            expected = new double[] { 0, 5.0 * (2.0 / 3.0), 0, 0, 0, 0, 0, 10.0 * (2.0 / 3.0), 0 };
+            expected = new double[] { 5.0 * (2.0 / 3.0), 10.0 * (2.0 / 3.0) };
             Assert.AreEqual(expected.Select(p => Math.Round(p, 4)), averagedScans.Last(p => p.MsnOrder == 1).MassSpectrum.YArray.Select(p => Math.Round(p, 4)));
             expectedNullable = new int?[]
             {
@@ -350,30 +393,34 @@ namespace Test.AveragingTests
             };
             Assert.That(averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray().SequenceEqual(expectedNullable));
 
-            SpectralAveragingOptions.NumberOfScansToAverage = 3;
-            SpectralAveragingOptions.ScanOverlap = 2;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingOptions);
-            expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            SpectralAveragingParameters.NumberOfScansToAverage = 3;
+            SpectralAveragingParameters.ScanOverlap = 2;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingParameters);
+            expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Count(p => p.MsnOrder == 1) == 3);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2) == 15);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
-            expected = new double[] { 0, 5.0 * (2.0 / 3.0), 0, 0, 0, 0, 0, 10.0 * (2.0 / 3.0), 0 };
+            expected = new double[] { 5.0 * (2.0 / 3.0), 10.0 * (2.0 / 3.0) };
             Assert.AreEqual(expected.Select(p => Math.Round(p, 4)), averagedScans.Last(p => p.MsnOrder == 1).MassSpectrum.YArray.Select(p => Math.Round(p, 4)));
             expectedNullable = new int?[]
             {
                 null, 1, 1, 1, null, 5, 5, 5, null, 9, 9, 9, 9, 9, 9, 9, 9, 9
             };
             Assert.AreEqual(expectedNullable, averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray());
+
+            sw.Stop();
+            sb.AppendLine(MethodBase.GetCurrentMethod().Name + "," + sw.Elapsed.Milliseconds.ToString());
         }
 
         [Test]
         public static void TestAverageDDAScansWithOverlapOutOfOrder()
         {
-            SpectralAveragingOptions.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
-            SpectralAveragingOptions.NumberOfScansToAverage = 2;
-            SpectralAveragingOptions.ScanOverlap = 1;
-            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingOptions);
-            double[] expected = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };
+            Stopwatch sw = Stopwatch.StartNew();
+            SpectralAveragingParameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
+            SpectralAveragingParameters.NumberOfScansToAverage = 2;
+            SpectralAveragingParameters.ScanOverlap = 1;
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingParameters);
+            double[] expected = new double[] { 5, 10 };
             Assert.That(averagedScans.Count(p => p.MsnOrder == 1) == 4);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2) == 15);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
@@ -384,9 +431,9 @@ namespace Test.AveragingTests
             };
             Assert.That(averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray().SequenceEqual(expectedNullable));
 
-            SpectralAveragingOptions.NumberOfScansToAverage = 3;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingOptions);
-            expected = new double[] { 0, 5.0 * (2.0 / 3.0), 0, 0, 0, 0, 0, 10.0 * (2.0 / 3.0), 0 };
+            SpectralAveragingParameters.NumberOfScansToAverage = 3;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingParameters);
+            expected = new double[] { 5.0 * (2.0 / 3.0), 10.0 * (2.0 / 3.0) };
             Assert.That(averagedScans.Count(p => p.MsnOrder == 1) == 2);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2) == 15);
             Assert.AreEqual(expected.Select(p => Math.Round(p, 4)), averagedScans[0].MassSpectrum.YArray.Select(p => Math.Round(p, 4)));
@@ -397,9 +444,9 @@ namespace Test.AveragingTests
             };
             Assert.That(averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray().SequenceEqual(expectedNullable));
 
-            SpectralAveragingOptions.NumberOfScansToAverage = 3;
-            SpectralAveragingOptions.ScanOverlap = 2;
-            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingOptions);
+            SpectralAveragingParameters.NumberOfScansToAverage = 3;
+            SpectralAveragingParameters.ScanOverlap = 2;
+            averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingParameters);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 1) == 3);
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2) == 15);
             Assert.AreEqual(expected.Select(p => Math.Round(p, 4)), averagedScans[0].MassSpectrum.YArray.Select(p => Math.Round(p, 4)));
@@ -409,6 +456,9 @@ namespace Test.AveragingTests
                 null, 1, 1, 1, null, 5, 5, 5, null, 9, 9, 9, 9, 9, 9, 9, 9, 9
             };
             Assert.AreEqual(expectedNullable, averagedScans.Select(p => p.OneBasedPrecursorScanNumber).ToArray());
+
+            sw.Stop();
+            sb.AppendLine(MethodBase.GetCurrentMethod().Name + "," + sw.Elapsed.Milliseconds.ToString());
         }
 
         [Test]

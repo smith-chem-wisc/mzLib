@@ -15,20 +15,20 @@ namespace Test.AveragingTests
         [Test]
         public static void TestOptionToString()
         {
-            SpectralAveragingOptions options1 = new SpectralAveragingOptions();
-            SpectralAveragingOptions options2 = new SpectralAveragingOptions(){Percentile = 0.2, OutlierRejectionType = OutlierRejectionType.PercentileClipping};
-            SpectralAveragingOptions options3 = new SpectralAveragingOptions()
+            SpectralAveragingParameters options1 = new SpectralAveragingParameters();
+            SpectralAveragingParameters options2 = new SpectralAveragingParameters(){Percentile = 0.2, OutlierRejectionType = OutlierRejectionType.PercentileClipping};
+            SpectralAveragingParameters options3 = new SpectralAveragingParameters()
                 { OutlierRejectionType = OutlierRejectionType.SigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1 };
-            SpectralAveragingOptions options4 = new SpectralAveragingOptions()
+            SpectralAveragingParameters options4 = new SpectralAveragingParameters()
                 { OutlierRejectionType = OutlierRejectionType.AveragedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1 };
-            SpectralAveragingOptions options5 = new SpectralAveragingOptions()
+            SpectralAveragingParameters options5 = new SpectralAveragingParameters()
                 { OutlierRejectionType = OutlierRejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1 };
-            SpectralAveragingOptions options6 = new SpectralAveragingOptions()
+            SpectralAveragingParameters options6 = new SpectralAveragingParameters()
             {
                 OutlierRejectionType = OutlierRejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1,
                 SpectralWeightingType = SpectraWeightingType.WeightEvenly
             };
-            SpectralAveragingOptions options7 = new SpectralAveragingOptions()
+            SpectralAveragingParameters options7 = new SpectralAveragingParameters()
             {
                 OutlierRejectionType = OutlierRejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1,
                 SpectralWeightingType = SpectraWeightingType.TicValue, PerformNormalization = false
@@ -54,40 +54,40 @@ namespace Test.AveragingTests
         [Test]
         public static void TestMzLibSpectralAveragingOptionsConstructors()
         {
-            SpectralAveragingOptions defaultOptions = new();
-            defaultOptions.SetDefaultValues();
-            SpectralAveragingOptions options = new();
+            SpectralAveragingParameters defaultParameters = new();
+            defaultParameters.SetDefaultValues();
+            SpectralAveragingParameters parameters = new();
             // testing if values are equal to one another
-            foreach (var property in defaultOptions.GetType().GetProperties())
+            foreach (var property in defaultParameters.GetType().GetProperties())
             {
                 var propertyType = property.PropertyType;
-                var defaultProperty = Convert.ChangeType(defaultOptions.GetType().GetProperty(property.Name)?.GetValue(defaultOptions), propertyType);
-                var testProperty = Convert.ChangeType(options.GetType().GetProperty(property.Name)?.GetValue(options),
+                var defaultProperty = Convert.ChangeType(defaultParameters.GetType().GetProperty(property.Name)?.GetValue(defaultParameters), propertyType);
+                var testProperty = Convert.ChangeType(parameters.GetType().GetProperty(property.Name)?.GetValue(parameters),
                     propertyType);
-                if (propertyType == typeof(SpectralAveragingOptions))
+                if (propertyType == typeof(SpectralAveragingParameters))
                 {
-                    foreach (var averagingProperty in ((SpectralAveragingOptions)defaultProperty)?.GetType().GetProperties())
+                    foreach (var averagingProperty in ((SpectralAveragingParameters)defaultProperty)?.GetType().GetProperties())
                     {
                         // ensure wrapped property is equal to base property
                         defaultProperty =
                             Convert.ChangeType(
-                                defaultOptions.GetType().GetProperty(averagingProperty.Name)?.GetValue(defaultOptions),
+                                defaultParameters.GetType().GetProperty(averagingProperty.Name)?.GetValue(defaultParameters),
                                 averagingProperty.PropertyType);
                         var defaultAvgProperty =
                             Convert.ChangeType(
-                                defaultOptions.GetType().GetProperty(averagingProperty.Name)
-                                    ?.GetValue(defaultOptions), averagingProperty.PropertyType);
+                                defaultParameters.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(defaultParameters), averagingProperty.PropertyType);
                         Assert.That(defaultProperty?.ToString() == defaultAvgProperty?.ToString());
 
                         // ensure wrapped property is equal to base property
                         testProperty =
                             Convert.ChangeType(
-                                options.GetType().GetProperty(averagingProperty.Name)
-                                    ?.GetValue(options), averagingProperty.PropertyType);
+                                parameters.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(parameters), averagingProperty.PropertyType);
                         var testAvgProperty =
                             Convert.ChangeType(
-                                options.GetType().GetProperty(averagingProperty.Name)
-                                    ?.GetValue(options),
+                                parameters.GetType().GetProperty(averagingProperty.Name)
+                                    ?.GetValue(parameters),
                                 averagingProperty.PropertyType);
                         Assert.That(testProperty?.ToString() == testAvgProperty?.ToString());
                         Assert.That(testAvgProperty?.ToString() == defaultAvgProperty?.ToString());
@@ -99,21 +99,21 @@ namespace Test.AveragingTests
                 }
             }
 
-            options.OutlierRejectionType = OutlierRejectionType.AveragedSigmaClipping;
-            options.SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation;
-            options.PerformNormalization = false;
-            options.Percentile = 2;
-            options.MinSigmaValue = 2;
-            options.MaxSigmaValue = 2;
-            options.BinSize = 2;
+            parameters.OutlierRejectionType = OutlierRejectionType.AveragedSigmaClipping;
+            parameters.SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation;
+            parameters.PerformNormalization = false;
+            parameters.Percentile = 2;
+            parameters.MinSigmaValue = 2;
+            parameters.MaxSigmaValue = 2;
+            parameters.BinSize = 2;
 
-            Assert.That(options.OutlierRejectionType == OutlierRejectionType.AveragedSigmaClipping);
-            Assert.That(options.SpectralWeightingType == SpectraWeightingType.MrsNoiseEstimation);
-            Assert.That(options.PerformNormalization == false);
-            Assert.That(Math.Abs(options.Percentile - 2) < 0.001);
-            Assert.That(Math.Abs(options.MinSigmaValue - 2) < 0.001);
-            Assert.That(Math.Abs(options.MaxSigmaValue - 2) < 0.001);
-            Assert.That(Math.Abs(options.BinSize - 2) < 0.001);
+            Assert.That(parameters.OutlierRejectionType == OutlierRejectionType.AveragedSigmaClipping);
+            Assert.That(parameters.SpectralWeightingType == SpectraWeightingType.MrsNoiseEstimation);
+            Assert.That(parameters.PerformNormalization == false);
+            Assert.That(Math.Abs(parameters.Percentile - 2) < 0.001);
+            Assert.That(Math.Abs(parameters.MinSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(parameters.MaxSigmaValue - 2) < 0.001);
+            Assert.That(Math.Abs(parameters.BinSize - 2) < 0.001);
 
 
         }

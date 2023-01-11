@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,48 +11,45 @@ namespace MzLibSpectralAveraging
 {
     public static class SpectralWeighting
     {
-        public static void CalculateSpectraWeights(BinnedSpectra binnedSpectra, SpectralAveragingOptions options)
+        public static Dictionary<int, double> CalculateSpectraWeights(PixelStack pixelStack, SpectralAveragingParameters parameters)
         {
-            switch (options.SpectralWeightingType)
+            switch (parameters.SpectralWeightingType)
             {
                 case SpectraWeightingType.WeightEvenly:
-                    WeightEvenly(binnedSpectra);
-                    break;
+                    return WeightEvenly(pixelStack.NumSpectra);
 
                 case SpectraWeightingType.TicValue:
-                    WeightByTicValue(binnedSpectra);
-                    break;
+                    return WeightByTicValue(pixelStack);
 
                 case SpectraWeightingType.MrsNoiseEstimation:
-                    WeightByMrsNoiseEstimation(binnedSpectra);
-                    break;
+                    return WeightByMrsNoiseEstimation(pixelStack);
 
                 default:
                     throw new MzLibException("Spectra Weighting Type Not Implemented");
             }
         }
 
-        private static void WeightEvenly(BinnedSpectra binnedSpectra)
-        {
-            var weights = new SortedDictionary<int, double>();
 
-            for (int i = 0; i < binnedSpectra.NumSpectra; i++)
+        public static Dictionary<int, double> WeightEvenly(int count)
+        {
+            var weights = new Dictionary<int, double>();
+            for (int i = 0; i < count; i++)
             {
                 weights.TryAdd(i, 1);
             }
-            binnedSpectra.Weights = weights;
+            return weights;
         }
 
-        private static void WeightByTicValue(BinnedSpectra binnedSpectra)
+        private static Dictionary<int, double> WeightByTicValue(PixelStack pixelStack)
         {
-            var weights = new SortedDictionary<int, double>();
-            var maxTic = binnedSpectra.Tics.Max();
+            var weights = new Dictionary<int, double>();
+            var maxTic = pixelStack.Tics.Max();
 
-            for (int i = 0; i < binnedSpectra.NumSpectra; i++)
+            for (int i = 0; i < pixelStack.NumSpectra; i++)
             {
-                weights.TryAdd(i, binnedSpectra.Tics[i] / maxTic);
+                weights.TryAdd(i, pixelStack.Tics[i] / maxTic);
             }
-            binnedSpectra.Weights = weights;
+            return weights;
         }
 
         /// <summary>
@@ -59,15 +57,15 @@ namespace MzLibSpectralAveraging
         /// each spectra when averaging using w_i = 1 / (k * noise_estimate)^2,
         /// where k = scaleEstimate_reference / scaleEstimate_i
         /// </summary>
-        private static void WeightByMrsNoiseEstimation(BinnedSpectra binnedSpectra)
+        private static Dictionary<int, double> WeightByMrsNoiseEstimation(PixelStack pixelStack)
         {
-            var weights = new SortedDictionary<int, double>();
+            var weights = new Dictionary<int, double>();
             // get noise and scale estimates
-            SortedDictionary<int, double> noiseEstimates = CalculateNoiseEstimates(binnedSpectra);
-            SortedDictionary<int, double> scaleEstimates = CalculateScaleEstimates(binnedSpectra);
+            SortedDictionary<int, double> noiseEstimates = CalculateNoiseEstimates(pixelStack);
+            SortedDictionary<int, double> scaleEstimates = CalculateScaleEstimates(pixelStack);
 
             // calculate weights
-            double referenceScale = scaleEstimates[binnedSpectra.ReferenceSpectra];
+            double referenceScale = scaleEstimates[pixelStack.ReferenceSpectra];
             foreach (var entry in noiseEstimates)
             {
                 var successScale = scaleEstimates.TryGetValue(entry.Key,
@@ -85,7 +83,7 @@ namespace MzLibSpectralAveraging
                 weights.TryAdd(entry.Key, weight);
             }
 
-            binnedSpectra.Weights = weights;
+            return weights;
         }
 
         #region MrsNoiseHelpers
@@ -96,11 +94,11 @@ namespace MzLibSpectralAveraging
         /// <param name="waveletType">wavelet to be used in MRS noise estimation.</param>
         /// <param name="epsilon">Noise estimate convergence to be reached before returning the noise estimate.</param>
         /// <param name="maxIterations">Maximum number of iterations to be performed in the MRS noise estimation before returning.</param>
-        public static SortedDictionary<int, double> CalculateNoiseEstimates(BinnedSpectra binnedSpectra, WaveletType waveletType = WaveletType.Haar,
+        public static SortedDictionary<int, double> CalculateNoiseEstimates(PixelStack pixelStack, WaveletType waveletType = WaveletType.Haar,
             double epsilon = 0.01, int maxIterations = 25)
         {
             ConcurrentDictionary<int, double> tempConcurrentDictionary = new();
-            binnedSpectra.RecalculatedSpectra
+            pixelStack.RecalculatedSpectra
                 .Select((w, i) => new { Index = i, Array = w })
                 .AsParallel()
                 .ForAll(x =>
@@ -120,10 +118,10 @@ namespace MzLibSpectralAveraging
         /// Calculates the estimates of scale for each spectra in this object. Scale is determined by
         /// taking the square root of the biweight midvariance. 
         /// </summary>
-        public static SortedDictionary<int, double> CalculateScaleEstimates(BinnedSpectra binnedSpectra)
+        public static SortedDictionary<int, double> CalculateScaleEstimates(PixelStack pixelStack)
         {
             ConcurrentDictionary<int, double> tempScaleEstimates = new();
-            binnedSpectra.RecalculatedSpectra
+            pixelStack.RecalculatedSpectra
                 .Select((w, i) => new { Index = i, Array = w })
                 .AsParallel().ForAll(x =>
                 {
@@ -193,4 +191,6 @@ namespace MzLibSpectralAveraging
         #endregion
 
     }
+
+  
 }

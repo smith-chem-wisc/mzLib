@@ -58,19 +58,19 @@ namespace Test.AveragingTests
         [Test]
         public static void TestMzBinning()
         {
-            SpectralAveragingOptions options = new();
+            SpectralAveragingParameters parameters = new();
             MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
             DummyMzCopy.CopyTo(mzSpectras);
-            var compositeSpectra = mzSpectras.AverageSpectra(options);
+            var compositeSpectra = mzSpectras.AverageSpectra(parameters);
                 
 
             double[] expected = new double[] { 0, 3.2, 0, 0, 0, 0, 0, 6.4, 0 };
             Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
             Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
 
-            options.PerformNormalization = false;
+            parameters.PerformNormalization = false;
             DummyMzCopy.CopyTo(mzSpectras);
-            compositeSpectra = mzSpectras.AverageSpectra(options);
+            compositeSpectra = mzSpectras.AverageSpectra(parameters);
             expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
             Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
             Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
@@ -79,7 +79,7 @@ namespace Test.AveragingTests
         [Test]
         public static void TestAverageSpectraExtensions()
         {
-            SpectralAveragingOptions options = new();
+            SpectralAveragingParameters parameters = new();
             List<MsDataScan> scans = ActualScans.Take(5).ToList();
             List<MzSpectrum> spectra = new();
             foreach (var scan in scans)
@@ -87,8 +87,8 @@ namespace Test.AveragingTests
                 spectra.Add(new(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true));
             }
 
-            MzSpectrum compositeMsDataScanSpectrum = scans.AverageSpectra(options);
-            MzSpectrum compositeMzSpectrumSpectrum = spectra.AverageSpectra(options);
+            MzSpectrum compositeMsDataScanSpectrum = scans.AverageSpectra(parameters);
+            MzSpectrum compositeMzSpectrumSpectrum = spectra.AverageSpectra(parameters);
             Assert.That(compositeMzSpectrumSpectrum.Equals(compositeMsDataScanSpectrum));
         }
 
@@ -96,13 +96,13 @@ namespace Test.AveragingTests
         [Test]
         public static void TestAverageSpectraError()
         {
-            SpectralAveragingOptions options = new SpectralAveragingOptions();
-            options.SpectraMergingType = (SpectraMergingType)(-1);
+            SpectralAveragingParameters parameters = new SpectralAveragingParameters();
+            parameters.SpectraMergingType = (SpectraMergingType)(-1);
             MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
             DummyMzCopy.CopyTo(mzSpectras);
             try
             {
-                var compositeSpectraValues = mzSpectras.AverageSpectra(options);
+                var compositeSpectraValues = mzSpectras.AverageSpectra(parameters);
                 Assert.That(false);
             }
             catch (NotImplementedException)

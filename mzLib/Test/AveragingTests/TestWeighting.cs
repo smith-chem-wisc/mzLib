@@ -14,12 +14,12 @@ namespace Test.AveragingTests
     [ExcludeFromCodeCoverage]
     public static class TestWeighting
     {
-        public static BinnedSpectra BinnedSpectra { get; set; }
+        public static PixelStack PixelStack { get; set; }
 
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
-            SpectralAveragingOptions options = new();
+            SpectralAveragingParameters parameters = new();
             var xArray = new[] { 1.0, 2, 3, 4, 5 };
             var yArray1 = new [] { 10.0, 10, 10, 10, 10 };
             var yArray2 = new [] { 20.0, 20, 20, 20, 20 };
@@ -29,7 +29,7 @@ namespace Test.AveragingTests
             var spec3 = new MzSpectrum(xArray, yArray3, true);
             List<MzSpectrum> spectra = new() { spec1, spec2, spec3 };
 
-            BinnedSpectra = new(spectra, options.BinSize);
+            PixelStack = new(spectra, parameters.BinSize);
         }
 
         [Test]
@@ -37,7 +37,7 @@ namespace Test.AveragingTests
         {
             var exception = Assert.Throws<MzLibException>(() =>
             {
-                SpectralWeighting.CalculateSpectraWeights(BinnedSpectra, new SpectralAveragingOptions()
+                SpectralWeighting.CalculateSpectraWeights(PixelStack, new SpectralAveragingParameters()
                     { SpectralWeightingType = (SpectraWeightingType)(-1) });
             });
             Assert.That(exception.Message == "Spectra Weighting Type Not Implemented");
@@ -46,19 +46,19 @@ namespace Test.AveragingTests
         [Test]
         public static void TestWeighEvenly()
         {
-            SpectralWeighting.CalculateSpectraWeights(BinnedSpectra, new SpectralAveragingOptions() 
+            SpectralWeighting.CalculateSpectraWeights(PixelStack, new SpectralAveragingParameters() 
                 {SpectralWeightingType = SpectraWeightingType.WeightEvenly});
             var expected = new[] { 1.0, 1, 1 };
-            Assert.That(expected.SequenceEqual(BinnedSpectra.Weights.Select(p => p.Value)));
+            Assert.That(expected.SequenceEqual(PixelStack.Weights.Select(p => p.Value)));
         }
 
         [Test]
         public static void TestWeightByTicValue()
         {
-            SpectralWeighting.CalculateSpectraWeights(BinnedSpectra, new SpectralAveragingOptions()
+            SpectralWeighting.CalculateSpectraWeights(PixelStack, new SpectralAveragingParameters()
                 { SpectralWeightingType = SpectraWeightingType.TicValue });
             var expected = new[] { (1.0 / 3), (2.0 / 3), 1 };
-            Assert.That(expected.SequenceEqual(BinnedSpectra.Weights.Select(p => p.Value)));
+            Assert.That(expected.SequenceEqual(PixelStack.Weights.Select(p => p.Value)));
         }
 
         [Test]
@@ -78,9 +78,9 @@ namespace Test.AveragingTests
             };
             var binSize = 1.0;
 
-            BinnedSpectra bs = new(xArrays, yArrays, binSize);
+            PixelStack bs = new(xArrays, yArrays, binSize);
             bs.PerformNormalization();
-            SpectralWeighting.CalculateSpectraWeights(bs, new SpectralAveragingOptions() { SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation });
+            SpectralWeighting.CalculateSpectraWeights(bs, new SpectralAveragingParameters() { SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation });
             double[] expectedWeights = new[]
             {
                 //1539.23913, 

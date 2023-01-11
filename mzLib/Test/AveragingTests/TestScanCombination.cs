@@ -120,14 +120,14 @@ namespace Test.AveragingTests
             }
 
             Stopwatch sw = Stopwatch.StartNew();
-            SpectralAveragingOptions options = new SpectralAveragingOptions();
-            options.SetDefaultValues();
-            options.BinSize = 1.0;
-            options.SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation;
-            options.OutlierRejectionType = outlierRejection; 
+            SpectralAveragingParameters parameters = new SpectralAveragingParameters();
+            parameters.SetDefaultValues();
+            parameters.BinSize = 1.0;
+            parameters.SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation;
+            parameters.OutlierRejectionType = outlierRejection; 
             // TODO: Generate multiple binned spectra from a set of xArrays given the 
             // number of spectra. 
-            double[][] results = SpectralAveraging.AverageSpectra(xArrays, yArrays, options);
+            double[][] results = SpectralAveraging.AverageSpectra(xArrays, yArrays, parameters);
             sw.Stop();
             Console.WriteLine(sw.ElapsedMilliseconds);
 
