@@ -73,6 +73,12 @@ namespace FlashLFQ
             }
         }
 
+        /// <summary>
+        /// Sets retention time information for a given peak. Used for MBR peaks
+        /// </summary>
+        /// <param name="rtHypothesis"> Expected retention time for peak, based on alignment between a donor and acceptor file </param>
+        /// <param name="rtStdDev"> Standard deviation in the retention time differences between aligned peaks </param>
+        /// <param name="rtInterquartileRange"> Interquartile range og the retention time differences between aligned peaks</param>
         public void SetRtWindow(double rtHypothesis, double? rtStdDev, double? rtInterquartileRange)
         {
             RtHypothesis = rtHypothesis;
