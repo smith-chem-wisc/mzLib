@@ -31,7 +31,7 @@ namespace Test.AveragingTests
             SpectralAveragingParameters options7 = new SpectralAveragingParameters()
             {
                 OutlierRejectionType = OutlierRejectionType.WinsorizedSigmaClipping, MinSigmaValue = 1, MaxSigmaValue = 1,
-                SpectralWeightingType = SpectraWeightingType.TicValue, PerformNormalization = false
+                SpectralWeightingType = SpectraWeightingType.TicValue, NormalizationType = NormalizationType.NoNormalization
             };
 
             string opt1String = options1.ToString();
@@ -101,7 +101,7 @@ namespace Test.AveragingTests
 
             parameters.OutlierRejectionType = OutlierRejectionType.AveragedSigmaClipping;
             parameters.SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation;
-            parameters.PerformNormalization = false;
+            parameters.NormalizationType = NormalizationType.NoNormalization;
             parameters.Percentile = 2;
             parameters.MinSigmaValue = 2;
             parameters.MaxSigmaValue = 2;
@@ -109,7 +109,7 @@ namespace Test.AveragingTests
 
             Assert.That(parameters.OutlierRejectionType == OutlierRejectionType.AveragedSigmaClipping);
             Assert.That(parameters.SpectralWeightingType == SpectraWeightingType.MrsNoiseEstimation);
-            Assert.That(parameters.PerformNormalization == false);
+            Assert.That(parameters.NormalizationType == NormalizationType.NoNormalization);
             Assert.That(Math.Abs(parameters.Percentile - 2) < 0.001);
             Assert.That(Math.Abs(parameters.MinSigmaValue - 2) < 0.001);
             Assert.That(Math.Abs(parameters.MaxSigmaValue - 2) < 0.001);

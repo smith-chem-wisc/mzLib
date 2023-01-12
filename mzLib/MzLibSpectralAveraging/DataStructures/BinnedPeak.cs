@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MzLibSpectralAveraging
 {
-    internal record struct BinnedPeak
+    internal readonly record struct BinnedPeak
     {
         internal BinnedPeak(int bin, double mz, double intensity, int specId)
         {

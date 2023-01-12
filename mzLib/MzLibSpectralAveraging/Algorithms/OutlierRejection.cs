@@ -6,12 +6,16 @@ using System.Threading.Tasks;
 
 namespace MzLibSpectralAveraging
 {
-    public static partial class OutlierRejection
+    /// <summary>
+    /// Reject outliers from a given set of one dimensional data
+    /// </summary>
+    public static class OutlierRejection
     {
         /// <summary>
         /// Calls the specific rejection function based upon the current static field RejectionType
+        /// Can be used for any array of values
         /// </summary>
-        /// <param name="valuesToCheckForRejection">list of mz values to evaluate<</param>
+        /// <param name="valuesToCheckForRejection">list of mz values to evaluate</param>
         /// <returns></returns>
         public static double[] RejectOutliers(double[] valuesToCheckForRejection, SpectralAveragingParameters parameters)
         {
@@ -48,6 +52,12 @@ namespace MzLibSpectralAveraging
             return trimmedMzValues;
         }
 
+        /// <summary>
+        /// Overload for internal spectral averaging BinnedPeak structure
+        /// </summary>
+        /// <param name="peaks"></param>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
         internal static List<BinnedPeak> RejectOutliers(List<BinnedPeak> peaks, SpectralAveragingParameters parameters)
         {
             var unrejected = RejectOutliers(peaks.Select(p => p.Intensity).ToArray(), parameters);
@@ -60,8 +70,9 @@ namespace MzLibSpectralAveraging
             }
 
             return peaks;
-
         }
+
+        #region Rejection Functions
 
         /// <summary>
         /// Reject the max and min of the set
@@ -88,13 +99,13 @@ namespace MzLibSpectralAveraging
             double highPercentile = 1 - trim;
             double median = BasicStatistics.CalculateMedian(initialValues);
             double highCutoff = median * (1 + highPercentile);
-            double lowCutoff = median * (1 - highPercentile); 
+            double lowCutoff = median * (1 - highPercentile);
             // round to 4-6 decimal places
             return initialValues.Where(p => highCutoff > p && p > lowCutoff).ToArray();
         }
 
         /// <summary>
-        /// Itteratively removes values that fall outside of the central value by the defined StandardDeviation amount
+        /// Iteratively removes values that fall outside of the central value by the defined StandardDeviation amount
         /// </summary>
         /// <param name="initialValues">list of mz values to evaluate</param>
         /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
@@ -124,7 +135,7 @@ namespace MzLibSpectralAveraging
         }
 
         /// <summary>
-        /// Itteratively replaces values that fall outside of the central value by the defined StandardDeviation amount with the values of the median * that standard deviation amount
+        /// Iteratively replaces values that fall outside of the central value by the defined StandardDeviation amount with the values of the median * that standard deviation amount
         /// </summary>
         /// <param name="initialValues">list of mz values to evaluate</param>
         /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
@@ -133,11 +144,11 @@ namespace MzLibSpectralAveraging
         public static double[] WinsorizedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
         {
             List<double> values = initialValues.ToList();
-            int n = 0;
+            int n;
             double iterationLimitforHuberLoop = 0.00005;
             double medianLeftBound;
             double medianRightBound;
-            double windsorizedStandardDeviation;           
+            double windsorizedStandardDeviation;
             do
             {
                 if (!values.Any())
@@ -221,6 +232,8 @@ namespace MzLibSpectralAveraging
             return initialValues;
         }
 
+        #endregion
+
         #region Private Helpers
 
 
@@ -249,6 +262,31 @@ namespace MzLibSpectralAveraging
                     else
                         initialValues[i] = medianRightBound;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Helper delegate method for sigma clipping
+        /// </summary>
+        /// <param name="value">the value in question</param>
+        /// <param name="median">median of the dataset</param>
+        /// <param name="standardDeviation">standard dev of the dataset</param>
+        /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
+        /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
+        /// <returns></returns>
+        private static bool SigmaClipping(double value, double median, double standardDeviation, double sValueMin, double sValueMax)
+        {
+            if ((median - value) / standardDeviation > sValueMin)
+            {
+                return true;
+            }
+            else if ((value - median) / standardDeviation > sValueMax)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
 

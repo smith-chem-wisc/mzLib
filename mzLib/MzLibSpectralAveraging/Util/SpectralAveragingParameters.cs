@@ -12,11 +12,6 @@ namespace MzLibSpectralAveraging
         public SpectraMergingType SpectraMergingType { get; set; }
         public SpectraFileProcessingType SpectraFileProcessingType { get; set; }
         public OutputType OutputType { get; set; }
-
-        [Obsolete]
-        public bool PerformNormalization { get; set; }
-
-
         public double Percentile { get; set; }
         public double MinSigmaValue { get; set; }
         public double MaxSigmaValue { get; set; }
@@ -43,14 +38,12 @@ namespace MzLibSpectralAveraging
             NormalizationType normalizationType = NormalizationType.RelativeToTics,
             SpectraFileProcessingType specProcessingType = SpectraFileProcessingType.AverageAll,
             OutputType outputType = OutputType.mzML, int numToAverage = 5, int overlap = 2,
-            bool performNormalization = true, double percentile = 0.1, double minSigma = 1.5,
-            double maxSigma = 1.5, double binSize = 0.01)
+            double percentile = 0.1, double minSigma = 1.5, double maxSigma = 1.5, double binSize = 0.01)
         {
             OutlierRejectionType = outlierRejectionType;
             SpectralWeightingType = spectraWeighingType;
             SpectraMergingType = spectraMergingType;
             NormalizationType = normalizationType;
-            PerformNormalization = performNormalization;
             SpectraFileProcessingType = specProcessingType;
             OutputType = outputType;
             NumberOfScansToAverage = numToAverage;
@@ -72,7 +65,6 @@ namespace MzLibSpectralAveraging
             SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
             NormalizationType = NormalizationType.RelativeToTics;
             OutputType = OutputType.mzML;
-            PerformNormalization = true;
             ScanOverlap = 2;
             NumberOfScansToAverage = 5;
             Percentile = 0.1;
@@ -90,8 +82,10 @@ namespace MzLibSpectralAveraging
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.Append(OutlierRejectionType.ToString() + '_');
             stringBuilder.Append(SpectralWeightingType.ToString() + '_');
-            if (PerformNormalization)
-                stringBuilder.Append("Normalized_");
+            stringBuilder.Append(NormalizationType.ToString() + "_");
+
+            if (SpectraMergingType == SpectraMergingType.MzBinning)
+                stringBuilder.Append("BinSize-" + BinSize +"_");
 
             // rejection type specific 
             if (OutlierRejectionType == OutlierRejectionType.PercentileClipping)
@@ -103,7 +97,7 @@ namespace MzLibSpectralAveraging
                 stringBuilder.Append("MaxSigma-" + MaxSigmaValue + '_');
             }
 
-            stringBuilder.Append("BinSize-" + BinSize);
+            stringBuilder.Remove(stringBuilder.ToString().LastIndexOf('_'), 1);
 
             return stringBuilder.ToString();
         }

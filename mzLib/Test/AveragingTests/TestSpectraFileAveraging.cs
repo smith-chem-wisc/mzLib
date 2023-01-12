@@ -35,7 +35,7 @@ namespace Test.AveragingTests
             SpectralAveragingParameters = new();
             SpectralAveragingParameters.OutlierRejectionType = OutlierRejectionType.NoRejection;
             SpectralAveragingParameters.SpectralWeightingType = SpectraWeightingType.WeightEvenly;
-            SpectralAveragingParameters.PerformNormalization = false;
+            SpectralAveragingParameters.NormalizationType = NormalizationType.NoNormalization;
 
             double[] xArray = new double[] { 100.1453781, 200, 300, 400, 500, 600, 700, 800, 900.4123745 };
             double[] yArray1 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0 };

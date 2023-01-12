@@ -12,6 +12,13 @@ namespace MzLibSpectralAveraging
     /// </summary>
     public static class SpectraFileAveraging
     {
+        /// <summary>
+        /// Averages an entire spectra file, grouping the spectra to be averaged based upon the parameters.SpectraFileProcessing field
+        /// </summary>
+        /// <param name="scans">all scans from a file to be averaged</param>
+        /// <param name="parameters">how to average the spectra</param>
+        /// <returns></returns>
+        /// <exception cref="MzLibException"></exception>
         public static MsDataScan[] AverageSpectraFile(List<MsDataScan> scans, SpectralAveragingParameters parameters)
         {
             switch (parameters.SpectraFileProcessingType)
@@ -46,6 +53,12 @@ namespace MzLibSpectralAveraging
             }
         }
 
+        /// <summary>
+        /// Average all scans
+        /// </summary>
+        /// <param name="scans">all scans from a file to be averaged</param>
+        /// <param name="parameters">how to average the spectra</param>
+        /// <returns></returns>
         private static MsDataScan[] AverageAll(List<MsDataScan> scans, SpectralAveragingParameters parameters)
         {
             // average spectrum

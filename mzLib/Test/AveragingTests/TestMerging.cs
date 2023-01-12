@@ -62,16 +62,15 @@ namespace Test.AveragingTests
             MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
             DummyMzCopy.CopyTo(mzSpectras);
             var compositeSpectra = mzSpectras.AverageSpectra(parameters);
-                
 
-            double[] expected = new double[] { 0, 3.2, 0, 0, 0, 0, 0, 6.4, 0 };
+            double[] expected = new[] { 3.2, 6.4};
             Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
             Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
 
-            parameters.PerformNormalization = false;
+            parameters.NormalizationType = NormalizationType.NoNormalization;
             DummyMzCopy.CopyTo(mzSpectras);
             compositeSpectra = mzSpectras.AverageSpectra(parameters);
-            expected = new double[] { 0, 4, 0, 0, 0, 0, 0, 8, 0 };
+            expected = new[] { 4.0, 8.0};
             Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
             Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
         }
