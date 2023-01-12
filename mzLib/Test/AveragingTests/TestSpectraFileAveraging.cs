@@ -217,8 +217,6 @@ namespace Test.AveragingTests
             }
         }
 
-    
-
         [Test]
         public static void TestAverageAll()
         {
@@ -464,13 +462,13 @@ namespace Test.AveragingTests
         [Test]
         public static void TestMovingAverageMs1Scans()
         {
-            // TODO: Test This
+            // TODO: Test This after implementation
         }
 
         [Test]
         public static void TestMovingAverageAllScans()
         {
-            //TODO: Test This
+            //TODO: Test This after implementation
         }
     }
 }

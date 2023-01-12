@@ -37,5 +37,27 @@ namespace MzLibSpectralAveraging
         {
             return scansToAverage.Select(p => p.MassSpectrum).AverageSpectra(parameters);
         }
+
+
+        /// <summary>
+        /// Normalize a group of MzSpectrum
+        /// </summary>
+        /// <param name="spectraToNormalize">spectra to normalize</param>
+        /// <param name="type">normalization type</param>
+        public static void NormalizeSpectra(this IEnumerable<MzSpectrum> spectraToNormalize, NormalizationType type)
+        {
+            var yArrays = spectraToNormalize.Select(p => p.YArray).ToArray();
+            SpectraNormalization.NormalizeSpectra(yArrays, type);
+        }
+
+        /// <summary>
+        /// Normalize a group of MsDataScans
+        /// </summary>
+        /// <param name="scansToNormalize">spectra to normalize</param>
+        /// <param name="type">normalization type</param>
+        public static void NormalizeSpectra(this IEnumerable<MsDataScan> scansToNormalize, NormalizationType type)
+        {
+            scansToNormalize.Select(p => p.MassSpectrum).NormalizeSpectra(type);
+        }
     }
 }

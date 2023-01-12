@@ -3,19 +3,22 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using IO.MzML;
 using MassSpectrometry;
 using MzLibSpectralAveraging;
 using NUnit.Framework;
+using MzLibUtil;
 
 namespace Test.AveragingTests
 {
+    [TestFixture]
     [ExcludeFromCodeCoverage]
-    public static class TestMerging
+    public static class TestAveragingExtensions
     {
         public static List<MzSpectrum> DummyMzSpectra { get; set; }
         public static List<MsDataScan> ActualScans { get; set; }
-
         public static List<MzSpectrum> DummyMzCopy
         {
             get
@@ -56,63 +59,66 @@ namespace Test.AveragingTests
         }
 
         [Test]
-        public static void TestMzBinning()
+        [TestCase(5)]
+        [TestCase(10)]
+        public static void TestAverageExtensions(int scansToTake)
         {
             SpectralAveragingParameters parameters = new();
-            MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
-            DummyMzCopy.CopyTo(mzSpectras);
-            var compositeSpectra = mzSpectras.AverageSpectra(parameters);
+            List<MsDataScan> scans = ActualScans.Take(scansToTake).ToList();
+            List<MzSpectrum> spectra = new();
 
-            double[] expected = new[] { 3.2, 6.4};
-            Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
-            Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
+            foreach (var scan in scans)
+            {
+                var spec = new MzSpectrum(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true);
+                spectra.Add(spec);
+            }
 
-            parameters.NormalizationType = NormalizationType.NoNormalization;
-            DummyMzCopy.CopyTo(mzSpectras);
-            compositeSpectra = mzSpectras.AverageSpectra(parameters);
-            expected = new[] { 4.0, 8.0};
-            Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
-            Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
+            var xArrays = spectra.Select(p => p.XArray).ToArray();
+            var yArrays = spectra.Select(p => p.YArray.SubArray(0, p.YArray.Length)).ToArray();
+            var xyJagged = SpectralAveraging.AverageSpectra(xArrays, yArrays, parameters);
+
+            MzSpectrum compositeArrayMzSpectrum = new MzSpectrum(xyJagged[0], xyJagged[1], true);
+            MzSpectrum compositeMsDataScanSpectrum = scans.AverageSpectra(parameters);
+            MzSpectrum compositeMzSpectrumSpectrum = spectra.AverageSpectra(parameters);
+
+            Assert.That(compositeMzSpectrumSpectrum.Equals(compositeMsDataScanSpectrum));
+            Assert.That(compositeMzSpectrumSpectrum.Equals(compositeArrayMzSpectrum));
+            Assert.That(compositeMsDataScanSpectrum.Equals(compositeArrayMzSpectrum));
         }
 
         [Test]
-        public static void TestAverageSpectraExtensions()
+        [TestCase(5, NormalizationType.NoNormalization)]
+        [TestCase(5, NormalizationType.AbsoluteToTic)]
+        [TestCase(5, NormalizationType.RelativeToTics)]
+        [TestCase(10, NormalizationType.NoNormalization)]
+        [TestCase(10, NormalizationType.AbsoluteToTic)]
+        [TestCase(10, NormalizationType.RelativeToTics)]
+        public static void TestNormalizationExtensions(int scansToTake, NormalizationType type)
         {
-            SpectralAveragingParameters parameters = new();
-            List<MsDataScan> scans = ActualScans.Take(5).ToList();
+            // setup values
+            SpectralAveragingParameters parameters = new() {NormalizationType = type};
+            List<MsDataScan> scans = ActualScans.Take(scansToTake).ToList();
             List<MzSpectrum> spectra = new();
             foreach (var scan in scans)
             {
-                spectra.Add(new(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true));
+                var spec = new MzSpectrum(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true);
+                spectra.Add(spec);
             }
+            var yArrays = spectra.Select(p => p.YArray.SubArray(0, p.YArray.Length)).ToArray();
 
-            MzSpectrum compositeMsDataScanSpectrum = scans.AverageSpectra(parameters);
-            MzSpectrum compositeMzSpectrumSpectrum = spectra.AverageSpectra(parameters);
-            Assert.That(compositeMzSpectrumSpectrum.Equals(compositeMsDataScanSpectrum));
-        }
+            // normalize
+            scans.NormalizeSpectra(type);
+            spectra.NormalizeSpectra(type);
+            SpectraNormalization.NormalizeSpectra(yArrays, type);
 
+            var msDataScanyArrays = scans.Select(p => p.MassSpectrum.YArray).ToArray();
+            var mzSpectrumyArrays = spectra.Select(p => p.YArray).ToArray();
 
-        [Test]
-        public static void TestAverageSpectraError()
-        {
-            SpectralAveragingParameters parameters = new SpectralAveragingParameters();
-            parameters.SpectraMergingType = (SpectraMergingType)(-1);
-            MzSpectrum[] mzSpectras = new MzSpectrum[DummyMzSpectra.Count];
-            DummyMzCopy.CopyTo(mzSpectras);
-            try
+            for (int i = 0; i < yArrays.Length; i++)
             {
-                var compositeSpectraValues = mzSpectras.AverageSpectra(parameters);
-                Assert.That(false);
-            }
-            catch (NotImplementedException)
-            {
-
-            }
-            catch (Exception)
-            {
-                Assert.That(false);
+                Assert.That(yArrays[i].SequenceEqual(msDataScanyArrays[i]));
+                Assert.That(yArrays[i].SequenceEqual(mzSpectrumyArrays[i]));
             }
         }
-
     }
 }

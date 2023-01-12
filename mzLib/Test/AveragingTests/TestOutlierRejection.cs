@@ -6,6 +6,8 @@ using NUnit.Framework;
 using NUnit.Framework.Internal;
 
 namespace Test.AveragingTests;
+
+[TestFixture]
 [ExcludeFromCodeCoverage]
 public class TestOutlierRejection
 {
@@ -67,7 +69,7 @@ public class TestOutlierRejection
     }
 
     [Test]
-    [TestCaseSource("Arguments")]
+    [TestCaseSource(nameof(Arguments))]
     public void TestRejectionMethods(TestCase testCase)
     {
         // test pixel stack entry point

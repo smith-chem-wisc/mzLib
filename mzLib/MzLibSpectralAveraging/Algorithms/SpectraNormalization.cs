@@ -9,6 +9,12 @@ namespace MzLibSpectralAveraging
 {
     public static class SpectraNormalization
     {
+        /// <summary>
+        /// Calls specific normalization function
+        /// </summary>
+        /// <param name="yArrays">yArrays to be normalized</param>
+        /// <param name="normalizationType">how to normalize spectra</param>
+        /// <exception cref="MzLibException"></exception>
         public static void NormalizeSpectra(double[][] yArrays, NormalizationType normalizationType)
         {
             switch (normalizationType)
@@ -29,6 +35,10 @@ namespace MzLibSpectralAveraging
             }
         }
 
+        /// <summary>
+        /// Divides each y value by its Tic value, sum of all y from one spectra will equal one
+        /// </summary>
+        /// <param name="yArrays">y arrays to be normalized</param>
         private static void NormalizeAbsoluteToTic(double[][] yArrays)
         {
             for (int i = 0; i < yArrays.Length; i++)
@@ -43,6 +53,10 @@ namespace MzLibSpectralAveraging
             }
         }
 
+        /// <summary>
+        /// Divides each y value by its Tic value, and multiples by the average Tic value
+        /// </summary>
+        /// <param name="yArrays">y arrays to be normalized</param>
         private static void NormalizeRelativeToTics(double[][] yArrays)
         {
             var tics = yArrays.Select(p => p.Sum()).ToArray();

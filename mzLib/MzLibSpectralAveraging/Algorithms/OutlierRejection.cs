@@ -16,10 +16,11 @@ namespace MzLibSpectralAveraging
         /// Can be used for any array of values
         /// </summary>
         /// <param name="valuesToCheckForRejection">list of mz values to evaluate</param>
-        /// <returns></returns>
+        /// <param name="parameters">how to reject outliers</param>
+        /// <returns>double array of unrejected values</returns>
         public static double[] RejectOutliers(double[] valuesToCheckForRejection, SpectralAveragingParameters parameters)
         {
-            double[] trimmedMzValues = valuesToCheckForRejection;
+            var trimmedMzValues = valuesToCheckForRejection;
             switch (parameters.OutlierRejectionType)
             {
                 case OutlierRejectionType.NoRejection:
@@ -55,13 +56,13 @@ namespace MzLibSpectralAveraging
         /// <summary>
         /// Overload for internal spectral averaging BinnedPeak structure
         /// </summary>
-        /// <param name="peaks"></param>
-        /// <param name="parameters"></param>
+        /// <param name="peaks">list of peaks to reject outliers</param>
+        /// <param name="parameters">how to reject outliers</param>
         /// <returns></returns>
         internal static List<BinnedPeak> RejectOutliers(List<BinnedPeak> peaks, SpectralAveragingParameters parameters)
         {
             var unrejected = RejectOutliers(peaks.Select(p => p.Intensity).ToArray(), parameters);
-            for (int i = 0; i < peaks.Count; i++)
+            for (var i = 0; i < peaks.Count; i++)
             {
                 if (!unrejected.Contains(peaks[i].Intensity))
                 {
@@ -79,10 +80,10 @@ namespace MzLibSpectralAveraging
         /// </summary>
         /// <param name="initialValues">array of mz values to evaluate</param>
         /// <returns>list of mz values with outliers rejected</returns>
-        public static double[] MinMaxClipping(double[] initialValues)
+        private static double[] MinMaxClipping(double[] initialValues)
         {
-            double max = initialValues.Max();
-            double min = initialValues.Min();
+            var max = initialValues.Max();
+            var min = initialValues.Min();
 
             return initialValues.Where(p => p < max && p > min).ToArray();
         }
@@ -93,13 +94,13 @@ namespace MzLibSpectralAveraging
         /// <param name="initialValues">list of mz values to evaluate</param>
         /// <param name="percentile"></param>
         /// <returns>list of mz values with outliers rejected</returns>
-        public static double[] PercentileClipping(double[] initialValues, double percentile)
+        private static double[] PercentileClipping(double[] initialValues, double percentile)
         {
-            double trim = (1 - percentile) / 2;
-            double highPercentile = 1 - trim;
-            double median = BasicStatistics.CalculateMedian(initialValues);
-            double highCutoff = median * (1 + highPercentile);
-            double lowCutoff = median * (1 - highPercentile);
+            var trim = (1 - percentile) / 2;
+            var highPercentile = 1 - trim;
+            var median = BasicStatistics.CalculateMedian(initialValues);
+            var highCutoff = median * (1 + highPercentile);
+            var lowCutoff = median * (1 - highPercentile);
             // round to 4-6 decimal places
             return initialValues.Where(p => highCutoff > p && p > lowCutoff).ToArray();
         }
@@ -111,16 +112,16 @@ namespace MzLibSpectralAveraging
         /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
         /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
         /// <returns></returns>
-        public static double[] SigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
+        private static double[] SigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
         {
-            List<double> values = initialValues.ToList();
-            int n = 0;
+            var values = initialValues.ToList();
+            var n = 0;
             do
             {
-                double median = BasicStatistics.CalculateMedian(values);
-                double standardDeviation = BasicStatistics.CalculateStandardDeviation(values);
+                var median = BasicStatistics.CalculateMedian(values);
+                var standardDeviation = BasicStatistics.CalculateStandardDeviation(values);
                 n = 0;
-                for (int i = 0; i < values.Count; i++)
+                for (var i = 0; i < values.Count; i++)
                 {
                     if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
                     {
@@ -130,7 +131,7 @@ namespace MzLibSpectralAveraging
                     }
                 }
             } while (n > 0);
-            double[] val = values.ToArray();
+            var val = values.ToArray();
             return val;
         }
 
@@ -141,11 +142,11 @@ namespace MzLibSpectralAveraging
         /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
         /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
         /// <returns></returns>
-        public static double[] WinsorizedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
+        private static double[] WinsorizedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
         {
-            List<double> values = initialValues.ToList();
+            var values = initialValues.ToList();
             int n;
-            double iterationLimitforHuberLoop = 0.00005;
+            const double iterationLimitForHuberLoop = 0.00005;
             double medianLeftBound;
             double medianRightBound;
             double windsorizedStandardDeviation;
@@ -153,9 +154,9 @@ namespace MzLibSpectralAveraging
             {
                 if (!values.Any())
                     break;
-                double median = BasicStatistics.CalculateNonZeroMedian(values);
-                double standardDeviation = BasicStatistics.CalculateNonZeroStandardDeviation(values);
-                double[] toProcess = values.ToArray();
+                var median = BasicStatistics.CalculateNonZeroMedian(values);
+                var standardDeviation = BasicStatistics.CalculateNonZeroStandardDeviation(values);
+                var toProcess = values.ToArray();
                 do // calculates a new median and standard deviation based on the values to do sigma clipping with (Huber loop)
                 {
                     medianLeftBound = median - 1.5 * standardDeviation;
@@ -164,10 +165,10 @@ namespace MzLibSpectralAveraging
                     median = BasicStatistics.CalculateMedian(toProcess);
                     windsorizedStandardDeviation = standardDeviation;
                     standardDeviation = BasicStatistics.CalculateStandardDeviation(toProcess) * 1.134;
-                } while (Math.Abs(standardDeviation - windsorizedStandardDeviation) / windsorizedStandardDeviation > iterationLimitforHuberLoop);
+                } while (Math.Abs(standardDeviation - windsorizedStandardDeviation) / windsorizedStandardDeviation > iterationLimitForHuberLoop);
 
                 n = 0;
-                for (int i = 0; i < values.Count; i++)
+                for (var i = 0; i < values.Count; i++)
                 {
                     if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
                     {
@@ -188,12 +189,12 @@ namespace MzLibSpectralAveraging
         /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
         /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
         /// <returns></returns>
-        public static double[] AveragedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
+        private static double[] AveragedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
         {
-            List<double> values = initialValues.ToList();
-            double median = BasicStatistics.CalculateNonZeroMedian(initialValues);
-            double deviation = BasicStatistics.CalculateNonZeroStandardDeviation(initialValues, median);
-            int n = 0;
+            var values = initialValues.ToList();
+            var median = BasicStatistics.CalculateNonZeroMedian(initialValues);
+            var deviation = BasicStatistics.CalculateNonZeroStandardDeviation(initialValues, median);
+            var n = 0;
             double standardDeviation;
             do
             {
@@ -201,9 +202,9 @@ namespace MzLibSpectralAveraging
                 standardDeviation = deviation * Math.Sqrt(median) / 10;
 
                 n = 0;
-                for (int i = 0; i < values.Count; i++)
+                for (var i = 0; i < values.Count; i++)
                 {
-                    double temp = (values[i] - median) / standardDeviation;
+                    var temp = (values[i] - median) / standardDeviation;
                     if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
                     {
 
@@ -222,9 +223,9 @@ namespace MzLibSpectralAveraging
         /// <param name="initialValues">array of mz values to evaluate</param>
         /// <param name="cutoffValue">percent in decimal form of where to cutoff </param>
         /// <returns></returns>
-        public static double[] BelowThresholdRejection(double[] initialValues, double cutoffValue = 0.2)
+        private static double[] BelowThresholdRejection(double[] initialValues, double cutoffValue = 0.2)
         {
-            int scanCount = initialValues.Length;
+            var scanCount = initialValues.Length;
             if (initialValues.Count(p => p != 0) <= scanCount * cutoffValue)
             {
                 initialValues = new double[scanCount];
@@ -241,12 +242,12 @@ namespace MzLibSpectralAveraging
         /// Helper method to mutate the array of doubles based upon the median value
         /// </summary>
         /// <param name="initialValues">initial values to process</param>
-        /// <param name="medianLeftBound">minimum the element in the dataset is allowed to be</param>
-        /// <param name="medianRightBound">maxamum the element in the dataset is allowed to be</param>
+        /// <param name="medianLeftBound">minimum the element in the data set is allowed to be</param>
+        /// <param name="medianRightBound">maximum the element in the data set is allowed to be</param>
         /// <returns></returns>
         private static void Winsorize(this double[] initialValues, double medianLeftBound, double medianRightBound)
         {
-            for (int i = 0; i < initialValues.Length; i++)
+            for (var i = 0; i < initialValues.Length; i++)
             {
                 if (initialValues[i] < medianLeftBound)
                 {
@@ -269,8 +270,8 @@ namespace MzLibSpectralAveraging
         /// Helper delegate method for sigma clipping
         /// </summary>
         /// <param name="value">the value in question</param>
-        /// <param name="median">median of the dataset</param>
-        /// <param name="standardDeviation">standard dev of the dataset</param>
+        /// <param name="median">median of the data set</param>
+        /// <param name="standardDeviation">standard dev of the data set</param>
         /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
         /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
         /// <returns></returns>

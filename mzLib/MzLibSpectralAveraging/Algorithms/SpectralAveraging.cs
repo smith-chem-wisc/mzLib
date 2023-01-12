@@ -15,7 +15,8 @@ namespace MzLibSpectralAveraging
         /// <param name="xArrays"> x values of spectra</param>
         /// <param name="yArrays">y values of spectra</param>
         /// <param name="parameters">Options for how to perform averaging</param>
-        /// <returns>Averaged MzSpectrum object</returns>
+        /// <returns>Double jagged array where the first index is the x values and the second
+        /// is the y values for the averaged spectrum</returns>
         /// <exception cref="NotImplementedException">If merging type has not been implemented</exception>
         public static double[][] AverageSpectra(double[][] xArrays, double[][] yArrays, SpectralAveragingParameters parameters)
         {
@@ -25,7 +26,7 @@ namespace MzLibSpectralAveraging
                      return MzBinning(xArrays, yArrays, parameters);
 
                 default:
-                    throw new NotImplementedException("Spectrum Merging Type Not Yet Implemented");
+                    throw new MzLibException("Spectrum Averaging Type Not Yet Implemented");
             }
         }
 
@@ -71,8 +72,22 @@ namespace MzLibSpectralAveraging
 
         }
 
+
+        #region Helpers
+
+        /// <summary>
+        /// Sorts spectra into bins
+        /// </summary>
+        /// <param name="xArrays">xArrays of spectra to be binned</param>
+        /// <param name="yArrays">yArrays of spectra to be binned</param>
+        /// <param name="binSize">size of bin</param>
+        /// <returns>Dictionary of bins where the key is the bin index and the
+        /// value is a list of all peaks in that particular bin</returns>
+        /// <remarks>There will be at minimum, one peak per bin per spectrum.
+        /// If a spectrum does not have a peak in a bin where all other spectra do,
+        /// then a peak with zero intensity will be added. This allows for efficient outlier rejection </remarks>
         private static Dictionary<int, List<BinnedPeak>> GetBins(double[][] xArrays, double[][] yArrays,
-            double binSize)
+           double binSize)
         {
             var numSpectra = xArrays.Length;
             var minXValue = xArrays.MinBy(p => p.Min()).Min();
@@ -88,7 +103,7 @@ namespace MzLibSpectralAveraging
                     var binValue = new BinnedPeak(binIndex, xArrays[i][j], yArrays[i][j], i);
                     if (!bins.ContainsKey(binIndex))
                     {
-                        bins.Add(binIndex, new List<BinnedPeak>() {binValue});
+                        bins.Add(binIndex, new List<BinnedPeak>() { binValue });
                     }
                     else
                     {
@@ -114,6 +129,12 @@ namespace MzLibSpectralAveraging
             return bins;
         }
 
+        /// <summary>
+        /// Determines the weighted average of a list of binned peaks
+        /// </summary>
+        /// <param name="peaksInBin">peaks to average</param>
+        /// <param name="weights">weights to average</param>
+        /// <returns>tuple representing (average Mz value in bin, weighted average intensity in bin)</returns>
         private static (double, double) AverageBin(List<BinnedPeak> peaksInBin, Dictionary<int, double> weights)
         {
             double numerator = 0;
@@ -129,6 +150,8 @@ namespace MzLibSpectralAveraging
             var intensity = numerator / denominator;
             return (mz, intensity);
         }
+
+        #endregion
 
     }
 }

@@ -8,6 +8,7 @@ using NUnit.Framework;
 
 namespace Test.AveragingTests
 {
+    [TestFixture]
     [ExcludeFromCodeCoverage]
     internal class TestStatistics
     {
