@@ -27,7 +27,6 @@ namespace Test.AveragingTests
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
-            sb = new StringBuilder();
             ActualScans = SpectraFileHandler.LoadAllScansFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"AveragingTestData\TDYeastFractionMS1.mzML")).Take(50).ToList();
             SpectralAveragingParameters = new();
