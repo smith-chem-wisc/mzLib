@@ -34,11 +34,17 @@ namespace FlashLFQ
         public int NumIdentificationsByBaseSeq { get; private set; }
         public int NumIdentificationsByFullSeq { get; private set; }
         public double MassError { get; private set; }
-        // Expected retention time for MBR acceptor peaks (mean)
+        /// <summary>
+        /// Expected retention time for MBR acceptor peaks (mean)
+        /// </summary>
         public double? RtHypothesis { get; private set; }
-        // Std. Dev of retention time differences between MBR acceptor file and donor file, used if # calibration points < 6 
+        /// <summary>
+        /// Std. Dev of retention time differences between MBR acceptor file and donor file, used if # calibration points < 6
+        /// </summary>
         public double? RtStdDev { get; private set;  }
-        // Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6 
+        /// <summary>
+        /// Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6
+        /// </summary>
         public double? RtInterquartileRange { get; private set; }
 
         public static string TabSeparatedHeader
