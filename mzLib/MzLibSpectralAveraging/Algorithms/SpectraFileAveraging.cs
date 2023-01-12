@@ -40,15 +40,6 @@ namespace MzLibSpectralAveraging
                 case SpectraFileProcessingType.AverageDDAScansWithOverlap:
                     return AverageDDAScans(scans, parameters);
 
-
-                // TODO: Implement these two
-                case SpectraFileProcessingType.MovingAverageMs1Scans:
-                    return AverageMovingAverageMs1Scans(scans, parameters);
-
-                case SpectraFileProcessingType.MovingAverageAllScans:
-                    return AverageMovingAverageAllScans(scans, parameters);
-
-
                 default: throw new MzLibException("Averaging spectra file processing type not yet implemented");
             }
         }
@@ -175,16 +166,6 @@ namespace MzLibSpectralAveraging
             }
 
             return averagedScans.ToArray();
-        }
-
-        private static MsDataScan[] AverageMovingAverageAllScans(List<MsDataScan> scans, SpectralAveragingParameters parameters)
-        {
-            throw new NotImplementedException();
-        }
-
-        private static MsDataScan[] AverageMovingAverageMs1Scans(List<MsDataScan> scans, SpectralAveragingParameters parameters)
-        {
-            throw new NotImplementedException();
         }
     }
 }

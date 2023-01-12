@@ -208,7 +208,7 @@ namespace Test.AveragingTests
         public static void OneTimeTearDown()
         {
 
-            string sampleType = "FirstRevision";
+            string sampleType = "SecondRevision";
             int iteration = 5;
             string outPath = $@"D:\Projects\SpectralAveraging\TimeComparisonTests\{sampleType}{iteration}.csv";
             using (StreamWriter sw = new(File.Create(outPath)))
@@ -457,18 +457,6 @@ namespace Test.AveragingTests
 
             sw.Stop();
             sb.AppendLine(MethodBase.GetCurrentMethod().Name + "," + sw.Elapsed.Milliseconds.ToString());
-        }
-
-        [Test]
-        public static void TestMovingAverageMs1Scans()
-        {
-            // TODO: Test This after implementation
-        }
-
-        [Test]
-        public static void TestMovingAverageAllScans()
-        {
-            //TODO: Test This after implementation
         }
     }
 }
