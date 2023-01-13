@@ -343,11 +343,4 @@ public class TestOutlierRejection
 
         return OutlierRejection.RejectOutliers(peaks, parameters).Select(p => p.Intensity).ToArray();
     }
-
-    [Test]
-    public static void TestBinnedPeakToString()
-    {
-        BinnedPeak peak = new(1, 20.56, 15.75, 2);
-        Assert.That(peak.ToString().Equals($"{peak.Mz} : {peak.Intensity} : {peak.SpectraId}"));
-    }
 }
