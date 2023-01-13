@@ -7,9 +7,9 @@ using System.Text;
 using System.Threading.Tasks;
 using IO.MzML;
 using MassSpectrometry;
-using MzLibSpectralAveraging;
 using NUnit.Framework;
 using MzLibUtil;
+using SpectralAveraging;
 
 namespace Test.AveragingTests
 {
@@ -75,7 +75,7 @@ namespace Test.AveragingTests
 
             var xArrays = spectra.Select(p => p.XArray).ToArray();
             var yArrays = spectra.Select(p => p.YArray.SubArray(0, p.YArray.Length)).ToArray();
-            var xyJagged = SpectralAveraging.AverageSpectra(xArrays, yArrays, parameters);
+            var xyJagged = SpectraAveraging.AverageSpectra(xArrays, yArrays, parameters);
 
             MzSpectrum compositeArrayMzSpectrum = new MzSpectrum(xyJagged[0], xyJagged[1], true);
             MzSpectrum compositeMsDataScanSpectrum = scans.AverageSpectra(parameters);

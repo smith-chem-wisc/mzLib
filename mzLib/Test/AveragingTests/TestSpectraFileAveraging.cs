@@ -7,10 +7,10 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using MassSpectrometry;
-using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics.ProteolyticDigestion;
+using SpectralAveraging;
 
 namespace Test.AveragingTests
 {

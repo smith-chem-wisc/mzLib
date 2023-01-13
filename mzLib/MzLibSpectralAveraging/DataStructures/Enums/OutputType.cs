@@ -1,8 +1,7 @@
-﻿namespace MzLibSpectralAveraging
+﻿namespace SpectralAveraging;
+
+public enum OutputType
 {
-    public enum OutputType
-    {
-        txt,
-        mzML,
-    }
+    txt,
+    mzML
 }

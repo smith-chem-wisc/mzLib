@@ -1,11 +1,10 @@
-﻿namespace MzLibSpectralAveraging
+﻿namespace SpectralAveraging;
+
+public enum SpectraFileAveragingType
 {
-    public enum SpectraFileAveragingType
-    {
-        AverageAll,
-        AverageEverynScans,
-        AverageEverynScansWithOverlap,
-        AverageDDAScans,
-        AverageDDAScansWithOverlap,
-    }
+    AverageAll,
+    AverageEverynScans,
+    AverageEverynScansWithOverlap,
+    AverageDDAScans,
+    AverageDDAScansWithOverlap
 }

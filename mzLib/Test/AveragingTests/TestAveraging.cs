@@ -6,9 +6,10 @@ using System.Linq;
 using System.Reflection;
 using IO.MzML;
 using MassSpectrometry;
-using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
+using SpectralAveraging;
+
 
 namespace Test.AveragingTests
 {
@@ -98,7 +99,7 @@ namespace Test.AveragingTests
         {
             SpectralAveragingParameters parameters = new() { BinSize = 1 };
 
-            var methodInfo = typeof(SpectralAveraging).GetMethod("GetBins", BindingFlags.NonPublic | BindingFlags.Static);
+            var methodInfo = typeof(SpectraAveraging).GetMethod("GetBins", BindingFlags.NonPublic | BindingFlags.Static);
             var bins = (Dictionary<int, List<BinnedPeak>>)methodInfo.Invoke(null, new object?[] { xArrays, yArrays, parameters.BinSize });
             Assert.That(bins != null);
             Assert.That(bins.Count == 5);
