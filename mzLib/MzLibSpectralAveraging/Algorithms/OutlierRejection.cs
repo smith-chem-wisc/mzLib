@@ -67,6 +67,7 @@ namespace MzLibSpectralAveraging
                 if (!unrejected.Contains(peaks[i].Intensity))
                 {
                     peaks.RemoveAt(i);
+                    i--;
                 }
             }
 

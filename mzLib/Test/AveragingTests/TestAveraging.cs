@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using IO.MzML;
 using MassSpectrometry;
 using MzLibSpectralAveraging;
@@ -31,6 +32,9 @@ namespace Test.AveragingTests
             }
         }
 
+        private static double[][] xArrays;
+        private static double[][] yArrays;
+
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
@@ -55,6 +59,18 @@ namespace Test.AveragingTests
             mzSpectra.Add(new(xArray, yArray5, true));
 
             DummyMzSpectra = mzSpectra;
+            xArrays = new[]
+            {
+                new double[] { 0, 1, 2, 3, 3.49, 4 },
+                new double[] { 0, 1, 2, 3, 4 },
+                new double[] { 0.1, 1.1, 2.1, 3.1, 4.1}
+            };
+            yArrays = new[]
+            {
+                new double[] { 10, 11, 12, 12, 13, 14 },
+                new double[] { 11, 12, 13, 14, 15 },
+                new double[] { 20, 25, 30, 35, 40 }
+            };
         }
 
         [Test]
@@ -75,6 +91,37 @@ namespace Test.AveragingTests
             expected = new[] { 4.0, 8.0};
             Assert.That(compositeSpectra.XArray.Length == compositeSpectra.YArray.Length);
             Assert.That(expected.SequenceEqual(compositeSpectra.YArray));
+        }
+
+        [Test]
+        public static void TestBinningMethod()
+        {
+            SpectralAveragingParameters parameters = new() { BinSize = 1 };
+
+            var methodInfo = typeof(SpectralAveraging).GetMethod("GetBins", BindingFlags.NonPublic | BindingFlags.Static);
+            var bins = (Dictionary<int, List<BinnedPeak>>)methodInfo.Invoke(null, new object?[] { xArrays, yArrays, parameters.BinSize });
+            Assert.That(bins != null);
+            Assert.That(bins.Count == 5);
+
+            var bin = bins[0];
+            Assert.That(bin.Select(p => p.Mz).SequenceEqual(new [] {0, 0, 0.1}));
+            Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new [] {10.0, 11, 20}));
+
+            bin = bins[1];
+            Assert.That(bin.Select(p => p.Mz).SequenceEqual(new[] { 1, 1, 1.1 }));
+            Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new[] { 11.0, 12, 25 }));
+
+            bin = bins[2];
+            Assert.That(bin.Select(p => p.Mz).SequenceEqual(new[] { 2, 2, 2.1 }));
+            Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new[] { 12, 13, 30.0 }));
+
+            bin = bins[3];
+            Assert.That(bin.Select(p => p.Mz).SequenceEqual(new[] { 3, 3.49, 3, 3.1 }));
+            Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new[] { 12.0, 13, 14, 35 }));
+
+            bin = bins[4];
+            Assert.That(bin.Select(p => p.Mz).SequenceEqual(new[] { 4, 4, 4.1 }));
+            Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new[] { 14.0, 15, 40 }));
         }
 
         [Test]
