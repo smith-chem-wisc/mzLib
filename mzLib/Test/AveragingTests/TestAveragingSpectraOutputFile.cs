@@ -29,7 +29,7 @@ namespace Test.AveragingTests
             SpectraPath = Path.Combine(OutputDirectory, "TDYeastFractionMS1.mzML");
             Scans = SpectraFileHandler.LoadAllScansFromFile(SpectraPath).Take(50).ToList();
 
-            Parameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
+            Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDDAScansWithOverlap;
             DdaCompositeSpectra = SpectraFileAveraging.AverageSpectraFile(Scans, Parameters);
             Assert.That(DdaCompositeSpectra.Length > 1);
 
@@ -84,7 +84,7 @@ namespace Test.AveragingTests
             Parameters.OutputType = OutputType.txt;
             Assert.That(Parameters.OutputType == OutputType.txt);
 
-            Parameters.SpectraFileProcessingType = SpectraFileProcessingType.AverageDDAScansWithOverlap;
+            Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDDAScansWithOverlap;
             AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
             Assert.That(Directory.Exists(Path.Combine(OutputDirectory, "AveragedSpectra")));
             string[] txtFiles = Directory.GetFiles(Path.Combine(OutputDirectory, "AveragedSpectra"))

@@ -66,7 +66,7 @@ public class TestOutlierRejection
         _parameters.BinSize = 1.0d;
         _parameters.NormalizationType = NormalizationType.RelativeToTics;
         _parameters.Percentile = 0.9;
-        _parameters.SpectraMergingType = SpectraMergingType.MzBinning;
+        _parameters.SpectralAveragingType = SpectralAveragingType.MzBinning;
     }
 
     [Test]
@@ -273,7 +273,7 @@ public class TestOutlierRejection
         Assert.That(1.5, Is.EqualTo(parameters.MinSigmaValue));
         Assert.That(1.5, Is.EqualTo(parameters.MaxSigmaValue));
 
-        parameters.SetValues(OutlierRejectionType.MinMaxClipping, SpectraWeightingType.WeightEvenly, SpectraMergingType.MzBinning,
+        parameters.SetValues(OutlierRejectionType.MinMaxClipping, SpectraWeightingType.WeightEvenly, SpectralAveragingType.MzBinning,
             normalizationType: NormalizationType.RelativeToTics, percentile: .8, minSigma: 2, maxSigma: 4);
         Assert.That(parameters.OutlierRejectionType == OutlierRejectionType.MinMaxClipping);
         Assert.That(0.8, Is.EqualTo(parameters.Percentile));

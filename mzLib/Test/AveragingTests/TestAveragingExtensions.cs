@@ -36,7 +36,7 @@ namespace Test.AveragingTests
         public static void OneTimeSetup()
         {
             ActualScans = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"AveragingTestData\TDYeastFractionMS1.mzML")).GetAllScansList();
+                @"AveragingTestData\TDYeastFractionMS1.mzML")).GetAllScansList().Take(25).ToList();
             double[] xArray = new double[] { 100.1453781, 200, 300, 400, 500, 600, 700, 800, 900.4123745 };
             double[] yArray1 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
             double[] yArray2 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
@@ -93,7 +93,7 @@ namespace Test.AveragingTests
         [TestCase(10, NormalizationType.NoNormalization)]
         [TestCase(10, NormalizationType.AbsoluteToTic)]
         [TestCase(10, NormalizationType.RelativeToTics)]
-        public static void TestNormalizationExtensions(int scansToTake, NormalizationType type)
+        public static void TestSpectraNormalizationExtensions(int scansToTake, NormalizationType type)
         {
             // setup values
             SpectralAveragingParameters parameters = new() {NormalizationType = type};
@@ -118,6 +118,20 @@ namespace Test.AveragingTests
             {
                 Assert.That(yArrays[i].SequenceEqual(msDataScanyArrays[i]));
                 Assert.That(yArrays[i].SequenceEqual(mzSpectrumyArrays[i]));
+            }
+        }
+
+        [Test]
+        public static void TestSpectrumNormalizationExtensions()
+        {
+            var scans = ActualScans.GetRange(20, 5);
+            foreach (var scan in scans)
+            {
+                var spectra = new MzSpectrum(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true);
+                scan.NormalizeSpectrum();
+                spectra.NormalizeSpectrum();
+                Assert.That(Math.Abs(scan.MassSpectrum.SumOfAllY - 1) < 0.0001);
+                Assert.That(Math.Abs(spectra.SumOfAllY - 1) < 0.0001);
             }
         }
     }

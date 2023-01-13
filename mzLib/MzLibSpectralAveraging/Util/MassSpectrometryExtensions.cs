@@ -59,5 +59,24 @@ namespace MzLibSpectralAveraging
         {
             scansToNormalize.Select(p => p.MassSpectrum).NormalizeSpectra(type);
         }
+
+        /// <summary>
+        /// Absolute normalization of a MzSpectrum
+        /// </summary>
+        /// <param name="spectrum"></param>
+        public static void NormalizeSpectrum(this MzSpectrum spectrum)
+        {
+            var yArrays = new double[][] { spectrum.YArray };
+            SpectraNormalization.NormalizeSpectra(yArrays, NormalizationType.AbsoluteToTic);
+        }
+
+        /// <summary>
+        /// Absolute normalization of a MsDataScan
+        /// </summary>
+        /// <param name="scan"></param>
+        public static void NormalizeSpectrum(this MsDataScan scan)
+        {
+            NormalizeSpectrum(scan.MassSpectrum);
+        }
     }
 }

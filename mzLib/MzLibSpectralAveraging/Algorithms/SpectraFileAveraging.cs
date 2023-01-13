@@ -21,23 +21,23 @@ namespace MzLibSpectralAveraging
         /// <exception cref="MzLibException"></exception>
         public static MsDataScan[] AverageSpectraFile(List<MsDataScan> scans, SpectralAveragingParameters parameters)
         {
-            switch (parameters.SpectraFileProcessingType)
+            switch (parameters.SpectraFileAveragingType)
             {
-                case SpectraFileProcessingType.AverageAll:
+                case SpectraFileAveragingType.AverageAll:
                     return AverageAll(scans, parameters);
 
-                case SpectraFileProcessingType.AverageEverynScans:
+                case SpectraFileAveragingType.AverageEverynScans:
                     parameters.ScanOverlap = 0;
                     return AverageEverynScans(scans, parameters);
 
-                case SpectraFileProcessingType.AverageEverynScansWithOverlap:
+                case SpectraFileAveragingType.AverageEverynScansWithOverlap:
                     return AverageEverynScans(scans, parameters);
 
-                case SpectraFileProcessingType.AverageDDAScans:
+                case SpectraFileAveragingType.AverageDDAScans:
                     parameters.ScanOverlap = 0;
                     return AverageDDAScans(scans, parameters);
 
-                case SpectraFileProcessingType.AverageDDAScansWithOverlap:
+                case SpectraFileAveragingType.AverageDDAScansWithOverlap:
                     return AverageDDAScans(scans, parameters);
 
                 default: throw new MzLibException("Averaging spectra file processing type not yet implemented");

@@ -20,9 +20,9 @@ namespace MzLibSpectralAveraging
         /// <exception cref="NotImplementedException">If merging type has not been implemented</exception>
         public static double[][] AverageSpectra(double[][] xArrays, double[][] yArrays, SpectralAveragingParameters parameters)
         {
-            switch (parameters.SpectraMergingType)
+            switch (parameters.SpectralAveragingType)
             {
-                case SpectraMergingType.MzBinning:
+                case SpectralAveragingType.MzBinning:
                      return MzBinning(xArrays, yArrays, parameters);
 
                 default:

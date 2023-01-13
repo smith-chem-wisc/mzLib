@@ -1,6 +1,6 @@
 ﻿namespace MzLibSpectralAveraging
 {
-    public enum SpectraFileProcessingType
+    public enum SpectraFileAveragingType
     {
         AverageAll,
         AverageEverynScans,

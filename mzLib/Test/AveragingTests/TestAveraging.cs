@@ -128,7 +128,7 @@ namespace Test.AveragingTests
         public static void TestAverageSpectraError()
         {
             SpectralAveragingParameters parameters = new SpectralAveragingParameters();
-            parameters.SpectraMergingType = (SpectraMergingType)(-1);
+            parameters.SpectralAveragingType = (SpectralAveragingType)(-1);
 
             var exception = Assert.Throws<MzLibException>(() =>
             {

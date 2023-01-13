@@ -9,8 +9,8 @@ namespace MzLibSpectralAveraging
         public OutlierRejectionType OutlierRejectionType { get; set; }
         public SpectraWeightingType SpectralWeightingType { get; set; }
         public NormalizationType NormalizationType { get; set; }
-        public SpectraMergingType SpectraMergingType { get; set; }
-        public SpectraFileProcessingType SpectraFileProcessingType { get; set; }
+        public SpectralAveragingType SpectralAveragingType { get; set; }
+        public SpectraFileAveragingType SpectraFileAveragingType { get; set; }
         public OutputType OutputType { get; set; }
         public double Percentile { get; set; }
         public double MinSigmaValue { get; set; }
@@ -34,17 +34,17 @@ namespace MzLibSpectralAveraging
         /// <param name="sigma">sigma value for sigma clipping rejection types</param>
         public void SetValues(OutlierRejectionType outlierRejectionType = OutlierRejectionType.NoRejection,
             SpectraWeightingType spectraWeighingType = SpectraWeightingType.WeightEvenly,
-            SpectraMergingType spectraMergingType = SpectraMergingType.MzBinning,
+            SpectralAveragingType spectralAveragingType = SpectralAveragingType.MzBinning,
             NormalizationType normalizationType = NormalizationType.RelativeToTics,
-            SpectraFileProcessingType specProcessingType = SpectraFileProcessingType.AverageAll,
+            SpectraFileAveragingType specAveragingType = SpectraFileAveragingType.AverageAll,
             OutputType outputType = OutputType.mzML, int numToAverage = 5, int overlap = 2,
             double percentile = 0.1, double minSigma = 1.5, double maxSigma = 1.5, double binSize = 0.01)
         {
             OutlierRejectionType = outlierRejectionType;
             SpectralWeightingType = spectraWeighingType;
-            SpectraMergingType = spectraMergingType;
+            SpectralAveragingType = spectralAveragingType;
             NormalizationType = normalizationType;
-            SpectraFileProcessingType = specProcessingType;
+            SpectraFileAveragingType = specAveragingType;
             OutputType = outputType;
             NumberOfScansToAverage = numToAverage;
             ScanOverlap = overlap;
@@ -61,8 +61,8 @@ namespace MzLibSpectralAveraging
         {
             OutlierRejectionType = OutlierRejectionType.NoRejection;
             SpectralWeightingType = SpectraWeightingType.WeightEvenly;
-            SpectraMergingType = SpectraMergingType.MzBinning;
-            SpectraFileProcessingType = SpectraFileProcessingType.AverageAll;
+            SpectralAveragingType = SpectralAveragingType.MzBinning;
+            SpectraFileAveragingType = SpectraFileAveragingType.AverageAll;
             NormalizationType = NormalizationType.RelativeToTics;
             OutputType = OutputType.mzML;
             ScanOverlap = 2;
@@ -84,7 +84,7 @@ namespace MzLibSpectralAveraging
             stringBuilder.Append(SpectralWeightingType.ToString() + '_');
             stringBuilder.Append(NormalizationType.ToString() + "_");
 
-            if (SpectraMergingType == SpectraMergingType.MzBinning)
+            if (SpectralAveragingType == SpectralAveragingType.MzBinning)
                 stringBuilder.Append("BinSize-" + BinSize +"_");
 
             // rejection type specific 

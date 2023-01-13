@@ -62,7 +62,7 @@ namespace MzLibSpectralAveraging
             string originalSpectraPath)
         {
             var spectraDirectory = Path.GetDirectoryName(originalSpectraPath) ?? throw new MzLibException("Cannot Access Spectra Directory");
-            if (parameters.SpectraFileProcessingType != SpectraFileProcessingType.AverageAll)
+            if (parameters.SpectraFileAveragingType != SpectraFileAveragingType.AverageAll)
             {
                 spectraDirectory = Path.Combine(spectraDirectory, "AveragedSpectra");
                 if (!Directory.Exists(spectraDirectory))
@@ -75,7 +75,7 @@ namespace MzLibSpectralAveraging
 
             foreach (var scan in averagedScans)
             {
-                if (parameters.SpectraFileProcessingType != SpectraFileProcessingType.AverageAll)
+                if (parameters.SpectraFileAveragingType != SpectraFileAveragingType.AverageAll)
                     averagedPath = Path.Combine(spectraDirectory,
                         "Averaged_" +
                         PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(originalSpectraPath) +
