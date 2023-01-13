@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using MathNet.Numerics.Statistics;
-using MzLibSpectralAveraging;
 using NUnit.Framework;
+using SpectralAveraging;
 
 namespace Test.AveragingTests
 {

@@ -5,9 +5,9 @@ using System.IO;
 using System.Linq;
 using IO.MzML;
 using MassSpectrometry;
-using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
+using SpectralAveraging;
 
 namespace Test.AveragingTests
 {

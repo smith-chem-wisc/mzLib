@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using MassSpectrometry;
-using MzLibSpectralAveraging;
 using MzLibUtil;
 using NUnit.Framework;
+using SpectralAveraging;
 
 namespace Test.AveragingTests
 {

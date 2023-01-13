@@ -1,7 +1,6 @@
-﻿namespace MzLibSpectralAveraging
+﻿namespace SpectralAveraging;
+
+public enum SpectralAveragingType
 {
-    public enum SpectralAveragingType
-    {
-        MzBinning
-    }
+    MzBinning
 }

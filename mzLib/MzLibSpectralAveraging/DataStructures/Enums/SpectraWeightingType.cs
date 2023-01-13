@@ -1,15 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace SpectralAveraging;
 
-namespace MzLibSpectralAveraging
+public enum SpectraWeightingType
 {
-    public enum SpectraWeightingType
-    {
-        WeightEvenly,
-        MrsNoiseEstimation,
-        TicValue
-    }
+    WeightEvenly,
+    MrsNoiseEstimation,
+    TicValue
 }
