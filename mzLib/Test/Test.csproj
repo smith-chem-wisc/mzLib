@@ -32,14 +32,12 @@
     <ProjectReference Include="..\MzML\MzML.csproj" />
     <ProjectReference Include="..\mzPlot\mzPlot.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
+    <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="AveragingTestData\RealScanCarbonicAnhydrase.csv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="DatabaseTests\b_availableUniProtProteomes.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
