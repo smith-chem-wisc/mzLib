@@ -13,7 +13,7 @@ namespace Test.AveragingTests
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    public class TestAveragingSpectraOutputFile
+    public class TestAveragingSpectraWriteFile
     {
         public static string OutputDirectory;
         public static string SpectraPath;

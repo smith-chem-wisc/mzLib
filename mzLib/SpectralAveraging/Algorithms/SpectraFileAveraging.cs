@@ -150,15 +150,12 @@ public static class SpectraFileAveraging
 
             foreach (var scan in ms2ScansFromAveragedScans)
             {
-                MsDataScan newScan = new(scan.MassSpectrum, scanNumberIndex, scan.MsnOrder, scan.IsCentroid,
-                    scan.Polarity, scan.RetentionTime, scan.ScanWindowRange, scan.ScanFilter, scan.MzAnalyzer,
-                    scan.TotalIonCurrent, scan.InjectionTime, scan.NoiseData, scan.NativeId, scan.SelectedIonMZ,
-                    scan.SelectedIonChargeStateGuess, scan.SelectedIonIntensity, scan.IsolationMz, scan.IsolationWidth,
-                    scan.DissociationType, precursorScanIndex, scan.SelectedIonMonoisotopicGuessMz);
                 newNativeID =
-                    newScan.NativeId.Replace(newScan.NativeId.Split("=").Last(), scanNumberIndex.ToString());
-                newScan.SetNativeID(newNativeID);
-                averagedScans.Add(newScan);
+                    scan.NativeId.Replace(scan.NativeId.Split("=").Last(), scanNumberIndex.ToString());
+                scan.SetNativeID(newNativeID);
+                scan.SetOneBasedScanNumber(scanNumberIndex);
+                scan.SetOneBasedPrecursorScanNumber(precursorScanIndex);
+                averagedScans.Add(scan);
                 scanNumberIndex++;
             }
         }
