@@ -54,7 +54,7 @@ namespace Test.AveragingTests
         {
             // test that it outputs correctly
             Assert.That(Parameters.OutputType == OutputType.mzML);
-            AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
             string averagedSpectraPath = Path.Combine(OutputDirectory,
                 "Averaged_" + Path.GetFileNameWithoutExtension(SpectraPath) + ".mzML");
             Assert.That(File.Exists(averagedSpectraPath));
@@ -73,7 +73,7 @@ namespace Test.AveragingTests
             // test errors
             var exception = Assert.Throws<MzLibException>(() =>
             {
-                AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, "");
+                AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, "");
             });
             Assert.That(exception.Message == "Cannot Access Spectra Directory");
         }
@@ -85,7 +85,7 @@ namespace Test.AveragingTests
             Assert.That(Parameters.OutputType == OutputType.txt);
 
             Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDDAScansWithOverlap;
-            AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
             Assert.That(Directory.Exists(Path.Combine(OutputDirectory, "AveragedSpectra")));
             string[] txtFiles = Directory.GetFiles(Path.Combine(OutputDirectory, "AveragedSpectra"))
                 .OrderBy(p => double.Parse(p.Split('_').Last().Replace(".txt", ""))).ToArray();
@@ -109,7 +109,7 @@ namespace Test.AveragingTests
             // test errors
             var exception = Assert.Throws<MzLibException>(() => 
             { 
-                AveragedSpectraOutputter.OutputAveragedScans(DdaCompositeSpectra, Parameters, "");
+                AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, "");
             } );
             Assert.That(exception.Message == "Cannot Access Spectra Directory");
 

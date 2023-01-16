@@ -6,7 +6,7 @@ using MzLibUtil;
 
 namespace SpectralAveraging;
 
-public static class AveragedSpectraOutputter
+public static class AveragedSpectraWriter
 {
     /// <summary>
     ///     Public entry point for outputting averaged spectra
@@ -15,17 +15,17 @@ public static class AveragedSpectraOutputter
     /// <param name="parameters"></param>
     /// <param name="originalSpectraPath"></param>
     /// <exception cref="NotImplementedException"></exception>
-    public static void OutputAveragedScans(MsDataScan[] averagedScans, SpectralAveragingParameters parameters,
+    public static void WriteAveragedScans(MsDataScan[] averagedScans, SpectralAveragingParameters parameters,
         string originalSpectraPath)
     {
         switch (parameters.OutputType)
         {
             case OutputType.mzML:
-                OutputAveragedSpectraAsMzML(averagedScans, originalSpectraPath);
+                WriteAveragedSpectraAsMzML(averagedScans, originalSpectraPath);
                 break;
 
             case OutputType.txt:
-                OutputAveragedSpectraAsTxtFile(averagedScans, parameters, originalSpectraPath);
+                WriteAveragedSpectraAsTxtFile(averagedScans, parameters, originalSpectraPath);
                 break;
 
             default: throw new MzLibException("Output averaged scans type not implemented");
@@ -37,7 +37,7 @@ public static class AveragedSpectraOutputter
     /// </summary>
     /// <param name="averagedScans"></param>
     /// <param name="originalSpectraPath"></param>
-    private static void OutputAveragedSpectraAsMzML(MsDataScan[] averagedScans,
+    private static void WriteAveragedSpectraAsMzML(MsDataScan[] averagedScans,
         string originalSpectraPath)
     {
         var spectraDirectory = Path.GetDirectoryName(originalSpectraPath) ??
@@ -59,7 +59,7 @@ public static class AveragedSpectraOutputter
     /// <param name="parameters"></param>
     /// <param name="originalSpectraPath"></param>
     /// <exception cref="MzLibException"></exception>
-    private static void OutputAveragedSpectraAsTxtFile(MsDataScan[] averagedScans,
+    private static void WriteAveragedSpectraAsTxtFile(MsDataScan[] averagedScans,
         SpectralAveragingParameters parameters,
         string originalSpectraPath)
     {
