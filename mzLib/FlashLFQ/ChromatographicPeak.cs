@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -85,7 +86,7 @@ namespace FlashLFQ
         /// <param name="rtHypothesis"> Expected retention time for peak, based on alignment between a donor and acceptor file </param>
         /// <param name="rtStdDev"> Standard deviation in the retention time differences between aligned peaks </param>
         /// <param name="rtInterquartileRange"> Interquartile range og the retention time differences between aligned peaks</param>
-        public void SetRtWindow(double rtHypothesis, double? rtStdDev, double? rtInterquartileRange)
+        internal void SetRtWindow(double rtHypothesis, double? rtStdDev, double? rtInterquartileRange)
         {
             RtHypothesis = rtHypothesis;
             RtStdDev = rtStdDev;
