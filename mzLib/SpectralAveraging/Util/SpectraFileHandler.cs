@@ -18,7 +18,7 @@ public static class SpectraFileHandler
     /// <exception cref="ArgumentException">thrown if file type is not supported</exception>
     public static List<MsDataScan> LoadAllScansFromFile(string filepath)
     {
-        List<MsDataScan> scans = new();
+        List<MsDataScan> scans;
         if (filepath.EndsWith(".mzML", StringComparison.InvariantCultureIgnoreCase))
         {
             var temp = Mzml.LoadAllStaticData(filepath);
@@ -45,7 +45,6 @@ public static class SpectraFileHandler
     /// <exception cref="ArgumentException">throws if file type is not supported</exception>
     public static SourceFile GetSourceFile(string filepath)
     {
-        List<MsDataScan> scans = new();
         if (filepath.EndsWith(".mzML", StringComparison.InvariantCultureIgnoreCase))
             return Mzml.LoadAllStaticData(filepath).SourceFile;
         if (filepath.EndsWith(".raw", StringComparison.InvariantCultureIgnoreCase))

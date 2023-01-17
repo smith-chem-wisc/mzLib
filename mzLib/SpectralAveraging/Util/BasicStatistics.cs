@@ -1,27 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using MathNet.Numerics.Statistics;
 
 namespace SpectralAveraging;
 
 public class BasicStatistics
 {
-    /// <summary>
-    ///     Calculates the median of a list of doubles
-    /// </summary>
-    /// <param name="toCalc">initial list to calculate from</param>
-    /// <returns>double representation of the median</returns>
-    public static double CalculateMedian(IEnumerable<double> toCalc)
-    {
-        IEnumerable<double> sortedValues = toCalc.OrderByDescending(p => p).ToList();
-        double median;
-        var count = sortedValues.Count();
-        if (count % 2 == 0)
-            median = sortedValues.Skip(count / 2 - 1).Take(2).Average();
-        else
-            median = sortedValues.ElementAt(count / 2);
-        return median;
-    }
+   
 
     public static double CalculateNonZeroMedian(IEnumerable<double> toCalc)
     {
@@ -29,7 +15,7 @@ public class BasicStatistics
         if (!toCalc.Any())
             return 0;
 
-        return CalculateMedian(toCalc);
+        return toCalc.Median();
     }
 
     /// <summary>
@@ -42,13 +28,11 @@ public class BasicStatistics
     {
         double deviation = 0;
 
-        if (toCalc.Any())
-        {
-            var calcList = toCalc.ToList();
-            average = average == 0 ? calcList.Average() : average;
-            var sum = calcList.Sum(x => Math.Pow(x - average, 2));
-            deviation = Math.Sqrt(sum / (calcList.Count() - 1));
-        }
+        var calcList = toCalc.ToList();
+        if (!calcList.Any()) return deviation;
+        average = average == 0 ? calcList.Average() : average;
+        var sum = calcList.Sum(x => Math.Pow(x - average, 2));
+        deviation = Math.Sqrt(sum / (calcList.Count - 1));
 
         return deviation;
     }

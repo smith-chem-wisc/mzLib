@@ -20,11 +20,11 @@ public static class AveragedSpectraWriter
     {
         switch (parameters.OutputType)
         {
-            case OutputType.mzML:
+            case OutputType.MzML:
                 WriteAveragedSpectraAsMzML(averagedScans, originalSpectraPath);
                 break;
 
-            case OutputType.txt:
+            case OutputType.Text:
                 WriteAveragedSpectraAsTxtFile(averagedScans, parameters, originalSpectraPath);
                 break;
 

@@ -33,12 +33,12 @@ public static class SpectraFileAveraging
             case SpectraFileAveragingType.AverageEverynScansWithOverlap:
                 return AverageEverynScans(scans, parameters);
 
-            case SpectraFileAveragingType.AverageDDAScans:
+            case SpectraFileAveragingType.AverageDdaScans:
                 parameters.ScanOverlap = 0;
-                return AverageDDAScans(scans, parameters);
+                return AverageDdaScans(scans, parameters);
 
-            case SpectraFileAveragingType.AverageDDAScansWithOverlap:
-                return AverageDDAScans(scans, parameters);
+            case SpectraFileAveragingType.AverageDdaScansWithOverlap:
+                return AverageDdaScans(scans, parameters);
 
             default: throw new MzLibException("Averaging spectra file processing type not yet implemented");
         }
@@ -50,7 +50,7 @@ public static class SpectraFileAveraging
     /// <param name="scans">all scans from a file to be averaged</param>
     /// <param name="parameters">how to average the spectra</param>
     /// <returns></returns>
-    private static MsDataScan[] AverageAll(List<MsDataScan> scans, SpectralAveragingParameters parameters)
+    private static MsDataScan[] AverageAll(IReadOnlyCollection<MsDataScan> scans, SpectralAveragingParameters parameters)
     {
         // average spectrum
         var representativeScan = scans.First();
@@ -72,7 +72,7 @@ public static class SpectraFileAveraging
         for (var i = 0; i < scans.Count; i += parameters.NumberOfScansToAverage - parameters.ScanOverlap)
         {
             // get the scans to be averaged
-            List<MsDataScan> scansToProcess = new();
+            List<MsDataScan> scansToProcess;
             if (i <= parameters.ScanOverlap) // very start of the file
                 scansToProcess = scans.GetRange(i, parameters.NumberOfScansToAverage);
             else if (i + parameters.NumberOfScansToAverage > scans.Count) // very end of the file
@@ -89,9 +89,9 @@ public static class SpectraFileAveraging
                 averagedSpectrum.Range, null, representativeScan.MzAnalyzer,
                 scansToProcess.Select(p => p.TotalIonCurrent).Average(),
                 scansToProcess.Select(p => p.InjectionTime).Average(), null, representativeScan.NativeId);
-            var newNativeID =
+            var newNativeId =
                 averagedScan.NativeId.Replace(averagedScan.NativeId.Split("=").Last(), scanNumberIndex.ToString());
-            averagedScan.SetNativeID(newNativeID);
+            averagedScan.SetNativeID(newNativeId);
             averagedScans.Add(averagedScan);
             scanNumberIndex++;
         }
@@ -99,7 +99,7 @@ public static class SpectraFileAveraging
         return averagedScans.ToArray();
     }
 
-    private static MsDataScan[] AverageDDAScans(List<MsDataScan> scans, SpectralAveragingParameters parameters)
+    private static MsDataScan[] AverageDdaScans(List<MsDataScan> scans, SpectralAveragingParameters parameters)
     {
         List<MsDataScan> averagedScans = new();
         var ms1Scans = scans.Where(p => p.MsnOrder == 1).ToList();
@@ -141,18 +141,18 @@ public static class SpectraFileAveraging
                 representativeScan.IsolationWidth,
                 representativeScan.DissociationType, representativeScan.OneBasedPrecursorScanNumber,
                 representativeScan.SelectedIonMonoisotopicGuessIntensity);
-            var newNativeID =
+            var newNativeId =
                 averagedScan.NativeId.Replace(averagedScan.NativeId.Split("=").Last(), scanNumberIndex.ToString());
-            averagedScan.SetNativeID(newNativeID);
+            averagedScan.SetNativeID(newNativeId);
             averagedScans.Add(averagedScan);
             var precursorScanIndex = scanNumberIndex;
             scanNumberIndex++;
 
             foreach (var scan in ms2ScansFromAveragedScans)
             {
-                newNativeID =
+                newNativeId =
                     scan.NativeId.Replace(scan.NativeId.Split("=").Last(), scanNumberIndex.ToString());
-                scan.SetNativeID(newNativeID);
+                scan.SetNativeID(newNativeId);
                 scan.SetOneBasedScanNumber(scanNumberIndex);
                 scan.SetOneBasedPrecursorScanNumber(precursorScanIndex);
                 averagedScans.Add(scan);

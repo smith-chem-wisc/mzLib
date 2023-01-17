@@ -12,25 +12,7 @@ namespace Test.AveragingTests
     [ExcludeFromCodeCoverage]
     internal class TestStatistics
     {
-        [Test]
-        public static void TestMedian()
-        {
-            double[] arr = new double[] { 1, 2, 3, 4, 5 };
-            double[] arr2 = new double[] { 1, 2, 3, 4, 5, 6 };
-            double[] arr3 = new double[] { 4, 1, 3, 5, 2 };
-            double[] arr4 = new double[] { 5, 2, 6, 3, 4, 1 };
-
-            double med1 = BasicStatistics.CalculateMedian(arr);
-            double med2 = BasicStatistics.CalculateMedian(arr2);
-            double med3 = BasicStatistics.CalculateMedian(arr3);
-            double med4 = BasicStatistics.CalculateMedian(arr4);
-
-            Assert.That(Math.Abs(med1 - 3) < 0.001);
-            Assert.That(Math.Abs(med2 - 3.5) < 0.001);
-            Assert.That(Math.Abs(med3 - 3) < 0.001);
-            Assert.That(Math.Abs(med4 - 3.5) < 0.001);
-        }
-
+        
         [Test]
         public static void TestNonZeroMedian()
         {

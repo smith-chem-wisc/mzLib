@@ -4,6 +4,23 @@ namespace SpectralAveraging;
 
 public class SpectralAveragingParameters
 {
+    #region Averaging Options
+    public OutlierRejectionType OutlierRejectionType { get; set; }
+    public SpectraWeightingType SpectralWeightingType { get; set; }
+    public NormalizationType NormalizationType { get; set; }
+    public SpectralAveragingType SpectralAveragingType { get; set; }
+    public SpectraFileAveragingType SpectraFileAveragingType { get; set; }
+    public OutputType OutputType { get; set; }
+    public double Percentile { get; set; }
+    public double MinSigmaValue { get; set; }
+    public double MaxSigmaValue { get; set; }
+    public double BinSize { get; set; }
+    public int NumberOfScansToAverage { get; set; }
+    public int ScanOverlap { get; set; }
+    public int MaxThreadsToUse { get; set; } = 1;
+
+    #endregion
+
     public SpectralAveragingParameters()
     {
         SetDefaultValues();
@@ -12,16 +29,14 @@ public class SpectralAveragingParameters
     /// <summary>
     ///     Can be used to set the values of the options class in one method call
     /// </summary>
-    /// <param name="outlierRejectionType">rejection type to be used</param>
-    /// <param name="percentile">percentile for percentile clipping rejection type</param>
-    /// <param name="sigma">sigma value for sigma clipping rejection types</param>
     public void SetValues(OutlierRejectionType outlierRejectionType = OutlierRejectionType.NoRejection,
         SpectraWeightingType spectraWeighingType = SpectraWeightingType.WeightEvenly,
         SpectralAveragingType spectralAveragingType = SpectralAveragingType.MzBinning,
         NormalizationType normalizationType = NormalizationType.RelativeToTics,
         SpectraFileAveragingType specAveragingType = SpectraFileAveragingType.AverageAll,
-        OutputType outputType = OutputType.mzML, int numToAverage = 5, int overlap = 2,
-        double percentile = 0.1, double minSigma = 1.5, double maxSigma = 1.5, double binSize = 0.01)
+        OutputType outputType = OutputType.MzML, int numToAverage = 5, int overlap = 2,
+        double percentile = 0.1, double minSigma = 1.5, double maxSigma = 1.5, double binSize = 0.01,
+        int maxThreads = 1)
     {
         OutlierRejectionType = outlierRejectionType;
         SpectralWeightingType = spectraWeighingType;
@@ -35,6 +50,7 @@ public class SpectralAveragingParameters
         MinSigmaValue = minSigma;
         MaxSigmaValue = maxSigma;
         BinSize = binSize;
+        MaxThreadsToUse = maxThreads;
     }
 
     /// <summary>
@@ -47,13 +63,14 @@ public class SpectralAveragingParameters
         SpectralAveragingType = SpectralAveragingType.MzBinning;
         SpectraFileAveragingType = SpectraFileAveragingType.AverageAll;
         NormalizationType = NormalizationType.RelativeToTics;
-        OutputType = OutputType.mzML;
+        OutputType = OutputType.MzML;
         ScanOverlap = 2;
         NumberOfScansToAverage = 5;
         Percentile = 0.1;
         MinSigmaValue = 1.5;
         MaxSigmaValue = 1.5;
         BinSize = 0.01;
+        MaxThreadsToUse = 1;
     }
 
     /// <summary>
@@ -85,21 +102,4 @@ public class SpectralAveragingParameters
 
         return stringBuilder.ToString();
     }
-
-    #region Averaging Options
-
-    public OutlierRejectionType OutlierRejectionType { get; set; }
-    public SpectraWeightingType SpectralWeightingType { get; set; }
-    public NormalizationType NormalizationType { get; set; }
-    public SpectralAveragingType SpectralAveragingType { get; set; }
-    public SpectraFileAveragingType SpectraFileAveragingType { get; set; }
-    public OutputType OutputType { get; set; }
-    public double Percentile { get; set; }
-    public double MinSigmaValue { get; set; }
-    public double MaxSigmaValue { get; set; }
-    public double BinSize { get; set; }
-    public int NumberOfScansToAverage { get; set; }
-    public int ScanOverlap { get; set; }
-
-    #endregion
 }

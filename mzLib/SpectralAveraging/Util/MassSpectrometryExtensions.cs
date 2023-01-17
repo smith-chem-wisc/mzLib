@@ -16,8 +16,9 @@ public static class MassSpectrometryExtensions
     public static MzSpectrum AverageSpectra(this IEnumerable<MzSpectrum> spectraToAverage,
         SpectralAveragingParameters parameters)
     {
-        var xArrays = spectraToAverage.Select(p => p.XArray).ToArray();
-        var yArrays = spectraToAverage.Select(p => p.YArray.SubArray(0, p.YArray.Length)).ToArray();
+        var toAverage = spectraToAverage as MzSpectrum[] ?? spectraToAverage.ToArray();
+        var xArrays = toAverage.Select(p => p.XArray).ToArray();
+        var yArrays = toAverage.Select(p => p.YArray.SubArray(0, p.YArray.Length)).ToArray();
 
         var xyJagged = SpectraAveraging.AverageSpectra(xArrays, yArrays, parameters);
 

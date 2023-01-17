@@ -37,12 +37,12 @@ public static class SpectraNormalization
     /// <param name="yArrays">y arrays to be normalized</param>
     private static void NormalizeAbsoluteToTic(double[][] yArrays)
     {
-        for (var i = 0; i < yArrays.Length; i++)
+        foreach (var t in yArrays)
         {
-            var totalIonCurrent = yArrays[i].Sum();
+            var totalIonCurrent = t.Sum();
             if (totalIonCurrent == 0) totalIonCurrent = 1;
 
-            for (var j = 0; j < yArrays[i].Length; j++) yArrays[i][j] = yArrays[i][j] / totalIonCurrent;
+            for (var j = 0; j < t.Length; j++) t[j] = t[j] / totalIonCurrent;
         }
     }
 

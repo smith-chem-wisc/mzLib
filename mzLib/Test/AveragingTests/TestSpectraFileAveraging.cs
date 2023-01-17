@@ -262,6 +262,7 @@ namespace Test.AveragingTests
             SpectralAveragingParameters.OutlierRejectionType = OutlierRejectionType.NoRejection;
             SpectralAveragingParameters.SpectralWeightingType = SpectraWeightingType.WeightEvenly;
             SpectralAveragingParameters.NormalizationType = NormalizationType.NoNormalization;
+            SpectralAveragingParameters.MaxThreadsToUse = 4;
             NativeId = ActualScans.First().NativeId;
         }
 
@@ -361,7 +362,7 @@ namespace Test.AveragingTests
         [Test]
         public static void TestAverageDDAScansWithoutOverlapInOrder()
         {
-            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDDAScans;
+            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScans;
             SpectralAveragingParameters.NumberOfScansToAverage = 2;
             MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingParameters);
             double[] expected = new double[] { 5, 10 };
@@ -375,7 +376,7 @@ namespace Test.AveragingTests
         [Test]
         public static void TestAverageDDAScansWithoutOverlapOutOfOrder()
         {
-            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDDAScans;
+            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScans;
             SpectralAveragingParameters.NumberOfScansToAverage = 2;
             MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingParameters);
             double[] expected = new double[] { 5, 10 };
@@ -389,7 +390,7 @@ namespace Test.AveragingTests
         [Test]
         public static void TestAverageDDAScansWithOverlapInOrder()
         {
-            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDDAScansWithOverlap;
+            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScansWithOverlap;
             SpectralAveragingParameters.NumberOfScansToAverage = 2;
             SpectralAveragingParameters.ScanOverlap = 1;
             MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansInOrder, SpectralAveragingParameters);
@@ -438,7 +439,7 @@ namespace Test.AveragingTests
         [Test]
         public static void TestAverageDDAScansWithOverlapOutOfOrder()
         {
-            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDDAScansWithOverlap;
+            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScansWithOverlap;
             SpectralAveragingParameters.NumberOfScansToAverage = 2;
             SpectralAveragingParameters.ScanOverlap = 1;
             MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyDDAScansOutOfOrder, SpectralAveragingParameters);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using MathNet.Numerics.Statistics;
 
 namespace SpectralAveraging;
 
@@ -99,7 +100,7 @@ public static class OutlierRejection
     {
         var trim = (1 - percentile) / 2;
         var highPercentile = 1 - trim;
-        var median = BasicStatistics.CalculateMedian(initialValues);
+        var median = initialValues.Median();
         var highCutoff = median * (1 + highPercentile);
         var lowCutoff = median * (1 - highPercentile);
         // round to 4-6 decimal places
@@ -116,10 +117,10 @@ public static class OutlierRejection
     private static double[] SigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
     {
         var values = initialValues.ToList();
-        var n = 0;
+        int n;
         do
         {
-            var median = BasicStatistics.CalculateMedian(values);
+            var median = values.Median();
             var standardDeviation = BasicStatistics.CalculateStandardDeviation(values);
             n = 0;
             for (var i = 0; i < values.Count; i++)
@@ -148,9 +149,6 @@ public static class OutlierRejection
         var values = initialValues.ToList();
         int n;
         const double iterationLimitForHuberLoop = 0.00005;
-        double medianLeftBound;
-        double medianRightBound;
-        double windsorizedStandardDeviation;
         do
         {
             if (!values.Any())
@@ -158,15 +156,16 @@ public static class OutlierRejection
             var median = BasicStatistics.CalculateNonZeroMedian(values);
             var standardDeviation = BasicStatistics.CalculateNonZeroStandardDeviation(values);
             var toProcess = values.ToArray();
+            double winsorizedStandardDeviation;
             do // calculates a new median and standard deviation based on the values to do sigma clipping with (Huber loop)
             {
-                medianLeftBound = median - 1.5 * standardDeviation;
-                medianRightBound = median + 1.5 * standardDeviation;
+                var medianLeftBound = median - 1.5 * standardDeviation;
+                var medianRightBound = median + 1.5 * standardDeviation;
                 toProcess.Winsorize(medianLeftBound, medianRightBound);
-                median = BasicStatistics.CalculateMedian(toProcess);
-                windsorizedStandardDeviation = standardDeviation;
+                median = toProcess.Median();
+                winsorizedStandardDeviation = standardDeviation;
                 standardDeviation = BasicStatistics.CalculateStandardDeviation(toProcess) * 1.134;
-            } while (Math.Abs(standardDeviation - windsorizedStandardDeviation) / windsorizedStandardDeviation >
+            } while (Math.Abs(standardDeviation - winsorizedStandardDeviation) / winsorizedStandardDeviation >
                      iterationLimitForHuberLoop);
 
             n = 0;
@@ -194,17 +193,15 @@ public static class OutlierRejection
         var values = initialValues.ToList();
         var median = BasicStatistics.CalculateNonZeroMedian(initialValues);
         var deviation = BasicStatistics.CalculateNonZeroStandardDeviation(initialValues, median);
-        var n = 0;
-        double standardDeviation;
+        int n;
         do
         {
             median = BasicStatistics.CalculateNonZeroMedian(values);
-            standardDeviation = deviation * Math.Sqrt(median) / 10;
+            var standardDeviation = deviation * Math.Sqrt(median) / 10;
 
             n = 0;
             for (var i = 0; i < values.Count; i++)
             {
-                var temp = (values[i] - median) / standardDeviation;
                 if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
                 {
                     values.RemoveAt(i);
