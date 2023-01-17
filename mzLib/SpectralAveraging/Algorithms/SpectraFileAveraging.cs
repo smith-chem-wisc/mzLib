@@ -72,7 +72,7 @@ public static class SpectraFileAveraging
         for (var i = 0; i < scans.Count; i += parameters.NumberOfScansToAverage - parameters.ScanOverlap)
         {
             // get the scans to be averaged
-            List<MsDataScan> scansToProcess;
+            List<MsDataScan> scansToProcess = new();
             if (i <= parameters.ScanOverlap) // very start of the file
                 scansToProcess = scans.GetRange(i, parameters.NumberOfScansToAverage);
             else if (i + parameters.NumberOfScansToAverage > scans.Count) // very end of the file

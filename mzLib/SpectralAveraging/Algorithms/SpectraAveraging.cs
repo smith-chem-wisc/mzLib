@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MzLibUtil;
 
 namespace SpectralAveraging;
@@ -56,18 +57,28 @@ public static class SpectraAveraging
 
         // reject outliers and average bins
         List<(double mz, double intensity)> averagedPeaks = new();
-        foreach (var bin in bins)
+        int maxThreadsPerFile = parameters.MaxThreadsToUsePerFile;
+        int[] threads = Enumerable.Range(0, maxThreadsPerFile).ToArray();
+        Parallel.ForEach(threads, (binIndex) =>
         {
-            bins[bin.Key] = OutlierRejection.RejectOutliers(bin.Value, parameters);
-            averagedPeaks.Add(AverageBin(bin.Value, weights));
-        }
+            var keys = bins.Keys.ToList();
+            for (; binIndex < keys.Count; binIndex += maxThreadsPerFile)
+            {
+                bins[keys[binIndex]] = OutlierRejection.RejectOutliers(bins[keys[binIndex]], parameters);
+                lock (averagedPeaks)
+                {
+                    averagedPeaks.Add(AverageBin(bins[keys[binIndex]], weights));
+                }
+                
+            }
+        });
 
         // return averaged
-        averagedPeaks = averagedPeaks.Where(p => p.intensity != 0).ToList();
+        var orderedAveragePeaks = averagedPeaks.Where(p => p.intensity != 0).OrderBy(p => p.mz).ToList();
         return new[]
         {
-            averagedPeaks.OrderBy(p => p.mz).Select(p => p.mz).ToArray(),
-            averagedPeaks.Select(p =>
+            orderedAveragePeaks.Select(p => p.mz).ToArray(),
+            orderedAveragePeaks.Select(p =>
                 parameters.NormalizationType == NormalizationType.AbsoluteToTic
                     ? p.intensity * averageTic
                     : p.intensity).ToArray()

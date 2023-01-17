@@ -262,7 +262,7 @@ namespace Test.AveragingTests
             SpectralAveragingParameters.OutlierRejectionType = OutlierRejectionType.NoRejection;
             SpectralAveragingParameters.SpectralWeightingType = SpectraWeightingType.WeightEvenly;
             SpectralAveragingParameters.NormalizationType = NormalizationType.NoNormalization;
-            SpectralAveragingParameters.MaxThreadsToUse = 4;
+            SpectralAveragingParameters.MaxThreadsToUsePerFile = 12;
             NativeId = ActualScans.First().NativeId;
         }
 

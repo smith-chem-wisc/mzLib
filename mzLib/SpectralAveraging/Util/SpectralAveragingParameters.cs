@@ -17,7 +17,7 @@ public class SpectralAveragingParameters
     public double BinSize { get; set; }
     public int NumberOfScansToAverage { get; set; }
     public int ScanOverlap { get; set; }
-    public int MaxThreadsToUse { get; set; } = 1;
+    public int MaxThreadsToUsePerFile { get; set; } = 1;
 
     #endregion
 
@@ -50,7 +50,7 @@ public class SpectralAveragingParameters
         MinSigmaValue = minSigma;
         MaxSigmaValue = maxSigma;
         BinSize = binSize;
-        MaxThreadsToUse = maxThreads;
+        MaxThreadsToUsePerFile = maxThreads;
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public class SpectralAveragingParameters
         MinSigmaValue = 1.5;
         MaxSigmaValue = 1.5;
         BinSize = 0.01;
-        MaxThreadsToUse = 1;
+        MaxThreadsToUsePerFile = 1;
     }
 
     /// <summary>
