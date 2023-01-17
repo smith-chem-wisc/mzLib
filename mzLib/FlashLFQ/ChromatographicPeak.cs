@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,6 @@ namespace FlashLFQ
         public double SplitRT;
         public readonly bool IsMbrPeak;
         public double MbrScore;
-        public double PosteriorErrorProbability { get { return NumIdentificationsByFullSeq > 1 ? 1 : Identifications.Min(p => p.PosteriorErrorProbability); } }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
@@ -35,6 +35,18 @@ namespace FlashLFQ
         public int NumIdentificationsByBaseSeq { get; private set; }
         public int NumIdentificationsByFullSeq { get; private set; }
         public double MassError { get; private set; }
+        /// <summary>
+        /// Expected retention time for MBR acceptor peaks (mean)
+        /// </summary>
+        public double? RtHypothesis { get; private set; }
+        /// <summary>
+        /// Std. Dev of retention time differences between MBR acceptor file and donor file, used if # calibration points < 6
+        /// </summary>
+        public double? RtStdDev { get; private set;  }
+        /// <summary>
+        /// Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6
+        /// </summary>
+        public double? RtInterquartileRange { get; private set; }
 
         public static string TabSeparatedHeader
         {
@@ -66,6 +78,19 @@ namespace FlashLFQ
                 //sb.Append("Timepoints");
                 return sb.ToString();
             }
+        }
+
+        /// <summary>
+        /// Sets retention time information for a given peak. Used for MBR peaks
+        /// </summary>
+        /// <param name="rtHypothesis"> Expected retention time for peak, based on alignment between a donor and acceptor file </param>
+        /// <param name="rtStdDev"> Standard deviation in the retention time differences between aligned peaks </param>
+        /// <param name="rtInterquartileRange"> Interquartile range og the retention time differences between aligned peaks</param>
+        internal void SetRtWindow(double rtHypothesis, double? rtStdDev, double? rtInterquartileRange)
+        {
+            RtHypothesis = rtHypothesis;
+            RtStdDev = rtStdDev;
+            RtInterquartileRange = rtInterquartileRange;
         }
 
         public void CalculateIntensityForThisFeature(bool integrate)
