@@ -6,19 +6,15 @@ namespace SpectralAveraging;
 
 public class ModWtOutput
 {
-    public ModWtOutput(int maxScale, WaveletType waveletType, BoundaryType boundaryType)
+    internal ModWtOutput(int maxScale)
     {
         Levels = new List<Level>();
         MaxScale = maxScale;
-        WaveletType = waveletType;
-        BoundaryType = boundaryType;
     }
 
-    public List<Level> Levels { get; private set; }
-    public int MaxScale { get; private set; }
-    public WaveletType WaveletType { get; }
-    public BoundaryType BoundaryType { get; }
-
+    internal List<Level> Levels { get; private set; }
+    internal int MaxScale { get; private set; }
+    
     public void AddLevel(double[] waveletCoeff, double[] scalingCoeff, int scale,
         BoundaryType boundaryType, int originalSignalLength, int filterLength)
     {

@@ -31,12 +31,12 @@ public class WaveletFilter
                 CreateFiltersFromCoeffs(_haarCoefficients);
                 return;
             }
-            case WaveletType.Db4:
-            {
-                WaveletType = WaveletType.Db4; 
-                CreateFiltersFromCoeffs(_db4Coefficients);
-                return; 
-            }
+            //case WaveletType.Db4:
+            //{
+            //    WaveletType = WaveletType.Db4; 
+            //    CreateFiltersFromCoeffs(_db4Coefficients);
+            //    return; 
+            //}
         }
     }
     #region Wavelet Coefficients
