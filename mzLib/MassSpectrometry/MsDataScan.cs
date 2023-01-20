@@ -129,8 +129,7 @@ namespace MassSpectrometry
         /// <returns></returns>
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(Deconvoluter deconvoluter)
         {
-            var allDeconvolutedEnvelopes = deconvoluter.Deconvolute(this);
-            return allDeconvolutedEnvelopes.Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            return deconvoluter.Deconvolute(this, new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5));
         }
 
         /// <summary>
