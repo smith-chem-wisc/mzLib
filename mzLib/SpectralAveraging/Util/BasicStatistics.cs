@@ -68,14 +68,14 @@ public class BasicStatistics
     /// <returns>The median absolute deviation from median.</returns>
     public static double MedianAbsoluteDeviationFromMedian(double[] array)
     {
-        double arrayMedian = BasicStatistics.CalculateMedian(array);
+        double arrayMedian = CalculateMedian(array);
         double[] results = new double[array.Length];
         for (int j = 0; j < array.Length; j++)
         {
             results[j] = Math.Abs(array[j] - arrayMedian);
         }
 
-        return BasicStatistics.CalculateMedian(results);
+        return CalculateMedian(results);
     }
     /// <summary>
     /// Calcultes the biweight midvariance for an array. Algorithm orignally found here:
@@ -88,7 +88,7 @@ public class BasicStatistics
         double[] y_i = new double[array.Length];
         double[] a_i = new double[array.Length];
         double MAD_X = MedianAbsoluteDeviationFromMedian(array);
-        double median = BasicStatistics.CalculateMedian(array);
+        double median = CalculateMedian(array);
         for (int i = 0; i < y_i.Length; i++)
         {
             y_i[i] = (array[i] - median) / (9d * MAD_X);

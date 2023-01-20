@@ -85,7 +85,7 @@ public static class SpectralWeighting
             .ForAll(x =>
             {
                 bool mrsSuccess = MRSNoiseEstimator.MRSNoiseEstimation(x.Array, 0.01, out double noiseEstimate);
-                if (!mrsSuccess || double.IsNaN(noiseEstimate))
+                if (!mrsSuccess || double.IsNaN(noiseEstimate) || noiseEstimate == 0d)
                 {
                     noiseEstimate = BasicStatistics.CalculateStandardDeviation(x.Array);
                 }
