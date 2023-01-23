@@ -19,8 +19,6 @@ namespace MassSpectrometry
 
         }
 
-        // TODO: Remove Range from decon parameters
-
         /// <summary>
         /// Override to deconvolute the spectra using the Classic Deconvolution algorithm
         /// </summary>
