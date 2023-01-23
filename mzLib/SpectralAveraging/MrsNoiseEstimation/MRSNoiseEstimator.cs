@@ -36,8 +36,7 @@ namespace SpectralAveraging
 
             double[] signalIterable = new double[signal.Length]; 
             signal.CopyTo(signalIterable, 0);
-
-
+            
             signalIterable = CreateSmoothedSignal(signalIterable, wtOutput);
             
             double criticalVal;
