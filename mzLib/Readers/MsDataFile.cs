@@ -39,6 +39,7 @@ namespace Readers
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }
+
         public MsDataFile(int numSpectra, SourceFile sourceFile)
         {
             Scans = new MsDataScan[numSpectra];
@@ -61,16 +62,20 @@ namespace Readers
         }
 
         #region Abstract members
+
         // static connection
-        public abstract void LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1);
+        public abstract MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1);
 
         public abstract SourceFile GetSourceFile();
         // Dynamic Connection
         public abstract MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null);
         public abstract void CloseDynamicConnection();
         public abstract void InitiateDynamicConnection();
+
         #endregion
+
         #region Utilities
+
         public virtual MsDataScan[] GetMsDataScans()
         {
             return Scans; 
@@ -78,14 +83,16 @@ namespace Readers
 
         public virtual List<MsDataScan> GetAllScansList()
         {
-            if (Scans.Length > 0)
-            {
-                return Scans.ToList();
-            }
-            throw new MzLibException("Scans not loaded. Load all scans first using LoadAllStaticData.");
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
+            return Scans.ToList();
         }
+
         public virtual IEnumerable<MsDataScan> GetMS1Scans()
         {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
             for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
@@ -95,20 +102,30 @@ namespace Readers
                 }
             }
         }
+
         public virtual MsDataScan GetOneBasedScan(int scanNumber)
         {
-
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
             return Scans.SingleOrDefault(i => i.OneBasedScanNumber == scanNumber);
         }
-        public virtual IEnumerable<MsDataScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
+
+        public virtual IEnumerable<MsDataScan> GetMsScansInIndexRange(int firstSpectrumNumber, int lastSpectrumNumber)
         {
-            for (int oneBasedSpectrumNumber = FirstSpectrumNumber; oneBasedSpectrumNumber <= LastSpectrumNumber; oneBasedSpectrumNumber++)
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
+            for (int oneBasedSpectrumNumber = firstSpectrumNumber; oneBasedSpectrumNumber <= lastSpectrumNumber; oneBasedSpectrumNumber++)
             {
                 yield return GetOneBasedScan(oneBasedSpectrumNumber);
             }
         }
+
         public virtual IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
@@ -125,8 +142,12 @@ namespace Readers
                 oneBasedSpectrumNumber++;
             }
         }
+
         public virtual int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
             // TODO need to convert this to a binary search of some sort. Or if the data is indexedMZML see if the indices work better.
             double bestDiff = double.MaxValue;
             for (int i = 0; i < NumSpectra; i++)
@@ -138,6 +159,7 @@ namespace Readers
             }
             return NumSpectra;
         }
+
         public virtual IEnumerator<MsDataScan> GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
@@ -147,6 +169,12 @@ namespace Readers
         {
             throw new NotImplementedException();
         }
+
         #endregion
+
+        internal virtual bool CheckIfScansLoaded()
+        {
+            return (Scans != null && Scans.Length > 0);
+        }
     }
 }

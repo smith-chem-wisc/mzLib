@@ -153,7 +153,7 @@ namespace Readers
             }
         }
 
-        public override void LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
+        public override MsDataFile LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
         {
             if (!File.Exists(FilePath))
             {
@@ -230,6 +230,7 @@ namespace Readers
             }
 
             Scans = scans;
+            return this;
         }
 
         public override SourceFile GetSourceFile()

@@ -31,7 +31,7 @@ namespace Readers
         {
 
         }
-        public override void LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
+        public override MsDataFile LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
         {
             if (!File.Exists(FilePath))
             {
@@ -66,11 +66,14 @@ namespace Readers
             }
             SourceFile = GetSourceFile(); 
             Scans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
+            return this;
         }
+
         public override SourceFile GetSourceFile()
         {
             return new SourceFile("no nativeID format", "mgf format", null, null, null);
         }
+
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
         {
             if (_streamReader == null)

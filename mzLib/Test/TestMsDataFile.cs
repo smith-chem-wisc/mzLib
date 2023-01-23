@@ -220,7 +220,7 @@ namespace Test
         public static void TestXicExtraction()
         {
             string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
-            var reader = ReaderCreator.CreateReader(dataFilePath); 
+            var reader = MsDataFileReader.CreateReader(dataFilePath); 
             reader.LoadAllStaticData();
             
             var peptide = new PeptideWithSetModifications("KAPAGGAADAAAK", new Dictionary<string, Modification>());
@@ -255,7 +255,7 @@ namespace Test
             //not have mz or intensity values. We skip this scan when reading.
             string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", @"badScan7192.mzml");
 
-            var reader = ReaderCreator.CreateReader(dataFilePath); 
+            var reader = MsDataFileReader.CreateReader(dataFilePath); 
             reader.LoadAllStaticData();
 
             MsDataScan[] ms1Scans = reader.GetMS1Scans().ToArray();
