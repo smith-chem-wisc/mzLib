@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <Platforms>x64;AnyCPU</Platforms>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(Configuration)'=='Release'">

@@ -12,6 +12,9 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using TopDownProteomics.IO;
+using TopDownProteomics.IO.Obo;
+using static System.Net.WebRequestMethods;
 using MsDataFile = Readers.MsDataFile;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -72,6 +75,29 @@ namespace Test
             reader.LoadAllStaticData();
             var scanWithPrecursor = reader.GetAllScansList().Last(b => b.MsnOrder != 1);
             Assert.AreEqual(3, scanWithPrecursor.OneBasedPrecursorScanNumber);
+        }
+
+        [Test]
+        public void TestUseProvidedScanAndPrecursorScanNumbers()
+        {
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noPrecursorScans.mzML");
+            FilteringParams filter = new(200, 0.01, 1, null, false, false, true);
+            bool lookForPrecursorScans = false;
+            MsDataFile myFile = Mzml.LoadAllStaticData(origDataFile, filter, 1, lookForPrecursorScans);
+            var scans = myFile.GetAllScansList();
+            List<int> expectedScanNumbers = new() { 20000, 20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008, 20009};
+            CollectionAssert.AreEquivalent(expectedScanNumbers, scans.Select(s => s.OneBasedScanNumber).ToList());
+            List<int> expectedPrecursorScanNumbers = new() { 19975, 19975, 19990, 19990, 19990, 19975, 19975, 19975, 19975, 19975 };
+            CollectionAssert.AreEquivalent(expectedPrecursorScanNumbers, scans.Select(s => s.OneBasedPrecursorScanNumber).ToList());
+        }
+
+        [Test]
+        public void TextScanNumberNotReportedInMzml()
+        {
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noScanNumber.mzML");
+            FilteringParams filter = new(200, 0.01, 1, null, false, false, true);
+            bool lookForPrecursorScans = false;
+            Assert.Throws<AggregateException>(() => Mzml.LoadAllStaticData(origDataFile, filter, 1, lookForPrecursorScans), "Precursor scan number not define for scan=1");
         }
 
         [Test]
@@ -673,7 +699,7 @@ namespace Test
             Assert.IsFalse(reader.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
             Assert.IsFalse(reader.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
 
-            File.Delete("mzMLWithZeros.mzML");
+            System.IO.File.Delete("mzMLWithZeros.mzML");
         }
 
         [Test]

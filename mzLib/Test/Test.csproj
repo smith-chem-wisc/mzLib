@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0-windows</TargetFramework>
     <IsPackable>false</IsPackable>
-    <Platforms>x64;AnyCPU</Platforms>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -26,9 +26,11 @@
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
+    <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
     <ProjectReference Include="..\mzPlot\mzPlot.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
+    <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\SpectralAveragingExtensions\SpectralAveragingExtensions.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
@@ -132,7 +134,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\PSI-MOD.obo">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\ranges1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -282,6 +284,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans781_783.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\noPrecursorScans.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\noScanNumber.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\P08709.xml">

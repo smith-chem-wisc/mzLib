@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0-windows</TargetFramework>
     <IsPackable>false</IsPackable>
-    <Platforms>x64;AnyCPU</Platforms>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -26,6 +26,7 @@
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
+    <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\Test\Test.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
