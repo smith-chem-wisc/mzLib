@@ -1,24 +1,20 @@
-﻿using Chemistry;
-using Readers;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Xml.Serialization;
+using Chemistry;
 using MassSpectrometry;
 using MzIdentML;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Threading.Tasks;
-using System.Xml.Serialization;
-using TopDownProteomics.IO;
-using TopDownProteomics.IO.Obo;
-using static System.Net.WebRequestMethods;
+using Readers;
 using MsDataFile = Readers.MsDataFile;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.TestReaders
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -71,24 +67,10 @@ namespace Test
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), false);
 
             var reader =
-                ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
+                MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
             reader.LoadAllStaticData();
             var scanWithPrecursor = reader.GetAllScansList().Last(b => b.MsnOrder != 1);
             Assert.AreEqual(3, scanWithPrecursor.OneBasedPrecursorScanNumber);
-        }
-
-        [Test]
-        public void TestUseProvidedScanAndPrecursorScanNumbers()
-        {
-            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noPrecursorScans.mzML");
-            FilteringParams filter = new(200, 0.01, 1, null, false, false, true);
-            bool lookForPrecursorScans = false;
-            MsDataFile myFile = Mzml.LoadAllStaticData(origDataFile, filter, 1, lookForPrecursorScans);
-            var scans = myFile.GetAllScansList();
-            List<int> expectedScanNumbers = new() { 20000, 20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008, 20009};
-            CollectionAssert.AreEquivalent(expectedScanNumbers, scans.Select(s => s.OneBasedScanNumber).ToList());
-            List<int> expectedPrecursorScanNumbers = new() { 19975, 19975, 19990, 19990, 19990, 19975, 19975, 19975, 19975, 19975 };
-            CollectionAssert.AreEquivalent(expectedPrecursorScanNumbers, scans.Select(s => s.OneBasedPrecursorScanNumber).ToList());
         }
 
         [Test]
@@ -97,7 +79,7 @@ namespace Test
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noScanNumber.mzML");
             FilteringParams filter = new(200, 0.01, 1, null, false, false, true);
             bool lookForPrecursorScans = false;
-            Assert.Throws<AggregateException>(() => Mzml.LoadAllStaticData(origDataFile, filter, 1, lookForPrecursorScans), "Precursor scan number not define for scan=1");
+            Assert.Throws<AggregateException>(() => MsDataFileReader.CreateReader(origDataFile).LoadAllStaticData(filter, 1), "Precursor scan number not define for scan=1");
         }
 
         [Test]
@@ -106,7 +88,7 @@ namespace Test
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "BinGenerationTest.mzML");
             FilteringParams filter = new FilteringParams(200, 0.01, 1, null, false, false, true);
-            var reader = ReaderCreator.CreateReader(origDataFile);
+            var reader = MsDataFileReader.CreateReader(origDataFile);
             reader.LoadAllStaticData(filter, 1);
             MyMsDataFiles[origDataFile] = reader;
             var scans = MyMsDataFiles[origDataFile].GetAllScansList();
@@ -122,7 +104,7 @@ namespace Test
             
             Assert.Throws<FileNotFoundException>(() =>
             {
-                var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                var reader = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
                     "asdfasdfasdfasdfasdf.mzML"));
                 reader.LoadAllStaticData(); 
             });
@@ -159,7 +141,7 @@ namespace Test
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
 
             var reader =
-                ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"));
+                MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"));
             reader.LoadAllStaticData(testFilteringParams);
 
             int expNumPeaks = reader.GetAllScansList().First().MassSpectrum.XArray.Length;
@@ -213,7 +195,7 @@ namespace Test
             FakeMsDataFile f = new FakeMsDataFile(scans);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "variety_mzml.mzML"), false);
 
-            var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "variety_mzml.mzML"));
+            var reader = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "variety_mzml.mzML"));
             reader.LoadAllStaticData(testFilteringParams);
             int expNumPeaks = reader.GetAllScansList().First().MassSpectrum.XArray.Length;
             double expMinRatio = reader.GetAllScansList().First().MassSpectrum.YArray.Min(p => p / reader.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY).Value;
@@ -270,7 +252,7 @@ namespace Test
             FakeMsDataFile f = new FakeMsDataFile(scans);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
 
-            var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"));
+            var reader = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"));
             reader.LoadAllStaticData(testFilteringParams);
 
             Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(reader.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
@@ -293,14 +275,14 @@ namespace Test
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"), false);
 
             var reader =
-                ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory,
+                MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory,
                     "mzmlWithEmptyScan.mzML"));
             reader.LoadAllStaticData();
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), false);
 
             var testFilteringParams = new FilteringParams(200, 0.01, null, 5, false, true, true);
-            var reader2 = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory,
+            var reader2 = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory,
                 "mzmlWithEmptyScan2.mzML"));
             reader2.LoadAllStaticData(testFilteringParams);
         }
@@ -325,7 +307,7 @@ namespace Test
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfefsf.mzML"), false);
 
             var reader =
-                ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfefsf.mzML"));
+                MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfefsf.mzML"));
             reader.LoadAllStaticData();
 
             Assert.AreEqual(MZAnalyzerType.Orbitrap, reader.GetAllScansList().First().MzAnalyzer);
@@ -665,7 +647,7 @@ namespace Test
         {
             Assert.Throws<AggregateException>(() =>
             {
-                var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory,
+                var reader = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory,
                     "DataFiles", "tiny.pwiz.1.1.mzML"));
                 reader.LoadAllStaticData();
             }, "Reading profile mode mzmls not supported");
@@ -691,7 +673,7 @@ namespace Test
             //write the mzML file with zero intensity scans
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(testMsDataFile, "mzMLWithZeros.mzML", false);
 
-            var reader = ReaderCreator.CreateReader("mzMLWithZeros.mzML");
+            var reader = MsDataFileReader.CreateReader("mzMLWithZeros.mzML");
             reader.LoadAllStaticData();
             //read the mzML file. zero intensity peaks should be eliminated during read
 
@@ -705,7 +687,7 @@ namespace Test
         [Test]
         public void LoadMzmlFromConvertedMGFTest()
         {
-            var reader = ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+            var reader = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
                 "tester.mzML"));
             reader.LoadAllStaticData();
 
@@ -718,7 +700,7 @@ namespace Test
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, "CreateFileFromConvertedMGF.mzML", false);
 
-            var reader2 = ReaderCreator.CreateReader(@"CreateFileFromConvertedMGF.mzML");
+            var reader2 = MsDataFileReader.CreateReader(@"CreateFileFromConvertedMGF.mzML");
             reader2.LoadAllStaticData();
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader2, "CreateFileFromConvertedMGF2.mzML", false);
@@ -751,7 +733,7 @@ namespace Test
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(myMsDataFile, "argh.mzML", false);
 
-            var reader = ReaderCreator.CreateReader(@"argh.mzML");
+            var reader = MsDataFileReader.CreateReader(@"argh.mzML");
             reader.LoadAllStaticData();
             reader.GetOneBasedScan(2);
 
@@ -1456,13 +1438,13 @@ namespace Test
             FakeMsDataFile fakeFile = new FakeMsDataFile(scans);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(fakeFile, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), false);
             var fakeMzml =
-                ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
+                MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
             fakeMzml.LoadAllStaticData();
 
             FakeMsDataFile fakeFile1 = new FakeMsDataFile(scans1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(fakeFile1, Path.Combine(TestContext.CurrentContext.TestDirectory, "what1.mzML"), false);
             var fakeMzml1 =
-                ReaderCreator.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "what1.mzML"));
+                MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "what1.mzML"));
             fakeMzml1.LoadAllStaticData();
 
             Assert.AreEqual(3, fakeMzml.GetAllScansList().ElementAt(5).OneBasedPrecursorScanNumber);
@@ -1484,7 +1466,7 @@ namespace Test
             {
                 string append = writeIndexed ? "_indexed" : "_unindexed";
                 string rawPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
-                var thermoReader = ReaderCreator.CreateReader(rawPath);
+                var thermoReader = MsDataFileReader.CreateReader(rawPath);
                 thermoReader.LoadAllStaticData();
 
                 string mzmlFilename = Path.GetFileNameWithoutExtension(fileName) + append + ".mzML";
@@ -1498,7 +1480,7 @@ namespace Test
 
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-            var reader = ReaderCreator.CreateReader(filePath); 
+            var reader = MsDataFileReader.CreateReader(filePath); 
             reader.LoadAllStaticData();
             reader.InitiateDynamicConnection();
 
@@ -1578,7 +1560,7 @@ namespace Test
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
             FilteringParams filteringParams = new FilteringParams(200, 0.01, 1, null, false, true, true);
 
-            var reader = ReaderCreator.CreateReader(filePath);
+            var reader = MsDataFileReader.CreateReader(filePath);
             reader.LoadAllStaticData(filteringParams);
             reader.InitiateDynamicConnection();
 
@@ -1667,9 +1649,9 @@ namespace Test
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
             string filePath2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast_mixed_bits.mzml");
 
-            var reader1 = ReaderCreator.CreateReader(filePath); 
+            var reader1 = MsDataFileReader.CreateReader(filePath); 
             reader1.LoadAllStaticData();
-            var reader2 = ReaderCreator.CreateReader(filePath2);
+            var reader2 = MsDataFileReader.CreateReader(filePath2);
             reader2.LoadAllStaticData();
 
             reader1.InitiateDynamicConnection();
@@ -1733,7 +1715,7 @@ namespace Test
         public static void TestEthcdReading()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "sliced_ethcd.mzML");
-            var reader = ReaderCreator.CreateReader(filePath);
+            var reader = MsDataFileReader.CreateReader(filePath);
             reader.LoadAllStaticData(null, 1);
             var unknownScan = reader.GetOneBasedScan(3);
             Assert.That(unknownScan.DissociationType == DissociationType.Unknown);

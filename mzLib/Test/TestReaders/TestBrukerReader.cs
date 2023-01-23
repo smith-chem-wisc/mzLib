@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
-using MathNet.Numerics.Distributions;
 using NUnit.Framework;
-using Readers; 
-namespace Test;
+using Readers;
+using Readers.ReaderFactories;
+
+namespace Test.TestReaders;
 [ExcludeFromCodeCoverage]
 public class TestBrukerReader
 {

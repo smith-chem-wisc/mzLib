@@ -4,7 +4,7 @@ namespace Readers;
 
 public class GenericMsDataFile : MsDataFile
 {
-    public override void LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
+    public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
     {
         throw new NotImplementedException();
     }

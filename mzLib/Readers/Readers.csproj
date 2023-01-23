@@ -1,61 +1,113 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<Platforms>x64</Platforms>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="OpenMcdf" Version="2.2.1.12" />
-    <PackageReference Include="OpenMcdf.Extensions" Version="2.2.1.4" />
-    <PackageReference Include="System.Data.SQLite" Version="1.0.116" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="OpenMcdf" Version="2.2.1.12" />
+		<PackageReference Include="OpenMcdf.Extensions" Version="2.2.1.4" />
+		<PackageReference Include="System.Data.SQLite" Version="1.0.116" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
-    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
-    <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+		<ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+		<ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="ThermoFisher.CommonCore.BackgroundSubtraction">
-      <HintPath>dll\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
-    </Reference>
-    <Reference Include="ThermoFisher.CommonCore.Data">
-      <HintPath>dll\ThermoFisher.CommonCore.Data.dll</HintPath>
-    </Reference>
-    <Reference Include="ThermoFisher.CommonCore.MassPrecisionEstimator">
-      <HintPath>dll\ThermoFisher.CommonCore.MassPrecisionEstimator.dll</HintPath>
-    </Reference>
-    <Reference Include="ThermoFisher.CommonCore.RawFileReader">
-      <HintPath>dll\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
-    </Reference>
-  </ItemGroup>
+	<ItemGroup>
+		<Reference Include="BaseCommon">
+		  <HintPath>Agilent\BaseCommon.dll</HintPath>
+		</Reference>
+		<Reference Include="BaseCommon.dll">
+			<HintPath> dll\BaseCommon.dll</HintPath>
+		</Reference>
+		<Reference Include="BaseDataAccess">
+		  <HintPath>Agilent\BaseDataAccess.dll</HintPath>
+		</Reference>
+		<Reference Include="BaseDataAccess.dll">
+			<HintPath> dll\BaseDataAccess.dll</HintPath>
+		</Reference>
+		<Reference Include="BaseError">
+		  <HintPath>Agilent\BaseError.dll</HintPath>
+		</Reference>
+		<Reference Include="BaseError.dll">
+			<HintPath> dll\BaseError.dll</HintPath>
+		</Reference>
+		<Reference Include="BaseTof">
+		  <HintPath>Agilent\BaseTof.dll</HintPath>
+		</Reference>
+		<Reference Include="BaseTof.dll">
+			<HintPath> dll\BaseTof.dll</HintPath>
+		</Reference>
+		<Reference Include="MassSpecDataReader">
+		  <HintPath>Agilent\MassSpecDataReader.dll</HintPath>
+		</Reference>
+		<Reference Include="MassSpecDataReader.dll">
+			<HintPath> dll\MassSpecDataReader.dll</HintPath>
+		</Reference>
+		<Reference Include="ThermoFisher.CommonCore.BackgroundSubtraction">
+			<HintPath>dll\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
+		</Reference>
+		<Reference Include="ThermoFisher.CommonCore.Data">
+			<HintPath>dll\ThermoFisher.CommonCore.Data.dll</HintPath>
+		</Reference>
+		<Reference Include="ThermoFisher.CommonCore.MassPrecisionEstimator">
+			<HintPath>dll\ThermoFisher.CommonCore.MassPrecisionEstimator.dll</HintPath>
+		</Reference>
+		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
+			<HintPath>dll\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
+		</Reference>
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Update="baf2sql_c.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="baf2sql_c.lib">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ThermoFisher.CommonCore.BackgroundSubtraction.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ThermoFisher.CommonCore.Data.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ThermoFisher.CommonCore.RawFileReader.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+			<_Parameter1>Test</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="SummedMsDataFile.cs" />
-  </ItemGroup>
+	<ItemGroup>
+		<None Update="Agilent\BaseCommon.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Agilent\BaseDataAccess.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Agilent\BaseError.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Agilent\BaseTof.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Agilent\MassSpecDataReader.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="baf2sql_c.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="baf2sql_c.lib">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Thermo\ThermoFisher.CommonCore.Data.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Thermo\ThermoFisher.CommonCore.RawFileReader.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Remove="SummedMsDataFile.cs" />
+	</ItemGroup>
 
 </Project>

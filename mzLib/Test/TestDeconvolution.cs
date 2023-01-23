@@ -11,6 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using MassSpectrometry;
 
 namespace Test
 {
@@ -74,7 +75,7 @@ namespace Test
             double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-            var reader = ReaderCreator.CreateReader(singleScan); 
+            var reader = MsDataFileReader.CreateReader(singleScan); 
             reader.LoadAllStaticData();
 
             List<MsDataScan> singlescan = reader.GetAllScansList();
@@ -161,7 +162,7 @@ namespace Test
             double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-            Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
+            Mzml singleMZML = (Mzml)MsDataFileReader.CreateReader(singleScan).LoadAllStaticData();
 
             List<MsDataScan> singlescan = singleMZML.GetAllScansList();
 

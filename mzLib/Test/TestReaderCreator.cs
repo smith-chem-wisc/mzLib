@@ -29,18 +29,18 @@ public class TestReaderCreator
             {
                 Assert.Throws<NotImplementedException>(() =>
                 {
-                    var reader = ReaderCreator.CreateReader(testPath);
+                    var reader = MsDataFileReader.CreateReader(testPath);
                 }); 
                 continue;
             }else if (path == "humanInsulin.fasta")
             {
                 Assert.Throws<MzLibException>(() =>
                 {
-                    var reader = ReaderCreator.CreateReader(testPath);
+                    var reader = MsDataFileReader.CreateReader(testPath);
                 });
                 continue; 
             }
-            var reader = ReaderCreator.CreateReader(testPath);
+            var reader = MsDataFileReader.CreateReader(testPath);
             reader.LoadAllStaticData();
         }
         

@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MzLibUtil;
+using Readers.ReaderFactories;
 
 namespace Readers
 {
-    public static class ReaderCreator
+    public static class MsDataFileReader
     {
         public static MsDataFile CreateReader(string filePath)
         {
@@ -19,7 +20,8 @@ namespace Readers
                     factory = new ThermoRawReaderFactory(filePath); 
                     break;
                 case ".d":
-                    throw new NotImplementedException();
+                    factory = new BrukerReaderFactory(filePath);
+                    break;
                 case ".mzml":
                     factory = new MzMLReaderFactory(filePath); 
                     break;

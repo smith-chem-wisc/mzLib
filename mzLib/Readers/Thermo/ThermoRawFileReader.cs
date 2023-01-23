@@ -46,7 +46,7 @@ namespace Readers
         {
 
         }
-        public override void LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
+        public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
             if (!File.Exists(FilePath))
             {
@@ -101,6 +101,7 @@ namespace Readers
             rawFileAccessor.Dispose();
             Scans = msDataScans;
             SourceFile = GetSourceFile();
+            return this;
         }
 
         public override SourceFile GetSourceFile()
