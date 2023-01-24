@@ -77,8 +77,8 @@ namespace MassSpectrometry
         /// Deconvolutes a mass spectrum
         /// </summary>
         /// <param name="spectrum">spectrum to be deconvoluted</param>
-        /// <param name="deconvolutionParams">parameters for the deconvolution</param>
+        /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
-        public abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum);
+        public abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range);
     }
 }
