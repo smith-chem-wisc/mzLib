@@ -129,8 +129,10 @@ namespace MassSpectrometry
         /// <returns></returns>
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(Deconvoluter deconvoluter)
         {
-            var allDeconvolutedEnvelopes = deconvoluter.Deconvolute(this);
-            return allDeconvolutedEnvelopes.Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            // +- 8.5 are magic numbers from the original implementation of Classic Deconvolution
+            // it is believe that they represent the maximum mz space an isotopic envelopes can exist within
+            // This ensure that a peak is not cut in half by the mz isolation range
+            return deconvoluter.Deconvolute(this, new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5));
         }
 
         /// <summary>

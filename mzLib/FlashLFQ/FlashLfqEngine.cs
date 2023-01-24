@@ -676,23 +676,27 @@ namespace FlashLFQ
                                 .Select(p => p.AcceptorFilePeak.Apex.IndexedPeak.RetentionTime - p.DonorFilePeak.Apex.IndexedPeak.RetentionTime)
                                 .ToList();
 
-                            double medianIntensityDiff = nearbyCalibrationPoints
-                                .Select(p => Math.Log(p.AcceptorFilePeak.Intensity, 2) - Math.Log(p.DonorFilePeak.Intensity, 2))
-                                .Median();
+                            //double medianIntensityDiff = nearbyCalibrationPoints
+                            //    .Select(p => Math.Log(p.AcceptorFilePeak.Intensity, 2) - Math.Log(p.DonorFilePeak.Intensity, 2))
+                            //    .Median();
 
                             // figure out the range of RT differences between the files that are "reasonable", centered around the median difference
                             double median = rtDiffs.Median();
 
                             // default range (if only 1 datapoint, or SD is 0, range is very high, etc)
                             double rtRange = MbrRtWindow;
+                            double? rtStdDev = null;
+                            double? rtInterquartileRange = null;
 
                             if (nearbyCalibrationPoints.Count < 6 && nearbyCalibrationPoints.Count > 1 && rtDiffs.StandardDeviation() > 0)
                             {
-                                rtRange = rtDiffs.StandardDeviation() * 6;
+                                rtStdDev = rtDiffs.StandardDeviation();
+                                rtRange = (double)rtStdDev * 6.0; // Multiplication inherited from legacy code, unsure of reason for 6
                             }
                             else if (nearbyCalibrationPoints.Count >= 6 && rtDiffs.InterquartileRange() > 0)
                             {
-                                rtRange = rtDiffs.InterquartileRange() * 4.5;
+                                rtInterquartileRange = rtDiffs.InterquartileRange();
+                                rtRange = (double)rtInterquartileRange * 4.5; // Multiplication inherited from legacy code, unsure of reason for 4.5
                             }
 
                             rtRange = Math.Min(rtRange, MbrRtWindow);
@@ -761,9 +765,10 @@ namespace FlashLFQ
 
                                     var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorIdentification.PeakfindingMass, z, idAcceptorFile, mbrTol);
                                     List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorIdentification, z);
-
                                     acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
                                     acceptorPeak.CalculateIntensityForThisFeature(Integrate);
+                                    acceptorPeak.SetRtWindow(acceptorFileRtHypothesis, rtStdDev, rtInterquartileRange);
+
                                     CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
 
                                     var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak));

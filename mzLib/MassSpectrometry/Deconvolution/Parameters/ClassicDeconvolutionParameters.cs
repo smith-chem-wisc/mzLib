@@ -13,6 +13,9 @@ namespace MassSpectrometry
     public class ClassicDeconvolutionParameters : DeconvolutionParameters
     {
         public MzRange Range { get; set; }
+        public int MinAssumedChargeState { get; set; }
+        public int MaxAssumedChargeState { get; set; }
+        public double DeconvolutionTolerancePpm { get; set; }
         public double IntensityRatioLimit { get; set; }
 
         /// <summary>
@@ -26,7 +29,6 @@ namespace MassSpectrometry
         public ClassicDeconvolutionParameters(int minCharge, int maxCharge, double deconPpm, double intensityRatio, MzRange range = null) : 
             base (minCharge, maxCharge, deconPpm)
         {
-            Range = range;
             IntensityRatioLimit = intensityRatio;
         }
     }

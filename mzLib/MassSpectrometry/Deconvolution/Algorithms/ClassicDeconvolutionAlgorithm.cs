@@ -23,8 +23,9 @@ namespace MassSpectrometry
         /// Override to deconvolute the spectra using the Classic Deconvolution algorithm
         /// </summary>
         /// <param name="spectrumToDeconvolute">spectrum to deconvolute</param>
+        /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
-        public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute)
+        public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
         {
             var deconParams = DeconvolutionParameters as ClassicDeconvolutionParameters;
             if (deconParams == null)
@@ -41,7 +42,7 @@ namespace MassSpectrometry
 
             var isolatedMassesAndCharges = new List<IsotopicEnvelope>();
 
-            (int start, int end) indexes = ExtractIndices(deconParams.Range.Minimum, deconParams.Range.Maximum);
+            (int start, int end) indexes = ExtractIndices(range.Minimum, range.Maximum);
 
             //find the most intense peak in the range
             double maxIntensity = 0;

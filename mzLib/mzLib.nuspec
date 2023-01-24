@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>mzLib</id>
-    <version>0.0.1</version>
+    <version>5.0.538</version>
     <title>mzLib</title>
     <authors>Stef S.</authors>
     <owners>Stef S.</owners>
@@ -21,7 +21,6 @@
 	<dependency id="OpenMcdf" version="2.2.1.3"/>
 	<dependency id="OpenMcdf.Extensions" version="2.2.1.3"/>
 	<dependency id="SharpLearning.Optimization" version="0.28.0"/>
-	<dependency id="SpectralAveraging" version="1.0.6"/>
       </group>
       <group targetFramework="net6.0-windows7.0">
 	<!--net6.0-windows7.0 target with OxyPlot-->
@@ -31,7 +30,6 @@
 	<dependency id="NetSerializer" version="4.1.1"/>
 	<dependency id="OpenMcdf" version="2.2.1.3"/>
 	<dependency id="OpenMcdf.Extensions" version="2.2.1.3"/>
-	<dependency id="SpectralAveraging" version="1.0.6"/>
 	<dependency id="SharpLearning.Optimization" version="0.28.0"/>
         <dependency id="OxyPlot.Wpf" version="2.0.0"/>
       </group>
@@ -47,7 +45,7 @@
     <file src="MassSpectrometry\bin\x64\Release\net6.0\Proteomics\ProteolyticDigestion\proteases.tsv" target="lib\net6.0\ProteolyticDigestion" />
     <file src="Mgf\bin\x64\Release\net6.0\Mgf.dll" target="lib\net6.0" />	
     <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0" />
-  <file src="MzLibSpectralAveraging\bin\x64\Release\net6.0\MzLibSpectralAveraging.dll" target="lib\net6.0" /> 
+    <file src="SpectralAveraging\bin\x64\Release\net6.0\SpectralAveraging.dll" target="lib\net6.0" /> 
     <file src="MzLibUtil\bin\x64\Release\net6.0\MzLibUtil.dll" target="lib\net6.0" />
     <file src="MzML\bin\x64\Release\net6.0\MzML.dll" target="lib\net6.0" />
     <file src="PepXML\bin\x64\Release\net6.0\PepXML.dll" target="lib\net6.0" /> 
@@ -67,7 +65,7 @@
     <file src="MassSpectrometry\bin\x64\Release\net6.0\Proteomics\ProteolyticDigestion\proteases.tsv" target="lib\net6.0-windows7.0\ProteolyticDigestion" />
     <file src="Mgf\bin\x64\Release\net6.0\Mgf.dll" target="lib\net6.0-windows7.0" />	
     <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0-windows7.0" />
-    <file src="MzLibSpectralAveraging\bin\x64\Release\net6.0\MzLibSpectralAveraging.dll" target="lib\net6.0-windows7.0" />
+    <file src="SpectralAveraging\bin\x64\Release\net6.0\SpectralAveraging.dll" target="lib\net6.0-windows7.0" />
     <file src="MzLibUtil\bin\x64\Release\net6.0\MzLibUtil.dll" target="lib\net6.0-windows7.0" />
     <file src="MzML\bin\x64\Release\net6.0\MzML.dll" target="lib\net6.0-windows7.0" />
     <file src="PepXML\bin\x64\Release\net6.0\PepXML.dll" target="lib\net6.0-windows7.0" /> 
