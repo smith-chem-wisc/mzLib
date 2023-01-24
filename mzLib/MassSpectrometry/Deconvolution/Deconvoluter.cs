@@ -33,23 +33,24 @@ namespace MassSpectrometry
         /// <summary>
         /// Deconvolute a MsDataScan
         /// </summary>
-        /// <param name="scan"></param>
+        /// <param name="scan">scan to deconvolute</param>
+        /// <param name="rangeToGetPeaksFrom">Range of peaks to deconvolute, if null, will deconvolute entire spectra</param>
         /// <returns></returns>
-        public IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan)
+        public IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan, MzRange rangeToGetPeaksFrom = null)
         {
+            rangeToGetPeaksFrom ??= scan.MassSpectrum.Range;
+
             // set deconvolution parameters that are only present in the MsDataScan
             switch (DeconvolutionType)
             {
                 case DeconvolutionTypes.ClassicDeconvolution:
-                    ((ClassicDeconvolutionParameters)DeconvolutionParameters).Range = new MzRange(scan.IsolationRange.Minimum - 8.5, scan.IsolationRange.Maximum + 8.5);
                     break;
 
                 case DeconvolutionTypes.AlexDeconvolution:
-
                     break;
             }
 
-            return DeconvolutionAlgorithm.Deconvolute(scan.MassSpectrum);
+            return DeconvolutionAlgorithm.Deconvolute(scan.MassSpectrum, rangeToGetPeaksFrom);
         }
 
  
