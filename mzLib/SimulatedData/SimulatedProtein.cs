@@ -12,14 +12,15 @@ namespace SimulatedData
         private IsotopicDistribution _isotopicDistribution { get; set; }
         private readonly record struct BinValue(int Bin, double Mz, double Intensity);
 
-        public SimulatedProtein(IsotopicDistribution isotopicDistribution, int length, double startValue, double spacing) 
-            : base(length, startValue, spacing)
+        public SimulatedProtein(IsotopicDistribution isotopicDistribution, 
+            double mzLow, double mzHigh, int length, double spacing) 
+            : base(length, mzLow, spacing)
         {
             _isotopicDistribution = isotopicDistribution;
-            Xarray[0] = startValue;
+            Xarray[0] = mzLow;
             for (int i = 1; i < Xarray.Length; i++)
             {
-                Xarray[i] = spacing * i + startValue; 
+                Xarray[i] = spacing * i + mzLow; 
             }
 
             var arrays = ConsumeDistribution(_isotopicDistribution, spacing);
@@ -49,7 +50,8 @@ namespace SimulatedData
         private (List<double> xVals, List<double> yVals) ConsumeDistribution(IsotopicDistribution distribution, double binSize)
         {
             // TODO: Fix the generation of the x-axis and the envelope positioning. 
-            double min = distribution.Masses.Min();
+            //double min = distribution.Masses.Min();
+            double min = 500; 
 
             int numberOfBins = Length;
             List<BinValue> listBinValues = CreateBinValueList(distribution.Masses.ToArray(),

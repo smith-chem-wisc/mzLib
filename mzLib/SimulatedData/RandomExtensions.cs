@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.FSharp.Core;
 
 namespace SimulatedData
 {
@@ -35,6 +36,20 @@ namespace SimulatedData
         public static implicit operator DoubleArray(double[] array)
         {
             return new DoubleArray(array);
+        }
+
+        public static DoubleArray operator /(DoubleArray a, double scalar)
+        {
+            for (int i = 0; i < a.Array.Length; i++)
+            {
+                a.Array[i] /= scalar; 
+            }
+
+            return a; 
+        }
+        public static DoubleArray operator /(DoubleArray a, int scalar)
+        {
+            return a / (double)scalar; 
         }
     }
 }

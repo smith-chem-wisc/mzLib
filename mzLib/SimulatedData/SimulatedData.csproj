@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
+    <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
   </ItemGroup>
 
 </Project>

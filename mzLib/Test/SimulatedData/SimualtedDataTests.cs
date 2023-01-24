@@ -12,6 +12,7 @@ using NUnit.Framework;
 using Plotly.NET;
 using Proteomics.AminoAcidPolymer;
 using SimulatedData;
+using SpectralAveraging;
 using Peptide = Proteomics.AminoAcidPolymer.Peptide;
 
 namespace Test.SimulatedData
@@ -84,10 +85,48 @@ namespace Test.SimulatedData
         {
             Peptide peptide = new Peptide("AAAAAAAAA");
             var distribution = IsotopicDistribution.GetDistribution(peptide.GetChemicalFormula());
-             
-            var simProtein = new SimulatedProtein(distribution, 2500, 
-                distribution.Masses.Min(), 0.01); 
+            double mzLow = 500;
+            double mzHigh = 2000;
+            double stepSize = 0.1;
+            
+            int steps = (int)((mzHigh - mzLow) / stepSize); 
+
+            var simProtein = new SimulatedProtein(distribution, 500, 2000,
+                steps, stepSize); 
+            Console.WriteLine(distribution.Masses.First());
             simProtein.Plot().Show();
+            double yArrayMax = simProtein.Yarray.Max();
+            int indexOfMaxYarray = simProtein.Yarray.IndexOf(yArrayMax);
+
+            int expectedIndex = (int)((657.3 - mzLow) / stepSize); // cause zero-based indexing 
+
+            Assert.That(expectedIndex, Is.EqualTo(indexOfMaxYarray - 1));
+        }
+
+        [Test]
+        [TestCase()]
+        public void TestNormalizeByTic()
+        {
+            Peptide peptide = new Peptide("AAAAAAAAA");
+            var distribution = IsotopicDistribution.GetDistribution(peptide.GetChemicalFormula());
+            double mzLow = 500;
+            double mzHigh = 2000;
+            double stepSize = 0.1;
+
+            int steps = (int)((mzHigh - mzLow) / stepSize);
+
+            var simProtein = new SimulatedProtein(distribution, mzLow, mzHigh,
+                steps, stepSize);
+
+            simProtein.NormalizeByTic();
+            simProtein.Plot().Show(); 
+        }
+
+        [Test]
+        [TestCase()]
+        public void TestGetNoiseEstimation()
+        {
+
         }
     }
 }

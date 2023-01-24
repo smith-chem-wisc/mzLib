@@ -7,7 +7,7 @@ namespace SimulatedData
     {
         public double[] Xarray { get; protected set; }
         public double[] Yarray { get; protected set; }
-        public int Length { get; }
+        protected int Length { get; }
         private double _stepSize { get; }
         private double _startValue { get; }
 
@@ -17,7 +17,7 @@ namespace SimulatedData
             _stepSize = stepSize;
             _startValue = startValue;
             Xarray = new double[length];
-            Yarray = new double[length]; 
+            Yarray = new double[length];
             FillArray(Xarray);
             FillArray(Yarray);
         }
@@ -127,6 +127,16 @@ namespace SimulatedData
             }
 
             return a;
+        }
+
+        public static SimulatedData operator /(SimulatedData a, double scalar)
+        {
+            for (int i = 0; i < a.Length; i++)
+            {
+                a.Yarray[i] /= scalar; 
+            }
+
+            return a; 
         }
 
         public void AddHighFrequencyNoise(Normal noiseDistribution)
