@@ -7,18 +7,6 @@ namespace SpectralAveraging;
 
 public class BasicStatistics
 {
-
-    public static double CalculateMedian(IEnumerable<double> toCalc)
-    {
-        IEnumerable<double> sortedValues = toCalc.OrderByDescending(p => p).ToList();
-        double median;
-        int count = sortedValues.Count();
-        if (count % 2 == 0)
-            median = sortedValues.Skip(count / 2 - 1).Take(2).Average();
-        else
-            median = sortedValues.ElementAt(count / 2);
-        return median;
-    }
     public static double CalculateNonZeroMedian(IEnumerable<double> toCalc)
     {
         toCalc = toCalc.Where(p => p != 0).ToList();
@@ -68,14 +56,14 @@ public class BasicStatistics
     /// <returns>The median absolute deviation from median.</returns>
     public static double MedianAbsoluteDeviationFromMedian(double[] array)
     {
-        double arrayMedian = CalculateMedian(array);
+        double arrayMedian = array.Median();
         double[] results = new double[array.Length];
         for (int j = 0; j < array.Length; j++)
         {
             results[j] = Math.Abs(array[j] - arrayMedian);
         }
 
-        return CalculateMedian(results);
+        return results.Median();
     }
     /// <summary>
     /// Calcultes the biweight midvariance for an array. Algorithm orignally found here:
@@ -88,7 +76,7 @@ public class BasicStatistics
         double[] y_i = new double[array.Length];
         double[] a_i = new double[array.Length];
         double MAD_X = MedianAbsoluteDeviationFromMedian(array);
-        double median = CalculateMedian(array);
+        double median = array.Median();
         for (int i = 0; i < y_i.Length; i++)
         {
             y_i[i] = (array[i] - median) / (9d * MAD_X);

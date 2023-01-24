@@ -111,21 +111,6 @@ namespace Test.AveragingTests
         }
 
         [Test]
-        public static void TestCalculateMedian()
-        {
-            double[] arr1 = new double[] { 0, 0, 0, 1, 2, 3, 4, 5, 6, 0, 0, 0 };
-            double[] arr2 = new double[] { 0, 0, 0, 1, 2, 3, 4, 5, 6, 0, 0 };
-
-            double resultArr1 = BasicStatistics.CalculateMedian(arr1);
-            double resultArr2 = BasicStatistics.CalculateMedian(arr2);
-            double expectedArr1 = 0.5;
-            double expectedArr2 = 1.0; 
-
-            Assert.That(expectedArr1, Is.EqualTo(resultArr1).Within(0.01));
-            Assert.That(expectedArr2, Is.EqualTo(resultArr2).Within(0.01));
-        }
-
-        [Test]
         public static void TestMedianAbsoluteDeviationFromMedian()
         {
             double[] arr1 = new double[] { 0, 0, 0, 1, 2, 3, 4, 5, 6, 0, 0, 0 };
