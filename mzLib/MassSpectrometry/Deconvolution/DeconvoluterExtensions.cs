@@ -24,7 +24,7 @@ namespace MassSpectrometry
         public static IEnumerable<IsotopicEnvelope> ClassicDeconvoluteMzSpectra(this Deconvoluter deconvoluter,
             MzSpectrum spectrum, MzRange range = null)
         {
-            if (deconvoluter.DeconvolutionType != DeconvolutionTypes.ClassicDeconvolution)
+            if (deconvoluter.DeconvolutionType != DeconvolutionType.ClassicDeconvolution)
             {
                 throw new MzLibException("Deconvoluter is not of correct type for this extension method");
             }
