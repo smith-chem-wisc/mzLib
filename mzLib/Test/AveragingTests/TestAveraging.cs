@@ -95,6 +95,29 @@ namespace Test.AveragingTests
         }
 
         [Test]
+        public static void TestWhenAllValuesGetRejected()
+        {
+            SpectralAveragingParameters parameters = new()
+            {
+                SpectraFileAveragingType = SpectraFileAveragingType.AverageAll,
+                OutlierRejectionType = OutlierRejectionType.MinMaxClipping,
+                SpectralWeightingType = SpectraWeightingType.WeightEvenly,
+                NormalizationType = NormalizationType.NoNormalization,
+                BinSize = 1,
+            };
+
+            List<MzSpectrum> spectra = new()
+            {
+                new MzSpectrum(new[] { 2.0, 3.0, 3.1, 4.0, 4.1 }, new[] { 1.0, 1.1, 1.2, 1.5, 1.6 }, false),
+                new MzSpectrum(new[] { 2.0, 3.0, 3.1, 4.0, 4.1 }, new[] { 1.0, 1.3, 1.4, 1.7, 1.8 }, false),
+            };
+
+            var averagedSpectra = spectra.AverageSpectra(parameters);
+            Assert.That(averagedSpectra.XArray.SequenceEqual(new [] {3.05, 4.05}));
+            Assert.That(averagedSpectra.YArray.SequenceEqual(new[]{1.25, 1.65}));
+        }
+
+        [Test]
         public static void TestBinningMethod()
         {
             SpectralAveragingParameters parameters = new() { BinSize = 1 };

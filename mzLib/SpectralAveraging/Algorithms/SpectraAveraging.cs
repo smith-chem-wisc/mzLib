@@ -67,10 +67,8 @@ public static class SpectraAveraging
                 bins[keys[binIndex]] = OutlierRejection.RejectOutliers(bins[keys[binIndex]], parameters);
                 if (!bins[keys[binIndex]].Any()) continue;
                 lock (averagedPeaks)
-                {
                     averagedPeaks.Add(AverageBin(bins[keys[binIndex]], weights));
-                }
-                
+
             }
         });
 
