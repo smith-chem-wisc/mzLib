@@ -273,6 +273,7 @@ namespace Test.SimulatedData
 
         }
         [Test]
+        [Repeat(10)]
         [TestCase()]
         public void TestSigmaClipplingVsNaive(int numberPeaks = 25)
         {
@@ -320,8 +321,8 @@ namespace Test.SimulatedData
 
             while (numberPeaks > 0)
             {
-                GaussianPeakSpectra gaussian = new GaussianPeakSpectra(500, 25, 10000, 1000, 0, 1.0);
-                Normal hfNoise = new Normal(100, 50);
+                GaussianPeakSpectra gaussian = new GaussianPeakSpectra(500, 10, 10000, 1000, 0, 1.0);
+                Normal hfNoise = new Normal(100, 10);
                 gaussian.AddHighFrequencyNoise(hfNoise);
                 gaussian.NormalizeByTic();
                 peaksList.Add(gaussian);
@@ -340,7 +341,8 @@ namespace Test.SimulatedData
                 { winsorizedClipping[1].Plot(winsorizedClipping[0]).WithTraceInfo("Winsorized") },
                 { averageSigmaClipping[1].Plot(averageSigmaClipping[0]).WithTraceInfo("Average Sigma") },
                 noRejectionClipping[1].Plot(noRejectionClipping[0]).WithTraceInfo("No rejection"),
-                naive.Plot(peaksList[0].Xarray).WithTraceInfo("Naive")
+                naive.Plot(peaksList[0].Xarray).WithTraceInfo("Naive"),
+                peaksList[0].Plot().WithTraceInfo("Original")
             };
 
             Plotly.NET.GenericChart.GenericChart stackedPlot = Chart.Combine(plotList);
@@ -357,13 +359,31 @@ namespace Test.SimulatedData
                 peaksList[0].Yarray
             };
             List<double> noiseEstimates = new();
+            List<double> stddevNoiseEstimate = new();
+            
             foreach (double[] yarray in yarrays)
             {
-                MRSNoiseEstimator.MRSNoiseEstimation(yarray, 0.1, out double noiseEstimate); 
+                MRSNoiseEstimator.MRSNoiseEstimation(yarray[..400], 0.1, out double noiseEstimate); 
                 noiseEstimates.Add(noiseEstimate);
+                stddevNoiseEstimate.Add(BasicStatistics.CalculateStandardDeviation(yarray[..400]));
             }
-
-            Console.WriteLine(string.Join("\n", noiseEstimates)); 
+            // TODO: Calculate the ENR instead of improvement ratio. Need to account for scale. 
+            List<double> improvementRatio = noiseEstimates.Select(i => noiseEstimates.Last() / i).ToList();
+            List<string> method = new()
+            {
+                "Sigma Clipping", 
+                "Winsorized Sigma Clipping", 
+                "AveragedSigma Clipping", 
+                "No Rejection", 
+                "Averaging Without Rejection", 
+                "Raw Reference Spectrum"
+            }; 
+            Console.WriteLine("Method\tMRS Noise Estimate\tStddev Noise Estimate\tImprovement Ratio (Raw Noise Estimate / Averaging Method Noise Estimate)");
+            for (int i = 0; i < noiseEstimates.Count; i++)
+            {
+                Console.WriteLine("{0}\t{1}\t{2}\t{3}",
+                    method[i], noiseEstimates[i], stddevNoiseEstimate[i], improvementRatio[i]);
+            }
         }
     }
 
