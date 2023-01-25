@@ -24,7 +24,7 @@ namespace SimulatedData
             }
 
             var arrays = ConsumeDistribution(_isotopicDistribution, spacing);
-            Yarray = arrays.yVals.ToArray(); 
+            Yarray = arrays.yVals.ToArray();
         }
         private class BinValueComparer : IComparer<BinValue>
         {

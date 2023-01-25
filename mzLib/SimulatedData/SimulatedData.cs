@@ -1,5 +1,7 @@
 ﻿using MathNet.Numerics.Distributions;
-using Plotly.NET;
+using System.Collections.Generic;
+using Plotly.NET.CSharp;
+using SpectralAveraging;
 
 namespace SimulatedData
 {
@@ -8,7 +10,7 @@ namespace SimulatedData
         public double[] Xarray { get; protected set; }
         public double[] Yarray { get; protected set; }
         protected int Length { get; }
-        private double _stepSize { get; }
+        protected double _stepSize { get; }
         private double _startValue { get; }
 
         protected SimulatedData(int length, double startValue, double stepSize)
@@ -27,7 +29,7 @@ namespace SimulatedData
 
         }
 
-        private void FillArray(double[] array)
+        protected void FillArray(double[] array)
         {
             for (int i = 0; i < Length; i++)
             {
@@ -231,5 +233,33 @@ namespace SimulatedData
             return random.NextDouble() * (high - low) + low;
         }
         private double GaussianFunc(double d, double mean, double stddev, double intensity) => intensity * Normal.PDF(mean, stddev, d);
+        public Plotly.NET.GenericChart.GenericChart Plot()
+        {
+            return Chart.Line<double, double, string>(x: Xarray, y: Yarray)
+                .WithXAxisStyle<double, double, string>("m/z")
+                .WithYAxisStyle<double, double, string>("Intensity");
+        }
+
+        public bool TryMrsNoiseEstimation(double epsilon, out double noiseEstimate,
+            int maxIterations = 25)
+        {
+            bool mrsNoiseEstimationSuccess = MRSNoiseEstimator.MRSNoiseEstimation(Yarray,
+                epsilon, out double tempNoiseEstimate, maxIterations);
+            if (mrsNoiseEstimationSuccess)
+            {
+                noiseEstimate = tempNoiseEstimate;
+            }
+            else
+            {
+                noiseEstimate = BasicStatistics.CalculateStandardDeviation(Yarray);
+            }
+
+            return mrsNoiseEstimationSuccess;
+        }
+        public void NormalizeByTic()
+        {
+            double sumOfYArray = Yarray.Sum();
+            ApplyElementwise(i => i / sumOfYArray, Yarray);
+        }
     }
 }
