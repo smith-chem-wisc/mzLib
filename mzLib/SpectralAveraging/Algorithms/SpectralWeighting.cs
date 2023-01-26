@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MzLibUtil;
 
 namespace SpectralAveraging;
@@ -29,7 +32,7 @@ public static class SpectralWeighting
                 return WeightByTicValue(yArrays);
 
             case SpectraWeightingType.MrsNoiseEstimation:
-                throw new MzLibException("Austin will fill this in when he returns from vacation");
+                return WeightByMrsNoiseEstimation(yArrays);
             //return WeightByMrsNoiseEstimation(xArrays, yArrays);
 
             default:
@@ -64,41 +67,71 @@ public static class SpectralWeighting
         return weights;
     }
 
-
-    // NOTE: This will be implemented when Austin gets back from vacation
-    // leaving him a nice place to put it
-
     /// <summary>
-    ///     Given the noise estimates and the scale estimates, calculates the weight given to
-    ///     each spectra when averaging using w_i = 1 / (k * noise_estimate)^2,
-    ///     where k = scaleEstimate_reference / scaleEstimate_i
+    /// Given the noise estimates and the scale estimates, calculates the weight given to
+    /// each spectra when averaging using w_i = 1 / (k * noise_estimate)^2,
+    /// where k = scaleEstimate_reference / scaleEstimate_i. Reference spectra defaults to the
+    /// first spectra
     /// </summary>
-    private static Dictionary<int, double> WeightByMrsNoiseEstimation(double[][] xArrays, double[][] yArrays)
+    private static Dictionary<int, double> WeightByMrsNoiseEstimation(double[][] yArrays)
     {
         var weights = new Dictionary<int, double>();
-        // get noise and scale estimates
-        //SortedDictionary<int, double> noiseEstimates = CalculateNoiseEstimates(pixelStack);
-        //SortedDictionary<int, double> scaleEstimates = CalculateScaleEstimates(pixelStack);
+        // get noise estimate
+        ConcurrentDictionary<int, double> noiseEstimates = new(); 
 
-        //// calculate weights
-        //double referenceScale = scaleEstimates[0];
-        //foreach (var entry in noiseEstimates)
-        //{
-        //    var successScale = scaleEstimates.TryGetValue(entry.Key,
-        //        out double scale);
-        //    if (!successScale) continue;
+        yArrays
+            .Select((w,i) => new {Index = i, Array = w})
+            .AsParallel()
+            .ForAll(x =>
+            {
+                bool mrsSuccess = MRSNoiseEstimator.MRSNoiseEstimation(x.Array, 0.01, out double noiseEstimate);
+                if (!mrsSuccess || double.IsNaN(noiseEstimate) || noiseEstimate == 0d)
+                {
+                    noiseEstimate = BasicStatistics.CalculateStandardDeviation(x.Array);
+                }
 
-        //    var successNoise = noiseEstimates.TryGetValue(entry.Key,
-        //        out double noise);
-        //    if (!successNoise) continue;
+                noiseEstimates.TryAdd(x.Index, noiseEstimate);
+            });
+        // get scale estimate 
+        ConcurrentDictionary<int, double> scaleEstimates = new(); 
+        yArrays.Select((w,i) => new {Index = i, Array = w})
+            .AsParallel()
+            .ForAll(x =>
+            {
+                double scale = Math.Sqrt(BasicStatistics.BiweightMidvariance(x.Array));
+                scaleEstimates.TryAdd(x.Index, Math.Sqrt(scale));
+            });
 
-        //    double k = referenceScale / scale;
-
-        //    double weight = 1d / Math.Pow((k * noise), 2);
-
-        //    weights.TryAdd(entry.Key, weight);
-        //}
+        CalculateWeights(noiseEstimates, scaleEstimates, weights);
 
         return weights;
     }
+    /// <summary>
+    /// Given the noise estimates and the scale estimates, calculates the weight given to
+    /// each spectra when averaging using w_i = 1 / (k * noise_estimate)^2,
+    /// where k = scaleEstimate_reference / scaleEstimate_i
+    /// </summary>
+    private static void CalculateWeights(IDictionary<int, double> noiseEstimates, 
+        IDictionary<int, double> scaleEstimates, IDictionary<int, double> weights,int referenceSpectra = 0)
+    {
+        double referenceScale = scaleEstimates[referenceSpectra];
+        foreach (var entry in noiseEstimates)
+        {
+            var successScale = scaleEstimates.TryGetValue(entry.Key,
+                out double scale);
+            if (!successScale) continue;
+
+            var successNoise = noiseEstimates.TryGetValue(entry.Key,
+                out double noise);
+            if (!successNoise) continue;
+
+            double k = referenceScale / scale;
+
+            double weight = 1d / Math.Pow((k * noise), 2);
+
+            weights.TryAdd(entry.Key, weight);
+        }
+    }
+
+    
 }
