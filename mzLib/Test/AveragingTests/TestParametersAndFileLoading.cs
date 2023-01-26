@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -117,6 +118,41 @@ namespace Test.AveragingTests
             Assert.That(Math.Abs(parameters.BinSize - 2) < 0.001);
 
 
+        }
+
+        [Test]
+        [TestCase(new[] { 0.1 }, new[] { 5 },
+            new[] { 0 }, new[] { 1.3 }, new[] { 0.8 })]
+        [TestCase(new[] { 0.01, 0.1 }, new[] { 5, 10, 20 },
+            new[] { 2, 3, 4 }, new[] { 1.0, 2.0, 3.0 }, new[] { 0.5, 0.7, 0.9 })]
+        [TestCase(new[] { 0.01, 0.1 }, new[] { 5, 10, 20 },
+            new[] { 2, 3, 4, 10, 15 }, new[] { 1.0, 2.0, 3.0, 4.0 }, new[] { 0.5, 0.7, 0.9 })]
+        public static void TestGenerateSpectralAveragingParameters(double[] binSizes,
+            int[] numberOfScansToAverage, int[] scanOverlap, double[] sigmas, double[] percentiles)
+        {
+            int rejectionTypes = Enum.GetNames<OutlierRejectionType>()
+                .Count(p => !p.Contains("Sigma") && !p.Contains("Percent"));
+            int weightingTypes = Enum.GetValues<SpectraWeightingType>().Length;
+            int normalizationTypes = 2;
+            int sigmaTypes = (int)Math.Pow(sigmas.Length, 2) *
+                             Enum.GetNames<OutlierRejectionType>().Count(p => p.Contains("Sigma"));
+            int percentileTypes = percentiles.Length;
+            int binSizeCount = binSizes.Length;
+
+            int scanToAverageCount = 0;
+            foreach (var scanCount in numberOfScansToAverage)
+            {
+                foreach (var overlap in scanOverlap)
+                {
+                    if (overlap < scanCount)
+                        scanToAverageCount++;
+                }
+            }
+
+            var averagingParamCount =
+                weightingTypes * normalizationTypes * (sigmaTypes + percentileTypes + rejectionTypes) * binSizeCount * scanToAverageCount;
+            var result = SpectralAveragingParameters.GenerateSpectralAveragingParameters(binSizes, numberOfScansToAverage, scanOverlap, sigmas, percentiles);
+            Assert.That(result.Count, Is.EqualTo(averagingParamCount));
         }
 
         [Test]
