@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MathNet.Numerics.Statistics;
 using MzLibUtil;
 
 namespace SpectralAveraging;
@@ -87,7 +88,7 @@ public static class SpectralWeighting
                 bool mrsSuccess = MRSNoiseEstimator.MRSNoiseEstimation(x.Array, 0.01, out double noiseEstimate);
                 if (!mrsSuccess || double.IsNaN(noiseEstimate) || noiseEstimate == 0d)
                 {
-                    noiseEstimate = BasicStatistics.CalculateStandardDeviation(x.Array);
+                    noiseEstimate = x.Array.StandardDeviation();
                 }
 
                 noiseEstimates.TryAdd(x.Index, noiseEstimate);

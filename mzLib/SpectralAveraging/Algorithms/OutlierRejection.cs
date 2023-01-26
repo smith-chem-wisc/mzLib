@@ -121,7 +121,7 @@ public static class OutlierRejection
         do
         {
             var median = values.Median();
-            var standardDeviation = BasicStatistics.CalculateStandardDeviation(values);
+            var standardDeviation = values.StandardDeviation();
             n = 0;
             for (var i = 0; i < values.Count; i++)
                 if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
@@ -154,7 +154,7 @@ public static class OutlierRejection
             if (!values.Any())
                 break;
             var median = values.Median();
-            var standardDeviation = BasicStatistics.CalculateStandardDeviation(values);
+            var standardDeviation = values.Where(p => p != 0).StandardDeviation();
             double[] toProcess = new double[values.Count];
             values.CopyTo(toProcess, 0);
             double winsorizedStandardDeviation;
@@ -166,7 +166,7 @@ public static class OutlierRejection
                 toProcess.Winsorize(medianLeftBound, medianRightBound);
                 median = toProcess.Median();
                 winsorizedStandardDeviation = standardDeviation;
-                standardDeviation = BasicStatistics.CalculateStandardDeviation(toProcess) * 1.134;
+                standardDeviation = toProcess.StandardDeviation() * 1.134;
             } while (Math.Abs(standardDeviation - winsorizedStandardDeviation) / winsorizedStandardDeviation >
                      iterationLimitForHuberLoop);
 
@@ -206,7 +206,7 @@ public static class OutlierRejection
         int n;
         do
         {
-            median = BasicStatistics.CalculateNonZeroMedian(values);
+            median = values.Where(p => p != 0).Median();
             double sigma = s * Math.Sqrt(median);
 
             n = 0;

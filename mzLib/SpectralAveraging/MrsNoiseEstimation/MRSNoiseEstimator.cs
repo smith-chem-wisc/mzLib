@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MathNet.Numerics.Statistics;
 
 namespace SpectralAveraging
 {
@@ -25,7 +26,7 @@ namespace SpectralAveraging
         {
             int iterations = 0; 
             // 1. Estimate the standard deviation of the noise in the original signal. 
-            double stdevPrevious = BasicStatistics.CalculateStandardDeviation(signal);
+            double stdevPrevious = signal.StandardDeviation();
 
             // 2. Compute the modwt of the image
             WaveletFilter filter = new(); 
@@ -166,7 +167,7 @@ namespace SpectralAveraging
                 }
             }
             // returns the standard deviation of the noise values. 
-            return BasicStatistics.CalculateStandardDeviation(noiseValues);
+            return noiseValues.StandardDeviation();
         }
     }
 
