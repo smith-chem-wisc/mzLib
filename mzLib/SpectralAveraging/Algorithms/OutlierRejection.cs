@@ -194,7 +194,6 @@ public static class OutlierRejection
     {
         var values = initialValues.ToList();
         var median = initialValues.Median();
-        var deviation = BasicStatistics.CalculateStandardDeviation(initialValues, median);
 
         double sum = 0; 
         for (int i = 0; i < values.Count; i++)

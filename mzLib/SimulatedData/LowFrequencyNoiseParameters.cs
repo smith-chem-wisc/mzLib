@@ -23,7 +23,7 @@ namespace SimulatedData
             double peakLocationLimitLow, double peakLocationLimitHigh,
             double peakWidthLimitLow, double peakWidthLimitHigh,
             double peakIntensityLimitLow, double peakIntensityLimitHigh,
-            (double Min, double Max)? excludedZone,
+            (double Min, double Max)? excludedZone = null,
             PeakShapeOptions peakShapeOptions = PeakShapeOptions.Gaussian)
         {
             PeakNumberLimitLow = peakNumberLimitLow;

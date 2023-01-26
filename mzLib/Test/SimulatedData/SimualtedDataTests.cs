@@ -10,6 +10,7 @@ using FlashLFQ;
 using MathNet.Numerics;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Providers.LinearAlgebra;
+using MathNet.Numerics.Statistics;
 using NUnit;
 using NUnit.Framework;
 using OxyPlot.Wpf;
@@ -17,6 +18,7 @@ using Plotly.NET.CSharp;
 using Proteomics.AminoAcidPolymer;
 using SimulatedData;
 using SpectralAveraging;
+using Chart = Plotly.NET.CSharp.Chart;
 using GenericChartExtensions = Plotly.NET.CSharp.GenericChartExtensions;
 using Peptide = Proteomics.AminoAcidPolymer.Peptide;
 
@@ -177,11 +179,11 @@ namespace Test.SimulatedData
             double[] xArray = peaksList[0].Xarray;
             
             var averagedPlot = naiveAverage.Plot(xArray);
-            averagedPlot.WithTraceInfo("25 spectra, naive average"); 
+            GenericChartExtensions.WithTraceInfo(averagedPlot, "25 spectra, naive average"); 
             
             // get a representative plot
             var originalPlot = peaksList[0].Yarray.Plot(peaksList[0].Xarray);
-            originalPlot.WithTraceInfo("Representative plot, unaveraged");
+            GenericChartExtensions.WithTraceInfo(originalPlot, "Representative plot, unaveraged");
 
             // perform averaging with rejection
             SpectralAveragingParameters averagingParms = new SpectralAveragingParameters()
@@ -205,7 +207,7 @@ namespace Test.SimulatedData
             };
             Plotly.NET.GenericChart.GenericChart charge = Chart.Combine(plotList);
             // create the combined plot: 
-            charge.Show();
+            GenericChartExtensions.Show(charge);
         }
 
         [Test]
@@ -261,15 +263,15 @@ namespace Test.SimulatedData
             double[] naive = peaksList.NaiveAverage(); 
             List<Plotly.NET.GenericChart.GenericChart> plotList = new()
             {
-                { relative[1].Plot(relative[0]).WithTraceInfo("Relative") },
-                { absolute[1].Plot(absolute[0]).WithTraceInfo("Absolute") },
-                { none[1].Plot(none[0]).WithTraceInfo("None") },
-                naive.Plot(peaksList[0].Xarray).WithTraceInfo("Naive")
+                { GenericChartExtensions.WithTraceInfo(relative[1].Plot(relative[0]), "Relative") },
+                { GenericChartExtensions.WithTraceInfo(absolute[1].Plot(absolute[0]), "Absolute") },
+                { GenericChartExtensions.WithTraceInfo(none[1].Plot(none[0]), "None") },
+                GenericChartExtensions.WithTraceInfo(naive.Plot(peaksList[0].Xarray), "Naive")
 
             };
 
             Plotly.NET.GenericChart.GenericChart stackedPlot = Chart.Combine(plotList);
-            stackedPlot.Show();
+            GenericChartExtensions.Show(stackedPlot);
 
         }
         [Test]
@@ -322,7 +324,7 @@ namespace Test.SimulatedData
             while (numberPeaks > 0)
             {
                 GaussianPeakSpectra gaussian = new GaussianPeakSpectra(500, 10, 10000, 1000, 0, 1.0);
-                Normal hfNoise = new Normal(100, 10);
+                Normal hfNoise = new Normal(1000, 500);
                 gaussian.AddHighFrequencyNoise(hfNoise);
                 gaussian.NormalizeByTic();
                 peaksList.Add(gaussian);
@@ -337,17 +339,17 @@ namespace Test.SimulatedData
             double[] naive = peaksList.NaiveAverage();
             List<Plotly.NET.GenericChart.GenericChart> plotList = new()
             {
-                { sigmaClipping[1].Plot(sigmaClipping[0]).WithTraceInfo("Sigma") },
-                { winsorizedClipping[1].Plot(winsorizedClipping[0]).WithTraceInfo("Winsorized") },
-                { averageSigmaClipping[1].Plot(averageSigmaClipping[0]).WithTraceInfo("Average Sigma") },
-                noRejectionClipping[1].Plot(noRejectionClipping[0]).WithTraceInfo("No rejection"),
-                naive.Plot(peaksList[0].Xarray).WithTraceInfo("Naive"),
-                peaksList[0].Plot().WithTraceInfo("Original")
+                { GenericChartExtensions.WithTraceInfo(sigmaClipping[1].Plot(sigmaClipping[0]), "Sigma") },
+                { GenericChartExtensions.WithTraceInfo(winsorizedClipping[1].Plot(winsorizedClipping[0]), "Winsorized") },
+                { GenericChartExtensions.WithTraceInfo(averageSigmaClipping[1].Plot(averageSigmaClipping[0]), "Average Sigma") },
+                GenericChartExtensions.WithTraceInfo(noRejectionClipping[1].Plot(noRejectionClipping[0]), "No rejection"),
+                GenericChartExtensions.WithTraceInfo(naive.Plot(peaksList[0].Xarray), "Naive"),
+                GenericChartExtensions.WithTraceInfo(peaksList[0].Plot(), "Original")
             };
 
             Plotly.NET.GenericChart.GenericChart stackedPlot = Chart.Combine(plotList);
-            var layoutPlotly = Plotly.NET.Layout.init<double>(Width: 2000);
-            Plotly.NET.GenericChartExtensions.WithLayout(stackedPlot, layoutPlotly).Show();
+            var layoutPlotly = Plotly.NET.Layout.init<double>(Width: 1000);
+            GenericChartExtensions.Show(Plotly.NET.GenericChartExtensions.WithLayout(stackedPlot, layoutPlotly));
 
             List<double[]> yarrays = new()
             {
@@ -363,12 +365,17 @@ namespace Test.SimulatedData
             
             foreach (double[] yarray in yarrays)
             {
-                MRSNoiseEstimator.MRSNoiseEstimation(yarray[..400], 0.1, out double noiseEstimate); 
+                MRSNoiseEstimator.MRSNoiseEstimation(yarray[..400], 0.01, out double noiseEstimate); 
                 noiseEstimates.Add(noiseEstimate);
                 stddevNoiseEstimate.Add(BasicStatistics.CalculateStandardDeviation(yarray[..400]));
             }
-            // TODO: Calculate the ENR instead of improvement ratio. Need to account for scale. 
-            List<double> improvementRatio = noiseEstimates.Select(i => noiseEstimates.Last() / i).ToList();
+
+            double refNoiseEstimate = noiseEstimates.Last();
+            double refScaleEstimate = Math.Sqrt(BasicStatistics.BiweightMidvariance(yarrays.Last()));
+            List<double> enrList = yarrays
+                .Select((i, index) =>
+                    i.CalculateEnr(refScaleEstimate, noiseEstimates[index], refNoiseEstimate))
+                .ToList();
             List<string> method = new()
             {
                 "Sigma Clipping", 
@@ -378,22 +385,157 @@ namespace Test.SimulatedData
                 "Averaging Without Rejection", 
                 "Raw Reference Spectrum"
             }; 
-            Console.WriteLine("Method\tMRS Noise Estimate\tStddev Noise Estimate\tImprovement Ratio (Raw Noise Estimate / Averaging Method Noise Estimate)");
+            Console.WriteLine("Method\tMRS Noise Estimate\tStddev Noise Estimate\tENR");
             for (int i = 0; i < noiseEstimates.Count; i++)
             {
                 Console.WriteLine("{0}\t{1}\t{2}\t{3}",
-                    method[i], noiseEstimates[i], stddevNoiseEstimate[i], improvementRatio[i]);
+                    method[i], noiseEstimates[i], stddevNoiseEstimate[i], enrList[i]);
             }
+
+            // create a histogram of the values
+            double[] testHistogramYarray = yarrays[0];
+            Plotly.NET.GenericChart.GenericChart histogramSigmaClipping =
+                Plotly.NET.CSharp.Chart.Histogram<double, double, string>(testHistogramYarray[..400]);
+
+            var histogramRaw = Chart.Histogram<double, double, string>(yarrays.Last()[..400]);
+
+            var stackedHistograms = Chart.Combine(new Plotly.NET.GenericChart.GenericChart[]
+                { histogramSigmaClipping, histogramRaw });
+            stackedHistograms.Show();
+
+            double sigmaClippingStdev = BasicStatistics.CalculateStandardDeviation(yarrays[0][..400]); 
+            double rawStdev = BasicStatistics.CalculateStandardDeviation(yarrays.Last()[..400]); 
+            double ratioStddev = rawStdev / sigmaClippingStdev;
+            Console.WriteLine("Sigma Clipping: {0}\tRaw: {1}\tImprovement: {2}", 
+                sigmaClippingStdev, rawStdev, ratioStddev);
+            List<double> noiseStddevsAll =
+                peaksList.Select(i => i.Yarray[..400].StandardDeviation()).ToList(); 
+            Console.WriteLine(noiseStddevsAll.Mean() +"\t" + noiseStddevsAll.StandardDeviation());
+            // need to flesh out more that the 
+        }
+
+        [Test]
+        [TestCase()]
+        public void TestLfNoise(int numberPeaks = 25)
+        {
+            SpectralAveragingParameters sigma = new SpectralAveragingParameters()
+            {
+                MinSigmaValue = 3.0,
+                MaxSigmaValue = 3.0,
+                BinSize = 1.0,
+                NormalizationType = NormalizationType.RelativeToTics,
+                NumberOfScansToAverage = 25,
+                OutlierRejectionType = OutlierRejectionType.SigmaClipping,
+                SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation
+            };
+            SpectralAveragingParameters winsorized = new SpectralAveragingParameters()
+            {
+                MinSigmaValue = 3.0,
+                MaxSigmaValue = 3.0,
+                BinSize = 1.0,
+                NormalizationType = NormalizationType.RelativeToTics,
+                NumberOfScansToAverage = 25,
+                OutlierRejectionType = OutlierRejectionType.WinsorizedSigmaClipping,
+                SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation
+            };
+            SpectralAveragingParameters averageSigma = new SpectralAveragingParameters()
+            {
+                MinSigmaValue = 3.0,
+                MaxSigmaValue = 3.0,
+                BinSize = 1.0,
+                NormalizationType = NormalizationType.RelativeToTics,
+                NumberOfScansToAverage = 25,
+                OutlierRejectionType = OutlierRejectionType.AveragedSigmaClipping,
+                SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation
+            };
+            SpectralAveragingParameters noRejection = new SpectralAveragingParameters()
+            {
+                MinSigmaValue = 3.0,
+                MaxSigmaValue = 3.0,
+                BinSize = 1.0,
+                NormalizationType = NormalizationType.RelativeToTics,
+                NumberOfScansToAverage = 25,
+                OutlierRejectionType = OutlierRejectionType.NoRejection,
+                SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation
+            };
+            List<GaussianPeakSpectra> peaksList = new List<GaussianPeakSpectra>();
+
+            LowFrequencyNoiseParameters lfNoiseParams = new LowFrequencyNoiseParameters(1, 15, 200, 800,
+                0.25, 0.75, 200, 1000); 
+            while (numberPeaks > 0)
+            {
+                GaussianPeakSpectra gaussian = new GaussianPeakSpectra(500, 10, 10000, 1000, 0, 1.0);
+                Normal hfNoise = new Normal(1000, 10);
+                gaussian.AddHighFrequencyNoise(hfNoise);
+                gaussian.AddLowFrequencyNoise(lfNoiseParams);
+                gaussian.NormalizeByTic();
+                peaksList.Add(gaussian);
+
+                numberPeaks--;
+            }
+            double[][] sigmaClipping = peaksList.AverageWithRejection(sigma);
+            double[][] winsorizedClipping = peaksList.AverageWithRejection(winsorized);
+            double[][] averageSigmaClipping = peaksList.AverageWithRejection(averageSigma);
+            double[][] noRejectionClipping = peaksList.AverageWithRejection(noRejection);
+            double[] naive = peaksList.NaiveAverage();
+            List<Plotly.NET.GenericChart.GenericChart> plotList = new()
+            {
+                { GenericChartExtensions.WithTraceInfo(sigmaClipping[1].Plot(sigmaClipping[0]), "Sigma") },
+                { GenericChartExtensions.WithTraceInfo(winsorizedClipping[1].Plot(winsorizedClipping[0]), "Winsorized") },
+                { GenericChartExtensions.WithTraceInfo(averageSigmaClipping[1].Plot(averageSigmaClipping[0]), "Average Sigma") },
+                GenericChartExtensions.WithTraceInfo(noRejectionClipping[1].Plot(noRejectionClipping[0]), "No rejection"),
+                GenericChartExtensions.WithTraceInfo(naive.Plot(peaksList[0].Xarray), "Naive"),
+                GenericChartExtensions.WithTraceInfo(peaksList[0].Plot(), "Original")
+            };
+
+            Plotly.NET.GenericChart.GenericChart stackedPlot = Chart.Combine(plotList);
+            var layoutPlotly = Plotly.NET.Layout.init<double>(Width: 1000);
+            GenericChartExtensions.Show(Plotly.NET.GenericChartExtensions.WithLayout(stackedPlot, layoutPlotly));
+
+            List<double[]> yarrays = new()
+            {
+                sigmaClipping[1],
+                winsorizedClipping[1],
+                averageSigmaClipping[1],
+                noRejectionClipping[1],
+                naive,
+                peaksList[0].Yarray
+            };
+            List<double> noiseEstimates = new();
+            List<double> stddevNoiseEstimate = new();
+
+            foreach (double[] yarray in yarrays)
+            {
+                MRSNoiseEstimator.MRSNoiseEstimation(yarray[200..400], 0.01, out double noiseEstimate);
+                noiseEstimates.Add(noiseEstimate);
+                stddevNoiseEstimate.Add(BasicStatistics.CalculateStandardDeviation(yarray[200..400]));
+            }
+
+            double refNoiseEstimate = noiseEstimates.Last();
+            double refScaleEstimate = Math.Sqrt(BasicStatistics.BiweightMidvariance(yarrays.Last()));
+            List<double> enrList = yarrays
+                .Select((i, index) =>
+                    i.CalculateEnr(refScaleEstimate, noiseEstimates[index], refNoiseEstimate))
+                .ToList();
+            List<string> method = new()
+            {
+                "Sigma Clipping",
+                "Winsorized Sigma Clipping",
+                "AveragedSigma Clipping",
+                "No Rejection",
+                "Averaging Without Rejection",
+                "Raw Reference Spectrum"
+            };
+            Console.WriteLine("Method\tMRS Noise Estimate\tStddev Noise Estimate\tENR");
+            for (int i = 0; i < noiseEstimates.Count; i++)
+            {
+                Console.WriteLine("{0}\t{1}\t{2}\t{3}",
+                    method[i], noiseEstimates[i], stddevNoiseEstimate[i], enrList[i]);
+            }
+            // based on the experimentation in these tests, it looks like the best use case of averaging without rejection is when 
+            // there are few low-frequency noise peaks relative to the total data points. 
         }
     }
 
-    public static class ConvenienceExtensions
-    {
-        public static Plotly.NET.GenericChart.GenericChart Plot(this double[] yArray, double[] xArray)
-        {
-            return Chart.Line<double, double, string>(x: xArray, y: yArray)
-                .WithXAxisStyle<double, double, string>("m/z")
-                .WithYAxisStyle<double, double, string>("Intensity"); 
-        }
-    }
+    
 }
