@@ -26,7 +26,7 @@ public class TestOutlierRejection
     private static readonly double[] WinsorizedExpected = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
 
     private static readonly double[] TestAveragedSigma = { 120, 65, 64, 63, 62, 61, 60, 59, 59, 58, 57, 56, 30, 15 };
-    private static readonly double[] ExpectedAveragedSigma = TestAveragedSigma[1..^2];
+    private static readonly double[] ExpectedAveragedSigma = TestAveragedSigma[1..^1];
 
     private static readonly double[] TestThreshold = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
     private static readonly double[] ExpectedThreshold = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
@@ -207,7 +207,7 @@ public class TestOutlierRejection
         };
         var test = new double[] { 120, 65, 64, 63, 62, 61, 60, 59, 59, 58, 57, 56, 30, 15 };
         double[] averagedSigmaClipping = OutlierRejection.RejectOutliers(test, parameters);
-        var expected = test[1..test.Length];
+        var expected = test[..];
         Assert.That(averagedSigmaClipping, Is.EqualTo(expected));
         Assert.That(RejectAsBinnedPeak(test, parameters).SequenceEqual(expected));
 
@@ -228,7 +228,7 @@ public class TestOutlierRejection
         parameters.MinSigmaValue = 1.5;
         parameters.MaxSigmaValue = 1.5;
         averagedSigmaClipping = OutlierRejection.RejectOutliers(test, parameters);
-        expected = test[1..^2];
+        expected = test[1..^1];
         Assert.That(averagedSigmaClipping, Is.EqualTo(expected));
         Assert.That(RejectAsBinnedPeak(test, parameters).SequenceEqual(expected));
     }
@@ -312,7 +312,7 @@ public class TestOutlierRejection
         parameters.SetValues(outlierRejectionType: OutlierRejectionType.WinsorizedSigmaClipping);
         Assert.That(parameters.OutlierRejectionType == OutlierRejectionType.WinsorizedSigmaClipping);
         output = OutlierRejection.RejectOutliers(test, parameters);
-        expected = new double[] { 10, 8, 6, 5, 4, 2 };
+        expected = new double[] { 10, 8, 6, 5, 4, 2, 0 };
         Assert.That(output, Is.EqualTo(expected));
         output = OutlierRejection.RejectOutliers(new double[] { }, parameters);
         Assert.That(output.SequenceEqual(new double[] { }));
@@ -321,7 +321,7 @@ public class TestOutlierRejection
         parameters.SetValues(outlierRejectionType: OutlierRejectionType.AveragedSigmaClipping, minSigma: 1, maxSigma:1);
         Assert.That(parameters.OutlierRejectionType == OutlierRejectionType.AveragedSigmaClipping);
         output = OutlierRejection.RejectOutliers(test, parameters);
-        expected = new double[] { 6, 5 };
+        expected = new double[] { 8, 6, 5, 4, 2 };
         Assert.That(output, Is.EqualTo(expected));
 
         // below threshold

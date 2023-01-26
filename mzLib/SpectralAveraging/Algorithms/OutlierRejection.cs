@@ -153,10 +153,12 @@ public static class OutlierRejection
         {
             if (!values.Any())
                 break;
-            var median = BasicStatistics.CalculateNonZeroMedian(values);
-            var standardDeviation = BasicStatistics.CalculateNonZeroStandardDeviation(values);
-            var toProcess = values.ToArray();
+            var median = values.Median();
+            var standardDeviation = BasicStatistics.CalculateStandardDeviation(values);
+            double[] toProcess = new double[values.Count];
+            values.CopyTo(toProcess, 0);
             double winsorizedStandardDeviation;
+
             do // calculates a new median and standard deviation based on the values to do sigma clipping with (Huber loop)
             {
                 var medianLeftBound = median - 1.5 * standardDeviation;
@@ -191,18 +193,26 @@ public static class OutlierRejection
     private static double[] AveragedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
     {
         var values = initialValues.ToList();
-        var median = BasicStatistics.CalculateNonZeroMedian(initialValues);
-        var deviation = BasicStatistics.CalculateNonZeroStandardDeviation(initialValues, median);
+        var median = initialValues.Median();
+
+        double sum = 0;
+        for (int i = 0; i < values.Count; i++)
+        {
+            sum += Math.Pow((values[i] - median), 2) / median;
+        }
+
+        double s = Math.Sqrt(sum / (double)(values.Count - 1));
+
         int n;
         do
         {
             median = BasicStatistics.CalculateNonZeroMedian(values);
-            var standardDeviation = deviation * Math.Sqrt(median) / 10;
+            double sigma = s * Math.Sqrt(median);
 
             n = 0;
             for (var i = 0; i < values.Count; i++)
             {
-                if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
+                if (SigmaClipping(values[i], median, sigma, sValueMin, sValueMax))
                 {
                     values.RemoveAt(i);
                     n++;
@@ -241,20 +251,17 @@ public static class OutlierRejection
     private static void Winsorize(this double[] initialValues, double medianLeftBound, double medianRightBound)
     {
         for (var i = 0; i < initialValues.Length; i++)
+        {
             if (initialValues[i] < medianLeftBound)
             {
-                if (i < initialValues.Length && initialValues.Any(p => p > medianLeftBound))
-                    initialValues[i] = initialValues.First(p => p > medianLeftBound);
-                else
-                    initialValues[i] = medianLeftBound;
+                initialValues[i] = medianLeftBound;
             }
-            else if (initialValues[i] > medianRightBound)
+
+            if (initialValues[i] > medianRightBound)
             {
-                if (i != 0 && initialValues.Any(p => p < medianRightBound))
-                    initialValues[i] = initialValues.Last(p => p < medianRightBound);
-                else
-                    initialValues[i] = medianRightBound;
+                initialValues[i] = medianRightBound;
             }
+        }
     }
 
     /// <summary>
