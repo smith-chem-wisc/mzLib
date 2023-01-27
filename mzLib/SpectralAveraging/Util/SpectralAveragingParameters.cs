@@ -87,7 +87,8 @@ public class SpectralAveragingParameters
     /// <param name="percentiles">percentiles for percentile rejection</param>
     /// <returns></returns>
     public static IEnumerable<SpectralAveragingParameters> GenerateSpectralAveragingParameters(double[] binSizes,
-        int[] numberOfScansToAverage, int[] scanOverlap, double[] sigmas, double[] percentiles)
+        int[] numberOfScansToAverage, int[] scanOverlap, double[] sigmas, double[] percentiles, SpectraWeightingType[] weightingTypes, 
+        OutlierRejectionType[] outlierRejectionTypes, NormalizationType[] normalizationTypes )
     {
         List<SpectralAveragingParameters> averagingParams = new();
         foreach (var binSize in binSizes)
@@ -98,11 +99,11 @@ public class SpectralAveragingParameters
                 {
                     if (overlap >= numberOfScans) break;
 
-                    for (int i = 0; i < 2; i++)
+                    foreach (var norm in normalizationTypes)
                     {
-                        foreach (var weight in Enum.GetValues<SpectraWeightingType>())
+                        foreach (var weight in weightingTypes)
                         {
-                            foreach (var rejection in Enum.GetValues<OutlierRejectionType>())
+                            foreach (var rejection in outlierRejectionTypes)
                             {
                                 // specific rejection type stuff
 
@@ -117,7 +118,7 @@ public class SpectralAveragingParameters
                                                                  let maxSigma = innerSigma
                                                                  select new SpectralAveragingParameters()
                                                                  {
-                                                                     NormalizationType = i % 2 == 0 ? NormalizationType.RelativeToTics : NormalizationType.NoNormalization,
+                                                                     NormalizationType = norm,
                                                                      SpectraFileAveragingType = SpectraFileAveragingType.AverageEverynScansWithOverlap,
                                                                      NumberOfScansToAverage = numberOfScans,
                                                                      ScanOverlap = overlap,
@@ -131,7 +132,7 @@ public class SpectralAveragingParameters
                                     case OutlierRejectionType.PercentileClipping:
                                         averagingParams.AddRange(percentiles.Select(percentile => new SpectralAveragingParameters()
                                         {
-                                            NormalizationType = i % 2 == 0 ? NormalizationType.RelativeToTics : NormalizationType.NoNormalization,
+                                            NormalizationType = norm,
                                             SpectraFileAveragingType = SpectraFileAveragingType.AverageEverynScansWithOverlap,
                                             NumberOfScansToAverage = numberOfScans,
                                             ScanOverlap = overlap,
@@ -144,7 +145,7 @@ public class SpectralAveragingParameters
                                     default:
                                         averagingParams.Add(new SpectralAveragingParameters()
                                         {
-                                            NormalizationType = i % 2 == 0 ? NormalizationType.RelativeToTics : NormalizationType.NoNormalization,
+                                            NormalizationType = norm,
                                             SpectraFileAveragingType = SpectraFileAveragingType.AverageEverynScansWithOverlap,
                                             NumberOfScansToAverage = numberOfScans,
                                             ScanOverlap = overlap,
