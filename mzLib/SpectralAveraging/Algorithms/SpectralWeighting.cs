@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
+using MzLibUtil.MrsNoiseEstimation;
 
 namespace SpectralAveraging;
 

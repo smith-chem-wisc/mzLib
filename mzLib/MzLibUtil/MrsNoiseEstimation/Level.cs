@@ -1,4 +1,4 @@
-﻿namespace SpectralAveraging;
+﻿namespace MzLibUtil.MrsNoiseEstimation;
 
 public class Level
 {
