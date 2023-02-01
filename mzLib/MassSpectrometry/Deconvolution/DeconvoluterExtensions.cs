@@ -21,18 +21,11 @@ namespace MassSpectrometry
         /// <param name="range">mz range of returned peaks</param>
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
-        public static IEnumerable<IsotopicEnvelope> ClassicDeconvoluteMzSpectra(this Deconvoluter deconvoluter,
+        public static IEnumerable<IsotopicEnvelope> Deconvolute(this Deconvoluter deconvoluter,
             MzSpectrum spectrum, MzRange range = null)
         {
-            if (deconvoluter.DeconvolutionType != DeconvolutionTypes.ClassicDeconvolution)
-            {
-                throw new MzLibException("Deconvoluter is not of correct type for this extension method");
-            }
-            else
-            {
-                range ??= spectrum.Range;
-                return deconvoluter.DeconvolutionAlgorithm.Deconvolute(spectrum, range);
-            }
+            range ??= spectrum.Range;
+            return deconvoluter.DeconvolutionAlgorithm.Deconvolute(spectrum, range);
         }
     }
 }

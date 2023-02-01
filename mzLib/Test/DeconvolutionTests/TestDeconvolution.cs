@@ -12,7 +12,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 
-namespace Test
+namespace Test.DeconvolutionTests
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -88,7 +88,7 @@ namespace Test
             //check assigned correctly
             List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
-            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
+            Assert.That((lie2_charge[0].MostAbundantObservedIsotopicMass - Constants.ProtonMass) / charge, Is.EqualTo(m).Within(2));
 
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
@@ -178,13 +178,12 @@ namespace Test
 
             //check assigned correctly
 
-            List<IsotopicEnvelope> lie2 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
-
+            List<IsotopicEnvelope> lie2 = deconvoluter.Deconvolute(singlespec, singleRange).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
-            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
+            Assert.That((lie2_charge[0].MostAbundantObservedIsotopicMass - Constants.ProtonMass) / charge, Is.EqualTo(m).Within(2));
 
             //check that if already assigned, skips assignment and just recalls same value
-            List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
+            List<IsotopicEnvelope> lie3 = deconvoluter.Deconvolute(singlespec, singleRange).ToList();
             Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
         }
 

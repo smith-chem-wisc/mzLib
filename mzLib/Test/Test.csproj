@@ -344,6 +344,18 @@
     <None Update="DataFiles\withZeros.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DeconvolutionTests\TestData\Averaged_221110_CaOnly_.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DeconvolutionTests\TestData\Averaged_221110_CytoOnly.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DeconvolutionTests\TestData\Averaged_221110_HGHOnly.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DeconvolutionTests\TestData\Averaged_221110_UbiqOnly.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
