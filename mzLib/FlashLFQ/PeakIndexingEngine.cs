@@ -37,7 +37,7 @@ namespace FlashLFQ
 
             // read spectra file
             string fileName = fileInfo.FullFilePathWithExtension;
-            var reader = MsDataFileReader.CreateReader(fileName); 
+            var reader = MsDataFileReader.GetDataFile(fileName); 
             reader.LoadAllStaticData();
             // retrieve only the ms1s. 
             msDataScans = reader.GetMS1Scans().Where(i => i.MsnOrder == 1)

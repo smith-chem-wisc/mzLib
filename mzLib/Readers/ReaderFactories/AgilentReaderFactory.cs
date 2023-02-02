@@ -18,7 +18,7 @@ namespace Readers.ReaderFactories
 
         public MsDataFile CreateReader()
         {
-            throw new NotImplementedException();
+            return new Agilent(FilePath);
         }
     }
 }

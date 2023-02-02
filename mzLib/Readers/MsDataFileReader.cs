@@ -10,27 +10,18 @@ namespace Readers
 {
     public static class MsDataFileReader
     {
-        public static MsDataFile CreateReader(string filePath)
+        public static MsDataFile GetDataFile(string filePath)
         {
             string fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
-            IReaderFactory factory = null; 
-            switch (fileExtension)
+            IReaderFactory factory = null;
+            factory = fileExtension switch
             {
-                case ".raw":
-                    factory = new ThermoRawReaderFactory(filePath); 
-                    break;
-                case ".d":
-                    factory = new BrukerReaderFactory(filePath);
-                    break;
-                case ".mzml":
-                    factory = new MzMLReaderFactory(filePath); 
-                    break;
-                case ".mgf":
-                    factory = new MgfReaderFactory(filePath); 
-                    break;
-                default:
-                    throw new MzLibException("File extension not supported."); 
-            }
+                ".raw" => new ThermoRawReaderFactory(filePath),
+                ".d" => new AgilentReaderFactory(filePath),
+                ".mzml" => new MzMLReaderFactory(filePath),
+                ".mgf" => new MgfReaderFactory(filePath),
+                _ => throw new MzLibException("File extension not supported."),
+            };
             return factory.Reader; 
         }
     }

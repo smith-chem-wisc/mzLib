@@ -210,7 +210,7 @@ namespace Test
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "BinGenerationTest.mzML");
             FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, true);
 
-            var reader = MsDataFileReader.CreateReader(origDataFile); 
+            var reader = MsDataFileReader.GetDataFile(origDataFile); 
             reader.LoadAllStaticData(filter, 1);
             MyMsDataFiles[origDataFile] = reader; 
 
@@ -236,7 +236,7 @@ namespace Test
 
             List<string> expectedResults = File.ReadAllLines(expectedResultFile, Encoding.UTF8).ToList();
 
-            var reader = MsDataFileReader.CreateReader(origDataFile); 
+            var reader = MsDataFileReader.GetDataFile(origDataFile); 
             reader.LoadAllStaticData(filter, 1);
             MyMsDataFiles[origDataFile] = reader;
 

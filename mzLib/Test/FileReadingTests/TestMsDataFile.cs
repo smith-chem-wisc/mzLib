@@ -30,7 +30,7 @@ using System.IO;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.FileReadingTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -166,8 +166,8 @@ namespace Test
         [Test]
         public void MoreMsDataFilesTests()
         {
-            GenericMsDataFile fakeDataFile = new GenericMsDataFile(new MsDataScan[1], 
-                new Readers.SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null));
+            GenericMsDataFile fakeDataFile = new GenericMsDataFile(new MsDataScan[1],
+                new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null));
             Assert.AreEqual(1, fakeDataFile.NumSpectra);
             Assert.AreEqual("scan number only nativeID format", fakeDataFile.SourceFile.NativeIdFormat);
             Assert.AreEqual("mzML format", fakeDataFile.SourceFile.MassSpectrometerFileFormat);
@@ -220,9 +220,9 @@ namespace Test
         public static void TestXicExtraction()
         {
             string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
-            var reader = MsDataFileReader.CreateReader(dataFilePath); 
+            var reader = MsDataFileReader.GetDataFile(dataFilePath);
             reader.LoadAllStaticData();
-            
+
             var peptide = new PeptideWithSetModifications("KAPAGGAADAAAK", new Dictionary<string, Modification>());
 
             var xic = reader.ExtractIonChromatogram(peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
@@ -255,7 +255,7 @@ namespace Test
             //not have mz or intensity values. We skip this scan when reading.
             string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", @"badScan7192.mzml");
 
-            var reader = MsDataFileReader.CreateReader(dataFilePath); 
+            var reader = MsDataFileReader.GetDataFile(dataFilePath);
             reader.LoadAllStaticData();
 
             MsDataScan[] ms1Scans = reader.GetMS1Scans().ToArray();
@@ -294,7 +294,7 @@ namespace Test
                 notActuallyMzS = new MzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
                 notActuallyMzS.ReplaceXbyApplyingFunction(s => s.Mz.ToMz(minCharge));
             }
-             
+
             var allMassesArray = allMasses.ToArray();
             var allIntensitiessArray = allIntensitiess.ToArray();
 

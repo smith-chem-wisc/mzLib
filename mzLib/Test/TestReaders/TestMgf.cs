@@ -30,7 +30,7 @@ namespace Test.TestReaders
         [Test]
         public void TestMgfConstructors()
         {
-            var reader = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+            var reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
             reader.LoadAllStaticData();
 
             Mgf reader1 = new Mgf();
@@ -43,7 +43,7 @@ namespace Test.TestReaders
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
                 "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf");
-            var reader = MsDataFileReader.CreateReader(path); 
+            var reader = MsDataFileReader.GetDataFile(path); 
 
             try
             {
@@ -54,7 +54,7 @@ namespace Test.TestReaders
             {
                 //woohoo, there was an exception!
             }
-            reader = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+            reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
             reader.LoadAllStaticData();
             var ya = reader.GetOneBasedScan(14); 
 
@@ -80,7 +80,7 @@ namespace Test.TestReaders
         public static void TestLoadMgfTabSeparated()
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "Tab_separated_peak_list.mgf");
-            var dataReader = MsDataFileReader.CreateReader(path); 
+            var dataReader = MsDataFileReader.GetDataFile(path); 
             dataReader.LoadAllStaticData();
             
             var ya = dataReader.GetOneBasedScan(2);
@@ -102,8 +102,8 @@ namespace Test.TestReaders
         [Test]
         public void TestMgfDynamicConnection()
         {
-            var reader = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
-            var fileDoesntExistReader = MsDataFileReader.CreateReader("fakeFile.mgf");
+            var reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+            var fileDoesntExistReader = MsDataFileReader.GetDataFile("fakeFile.mgf");
             
             Assert.Throws<FileNotFoundException>(() =>
             {
@@ -111,7 +111,7 @@ namespace Test.TestReaders
             });
             IFilteringParams filter = new FilteringParams(1, 0.01);
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf");
-            var readerReal = MsDataFileReader.CreateReader(path); 
+            var readerReal = MsDataFileReader.GetDataFile(path); 
             readerReal.InitiateDynamicConnection();
             readerReal.GetOneBasedScanFromDynamicConnection(2, filter); 
         }
@@ -122,7 +122,7 @@ namespace Test.TestReaders
             //read the mgf file. zero intensity peaks should be eliminated during read
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf");
 
-            var reader = MsDataFileReader.CreateReader(path); 
+            var reader = MsDataFileReader.GetDataFile(path); 
             reader.LoadAllStaticData();
             //insure that read scans contain no zero intensity peaks
             Assert.IsFalse(reader.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
@@ -142,7 +142,7 @@ namespace Test.TestReaders
         {
             //tester_corrupt.mgf is extracted from tester.mgf except it contains empty lines or unknown words. You can compare the two files and find the differences.
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester_corrupt.mgf"); 
-            var reader = MsDataFileReader.CreateReader(path);
+            var reader = MsDataFileReader.GetDataFile(path);
             reader.LoadAllStaticData();
             var ya = reader.GetOneBasedScan(14); 
 
@@ -168,7 +168,7 @@ namespace Test.TestReaders
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-            var reader = MsDataFileReader.CreateReader(filePath); 
+            var reader = MsDataFileReader.GetDataFile(filePath); 
             reader.LoadAllStaticData();
             reader.InitiateDynamicConnection();
 

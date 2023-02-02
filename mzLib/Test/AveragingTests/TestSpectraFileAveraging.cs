@@ -248,7 +248,7 @@ namespace Test.AveragingTests
 
         #endregion
 
-        public static List<MsDataScan> ActualScans => MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory,
+        public static List<MsDataScan> ActualScans => MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"AveragingTestData\TDYeastFractionMS1.mzML")).GetAllScansList().Take(50).ToList();
 
         public static string NativeId;

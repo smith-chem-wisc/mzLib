@@ -42,7 +42,7 @@ public static class AveragedSpectraWriter
     {
         var spectraDirectory = Path.GetDirectoryName(originalSpectraPath) ??
                                throw new MzLibException("Cannot Access Spectra Directory");
-        var sourceFile = MsDataFileReader.CreateReader(originalSpectraPath).GetSourceFile();
+        var sourceFile = MsDataFileReader.GetDataFile(originalSpectraPath).GetSourceFile();
         GenericMsDataFile msDataFile = new(averagedScans, sourceFile);
         var averagedPath = Path.Combine(spectraDirectory,
             "Averaged_" +
