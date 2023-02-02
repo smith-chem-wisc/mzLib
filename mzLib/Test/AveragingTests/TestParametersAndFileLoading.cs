@@ -119,20 +119,5 @@ namespace Test.AveragingTests
 
 
         }
-
-        [Test]
-        [TestCase("DataFiles/small.RAW", 48, "Thermo nativeID format")]
-        [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
-        [TestCase("DataFiles/SmallCalibratibleYeast.mzml",142, "Thermo nativeID format")]
-        [TestCase("DataFiles/tester.mzML", 7, null)]
-        public static void TestLoadingRawFilesAndSourceFiles(string filePath, int expectedScanCount, string sourceFormat)
-        {
-            //string spectraPath = Path.Combine(TestContext.CurrentContext.TestDirectory, filePath);
-            //List<MsDataScan> scans = SpectraFileHandler.LoadAllScansFromFile(spectraPath);
-            //Assert.That(scans.Count == expectedScanCount);
-
-            //SourceFile file = SpectraFileHandler.GetSourceFile(spectraPath);
-            //Assert.That(file.NativeIdFormat == sourceFormat);
-        }
     }
 }

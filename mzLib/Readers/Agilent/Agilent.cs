@@ -17,7 +17,12 @@ namespace Readers
 
         public Agilent()
         {
-            this.InitiateDynamicConnection();
+            InitiateDynamicConnection();
+        }
+
+        public Agilent(string filepath) : base(filepath)
+        {
+            InitiateDynamicConnection();
         }
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)

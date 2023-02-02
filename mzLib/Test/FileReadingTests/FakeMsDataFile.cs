@@ -23,7 +23,7 @@ using MassSpectrometry;
 using MsDataFile = Readers.MsDataFile;
 using SourceFile = Readers.SourceFile;
 
-namespace Test
+namespace Test.FileReadingTests
 {
     [ExcludeFromCodeCoverage]
     public class FakeMsDataFile : MsDataFile

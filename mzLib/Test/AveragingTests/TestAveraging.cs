@@ -39,7 +39,7 @@ namespace Test.AveragingTests
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
-            ActualScans = MsDataFileReader.CreateReader(Path.Combine(TestContext.CurrentContext.TestDirectory,
+            ActualScans = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"AveragingTestData\TDYeastFractionMS1.mzML")).GetAllScansList();
             double[] xArray = new double[] { 100.1453781, 200, 300, 400, 500, 600, 700, 800, 900.4123745 };
             double[] yArray1 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
