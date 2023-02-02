@@ -53,7 +53,7 @@ namespace Readers
 
         public MsDataFile()
         {
-            
+
         }
 
         public MsDataFile(string filePath)
