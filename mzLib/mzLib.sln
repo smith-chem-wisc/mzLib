@@ -31,8 +31,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SpectralAveraging", "Spectr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Readers", "Readers\Readers.csproj", "{E27A5C14-0C05-466A-91CE-ABB5151A69C4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bruker", "..\..\CSMSL\CSMSL\IO\Bruker\Bruker.csproj", "{F1976BEF-8756-46C2-830B-A638FF4A2E8C}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -211,18 +209,6 @@ Global
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.TestAndRelease|x64.Build.0 = Release|x64
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.TestAndRelease|x86.ActiveCfg = Release|x64
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.TestAndRelease|x86.Build.0 = Release|x64
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.Debug|x64.ActiveCfg = Debug|x64
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.Debug|x64.Build.0 = Debug|x64
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.Debug|x86.ActiveCfg = Debug|x86
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.Debug|x86.Build.0 = Debug|x86
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.Release|x64.ActiveCfg = Release|x64
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.Release|x64.Build.0 = Release|x64
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.Release|x86.ActiveCfg = Release|x86
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.Release|x86.Build.0 = Release|x86
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.TestAndRelease|x64.ActiveCfg = Release|x64
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.TestAndRelease|x64.Build.0 = Release|x64
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.TestAndRelease|x86.ActiveCfg = Release|x86
-		{F1976BEF-8756-46C2-830B-A638FF4A2E8C}.TestAndRelease|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

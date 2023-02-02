@@ -15,7 +15,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\..\CSMSL\CSMSL\IO\Bruker\Bruker.csproj" />
 		<ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
 		<ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
 		<ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
@@ -33,9 +32,6 @@
 		</Reference>
 		<Reference Include="BaseTof">
 		  <HintPath>Agilent\BaseTof.dll</HintPath>
-		</Reference>
-		<Reference Include="Interop.EDAL">
-		  <HintPath>Bruker\Interop.EDAL.dll</HintPath>
 		</Reference>
 		<Reference Include="MassSpecDataReader">
 		  <HintPath>Agilent\MassSpecDataReader.dll</HintPath>
@@ -75,12 +71,6 @@
 		</None>
 		<None Update="Agilent\MassSpecDataReader.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="baf2sql_c.dll">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="baf2sql_c.lib">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
