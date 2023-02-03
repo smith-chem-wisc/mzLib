@@ -24,7 +24,7 @@ namespace Test.SimulatedData
             double internalNoiseEstimate = 0d;
             if (!noiseEstimateArray.HasValue)
             {
-                bool success = MRSNoiseEstimator.MRSNoiseEstimation(array, 0.01, out double noiseEstimateMrs);
+                bool success = MRSNoiseEstimator.MRSNoiseEstimation(array, 0.0001, out double noiseEstimateMrs);
                 internalNoiseEstimate = noiseEstimateMrs;
             }
             else

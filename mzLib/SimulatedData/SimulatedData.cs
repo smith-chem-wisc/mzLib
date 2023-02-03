@@ -1,5 +1,6 @@
 ﻿using MathNet.Numerics.Distributions;
 using System.Collections.Generic;
+using Easy.Common.Extensions;
 using Plotly.NET.CSharp;
 using SpectralAveraging;
 
@@ -175,14 +176,15 @@ namespace SimulatedData
 
         public void AddLowFrequencyNoise(LowFrequencyNoiseParameters noiseParams)
         {
+            double range = noiseParams.PeakLocationLimitHigh - noiseParams.PeakLocationLimitLow; 
             Random random = new Random();
 
             int numberOfRandomPeaks = random.Next(noiseParams.PeakNumberLimitLow, noiseParams.PeakNumberLimitHigh);
             for (int i = 0; i < numberOfRandomPeaks; i++)
             {
                 Random randomInnerLoop = new();
-                int peakLocation = randomInnerLoop.Next((int)noiseParams.PeakLocationLimitLow,
-                    (int)noiseParams.PeakLocationLimitHigh);
+                double peakLocation = randomInnerLoop.NextDouble() * range + noiseParams.PeakLocationLimitLow;
+                int peakIndex = Xarray.IndexOf(peakLocation); 
                 // because we have the possibility of adding many peaks to the actual signal peak, 
                 // we may want to exclude noise values being added to the true signal. 
                 // the while loop generates new peak location values if the original value falls 

@@ -99,7 +99,16 @@ public static class SpectralWeighting
             .ForAll(x =>
             {
                 double scale = Math.Sqrt(BasicStatistics.BiweightMidvariance(x.Array));
-                scaleEstimates.TryAdd(x.Index, Math.Sqrt(scale));
+                // if scale estimates return zero, they break. 
+                // default should be that it returns 1, I think. 
+                if (double.IsNaN(scale))
+                {
+                    scaleEstimates.TryAdd(x.Index, 1d);
+                }
+                else
+                {
+                    scaleEstimates.TryAdd(x.Index, Math.Sqrt(scale));
+                }
             });
 
         CalculateWeights(noiseEstimates, scaleEstimates, weights);
@@ -132,6 +141,4 @@ public static class SpectralWeighting
             weights.TryAdd(entry.Key, weight);
         }
     }
-
-    
 }

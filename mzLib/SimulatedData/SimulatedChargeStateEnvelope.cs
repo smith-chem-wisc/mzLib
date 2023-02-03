@@ -7,6 +7,7 @@ using Chemistry;
 using Easy.Common.Extensions;
 using MathNet.Numerics;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.IntegralTransforms;
 
 namespace SimulatedData
 {
@@ -98,11 +99,11 @@ namespace SimulatedData
 
         private double[] CreateIntensityMultiplesLogNorm(double mu, double sigma)
         {
-            double[] intensityMultiplesArray = new double[_chargeStateHigh - _chargeStateLow];
+            double[] intensityMultiplesArray = new double[_chargeStateHigh - _chargeStateLow + 1];
             // divide charges by max charge
-            for (double chargeState = (double)_chargeStateLow; chargeState < (double)_chargeStateHigh; chargeState++)
+            for (double chargeState = (double)_chargeStateLow; chargeState <= (double)_chargeStateHigh; chargeState++)
             {
-                double normChargeState = chargeState / _chargeStateHigh;
+                double normChargeState = chargeState / (double)_chargeStateHigh;
                 intensityMultiplesArray[(int)chargeState - _chargeStateLow] = LogNormal.PDF(mu, sigma, normChargeState);
             }
             return intensityMultiplesArray;
@@ -158,6 +159,7 @@ namespace SimulatedData
                 for (int i = 0; i < binArray.Length; i++)
                 {
                     if (binArray[i] == -1) continue;
+                    if (binArray[i] > Yarray.Length - 1) continue;
                     Yarray[binArray[i]] += _parentDistribution.Intensities[i];
                 }
 
@@ -189,6 +191,54 @@ namespace SimulatedData
                 double val = LogNormFunc(Xarray[i], mu, sigma);
                 Yarray[i] *= val;
             }
+        }
+
+        public void Blur(int width, double sigma, int iterations)
+        {
+            for (int i = 0; i < iterations; i++)
+            {
+                var window = Window.Gauss(width, sigma);
+                var outputArray = ConvolveWithWindow(Yarray, window);
+                // convert back to real by getting the magnitude
+                // because the circular convolution causes some shift, I needed to pad the arrays to the right length. 
+                // The array selection returns the shift-corrected Y array. I determined it empirically because I was tired. 
+                Yarray = outputArray.Select(x => (double)x.Magnitude).ToArray()[(width/2)..(Yarray.Length + (width - 1)/2)];
+            }
+        }
+
+        public void NormalizeToMaxIntensity()
+        {
+            double max = Yarray.Max(); 
+            for (int i = 0; i < Yarray.Length; i++)
+            {
+                Yarray[i] /= max;
+            }
+        }
+        // convolution by fft and then elementwise multiplication followed by 
+        // fft back to original domain
+        private Complex32[] ConvolveWithWindow(double[] signal, double[] window)
+        {
+            // zero-pad window to length 
+            // remember that in C#, arrays are initialized with zeroes, so 
+            // all I need to do is copy in the original data
+            double[] paddedWindow = new double[signal.Length + window.Length];
+            double[] paddedSignal = new double[signal.Length + window.Length];
+            Buffer.BlockCopy(window, 0, paddedWindow, 0, sizeof(double) * window.Length);
+            Buffer.BlockCopy(signal, 0, paddedSignal, 0, sizeof(double) * signal.Length);
+            // convert to complex
+            Complex32[] signalComplex = paddedSignal.Select(i => new Complex32((float)i, 0)).ToArray();
+            Complex32[] windowComplex = paddedWindow.Select(i => new Complex32((float)i, 0)).ToArray(); 
+            // perform fourier transforms of the arrays
+            Fourier.Forward(signalComplex);
+            Fourier.Forward(windowComplex);
+            // perform the elementwise mutliplcation
+            for (int i = 0; i < signalComplex.Length; i++)
+            {
+                signalComplex[i] *= windowComplex[i];
+            }
+
+            Fourier.Inverse(signalComplex); 
+            return signalComplex; 
         }
         protected double GaussianFunc(double d, double mean, double stddev) => Normal.PDF(mean, stddev, d);
         protected double ChiSquareFunc(double d, double x) => ChiSquared.PDF(x, d);

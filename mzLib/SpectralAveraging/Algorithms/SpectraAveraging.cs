@@ -115,6 +115,7 @@ public static class SpectraAveraging
         for (var i = 0; i < numSpectra; i++)
         for (var j = 0; j < xArrays[i].Length; j++)
         {
+
             var binIndex = (int)Math.Floor((xArrays[i][j] - minXValue) / binSize);
             var binValue = new BinnedPeak(binIndex, xArrays[i][j], yArrays[i][j], i);
             if (!bins.ContainsKey(binIndex))

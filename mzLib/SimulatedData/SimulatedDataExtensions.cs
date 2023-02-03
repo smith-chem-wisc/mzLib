@@ -14,7 +14,7 @@ namespace SimulatedData
 {
     public static class SimulatedDataExtensions
     {
-        public static double[] NaiveAverage(List<SimulatedData> simDataList)
+        public static double[] NaiveAverage(this List<SimulatedData> simDataList)
         {
             DoubleArray averagedYArray = new double[simDataList[0].Yarray.Length];
             foreach (SimulatedData simulatedData in simDataList)
@@ -24,7 +24,7 @@ namespace SimulatedData
                 averagedYArray += simulatedData.Yarray!;
             }
 
-            return (averagedYArray / simDataList.Count).Array;
+            return (averagedYArray / (double)simDataList.Count).Array;
         }
 
         public static double[] NaiveAverage(this List<GaussianPeakSpectra> simDataList)
@@ -32,6 +32,11 @@ namespace SimulatedData
             List<SimulatedData> list = simDataList.Cast<SimulatedData>().ToList();
             return NaiveAverage(list); 
 
+        }
+
+        public static double[] NaiveAverage(this List<SimulatedChargeStateEnvelope> simDataList)
+        {
+            return NaiveAverage(simDataList.Cast<SimulatedData>().ToList()); 
         }
 
         public static double[][] AverageWithRejection(this List<SimulatedData> dataList, 
@@ -56,6 +61,12 @@ namespace SimulatedData
             SpectralAveraging.SpectralAveragingParameters spectralAveragingParameters)
         {
             return AverageWithRejection(dataList.Cast<SimulatedData>().ToList(), spectralAveragingParameters); 
+        }
+
+        public static double[][] AverageWithRejection(this List<SimulatedChargeStateEnvelope> cseList,
+            SpectralAveraging.SpectralAveragingParameters spectralAveragingParameters)
+        {
+            return AverageWithRejection(cseList.Cast<SimulatedData>().ToList(), spectralAveragingParameters);
         }
     }
     

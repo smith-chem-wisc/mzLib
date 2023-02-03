@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.DirectoryServices.ActiveDirectory;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,21 +12,33 @@ using MathNet.Numerics;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Providers.LinearAlgebra;
 using MathNet.Numerics.Statistics;
+using Newtonsoft.Json.Linq;
 using NUnit;
 using NUnit.Framework;
 using OxyPlot.Wpf;
+using Plotly.NET;
 using Plotly.NET.CSharp;
+using Plotly.NET.TraceObjects;
 using Proteomics.AminoAcidPolymer;
 using SimulatedData;
 using SpectralAveraging;
+using Test.SimulatedData;
 using Chart = Plotly.NET.CSharp.Chart;
+using GenericChart = Plotly.NET.GenericChart;
 using GenericChartExtensions = Plotly.NET.CSharp.GenericChartExtensions;
 using Peptide = Proteomics.AminoAcidPolymer.Peptide;
 
-namespace Test.SimulatedData
+namespace Test
 {
     public class SimualtedDataTests
     {
+        const string carbonicAnhydrase = "MASPDWGYDDKNGPEQWSKLYPIANGNNQS" +
+                                         "PVDIKTSETKHDTSLKPISVSYNPATAKEIINVGHSFH" +
+                                         "VNFEDNDNRSVLKGGPFSDSYRLFQFHFHWGSTNEHGSEHTV" +
+                                         "DGVKYSAELHVAHWNSAKYSSLAEAASKADGLAVIGVLMKVG" +
+                                         "EANPKLQKVLDALQAIKTKGKRAPFTNFDPSTLLPSSLDFWTY" +
+                                         "PGSLTHPPLYESVTWIICKESISVSSEQLAQFRSLLSNVEG" +
+                                         "DNAVPMQHNNRPTQPLKGRTVRASF";
         // demonstrates simple Gaussian peak and ensures peak is at the correct index (500). 
         [Test]
         [TestCase(500, 20)]
@@ -275,7 +288,7 @@ namespace Test.SimulatedData
 
         }
         [Test]
-        [Repeat(10)]
+        [Repeat(1)]
         [TestCase()]
         public void TestSigmaClipplingVsNaive(int numberPeaks = 25)
         {
@@ -401,7 +414,7 @@ namespace Test.SimulatedData
 
             var stackedHistograms = Chart.Combine(new Plotly.NET.GenericChart.GenericChart[]
                 { histogramSigmaClipping, histogramRaw });
-            stackedHistograms.Show();
+            GenericChartExtensions.Show(stackedHistograms);
 
             double sigmaClippingStdev = BasicStatistics.CalculateStandardDeviation(yarrays[0][..400]); 
             double rawStdev = BasicStatistics.CalculateStandardDeviation(yarrays.Last()[..400]); 
@@ -535,7 +548,592 @@ namespace Test.SimulatedData
             // based on the experimentation in these tests, it looks like the best use case of averaging without rejection is when 
             // there are few low-frequency noise peaks relative to the total data points. 
         }
+
+        [Test]
+        [Repeat(5)]
+        public void LfNoiseRejection()
+        {
+
+            SpectralAveragingParameters sigma = new SpectralAveragingParameters()
+            {
+                MinSigmaValue = 1.45,
+                MaxSigmaValue = 1.45,
+                BinSize = 1.0,
+                NormalizationType = NormalizationType.RelativeToTics,
+                NumberOfScansToAverage = 25,
+                OutlierRejectionType = OutlierRejectionType.SigmaClipping,
+                SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation
+            };
+
+            Dictionary<int, LowFrequencyNoiseParameters> lfParamsDict = new()
+            {
+                {1, new LowFrequencyNoiseParameters(1,1,10,990,0.25,0.75,50, 200)}, 
+                {2, new LowFrequencyNoiseParameters(1,2,10,990,0.25,0.75,50, 200)}, 
+                {3, new LowFrequencyNoiseParameters(1,3,10,990,0.25,0.75,50, 200)}, 
+                {4, new LowFrequencyNoiseParameters(1,4,10,990,0.25,0.75,50, 200)}, 
+                {5, new LowFrequencyNoiseParameters(1,5,10,990,0.25,0.75,50, 200)}, 
+                {6, new LowFrequencyNoiseParameters(1,6,10,990,0.25,0.75,50, 200)}, 
+                {7, new LowFrequencyNoiseParameters(1,7,10,990,0.25,0.75,50, 200)}, 
+                {8, new LowFrequencyNoiseParameters(1,8,10,990,0.25,0.75,50, 200)}, 
+                {9, new LowFrequencyNoiseParameters(1,9,10,990,0.25,0.75,50, 200)}, 
+                {10, new LowFrequencyNoiseParameters(1,10,10,990,0.25,0.75,50, 200)}, 
+                {11, new LowFrequencyNoiseParameters(1,11,10,990,0.25,0.75,50, 200)}, 
+                {12, new LowFrequencyNoiseParameters(1,12,10,990,0.25,0.75,50, 200)}, 
+                {13, new LowFrequencyNoiseParameters(1,13,10,990,0.25,0.75,50, 200)}, 
+                {14, new LowFrequencyNoiseParameters(1,14,10,990,0.25,0.75,50, 200)}, 
+                {15, new LowFrequencyNoiseParameters(1,15,10,990,0.25,0.75,50, 200)},
+                {20, new LowFrequencyNoiseParameters(1,20,10,990,0.25,0.75,50, 200)},
+                {25, new LowFrequencyNoiseParameters(1,25,10,990,0.25,0.75,50, 200)},
+                {30, new LowFrequencyNoiseParameters(1,30,10,990,0.25,0.75,50, 200)},
+                {35, new LowFrequencyNoiseParameters(1,35,10,990,0.25,0.75,50, 200)},
+                {40, new LowFrequencyNoiseParameters(1,40,10,990,0.25,0.75,50, 200)},
+                {45, new LowFrequencyNoiseParameters(1,45,10,990,0.25,0.75,50, 200)},
+                {50, new LowFrequencyNoiseParameters(1,50,10,990,0.25,0.75,50, 200)},
+                {55, new LowFrequencyNoiseParameters(1,55,10,990,0.25,0.75,50, 200)},
+                {60, new LowFrequencyNoiseParameters(1,60,10,990,0.25,0.75,50, 200)},
+                {65, new LowFrequencyNoiseParameters(1,65,10,990,0.25,0.75,50, 200)},
+                {70, new LowFrequencyNoiseParameters(1,70,10,990,0.25,0.75,50, 200)},
+                {75, new LowFrequencyNoiseParameters(1,75,10,990,0.25,0.75,50, 200)},
+                {80, new LowFrequencyNoiseParameters(1,80,10,990,0.25,0.75,50, 200)},
+                {85, new LowFrequencyNoiseParameters(1,85,10,990,0.25,0.75,50, 200)},
+                {90, new LowFrequencyNoiseParameters(1,90,10,990,0.25,0.75,50, 200)},
+            };
+
+            List<double[][]> rejectionAveragedOutputs = new();
+            List<double[]> naiveAveragedOutputs = new();
+            List<List<GaussianPeakSpectra>> peaksList = new();
+            List<(double refScaleEstimate, double refNoiseEstimate)> scaleNoiseEstimates =
+                new List<(double refScaleEstimate, double refNoiseEstimate)>(); 
+            foreach (var kvp in lfParamsDict)
+            {
+                int numberPeaks = 25;
+                List<GaussianPeakSpectra> innerTempList = new();
+                while (numberPeaks > 0)
+                {
+                    GaussianPeakSpectra gaussian = new GaussianPeakSpectra(500, 10, 10000, 1000, 0, 1.0);
+                    Normal hfNoise = new Normal(1000, 10);
+                    gaussian.AddHighFrequencyNoise(hfNoise);
+                    gaussian.AddLowFrequencyNoise(kvp.Value);
+                    gaussian.NormalizeByTic();
+                    innerTempList.Add(gaussian);
+
+                    numberPeaks--;
+                }
+                peaksList.Add(innerTempList);
+                rejectionAveragedOutputs.Add(innerTempList.AverageWithRejection(sigma));
+                naiveAveragedOutputs.Add(innerTempList.NaiveAverage());
+                MRSNoiseEstimator.MRSNoiseEstimation(innerTempList[0].Yarray, 0.01, out double noise); 
+                scaleNoiseEstimates.Add((Math.Sqrt(BasicStatistics.BiweightMidvariance(innerTempList[0].Yarray)), noise)); 
+            }
+            
+            // calculate the ENR for each set of lf peaks added
+            List< (double rejection, double noRejection)> enrs = new();
+            int j = 0;
+            while (j < rejectionAveragedOutputs.Count)
+            {
+                //var rejectionPlot = rejectionAveragedOutputs[j][1].Plot(rejectionAveragedOutputs[j][0]);
+                //var naivePlot = naiveAveragedOutputs[j].Plot(rejectionAveragedOutputs[j][0]);
+                //var rawPlot = peaksList[j][0].Yarray.Plot(peaksList[j][0].Xarray);
+                //List<Plotly.NET.GenericChart.GenericChart> plotList = new()
+                //{
+                //    { GenericChartExtensions.WithTraceInfo(rejectionPlot, "with Rejection") },
+                //    { GenericChartExtensions.WithTraceInfo(naivePlot, "without Rejection") },
+                //    { GenericChartExtensions.WithTraceInfo(rawPlot, "raw Spectra") }
+                //};
+                //var stackedPlot = Chart.Combine(plotList);
+                //stackedPlot.Show();
+
+                double enr = rejectionAveragedOutputs[j][1].CalculateEnr(scaleNoiseEstimates[j].refScaleEstimate, null,
+                        scaleNoiseEstimates[j].refNoiseEstimate);
+                double naiveEnr = naiveAveragedOutputs[j].CalculateEnr(scaleNoiseEstimates[j].refScaleEstimate,
+                    null, scaleNoiseEstimates[j].refNoiseEstimate);
+                enrs.Add((enr, naiveEnr));
+                j++;
+            }
+
+            int maxPeaksIndexer = 0;
+            int[] maxPeaks = Enumerable.Range(1,30).ToArray(); 
+            foreach (var valueTuple in enrs)
+            {
+                Console.WriteLine("{0}\t{1}\t{2}", maxPeaks[maxPeaksIndexer], valueTuple.rejection, valueTuple.noRejection);
+                if (++maxPeaksIndexer == maxPeaks.Length)
+                {
+                    maxPeaksIndexer = 0; 
+                }
+            }
+        }
+
+        [Test]
+        [TestCase(-0.65, 0.18, true)]
+        [Repeat(5)]
+        public void ProteinSpectraNoiseTest(double mu, double sigma, bool plotting)
+        {
+            const string carbonicAnhydrase = "MASPDWGYDDKNGPEQWSKLYPIANGNNQS" +
+                                             "PVDIKTSETKHDTSLKPISVSYNPATAKEIINVGHSFH" +
+                                             "VNFEDNDNRSVLKGGPFSDSYRLFQFHFHWGSTNEHGSEHTV" +
+                                             "DGVKYSAELHVAHWNSAKYSSLAEAASKADGLAVIGVLMKVG" +
+                                             "EANPKLQKVLDALQAIKTKGKRAPFTNFDPSTLLPSSLDFWTY" +
+                                             "PGSLTHPPLYESVTWIICKESISVSSEQLAQFRSLLSNVEG" +
+                                             "DNAVPMQHNNRPTQPLKGRTVRASF"; 
+            Peptide peptide = new Peptide(carbonicAnhydrase); // from uniprot 
+            var distribution = IsotopicDistribution.GetDistribution(peptide.GetChemicalFormula(), 0.005, 0.001);
+            double mzLow = distribution.Masses.Min() - 5d;
+            double mzHigh = distribution.Masses.Max() + 5d; 
+            double stepSize = 0.005;
+            SpectralAveragingParameters sigmaParams = new SpectralAveragingParameters()
+            {
+                MinSigmaValue = 1.0,
+                MaxSigmaValue = 3.0,
+                BinSize = 0.0049,
+                NormalizationType = NormalizationType.RelativeToTics,
+                NumberOfScansToAverage = 25,
+                OutlierRejectionType = OutlierRejectionType.SigmaClipping,
+                SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation
+            };
+
+            int steps = (int)((mzHigh - mzLow) / stepSize);
+
+            Dictionary<int, LowFrequencyNoiseParameters> lfParamsDict = new()
+            {
+                {1, new LowFrequencyNoiseParameters(1, (int)(steps * 0.001),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)},
+                {2, new LowFrequencyNoiseParameters(1,(int)(steps * 0.01),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)},
+                {3, new LowFrequencyNoiseParameters(1,(int)(steps * 0.02),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)},
+                {4, new LowFrequencyNoiseParameters(1,(int)(steps * 0.05),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)},
+                {5, new LowFrequencyNoiseParameters(1,(int)(steps * 0.1),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)},
+                {6, new LowFrequencyNoiseParameters(1,(int)(steps * 0.25),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)},
+                {7, new LowFrequencyNoiseParameters(1,(int)(steps * 0.50),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)},
+                {8, new LowFrequencyNoiseParameters(1,(int)(steps * 0.75),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)},
+                {9, new LowFrequencyNoiseParameters(1,(int)(steps * 0.9),mzLow,mzHigh,
+                    0.005,0.001,0.000001, 0.0005)}
+            };
+            List<double[][]> rejectionAveragedOutputs = new();
+            List<double[]> naiveAveragedOutputs = new();
+            List<List<SimulatedChargeStateEnvelope>> peaksList = new();
+            List<(double refScaleEstimate, double refNoiseEstimate)> scaleNoiseEstimates =
+                new List<(double refScaleEstimate, double refNoiseEstimate)>();
+            foreach (var kvp in lfParamsDict)
+            {
+                int numberPeaks = 10;
+                List<SimulatedChargeStateEnvelope> innerTempList = new();
+                while (numberPeaks > 0)
+                {
+                    SimulatedChargeStateEnvelope cse = new(mzLow, mzHigh, stepSize, steps, 
+                        1, 2, distribution);
+                    Normal hfNoise = new Normal(0.001, 0.001);
+                    cse.AddHighFrequencyNoise(hfNoise);
+                    cse.AddLowFrequencyNoise(kvp.Value);
+                    cse.NormalizeByTic();
+                    innerTempList.Add(cse);
+
+                    numberPeaks--;
+                }
+                peaksList.Add(innerTempList);
+                rejectionAveragedOutputs.Add(innerTempList.AverageWithRejection(sigmaParams));
+                naiveAveragedOutputs.Add(innerTempList.NaiveAverage());
+                // normalize y array 
+                double[] normalizedYarray = NormalizeArray(innerTempList[0].Yarray, 0, 1);
+
+                MRSNoiseEstimator.MRSNoiseEstimation(normalizedYarray, 0.01, out double noise);
+                scaleNoiseEstimates.Add((Math.Sqrt(BasicStatistics.BiweightMidvariance(normalizedYarray)), noise));
+            }
+
+            // calculate the ENR for each set of lf peaks added
+            List<(double rejection, double noRejection)> enrs = new();
+            int j = 0;
+            while (j < rejectionAveragedOutputs.Count)
+            {
+                #region Plotting
+
+                if (plotting)
+                {
+                    var rejectionPlot = NormalizeArray(rejectionAveragedOutputs[j][1], 0, 1)
+                        .Plot(rejectionAveragedOutputs[j][0]);
+                    var naivePlot = NormalizeArray(naiveAveragedOutputs[j], 0,1)
+                        .Plot(peaksList[j][0].Xarray);
+                    var rawPlot = NormalizeArray(peaksList[j][0].Yarray, 0,1)
+                        .Plot(peaksList[j][0].Xarray);
+
+                    List<Plotly.NET.GenericChart.GenericChart> plotList = new()
+                    {
+                        { GenericChartExtensions.WithTraceInfo(rejectionPlot, "with Rejection") },
+                        { GenericChartExtensions.WithTraceInfo(naivePlot, "without Rejection") },
+                        { GenericChartExtensions.WithTraceInfo(rawPlot, "raw Spectra") },
+                    };
+
+                    // combine theoretical with each plot
+                    List<GenericChart.GenericChart> plotListCombined = new();
+                    int maximumListIndexer = 0; 
+                    foreach (var plot in plotList)
+                    {
+                        Peptide ca = new Peptide(carbonicAnhydrase);
+                        var distributionInner = IsotopicDistribution.GetDistribution(ca.GetChemicalFormula(), 0.05, 0.001);
+                        var distributionMax = distributionInner.Intensities.Max(); 
+
+                        Plotly.NET.Color markerColor = Color.fromKeyword(ColorKeyword.Red);
+                        var markerSymbol = StyleParam.MarkerSymbol.NewModified(StyleParam.MarkerSymbol.Circle, StyleParam.SymbolStyle.Open);
+                        Marker marker = Marker.init(Symbol: markerSymbol, Color: markerColor);
+
+                        var theoreticalPlot = Chart.Point<double, double, string>(distributionInner.Masses,
+                            distributionInner.Intensities.Select(z => z / distributionMax), Marker: marker);
+                        GenericChartExtensions.WithTraceInfo(theoreticalPlot, "Theoretical Isotopic Distribution"); 
+                        plotListCombined.Add(Chart.Combine(new []{ theoreticalPlot, plot })); 
+                    }
+
+                    GenericChartExtensions.Show(Plotly.NET.Chart.Grid<IEnumerable<Plotly.NET.GenericChart.GenericChart>>(3, 1).Invoke(plotListCombined)
+                            .WithSize(1000));
+
+                    //var stackedPlot = Chart.Combine(plotList);
+                    //stackedPlot.Show();
+                }
+
+                #endregion
+
+                double enr = NormalizeArray(rejectionAveragedOutputs[j][1], 0, 1)
+                    .CalculateEnr(scaleNoiseEstimates[j].refScaleEstimate, null,
+                        scaleNoiseEstimates[j].refNoiseEstimate);
+                double naiveEnr = NormalizeArray(naiveAveragedOutputs[j],0,1)
+                    .CalculateEnr(scaleNoiseEstimates[j].refScaleEstimate,
+                    null, scaleNoiseEstimates[j].refNoiseEstimate);
+                enrs.Add((enr, naiveEnr));
+                j++;
+            }
+
+            int maxPeaksIndexer = 0;
+            int[] maxPeaks = Enumerable.Range(1, lfParamsDict.Count).ToArray();
+            foreach (var valueTuple in enrs)
+            {
+                Console.WriteLine("{0}\t{1}\t{2}", maxPeaks[maxPeaksIndexer], valueTuple.rejection, valueTuple.noRejection);
+                if (++maxPeaksIndexer == maxPeaks.Length)
+                {
+                    maxPeaksIndexer = 0;
+                }
+            }
+        }
+
+        [Test]
+        [TestCase(true, 1)]
+        [TestCase(true, 5)]
+        [TestCase(true, 7)]
+        public void LowResolutionProtein(bool plotting, int iterations)
+        {
+            // from uniprot 
+
+            Peptide peptide = new Peptide(carbonicAnhydrase); 
+            var distribution = IsotopicDistribution.GetDistribution(peptide.GetChemicalFormula(), 0.001, 0.001);
+            double mzLow = distribution.Masses.Min() - 5d;
+            double mzHigh = distribution.Masses.Max() + 5d;
+            double stepSize = 0.01;
+            SpectralAveragingParameters sigmaParams = new SpectralAveragingParameters()
+            {
+                MinSigmaValue = 1.0,
+                MaxSigmaValue = 3.0,
+                BinSize = 0.0049,
+                NormalizationType = NormalizationType.RelativeToTics,
+                NumberOfScansToAverage = 25,
+                OutlierRejectionType = OutlierRejectionType.SigmaClipping,
+                SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation
+            };
+
+            int steps = (int)((mzHigh - mzLow) / stepSize);
+            SimulatedChargeStateEnvelope cse = new(mzLow, mzHigh, stepSize, steps,
+                1, 2, distribution);
+
+            cse.Blur(75, 0.75, iterations);
+            cse.NormalizeToMaxIntensity();
+            Normal hfNoise = new Normal(0.01, 0.005);
+            cse.AddHighFrequencyNoise(hfNoise);
+            var lfNoiseParams = new LowFrequencyNoiseParameters(
+                1, (int)(steps * 0.5),
+                mzLow, mzHigh,
+                0.01, 0.02,
+                0.00001, 0.01);
+            cse.AddLowFrequencyNoise(lfNoiseParams); 
+            if (plotting)
+                GenericChartExtensions.Show(cse.Plot().WithTitle(string.Join(" = ", "Blur iterations", iterations)));
+
+        }
+        [Test]
+        [TestCase(true, 5)]
+        [Repeat(5)]
+        public void LowResolutionProteinRejection(bool plotting, int iterations)
+        {
+            // from uniprot 
+
+            Peptide peptide = new Peptide(carbonicAnhydrase);
+            var distribution = IsotopicDistribution.GetDistribution(peptide.GetChemicalFormula(), 0.001, 0.001);
+            double mzLow = distribution.Masses.Min() - 5d;
+            double mzHigh = distribution.Masses.Max() + 5d;
+            double stepSize = 0.001;
+            SpectralAveragingParameters sigmaParams = new SpectralAveragingParameters()
+            {
+                MinSigmaValue = 1.5,
+                MaxSigmaValue = 1.5,
+                BinSize = 0.0049,
+                NormalizationType = NormalizationType.RelativeToTics,
+                NumberOfScansToAverage = 25,
+                OutlierRejectionType = OutlierRejectionType.SigmaClipping,
+                SpectralWeightingType = SpectraWeightingType.MrsNoiseEstimation
+            };
+
+            int steps = (int)((mzHigh - mzLow) / stepSize);
+            SimulatedChargeStateEnvelope cse = new(mzLow, mzHigh, stepSize, steps,
+                1, 2, distribution);
+           
+            Dictionary<int, LowFrequencyNoiseParameters> lfNoiseDict = new(); 
+            var lfNoiseParams = new LowFrequencyNoiseParameters(
+                1, (int)(steps * 0.01),
+                mzLow, mzHigh,
+                0.01, 0.02,
+                0.00001, 0.01);
+            lfNoiseDict.Add(1, lfNoiseParams);
+            var cseParams = new SimulatedChargeStateEnvelopeParams(SimulatedDataParamsType.SimulatedChargeStateEnvelope,
+                (mzLow, mzHigh), stepSize, steps, (1, 2), distribution, null); 
+
+            SimulatePlotWrite(cseParams, lfNoiseDict, sigmaParams, plotting, 
+                new Normal(0.1, 0.001), lfNoiseParams, (503,0.75,iterations), true, 
+                CreateSimulatedChargeState);
+        }
+        public global::SimulatedData.SimulatedData CreateSimulatedChargeState(SimulatedDataParams cseParams, 
+            Normal? hfNoise, LowFrequencyNoiseParameters? lfNoiseParams, (int width, double sigma, int iterations)? blurParams, bool normalize)
+        {
+            var cse = new SimulatedChargeStateEnvelope(cseParams.MzRange.Item1,
+                cseParams.MzRange.Item2, cseParams.StepSize, cseParams.Length, cseParams.ChargeStateRange.Item1,
+                cseParams.ChargeStateRange.Item2, cseParams.ParentDistribution);
+            if (blurParams != null)
+            {
+                cse.Blur(blurParams.Value.width, blurParams.Value.sigma, blurParams.Value.iterations);
+            }
+
+            if (normalize)
+            {
+                cse.NormalizeToMaxIntensity();
+            }
+            
+            if (hfNoise != null)
+            {
+                cse.AddHighFrequencyNoise(hfNoise);
+            }
+
+            if (lfNoiseParams != null)
+            {
+                cse.AddLowFrequencyNoise(lfNoiseParams);
+            }
+
+            return cse; 
+        }
+        
+        public void SimulatePlotWrite(SimulatedDataParams cseParams, 
+            Dictionary<int,LowFrequencyNoiseParameters> lfParamsDict, 
+            SpectralAveragingParameters averagingParams, 
+            bool plotting, 
+            Normal? hfNoise, LowFrequencyNoiseParameters? lfNoise, (int, double, int)? blurParams,
+            bool normalize, 
+            Func<SimulatedDataParams, Normal?, LowFrequencyNoiseParameters?, 
+                (int, double, int)?, bool, global::SimulatedData.SimulatedData> dataCreator)
+        {
+            List<double[][]> rejectionAveragedOutputs = new();
+            List<double[]> naiveAveragedOutputs = new();
+            List<List<global::SimulatedData.SimulatedData>> peaksList = new();
+            List<(double refScaleEstimate, double refNoiseEstimate)> scaleNoiseEstimates =
+                new List<(double refScaleEstimate, double refNoiseEstimate)>();
+            foreach (var kvp in lfParamsDict)
+            {
+                int numberPeaks = 10;
+                List<global::SimulatedData.SimulatedData> innerTempList = new();
+                while (numberPeaks > 0)
+                {
+                    var output = dataCreator.Invoke(cseParams, new Normal(hfNoise.Mean, hfNoise.StdDev), 
+                        lfNoise, blurParams, normalize);
+                    innerTempList.Add(output);
+                    numberPeaks--;
+                }
+                peaksList.Add(innerTempList);
+                rejectionAveragedOutputs.Add(innerTempList.AverageWithRejection(averagingParams));
+                naiveAveragedOutputs.Add(innerTempList.NaiveAverage());
+                
+                double[] normalizedYarray = NormalizeArray(innerTempList[0].Yarray, 0.1, 1);
+                MRSNoiseEstimator.MRSNoiseEstimation(normalizedYarray, 0.01, out double noise);
+                scaleNoiseEstimates.Add((Math.Sqrt(BasicStatistics.BiweightMidvariance(normalizedYarray)), noise));
+            }
+
+            // calculate the ENR for each set of lf peaks added
+            List<(double rejection, double noRejection)> enrs = new();
+            int j = 0;
+            while (j < rejectionAveragedOutputs.Count)
+            {
+                #region Plotting
+
+                if (plotting)
+                {
+                    var rejectionPlot = NormalizeArray(rejectionAveragedOutputs[j][1], 0, 1)
+                        .Plot(rejectionAveragedOutputs[j][0]);
+                    var naivePlot = NormalizeArray(naiveAveragedOutputs[j], 0, 1)
+                        .Plot(peaksList[j][0].Xarray);
+                    var rawPlot = NormalizeArray(peaksList[j][0].Yarray, 0, 1)
+                        .Plot(peaksList[j][0].Xarray);
+
+                    List<Plotly.NET.GenericChart.GenericChart> plotList = new()
+                    {
+                        { GenericChartExtensions.WithTraceInfo(rejectionPlot, "with Rejection") },
+                        { GenericChartExtensions.WithTraceInfo(naivePlot, "without Rejection") },
+                        { GenericChartExtensions.WithTraceInfo(rawPlot, "raw Spectra") },
+                    };
+
+                    // combine theoretical with each plot
+                    List<GenericChart.GenericChart> plotListCombined = new();
+                    int maximumListIndexer = 0;
+                    foreach (var plot in plotList)
+                    {
+                        Peptide ca = new Peptide(carbonicAnhydrase);
+                        var distributionInner = IsotopicDistribution.GetDistribution(ca.GetChemicalFormula(), 0.05, 0.001);
+                        var distributionMax = distributionInner.Intensities.Max();
+
+                        Plotly.NET.Color markerColor = Color.fromKeyword(ColorKeyword.Red);
+                        var markerSymbol = StyleParam.MarkerSymbol.NewModified(StyleParam.MarkerSymbol.Circle, StyleParam.SymbolStyle.Open);
+                        Marker marker = Marker.init(Symbol: markerSymbol, Color: markerColor);
+
+                        var theoreticalPlot = Chart.Point<double, double, string>(distributionInner.Masses,
+                            distributionInner.Intensities.Select(z => z / distributionMax), Marker: marker);
+                        GenericChartExtensions.WithTraceInfo(theoreticalPlot, "Theoretical Isotopic Distribution");
+                        plotListCombined.Add(Chart.Combine(new[] { theoreticalPlot, plot }));
+                    }
+
+                    GenericChartExtensions.Show(Plotly.NET.Chart.Grid<IEnumerable<Plotly.NET.GenericChart.GenericChart>>(3, 1).Invoke(plotListCombined)
+                            .WithSize(1000));
+
+                    //var stackedPlot = Chart.Combine(plotList);
+                    //stackedPlot.Show();
+                }
+
+                #endregion
+
+                double enr = NormalizeArray(rejectionAveragedOutputs[j][1], 0.1, 1)
+                    .CalculateEnr(scaleNoiseEstimates[j].refScaleEstimate, null,
+                        scaleNoiseEstimates[j].refNoiseEstimate);
+                double naiveEnr = NormalizeArray(naiveAveragedOutputs[j], 0.1, 1)
+                    .CalculateEnr(scaleNoiseEstimates[j].refScaleEstimate,
+                    null, scaleNoiseEstimates[j].refNoiseEstimate);
+
+                enrs.Add((enr, naiveEnr));
+                j++;
+            }
+
+            int maxPeaksIndexer = 0;
+            int[] maxPeaks = Enumerable.Range(1, lfParamsDict.Count).ToArray();
+            foreach (var valueTuple in enrs)
+            {
+                Console.WriteLine("{0}\t{1}\t{2}", maxPeaks[maxPeaksIndexer], valueTuple.rejection, valueTuple.noRejection);
+                if (++maxPeaksIndexer == maxPeaks.Length)
+                {
+                    maxPeaksIndexer = 0;
+                }
+            }
+        }
+
+
+        [Test]
+
+        private double[] NormalizeArray(double[] yarray, double normMin, double normMax)
+        {
+            double max = yarray.Max();
+            double min = yarray.Min();
+            double range = max - min;
+
+            return yarray.Select(d => (d - min) / range)
+                .Select(n => (1d - n) * normMin + n * normMax)
+                .ToArray(); 
+        }
+        #region Demonstrate Noise Types
+        [Test]
+        public void DemonstrateHighFrequencyNoise()
+        {
+            
+
+            double[] xarray = Enumerable.Range(0, 1000).Select(i => (double)i).ToArray();
+            Random rnd = new Random(1551);
+            double[] yarray = new double[xarray.Length];
+            yarray = yarray.Select(_ => rnd.NextDouble()).ToArray();
+            // yeah, this is an incredibly annoying way to generate the ylimits for plotly. Wish there was a better way, 
+            // but I wasn't able to figure anything out. 
+            var ylimits = new Optional<Tuple<double, double>>(new Tuple<double, double>(0.0, 2.0), true);
+            GenericChartExtensions.Show(Chart.Line<double,double,string>(x: xarray, y: yarray)
+                .WithYAxisStyle<double, double, string>(MinMax:ylimits)
+                .WithTitle("Random, high frequency noise"));
+
+        }
+
+        [Test]
+        public void DemonstrateLowFrequencyNoise()
+        {
+            Random rnd = new Random(1551);
+            double[] xarray = Enumerable.Range(0, 1000).Select(i => (double)i).ToArray();
+            double[] yarray = new double[xarray.Length];
+            // add the high-frequency noise. 
+            yarray = yarray.Select(_ => rnd.NextDouble()).ToArray();
+            
+            int numberOfRandomPeaks = 10;
+            for (int i = 0; i < numberOfRandomPeaks; i++)
+            {
+                int indexOfRandomPeak = rnd.Next(1, 999); 
+                yarray[indexOfRandomPeak] *= 10; 
+            }
+            var ylimits = new Optional<Tuple<double, double>>(new Tuple<double, double>(0, 10), true);
+            GenericChartExtensions.Show(Chart.Line<double, double, string>(x: xarray, y: yarray)
+                .WithYAxisStyle<double, double, string>(MinMax: ylimits)
+                .WithTitle("Random, low frequency noise"));
+
+        }
+        #endregion
     }
 
-    
+    public enum SimulatedDataParamsType
+    {
+        SimulatedChargeStateEnvelope, 
+        SimulatedProtein
+    }
+    public class SimulatedDataParams
+    {
+        public (double, double) MzRange { get; set; }
+        public double StepSize { get; set; }
+        public int Length { get; set; }
+        public (int, int) ChargeStateRange { get; set; }
+        public IsotopicDistribution ParentDistribution { get; set; }
+        public (double mu, double sigma)? EnvelopeDistrParams { get; set; }
+        public double AdductMass { get; set; }
+        private SimulatedDataParamsType ParamsType { get; set; }
+        protected SimulatedDataParams(SimulatedDataParamsType paramsType, (double, double) mzRange, double stepSize, int length,
+            (int, int) chargeStateRange, IsotopicDistribution parentIsotopicDistribution,
+            (double mu, double sigma)? envelopeDistribution = null, double adductMass = 1.007276)
+        {
+            MzRange = mzRange;
+            StepSize = stepSize;
+            Length = length;
+            ChargeStateRange = chargeStateRange;
+            ParentDistribution = parentIsotopicDistribution;
+            EnvelopeDistrParams = envelopeDistribution;
+            AdductMass = adductMass;
+            ParamsType = paramsType; 
+        }
+    }
+    public class SimulatedChargeStateEnvelopeParams : SimulatedDataParams
+    {
+        public SimulatedChargeStateEnvelopeParams(SimulatedDataParamsType paramsType, (double, double) mzRange, double stepSize, int length,
+            (int, int) chargeStateRange, IsotopicDistribution parentIsotopicDistribution,
+            (double mu, double sigma)? envelopeDistribution = null, double adductMass = 1.007276)
+            : base(paramsType, mzRange, stepSize, length, chargeStateRange, parentIsotopicDistribution, envelopeDistribution,
+                adductMass)
+        {
+
+        }
+
+    }
+
 }
