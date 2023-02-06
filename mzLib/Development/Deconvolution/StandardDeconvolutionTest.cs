@@ -75,15 +75,12 @@ namespace Development.Deconvolution
             List<IsotopicEnvelope> allResults = deconvoluter.Deconvolute(testCase.SpectrumToDeconvolute, testCase.RangeToDeconvolute).ToList();
             IsotopicEnvelope topScoringResult = allResults.First();
 
-            // 10 was selected as it made all the tests pass
-            // 3 would make a much better number as it is the default mass difference acceptor in MetaMorpheus
+            // 3 was selected as it is the default mass difference acceptor in MetaMorpheus
             int withinMagicNumber = 3;
             Assert.That(topScoringResult.Charge, Is.EqualTo(testCase.SelectedIonChargeState));
             Assert.That(topScoringResult.MostAbundantObservedIsotopicMass, Is.EqualTo(testCase.MostAbundantMass).Within(withinMagicNumber));
             Assert.That((topScoringResult.MostAbundantObservedIsotopicMass - Constants.ProtonMass) / topScoringResult.Charge, Is.EqualTo(testCase.SelectedIonMz).Within(withinMagicNumber));
         }
-
-
     }
 }
 
