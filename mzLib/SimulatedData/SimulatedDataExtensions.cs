@@ -14,7 +14,7 @@ namespace SimulatedData
 {
     public static class SimulatedDataExtensions
     {
-        public static double[] NaiveAverage(this List<SimulatedData> simDataList)
+        public static double[] AverageWithoutRejection(this List<SimulatedData> simDataList)
         {
             DoubleArray averagedYArray = new double[simDataList[0].Yarray.Length];
             foreach (SimulatedData simulatedData in simDataList)
@@ -27,16 +27,16 @@ namespace SimulatedData
             return (averagedYArray / (double)simDataList.Count).Array;
         }
 
-        public static double[] NaiveAverage(this List<GaussianPeakSpectra> simDataList)
+        public static double[] AverageWithoutRejection(this List<GaussianPeakSpectra> simDataList)
         {
             List<SimulatedData> list = simDataList.Cast<SimulatedData>().ToList();
-            return NaiveAverage(list); 
+            return AverageWithoutRejection(list); 
 
         }
 
-        public static double[] NaiveAverage(this List<SimulatedChargeStateEnvelope> simDataList)
+        public static double[] AverageWIthoutRejection(this List<SimulatedChargeStateEnvelope> simDataList)
         {
-            return NaiveAverage(simDataList.Cast<SimulatedData>().ToList()); 
+            return AverageWithoutRejection(simDataList.Cast<SimulatedData>().ToList()); 
         }
 
         public static double[][] AverageWithRejection(this List<SimulatedData> dataList, 

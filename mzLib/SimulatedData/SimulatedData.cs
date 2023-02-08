@@ -1,6 +1,7 @@
 ﻿using MathNet.Numerics.Distributions;
 using System.Collections.Generic;
 using Easy.Common.Extensions;
+using MassSpectrometry;
 using Plotly.NET.CSharp;
 using SpectralAveraging;
 
@@ -25,11 +26,6 @@ namespace SimulatedData
             FillArray(Yarray);
         }
 
-        protected SimulatedData()
-        {
-
-        }
-
         protected void FillArray(double[] array)
         {
             for (int i = 0; i < Length; i++)
@@ -42,7 +38,7 @@ namespace SimulatedData
         /// Applies a function to each element in an array. 
         /// </summary>
         /// <param name="function"></param>
-        public void ApplyElementwise(Func<double, double> function, double[] array)
+        protected void ApplyElementwise(Func<double, double> function, double[] array)
         {
             for (int i = 0; i < Length; i++)
             {
@@ -50,98 +46,7 @@ namespace SimulatedData
             }
         }
 
-        public void ElementwiseArrayAddition(SimulatedData peak)
-        {
-            for (int i = 0; i < peak.Length; i++)
-            {
-                Yarray[i] += peak.Yarray[i];
-            }
-        }
-
-        public void ElementwiseArrayAddition(double[] yArray)
-        {
-            if (yArray.Length != Length)
-                throw new ArgumentException("Incompatible lengths for addition");
-            for (int i = 0; i < yArray.Length; i++)
-            {
-                Yarray[i] += yArray[i];
-            }
-        }
-
-        public static SimulatedData operator +(SimulatedData a, SimulatedData b)
-        {
-            if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
-            if (Math.Abs(a._stepSize - b._stepSize) > 0.001)
-                throw new ArgumentException("Incompatible spacing in data");
-
-            for (int i = 0; i < a.Length; i++)
-            {
-                a.Yarray[i] += b.Yarray[i];
-            }
-
-            return a;
-        }
-
-        public static SimulatedData operator +(SimulatedData a, double[] b)
-        {
-            if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
-
-            for (int i = 0; i < a.Length; i++)
-            {
-                a.Yarray[i] += b[i];
-            }
-
-            return a;
-        }
-
-        public static SimulatedData operator *(SimulatedData a, SimulatedData b)
-        {
-            if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
-            if (Math.Abs(a._stepSize - b._stepSize) > 0.001)
-                throw new ArgumentException("Incompatible spacing in data");
-
-            for (int i = 0; i < a.Length; i++)
-            {
-                a.Yarray[i] *= b.Yarray[i];
-            }
-
-            return a;
-        }
-
-        public static SimulatedData operator -(SimulatedData a, SimulatedData b)
-        {
-            if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
-            if (Math.Abs(a._stepSize - b._stepSize) > 0.001)
-                throw new ArgumentException("Incompatible spacing in data");
-
-            for (int i = 0; i < a.Length; i++)
-            {
-                a.Yarray[i] -= b.Yarray[i];
-            }
-
-            return a;
-        }
-
-        public static SimulatedData operator *(SimulatedData a, double scalar)
-        {
-            for (int i = 0; i < a.Length; i++)
-            {
-                a.Yarray[i] *= scalar;
-            }
-
-            return a;
-        }
-
-        public static SimulatedData operator /(SimulatedData a, double scalar)
-        {
-            for (int i = 0; i < a.Length; i++)
-            {
-                a.Yarray[i] /= scalar; 
-            }
-
-            return a; 
-        }
-
+		#region Noise Addition 
         public void AddHighFrequencyNoise(Normal noiseDistribution)
         {
             for (int i = 0; i < Yarray.Length; i++)
@@ -224,25 +129,11 @@ namespace SimulatedData
                 Yarray = (DoubleArray)Yarray + yArrayToAdd; 
             }
         }
+#endregion
 
-        private double NextDouble(Random random, int low, int high)
-        {
-            return random.NextDouble() * ((double)high - (double)low) + (double)low;
-        }
-
-        private double NextDouble(Random random, double low, double high)
-        {
-            return random.NextDouble() * (high - low) + low;
-        }
         private double GaussianFunc(double d, double mean, double stddev, double intensity) => intensity * Normal.PDF(mean, stddev, d);
-        public Plotly.NET.GenericChart.GenericChart Plot()
-        {
-            return Chart.Line<double, double, string>(x: Xarray, y: Yarray)
-                .WithXAxisStyle<double, double, string>("m/z")
-                .WithYAxisStyle<double, double, string>("Intensity");
-        }
 
-        public bool TryMrsNoiseEstimation(double epsilon, out double noiseEstimate,
+        protected bool TryMrsNoiseEstimation(double epsilon, out double noiseEstimate,
             int maxIterations = 25)
         {
             bool mrsNoiseEstimationSuccess = MRSNoiseEstimator.MRSNoiseEstimation(Yarray,
@@ -263,5 +154,92 @@ namespace SimulatedData
             double sumOfYArray = Yarray.Sum();
             ApplyElementwise(i => i / sumOfYArray, Yarray);
         }
-    }
+
+        public MzSpectrum ToMzSpectrum(bool shouldCopy)
+        {
+	        return new MzSpectrum(Xarray, Yarray, shouldCopy); 
+        }
+
+        public MsDataScan ToMsDataScan()
+        {
+            throw new NotImplementedException();
+        }
+
+        
+		#region Operators
+		public static SimulatedData operator +(SimulatedData a, SimulatedData b)
+		{
+			if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
+			if (Math.Abs(a._stepSize - b._stepSize) > 0.001)
+				throw new ArgumentException("Incompatible spacing in data");
+
+			for (int i = 0; i < a.Length; i++)
+			{
+				a.Yarray[i] += b.Yarray[i];
+			}
+
+			return a;
+		}
+
+		public static SimulatedData operator +(SimulatedData a, double[] b)
+		{
+			if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
+
+			for (int i = 0; i < a.Length; i++)
+			{
+				a.Yarray[i] += b[i];
+			}
+
+			return a;
+		}
+
+		public static SimulatedData operator *(SimulatedData a, SimulatedData b)
+		{
+			if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
+			if (Math.Abs(a._stepSize - b._stepSize) > 0.001)
+				throw new ArgumentException("Incompatible spacing in data");
+
+			for (int i = 0; i < a.Length; i++)
+			{
+				a.Yarray[i] *= b.Yarray[i];
+			}
+
+			return a;
+		}
+
+		public static SimulatedData operator -(SimulatedData a, SimulatedData b)
+		{
+			if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
+			if (Math.Abs(a._stepSize - b._stepSize) > 0.001)
+				throw new ArgumentException("Incompatible spacing in data");
+
+			for (int i = 0; i < a.Length; i++)
+			{
+				a.Yarray[i] -= b.Yarray[i];
+			}
+
+			return a;
+		}
+
+		public static SimulatedData operator *(SimulatedData a, double scalar)
+		{
+			for (int i = 0; i < a.Length; i++)
+			{
+				a.Yarray[i] *= scalar;
+			}
+
+			return a;
+		}
+
+		public static SimulatedData operator /(SimulatedData a, double scalar)
+		{
+			for (int i = 0; i < a.Length; i++)
+			{
+				a.Yarray[i] /= scalar;
+			}
+
+			return a;
+		}
+		#endregion
+	}
 }
