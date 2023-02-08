@@ -6,6 +6,11 @@ using System.Threading.Tasks;
 
 namespace SimulatedData
 {
+    /// <summary>
+    /// Used with adding low frequency noise to objects derived from the SimulatedData class. 
+    /// </summary>
+    /// <see cref="SimulatedData"/>
+    /// <see cref="SimulatedChargeStateEnvelope"/>
     public class LowFrequencyNoiseParameters
     {
         public int PeakNumberLimitLow { get; }
@@ -18,7 +23,6 @@ namespace SimulatedData
         public double PeakIntensityLimitHigh { get; }
         public (double Min, double Max)? ExcludedZone { get; }
         public PeakShapeOptions PeakShapeOptions { get; }
-
         public LowFrequencyNoiseParameters(int peakNumberLimitLow, int peakNumberLimitHigh,
             double peakLocationLimitLow, double peakLocationLimitHigh,
             double peakWidthLimitLow, double peakWidthLimitHigh,

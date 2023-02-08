@@ -1,15 +1,20 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.FSharp.Core;
 
 namespace SimulatedData
 {
+    /// <summary>
+    /// Extensions for the Random class. 
+    /// </summary>
     public static class RandomExtensions
     {
-        public static double NextDouble(this Random random, double low, double high)
+        /// <summary>
+        /// Generates a random double. 
+        /// </summary>
+        /// <param name="random">Object of class Random.</param>
+        /// <param name="low">The minimum value of the range.</param>
+        /// <param name="high">The maximum value of the range.</param>
+        /// <returns></returns>
+        internal static double NextDouble(this Random random, double low, double high)
         {
             return random.NextDouble() * (high - low) + low;
         }
