@@ -7,9 +7,19 @@ using SpectralAveraging;
 
 namespace SimulatedData
 {
+    /// <summary>
+    /// Abstract class from which all simulated data objects can be derived. Provides methods for adding high frequency noise, low frequency noise, and operators
+    /// to add, subtract, or multiply classes derived from SimulatedData and other SImulatedData objects or scalar values. 
+    /// </summary>
     public abstract class SimulatedData
     {
+        /// <summary>
+        /// m/z array. 
+        /// </summary>
         public double[] Xarray { get; protected set; }
+        /// <summary>
+        /// Array of intensity values.
+        /// </summary>
         public double[] Yarray { get; protected set; }
         protected int Length { get; }
         protected double _stepSize { get; }
@@ -61,18 +71,7 @@ namespace SimulatedData
         /// Adds noise to every intensity value based on a normal distribution.
         /// </summary>
         /// <param name="noiseDistribution"></param>
-        public void AddHighFrequencyNoise(Normal noiseDistribution)
-        {
-            for (int i = 0; i < Yarray.Length; i++)
-            {
-                Yarray[i] += noiseDistribution.Sample(); 
-            }
-        }
-        /// <summary>
-        /// Adds a random number of noise peaks to random locations in the spectra with random widths and heights based on the parameters set in the LF noise parameters class.
-        /// </summary>
-        /// <param name="noiseDistribution"></param>
-        /// <param name="excludedZones"></param>
+        /// <param name="excludedZones">Optional parameter that will prevent noise values from being added to regions of signal.</param>>
         public void AddHighFrequencyNoise(Normal noiseDistribution, 
             List<(int Min, int Max)>? excludedZones = null)
         {
@@ -96,58 +95,63 @@ namespace SimulatedData
             }
 
         }
+        /// <summary>
+        /// Adds a random number of noise peaks to random locations in the spectra with random widths and heights based on the parameters set in the LF noise parameters class.
+        /// </summary>
+        /// <param name="noiseParams"></param>
+        public void AddLowFrequencyNoise(LowFrequencyNoiseParameters noiseParams)
+        {
+            double range = noiseParams.PeakLocationLimitHigh - noiseParams.PeakLocationLimitLow;
+            Random random = new Random();
 
-        //public void AddLowFrequencyNoise(LowFrequencyNoiseParameters noiseParams)
-        //{
-        //    double range = noiseParams.PeakLocationLimitHigh - noiseParams.PeakLocationLimitLow; 
-        //    Random random = new Random();
+            int numberOfRandomPeaks = random.Next(noiseParams.PeakNumberLimitLow, noiseParams.PeakNumberLimitHigh);
+            for (int i = 0; i < numberOfRandomPeaks; i++)
+            {
+                Random randomInnerLoop = new();
+                double peakLocation = randomInnerLoop.NextDouble() * range + noiseParams.PeakLocationLimitLow;
+                int peakIndex = Xarray.IndexOf(peakLocation);
+                // NOTE: Removed this option as I didn't think it was fair to prevent noise being added to signal. 
+                // because we have the possibility of adding many peaks to the actual signal peak, 
+                // we may want to exclude noise values being added to the true signal. 
+                // the while loop generates new peak location values if the original value falls 
+                // within an excluded zone. 
+                //if (noiseParams.ExcludedZone.HasValue)
+                //{
+                //    while (peakLocation > noiseParams.ExcludedZone.Value.Min
+                //           && peakLocation < noiseParams.ExcludedZone.Value.Max)
+                //    {
+                //        peakLocation = randomInnerLoop.Next((int)noiseParams.PeakLocationLimitLow,
+                //            (int)noiseParams.PeakLocationLimitHigh);
+                //    }
+                //}
 
-        //    int numberOfRandomPeaks = random.Next(noiseParams.PeakNumberLimitLow, noiseParams.PeakNumberLimitHigh);
-        //    for (int i = 0; i < numberOfRandomPeaks; i++)
-        //    {
-        //        Random randomInnerLoop = new();
-        //        double peakLocation = randomInnerLoop.NextDouble() * range + noiseParams.PeakLocationLimitLow;
-        //        int peakIndex = Xarray.IndexOf(peakLocation); 
-        //        // because we have the possibility of adding many peaks to the actual signal peak, 
-        //        // we may want to exclude noise values being added to the true signal. 
-        //        // the while loop generates new peak location values if the original value falls 
-        //        // within an excluded zone. 
-        //        if (noiseParams.ExcludedZone.HasValue)
-        //        {
-        //            while (peakLocation > noiseParams.ExcludedZone.Value.Min
-        //                   && peakLocation < noiseParams.ExcludedZone.Value.Max)
-        //            {
-        //                peakLocation = randomInnerLoop.Next((int)noiseParams.PeakLocationLimitLow,
-        //                    (int)noiseParams.PeakLocationLimitHigh);
-        //            }
-        //        }
+                double peakWidth =
+                    randomInnerLoop.NextDouble(noiseParams.PeakWidthLimitLow, noiseParams.PeakWidthLimitHigh);
+                double peakIntensity = randomInnerLoop.NextDouble(noiseParams.PeakIntensityLimitLow,
+                    noiseParams.PeakIntensityLimitHigh);
 
-        //        double peakWidth =
-        //            randomInnerLoop.NextDouble(noiseParams.PeakWidthLimitLow, noiseParams.PeakWidthLimitHigh);
-        //        double peakIntensity = randomInnerLoop.NextDouble(noiseParams.PeakIntensityLimitLow,
-        //            noiseParams.PeakIntensityLimitHigh);
+                double[] yArrayToAdd = Enumerable.Range(0, Length)
+                    .Select(z => z * _stepSize + _startValue)
+                    .ToArray();
+                switch (noiseParams.PeakShapeOptions)
+                {
+                    // Lorentzian peaks are possible, and in the future, we may want to add more peak shape types for added realism.
+                    case PeakShapeOptions.Gaussian:
+                        {
+                            for (int k = 0; k < yArrayToAdd.Length; k++)
+                            {
+                                yArrayToAdd[k] = GaussianFunc(yArrayToAdd[k], peakLocation, peakWidth, peakIntensity);
+                            }
+                        }
+                        break;
+                    case PeakShapeOptions.None:
+                        break;
+                }
 
-        //        double[] yArrayToAdd = Enumerable.Range(0, Length)
-        //            .Select(z => z * _stepSize + _startValue)
-        //            .ToArray();
-        //        switch (noiseParams.PeakShapeOptions)
-        //        {
-        //            case PeakShapeOptions.Gaussian:
-        //            {
-        //                for (int k = 0; k < yArrayToAdd.Length; k++)
-        //                {
-        //                    yArrayToAdd[k] = GaussianFunc(yArrayToAdd[k], peakLocation, peakWidth, peakIntensity); 
-        //                }
-        //            }
-        //                break;
-        //            case PeakShapeOptions.None:
-        //                break;
-        //        }
-
-        //        Yarray = (DoubleArray)Yarray + yArrayToAdd; 
-        //    }
-        //}
-#endregion
+                Yarray = (DoubleArray)Yarray + yArrayToAdd;
+            }
+        }
+        #endregion
 
         private double GaussianFunc(double d, double mean, double stddev, double intensity) => intensity * Normal.PDF(mean, stddev, d);
         /// <summary>
@@ -200,12 +204,13 @@ namespace SimulatedData
             throw new NotImplementedException();
         }
 
-        
+        // Operators allow you to easily add multiple simulated data objects so you can easily replicate spectra with multiple, co-eluting charge state envelopes.
+        // Note that the SimulatedData objects must be of the same length and step size.
 		#region Operators
 		public static SimulatedData operator +(SimulatedData a, SimulatedData b)
 		{
 			if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
-			if (Math.Abs(a._stepSize - b._stepSize) > 0.001)
+			if (Math.Abs(a._stepSize - b._stepSize) > 0.00001)
 				throw new ArgumentException("Incompatible spacing in data");
 
 			for (int i = 0; i < a.Length; i++)
@@ -227,7 +232,14 @@ namespace SimulatedData
 
 			return a;
 		}
-
+        /// <summary>
+        /// Allows multiplication of two simulated data objects.
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException">Thrown in the event that either the lengths of simulated data objects are invalid or
+        /// the step size is not the same.</exception>
 		public static SimulatedData operator *(SimulatedData a, SimulatedData b)
 		{
 			if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
@@ -242,7 +254,7 @@ namespace SimulatedData
 			return a;
 		}
 
-		public static SimulatedData operator -(SimulatedData a, SimulatedData b)
+        public static SimulatedData operator -(SimulatedData a, SimulatedData b)
 		{
 			if (a.Length != b.Length) throw new ArgumentException("Invalid lengths for addition.");
 			if (Math.Abs(a._stepSize - b._stepSize) > 0.001)
