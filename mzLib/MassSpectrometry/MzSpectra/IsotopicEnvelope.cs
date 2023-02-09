@@ -10,6 +10,10 @@ namespace MassSpectrometry
     {
         public readonly List<(double mz, double intensity)> Peaks;
         public double MonoisotopicMass { get; private set; }
+
+        /// <summary>
+        /// Mass of most abundant observed isotopic peak, not accounting for addition or subtraction or protons due to ESI charge state induction
+        /// </summary>
         public double MostAbundantObservedIsotopicMass { get; private set; }
         public readonly int Charge;
         public readonly double TotalIntensity;
@@ -32,7 +36,7 @@ namespace MassSpectrometry
 
         public double GetMostAbundantObservedIsotopicMass(List<(double mz, double intensity)> peaks, int charge)
         {
-            return ((peaks.OrderByDescending(p => p.intensity).ToList()[0].Item1) - Constants.ProtonMass) * charge ;
+            return peaks.MaxBy(p => p.intensity).mz * charge;
         }
 
         public override string ToString()
