@@ -5,7 +5,7 @@ namespace SimulatedData
     /// <summary>
     /// Extensions for the Random class. 
     /// </summary>
-    public static class RandomExtensions
+    internal static class RandomExtensions
     {
         /// <summary>
         /// Generates a random double. 

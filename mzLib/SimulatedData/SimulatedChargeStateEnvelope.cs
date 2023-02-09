@@ -8,6 +8,7 @@ using Easy.Common.Extensions;
 using MathNet.Numerics;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.IntegralTransforms;
+using MzLibUtil;
 
 namespace SimulatedData
 {
@@ -27,6 +28,15 @@ namespace SimulatedData
             (double mu, double sigma)? envelopeDistribution = null, double adductMass = 1.007276) 
         : base(length, mzLow, stepSize)
         {
+	        if (mzLow > mzHigh)
+	        {
+		        throw new MzLibException("mzHigh must be greater than mzLow");
+
+	        }
+	        if (chargeStateLow > chargeStateHigh)
+	        {
+		        throw new MzLibException("chargeStateHigh must be greater than chargeStateLow"); 
+	        }
             MzLow = mzLow; 
             MzHigh = mzHigh;
             ChargeStateHigh = chargeStateHigh; 

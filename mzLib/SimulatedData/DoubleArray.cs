@@ -6,7 +6,11 @@ using System.Threading.Tasks;
 
 namespace SimulatedData
 {
-	public struct DoubleArray
+	/// <summary>
+	/// Created this struct to use vectorized-like syntax on a double array. Used to manipulate
+	/// the Yarray property in SimulatedData. 
+	/// </summary>
+	internal struct DoubleArray
 	{
 		public double[] Array { get; set; }
 

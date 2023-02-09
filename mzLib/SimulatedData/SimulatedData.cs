@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using Easy.Common.Extensions;
 using MassSpectrometry;
-using Plotly.NET.CSharp;
 using SpectralAveraging;
 
 namespace SimulatedData
@@ -44,7 +43,7 @@ namespace SimulatedData
         /// you need to have m/z values that progress from some minimum value to some maximum values as a function of Sqrt(m/z). 
         /// </summary>
         /// <param name="array"></param>
-        protected void FillArray(double[] array)
+        private void FillArray(double[] array)
         {
             //TODO: Implement option for m/z axis that progress as a function of the square root of m/z
             for (int i = 0; i < Length; i++)
@@ -76,8 +75,11 @@ namespace SimulatedData
             List<(int Min, int Max)>? excludedZones = null)
         {
             if (excludedZones == null)
-            { 
-                AddHighFrequencyNoise(noiseDistribution);
+            {
+	            for (int i = 0; i < Yarray.Length; i++)
+	            {
+		            Yarray[i] += noiseDistribution.Sample(); 
+	            }
                 return; 
             }
 
@@ -99,33 +101,61 @@ namespace SimulatedData
         /// Adds a random number of noise peaks to random locations in the spectra with random widths and heights based on the parameters set in the LF noise parameters class.
         /// </summary>
         /// <param name="noiseParams"></param>
-        public void AddLowFrequencyNoise(LowFrequencyNoiseParameters noiseParams)
+        /// <param name="seeds">Optional parameter to add a list of integers of seeds to be used by the random number generators.
+        /// Used for reproducibly generating random peaks, e.g. for testing. If seeds is less than the number of random peaks to be
+        /// generated, the seeds will be recycled.</param>
+        public void AddLowFrequencyNoise(LowFrequencyNoiseParameters noiseParams, List<int> seeds = null)
         {
             double range = noiseParams.PeakLocationLimitHigh - noiseParams.PeakLocationLimitLow;
-            Random random = new Random();
+            Random random;
+            int seedsListIndexer = 0; 
+            if (seeds.IsNotNullOrEmpty())
+			{
+				random = new Random(seeds[0]);
+				if(++seedsListIndexer == seeds.Count) 
+					seedsListIndexer = 0; 
+			}
+			else
+			{
+				random = new Random(); 
+			}
+
+            
 
             int numberOfRandomPeaks = random.Next(noiseParams.PeakNumberLimitLow, noiseParams.PeakNumberLimitHigh);
             for (int i = 0; i < numberOfRandomPeaks; i++)
             {
-                Random randomInnerLoop = new();
+	            Random randomInnerLoop; 
+				if (seeds.IsNotNullOrEmpty())
+	            {
+		            randomInnerLoop = new Random(seeds[seedsListIndexer]);
+		            if ( ++seedsListIndexer == seeds.Count) 
+                        seedsListIndexer = 0;
+	            }
+	            else
+	            {
+		            randomInnerLoop = new Random();
+	            }
+				
                 double peakLocation = randomInnerLoop.NextDouble() * range + noiseParams.PeakLocationLimitLow;
-                int peakIndex = Xarray.IndexOf(peakLocation);
-                // NOTE: Removed this option as I didn't think it was fair to prevent noise being added to signal. 
-                // because we have the possibility of adding many peaks to the actual signal peak, 
-                // we may want to exclude noise values being added to the true signal. 
-                // the while loop generates new peak location values if the original value falls 
-                // within an excluded zone. 
-                //if (noiseParams.ExcludedZone.HasValue)
-                //{
-                //    while (peakLocation > noiseParams.ExcludedZone.Value.Min
-                //           && peakLocation < noiseParams.ExcludedZone.Value.Max)
-                //    {
-                //        peakLocation = randomInnerLoop.Next((int)noiseParams.PeakLocationLimitLow,
-                //            (int)noiseParams.PeakLocationLimitHigh);
-                //    }
-                //}
 
-                double peakWidth =
+				// NOTE: Removed this option as I didn't think it was fair to prevent noise being added to signal. 
+				// because we have the possibility of adding many peaks to the actual signal peak, 
+				// we may want to exclude noise values being added to the true signal. 
+				// the while loop generates new peak location values if the original value falls 
+				// within an excluded zone. 
+				//int peakIndex = Xarray.IndexOf(peakLocation);
+				//if (noiseParams.ExcludedZone.HasValue)
+				//{
+				//    while (peakLocation > noiseParams.ExcludedZone.Value.Min
+				//           && peakLocation < noiseParams.ExcludedZone.Value.Max)
+				//    {
+				//        peakLocation = randomInnerLoop.Next((int)noiseParams.PeakLocationLimitLow,
+				//            (int)noiseParams.PeakLocationLimitHigh);
+				//    }
+				//}
+
+				double peakWidth =
                     randomInnerLoop.NextDouble(noiseParams.PeakWidthLimitLow, noiseParams.PeakWidthLimitHigh);
                 double peakIntensity = randomInnerLoop.NextDouble(noiseParams.PeakIntensityLimitLow,
                     noiseParams.PeakIntensityLimitHigh);
@@ -147,7 +177,6 @@ namespace SimulatedData
                     case PeakShapeOptions.None:
                         break;
                 }
-
                 Yarray = (DoubleArray)Yarray + yArrayToAdd;
             }
         }

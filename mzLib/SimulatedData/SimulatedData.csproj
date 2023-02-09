@@ -8,9 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
-    <PackageReference Include="Plotly" Version="1.5.1" />
-    <PackageReference Include="Plotly.NET" Version="3.0.1" />
-    <PackageReference Include="Plotly.NET.CSharp" Version="0.8.0" />
   </ItemGroup>
 
   <ItemGroup>
