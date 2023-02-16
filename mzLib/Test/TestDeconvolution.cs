@@ -134,9 +134,9 @@ namespace Test
             // The ones marked 2 are for checking an overload method
 
             DeconvolutionParameters deconParameters = new ClassicDeconvolutionParameters(1, 60, 4, 3);
-            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionTypes.ClassicDeconvolution, deconParameters);
+            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionType.ClassicDeconvolution, deconParameters);
 
-            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(DeconvolutionTypes.ClassicDeconvolution, deconParameters).ToList();
+            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(DeconvolutionType.ClassicDeconvolution, deconParameters).ToList();
             List<IsotopicEnvelope> isolatedMasses2 = scan.GetIsolatedMassesAndCharges(deconvoluter).ToList();
 
             List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
@@ -174,7 +174,7 @@ namespace Test
             DeconvolutionParameters deconParameters =
                 new ClassicDeconvolutionParameters(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
                     intensityRatioLimit);
-            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionTypes.ClassicDeconvolution, deconParameters);
+            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionType.ClassicDeconvolution, deconParameters);
 
             //check assigned correctly
 
