@@ -18,7 +18,14 @@ namespace Development.Deconvolution
     [ExcludeFromCodeCoverage]
     public class StandardDeconvolutionTest
     {
+        /// <summary>
+        /// All Test Cases where a single peak is deconvoluted
+        /// </summary>
         private static IEnumerable<SinglePeakDeconvolutionTestCase> _singlePeakTestCases;
+
+        /// <summary>
+        /// All Test Cases where an entire spectrum is deconvoluted
+        /// </summary>
         private static IEnumerable<WholeSpectrumDeconvolutionTestCase> _wholeSpectrumDeconvolutionTestCases;
 
         #region Set Up Test Cases

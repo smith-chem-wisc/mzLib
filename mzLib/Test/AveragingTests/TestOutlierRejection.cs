@@ -3,14 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using NUnit.Framework;
-using NUnit.Framework.Internal;
 using SpectralAveraging;
 
 namespace Test.AveragingTests
 {
-
-
-
     [TestFixture]
     [ExcludeFromCodeCoverage]
     public class TestOutlierRejection
@@ -344,7 +340,6 @@ namespace Test.AveragingTests
             expected = new double[] { 10, 8, 6, 5, 4, 2, 0 };
             Assert.That(output, Is.EqualTo(expected));
         }
-
 
         private static double[] RejectAsBinnedPeak(double[] testArray, SpectralAveragingParameters parameters)
         {
