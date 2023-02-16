@@ -12,12 +12,6 @@ using SpectralAveraging;
 
 namespace Development.Deconvolution
 {
-    public enum SampleType
-    {
-        TopDown,
-        BottomUp,
-    }
-
     /// <summary>
     /// Contains the expected results from deconvolution a single isotopic peak as well as information on the sample
     /// </summary>
@@ -26,7 +20,7 @@ namespace Development.Deconvolution
         /// <summary>
         /// Instantiate a SinglePeakDeconvolutionTestCase
         /// </summary>
-        /// <param name="sampleType">Type of sample being deconvoluted, can be used to set deconvolution parameters</param>
+        /// <param name="deconvoluter">The object which will be performing the deconvolution when tested</param>
         /// <param name="sampleInformation">Quick information relevant to the sample, will be visible on test failing. Use this field to allow other to quickly identify which tests are failing</param>
         /// <param name="spectrumPath">path to the spectrum of interest, current implementation expects the file to </param>
         /// <param name="scanNumber">One based scan number of spectrum to deconvolute</param>
@@ -34,10 +28,10 @@ namespace Development.Deconvolution
         /// <param name="expectedIonChargeState">Expected charge state from deconvolution result</param>
         /// <param name="selectedIonMz">M/z of peak to deconvolute from spectrum</param>
         /// <param name="precursorPpmMassTolerance">Tolerance which deconvolution results must match expected value</param>
-        public SinglePeakDeconvolutionTestCase(SampleType sampleType, string sampleInformation, string spectrumPath, int scanNumber,
+        public SinglePeakDeconvolutionTestCase(Deconvoluter deconvoluter, string sampleInformation, string spectrumPath, int scanNumber,
             double expectedMostAbundantObservedIsotopicMass, int expectedIonChargeState, double selectedIonMz, double precursorPpmMassTolerance)
         {
-            SampleType = sampleType;
+            Deconvoluter = deconvoluter;
             SampleInformation = sampleInformation;
             ExpectedMostAbundantObservedIsotopicMass = expectedMostAbundantObservedIsotopicMass;
             ExpectedIonChargeState = expectedIonChargeState;
@@ -51,9 +45,9 @@ namespace Development.Deconvolution
         }
 
         /// <summary>
-        /// Type of sample being deconvoluted, can be used to set deconvolution parameters
+        /// The object which will be performing the deconvolution when tested
         /// </summary>
-        public SampleType SampleType { get; set; }
+        public Deconvoluter Deconvoluter { get; set; }
 
         /// <summary>
         /// Quick information relevant to the sample, will be visible on test failing
@@ -94,7 +88,7 @@ namespace Development.Deconvolution
 
         public override string ToString()
         {
-            return SampleInformation + $" Charge: {ExpectedIonChargeState}";
+            return Deconvoluter.DeconvolutionType + ": " + SampleInformation + $" Charge: {ExpectedIonChargeState}";
         }
     }
 }
