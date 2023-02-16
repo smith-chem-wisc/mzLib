@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Easy.Common.Extensions;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -20,13 +16,13 @@ namespace MassSpectrometry
     public class Deconvoluter
     {
         public DeconvolutionAlgorithm DeconvolutionAlgorithm { get; private set; }
-        public DeconvolutionTypes DeconvolutionType { get; }
+        public DeconvolutionTypes DeconvolutionTypes { get; }
         public DeconvolutionParameters DeconvolutionParameters { get; }
 
-        public Deconvoluter(DeconvolutionTypes deconType, DeconvolutionParameters deconParameters)
+        public Deconvoluter(DeconvolutionTypes deconTypes, DeconvolutionParameters deconParameters)
         {
             DeconvolutionParameters = deconParameters;
-            DeconvolutionType = deconType;
+            DeconvolutionTypes = deconTypes;
             ConstructDeconvolutionAlgorithm(deconParameters);
         }
 
@@ -41,7 +37,7 @@ namespace MassSpectrometry
             rangeToGetPeaksFrom ??= scan.MassSpectrum.Range;
 
             // set deconvolution parameters that are only present in the MsDataScan
-            switch (DeconvolutionType)
+            switch (DeconvolutionTypes)
             {
                 case DeconvolutionTypes.ClassicDeconvolution:
                     break;
@@ -63,7 +59,7 @@ namespace MassSpectrometry
         private void ConstructDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
         {
             // construct algorithm object
-            switch (DeconvolutionType)
+            switch (DeconvolutionTypes)
             {
                 case DeconvolutionTypes.ClassicDeconvolution:
                     DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
