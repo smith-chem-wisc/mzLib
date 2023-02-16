@@ -213,7 +213,7 @@ namespace Development.Deconvolution
                 Has.Some.EqualTo(testCase.ExpectedMostAbundantObservedIsotopicMass)
                     .Within(acceptableDistanceFromTheoreticalWithinTestCaseTolerance));
 
-            acceptableDistanceFromTheoreticalWithinTestCaseTolerance =
+            acceptableDistanceFromTheoreticalWithinTestCaseTolerance = 
                 testCase.DeconvolutionPPmTolerance.GetMaximumValue(testCase.SelectedIonMz) -
                 testCase.SelectedIonMz;
             Assert.That(resultSelectedIonMz,
