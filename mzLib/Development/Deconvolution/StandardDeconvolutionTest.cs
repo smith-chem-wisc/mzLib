@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
-using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using MzLibUtil;
 using NUnit.Framework;
 
