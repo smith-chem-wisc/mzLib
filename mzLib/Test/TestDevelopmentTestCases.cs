@@ -9,10 +9,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MassSpectrometry;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public static class TestDevelopmentTestCases
     {
         [Test]
