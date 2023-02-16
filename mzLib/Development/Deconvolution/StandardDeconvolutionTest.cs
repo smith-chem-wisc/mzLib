@@ -1,21 +1,6 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
 using NUnit.Framework;
-using MzLibUtil;
-using System.Reflection;
-using System.Globalization;
-using System.Threading;
-using Chemistry;
-using Easy.Common;
-using Newtonsoft.Json.Linq;
-using System.Data.SqlTypes;
 using UsefulProteomicsDatabases;
 
 namespace Development.Deconvolution
