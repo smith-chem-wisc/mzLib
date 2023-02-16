@@ -4,7 +4,7 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public enum DeconvolutionTypes
+    public enum DeconvolutionType
     {
         ClassicDeconvolution,
         AlexDeconvolution,
@@ -16,13 +16,13 @@ namespace MassSpectrometry
     public class Deconvoluter
     {
         public DeconvolutionAlgorithm DeconvolutionAlgorithm { get; private set; }
-        public DeconvolutionTypes DeconvolutionTypes { get; }
+        public DeconvolutionType DeconvolutionType { get; }
         public DeconvolutionParameters DeconvolutionParameters { get; }
 
-        public Deconvoluter(DeconvolutionTypes deconTypes, DeconvolutionParameters deconParameters)
+        public Deconvoluter(DeconvolutionType deconType, DeconvolutionParameters deconParameters)
         {
             DeconvolutionParameters = deconParameters;
-            DeconvolutionTypes = deconTypes;
+            DeconvolutionType = deconType;
             ConstructDeconvolutionAlgorithm(deconParameters);
         }
 
@@ -37,12 +37,12 @@ namespace MassSpectrometry
             rangeToGetPeaksFrom ??= scan.MassSpectrum.Range;
 
             // set deconvolution parameters that are only present in the MsDataScan
-            switch (DeconvolutionTypes)
+            switch (DeconvolutionType)
             {
-                case DeconvolutionTypes.ClassicDeconvolution:
+                case DeconvolutionType.ClassicDeconvolution:
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
+                case DeconvolutionType.AlexDeconvolution:
                     break;
             }
 
@@ -59,13 +59,13 @@ namespace MassSpectrometry
         private void ConstructDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
         {
             // construct algorithm object
-            switch (DeconvolutionTypes)
+            switch (DeconvolutionType)
             {
-                case DeconvolutionTypes.ClassicDeconvolution:
+                case DeconvolutionType.ClassicDeconvolution:
                     DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
+                case DeconvolutionType.AlexDeconvolution:
                     DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithm(deconParameters);
                     break;
 

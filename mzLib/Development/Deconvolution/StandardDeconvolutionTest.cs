@@ -140,12 +140,12 @@ namespace Development.Deconvolution
 
         #endregion
 
-        private static DeconvolutionParameters GetDeconvolutionParameters(SampleType sampleType, DeconvolutionTypes deconTypes)
+        private static DeconvolutionParameters GetDeconvolutionParameters(SampleType sampleType, DeconvolutionType deconType)
         {
             DeconvolutionParameters parameters = null;
-            switch (deconTypes)
+            switch (deconType)
             {
-                case DeconvolutionTypes.ClassicDeconvolution:
+                case DeconvolutionType.ClassicDeconvolution:
                     // change max charge state based upon top down vs bottom up as is recommend in MetaMorpheus
                     switch (sampleType)
                     {
@@ -158,7 +158,7 @@ namespace Development.Deconvolution
                     }
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
+                case DeconvolutionType.AlexDeconvolution:
                 default:
                     break;
             }
@@ -179,8 +179,8 @@ namespace Development.Deconvolution
         {
             // deconvolution
             DeconvolutionParameters deconParameters =
-                GetDeconvolutionParameters(testCase.SampleType, DeconvolutionTypes.ClassicDeconvolution);
-            Deconvoluter deconvoluter = new(DeconvolutionTypes.ClassicDeconvolution, deconParameters);
+                GetDeconvolutionParameters(testCase.SampleType, DeconvolutionType.ClassicDeconvolution);
+            Deconvoluter deconvoluter = new(DeconvolutionType.ClassicDeconvolution, deconParameters);
             List<IsotopicEnvelope> allResults =
                 deconvoluter.Deconvolute(testCase.SpectrumToDeconvolute, testCase.RangeToDeconvolute).ToList();
 
@@ -214,8 +214,8 @@ namespace Development.Deconvolution
         {
             // deconvolution
             DeconvolutionParameters deconParameters =
-                GetDeconvolutionParameters(testCase.SampleType, DeconvolutionTypes.ClassicDeconvolution);
-            Deconvoluter deconvoluter = new(DeconvolutionTypes.ClassicDeconvolution, deconParameters);
+                GetDeconvolutionParameters(testCase.SampleType, DeconvolutionType.ClassicDeconvolution);
+            Deconvoluter deconvoluter = new(DeconvolutionType.ClassicDeconvolution, deconParameters);
             List<IsotopicEnvelope> allResults =
                 deconvoluter.Deconvolute(testCase.SpectrumToDeconvolute, testCase.RangeToDeconvolute).ToList();
 
@@ -252,8 +252,8 @@ namespace Development.Deconvolution
         {
             // deconvolution
             DeconvolutionParameters deconParameters =
-                GetDeconvolutionParameters(testCase.SampleType, DeconvolutionTypes.ClassicDeconvolution);
-            Deconvoluter deconvoluter = new(DeconvolutionTypes.ClassicDeconvolution, deconParameters);
+                GetDeconvolutionParameters(testCase.SampleType, DeconvolutionType.ClassicDeconvolution);
+            Deconvoluter deconvoluter = new(DeconvolutionType.ClassicDeconvolution, deconParameters);
             List<IsotopicEnvelope> allResults =
                 deconvoluter.Deconvolute(testCase.SpectrumToDeconvolute).ToList();
 

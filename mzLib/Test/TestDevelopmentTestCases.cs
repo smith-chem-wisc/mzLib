@@ -71,6 +71,7 @@ namespace Test
             Assert.That(testCase.SelectedIonMzs, Is.EqualTo(selectedIonMz));
             Assert.That(testCase.SpectrumToDeconvolute, Is.EqualTo(spectrum));
             Assert.That(testCase.DeconvolutionPPmTolerance.Value, Is.EqualTo(precursorPpmTolerance));
+            Assert.That(testCase.Count, Is.EqualTo(1));
 
 
             selectedIonMz = new[] { 2.0, 15.3 };
