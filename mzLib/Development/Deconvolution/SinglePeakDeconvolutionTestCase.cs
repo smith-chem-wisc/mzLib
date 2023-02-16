@@ -88,7 +88,7 @@ namespace Development.Deconvolution
 
         public override string ToString()
         {
-            return Deconvoluter.DeconvolutionType + ": " + SampleInformation + $" Charge: {ExpectedIonChargeState}";
+            return $"{Deconvoluter.DeconvolutionType}: {SampleInformation} Charge: {ExpectedIonChargeState}";
         }
     }
 }
