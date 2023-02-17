@@ -2,29 +2,30 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SpectralAveraging;
-
-public class ModWtOutput
+namespace SpectralAveraging
 {
-    internal ModWtOutput(int maxScale)
+    public class ModWtOutput
     {
-        Levels = new List<Level>();
-        MaxScale = maxScale;
-    }
-
-    internal List<Level> Levels { get; private set; }
-    internal int MaxScale { get; private set; }
-    
-    public void AddLevel(double[] waveletCoeff, double[] scalingCoeff, int scale,
-        BoundaryType boundaryType, int originalSignalLength, int filterLength)
-    {
-        if (boundaryType == BoundaryType.Reflection)
+        internal ModWtOutput(int maxScale)
         {
-            int startIndex = ((int)Math.Pow(2, scale) - 1) * (filterLength - 1);
-            int stopIndex = Math.Min(startIndex + originalSignalLength, waveletCoeff.Length - 1);
-            Levels.Add(new Level(scale,
-                waveletCoeff[startIndex..stopIndex],
-                scalingCoeff[startIndex..stopIndex]));
+            Levels = new List<Level>();
+            MaxScale = maxScale;
+        }
+
+        internal List<Level> Levels { get; private set; }
+        internal int MaxScale { get; private set; }
+    
+        public void AddLevel(double[] waveletCoeff, double[] scalingCoeff, int scale,
+            BoundaryType boundaryType, int originalSignalLength, int filterLength)
+        {
+            if (boundaryType == BoundaryType.Reflection)
+            {
+                int startIndex = ((int)Math.Pow(2, scale) - 1) * (filterLength - 1);
+                int stopIndex = Math.Min(startIndex + originalSignalLength, waveletCoeff.Length - 1);
+                Levels.Add(new Level(scale,
+                    waveletCoeff[startIndex..stopIndex],
+                    scalingCoeff[startIndex..stopIndex]));
+            }
         }
     }
 }

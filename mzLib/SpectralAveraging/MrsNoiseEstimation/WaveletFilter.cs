@@ -1,61 +1,62 @@
 ﻿using System;
 
-namespace SpectralAveraging;
-
-public class WaveletFilter
+namespace SpectralAveraging
 {
-    public double[] WaveletCoefficients { get; private set; }
-    public double[] ScalingCoefficients { get; private set; }
-    public WaveletType WaveletType { get; private set; }
-
-    private void CreateFiltersFromCoeffs(double[] filterCoeffs)
+    public class WaveletFilter
     {
-        WaveletCoefficients = new double[filterCoeffs.Length];
-        ScalingCoefficients = new double[filterCoeffs.Length];
+        public double[] WaveletCoefficients { get; private set; }
+        public double[] ScalingCoefficients { get; private set; }
+        public WaveletType WaveletType { get; private set; }
 
-        // calculate wavelet coefficients
-        for (int i = 0; i < ScalingCoefficients.Length; i++)
+        private void CreateFiltersFromCoeffs(double[] filterCoeffs)
         {
-            ScalingCoefficients[i] = filterCoeffs[i] / Math.Sqrt(2d);
-        }
-        WaveletCoefficients = WaveletMathUtils.QMF(ScalingCoefficients, inverse: true);
-    }
+            WaveletCoefficients = new double[filterCoeffs.Length];
+            ScalingCoefficients = new double[filterCoeffs.Length];
 
-    public void CreateFiltersFromCoeffs(WaveletType waveletType)
-    {
-        switch (waveletType)
-        {
-            case WaveletType.Haar:
+            // calculate wavelet coefficients
+            for (int i = 0; i < ScalingCoefficients.Length; i++)
             {
-                WaveletType = WaveletType.Haar;
-                CreateFiltersFromCoeffs(_haarCoefficients);
-                return;
+                ScalingCoefficients[i] = filterCoeffs[i] / Math.Sqrt(2d);
             }
-            //case WaveletType.Db4:
-            //{
-            //    WaveletType = WaveletType.Db4; 
-            //    CreateFiltersFromCoeffs(_db4Coefficients);
-            //    return; 
-            //}
+            WaveletCoefficients = WaveletMathUtils.QMF(ScalingCoefficients, inverse: true);
         }
-    }
-    #region Wavelet Coefficients
-    private readonly double[] _haarCoefficients =
-    {
-        0.7071067811865475,
-        0.7071067811865475
-    };
 
-    private readonly double[] _db4Coefficients =
-    {
-        0.2304, 
-        0.7148, 
-        0.6309, 
-        -0.0280, 
-        -0.1870, 
-        0.0308, 
-        0.0329, 
-        -0.0106
-    };
-#endregion
+        public void CreateFiltersFromCoeffs(WaveletType waveletType)
+        {
+            switch (waveletType)
+            {
+                case WaveletType.Haar:
+                {
+                    WaveletType = WaveletType.Haar;
+                    CreateFiltersFromCoeffs(_haarCoefficients);
+                    return;
+                }
+                //case WaveletType.Db4:
+                //{
+                //    WaveletType = WaveletType.Db4; 
+                //    CreateFiltersFromCoeffs(_db4Coefficients);
+                //    return; 
+                //}
+            }
+        }
+        #region Wavelet Coefficients
+        private readonly double[] _haarCoefficients =
+        {
+            0.7071067811865475,
+            0.7071067811865475
+        };
+
+        private readonly double[] _db4Coefficients =
+        {
+            0.2304, 
+            0.7148, 
+            0.6309, 
+            -0.0280, 
+            -0.1870, 
+            0.0308, 
+            0.0329, 
+            -0.0106
+        };
+        #endregion
+    }
 }

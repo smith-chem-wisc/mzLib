@@ -1,22 +1,23 @@
-﻿namespace SpectralAveraging;
-
-internal readonly record struct BinnedPeak
+﻿namespace SpectralAveraging
 {
-    internal BinnedPeak(int bin, double mz, double intensity, int specId)
+    internal readonly record struct BinnedPeak
     {
-        Bin = bin;
-        Mz = mz;
-        Intensity = intensity;
-        SpectraId = specId;
-    }
+        internal BinnedPeak(int bin, double mz, double intensity, int specId)
+        {
+            Bin = bin;
+            Mz = mz;
+            Intensity = intensity;
+            SpectraId = specId;
+        }
 
-    internal int Bin { get; init; }
-    internal double Mz { get; init; }
-    internal double Intensity { get; init; }
-    internal int SpectraId { get; init; }
+        internal int Bin { get; init; }
+        internal double Mz { get; init; }
+        internal double Intensity { get; init; }
+        internal int SpectraId { get; init; }
 
-    public override string ToString()
-    {
-        return Mz + " : " + Intensity + " : " + SpectraId;
+        public override string ToString()
+        {
+            return Mz + " : " + Intensity + " : " + SpectraId;
+        }
     }
 }

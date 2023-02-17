@@ -1,12 +1,13 @@
-﻿namespace SpectralAveraging;
-
-public enum WaveletType
+﻿namespace SpectralAveraging
 {
-    Haar = 1, 
-    Db4 = 2
-}
+    public enum WaveletType
+    {
+        Haar = 1, 
+        Db4 = 2
+    }
 
-public enum BoundaryType
-{
-    Reflection = 1
+    public enum BoundaryType
+    {
+        Reflection = 1
+    }
 }

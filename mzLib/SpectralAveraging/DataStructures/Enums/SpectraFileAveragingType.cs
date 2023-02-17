@@ -1,10 +1,11 @@
-﻿namespace SpectralAveraging;
-
-public enum SpectraFileAveragingType
+﻿namespace SpectralAveraging
 {
-    AverageAll,
-    AverageEverynScans,
-    AverageEverynScansWithOverlap,
-    AverageDdaScans,
-    AverageDdaScansWithOverlap
+    public enum SpectraFileAveragingType
+    {
+        AverageAll,
+        AverageEverynScans,
+        AverageEverynScansWithOverlap,
+        AverageDdaScans,
+        AverageDdaScansWithOverlap
+    }
 }

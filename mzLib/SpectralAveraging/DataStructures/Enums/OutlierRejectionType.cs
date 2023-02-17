@@ -1,15 +1,16 @@
-﻿namespace SpectralAveraging;
-
-/// <summary>
-///     List of rejection types implemented.
-/// </summary>
-public enum OutlierRejectionType
+﻿namespace SpectralAveraging
 {
-    NoRejection,
-    MinMaxClipping,
-    PercentileClipping,
-    SigmaClipping,
-    WinsorizedSigmaClipping,
-    AveragedSigmaClipping,
-    BelowThresholdRejection
+    /// <summary>
+    ///     List of rejection types implemented.
+    /// </summary>
+    public enum OutlierRejectionType
+    {
+        NoRejection,
+        MinMaxClipping,
+        PercentileClipping,
+        SigmaClipping,
+        WinsorizedSigmaClipping,
+        AveragedSigmaClipping,
+        BelowThresholdRejection
+    }
 }

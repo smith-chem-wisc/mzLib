@@ -1,8 +1,9 @@
-﻿namespace SpectralAveraging;
-
-public enum SpectraWeightingType
+﻿namespace SpectralAveraging
 {
-    WeightEvenly,
-    MrsNoiseEstimation,
-    TicValue
+    public enum SpectraWeightingType
+    {
+        WeightEvenly,
+        MrsNoiseEstimation,
+        TicValue
+    }
 }
