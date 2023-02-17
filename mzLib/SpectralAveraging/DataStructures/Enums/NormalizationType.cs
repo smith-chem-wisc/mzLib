@@ -1,8 +1,9 @@
-﻿namespace SpectralAveraging;
-
-public enum NormalizationType
+﻿namespace SpectralAveraging
 {
-    NoNormalization,
-    RelativeToTics,
-    AbsoluteToTic
+    public enum NormalizationType
+    {
+        NoNormalization,
+        RelativeToTics,
+        AbsoluteToTic
+    }
 }

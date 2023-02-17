@@ -1,14 +1,15 @@
-﻿namespace SpectralAveraging;
-
-public class Level
+﻿namespace SpectralAveraging
 {
-    public Level(int scale, double[] waveletCoeff, double[] scalingCoeff)
+    public class Level
     {
-        Scale = scale;
-        WaveletCoeff = waveletCoeff;
-        ScalingCoeff = scalingCoeff;
+        public Level(int scale, double[] waveletCoeff, double[] scalingCoeff)
+        {
+            Scale = scale;
+            WaveletCoeff = waveletCoeff;
+            ScalingCoeff = scalingCoeff;
+        }
+        public int Scale { get; private set; }
+        public double[] WaveletCoeff { get; private set; }
+        public double[] ScalingCoeff { get; private set; }
     }
-    public int Scale { get; private set; }
-    public double[] WaveletCoeff { get; private set; }
-    public double[] ScalingCoeff { get; private set; }
 }
