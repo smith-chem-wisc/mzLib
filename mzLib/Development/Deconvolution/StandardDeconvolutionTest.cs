@@ -195,7 +195,7 @@ namespace Development.Deconvolution
         public static void SinglePeak_AnyResult_IsCorrectWithinTolerance(SinglePeakDeconvolutionTestCase testCase)
         {
             // deconvolution
-            List<IsotopicEnvelope> allResults = testCase.Deconvoluter 
+            List<IsotopicEnvelope> allResults = testCase.Deconvoluter
                 .Deconvolute(testCase.SpectrumToDeconvolute, testCase.RangeToDeconvolute).ToList();
 
             // extract tested properties from IsotopicEnvelopeResults
