@@ -159,6 +159,7 @@ namespace UsefulProteomicsDatabases
             }
         }
 
+
         /// <summary>
         /// Load a protein fasta database, using regular expressions to get various aspects of the headers. The first regex capture group is used as each field.
         /// </summary>
