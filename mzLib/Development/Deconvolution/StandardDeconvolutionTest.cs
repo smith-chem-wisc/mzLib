@@ -172,7 +172,7 @@ namespace Development.Deconvolution
             // test deconvolution results
             Assert.That(topScoringResult.Charge, Is.EqualTo(testCase.ExpectedIonChargeState));
 
-            var acceptableDistanceFromTheoreticalWithinTestCaseTolerance =
+            var acceptableDistanceFromTheoreticalWithinTestCaseTolerance = 
                 testCase.DeconvolutionPPmTolerance.GetMaximumValue(testCase.ExpectedMostAbundantObservedIsotopicMass) -
                 testCase.ExpectedMostAbundantObservedIsotopicMass;
             Assert.That(topScoringResult.MostAbundantObservedIsotopicMass,
