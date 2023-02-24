@@ -1,14 +1,14 @@
-﻿using NUnit.Framework;
-using Proteomics;
-using Proteomics.ProteolyticDigestion;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NUnit.Framework;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.DatabaseTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
