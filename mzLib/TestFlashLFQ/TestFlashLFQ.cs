@@ -918,38 +918,19 @@ namespace Test
             Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 0.922);
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["a"].Count == 2);
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["b"].Count == 2);
-
-            //// try with paired samples
-            //peptide.SetIntensity(files[0], 100);
-            //peptide.SetIntensity(files[1], 1000);
-            //peptide.SetIntensity(files[2], 10000);
-
-            //peptide.SetIntensity(files[3], 210);
-            //peptide.SetIntensity(files[4], 2200);
-            //peptide.SetIntensity(files[5], 21500);
-
-            //proteinGroup.ConditionToQuantificationResults.Clear();
-            //engine = new ProteinQuantificationEngine(res, maxThreads: 1, controlCondition: "a", randomSeed: 3, pairedSamples: true);
-            //engine.Run();
-
-            //quantResult = proteinGroup.ConditionToQuantificationResults["b"];
-
-            //Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.098);
-            //Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.103);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
         }
 
         [Test]
-        public static void WhatIsGoingOnInMM()
+        public static void TestFlashLfqQoutputRealData()
         {
-            string outputDirectory = @"C:\Users\mrsho\Downloads\test\flash";
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
-            string psmFile = @"C:\Users\mrsho\Documents\GitClones\MetaMorpheus\Test\bin\Debug\net6.0-windows\LFQTestData\LFQOutput\Search\AllPSMs.psmtsv";
+            string psmFile = Path.Combine(testDataDirectory, "AllPSMs.psmtsv");
 
-            SpectraFileInfo f1r1 = new SpectraFileInfo(@"C:\Users\mrsho\Documents\GitClones\MetaMorpheus\Test\bin\Debug\net6.0-windows\LFQTestData\20100614_Velos1_TaGe_SA_K562_3.mzML", "one", 1, 1, 1);
-            SpectraFileInfo f1r2 = new SpectraFileInfo(@"C:\Users\mrsho\Documents\GitClones\MetaMorpheus\Test\bin\Debug\net6.0-windows\LFQTestData\20100614_Velos1_TaGe_SA_K562_4.mzML", "two", 1, 1, 1);
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, "20100614_Velos1_TaGe_SA_K562_3.mzML"), "one", 1, 1, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, "20100614_Velos1_TaGe_SA_K562_4.mzML"), "two", 1, 1, 1);
 
             List<string> acceptableProteinGroupAccessions = new() { "Q7KZF4", "Q15149", "P52298" };
 
@@ -981,12 +962,12 @@ namespace Test
                 double monoMass = double.Parse(split[22]);
                 double rt = double.Parse(split[2]);
                 int z = (int)double.Parse(split[6]);
-                var proteins = split[25].Split(new char[] { '|' });
-                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                var proteinSubset = split[25].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new();
 
-                if (acceptableProteinGroupAccessions.Contains(proteins.First()))
+                if (acceptableProteinGroupAccessions.Contains(proteinSubset.First()))
                 {
-                    foreach (var protein in proteins)
+                    foreach (var protein in proteinSubset)
                     {
                         if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
                         {
@@ -1007,19 +988,23 @@ namespace Test
             var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, useSharedPeptidesForProteinQuant: true, maxThreads: 1);
             var results = engine.Run();
 
-            string peaks = Path.Combine(outputDirectory, "peaks.tsv");
-            string peptides = Path.Combine(outputDirectory, "peptides.tsv");
-            string proteinsOut = Path.Combine(outputDirectory, "proteins.tsv");
-            string bayes = Path.Combine(outputDirectory, "bayes.tsv");
+            var peaks = results.Peaks.Values.ToList();
+            var peptides = results.PeptideModifiedSequences.Values.ToList();
+            var proteins = results.ProteinGroups.Values.ToList();
 
-            results.WriteResults(peaks, peptides, proteinsOut, bayes, true);
+            Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
+            Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));
 
-            var f1r1MbrResults = results
-                .PeptideModifiedSequences
-                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
+            CollectionAssert.AreEquivalent(new string[]{ "Q7KZF4", "Q7KZF4", "P52298", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+
+            Assert.AreEqual(6, peptides.Count);
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "P52298" }, peptides.Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+
+            Assert.AreEqual(3, proteins.Count);
+            CollectionAssert.AreEquivalent(new string[] { "P52298", "Q15149", "Q7KZF4" }, proteins.Select(p => p.ProteinGroupName.ToArray()));
 
             Directory.Delete(outputDirectory, true);
-            Assert.IsTrue(false);
         }
 
         public static IEnumerable<object[]> MedianPolishTestCases()
@@ -1063,6 +1048,7 @@ namespace Test
             CollectionAssert.AreEqual(expectedColumnEffects, columnEffects);
             Assert.AreEqual(expectedOverallEffect, overallEffect);
         }
+
         [Test]
         public static void TestMedianPolish()
         {
