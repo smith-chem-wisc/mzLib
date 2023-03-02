@@ -42,55 +42,6 @@ namespace Test
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
-        [Test]
-        public static void Bubba()
-        {
-            List<string> filePaths = new()
-            {
-                @"C:\Users\mrsho\Documents\Projects\K562\K562_1\20100614_Velos1_TaGe_SA_K562_1.raw",
-                @"C:\Users\mrsho\Documents\Projects\K562\K562_1\20100614_Velos1_TaGe_SA_K562_2.raw",
-                @"C:\Users\mrsho\Documents\Projects\K562\K562_1\20100614_Velos1_TaGe_SA_K562_3.raw",
-                @"C:\Users\mrsho\Documents\Projects\K562\K562_1\20100614_Velos1_TaGe_SA_K562_4.raw",
-                @"C:\Users\mrsho\Documents\Projects\K562\K562_1\20100614_Velos1_TaGe_SA_K562_5.raw",
-                @"C:\Users\mrsho\Documents\Projects\K562\K562_1\20100614_Velos1_TaGe_SA_K562_6.raw"
-            };
-
-            Dictionary<int, List<double>> spectrum = new();
-
-            foreach (string path in filePaths)
-            {
-                var a = ThermoRawFileReader.LoadAllStaticData(path, maxThreads: 7);
-
-                var scans = a.GetMS1Scans().ToList();
-
-                foreach (var scan in scans)
-                {
-                    for (int i = 0; i < scan.MassSpectrum.XArray.Length; i++)
-                    {
-                        int bigMz = (int)(scan.MassSpectrum.XArray[i] /10.0);
-                        if (spectrum.ContainsKey(bigMz))
-                        {
-                            spectrum[bigMz].Add(scan.MassSpectrum.YArray[i]);
-                        }
-                        else
-                        {
-                            spectrum.Add(bigMz, new List<double>() { scan.MassSpectrum.YArray[i] });
-                        }
-                    }
-                }
-            }
-
-            List<(double, double)> pairs = new();
-            foreach (KeyValuePair<int, List<double>> element in spectrum)
-            {
-                pairs.Add(((double)element.Key *10.0, element.Value.Median()));
-            }
-
-            File.WriteAllLines(@"C:\Users\mrsho\Downloads\avgspec.tsv", pairs.Select(p=>p.Item1.ToString() + "\t" + p.Item2.ToString()));
-
-            Assert.IsTrue(false);
-        }
-
         /// <summary>
         /// Tests the dynamic connection for thermorawfilereader
         /// </summary>
