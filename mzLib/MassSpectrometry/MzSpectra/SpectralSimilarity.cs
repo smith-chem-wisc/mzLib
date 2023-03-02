@@ -30,6 +30,17 @@ namespace MassSpectrometry.MzSpectra
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
+        /// <summary>
+        /// Constructs a spectral similarity object where the P arrays represent the experimental spectrum and the Q arrays represent the theoretical spectrum
+        /// </summary>
+        /// <param name="P_XArray">Experimental X Array (m/z) </param>
+        /// <param name="P_YArray">Experimental Y Array (intensity) </param>
+        /// <param name="Q_XArray">Theoretical X Array (m/z) </param>
+        /// <param name="Q_YArray">Theoretical Y Array (intensity)</param>
+        /// <param name="scheme"></param>
+        /// <param name="toleranceInPpm"></param>
+        /// <param name="allPeaks"></param>
+        /// <param name="filterOutBelowThisMz"></param>
         public SpectralSimilarity(double[] P_XArray, double[] P_YArray, double[] Q_XArray, double[] Q_YArray, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
             ExperimentalYArray = Normalize(FilterOutIonsBelowThisMz(P_XArray, P_YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Easy.Common.Extensions;
+using MassSpectrometry.Deconvolution.Algorithms;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -11,7 +12,7 @@ namespace MassSpectrometry
     public enum DeconvolutionTypes
     {
         ClassicDeconvolution,
-        AlexDeconvolution,
+        SpectralDeconvolution,
     }
 
     /// <summary>
@@ -44,9 +45,13 @@ namespace MassSpectrometry
             switch (DeconvolutionType)
             {
                 case DeconvolutionTypes.ClassicDeconvolution:
+                    ((ClassicDeconvolutionParameters)DeconvolutionParameters).Range = 
+                        new MzRange(scan.IsolationRange.Minimum - 8.5, scan.IsolationRange.Maximum + 8.5);
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
+                case DeconvolutionTypes.SpectralDeconvolution:
+                    ((SpectralDeconvolutionParameters)DeconvolutionParameters).ScanRange =
+                        new MzRange(scan.IsolationRange.Minimum - 8.5, scan.IsolationRange.Maximum + 8.5);
                     break;
             }
 
@@ -69,8 +74,8 @@ namespace MassSpectrometry
                     DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
-                    DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithm(deconParameters);
+                case DeconvolutionTypes.SpectralDeconvolution:
+                    DeconvolutionAlgorithm = new SpectralDeconvolutionAlgorithm(deconParameters);
                     break;
 
                 default: throw new MzLibException("DeconvolutionType not yet supported");

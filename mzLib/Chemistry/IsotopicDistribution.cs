@@ -56,7 +56,22 @@ namespace Chemistry
             intensities = new double[count];
         }
 
-        // Clone() produces shallow copies, but because double is a primitive type, this is acceptable
+        public double MostAbundantMass
+        {
+            get
+            {
+                double maxIntensity = intensities.Max();
+                for (int i = 0; i < masses.Length; i++)
+                {
+                    if (Math.Abs(intensities[i] - maxIntensity) < 0.0001)
+                    {
+                        return (masses[i]);
+                    }
+                }
+                return Double.NaN;
+            }
+        }
+        public double MonoIsotopicMass => masses[0];
         public double[] Masses => (double[]) masses.Clone();
         public double[] Intensities => (double[]) intensities.Clone();
 

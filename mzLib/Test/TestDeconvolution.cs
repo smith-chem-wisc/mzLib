@@ -11,6 +11,12 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Easy.Common.Extensions;
+using MassSpectrometry.Deconvolution;
+using MassSpectrometry.Deconvolution.Algorithms;
+using MassSpectrometry.Deconvolution.Scoring;
+using TopDownProteomics.MassSpectrometry;
+using IsotopicDistribution = Chemistry.IsotopicDistribution;
 
 namespace Test
 {
@@ -71,7 +77,7 @@ namespace Test
             Protein test1 = new Protein(peptide, "Accession");
             DigestionParams d = new DigestionParams();
             PeptideWithSetModifications pw = new PeptideWithSetModifications(test1, d, 1, test1.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
-            double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
+            double mostAbundantMz = pw.MostAbundantMass.ToMz(charge);
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
             Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
@@ -88,7 +94,7 @@ namespace Test
             //check assigned correctly
             List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
-            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMz, Is.EqualTo(mostAbundantMz).Within(0.1));
 
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
@@ -157,7 +163,7 @@ namespace Test
             Protein test1 = new Protein(peptide, "Accession");
             DigestionParams d = new DigestionParams();
             PeptideWithSetModifications pw = new PeptideWithSetModifications(test1, d, 1, test1.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
-            double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
+            double pwsmMonoisotopicMass = pw.MostAbundantMass;
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
             Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
@@ -181,7 +187,7 @@ namespace Test
             List<IsotopicEnvelope> lie2 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
 
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
-            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass, Is.EqualTo(pwsmMonoisotopicMass).Within(0.05));
 
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
@@ -189,5 +195,166 @@ namespace Test
         }
 
         #endregion
+
+        #region SpectralDecon
+
+        [Test]
+        public static void TestGetSecondMostAbundantSpecies()
+        {
+            Protein testProtein = new Protein("PEPTIDEFPEPTIDEK", "Accession");
+            DigestionParams digestionParams = new DigestionParams();
+            PeptideWithSetModifications pwsm = new PeptideWithSetModifications(testProtein, digestionParams, 1, testProtein.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
+            IsotopicDistribution isotopicDistribution = IsotopicDistribution.GetDistribution(pwsm.FullChemicalFormula, 
+                fineResolution: 0.125, minProbability: 0.001);
+
+            int charge = 1;
+            IsotopicEnvelope testEnvelope = new IsotopicEnvelope(isotopicDistribution, charge);
+            Assert.That(testEnvelope.MostAbundantObservedIsotopicMz, Is.EqualTo(pwsm.MonoisotopicMass.ToMz(charge)).Within(0.1));
+            Assert.That(testEnvelope.SecondMostAbundantObservedIsotopicMz, Is.EqualTo(isotopicDistribution.Masses[1].ToMz(charge)).Within(0.1));
+        }
+
+        [Test]
+
+        public void TestIndexingForSpectralDecon()
+        {
+            //PEPTIDEK vs PEPTIDEFPEPTIDEK (the longer peptide has ~ twice the mass of the shorter, enabling a test of the indexing system
+            Protein myProtein = new Protein("PEPTIDEKPEPTIDEFPEPTIDEK", "accession");
+            DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            List<PeptideWithSetModifications> pep = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).ToList();
+
+            int minAssumedChargeState = 1;
+            int maxAssumedChargeState = 60;
+            double deconvolutionTolerancePpm = 20;
+            int binsPerDalton = 1;
+            int scanMinimum = 460;
+
+            SpectralDeconvolutionParameters spectralDeconParams = new SpectralDeconvolutionParameters(
+                minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
+                new List<Protein>() { myProtein },
+                new List<Modification>(), new List<Modification>(), digest1,
+                new List<SilacLabel>(), false, scanMinimumMz: scanMinimum, scanMaximumMz: 2000,
+                ambiguityThresholdForIsotopicDistribution: 0.9, binsPerDalton: binsPerDalton);
+
+            SpectralDeconvolutionAlgorithm spectralDecon = new SpectralDeconvolutionAlgorithm(spectralDeconParams);
+
+            PeptideWithSetModifications peptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEK")).First();
+            PeptideWithSetModifications doublePeptidek = pep.Where(p => p.FullSequence.Equals("PEPTIDEFPEPTIDEK")).First();
+            Assert.That(spectralDecon.EnvelopeDictionary.ContainsKey(peptidek) & spectralDecon.EnvelopeDictionary.ContainsKey(doublePeptidek));
+            Assert.That(spectralDecon.EnvelopeDictionary[peptidek].Count == 2 & spectralDecon.EnvelopeDictionary[doublePeptidek].Count == 4);
+
+            List<List<MinimalSpectrum>> indexedSpectra = new();
+            //Iterate over 2d Array
+            foreach (var listOfSpectra in spectralDecon.IndexedLibrarySpectra)
+            {
+                if (listOfSpectra.IsNotNullOrEmpty()) indexedSpectra.Add(listOfSpectra);
+            }
+            
+            // For the longer peptide, the first and second isotopes have extremely similar abundances,
+            // so they should be stored in different bins for the +1, +2, and +4 charge states (the +3 charge state masses fall within the same bin [619 Thompsons])
+            // The shorter peptide is approximately 1/2 the mass of the longer peptide. With bin sizes of one dalton,
+            // every spectra for the shorter peptide should share a bin with a peptide from a longer spectra.
+            // This assertion does a lot of heavy lifting in testing the indexing engine. 
+            // DO NOT CHANGE unless you understand what is being tested here
+            //Assert.That(indexedSpectra.Count == 7);
+
+            int peptideCharge = 2;
+            int binIndex = (int)Math.Floor(binsPerDalton * (peptidek.MonoisotopicMass.ToMz(charge: peptideCharge) - scanMinimum));
+            int chargeIndex = peptideCharge - minAssumedChargeState;
+            Assert.That(spectralDecon.SpectrumIndexToPwsmMap.TryGetValue((binIndex, chargeIndex, 0), out var peptidek2Charge));
+            Assert.That(spectralDecon.SpectrumIndexToPwsmMap.TryGetValue((binIndex, 3, 0), out var doublePeptideK4Charge));
+            Assert.That(peptidek2Charge.BaseSequence.Equals(peptidek.BaseSequence));
+            Assert.That(doublePeptideK4Charge.BaseSequence.Equals(doublePeptidek.BaseSequence));
+
+            peptideCharge = 1;
+            chargeIndex = peptideCharge - minAssumedChargeState;
+            binIndex = (int)Math.Floor(binsPerDalton * (doublePeptidek.MonoisotopicMass.ToMz(charge: 1) - scanMinimum));
+            Assert.That(spectralDecon.SpectrumIndexToPwsmMap.TryGetValue((binIndex, chargeIndex, 0), out var doublePeptideK1Charge) && 
+                        !spectralDecon.SpectrumIndexToPwsmMap.TryGetValue((binIndex, chargeIndex, 1), out var doesNotExist));
+            Assert.That(doublePeptideK1Charge == doublePeptideK4Charge);
+
+        }
+
+        [Test]
+        [TestCase("APSGGKK", "12-18-17_frac7_calib_ms1_663_665.mzML", 2)]
+        [TestCase("PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK", "FXN11_tr1_032017-calib_ms1_scans716_718.mzML", 8)]
+        [TestCase("PKRKVSSAEGAAKEEPKRRSARLSAKPPAKVEAKPKKAAAKDKSSDKKVQTKGKRGAKGKQAEVANQETKEDLPAENGETKTEESPASDEAGEKEAKSD", "FXN11_tr1_032017-calib_ms1_scans781_783.mzML", 16)]
+        public static void CheckSpectralGetMostAbundantObservedIsotopicMass(string peptide, string file, int charge)
+        {
+            Protein myProtein = new Protein(peptide, "Accession");
+            DigestionParams digest1 = new DigestionParams("top-down");
+            PeptideWithSetModifications pw = new PeptideWithSetModifications(myProtein, digest1, 1, myProtein.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
+            double pwsmMonoisotopicMass = pw.MostAbundantMass;
+
+            string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
+            Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
+
+            List<MsDataScan> singlescan = singleMZML.GetAllScansList();
+
+            MzSpectrum singlespec = singlescan[0].MassSpectrum;
+            MzRange singleRange = new MzRange(singlespec.XArray.Min(), singlespec.XArray.Max());
+
+
+            int minAssumedChargeState = 1;
+            int maxAssumedChargeState = 60;
+            double deconvolutionTolerancePpm = 20;
+            int binsPerDalton = 1;
+            int scanMinimum = 460;
+
+            DeconvolutionParameters deconParams = new SpectralDeconvolutionParameters(
+                minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
+                new List<Protein>() { myProtein },
+                new List<Modification>(), new List<Modification>(), digest1,
+                new List<SilacLabel>(), false, scanMinimumMz: singleRange.Minimum, scanMaximumMz: singleRange.Maximum,
+                ambiguityThresholdForIsotopicDistribution: 0.9, binsPerDalton: binsPerDalton);
+
+            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionTypes.SpectralDeconvolution, deconParams);
+
+            //check assigned correctly
+
+            List<IsotopicEnvelope> lie2 = deconvoluter.SpectralDeconvoluteMzSpectra(singlespec, singleRange).ToList();
+
+            List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass, Is.EqualTo(pwsmMonoisotopicMass).Within(0.05));
+
+            //check that if already assigned, skips assignment and just recalls same value
+            //List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
+            //Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
+        }
+        #endregion
+
+        #region scorerTests
+
+        [Test]
+        public static void ScorerTest()
+        {
+            Scorer.ScoringMethods kullbackMethod = Scorer.ScoringMethods.KullbackLeibler;
+            Scorer.ScoringMethods spectralContrastMethod = Scorer.ScoringMethods.SpectralContrastAngle;
+
+            // KullbackLeibler hasn't been implemented yet
+            Assert.That(() => new Scorer(kullbackMethod, new PpmTolerance(5.0)), Throws.Exception.TypeOf<NotImplementedException>());
+            // Assert.That(kullbackScorer.PoorScore > 10);
+            // In kullback leibler, low scores are better. In spectral contrast angle, high scores are better
+            // Assert.That(kullbackScorer.TestForScoreImprovement(0.01, 0.03, out var better));
+
+
+            Scorer spectralScorer = new Scorer(spectralContrastMethod, new PpmTolerance(5.0));
+            Assert.That(spectralScorer.PoorScore <= 0);
+            Assert.That(!spectralScorer.TestForScoreImprovement(0.01, 0.03, out var betterScore));
+
+
+            MinimalSpectrum testSpectrum =
+                new MinimalSpectrum(new double[] { 1.0, 2.0, 3.0, 4.0 }, new double[] { 1.0, 2.0, 3.0, 4.0 });
+            MinimalSpectrum comparisonSpectrum =
+                new MinimalSpectrum(new double[] { 1.0, 2.0, 3.0, 4.0 }, new double[] { 2.0, 1.0, 4.0, 3.0 });
+
+            double spectralScore = spectralScorer.Score(testSpectrum, comparisonSpectrum);
+            Assert.That(spectralScore, Is.EqualTo(0.766).Within(0.001));
+            Assert.That(spectralScore, Is.EqualTo(spectralScorer.Score(comparisonSpectrum, testSpectrum) ).Within(0.01));
+
+        }
+
+        #endregion
+
     }
 }

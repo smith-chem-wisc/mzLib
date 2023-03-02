@@ -34,5 +34,20 @@ namespace MassSpectrometry
                 return deconvoluter.DeconvolutionAlgorithm.Deconvolute(spectrum, range);
             }
         }
+
+        public static IEnumerable<IsotopicEnvelope> SpectralDeconvoluteMzSpectra(this Deconvoluter deconvoluter,
+            MzSpectrum spectrum, MzRange range)
+        {
+            if (deconvoluter.DeconvolutionType != DeconvolutionTypes.SpectralDeconvolution)
+            {
+                throw new MzLibException("Deconvoluter is not of correct type for this extension method");
+            }
+            else
+            {
+                ((SpectralDeconvolutionParameters)deconvoluter.DeconvolutionParameters).ScanRange = range;
+                return deconvoluter.DeconvolutionAlgorithm.Deconvolute(spectrum);
+
+            }
+        }
     }
 }
