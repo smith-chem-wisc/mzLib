@@ -14,8 +14,6 @@ using Easy.Common.Extensions;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using Microsoft.VisualStudio.TestPlatform.ObjectModel;
-using OxyPlot;
 
 namespace Test
 {
@@ -985,7 +983,7 @@ namespace Test
                 }
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, useSharedPeptidesForProteinQuant: true, maxThreads: 1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, useSharedPeptidesForProteinQuant: true, maxThreads: -1);
             var results = engine.Run();
 
             var peaks = results.Peaks.Values.ToList();
