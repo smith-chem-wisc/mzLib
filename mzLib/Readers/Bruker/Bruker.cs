@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
+using MzLibUtil;
 
 namespace Readers.Bruker
 {
@@ -124,6 +125,185 @@ namespace Readers.Bruker
 			return spectraList;
 		}
 
+		// ids are the one based scan numbers
+		private void GetMsDataScan(int id)
+		{
+			// acquisition keys
+			List<AcqKeyTable> acqKeys = GetAcqKeyTable();
+			// spectra data
+			var spectraTable = GetFullSpectraTable();
+			// msms info
+			var stepsTable = GetFullStepsTable();
+
+
+
+			// if the id fields are null, then it doesn't exist.
+			MzSpectrum spectrumData = GetSpectraData(spectraTable[id]);
+			int? oneBasedPrecursorScanNumber =
+				spectraTable[id].ParentSpectrum is null ? null : spectraTable[id].ParentSpectrum;
+			// need the plus one because Bruker codes MS scans as 0, but we code them as 1. 
+			int msOrder = acqKeys[id].MsLevel + 1; 
+			bool isCentroid = spectraTable[id].LineIndexId is not null;  
+			var polarity = acqKeys[id].Polarity == 0 ? Polarity.Positive : Polarity.Negative;
+			double? selectedIonMz = null;
+
+			DissociationType? dissociationType = null; 
+			if (msOrder > 1)
+			{
+				selectedIonMz = stepsTable.First(i => i.TargetSpectrum == id).ParentMass;
+				switch (acqKeys[id].ScanMode)
+				{
+					case 0:
+						dissociationType = null;
+						break;
+					case 2:
+						dissociationType = DissociationType.CID;
+						break;
+					case 4:
+						dissociationType = DissociationType.ISCID;
+						break;
+					case 255:
+						dissociationType = DissociationType.Unknown;
+						break; 
+					default:
+						dissociationType = DissociationType.Unknown;
+						break; 
+				}
+			}
+
+
+
+			MzRange scanWindowRange = new MzRange((double)spectraTable[id].MzAcqRangeLower,
+				(double)spectraTable[id].MzAcqRangeUpper);
+			string scanFilter = "f";
+			string nativeId = "scan=" + id; 
+
+			MsDataScan scan = new MsDataScan(spectrumData, 
+				oneBasedScanNumber:id, oneBasedPrecursorScanNumber:oneBasedPrecursorScanNumber, retentionTime: spectraTable[id].Rt, 
+				msnOrder:msOrder, isCentroid:isCentroid, polarity:polarity, selectedIonMz:selectedIonMz, scanWindowRange:scanWindowRange,
+				nativeId:nativeId, dissociationType:dissociationType, scanFilter:scanFilter); 
+
+		}
+
+		private MzSpectrum GetSpectraData(SpectraTableEntry spectraInfo)
+		{
+			// get centroided data if available. Otherwise, default to profile.
+			// if neither exists, return a spectra consisting of two zeroes. This probably shouldn't 
+			// happen, but can't rule it out. 
+			if (spectraInfo.LineMzId == null && spectraInfo.ProfileMzId == null)
+			{
+				return new MzSpectrum(new double[,] {{0}, {0}}); 
+			}
+			if (spectraInfo.LineMzId == null)
+			{
+				double[] profileMzs = GetBafDoubleArray(_handle, (ulong)spectraInfo.ProfileMzId);
+				double[] profileInts = GetBafDoubleArray(_handle, (ulong)spectraInfo.ProfileIntensityId);
+				return new MzSpectrum(profileMzs, profileInts, true); 
+			}
+
+			double[] lineMzs = GetBafDoubleArray(_handle, (ulong)spectraInfo.LineMzId);
+			double[] lineInt = GetBafDoubleArray(_handle, (ulong)spectraInfo.LineIntensityId);
+			return new MzSpectrum(lineMzs, lineInt, true); 
+		}
+
+		private const string GetAcqKeyTableString = @"SELECT * FROM AcquisitionKeys";
+		private const int AcqKeyTableColumns = 5; 
+		private List<AcqKeyTable> GetAcqKeyTable()
+		{
+			List<AcqKeyTable> spectraList = new();
+			using var command = new SQLiteCommand(_connection);
+			command.CommandText = GetAcqKeyTableString;
+
+			using var sqliteReader = command.ExecuteReader();
+			while (sqliteReader.Read())
+			{
+				AcqKeyTable table = new AcqKeyTable();
+				for (int i = 0; i < AcqKeyTableColumns; i++)
+				{
+					if (sqliteReader.IsDBNull(i))
+					{
+						continue; 
+					}
+
+					switch (i)
+					{
+						case 0: 
+							table.Id = sqliteReader.GetInt32(i);
+							break;
+						case 1: 
+							table.Polarity = sqliteReader.GetInt32(i);
+							break;
+						case 2: 
+							table.ScanMode = sqliteReader.GetInt32(i);
+							break;
+						case 3: 
+							table.AcquisitionMode = sqliteReader.GetInt32(i);
+							break;
+						case 4: 
+							table.MsLevel = sqliteReader.GetInt32(i);
+							break; 
+					}
+				}
+				spectraList.Add(table);
+			}
+			return spectraList;
+		}
+
+		private const string GetStepsTableString = @"SELECT * FROM Steps";
+		private const int StepsTableColumns = 6;
+
+		private List<StepsRow> GetFullStepsTable()
+		{
+			List<StepsRow> stepsTableList = new();
+			using var command = new SQLiteCommand(_connection);
+			command.CommandText = GetStepsTableString; 
+			using var sqliteReader = command.ExecuteReader();
+			while (sqliteReader.Read())
+			{
+				StepsRow stepsRow = new StepsRow();
+				var propertiesArray = stepsRow.GetPropertyNames();
+				stepsTableList.Add(SqlColumnReader<StepsRow>(sqliteReader));
+			}
+			return stepsTableList;
+		}
+
+		private T SqlColumnReader<T>(SQLiteDataReader reader) where T: new()
+		{
+			// get all the property names, then iterate over that. 
+			// The objects should be exact 1:1 column corresponding so as 
+			// long as that's guaranteed, then it should work no problem. 
+			var propertiesArray = typeof(T).GetPropertyNames();
+			if (propertiesArray == null)
+			{
+				throw new ArgumentNullException(); 
+			}
+
+			T newSqlMappedCsObject = new(); 
+			for (int i = 0; i < propertiesArray.Length; i++)
+			{
+				// check type of property about to be returned
+				// then use the correct method from SqliteDataReader to parse 
+				// the value. 
+				Type propertyType = typeof(T).GetProperty(propertiesArray[i])!.PropertyType;
+				if (propertyType == typeof(int))
+				{
+					typeof(T).GetProperty(propertiesArray[i])!
+						.SetValue(newSqlMappedCsObject, reader.GetInt32(i));
+				}else if (propertyType == typeof(double))
+				{
+					typeof(T).GetProperty(propertiesArray[i])!
+						.SetValue(newSqlMappedCsObject, reader.GetDouble(i));
+				}
+				else if (propertyType == typeof(string))
+				{
+					typeof(T).GetProperty(propertiesArray[i])!
+						.SetValue(newSqlMappedCsObject, reader.GetString(i));
+				}
+			}
+
+			return newSqlMappedCsObject;
+		}
+
 		private void GetFullMetaDataTable()
 		{
 
@@ -158,12 +338,11 @@ namespace Readers.Bruker
 			   (int ignore_calibrator_ami, byte[] filename_utf8);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern void baf2sql_array_close_storage
-			   (UInt64 handle);
+		public static extern void baf2sql_array_close_storage(UInt64 handle);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
 		public static extern void baf2sql_array_get_num_elements
-			   (UInt64 handle, UInt64 id, ref UInt64 num_elements);
+			(UInt64 handle, UInt64 id, ref UInt64 num_elements);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
 		public static extern int baf2sql_array_read_double
@@ -276,6 +455,18 @@ namespace Readers.Bruker
 		#endregion
 	}
 
+	internal class StepsRow
+	{
+		public int TargetSpectrum { get; set; }
+		public int Number { get; set; }
+		public int IsolationType { get; set; }
+
+		public int ReactionType { get; set; }
+		// 0 = MS; 1 = MS/MS
+		public int MsLevel { get; set; }
+		public double ParentMass { get; set; }
+	}
+
 	internal class SpectraTableEntry
 	{
 		public int Id { get; set; }
@@ -287,15 +478,36 @@ namespace Readers.Bruker
 		public int MzAcqRangeUpper { get; set; }
 		public double SumIntensity { get; set; }
 		public double MaxIntensity { get; set; }
-		public int TransformatorId { get; set; }
-		public int ProfileMzId { get; set; }
+		public int? TransformatorId { get; set; }
+		public int? ProfileMzId { get; set; }
 
-		public int ProfileIntensityId { get; set; }
-		public int LineIndexId { get; set; }
-		public int LineMzId { get; set; }
-		public int LineIntensityId { get; set; }
-		public int LineIndexWidthId { get; set; }
-		public int LinePeakAreaId { get; set; }
-		public int LineSnrId { get; set; }
+		public int? ProfileIntensityId { get; set; }
+		public int? LineIndexId { get; set; }
+		public int? LineMzId { get; set; }
+		public int? LineIntensityId { get; set; }
+		public int? LineIndexWidthId { get; set; }
+		public int? LinePeakAreaId { get; set; }
+		public int? LineSnrId { get; set; }
+	}
+
+	public class AcqKeyTable
+	{
+		public int Id { get; set; }
+		// 0 = positive, 1 = negative 
+		public int Polarity { get; set; }
+		// 0 = MS
+		// 2 = MS/MS
+		// 4 = in-source CID
+		// 5 = broadband CID
+		// 255 = unknown
+		public int ScanMode { get; set; }
+		// 1 = (axial or orthogonal) TOF, linear detection mode
+		// 2 = (axial or orthogonal) TOF, reflector detection mode
+		// 33 = FTMS
+		// 255 = unknown
+		public int AcquisitionMode { get; set; }
+		// 0 = MS (no fragmentation),
+		// 1 = MS/MS
+		public int MsLevel { get; set; }
 	}
 }
