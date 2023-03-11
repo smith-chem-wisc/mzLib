@@ -8,6 +8,7 @@ using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
 using MzLibUtil;
+using UsefulProteomicsDatabases;
 
 namespace Readers.Bruker
 {
@@ -17,7 +18,25 @@ namespace Readers.Bruker
 		private ulong _handle; 
 		public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
 		{
-			throw new NotImplementedException();
+			if (!File.Exists(FilePath))
+			{
+				throw new FileNotFoundException(); 
+			}
+			Loaders.LoadElements();
+
+			List<MsDataScan> scans = new(); 
+			OpenFileConnection(FilePath);
+			int totalSpectra = GetTotalSpectraCount();
+			LoadTablesInMemory();
+			for (int i = 1; i <= totalSpectra; i++)
+			{
+				var tempScan = GetMsDataScan(i, filteringParams);
+				scans.Add(tempScan); 
+			}
+			CloseFileConnection();
+			Scans = scans.OrderBy(x => x.OneBasedPrecursorScanNumber).ToArray();
+			SourceFile = GetSourceFile();
+			return this; 
 		}
 
 		public override SourceFile GetSourceFile()
@@ -126,32 +145,53 @@ namespace Readers.Bruker
 		}
 
 		// ids are the one based scan numbers
-		private void GetMsDataScan(int id)
+		private List<AcqKeyTable> _acqKeyTable = new List<AcqKeyTable>();
+		private List<SpectraTableEntry> _spectraTable = new List<SpectraTableEntry>();
+		private List<StepsRow> _stepsTable = new List<StepsRow>();
+
+		private const string GetTotalSpectraCountString =
+			@"SELECT COUNT(*) FROM Spectra"; 
+		private int GetTotalSpectraCount()
 		{
-			// acquisition keys
-			List<AcqKeyTable> acqKeys = GetAcqKeyTable();
-			// spectra data
-			var spectraTable = GetFullSpectraTable();
-			// msms info
-			var stepsTable = GetFullStepsTable();
+			using var command = new SQLiteCommand(_connection); 
+			command.CommandText = GetTotalSpectraCountString;
+			using var sqliteReader = command.ExecuteReader();
+			int count = 0; 
+			while (sqliteReader.Read())
+			{
+				count = sqliteReader.GetInt32(0);
+				break; 
+			}
 
+			return count; 
+		}
 
+		private void LoadTablesInMemory()
+		{
+			_acqKeyTable = GetAcqKeyTable();
+			_spectraTable = GetFullSpectraTable(); 
+			_stepsTable = GetFullStepsTable();
+		}
 
+		private MsDataScan GetMsDataScan(int id, IFilteringParams? filteringParams)
+		{
 			// if the id fields are null, then it doesn't exist.
-			MzSpectrum spectrumData = GetSpectraData(spectraTable[id]);
+			MzSpectrum spectrumData = GetSpectraData(_spectraTable[id], filteringParams);
 			int? oneBasedPrecursorScanNumber =
-				spectraTable[id].ParentSpectrum is null ? null : spectraTable[id].ParentSpectrum;
+				_spectraTable[id].ParentSpectrum is null ? null : _spectraTable[id].ParentSpectrum;
 			// need the plus one because Bruker codes MS scans as 0, but we code them as 1. 
-			int msOrder = acqKeys[id].MsLevel + 1; 
-			bool isCentroid = spectraTable[id].LineIndexId is not null;  
-			var polarity = acqKeys[id].Polarity == 0 ? Polarity.Positive : Polarity.Negative;
+			int msOrder = _acqKeyTable[id].MsLevel + 1; 
+			bool isCentroid = _spectraTable[id].LineIndexId is not null;  
+			var polarity = _acqKeyTable[id].Polarity == 0 ? Polarity.Positive : Polarity.Negative;
 			double? selectedIonMz = null;
+
+			MZAnalyzerType analyzer = _acqKeyTable[id].AcquisitionMode == 33 ? MZAnalyzerType.FTICR : MZAnalyzerType.TOF;  
 
 			DissociationType? dissociationType = null; 
 			if (msOrder > 1)
 			{
-				selectedIonMz = stepsTable.First(i => i.TargetSpectrum == id).ParentMass;
-				switch (acqKeys[id].ScanMode)
+				selectedIonMz = _stepsTable.First(i => i.TargetSpectrum == id).ParentMass;
+				switch (_acqKeyTable[id].ScanMode)
 				{
 					case 0:
 						dissociationType = null;
@@ -171,21 +211,25 @@ namespace Readers.Bruker
 				}
 			}
 
-
-
-			MzRange scanWindowRange = new MzRange((double)spectraTable[id].MzAcqRangeLower,
-				(double)spectraTable[id].MzAcqRangeUpper);
+			// need to get the isolation width from the variables table, but the variables table doesn't 
+			// have an easily accessible name. I guess I don't need to but it is kind of nice. 
+			MzRange scanWindowRange = new MzRange((double)_spectraTable[id].MzAcqRangeLower,
+				(double)_spectraTable[id].MzAcqRangeUpper);
 			string scanFilter = "f";
 			string nativeId = "scan=" + id; 
 
-			MsDataScan scan = new MsDataScan(spectrumData, 
-				oneBasedScanNumber:id, oneBasedPrecursorScanNumber:oneBasedPrecursorScanNumber, retentionTime: spectraTable[id].Rt, 
-				msnOrder:msOrder, isCentroid:isCentroid, polarity:polarity, selectedIonMz:selectedIonMz, scanWindowRange:scanWindowRange,
-				nativeId:nativeId, dissociationType:dissociationType, scanFilter:scanFilter); 
-
+			return new MsDataScan(spectrumData,
+				oneBasedScanNumber: id, msnOrder: msOrder, isCentroid: isCentroid,
+				polarity: polarity, retentionTime: _spectraTable[id].Rt,
+				scanWindowRange: scanWindowRange, scanFilter: scanFilter,
+				mzAnalyzer: analyzer, totalIonCurrent: _spectraTable[id].SumIntensity,
+				injectionTime: null, noiseData: new double[,] { { 0 }, { 0 } },
+				nativeId: nativeId, selectedIonMz: selectedIonMz, dissociationType:dissociationType,
+				oneBasedPrecursorScanNumber:oneBasedPrecursorScanNumber, 
+				isolationMZ:selectedIonMz);
 		}
 
-		private MzSpectrum GetSpectraData(SpectraTableEntry spectraInfo)
+		private MzSpectrum GetSpectraData(SpectraTableEntry spectraInfo, IFilteringParams filteringParams)
 		{
 			// get centroided data if available. Otherwise, default to profile.
 			// if neither exists, return a spectra consisting of two zeroes. This probably shouldn't 
@@ -198,11 +242,28 @@ namespace Readers.Bruker
 			{
 				double[] profileMzs = GetBafDoubleArray(_handle, (ulong)spectraInfo.ProfileMzId);
 				double[] profileInts = GetBafDoubleArray(_handle, (ulong)spectraInfo.ProfileIntensityId);
+				if (filteringParams != null
+				    && profileMzs.Length > 0
+				    && filteringParams.ApplyTrimmingToMsMs)
+				{
+					WindowModeHelper.Run(ref profileInts,
+						ref profileMzs, filteringParams, 
+						profileMzs[0], profileMzs[^0]);
+				}
+
 				return new MzSpectrum(profileMzs, profileInts, true); 
 			}
 
 			double[] lineMzs = GetBafDoubleArray(_handle, (ulong)spectraInfo.LineMzId);
 			double[] lineInt = GetBafDoubleArray(_handle, (ulong)spectraInfo.LineIntensityId);
+			if (filteringParams != null
+			    && lineMzs.Length > 0
+			    && filteringParams.ApplyTrimmingToMsMs)
+			{
+				WindowModeHelper.Run(ref lineInt,
+					ref lineMzs, filteringParams,
+					lineMzs[0], lineMzs[^0]);
+			}
 			return new MzSpectrum(lineMzs, lineInt, true); 
 		}
 
