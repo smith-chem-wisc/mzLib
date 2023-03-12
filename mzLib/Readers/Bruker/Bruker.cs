@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
@@ -12,11 +8,37 @@ using UsefulProteomicsDatabases;
 
 namespace Readers.Bruker
 {
+	/// <summary>
+	/// Reads Bruker data files (but not TimsTOF data). The major quirk of the
+	/// Burker file format is that it relies on an SQL database in order to retrieve data.
+	/// Therefore, I had to write a bunch of fairly simple SQL statements in order to access the data.
+	/// These are stored in const strings right above the methods they are used in. Please don't move
+	/// or change them without understanding SQL. -AVC
+	/// </summary>
 	public class Bruker : MsDataFile
 	{
-		private SQLiteConnection _connection;
-		private ulong _handle; 
-		public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
+		public Bruker(string filePath) : base(filePath) { }
+
+		/* There are three tables that contain all of the information required to create an MsDataScan object: Steps (which has isolation information),
+		 Spectra (contains the spectrum metadata), and AcqKeys (contains more metadata). Unfortunately, the metadata is spread over the three tables, 
+		making it rather complicated to cleanly return an MsDataScan. LoadAllStatic data loads all the scans into memory using a single SQL query. 
+		LoadDynamic uses an sqlite statement to get the requested scan each time it is requested. 
+		 */ 
+		/// <summary>
+		/// Connection to sqlite database that is initialized when this object is created.
+		/// </summary>
+		private SQLiteConnection? _connection;
+		/// <summary>
+		/// This is an identification for the requested sqlite database. This is very important. Don't touch it. 
+		/// </summary>
+		private ulong? _handle;
+		
+		// tables used for LoadAllStaticData. 
+		private List<AcqKeyRow> _acqKeyTable = new List<AcqKeyRow>();
+		private List<SpectraTableRow> _spectraTable = new List<SpectraTableRow>();
+		private List<StepsRow> _stepsTable = new List<StepsRow>();
+
+		public override MsDataFile LoadAllStaticData(FilteringParams? filteringParams = null, int maxThreads = 1)
 		{
 			if (!File.Exists(FilePath))
 			{
@@ -30,125 +52,54 @@ namespace Readers.Bruker
 			LoadTablesInMemory();
 			for (int i = 1; i <= totalSpectra; i++)
 			{
-				var tempScan = GetMsDataScan(i, filteringParams);
+				var tempScan = GetMsDataScan(_spectraTable[i], _acqKeyTable[i], _stepsTable[i], filteringParams);
 				scans.Add(tempScan); 
 			}
+			// close the file connection. At this point, you don't need to be connected to the sqlite database anymore. You have all the data 
+			// you need. 
 			CloseFileConnection();
 			Scans = scans.OrderBy(x => x.OneBasedPrecursorScanNumber).ToArray();
 			SourceFile = GetSourceFile();
 			return this; 
 		}
 
+		private const string nativeIdFormat = "scan number only nativeID format";
+		private const string massSpecFileFormat = "mzML format"; 
 		public override SourceFile GetSourceFile()
 		{
-			throw new NotImplementedException();
+			return new SourceFile(nativeIdFormat, massSpecFileFormat,
+				null, null, null);
 		}
-
-		public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+		public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams? filterParams = null)
 		{
-			throw new NotImplementedException();
+			return GetMsDataScanDynamic(oneBasedScanNumber, filterParams); 
 		}
 
 		public override void CloseDynamicConnection()
 		{
-			throw new NotImplementedException();
+			CloseFileConnection();
 		}
 
 		public override void InitiateDynamicConnection()
 		{
-			throw new NotImplementedException();
+			OpenFileConnection(FilePath);
 		}
 
 		private const string GetFullSpectraTableString = "SELECT * FROM Spectra ORDER BY Rt";
-		private const int numberColumnsSpectraTable = 18; 
-		private List<SpectraTableEntry> GetFullSpectraTable()
+		private List<SpectraTableRow> GetFullSpectraTable()
 		{
-			List<SpectraTableEntry> spectraList = new();
+			List<SpectraTableRow> spectraList = new();
 			using var command = new SQLiteCommand(_connection); 
 			command.CommandText = GetFullSpectraTableString;
 
 			using var sqliteReader = command.ExecuteReader();
 			while (sqliteReader.Read())
 			{
-				SpectraTableEntry entry = new SpectraTableEntry();
-
-				for (int i = 0; i < numberColumnsSpectraTable; i++)
-				{
-					if (!sqliteReader.IsDBNull(i))
-					{
-						continue; 
-					}
-					switch (i)
-					{
-						case 0:
-							entry.Id = sqliteReader.GetInt32(i);
-							break;
-						case 1: 
-							entry.Rt = sqliteReader.GetDouble(i);
-							break;
-						case 2:
-							entry.Segment = sqliteReader.GetInt32(i);
-							break;
-						case 3:
-							entry.AcquisitionKey = sqliteReader.GetInt32(i);
-							break;
-						case 4:
-							entry.ParentSpectrum = sqliteReader.GetInt32(i);
-							break;
-						case 5:
-							entry.MzAcqRangeLower = sqliteReader.GetInt32(i);
-							break;
-						case 6: 
-							entry.MzAcqRangeUpper = sqliteReader.GetInt32(i);
-							break;
-						case 7: 
-							entry.SumIntensity = sqliteReader.GetDouble(i);
-							break;
-						case 8:
-							entry.MaxIntensity = sqliteReader.GetDouble(i);
-							break;
-						case 9: 
-							entry.TransformatorId = sqliteReader.GetInt32(i);
-							break;
-						case 10: 
-							entry.ProfileMzId = sqliteReader.GetInt32(i);
-							break;
-						case 11: 
-							entry.ProfileIntensityId = sqliteReader.GetInt32(i);
-							break;
-						case 12: 
-							entry.LineIndexId = sqliteReader.GetInt32(i);
-							break;
-						case 13: 
-							entry.LineMzId = sqliteReader.GetInt32(i);
-							break;
-						case 14: 
-							entry.LineIntensityId = sqliteReader.GetInt32(i);
-							break;
-						case 15: 
-							entry.LineIndexWidthId = sqliteReader.GetInt32(i);
-							break;
-						case 16: 
-							entry.LinePeakAreaId = sqliteReader.GetInt32(i);
-							break;
-						case 17: 
-							entry.LineSnrId = sqliteReader.GetInt32(i);
-							break; 
-						default:
-							continue; 
-					}
-					spectraList.Add(entry);
-				}
+				SpectraTableRow row = SqlColumnReader<SpectraTableRow>(sqliteReader);
+				spectraList.Add(row);
 			}
-
 			return spectraList;
 		}
-
-		// ids are the one based scan numbers
-		private List<AcqKeyTable> _acqKeyTable = new List<AcqKeyTable>();
-		private List<SpectraTableEntry> _spectraTable = new List<SpectraTableEntry>();
-		private List<StepsRow> _stepsTable = new List<StepsRow>();
-
 		private const string GetTotalSpectraCountString =
 			@"SELECT COUNT(*) FROM Spectra"; 
 		private int GetTotalSpectraCount()
@@ -173,25 +124,86 @@ namespace Readers.Bruker
 			_stepsTable = GetFullStepsTable();
 		}
 
-		private MsDataScan GetMsDataScan(int id, IFilteringParams? filteringParams)
+		private const string GetSingleSpectrumString = @"SELECT * FROM Spectra" +
+		                                               "WHERE Id = ";
+
+		private const string GetSingleAcqKeys = @"SELECT * FROM AcquisitionKeys" +
+		                                        "WHERE Id = ";
+
+		private const string GetSingleStepsKey = @"SELECT * FROM Steps" +
+		                                         "WHERE TargetSpectrum = "; 
+		private MsDataScan GetMsDataScanDynamic(int id, IFilteringParams? filteringParams)
+		{
+			// use a SQL statement with a variable to filter the tables
+			string spectrumQuery = new StringBuilder().Append(GetSingleSpectrumString).Append(id).ToString();
+			string acqKeyQuery = new StringBuilder().Append(GetSingleAcqKeys).Append(id).ToString();
+			string stepsQuery = new StringBuilder().Append(GetSingleStepsKey).Append(id).ToString();
+
+			string[] queryStringsArray = new[]
+			{
+				spectrumQuery,
+				acqKeyQuery,
+				stepsQuery
+			}; 
+
+			SpectraTableRow? spectraTableRow = new SpectraTableRow();
+			AcqKeyRow? acqKey = new AcqKeyRow();
+			StepsRow? stepsRow = new StepsRow();
+
+
+			// load in the rows that correspond to the one based spectrum count that you want.
+			for (int i = 0; i < 3; i++)
+			{
+				using var sqliteCommand = new SQLiteCommand();
+				sqliteCommand.CommandText = queryStringsArray[i]; 
+
+				using var sqliteReader = sqliteCommand.ExecuteReader();
+				// there should only be one scan with a given id. 
+				 
+				while (sqliteReader.Read())
+				{
+					if (sqliteReader == null)
+					{
+						break; 
+					}
+					switch (i)
+					{
+						case 0:
+							spectraTableRow = SqlColumnReader<SpectraTableRow>(sqliteReader); 
+							break;
+						case 1:
+							acqKey = SqlColumnReader<AcqKeyRow>(sqliteReader); 
+							break;
+						case 2:
+							stepsRow = SqlColumnReader<StepsRow>(sqliteReader);
+							break;
+					}
+				}
+			}
+
+			return GetMsDataScan(spectraTableRow, acqKey, stepsRow, filteringParams);
+		}
+
+		private MsDataScan GetMsDataScan(SpectraTableRow spectraRow, 
+			AcqKeyRow acqKeyRow, StepsRow stepsRow, IFilteringParams? filterParams)
 		{
 			// if the id fields are null, then it doesn't exist.
-			MzSpectrum spectrumData = GetSpectraData(_spectraTable[id], filteringParams);
+			MzSpectrum spectrumData = GetSpectraData(spectraRow, filterParams);
 			int? oneBasedPrecursorScanNumber =
-				_spectraTable[id].ParentSpectrum is null ? null : _spectraTable[id].ParentSpectrum;
+				spectraRow.ParentSpectrum is null ? null : spectraRow.ParentSpectrum;
 			// need the plus one because Bruker codes MS scans as 0, but we code them as 1. 
-			int msOrder = _acqKeyTable[id].MsLevel + 1; 
-			bool isCentroid = _spectraTable[id].LineIndexId is not null;  
-			var polarity = _acqKeyTable[id].Polarity == 0 ? Polarity.Positive : Polarity.Negative;
+			int msOrder = acqKeyRow.MsLevel + 1;
+			bool isCentroid = spectraRow.LineIndexId is not null;
+			var polarity = acqKeyRow.Polarity == 0 ? Polarity.Positive : Polarity.Negative;
 			double? selectedIonMz = null;
 
-			MZAnalyzerType analyzer = _acqKeyTable[id].AcquisitionMode == 33 ? MZAnalyzerType.FTICR : MZAnalyzerType.TOF;  
+			MZAnalyzerType analyzer = acqKeyRow.AcquisitionMode == 33 ? MZAnalyzerType.FTICR : MZAnalyzerType.TOF;
 
-			DissociationType? dissociationType = null; 
+			DissociationType? dissociationType = null;
 			if (msOrder > 1)
 			{
-				selectedIonMz = _stepsTable.First(i => i.TargetSpectrum == id).ParentMass;
-				switch (_acqKeyTable[id].ScanMode)
+				selectedIonMz = stepsRow.ParentMass;
+				switch (acqKeyRow.ScanMode)
 				{
 					case 0:
 						dissociationType = null;
@@ -204,32 +216,32 @@ namespace Readers.Bruker
 						break;
 					case 255:
 						dissociationType = DissociationType.Unknown;
-						break; 
+						break;
 					default:
 						dissociationType = DissociationType.Unknown;
-						break; 
+						break;
 				}
 			}
 
 			// need to get the isolation width from the variables table, but the variables table doesn't 
 			// have an easily accessible name. I guess I don't need to but it is kind of nice. 
-			MzRange scanWindowRange = new MzRange((double)_spectraTable[id].MzAcqRangeLower,
-				(double)_spectraTable[id].MzAcqRangeUpper);
+			MzRange scanWindowRange = new MzRange((double)spectraRow.MzAcqRangeLower,
+				(double)spectraRow.MzAcqRangeUpper);
 			string scanFilter = "f";
-			string nativeId = "scan=" + id; 
+			string nativeId = "scan=" + spectraRow.Id;
 
 			return new MsDataScan(spectrumData,
-				oneBasedScanNumber: id, msnOrder: msOrder, isCentroid: isCentroid,
-				polarity: polarity, retentionTime: _spectraTable[id].Rt,
+				oneBasedScanNumber: spectraRow.Id, msnOrder: msOrder, isCentroid: isCentroid,
+				polarity: polarity, retentionTime: spectraRow.Rt,
 				scanWindowRange: scanWindowRange, scanFilter: scanFilter,
-				mzAnalyzer: analyzer, totalIonCurrent: _spectraTable[id].SumIntensity,
+				mzAnalyzer: analyzer, totalIonCurrent: spectraRow.SumIntensity,
 				injectionTime: null, noiseData: new double[,] { { 0 }, { 0 } },
-				nativeId: nativeId, selectedIonMz: selectedIonMz, dissociationType:dissociationType,
-				oneBasedPrecursorScanNumber:oneBasedPrecursorScanNumber, 
-				isolationMZ:selectedIonMz);
+				nativeId: nativeId, selectedIonMz: selectedIonMz, dissociationType: dissociationType,
+				oneBasedPrecursorScanNumber: oneBasedPrecursorScanNumber,
+				isolationMZ: selectedIonMz);
 		}
 
-		private MzSpectrum GetSpectraData(SpectraTableEntry spectraInfo, IFilteringParams filteringParams)
+		private MzSpectrum GetSpectraData(SpectraTableRow spectraInfo, IFilteringParams? filteringParams)
 		{
 			// get centroided data if available. Otherwise, default to profile.
 			// if neither exists, return a spectra consisting of two zeroes. This probably shouldn't 
@@ -238,10 +250,10 @@ namespace Readers.Bruker
 			{
 				return new MzSpectrum(new double[,] {{0}, {0}}); 
 			}
-			if (spectraInfo.LineMzId == null)
+			if (spectraInfo.LineMzId == null && spectraInfo.ProfileMzId != null)
 			{
-				double[] profileMzs = GetBafDoubleArray(_handle, (ulong)spectraInfo.ProfileMzId);
-				double[] profileInts = GetBafDoubleArray(_handle, (ulong)spectraInfo.ProfileIntensityId);
+				double[] profileMzs = GetBafDoubleArray(_handle!.Value, (ulong)spectraInfo.ProfileMzId);
+				double[] profileInts = GetBafDoubleArray(_handle!.Value, (ulong)spectraInfo.ProfileIntensityId);
 				if (filteringParams != null
 				    && profileMzs.Length > 0
 				    && filteringParams.ApplyTrimmingToMsMs)
@@ -254,8 +266,8 @@ namespace Readers.Bruker
 				return new MzSpectrum(profileMzs, profileInts, true); 
 			}
 
-			double[] lineMzs = GetBafDoubleArray(_handle, (ulong)spectraInfo.LineMzId);
-			double[] lineInt = GetBafDoubleArray(_handle, (ulong)spectraInfo.LineIntensityId);
+			double[] lineMzs = GetBafDoubleArray(_handle!.Value, (ulong)spectraInfo.LineMzId);
+			double[] lineInt = GetBafDoubleArray(_handle!.Value, (ulong)spectraInfo.LineIntensityId);
 			if (filteringParams != null
 			    && lineMzs.Length > 0
 			    && filteringParams.ApplyTrimmingToMsMs)
@@ -269,16 +281,16 @@ namespace Readers.Bruker
 
 		private const string GetAcqKeyTableString = @"SELECT * FROM AcquisitionKeys";
 		private const int AcqKeyTableColumns = 5; 
-		private List<AcqKeyTable> GetAcqKeyTable()
+		private List<AcqKeyRow> GetAcqKeyTable()
 		{
-			List<AcqKeyTable> spectraList = new();
+			List<AcqKeyRow> spectraList = new();
 			using var command = new SQLiteCommand(_connection);
 			command.CommandText = GetAcqKeyTableString;
 
 			using var sqliteReader = command.ExecuteReader();
 			while (sqliteReader.Read())
 			{
-				AcqKeyTable table = new AcqKeyTable();
+				AcqKeyRow row = new AcqKeyRow();
 				for (int i = 0; i < AcqKeyTableColumns; i++)
 				{
 					if (sqliteReader.IsDBNull(i))
@@ -289,30 +301,29 @@ namespace Readers.Bruker
 					switch (i)
 					{
 						case 0: 
-							table.Id = sqliteReader.GetInt32(i);
+							row.Id = sqliteReader.GetInt32(i);
 							break;
 						case 1: 
-							table.Polarity = sqliteReader.GetInt32(i);
+							row.Polarity = sqliteReader.GetInt32(i);
 							break;
 						case 2: 
-							table.ScanMode = sqliteReader.GetInt32(i);
+							row.ScanMode = sqliteReader.GetInt32(i);
 							break;
 						case 3: 
-							table.AcquisitionMode = sqliteReader.GetInt32(i);
+							row.AcquisitionMode = sqliteReader.GetInt32(i);
 							break;
 						case 4: 
-							table.MsLevel = sqliteReader.GetInt32(i);
+							row.MsLevel = sqliteReader.GetInt32(i);
 							break; 
 					}
 				}
-				spectraList.Add(table);
+				spectraList.Add(row);
 			}
 			return spectraList;
 		}
 
 		private const string GetStepsTableString = @"SELECT * FROM Steps";
 		private const int StepsTableColumns = 6;
-
 		private List<StepsRow> GetFullStepsTable()
 		{
 			List<StepsRow> stepsTableList = new();
@@ -327,7 +338,16 @@ namespace Readers.Bruker
 			}
 			return stepsTableList;
 		}
-
+		/// <summary>
+		/// Generic function to read an sql table. Currently supports the types that exist in
+		/// the sql tables, which are int32, string, and double. 
+		/// </summary>
+		/// <typeparam name="T">Object ("receiving object") of a type that has a 1:1 col to property mapping. The order in the receiving object
+		/// must match the order of the columns in the sql database. 
+		/// </typeparam>
+		/// <param name="reader">SQLiteReader object, initialized after the execution of a command.</param>
+		/// <returns>Return null exception if there is an error in the data format of the baf file.</returns>
+		/// <exception cref="ArgumentNullException"></exception>
 		private T SqlColumnReader<T>(SQLiteDataReader reader) where T: new()
 		{
 			// get all the property names, then iterate over that. 
@@ -364,12 +384,6 @@ namespace Readers.Bruker
 
 			return newSqlMappedCsObject;
 		}
-
-		private void GetFullMetaDataTable()
-		{
-
-		}
-
 		private void OpenFileConnection(string path)
 		{
 			string sqlite_fn = GetSQLiteCacheFilename(path);
@@ -383,50 +397,49 @@ namespace Readers.Bruker
 			_connection.ConnectionString = "DataSource=" + sqlite_fn; 
 			_connection.Open();
 		}
-
 		private void CloseFileConnection()
 		{
-			baf2sql_array_close_storage(_handle);
+			baf2sql_array_close_storage(_handle!.Value);
 		}
 
 		#region Bruker Dll Functions 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern UInt32 baf2sql_get_sqlite_cache_filename
+		private static extern UInt32 baf2sql_get_sqlite_cache_filename
 			  (byte[] sql_filename_buf_utf8, UInt32 sql_filename_buflen, byte[] baf_filename_utf8);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern UInt64 baf2sql_array_open_storage
+		private static extern UInt64 baf2sql_array_open_storage
 			   (int ignore_calibrator_ami, byte[] filename_utf8);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern void baf2sql_array_close_storage(UInt64 handle);
+		private static extern void baf2sql_array_close_storage(UInt64 handle);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern void baf2sql_array_get_num_elements
+		private static extern void baf2sql_array_get_num_elements
 			(UInt64 handle, UInt64 id, ref UInt64 num_elements);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern int baf2sql_array_read_double
+		private static extern int baf2sql_array_read_double
 			   (UInt64 handle, UInt64 id, double[] buf);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern int baf2sql_array_read_float
+		private static extern int baf2sql_array_read_float
 			   (UInt64 handle, UInt64 id, float[] buf);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern int baf2sql_array_read_uint32
+		private static extern int baf2sql_array_read_uint32
 			   (UInt64 handle, UInt64 id, UInt32[] buf);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern UInt32 baf2sql_get_last_error_string(StringBuilder buf, UInt32 len);
+		private static extern UInt32 baf2sql_get_last_error_string(StringBuilder buf, UInt32 len);
 
 		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
-		public static extern void baf2sql_set_num_threads(UInt32 n);
+		private static extern void baf2sql_set_num_threads(UInt32 n);
 
 		/* ----------------------------------------------------------------------------------------------- */
 
 		[Serializable()]
-		public class Baf2SqlException : System.Exception
+		private class Baf2SqlException : System.Exception
 		{
 			public Baf2SqlException() : base() { }
 			public Baf2SqlException(string message) : base(message) { }
@@ -437,7 +450,7 @@ namespace Readers.Bruker
 		}
 
 		/* Throw last error string as an exception. */
-		public static void ThrowLastBaf2SqlError()
+		private static void ThrowLastBaf2SqlError()
 		{
 			StringBuilder buf = new StringBuilder("");
 			UInt32 len = baf2sql_get_last_error_string(buf, 0);
@@ -457,7 +470,7 @@ namespace Readers.Bruker
 		}
 		/* Find out the file name of the SQL cache corresponding to the specified BAF file.
          * (If the SQL cache doesn't exist yet, it will be created.) */
-		public static String GetSQLiteCacheFilename(String baf_filename)
+		private static String GetSQLiteCacheFilename(String baf_filename)
 		{
 			byte[] buf = new byte[1];
 			byte[] baf_filename_utf8 = ConvertStringToUTF8ByteArray(baf_filename);
@@ -476,7 +489,7 @@ namespace Readers.Bruker
 
 		/* Given the Id of one spectral component (e.g., a 'ProfileMzId' from the SQL cache),
          * load the binary data from the BAF (returning a double array). */
-		public static double[] GetBafDoubleArray(UInt64 handle, UInt64 id)
+		private static double[] GetBafDoubleArray(UInt64 handle, UInt64 id)
 		{
 			UInt64 n = 0;
 			baf2sql_array_get_num_elements(handle, id, ref n);
@@ -489,7 +502,7 @@ namespace Readers.Bruker
 		}
 
 		/* Return array 'id', converting to float format */
-		public static float[] GetBafFloatArray(UInt64 handle, UInt64 id)
+		private static float[] GetBafFloatArray(UInt64 handle, UInt64 id)
 		{
 			UInt64 n = 0;
 			baf2sql_array_get_num_elements(handle, id, ref n);
@@ -502,7 +515,7 @@ namespace Readers.Bruker
 		}
 
 		/* Return array 'id', converting to UInt32 format */
-		public static UInt32[] GetBafUInt32Array(UInt64 handle, UInt64 id)
+		private static UInt32[] GetBafUInt32Array(UInt64 handle, UInt64 id)
 		{
 			UInt64 n = 0;
 			baf2sql_array_get_num_elements(handle, id, ref n);
@@ -514,61 +527,5 @@ namespace Readers.Bruker
 			return myArray;
 		}
 		#endregion
-	}
-
-	internal class StepsRow
-	{
-		public int TargetSpectrum { get; set; }
-		public int Number { get; set; }
-		public int IsolationType { get; set; }
-
-		public int ReactionType { get; set; }
-		// 0 = MS; 1 = MS/MS
-		public int MsLevel { get; set; }
-		public double ParentMass { get; set; }
-	}
-
-	internal class SpectraTableEntry
-	{
-		public int Id { get; set; }
-		public double Rt { get; set; }
-		public int Segment { get; set; }
-		public int AcquisitionKey { get; set; }
-		public int? ParentSpectrum { get; set; }
-		public int MzAcqRangeLower { get; set; }
-		public int MzAcqRangeUpper { get; set; }
-		public double SumIntensity { get; set; }
-		public double MaxIntensity { get; set; }
-		public int? TransformatorId { get; set; }
-		public int? ProfileMzId { get; set; }
-
-		public int? ProfileIntensityId { get; set; }
-		public int? LineIndexId { get; set; }
-		public int? LineMzId { get; set; }
-		public int? LineIntensityId { get; set; }
-		public int? LineIndexWidthId { get; set; }
-		public int? LinePeakAreaId { get; set; }
-		public int? LineSnrId { get; set; }
-	}
-
-	public class AcqKeyTable
-	{
-		public int Id { get; set; }
-		// 0 = positive, 1 = negative 
-		public int Polarity { get; set; }
-		// 0 = MS
-		// 2 = MS/MS
-		// 4 = in-source CID
-		// 5 = broadband CID
-		// 255 = unknown
-		public int ScanMode { get; set; }
-		// 1 = (axial or orthogonal) TOF, linear detection mode
-		// 2 = (axial or orthogonal) TOF, reflector detection mode
-		// 33 = FTMS
-		// 255 = unknown
-		public int AcquisitionMode { get; set; }
-		// 0 = MS (no fragmentation),
-		// 1 = MS/MS
-		public int MsLevel { get; set; }
 	}
 }

@@ -2,12 +2,13 @@
 {
     internal class MgfReaderFactory : BaseReaderFactory, IReaderFactory
     {
-        public MsDataFile Reader { get; }
+        private MsDataFile _reader { get; }
+        MsDataFile IReaderFactory.Reader => _reader; 
 
         internal MgfReaderFactory(string filePath) : base(filePath)
         {
             FilePath = filePath;
-            Reader = CreateReader();
+            _reader = CreateReader();
         }
 
         public MsDataFile CreateReader()
