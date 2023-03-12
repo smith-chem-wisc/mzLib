@@ -3,6 +3,6 @@
     internal interface IReaderFactory
     {
         internal MsDataFile Reader { get; }
-        internal MsDataFile CreateReader();
+        public MsDataFile CreateReader();
     }
 }

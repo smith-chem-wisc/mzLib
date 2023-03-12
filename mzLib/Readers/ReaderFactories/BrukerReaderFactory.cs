@@ -2,16 +2,18 @@
 {
     internal class BrukerReaderFactory : BaseReaderFactory, IReaderFactory
     {
-        public MsDataFile Reader { get; }
-
-        internal BrukerReaderFactory(string filePath) : base(filePath)
+	    private MsDataFile _reader;
+	    internal BrukerReaderFactory(string filePath) : base(filePath)
         {
             FilePath = filePath;
-            Reader = CreateReader();
+            _reader = CreateReader();
         }
-        public MsDataFile CreateReader()
-        {
-            throw new NotImplementedException();
-        }
+
+	    MsDataFile IReaderFactory.Reader => _reader;
+
+	    public MsDataFile CreateReader()
+	    {
+		    return new Bruker.Bruker(FilePath); 
+	    }
     }
 }
