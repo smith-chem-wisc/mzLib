@@ -104,7 +104,9 @@ namespace Readers
                 sourceFileList = new Generated.SourceFileListType()
             };
 
-            if (myMsDataFile.SourceFile.NativeIdFormat != null && myMsDataFile.SourceFile.MassSpectrometerFileFormat != null && myMsDataFile.SourceFile.FileChecksumType != null)
+            if (myMsDataFile.SourceFile.NativeIdFormat != null 
+                && myMsDataFile.SourceFile.MassSpectrometerFileFormat != null 
+                && myMsDataFile.SourceFile.FileChecksumType != null)
             {
                 mzML.fileDescription.sourceFileList = new Generated.SourceFileListType()
                 {

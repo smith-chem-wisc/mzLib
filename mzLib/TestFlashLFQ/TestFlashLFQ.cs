@@ -339,8 +339,8 @@ namespace Test
                 }
 
                 // write the .mzML
-                Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans, null),
-                    Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[f] + ".mzML"), false);
+                Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans),
+	                Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[f] + ".mzML"), false);
             }
 
             // set up spectra file info
@@ -460,7 +460,7 @@ namespace Test
             }
 
             // write the .mzML
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans, null),
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
 
             // set up spectra file info
@@ -514,7 +514,7 @@ namespace Test
             }
 
             // write the .mzML
-            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans, null),
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
 
             // set up spectra file info
@@ -574,7 +574,7 @@ namespace Test
             }
 
             // write the .mzML
-            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans, null),
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
 
             // set up spectra file info
@@ -634,7 +634,7 @@ namespace Test
             }
 
             // write the .mzML
-            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans, null),
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
 
             // set up spectra file info
@@ -777,7 +777,7 @@ namespace Test
                 }
 
                 // write the .mzML
-                Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans, null),
+                Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans),
                     Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[f] + ".mzML"), false);
             }
 
@@ -1094,7 +1094,7 @@ namespace Test
 
             // write the .mzML
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "testFile.mzML");
-            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans, null), path, false);
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scans), path, false);
 
             // set up spectra file info
             SpectraFileInfo file1 = new SpectraFileInfo(path, "a", 0, 0, 0);

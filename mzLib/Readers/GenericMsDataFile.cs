@@ -11,7 +11,7 @@ public class GenericMsDataFile : MsDataFile
 
     public override SourceFile GetSourceFile()
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException();
     }
 
     public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
@@ -28,11 +28,11 @@ public class GenericMsDataFile : MsDataFile
     {
         throw new NotImplementedException();
     }
-    public GenericMsDataFile(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
+    public GenericMsDataFile(int numSpectra) : base(numSpectra, new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
     {
 
     }
-    public GenericMsDataFile(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+    public GenericMsDataFile(MsDataScan[] scans) : base(scans, new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
     {
 
     }
