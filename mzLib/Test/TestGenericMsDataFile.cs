@@ -82,7 +82,7 @@ public class TestGenericMsDataFile
             gFile.InitiateDynamicConnection();
         }); 
     }
-    
+
     private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
     {
         IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
