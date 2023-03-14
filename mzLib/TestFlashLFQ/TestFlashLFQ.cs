@@ -1689,6 +1689,39 @@ namespace Test
             Assert.That(Math.Abs(log2FoldChange) > 0);
         }
 
+        [Test]
+        public static void TestMedianPolish_OneValue()
+        {
+            // this represents the intensities of peptides from a single protein
+            var peptideIntensities = new double[][]
+            { 
+                // each column is a sample, each row is a peptide
+                new double[] { 9796546 },
+            };
+
+            var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            Assert.That(protein.GetIntensity(res.SpectraFiles[0]) > 0);
+        }
+
+        [Test]
+        public static void TestMedianPolish_OneValidValue()
+        {
+            // this represents the intensities of peptides from a single protein
+            var peptideIntensities = new double[][]
+            { 
+                // each column is a sample, each row is a peptide
+                new double[] { 9796546, 0 },
+            };
+
+            var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            Assert.That(protein.GetIntensity(res.SpectraFiles[0]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[1]) == 0);
+        }
+
         private static FlashLfqResults QuantifyMedianPolishProteinFromPeptideArray(double[][] peptideIntensities)
         {
             // pass intensity info into FlashLFQ, initializing required objects
