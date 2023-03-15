@@ -434,13 +434,15 @@ namespace FlashLFQ
                     }
 
                     // Checks to see if no peptides are shared across samples. If true
-                    // This protein should not be quantified
+                    // This protein will not be quantified
                     if (CheckForMutuallyExclusivePeptides(peptideIntensityMatrix))
                     {
                         foreach (var sample in SpectraFiles)
                         {
-                            proteinGroup.SetIntensity(sample, Double.NaN);
+                            proteinGroup.SetIntensity(sample, double.NaN);
                         }
+
+                        continue;
                     }
 
                     // do median polish protein quantification
@@ -451,29 +453,6 @@ namespace FlashLFQ
                     double overallEffect = peptideIntensityMatrix[0][0];
                     double[] columnEffects = peptideIntensityMatrix[0].Skip(1).ToArray();
                     double referenceProteinIntensity = Math.Pow(2, overallEffect) * peptidesForThisProtein.Count;
-
-                    // check for unquantifiable proteins; these are proteins w/ quantified peptides, but
-                    // the protein is still not quantifiable because there are not peptides to compare across runs
-                    List<string> possibleUnquantifiableSample = new List<string>();
-                    sampleN = 0;
-                    foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
-                    {
-                        foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
-                        {
-                            bool isMissingValue = true;
-
-                            foreach (SpectraFileInfo spectraFile in sample)
-                            {
-                                if (peptidesForThisProtein.Any(p => p.GetIntensity(spectraFile) != 0))
-                                {
-                                    isMissingValue = false;
-                                    break;
-                                }
-                            }
-
-                            sampleN++;
-                        }
-                    }
 
                     // set the sample protein intensities
                     sampleN = 0;
@@ -504,6 +483,10 @@ namespace FlashLFQ
                             if (!isMissingValue)
                             {
                                 proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
+                            }
+                            else
+                            {
+                                proteinGroup.SetIntensity(sample.First(), double.NaN);
                             }
 
                             sampleN++;
@@ -630,14 +613,17 @@ namespace FlashLFQ
             }
         }
 
+        // Check to see if a peptide intensity matrix only contains peptides that appear in only one sample
         public static bool CheckForMutuallyExclusivePeptides(double[][] peptideIntensityMatrix)
         {
             int unquantifiablePeptides = 0;
-            // Row loop
+
+            // Increment through rows
             for (int i = 0; i < peptideIntensityMatrix.Length; i++)
             {
                 int missingIntensities = 0;
-                //Column loop
+
+                // Increment through columns
                 for (int j = 0; j < peptideIntensityMatrix[i].Length; j++)
                 {
                     if (Double.IsNaN(peptideIntensityMatrix[i][j]))
