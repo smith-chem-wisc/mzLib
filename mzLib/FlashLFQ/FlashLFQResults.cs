@@ -398,8 +398,6 @@ namespace FlashLFQ
                                     }
                                 }
 
-                                int sampleNumber = sample.Key;
-
                                 if (sampleIntensity == 0)
                                 {
                                     sampleIntensity = double.NaN;
@@ -438,7 +436,7 @@ namespace FlashLFQ
                     // do median polish protein quantification
                     // row effects in a protein can be considered ~ relative ionization efficiency
                     // column effects are differences between conditions
-                    MedianPolish(peptideIntensityMatrix);
+                    WeightedMeanPolish(peptideIntensityMatrix);
 
                     double overallEffect = peptideIntensityMatrix[0][0];
                     double[] columnEffects = peptideIntensityMatrix[0].Skip(1).ToArray();
@@ -461,11 +459,6 @@ namespace FlashLFQ
                                     isMissingValue = false;
                                     break;
                                 }
-                            }
-
-                            if (!isMissingValue && columnEffects[sampleN] == 0)
-                            {
-                                possibleUnquantifiableSample.Add(group.Key + "_" + sample.Key);
                             }
 
                             sampleN++;
@@ -500,14 +493,7 @@ namespace FlashLFQ
 
                             if (!isMissingValue)
                             {
-                                if (possibleUnquantifiableSample.Count > 1 && possibleUnquantifiableSample.Contains(group.Key + "_" + sample.Key))
-                                {
-                                    proteinGroup.SetIntensity(sample.First(), double.NaN);
-                                }
-                                else
-                                {
-                                    proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
-                                }
+                                proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
                             }
 
                             sampleN++;
@@ -634,11 +620,10 @@ namespace FlashLFQ
             }
         }
 
-        public static void MedianPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)
+        public static void WeightedMeanPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)
         {
-            // technically, this is weighted mean polish and not median polish.
-            // but it should give similar results while being more robust to issues
-            // arising from missing values.
+            // Weighted mean polish should give similar results to median polish,
+            // while being more robust to issues arising from missing values.
             // the weights are inverse square difference to median.
 
             // subtract overall effect
