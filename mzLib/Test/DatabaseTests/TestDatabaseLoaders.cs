@@ -15,20 +15,19 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
-using Chemistry;
-using Easy.Common.Extensions;
-using MassSpectrometry;
-using MzLibUtil;
-using NUnit.Framework;
-using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Chemistry;
+using MassSpectrometry;
+using MzLibUtil;
+using NUnit.Framework;
+using Proteomics;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.DatabaseTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -235,6 +234,7 @@ namespace Test
             bool anyNegativeValue = formalChargesDictionary.Values.Any(i => i < 0); 
             Assert.IsTrue(anyNegativeValue);
         }
+
         [Test]
         public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
         {

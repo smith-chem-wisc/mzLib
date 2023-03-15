@@ -1,8 +1,11 @@
-﻿using IO.MzML;
+﻿using Easy.Common.Extensions;
+using IO.MzML;
 using IO.ThermoRawFileReader;
 using MassSpectrometry;
+using MathNet.Numerics.Statistics;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;

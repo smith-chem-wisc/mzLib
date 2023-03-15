@@ -233,14 +233,30 @@ namespace UsefulProteomicsDatabases
             return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _).OfType<Modification>();
         }
 
+        /// <summary>
+        /// Retrieves data using async/await
+        /// </summary>
+        /// <param name="url">path to retrieve data from</param>
+        /// <returns></returns>
+        public static async Task<HttpResponseMessage> AwaitAsync_GetSomeData(string url)
+        {
+            var client = new HttpClient();
+            var response = await client.GetAsync(url).ConfigureAwait(false);
+            return response;
+        }
+
+        /// <summary>
+        /// Downloads content from the web and saves it as a new file
+        /// </summary>
+        /// <param name="url">path to retrieve data from</param>
+        /// <param name="outputFile">path to write data to</param>
         public static void DownloadContent(string url, string outputFile)
         {
-            Uri uri = new(url);
-            HttpClient client = new();
-            HttpResponseMessage urlResponse = Task.Run(() => client.GetAsync(uri)).Result;
+            var httpResponseMessage = AwaitAsync_GetSomeData(url).Result;
+
             using (FileStream stream = new(outputFile, FileMode.CreateNew))
             {
-                Task.Run(() => urlResponse.Content.CopyToAsync(stream)).Wait();
+                Task.Run(() => httpResponseMessage.Content.CopyToAsync(stream)).Wait();
             }
         }
 
