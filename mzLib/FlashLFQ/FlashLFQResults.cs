@@ -433,6 +433,16 @@ namespace FlashLFQ
                         }
                     }
 
+                    // Checks to see if no peptides are shared across samples. If true
+                    // This protein should not be quantified
+                    if (CheckForMutuallyExclusivePeptides(peptideIntensityMatrix))
+                    {
+                        foreach (var sample in SpectraFiles)
+                        {
+                            proteinGroup.SetIntensity(sample, Double.NaN);
+                        }
+                    }
+
                     // do median polish protein quantification
                     // row effects in a protein can be considered ~ relative ionization efficiency
                     // column effects are differences between conditions
@@ -618,6 +628,31 @@ namespace FlashLFQ
             {
                 Console.WriteLine("Finished writing output");
             }
+        }
+
+        public static bool CheckForMutuallyExclusivePeptides(double[][] peptideIntensityMatrix)
+        {
+            int unquantifiablePeptides = 0;
+            // Row loop
+            for (int i = 0; i < peptideIntensityMatrix.Length; i++)
+            {
+                int missingIntensities = 0;
+                //Column loop
+                for (int j = 0; j < peptideIntensityMatrix[i].Length; j++)
+                {
+                    if (Double.IsNaN(peptideIntensityMatrix[i][j]))
+                    {
+                        missingIntensities++;
+                    }
+                }
+                // If all samples or all but one sample are missing intensity values, increment unquantifiablePeptides
+                if (missingIntensities >= (peptideIntensityMatrix[i].Length - 1))
+                {
+                    unquantifiablePeptides++;
+                }
+            }
+
+            return unquantifiablePeptides == peptideIntensityMatrix.Length;
         }
 
         public static void WeightedMeanPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)
