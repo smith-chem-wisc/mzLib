@@ -16,16 +16,16 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
-using NUnit.Framework;
-using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NUnit.Framework;
+using Proteomics;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.DatabaseTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
