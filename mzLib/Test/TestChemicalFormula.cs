@@ -158,11 +158,24 @@ namespace Test
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C-1H-2");
             ChemicalFormula formulaC = ChemicalFormula.ParseFormula("CHNO");
-
+            
             formulaA.Add(formulaB);
 
             Assert.AreEqual(formulaA, formulaC);
         }
+
+        [Test]
+        public static void AddTwoDeamidations()
+        {
+            ChemicalFormula baseFormula = new ChemicalFormula();
+            ChemicalFormula deamidation = ChemicalFormula.ParseFormula("N-1H-1O");
+
+            baseFormula.Add(deamidation);
+            baseFormula.Add(deamidation);
+
+            Assert.AreEqual("H-2N-2O2", baseFormula.Formula);
+        }
+        
 
         [Test]
         public static void AddNegativeIsotopeToFormula()

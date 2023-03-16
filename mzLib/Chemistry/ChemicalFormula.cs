@@ -287,8 +287,8 @@ namespace Chemistry
             else
             {
                 Elements[element] += count;
-                if (Elements[element] <= 0)
-                    Elements.Remove(element);
+                //if (Elements[element] <= 0)
+                //    Elements.Remove(element);
             }
             formulaString = null;
         }
