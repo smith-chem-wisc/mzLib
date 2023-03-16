@@ -1058,7 +1058,7 @@ namespace Test
         {
             ChemicalFormula f = ChemicalFormula.ParseFormula("CO");
             f.Add("O", -10);
-            Assert.That(f.Formula == "C");
+            Assert.That(f.Formula == "CO-9");
             Assert.That(f.NumberOfUniqueElementsByAtomicNumber == 1);
             Assert.That(f.MonoisotopicMass == 12);
         }

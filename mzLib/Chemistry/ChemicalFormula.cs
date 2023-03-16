@@ -72,7 +72,10 @@ namespace Chemistry
         {
             get
             {
-                return Isotopes.Sum(b => b.Key.AtomicMass * b.Value) + Elements.Sum(b => b.Key.AverageMass * b.Value);
+                return Isotopes.Where(b => b.Value > 0)
+                           .Sum(b => b.Key.AtomicMass * b.Value) 
+                       + Elements.Where(b => b.Value > 0)
+                           .Sum(b => b.Key.AverageMass * b.Value);
             }
         }
 
@@ -83,7 +86,9 @@ namespace Chemistry
         {
             get
             {
-                return Isotopes.Sum(b => b.Key.AtomicMass * b.Value) + Elements.Sum(b => b.Key.PrincipalIsotope.AtomicMass * b.Value);
+                return Isotopes
+                    .Where(b => b.Value > 0)
+                    .Sum(b => b.Key.AtomicMass * b.Value) + Elements.Where(b => b.Value > 0).Sum(b => b.Key.PrincipalIsotope.AtomicMass * b.Value);
             }
         }
 
@@ -94,7 +99,9 @@ namespace Chemistry
         {
             get
             {
-                return Isotopes.Sum(b => b.Value) + Elements.Sum(b => b.Value);
+                return Isotopes
+                    .Where(b => b.Value > 0)
+                    .Sum(b => b.Value) + Elements.Sum(b => b.Value);
             }
         }
 
@@ -106,9 +113,9 @@ namespace Chemistry
             get
             {
                 HashSet<int> ok = new HashSet<int>();
-                foreach (var i in Isotopes)
+                foreach (var i in Isotopes.Where(b => b.Value > 0))
                     ok.Add(i.Key.AtomicNumber);
-                foreach (var i in Elements)
+                foreach (var i in Elements.Where(b => b.Value > 0))
                     ok.Add(i.Key.AtomicNumber);
                 return ok.Count;
             }
@@ -121,7 +128,7 @@ namespace Chemistry
         {
             get
             {
-                return Isotopes.Count;
+                return Isotopes.Count(b => b.Value > 0);
             }
         }
 
@@ -142,7 +149,8 @@ namespace Chemistry
         {
             get
             {
-                return Isotopes.Sum(b => b.Key.Protons * b.Value) + Elements.Sum(b => b.Key.Protons * b.Value);
+                return Isotopes.Where(b => b.Value > 0)
+                    .Sum(b => b.Key.Protons * b.Value) + Elements.Sum(b => b.Key.Protons * b.Value);
             }
         }
 
@@ -156,6 +164,8 @@ namespace Chemistry
             {
                 int carbonCount = CountWithIsotopes("C");
                 int hydrogenCount = CountWithIsotopes("H");
+                if (carbonCount < 1 || hydrogenCount < 1)
+                    return 0; 
                 return hydrogenCount / (double)carbonCount;
             }
         }
@@ -289,6 +299,8 @@ namespace Chemistry
                 Elements[element] += count;
                 //if (Elements[element] <= 0)
                 //    Elements.Remove(element);
+                if (Elements[element] == 0)
+                    Elements.Remove(element);
             }
             formulaString = null;
         }

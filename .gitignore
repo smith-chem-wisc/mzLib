@@ -250,3 +250,9 @@ ModelManifest.xml
 # Macintosh files
 **/.DS_Store
 
+/mzLib/Test/DataFiles/WT_ESO_+_B_B5_01_4035.mzML
+/mzLib/.idea/.idea.mzLib/.idea/workspace.xml
+/mzLib/.idea/.idea.mzLib/.idea/vcs.xml
+/mzLib/.idea/.idea.mzLib/.idea/projectSettingsUpdater.xml
+/mzLib/.idea/.idea.mzLib/.idea/indexLayout.xml
+/mzLib/.idea/.idea.mzLib/.idea/encodings.xml
