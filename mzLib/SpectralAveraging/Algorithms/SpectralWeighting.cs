@@ -35,7 +35,6 @@ public static class SpectralWeighting
 
             case SpectraWeightingType.MrsNoiseEstimation:
                 return WeightByMrsNoiseEstimation(yArrays);
-            //return WeightByMrsNoiseEstimation(xArrays, yArrays);
 
             default:
                 throw new MzLibException("Spectra Weighting Type Not Implemented");
