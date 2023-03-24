@@ -7,6 +7,7 @@ namespace SpectralAveraging;
 
 /// <summary>
 ///     Reject outliers from a given set of one dimensional data
+///     Methods are adapted from https://pixinsight.com/doc/tools/ImageIntegration/ImageIntegration.html#description_003
 /// </summary>
 public static class OutlierRejection
 {
@@ -161,12 +162,12 @@ public static class OutlierRejection
 
             do // calculates a new median and standard deviation based on the values to do sigma clipping with (Huber loop)
             {
-                var medianLeftBound = median - 1.5 * standardDeviation;
+                var medianLeftBound = median - 1.5 * standardDeviation; // magic number 1.5: optimized parameter per the documentation this method was adapted from, see link at top of class
                 var medianRightBound = median + 1.5 * standardDeviation;
                 toProcess.Winsorize(medianLeftBound, medianRightBound);
                 median = toProcess.Median();
                 winsorizedStandardDeviation = standardDeviation;
-                standardDeviation = toProcess.StandardDeviation() * 1.134;
+                standardDeviation = toProcess.StandardDeviation() * 1.134; // magic number 1.134: optimized parameter per the documentation this method was adapted from, see link at top of class
             } while (Math.Abs(standardDeviation - winsorizedStandardDeviation) / winsorizedStandardDeviation >
                      iterationLimitForHuberLoop);
 
