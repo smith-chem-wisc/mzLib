@@ -161,5 +161,16 @@ namespace Test.AveragingTests
             Assert.That(exception.Message == "Spectrum Averaging Type Not Yet Implemented");
         }
 
+        [Test]
+        public static void TestBinnedPeakStruct()
+        {
+            BinnedPeak peak = new(1, 20.0, 25.5, 1);
+            Assert.That(peak.Bin, Is.EqualTo(1));
+            Assert.That(peak.Mz, Is.EqualTo(20.0));
+            Assert.That(peak.Intensity, Is.EqualTo(25.5));
+            Assert.That(peak.SpectraId, Is.EqualTo(1));
+            Assert.That(peak.ToString(), Is.EqualTo("20 : 25.5 : 1"));
+        }
+
     }
 }

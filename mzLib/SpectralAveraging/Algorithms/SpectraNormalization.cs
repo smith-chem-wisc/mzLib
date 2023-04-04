@@ -76,7 +76,7 @@ public static class SpectraNormalization
         {
             double maxValue = yArrays[i].Max();
             for (int j = 0; j < yArrays[i].Length; j++)
-                yArrays[i][j] /= maxValue / 100;
+                yArrays[i][j] /= maxValue;
         }
     }
 }

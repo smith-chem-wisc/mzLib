@@ -1,5 +1,7 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.IO;
+using System.Linq;
 using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
@@ -13,19 +15,16 @@ public static class AveragedSpectraWriter
     /// <param name="averagedScans"></param>
     /// <param name="parameters"></param>
     /// <param name="originalSpectraPath"></param>
-    /// <param name="destinationPath"></param>
+    /// <param name="destinationDirectory"></param>
+    /// <param name="averagedFileName"></param>
     /// <exception cref="NotImplementedException"></exception>
     public static void WriteAveragedScans(MsDataScan[] averagedScans, SpectralAveragingParameters parameters,
-        string originalSpectraPath, string? destinationPath = null)
+        string originalSpectraPath, string? destinationDirectory = null, string? averagedFileName = null)
     {
         switch (parameters.OutputType)
         {
             case OutputType.MzML:
-                WriteAveragedSpectraAsMzMl(averagedScans, originalSpectraPath, destinationPath);
-                break;
-
-            case OutputType.Text:
-                WriteAveragedSpectraAsTxtFile(averagedScans, parameters, originalSpectraPath, destinationPath);
+                WriteAveragedSpectraAsMzMl(averagedScans, originalSpectraPath, destinationDirectory, averagedFileName);
                 break;
 
             default: throw new MzLibException("Output averaged scans type not implemented");
@@ -33,89 +32,76 @@ public static class AveragedSpectraWriter
     }
 
     /// <summary>
-    ///     Outputs averaged spectra in mzml format to same location
+    /// Outputs averaged spectra in mzml format to same location as original spectra unless
+    /// specified by the optional destination directory and destination file name fields
     /// </summary>
     /// <param name="averagedScans"></param>
     /// <param name="originalSpectraPath"></param>
-    /// <param name="destinationPath"></param>
+    /// <param name="destinationDirectory"></param>
+    /// <param name="averagedFileName"></param>
     private static void WriteAveragedSpectraAsMzMl(MsDataScan[] averagedScans,
-        string originalSpectraPath, string? destinationPath = null)
+        string originalSpectraPath, string? destinationDirectory = null, string? averagedFileName = null)
     {
+        // gather necessary information to generate file from original spectra path
         var spectraDirectory = Path.GetDirectoryName(originalSpectraPath) ??
                                throw new MzLibException("Cannot Access Spectra Directory");
         var sourceFile = SpectraFileHandler.GetSourceFile(originalSpectraPath);
         MsDataFile msDataFile = new(averagedScans, sourceFile);
 
-        string averagedPath;
-        if (destinationPath == null)
-            averagedPath = Path.Combine(spectraDirectory,
-            "Averaged_" +
-            PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(originalSpectraPath) +
-            ".mzML");
-        else
+        // construct output path
+        string averagedOutputPath;
+        if (destinationDirectory is null)
         {
-            if (!destinationPath.EndsWith(".mzML"))
-                averagedPath = destinationPath + ".mzML";
-            else
-                averagedPath = destinationPath;
-        }
-
-        int index = 1;
-        while (File.Exists(averagedPath))
-        {
-            int indexToInsert = averagedPath.IndexOf(".mzML", StringComparison.InvariantCulture);
-            averagedPath = averagedPath.Insert(indexToInsert, $"({index})");
-        }
-
-        MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, averagedPath, true);
-    }
-
-    /// <summary>
-    ///     Outputs averaged spectra in text format, with each spectra being
-    /// </summary>
-    /// <param name="averagedScans"></param>
-    /// <param name="parameters"></param>
-    /// <param name="originalSpectraPath"></param>
-    /// <exception cref="MzLibException"></exception>
-    private static void WriteAveragedSpectraAsTxtFile(MsDataScan[] averagedScans,
-        SpectralAveragingParameters parameters,
-        string originalSpectraPath, string? destinationPath = null)
-    {
-        var spectraDirectory = Path.GetDirectoryName(originalSpectraPath) ??
-                               throw new MzLibException("Cannot Access Spectra Directory");
-        if (parameters.SpectraFileAveragingType != SpectraFileAveragingType.AverageAll)
-        {
-            spectraDirectory = Path.Combine(spectraDirectory, "AveragedSpectra");
-            if (!Directory.Exists(spectraDirectory))
-                Directory.CreateDirectory(spectraDirectory);
-        }
-
-        string averagedPath;
-        if (destinationPath == null)
-            averagedPath = Path.Combine(spectraDirectory,
-                "Averaged_" +
-                PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(originalSpectraPath) +
-                ".mzML");
-        else
-        {
-            if (!destinationPath.EndsWith(".mzML"))
-                averagedPath = destinationPath + ".mzML";
-            else
-                averagedPath = destinationPath;
-        }
-
-        foreach (var scan in averagedScans)
-        {
-            if (parameters.SpectraFileAveragingType != SpectraFileAveragingType.AverageAll)
-                averagedPath = Path.Combine(spectraDirectory,
-                    "Averaged_" +
+            // destination and file name not specified
+            if (averagedFileName is null)
+            {
+                averagedOutputPath = Path.Combine(spectraDirectory,
                     PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(
-                        originalSpectraPath) +
-                    "_" + scan.OneBasedScanNumber + ".txt");
-            using var writer = new StreamWriter(File.Create(averagedPath));
-
-            for (var i = 0; i < scan.MassSpectrum.XArray.Length; i++)
-                writer.WriteLine(scan.MassSpectrum.XArray[i] + "," + scan.MassSpectrum.YArray[i]);
+                        originalSpectraPath) + "-averaged");
+            }
+            // destination not specified but name is
+            else
+            {
+                averagedOutputPath = Path.Combine(spectraDirectory, averagedFileName);
+            }
         }
+        else
+        {
+            if (!Directory.Exists(destinationDirectory))
+                Directory.CreateDirectory(destinationDirectory);
+
+            // destination specified but not name
+            if (averagedFileName is null)
+            {
+                averagedOutputPath = Path.Combine(destinationDirectory,
+                    PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(
+                        originalSpectraPath) + "-averaged");
+            }
+            // both destination and name specified
+            else
+            {
+                averagedOutputPath = Path.Combine(destinationDirectory, averagedFileName);
+            }
+        }
+
+        // add file extension
+        if (!averagedOutputPath.EndsWith(".mzML"))
+            averagedOutputPath += ".mzML";
+
+        // check to see if file already exists, if so, add a number to the end
+        int index = 1;
+        while (File.Exists(averagedOutputPath))
+        {
+            int indexToInsert = averagedOutputPath.IndexOf(".mzML", StringComparison.InvariantCulture);
+            
+            // if first time needing to add an integer to filename
+            averagedOutputPath = index == 1
+                ? averagedOutputPath.Insert(indexToInsert, $"({index})")
+                : averagedOutputPath.Replace($"({index - 1})", $"({index})");
+            
+            index++;
+        }
+
+        MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, averagedOutputPath, true);
     }
 }
