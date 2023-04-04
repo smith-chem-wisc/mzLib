@@ -28,7 +28,7 @@ public class TestReaderCreator
             string testPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", path);
             if (path == "fakeFile.d")
             {
-                Assert.Throws<NotImplementedException>(() =>
+                Assert.Throws<MzLibException>(() =>
                 {
                     var reader = MsDataFileReader.GetDataFile(testPath);
                 });

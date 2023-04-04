@@ -17,7 +17,6 @@ namespace Readers
             factory = fileExtension switch
             {
                 ".raw" => new ThermoRawReaderFactory(filePath),
-                ".d" => new AgilentReaderFactory(filePath),
                 ".mzml" => new MzMLReaderFactory(filePath),
                 ".mgf" => new MgfReaderFactory(filePath),
                 _ => throw new MzLibException("File extension not supported."),

@@ -56,21 +56,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Update="Agilent\BaseCommon.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Agilent\BaseDataAccess.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Agilent\BaseError.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Agilent\BaseTof.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Agilent\MassSpecDataReader.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
