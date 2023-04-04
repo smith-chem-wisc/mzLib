@@ -994,7 +994,7 @@ namespace Test
             Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
             Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));
 
-            CollectionAssert.AreEquivalent(new string[]{ "Q7KZF4", "Q7KZF4", "P52298", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
 
             Assert.AreEqual(6, peptides.Count);
@@ -1009,39 +1009,39 @@ namespace Test
         public static IEnumerable<object[]> MedianPolishTestCases()
         {
             yield return
-               new object[] 
+               new object[]
                {
-                    new double[,] { { 19.00979255, 17.59643536 }, { 17.07315813, 14.91169105 } }, //array of intensities: two peptides and two conditions
+                    new double[][] { new double[] { 0, 0, 0 }, new double[] { 0, 19.00979255, 17.59643536 }, new double[] { 0, 17.07315813, 14.91169105 } }, //array of intensities: two peptides and two conditions
                     new double[] { 1.1553446825000004, -1.1553446825000004 }, //expected row effects
-                    new double[] { 0.8937060674999997, -0.8937060674999997 }, //expected column effects
+                    new double[] { 0.8937060674999997, -0.89370606749999981 }, //expected column effects
                     17.1477692725 // expected overall effect
                };
             yield return
                new object[]
                {
-                    new double[,] { { 16.64839239, Double.NaN }, { Double.NaN, 17.79219321 } }, //array of intensities: two peptides and two conditions
+                    new double[][] { new double[] { 0, 0, 0 }, new double[] { 0, 16.64839239, Double.NaN }, new double[] { 0, Double.NaN, 17.79219321 } }, //array of intensities: two peptides and two conditions
                     new double[] { -0.57190040999999958, 0.57190040999999958 }, //expected row effects
                     new double[] {  0, 0 }, //expected column effects
-                    17.220292800000003 // expected overall effect
+                    17.2202928 // expected overall effect
                };
             yield return
-               new object[] 
+               new object[]
                {
-                    new double[,] { { 22.29123276, 20.82476044 }, { Double.NaN, 19.63885674 } }, //array of intensities: two peptides and two conditions
+                    new double[][] { new double[] { 0, 0, 0 }, new double[] { 0, 22.29123276, 20.82476044 }, new double[] { 0, Double.NaN, 19.63885674 } }, //array of intensities: two peptides and two conditions
                     new double[] { 0.59295324853698594, -0.59295324853698594 }, //expected row effects
-                    new double[] { 0.73323616000000058, -0.73323476146301325 }, //expected column effects
+                    new double[] { 0.73323616000000058, -0.73323476146301336 }, //expected column effects
                     20.965043351463017 // expected overall effect
                };
 
         }
 
         [Test, TestCaseSource("MedianPolishTestCases")]
-        public static void TestMedianPolishWithIntensity(double[,] intensityArray, double[] expectedRowEffects, double[] expectedColumnEffects, double expectedOverallEffect)
+        public static void TestMedianPolishWithIntensity(double[][] intensityArray, double[] expectedRowEffects, double[] expectedColumnEffects, double expectedOverallEffect)
         {
-            int maxIterations = 10;
-            double improvementCutoff = 0.0001;
-
-            FlashLfqResults.MedianPolish(intensityArray, maxIterations, improvementCutoff, out var rowEffects, out var columnEffects, out var overallEffect);
+            FlashLfqResults.MedianPolish(intensityArray);
+            var rowEffects = intensityArray.Select(p => p[0]).Skip(1).ToArray();
+            var columnEffects = intensityArray[0].Skip(1).ToArray();
+            var overallEffect = intensityArray[0][0];
 
             CollectionAssert.AreEqual(expectedRowEffects, rowEffects);
             CollectionAssert.AreEqual(expectedColumnEffects, columnEffects);
@@ -1051,11 +1051,18 @@ namespace Test
         [Test]
         public static void TestMedianPolish()
         {
-            double[,] array2D = new double[,] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 } };
-            int maxIterations = 10;
-            double improvementCutoff = 0.0001;
+            double[][] array2D = new double[][] { 
+                new double[] { 0, 0, 0 },
+                new double[] { 0, 1, 2 }, 
+                new double[] { 0, 3, 4 }, 
+                new double[] { 0, 5, 6 }, 
+                new double[] { 0, 7, 8 } 
+            };
 
-            FlashLfqResults.MedianPolish(array2D, maxIterations,improvementCutoff,out var rowEffects,out var columnEffects,out var overallEffect);
+            FlashLfqResults.MedianPolish(array2D);
+            var rowEffects = array2D.Select(p => p[0]).Skip(1).ToArray();
+            var columnEffects = array2D[0].Skip(1).ToArray();
+            var overallEffect = array2D[0][0];
 
             double[] expectedRowEffects = new double[] { -3, -1, 1, 3 };
             double[] expectedColumnEffects = new double[] { -0.5, 0.5 };
@@ -1523,10 +1530,10 @@ namespace Test
 
             // the quantities reported for protein1 should have no missing values and should be ~identical (rounded)
             var protein1Results = textResults[1].Split(new char[] { '\t' });
-            Assert.That((int)double.Parse(protein1Results[3]) == 748375);
-            Assert.That((int)double.Parse(protein1Results[4]) == 748375);
-            Assert.That((int)double.Parse(protein1Results[5]) == 748375);
-            Assert.That((int)double.Parse(protein1Results[6]) == 748375);
+            Assert.That((int)double.Parse(protein1Results[3]) > 0);
+            Assert.That((int)double.Parse(protein1Results[4]) == (int)double.Parse(protein1Results[3]));
+            Assert.That((int)double.Parse(protein1Results[5]) == (int)double.Parse(protein1Results[3]));
+            Assert.That((int)double.Parse(protein1Results[6]) == (int)double.Parse(protein1Results[3]));
 
             // protein2 doesn't get quantified because it only has 1 peptide and it's shared,
             // and we said to not quantified shared peptides
@@ -1540,19 +1547,187 @@ namespace Test
         }
 
         [Test]
-        public void TestMedianPolishNan()
+        public void TestMedianPolish_UnquantifiableProtein()
         {
             // this represents the intensities of peptides from a single protein
-            var peptideIntensities = new double[][] 
+            var peptideIntensities = new double[][]
             { 
                 // each column is a sample, each row is a peptide
-                new double[] { 0,    1000 }, 
+                new double[] { 0,    1000 },
                 new double[] { 1000, 0 }
             };
 
+            var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            // intensity should be NaN (protein is not quantifiable)
+            foreach (SpectraFileInfo file in res.SpectraFiles)
+            {
+                Assert.That(double.IsNaN(protein.GetIntensity(file)));
+            }
+        }
+
+        [Test]
+        public static void TestMedianPolish_WithMissingPeptideValues()
+        {
+            // this represents the intensities of peptides from a single protein
+            var peptideIntensities = new double[][]
+            { 
+                // each column is a sample, each row is a peptide
+                new double[] { 9796546,     9852023.625 },
+                new double[] { 2193142.286, 2132802.28 },
+                new double[] { 22670965.15, 0 },
+                new double[] { 0,           0 },
+                new double[] { 0,           2121691.667 },
+                new double[] { 13807677.53, 12251660.38 },
+                new double[] { 0,           0 },
+                new double[] { 19007964.63, 18208648.31 },
+                new double[] { 15951524.58, 16042378.83 },
+                new double[] { 14890408.31, 14411359.03 },
+                new double[] { 27894671.25, 27384454.5 },
+                new double[] { 20857567.75, 21912047.75 },
+                new double[] { 9142974.708, 17019194.54 },
+                new double[] { 29630634,    29207244.17 },
+                new double[] { 4463091.969, 3933777.311 },
+                new double[] { 18686402.29, 19290511.46 },
+                new double[] { 20132718.25, 22085322 },
+                new double[] { 4073149.652, 4451360.921 }
+            };
+
+            var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            // intensity should be >0 in both samples
+            foreach (SpectraFileInfo file in res.SpectraFiles)
+            {
+                Assert.That(protein.GetIntensity(file) > 0);
+            }
+
+            var log2FoldChange = Math.Log(protein.GetIntensity(res.SpectraFiles[0]), 2) - Math.Log(protein.GetIntensity(res.SpectraFiles[1]), 2);
+            Assert.That(Math.Abs(log2FoldChange) < 0.02);
+            Assert.That(Math.Abs(log2FoldChange) > 0);
+        }
+
+        [Test]
+        public static void TestMedianPolish_WithSimilarIntensityRanks()
+        {
+            var peptideIntensities = new double[][]
+            { 
+                // each column is a sample, each row is a peptide
+                new double[] { 19007964.63, 18208648.31, 0 },
+                new double[] { 14890408.31, 14411359.03, 14910408.31 },
+                new double[] { 27894671.25, 27384454.5,  27914671.25 },
+                new double[] { 20857567.75, 21912047.75, 20877567.75 },
+                new double[] { 9142974.708, 17019194.54, 9162974.708 },
+                new double[] { 29630634,    29207244.17, 0 },
+                new double[] { 4463091.969, 3933777.311, 4483091.969 },
+                new double[] { 18686402.29, 19290511.46, 18706402.29 },
+                new double[] { 4073149.652, 4451360.921, 4093149.652 }
+            };
+
+            var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            Assert.That(protein.GetIntensity(res.SpectraFiles[0]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[1]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[2]) > 0);
+
+            // test change between file2 and file0
+            var log2FoldChange = Math.Log(protein.GetIntensity(res.SpectraFiles[2]), 2) - Math.Log(protein.GetIntensity(res.SpectraFiles[0]), 2);
+            Assert.That(log2FoldChange > 0);
+            Assert.That(log2FoldChange < 0.01);
+
+            // test change between file2 and file0
+            log2FoldChange = Math.Log(protein.GetIntensity(res.SpectraFiles[1]), 2) - Math.Log(protein.GetIntensity(res.SpectraFiles[0]), 2);
+            Assert.That(log2FoldChange < 0);
+            Assert.That(log2FoldChange > -0.03);
+        }
+
+        [Test]
+        public static void TestMedianPolish_TrueChanger()
+        {
+            var peptideIntensities = new double[][]
+            { 
+                // each column is a sample, each row is a peptide
+                new double[] { 1000, 1010, 2050, 2010 },
+                new double[] { 2000, 1900, 3900, 4100 },
+            };
+
+            FlashLfqResults res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            Assert.That(protein.GetIntensity(res.SpectraFiles[0]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[1]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[2]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[3]) > 0);
+
+            var log2FoldChange = Math.Log(protein.GetIntensity(res.SpectraFiles[0]), 2) - Math.Log(protein.GetIntensity(res.SpectraFiles[2]), 2);
+            Assert.That(Math.Abs(log2FoldChange) < 1.1);
+            Assert.That(Math.Abs(log2FoldChange) > 0.9);
+        }
+
+        [Test]
+        public static void TestMedianPolish_MissingProteinValue()
+        {
+            // this represents the intensities of peptides from a single protein
+            var peptideIntensities = new double[][]
+            { 
+                // each column is a sample, each row is a peptide
+                new double[] { 9796546,     9852023.625, 0 },
+                new double[] { 2193142.286, 2132802.28,  0 },
+                new double[] { 13807677.53, 12251660.38, 0 },
+            };
+
+            var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            Assert.That(protein.GetIntensity(res.SpectraFiles[0]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[1]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[2]) == 0);
+
+            var log2FoldChange = Math.Log(protein.GetIntensity(res.SpectraFiles[0]), 2) - Math.Log(protein.GetIntensity(res.SpectraFiles[1]), 2);
+            Assert.That(Math.Abs(log2FoldChange) < 0.05);
+            Assert.That(Math.Abs(log2FoldChange) > 0);
+        }
+
+        [Test]
+        public static void TestMedianPolish_OneValue()
+        {
+            // this represents the intensities of peptides from a single protein
+            var peptideIntensities = new double[][]
+            { 
+                // each column is a sample, each row is a peptide
+                new double[] { 9796546 },
+            };
+
+            var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            Assert.That(protein.GetIntensity(res.SpectraFiles[0]) > 0);
+        }
+
+        [Test]
+        public static void TestMedianPolish_OneValidValue()
+        {
+            // this represents the intensities of peptides from a single protein
+            var peptideIntensities = new double[][]
+            { 
+                // each column is a sample, each row is a peptide
+                new double[] { 9796546, 0 },
+            };
+
+            var res = QuantifyMedianPolishProteinFromPeptideArray(peptideIntensities);
+            var protein = res.ProteinGroups.First().Value;
+
+            Assert.That(protein.GetIntensity(res.SpectraFiles[0]) > 0);
+            Assert.That(protein.GetIntensity(res.SpectraFiles[1]) == 0);
+        }
+
+        private static FlashLfqResults QuantifyMedianPolishProteinFromPeptideArray(double[][] peptideIntensities)
+        {
             // pass intensity info into FlashLFQ, initializing required objects
             FlashLfqResults res = new FlashLfqResults(
-                peptideIntensities.Select(p => new SpectraFileInfo("", "cond", Array.IndexOf(peptideIntensities, p), 0, 0)).ToList(), 
+                peptideIntensities[0].Select(p => new SpectraFileInfo("", "cond", Array.IndexOf(peptideIntensities[0], p), 0, 0)).ToList(),
                 new List<Identification>());
 
             ProteinGroup protein = new ProteinGroup("accession1", "gene1", "organism1");
@@ -1571,14 +1746,9 @@ namespace Test
                 }
             }
 
-            // calculate the protein intensities with median polish
-            res.CalculateProteinResultsMedianPolish(useSharedPeptides: false);
+            res.CalculateProteinResultsMedianPolish(false);
 
-            // intensity should be NaN (protein is not quantifiable)
-            foreach (SpectraFileInfo file in res.SpectraFiles)
-            {
-                Assert.That(double.IsNaN(protein.GetIntensity(file)));
-            }
+            return res;
         }
     }
 }
