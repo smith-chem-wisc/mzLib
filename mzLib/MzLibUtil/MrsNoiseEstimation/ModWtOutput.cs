@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace MzLibUtil.MrsNoiseEstimation;
+namespace MzLibUtil.NoiseEstimation;
 
 public class ModWtOutput
 {

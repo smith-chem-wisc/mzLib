@@ -1,4 +1,4 @@
-﻿namespace MzLibUtil.MrsNoiseEstimation;
+﻿namespace MzLibUtil.NoiseEstimation;
 
 public enum WaveletType
 {

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace MzLibUtil.MrsNoiseEstimation
+namespace MzLibUtil.NoiseEstimation
 {
     public class WaveletMath
     {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.Statistics;
 
-namespace MzLibUtil.MrsNoiseEstimation
+namespace MzLibUtil.NoiseEstimation
 {
     public static class MRSNoiseEstimator
     {
