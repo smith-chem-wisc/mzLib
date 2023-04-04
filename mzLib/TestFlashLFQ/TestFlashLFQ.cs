@@ -917,26 +917,153 @@ namespace Test
             Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 0.922);
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["a"].Count == 2);
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["b"].Count == 2);
+        }
 
-            //// try with paired samples
-            //peptide.SetIntensity(files[0], 100);
-            //peptide.SetIntensity(files[1], 1000);
-            //peptide.SetIntensity(files[2], 10000);
+        [Test]
+        public static void TestFlashLfqQoutputRealData()
+        {
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
+            Directory.CreateDirectory(outputDirectory);
 
-            //peptide.SetIntensity(files[3], 210);
-            //peptide.SetIntensity(files[4], 2200);
-            //peptide.SetIntensity(files[5], 21500);
+            string psmFile = Path.Combine(testDataDirectory, "AllPSMs.psmtsv");
 
-            //proteinGroup.ConditionToQuantificationResults.Clear();
-            //engine = new ProteinQuantificationEngine(res, maxThreads: 1, controlCondition: "a", randomSeed: 3, pairedSamples: true);
-            //engine.Run();
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, "20100614_Velos1_TaGe_SA_K562_3.mzML"), "one", 1, 1, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, "20100614_Velos1_TaGe_SA_K562_4.mzML"), "two", 1, 1, 1);
 
-            //quantResult = proteinGroup.ConditionToQuantificationResults["b"];
+            List<string> acceptableProteinGroupAccessions = new() { "Q7KZF4", "Q15149", "P52298" };
 
-            //Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.098);
-            //Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.103);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("20100614_Velos1_TaGe_SA_K562_3"))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains("20100614_Velos1_TaGe_SA_K562_4"))
+                {
+                    file = f1r2;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[22]);
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteinSubset = split[25].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new();
+
+                if (acceptableProteinGroupAccessions.Contains(proteinSubset.First()))
+                {
+                    foreach (var protein in proteinSubset)
+                    {
+                        if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                        {
+                            proteinGroups.Add(proteinGroup);
+                        }
+                        else
+                        {
+                            allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                            proteinGroups.Add(allProteinGroups[protein]);
+                        }
+                    }
+
+                    Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                    ids.Add(id);
+                }
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, useSharedPeptidesForProteinQuant: true, maxThreads: -1);
+            var results = engine.Run();
+
+            var peaks = results.Peaks.Values.ToList();
+            var peptides = results.PeptideModifiedSequences.Values.ToList();
+            var proteins = results.ProteinGroups.Values.ToList();
+
+            Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
+            Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));
+
+            CollectionAssert.AreEquivalent(new string[]{ "Q7KZF4", "Q7KZF4", "P52298", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+
+            Assert.AreEqual(6, peptides.Count);
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "P52298" }, peptides.Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+
+            Assert.AreEqual(3, proteins.Count);
+            CollectionAssert.AreEquivalent(new string[] { "P52298", "Q15149", "Q7KZF4" }, proteins.Select(p => p.ProteinGroupName.ToArray()));
+
+            Directory.Delete(outputDirectory, true);
+        }
+
+        public static IEnumerable<object[]> MedianPolishTestCases()
+        {
+            yield return
+               new object[] 
+               {
+                    new double[,] { { 19.00979255, 17.59643536 }, { 17.07315813, 14.91169105 } }, //array of intensities: two peptides and two conditions
+                    new double[] { 1.1553446825000004, -1.1553446825000004 }, //expected row effects
+                    new double[] { 0.8937060674999997, -0.8937060674999997 }, //expected column effects
+                    17.1477692725 // expected overall effect
+               };
+            yield return
+               new object[]
+               {
+                    new double[,] { { 16.64839239, Double.NaN }, { Double.NaN, 17.79219321 } }, //array of intensities: two peptides and two conditions
+                    new double[] { -0.57190040999999958, 0.57190040999999958 }, //expected row effects
+                    new double[] {  0, 0 }, //expected column effects
+                    17.220292800000003 // expected overall effect
+               };
+            yield return
+               new object[] 
+               {
+                    new double[,] { { 22.29123276, 20.82476044 }, { Double.NaN, 19.63885674 } }, //array of intensities: two peptides and two conditions
+                    new double[] { 0.59295324853698594, -0.59295324853698594 }, //expected row effects
+                    new double[] { 0.73323616000000058, -0.73323476146301325 }, //expected column effects
+                    20.965043351463017 // expected overall effect
+               };
+
+        }
+
+        [Test, TestCaseSource("MedianPolishTestCases")]
+        public static void TestMedianPolishWithIntensity(double[,] intensityArray, double[] expectedRowEffects, double[] expectedColumnEffects, double expectedOverallEffect)
+        {
+            int maxIterations = 10;
+            double improvementCutoff = 0.0001;
+
+            FlashLfqResults.MedianPolish(intensityArray, maxIterations, improvementCutoff, out var rowEffects, out var columnEffects, out var overallEffect);
+
+            CollectionAssert.AreEqual(expectedRowEffects, rowEffects);
+            CollectionAssert.AreEqual(expectedColumnEffects, columnEffects);
+            Assert.AreEqual(expectedOverallEffect, overallEffect);
+        }
+
+        [Test]
+        public static void TestMedianPolish()
+        {
+            double[,] array2D = new double[,] { { 1, 2 }, { 3, 4 }, { 5, 6 }, { 7, 8 } };
+            int maxIterations = 10;
+            double improvementCutoff = 0.0001;
+
+            FlashLfqResults.MedianPolish(array2D, maxIterations,improvementCutoff,out var rowEffects,out var columnEffects,out var overallEffect);
+
+            double[] expectedRowEffects = new double[] { -3, -1, 1, 3 };
+            double[] expectedColumnEffects = new double[] { -0.5, 0.5 };
+            double expectedOverallEffect = 4.5;
+
+            CollectionAssert.AreEqual(expectedRowEffects, rowEffects);
+            CollectionAssert.AreEqual(expectedColumnEffects, columnEffects);
+            Assert.AreEqual(expectedOverallEffect, overallEffect);
         }
 
         [Test]

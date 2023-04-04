@@ -12,7 +12,6 @@ namespace MassSpectrometry
     /// </summary>
     public class ClassicDeconvolutionParameters : DeconvolutionParameters
     {
-        public MzRange Range { get; set; }
         public int MinAssumedChargeState { get; set; }
         public int MaxAssumedChargeState { get; set; }
         public double DeconvolutionTolerancePpm { get; set; }
@@ -26,9 +25,8 @@ namespace MassSpectrometry
         /// <param name="deconPpm"></param>
         /// <param name="intensityRatio"></param>
         /// <param name="range">Isolation range of the scan to be deconvoluted</param>
-        public ClassicDeconvolutionParameters(int minCharge, int maxCharge, double deconPpm, double intensityRatio, MzRange range = null) : base()
+        public ClassicDeconvolutionParameters(int minCharge, int maxCharge, double deconPpm, double intensityRatio) : base()
         {
-            Range = range;
             IntensityRatioLimit = intensityRatio;
             DeconvolutionTolerancePpm = deconPpm;
             MinAssumedChargeState = minCharge;

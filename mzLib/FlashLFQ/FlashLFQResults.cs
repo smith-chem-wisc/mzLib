@@ -413,6 +413,8 @@ namespace FlashLFQ
                     }
 
                     // do median polish protein quantification
+                    // row effects in a protein can be considered ~ relative ionization efficiency
+                    // column effects are differences between conditions
                     MedianPolish(peptideIntensityMatrix, 10, 0.0001, out var rowEffects, out var columnEffects, out var overallEffect);
                     double referenceProteinIntensity = Math.Pow(2, overallEffect);
 
@@ -576,7 +578,7 @@ namespace FlashLFQ
             }
         }
 
-        private static void MedianPolish(double[,] table, int maxIterations, double improvementCutoff, out double[] rowEffects, out double[] columnEffects, out double overallEffect)
+        public static void MedianPolish(double[,] table, int maxIterations, double improvementCutoff, out double[] rowEffects, out double[] columnEffects, out double overallEffect)
         {
             overallEffect = 0;
             rowEffects = new double[table.GetLength(0)];
