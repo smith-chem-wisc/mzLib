@@ -2,7 +2,7 @@
 {
     internal interface IReaderFactory
     {
-        internal MsDataFile Reader { get; }
-        internal MsDataFile CreateReader();
+        public MsDataFile Reader { get; }
+        public MsDataFile CreateReader();
     }
 }
