@@ -3,15 +3,6 @@ using MzLibUtil;
 using MassSpectrometry; 
 namespace Readers
 {
-    // only loads file.
-    public interface IDataReader
-    {
-        public string FilePath { get; }
-        public void LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1);
-
-        public SourceFile GetSourceFile(); 
-    }
-
     public static class MsDataFileHelpers
     {
         
