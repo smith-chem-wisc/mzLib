@@ -1750,5 +1750,56 @@ namespace Test
 
             return res;
         }
+
+        [Test]
+        public static void TestTabSeparatedHeader()
+        {
+            Assert.Throws<NotImplementedException>(() =>
+            {
+                PairedProteinQuantResult.TabSeparatedHeader();
+            });
+        }
+
+        [Test]
+        public static void TestPairedSamplesQuantificationEngineThrowsNotImplemented()
+        {
+                        ProteinGroup pg = new ProteinGroup("Accession", "Gene", "Organism");
+            var p = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { pg });
+
+            var files = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("a1", "a", 0, 0, 0),
+                new SpectraFileInfo("a2", "a", 1, 0, 0),
+                new SpectraFileInfo("a3", "a", 2, 0, 0),
+                new SpectraFileInfo("b1", "b", 0, 0, 0),
+                new SpectraFileInfo("b2", "b", 1, 0, 0),
+                new SpectraFileInfo("b3", "b", 2, 0, 0)
+            };
+
+            var res = new FlashLfqResults(files, new List<Identification>
+            {
+                new Identification(null, "SEQUENCE", "SEQUENCE", 0, 0, 0, new List<ProteinGroup>{ new ProteinGroup("Accession", "Gene", "Organism") })
+            });
+
+            FlashLFQ.Peptide peptide = res.PeptideModifiedSequences.First().Value;
+            ProteinGroup proteinGroup = res.ProteinGroups.First().Value;
+
+            peptide.SetIntensity(files[0], 900);
+            peptide.SetIntensity(files[1], 1000);
+            peptide.SetIntensity(files[2], 1100);
+
+            peptide.SetIntensity(files[3], 1950);
+            peptide.SetIntensity(files[4], 2000);
+            peptide.SetIntensity(files[5], 2050);
+
+
+            Assert.Throws<NotImplementedException>(() =>
+            {
+                var engine = new ProteinQuantificationEngine(res, maxThreads: 1, 
+                    controlCondition: "a", randomSeed: 0, foldChangeCutoff: 0.1, pairedSamples:true);
+                engine.Run();
+            });
+        }
+        
     }
 }
