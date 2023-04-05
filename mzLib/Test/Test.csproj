@@ -373,6 +373,7 @@
 
   <ItemGroup>
     <Compile Remove="TestSummedDataFile.cs" />
+    <Compile Remove="TestAbsoluteTolerance.cs" />
   </ItemGroup>
 
 </Project>

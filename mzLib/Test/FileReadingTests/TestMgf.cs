@@ -4,6 +4,7 @@ using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
 using Readers;
+using MzLibUtil;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.FileReadingTests
@@ -225,6 +226,14 @@ namespace Test.FileReadingTests
                     Assert.That(dynamicIntensity == staticIntensity);
                 }
             }
+        }
+
+        [Test]
+        public void TestGetByteOffsetAtCurrentPositionReaderNullBranch()
+        {
+            // create a stream reader that will generate a null
+            StreamReader streamReader = null;
+            Assert.Throws<MzLibException>(() => TextFileReading.GetByteOffsetAtCurrentPosition(streamReader));
         }
     }
 }
