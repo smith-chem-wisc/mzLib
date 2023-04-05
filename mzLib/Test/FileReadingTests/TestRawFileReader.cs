@@ -68,9 +68,9 @@ namespace Test.FileReadingTests
             stopwatch.Start();
             var reader = MsDataFileReader.GetDataFile(path);
             reader.LoadAllStaticData(null, maxThreads: 1);
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile1, false);
+            reader.ExportAsMzML(outfile1, false);
             reader.LoadAllStaticData();
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile2, true);
+            reader.ExportAsMzML(outfile2, true);
             var readerMzml = MsDataFileReader.GetDataFile(outfile2);
             readerMzml.LoadAllStaticData();
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");

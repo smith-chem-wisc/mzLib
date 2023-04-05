@@ -64,7 +64,7 @@ namespace Test.FileReadingTests
 
             FakeMsDataFile f = new FakeMsDataFile(scans);
 
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), false);
+            f.ExportAsMzML(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), false);
 
             var reader =
                 MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
@@ -138,7 +138,7 @@ namespace Test.FileReadingTests
                 new MsDataScan(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1")
             };
             FakeMsDataFile f = new FakeMsDataFile(scans);
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
+            f.ExportAsMzML(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
 
             var reader =
                 MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"));
