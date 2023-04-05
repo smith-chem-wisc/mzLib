@@ -40,24 +40,24 @@ namespace Readers
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }
 
-        public MsDataFile(int numSpectra, SourceFile sourceFile)
+        protected MsDataFile(int numSpectra, SourceFile sourceFile)
         {
             Scans = new MsDataScan[numSpectra];
             SourceFile = sourceFile;
         }
 
-        public MsDataFile(MsDataScan[] scans, SourceFile sourceFile)
+        protected MsDataFile(MsDataScan[] scans, SourceFile sourceFile)
         {
             Scans = scans;
             SourceFile = sourceFile;
         }
 
-        public MsDataFile()
+        protected MsDataFile()
         {
 
         }
 
-        public MsDataFile(string filePath)
+        protected MsDataFile(string filePath)
         {
             FilePath = filePath;
         }

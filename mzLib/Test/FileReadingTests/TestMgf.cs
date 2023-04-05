@@ -6,7 +6,7 @@ using NUnit.Framework;
 using Readers;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test.TestReaders
+namespace Test.FileReadingTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -43,7 +43,7 @@ namespace Test.TestReaders
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
                 "ThereIsNothingHerePleaseDoNotGenerateThisFile.mgf");
-            var reader = MsDataFileReader.GetDataFile(path); 
+            var reader = MsDataFileReader.GetDataFile(path);
 
             try
             {
@@ -56,12 +56,12 @@ namespace Test.TestReaders
             }
             reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
             reader.LoadAllStaticData();
-            var ya = reader.GetOneBasedScan(14); 
+            var ya = reader.GetOneBasedScan(14);
 
             Assert.AreEqual(192, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
             Assert.AreEqual(14, ya.OneBasedScanNumber);
-            Assert.AreEqual(MassSpectrometry.Polarity.Positive, ya.Polarity);
+            Assert.AreEqual(Polarity.Positive, ya.Polarity);
             Assert.AreEqual(0.26666666666666666, ya.RetentionTime);
             Assert.AreEqual(571.806916, ya.IsolationMz);
             Assert.AreEqual(571.806916, ya.SelectedIonMZ);
@@ -80,15 +80,15 @@ namespace Test.TestReaders
         public static void TestLoadMgfTabSeparated()
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "Tab_separated_peak_list.mgf");
-            var dataReader = MsDataFileReader.GetDataFile(path); 
+            var dataReader = MsDataFileReader.GetDataFile(path);
             dataReader.LoadAllStaticData();
-            
+
             var ya = dataReader.GetOneBasedScan(2);
 
             Assert.AreEqual(19, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
             Assert.AreEqual(2, ya.OneBasedScanNumber);
-            Assert.AreEqual(MassSpectrometry.Polarity.Positive, ya.Polarity);
+            Assert.AreEqual(Polarity.Positive, ya.Polarity);
             Assert.That(ya.RetentionTime, Is.EqualTo(15.393).Within(0.1));
             Assert.That(ya.IsolationMz, Is.EqualTo(354.8).Within(0.1));
             Assert.That(ya.SelectedIonMZ, Is.EqualTo(354.8).Within(0.1));
@@ -104,16 +104,16 @@ namespace Test.TestReaders
         {
             var reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
             var fileDoesntExistReader = MsDataFileReader.GetDataFile("fakeFile.mgf");
-            
+
             Assert.Throws<FileNotFoundException>(() =>
             {
                 fileDoesntExistReader.InitiateDynamicConnection();
             });
             IFilteringParams filter = new FilteringParams(1, 0.01);
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf");
-            var readerReal = MsDataFileReader.GetDataFile(path); 
+            var readerReal = MsDataFileReader.GetDataFile(path);
             readerReal.InitiateDynamicConnection();
-            readerReal.GetOneBasedScanFromDynamicConnection(2, filter); 
+            readerReal.GetOneBasedScanFromDynamicConnection(2, filter);
         }
 
         [Test]
@@ -122,7 +122,7 @@ namespace Test.TestReaders
             //read the mgf file. zero intensity peaks should be eliminated during read
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf");
 
-            var reader = MsDataFileReader.GetDataFile(path); 
+            var reader = MsDataFileReader.GetDataFile(path);
             reader.LoadAllStaticData();
             //insure that read scans contain no zero intensity peaks
             Assert.IsFalse(reader.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
@@ -141,15 +141,15 @@ namespace Test.TestReaders
         public static void TestLoadCorruptMgf()
         {
             //tester_corrupt.mgf is extracted from tester.mgf except it contains empty lines or unknown words. You can compare the two files and find the differences.
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester_corrupt.mgf"); 
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester_corrupt.mgf");
             var reader = MsDataFileReader.GetDataFile(path);
             reader.LoadAllStaticData();
-            var ya = reader.GetOneBasedScan(14); 
+            var ya = reader.GetOneBasedScan(14);
 
             Assert.AreEqual(192, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
             Assert.AreEqual(14, ya.OneBasedScanNumber);
-            Assert.AreEqual(MassSpectrometry.Polarity.Positive, ya.Polarity);
+            Assert.AreEqual(Polarity.Positive, ya.Polarity);
             Assert.AreEqual(0.26666666666666666, ya.RetentionTime);
             Assert.AreEqual(571.806916, ya.IsolationMz);
             Assert.AreEqual(571.806916, ya.SelectedIonMZ);
@@ -168,7 +168,7 @@ namespace Test.TestReaders
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-            var reader = MsDataFileReader.GetDataFile(filePath); 
+            var reader = MsDataFileReader.GetDataFile(filePath);
             reader.LoadAllStaticData();
             reader.InitiateDynamicConnection();
 

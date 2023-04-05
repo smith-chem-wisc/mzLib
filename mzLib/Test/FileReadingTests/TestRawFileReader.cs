@@ -8,7 +8,7 @@ using NUnit.Framework;
 using Readers;
 using Readers.ReaderFactories;
 
-namespace Test.TestReaders
+namespace Test.FileReadingTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -17,7 +17,7 @@ namespace Test.TestReaders
         [Test]
         public void TestConstructors()
         {
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw"); 
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
             var reader = new ThermoRawReaderFactory(path).Reader;
             reader.LoadAllStaticData();
             var reader1 = new ThermoRawFileReader();
@@ -52,26 +52,26 @@ namespace Test.TestReaders
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
             outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile1);
             outfile2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile2);
-            
+
             string dummyPath = "aaljienxmbelsiemxmbmeba.raw";
             Assert.Throws<FileNotFoundException>(() =>
             {
                 var dummyReader = MsDataFileReader.GetDataFile(dummyPath);
                 dummyReader.LoadAllStaticData();
-            }); 
-            
+            });
+
             // testing load with multiple threads 
-            var parallelReader = MsDataFileReader.GetDataFile(path); 
+            var parallelReader = MsDataFileReader.GetDataFile(path);
             parallelReader.LoadAllStaticData(null, maxThreads: 4);
-            
+
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            var reader = MsDataFileReader.GetDataFile(path); 
+            var reader = MsDataFileReader.GetDataFile(path);
             reader.LoadAllStaticData(null, maxThreads: 1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile1, false);
-            reader.LoadAllStaticData(); 
+            reader.LoadAllStaticData();
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile2, true);
-            var readerMzml = MsDataFileReader.GetDataFile(outfile2); 
+            var readerMzml = MsDataFileReader.GetDataFile(outfile2);
             readerMzml.LoadAllStaticData();
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
@@ -84,7 +84,7 @@ namespace Test.TestReaders
             SourceFile sf = reader.GetSourceFile();
             Assert.That(sf.NativeIdFormat, Is.EqualTo(@"Thermo nativeID format"));
         }
-        
+
         /// <summary>
         /// Tests the dynamic connection for thermorawfilereader
         /// </summary>
@@ -102,7 +102,7 @@ namespace Test.TestReaders
             var thermoDynamic2 = MsDataFileReader.GetDataFile(path2);
             thermoDynamic2.InitiateDynamicConnection();
 
-            var msOrders = thermoDynamic1.GetMsOrderByScanInDynamicConnection(); 
+            var msOrders = thermoDynamic1.GetMsOrderByScanInDynamicConnection();
             Assert.That(msOrders != null && msOrders.Length > 0);
 
             var a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(1);
@@ -136,7 +136,7 @@ namespace Test.TestReaders
             var filterParams = new FilteringParams(200, 0.01, 0, 1, false, true, true);
 
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
-            var reader = MsDataFileReader.GetDataFile(path); 
+            var reader = MsDataFileReader.GetDataFile(path);
             reader.LoadAllStaticData(filterParams, maxThreads: 1);
             var rawScans = reader.GetAllScansList();
             foreach (var scan in rawScans)
@@ -146,7 +146,7 @@ namespace Test.TestReaders
 
             string outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", Path.GetFileNameWithoutExtension(infile) + ".mzML");
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile1, false);
-            var mzml = MsDataFileReader.GetDataFile(outfile1); 
+            var mzml = MsDataFileReader.GetDataFile(outfile1);
             mzml.LoadAllStaticData(filterParams, maxThreads: 1);
 
             var mzmlScans = mzml.GetAllScansList();
@@ -199,7 +199,7 @@ namespace Test.TestReaders
         public static void TestDynamicRaw(string fileName)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
-            
+
             var staticRaw = MsDataFileReader.GetDataFile(filePath);
             staticRaw.LoadAllStaticData();
             staticRaw.InitiateDynamicConnection();
@@ -263,7 +263,7 @@ namespace Test.TestReaders
         public static void TestEthcdReading()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "sliced_ethcd.raw");
-            var spectra = MsDataFileReader.GetDataFile(filePath); 
+            var spectra = MsDataFileReader.GetDataFile(filePath);
             spectra.LoadAllStaticData(null, 1);
             var hcdScan = spectra.GetOneBasedScan(5);
             Assert.That(hcdScan.DissociationType == DissociationType.HCD);

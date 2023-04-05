@@ -11,11 +11,10 @@ using MzLibUtil;
 using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
 using Readers;
-using Test.FileReadingTests;
 using MsDataFile = Readers.MsDataFile;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test.TestReaders
+namespace Test.FileReadingTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -102,12 +101,12 @@ namespace Test.TestReaders
         public void LoadBadMzml()
         {
             File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "asdfasdfasdfasdfasdf.mzML")); // just to be sure
-            
+
             Assert.Throws<FileNotFoundException>(() =>
             {
                 var reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
                     "asdfasdfasdfasdfasdf.mzML"));
-                reader.LoadAllStaticData(); 
+                reader.LoadAllStaticData();
             });
         }
 
@@ -122,13 +121,13 @@ namespace Test.TestReaders
 
             for (int mz = 400; mz < 1600; mz++)
             {
-                myPeaks.Add((mz, 10d * (double)mz));
+                myPeaks.Add((mz, 10d * mz));
             }
 
             double myMaxIntensity = myPeaks.Max(p => p.intensity);
             var myPeaksOrderedByIntensity = myPeaks.OrderByDescending(p => p.intensity).ToList();
             myPeaksOrderedByIntensity = myPeaksOrderedByIntensity.Take(numPeaks).ToList();
-            myPeaksOrderedByIntensity = myPeaksOrderedByIntensity.Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
+            myPeaksOrderedByIntensity = myPeaksOrderedByIntensity.Where(p => p.intensity / myMaxIntensity > minRatio).ToList();
             double sumOfAllIntensities = myPeaksOrderedByIntensity.Sum(p => p.intensity);
 
             double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
@@ -665,7 +664,7 @@ namespace Test.TestReaders
             scans[1] = new MsDataScan(spectrum2, 2, 2, true, Polarity.Positive, 1, new MzRange(300, 2000), "scan filter", MZAnalyzerType.Unknown, spectrum2.SumOfAllY, 1, new double[,] { }, "nativeId", 2, 1, 1, 1, 1, DissociationType.Unknown, 1, 2, null);
 
             var testMsDataFile = new GenericMsDataFile(scans, new SourceFile("no nativeID format", "mzML format",
-                    null, null,null));
+                    null, null, null));
 
             //check that scans have zero intensities
             Assert.IsTrue(testMsDataFile.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
@@ -682,7 +681,7 @@ namespace Test.TestReaders
             Assert.IsFalse(reader.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
             Assert.IsFalse(reader.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
 
-            System.IO.File.Delete("mzMLWithZeros.mzML");
+            File.Delete("mzMLWithZeros.mzML");
         }
 
         [Test]
@@ -1481,7 +1480,7 @@ namespace Test.TestReaders
 
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-            var reader = MsDataFileReader.GetDataFile(filePath); 
+            var reader = MsDataFileReader.GetDataFile(filePath);
             reader.LoadAllStaticData();
             reader.InitiateDynamicConnection();
 
@@ -1650,7 +1649,7 @@ namespace Test.TestReaders
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
             string filePath2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast_mixed_bits.mzml");
 
-            var reader1 = MsDataFileReader.GetDataFile(filePath); 
+            var reader1 = MsDataFileReader.GetDataFile(filePath);
             reader1.LoadAllStaticData();
             var reader2 = MsDataFileReader.GetDataFile(filePath2);
             reader2.LoadAllStaticData();
