@@ -115,6 +115,16 @@ namespace Readers
             BuildIndex();
         }
 
+        /// <summary>
+        /// This method ensures backwards compatibility with previous mzLib implementations
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="filteringParams"></param>
+        /// <param name="maxThreads"></param>
+        /// <returns></returns>
+        public new static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
+            int maxThreads = 1) => MsDataFile.LoadAllStaticData(filePath, filteringParams, maxThreads);
+
         private static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {

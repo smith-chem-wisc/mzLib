@@ -46,6 +46,7 @@ namespace Readers
         {
 
         }
+
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
             if (!File.Exists(FilePath))
@@ -124,6 +125,102 @@ namespace Readers
                 Path.GetFileNameWithoutExtension(FilePath));
             return sourceFile;
         }
+
+        /// <summary>
+        /// Initiates a dynamic connection with a Thermo .raw file. Data can be "streamed" instead of loaded all at once. Use 
+        /// GetOneBasedScanFromDynamicConnection to get data from a particular scan. Use CloseDynamicConnection to close the 
+        /// dynamic connection after all desired data has been retrieved from the dynamic connection.
+        /// </summary>
+        public override void InitiateDynamicConnection()
+        {
+            if (!File.Exists(FilePath))
+            {
+                throw new FileNotFoundException();
+            }
+
+            Loaders.LoadElements();
+
+            if (dynamicConnection != null)
+            {
+                dynamicConnection.Dispose();
+            }
+
+            dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
+
+            if (!dynamicConnection.IsOpen)
+            {
+                throw new MzLibException("Unable to access RAW file!");
+            }
+
+            if (dynamicConnection.IsError)
+            {
+                throw new MzLibException("Error opening RAW file!");
+            }
+
+            if (dynamicConnection.InAcquisition)
+            {
+                throw new MzLibException("RAW file still being acquired!");
+            }
+
+            dynamicConnection.SelectInstrument(Device.MS, 1);
+            GetMsOrdersByScanInDynamicConnection();
+        }
+
+        /// <summary>
+        /// Allows access to a .raw file one scan at a time via an open dynamic connection. Returns null if the raw file does not contain the 
+        /// scan number specified. Use InitiateDynamicConnection to open a dynamic connection before using this method.
+        /// </summary>
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+        {
+            if (dynamicConnection == null)
+            {
+                throw new MzLibException("The dynamic connection has not been created yet!");
+            }
+
+            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+            {
+                return null;
+            }
+
+            return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+        }
+
+        /// <summary>
+        /// Disposes of the dynamic connection, if one is open.
+        /// </summary>
+        public override void CloseDynamicConnection()
+        {
+            if (dynamicConnection != null)
+            {
+                dynamicConnection.Dispose();
+            }
+        }
+
+        public override int[] GetMsOrderByScanInDynamicConnection()
+        {
+            if (dynamicConnection != null)
+            {
+                int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
+                var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
+
+                int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
+
+                return msorders;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// This method ensures backwards compatibility with previous mzLib implementations
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="filteringParams"></param>
+        /// <param name="maxThreads"></param>
+        /// <returns></returns>
+        public new static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
+            int maxThreads = 1) => MsDataFile.LoadAllStaticData(filePath, filteringParams, maxThreads);
+
         private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
         {
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
@@ -420,91 +517,6 @@ namespace Readers
         /// without loading all of the other MSn scans.
         /// </summary>
         private int[] GetMsOrdersByScanInDynamicConnection()
-        {
-            if (dynamicConnection != null)
-            {
-                int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
-                var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
-
-                int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
-
-                return msorders;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Initiates a dynamic connection with a Thermo .raw file. Data can be "streamed" instead of loaded all at once. Use 
-        /// GetOneBasedScanFromDynamicConnection to get data from a particular scan. Use CloseDynamicConnection to close the 
-        /// dynamic connection after all desired data has been retrieved from the dynamic connection.
-        /// </summary>
-        public override void InitiateDynamicConnection()
-        {
-            if (!File.Exists(FilePath))
-            {
-                throw new FileNotFoundException();
-            }
-
-            Loaders.LoadElements();
-
-            if (dynamicConnection != null)
-            {
-                dynamicConnection.Dispose();
-            }
-
-            dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
-
-            if (!dynamicConnection.IsOpen)
-            {
-                throw new MzLibException("Unable to access RAW file!");
-            }
-
-            if (dynamicConnection.IsError)
-            {
-                throw new MzLibException("Error opening RAW file!");
-            }
-
-            if (dynamicConnection.InAcquisition)
-            {
-                throw new MzLibException("RAW file still being acquired!");
-            }
-
-            dynamicConnection.SelectInstrument(Device.MS, 1);
-            GetMsOrdersByScanInDynamicConnection();
-        }
-
-        /// <summary>
-        /// Allows access to a .raw file one scan at a time via an open dynamic connection. Returns null if the raw file does not contain the 
-        /// scan number specified. Use InitiateDynamicConnection to open a dynamic connection before using this method.
-        /// </summary>
-        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
-        {
-            if (dynamicConnection == null)
-            {
-                throw new MzLibException("The dynamic connection has not been created yet!");
-            }
-
-            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
-            {
-                return null;
-            }
-
-            return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
-        }
-
-        /// <summary>
-        /// Disposes of the dynamic connection, if one is open.
-        /// </summary>
-        public override void CloseDynamicConnection()
-        {
-            if (dynamicConnection != null)
-            {
-                dynamicConnection.Dispose();
-            }
-        }
-
-        public override int[] GetMsOrderByScanInDynamicConnection()
         {
             if (dynamicConnection != null)
             {

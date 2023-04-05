@@ -36,6 +36,8 @@ namespace Readers
 {
     public class Mzml : MsDataFile
     {
+        #region Constants
+
         private const string _zlibCompression = "MS:1000574";
         private const string _64bit = "MS:1000523";
         private const string _32bit = "MS:1000521";
@@ -114,6 +116,9 @@ namespace Readers
             { "Electron-Transfer/Higher-Energy Collision Dissociation (EThcD)", DissociationType.EThcD},
             { "unknown dissociation type", DissociationType.Unknown},
         };
+
+        #endregion
+
 
         Generated.mzMLType _mzMLConnection;
 
@@ -308,6 +313,7 @@ namespace Readers
             }
             return sourceFile;
         }
+
         /// <summary>
         /// Gets the scan with the specified one-based scan number.
         /// </summary>
@@ -666,6 +672,7 @@ namespace Readers
 
             return scan;
         }
+
         public override void CloseDynamicConnection()
         {
             if (reader != null)
@@ -1071,6 +1078,16 @@ namespace Readers
             }
             return convertedArray;
         }
+
+        /// <summary>
+        /// This method ensures backwards compatibility with previous mzLib implementations
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="filteringParams"></param>
+        /// <param name="maxThreads"></param>
+        /// <returns></returns>
+        public new static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
+            int maxThreads = 1) => MsDataFile.LoadAllStaticData(filePath, filteringParams, maxThreads);
 
         private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {

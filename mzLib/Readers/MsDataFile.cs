@@ -45,6 +45,7 @@ namespace Readers
             Scans = new MsDataScan[numSpectra];
             SourceFile = sourceFile;
         }
+
         public MsDataFile(MsDataScan[] scans, SourceFile sourceFile)
         {
             Scans = scans;
@@ -58,7 +59,7 @@ namespace Readers
 
         public MsDataFile(string filePath)
         {
-            FilePath = filePath; 
+            FilePath = filePath;
         }
 
         #region Abstract members
@@ -67,10 +68,30 @@ namespace Readers
         public abstract MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1);
 
         public abstract SourceFile GetSourceFile();
+
         // Dynamic Connection
-        public abstract MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null);
+        public abstract MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber,
+            IFilteringParams filterParams = null);
+
         public abstract void CloseDynamicConnection();
         public abstract void InitiateDynamicConnection();
+
+        #endregion
+
+        #region Static to Ensure Backwards Compatibility
+
+        /// <summary>
+        /// Load all data from a file, ensures backwards compatibility with previous implementations of MzLib
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="filteringParams"></param>
+        /// <param name="maxThreads"></param>
+        /// <returns></returns>
+        public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
+            int maxThreads = 1)
+        {
+            return MsDataFileReader.GetDataFile(filePath);
+        }
 
         #endregion
 
@@ -78,7 +99,7 @@ namespace Readers
 
         public virtual MsDataScan[] GetMsDataScans()
         {
-            return Scans; 
+            return Scans;
         }
 
         public virtual List<MsDataScan> GetAllScansList()
@@ -115,7 +136,9 @@ namespace Readers
             if (!CheckIfScansLoaded())
                 LoadAllStaticData();
 
-            for (int oneBasedSpectrumNumber = firstSpectrumNumber; oneBasedSpectrumNumber <= lastSpectrumNumber; oneBasedSpectrumNumber++)
+            for (int oneBasedSpectrumNumber = firstSpectrumNumber;
+                 oneBasedSpectrumNumber <= lastSpectrumNumber;
+                 oneBasedSpectrumNumber++)
             {
                 yield return GetOneBasedScan(oneBasedSpectrumNumber);
             }
@@ -136,6 +159,7 @@ namespace Readers
                     oneBasedSpectrumNumber++;
                     continue;
                 }
+
                 if (rt > lastRT)
                     yield break;
                 yield return scan;
@@ -157,6 +181,7 @@ namespace Readers
                     return i;
                 bestDiff = diff;
             }
+
             return NumSpectra;
         }
 

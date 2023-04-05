@@ -3,7 +3,7 @@ using MzLibUtil;
 using MassSpectrometry; 
 namespace Readers
 {
-    public static class MsDataFileHelpers
+    public static class MsDataFileExtensions
     {
         
         /// <summary>
