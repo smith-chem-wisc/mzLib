@@ -144,6 +144,7 @@ public static class OutlierRejection
     /// <param name="initialValues">list of mz values to evaluate</param>
     /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
     /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
+    /// <remarks>Documentation for winsorized sigma clipping can be found here https://pixinsight.com/doc/tools/ImageIntegration/ImageIntegration.html#description_003</remarks>
     /// <returns></returns>
     private static double[] WinsorizedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
     {
@@ -190,6 +191,7 @@ public static class OutlierRejection
     /// <param name="initialValues">list of mz values to evaluate</param>
     /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
     /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
+    /// <remarks>Documentation for averaged sigma clipping can be found here https://pixinsight.com/doc/tools/ImageIntegration/ImageIntegration.html#description_003</remarks>
     /// <returns></returns>
     private static double[] AveragedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
     {

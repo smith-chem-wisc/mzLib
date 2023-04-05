@@ -23,7 +23,7 @@ namespace MzLibUtil.NoiseEstimation
         {
             int iterations = 0; 
             // 1. Estimate the standard deviation of the noise in the original signal. 
-            double stdevPrevious = signal.StandardDeviation();
+            double estimatedStandardDeviation = signal.StandardDeviation();
 
             // 2. Compute the modwt of the image
             WaveletFilter filter = new(); 
@@ -46,7 +46,7 @@ namespace MzLibUtil.NoiseEstimation
                 // and the standard deviation of the noise at each level. 
                 // 5. Select all points that belong to the noise; they don't have an significant coefficients above noise 
                 var booleanizedLevels = BooleanizeLevels(wtOutput,
-                    stdevPrevious, 1.97); 
+                    estimatedStandardDeviation, 1.97); 
                 int[] mrsIndices = CreateMultiResolutionSupport(booleanizedLevels);
 
                 // 6. For the selected pixels, calculate original array - smoothed array and compute the standard deviation 
@@ -56,14 +56,14 @@ namespace MzLibUtil.NoiseEstimation
 
                 // 7. n = n + l. 
                 // 8. start again at 4 if sigma_I^n - sigma_I^(n-1) / sigma_I^(n) > epsilon. 
-                criticalVal = Math.Abs(stdevNext - stdevPrevious) / stdevPrevious;
+                criticalVal = Math.Abs(stdevNext - estimatedStandardDeviation) / estimatedStandardDeviation;
 
                 // setup for next iteration 
                 iterations++; 
-                stdevPrevious = stdevNext;
+                estimatedStandardDeviation = stdevNext;
             } while (criticalVal > epsilon && iterations <= maxIterations);
 
-            noiseEstimate = stdevPrevious; 
+            noiseEstimate = estimatedStandardDeviation; 
             return iterations < maxIterations;
         }
 

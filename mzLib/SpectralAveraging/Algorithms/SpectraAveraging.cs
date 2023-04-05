@@ -68,7 +68,6 @@ public static class SpectraAveraging
                 if (!bins[keys[binIndex]].Any()) continue;
                 lock (averagedPeaks)
                     averagedPeaks.Add(AverageBin(bins[keys[binIndex]], weights));
-
             }
         });
 

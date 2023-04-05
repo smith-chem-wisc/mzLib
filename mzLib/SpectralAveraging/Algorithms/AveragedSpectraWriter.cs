@@ -10,13 +10,21 @@ namespace SpectralAveraging;
 public static class AveragedSpectraWriter
 {
     /// <summary>
-    ///     Public entry point for outputting averaged spectra
+    /// Public entry point for outputting averaged spectra
     /// </summary>
     /// <param name="averagedScans"></param>
     /// <param name="parameters"></param>
     /// <param name="originalSpectraPath"></param>
     /// <param name="destinationDirectory"></param>
     /// <param name="averagedFileName"></param>
+    /// <remarks>
+    ///     Destination directory and averaged file name can either both be set, one or the other, or none at all
+    ///     If the destination directory and averaged file name are not specified,
+    ///         the averaged spectra will be written to the same directory as the original
+    ///         file path with the name $"{Original File Name}-averaged.mzML"
+    ///     Destination directory can be set to allow averaged spectra to be sent to the desired location
+    ///     Averaged file name will allow the mzML file to have a customized name
+    /// </remarks>
     /// <exception cref="NotImplementedException"></exception>
     public static void WriteAveragedScans(MsDataScan[] averagedScans, SpectralAveragingParameters parameters,
         string originalSpectraPath, string? destinationDirectory = null, string? averagedFileName = null)
