@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Readers;
 using SpectralAveraging;
 
 namespace Test.AveragingTests
@@ -27,7 +27,7 @@ namespace Test.AveragingTests
             Parameters = new SpectralAveragingParameters();
             OutputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTestData");
             SpectraPath = Path.Combine(OutputDirectory, "TDYeastFractionMS1.mzML");
-            Scans = SpectraFileHandler.LoadAllScansFromFile(SpectraPath).Take(50).ToList();
+            Scans = MsDataFileReader.GetDataFile(SpectraPath).GetAllScansList().Take(50).ToList();
 
             Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScansWithOverlap;
             DdaCompositeSpectra = SpectraFileAveraging.AverageSpectraFile(Scans, Parameters);
@@ -59,8 +59,7 @@ namespace Test.AveragingTests
                 "Averaged_" + Path.GetFileNameWithoutExtension(SpectraPath) + ".mzML");
             Assert.That(File.Exists(averagedSpectraPath));
 
-            var temp = Mzml.LoadAllStaticData(averagedSpectraPath);
-            MsDataScan[] loadedScans = temp.GetAllScansList().ToArray();
+            MsDataScan[] loadedScans = MsDataFileReader.GetDataFile(averagedSpectraPath).GetAllScansList().ToArray();
             for (var i = 0; i < loadedScans.Length; i++)
             {
                 for (int j = 0; j < loadedScans[i].MassSpectrum.YArray.Length; j++)

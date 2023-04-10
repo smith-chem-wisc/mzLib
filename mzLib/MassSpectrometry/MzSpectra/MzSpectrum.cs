@@ -567,7 +567,7 @@ namespace MassSpectrometry
             int nominalWindowWidthDaltons = (int)(Math.Round((scanRangeMaxMz - scanRangeMinMz) / 10d, 0));
             FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, null, true, false, false);
 
-            MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), true);
+            WindowModeHelper.Run(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), true);
 
             Array.Sort(genericMzArray, genericIntensityArray);
 
