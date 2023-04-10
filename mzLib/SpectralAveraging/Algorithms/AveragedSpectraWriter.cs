@@ -2,9 +2,9 @@
 using System;
 using System.IO;
 using System.Linq;
-using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
+using Readers;
 
 namespace SpectralAveraging;
 public static class AveragedSpectraWriter
@@ -53,8 +53,9 @@ public static class AveragedSpectraWriter
         // gather necessary information to generate file from original spectra path
         var spectraDirectory = Path.GetDirectoryName(originalSpectraPath) ??
                                throw new MzLibException("Cannot Access Spectra Directory");
-        var sourceFile = SpectraFileHandler.GetSourceFile(originalSpectraPath);
-        MsDataFile msDataFile = new(averagedScans, sourceFile);
+                               
+        var sourceFile = MsDataFileReader.GetDataFile(originalSpectraPath).GetSourceFile();
+        GenericMsDataFile msDataFile = new(averagedScans, sourceFile);
 
         // construct output path
         string averagedOutputPath;
