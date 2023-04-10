@@ -10,6 +10,7 @@ using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics.ProteolyticDigestion;
+using Readers;
 using SpectralAveraging;
 
 namespace Test.AveragingTests
@@ -247,9 +248,8 @@ namespace Test.AveragingTests
 
         #endregion
 
-        public static List<MsDataScan> ActualScans => SpectraFileHandler
-            .LoadAllScansFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"AveragingTestData\TDYeastFractionMS1.mzML")).Take(50).ToList();
+        public static List<MsDataScan> ActualScans => MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"AveragingTestData\TDYeastFractionMS1.mzML")).GetAllScansList().Take(50).ToList();
 
         public static string NativeId;
 
