@@ -4,7 +4,9 @@ using MzLibUtil;
 using System.IO;
 using System.Linq;
 using System;
+using MassSpectrometry;
 using System.Collections.Generic;
+
 
 namespace Test
 {
@@ -36,6 +38,27 @@ namespace Test
             
             Assert.True(expectedTrue);
             Assert.False(expectedFalse);
+        }
+
+        [Test]
+        public static void TestAllSame()
+        {
+            MzSpectrum spectrum1 = new MzSpectrum(new[] { 2.0, 2.0 }, new[] { 1.0, 1.0 }, false);
+            MzSpectrum spectrum2 = new MzSpectrum(new[] { 5.0, 5.0 }, new[] { 2.0, 2.0 }, false);
+
+            var sameInt = new[] { 2, 2 };
+            var sameDouble = new[] { 2.0, 2.0 };
+            var sameSpectrum = new[] { spectrum1, spectrum1 };
+            Assert.That(sameInt.AllSame());
+            Assert.That(sameDouble.AllSame());
+            Assert.That(sameSpectrum.AllSame());
+
+            var differentInt = new[] { 2, 5 };
+            var differentDouble = new[] { 2.0, 5.0 };
+            var differentSpectrum = new[] { spectrum1, spectrum2 };
+            Assert.That(!differentInt.AllSame());
+            Assert.That(!differentDouble.AllSame());
+            Assert.That(!differentSpectrum.AllSame());
         }
     }
 }
