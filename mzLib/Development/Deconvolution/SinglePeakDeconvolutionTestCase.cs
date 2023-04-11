@@ -29,7 +29,9 @@ namespace Development.Deconvolution
             ExpectedIonChargeState = expectedIonChargeState;
             SelectedIonMz = selectedIonMz;
             DeconvolutionPPmTolerance = new PpmTolerance(precursorPpmMassTolerance);
-            SpectrumToDeconvolute = SpectraFileHandler.LoadAllScansFromFile(spectrumPath)
+            SpectrumToDeconvolute = MsDataFileReader.GetDataFile(spectrumPath)
+                .LoadAllStaticData()
+                .GetAllScansList()
                 .First(p => p.OneBasedScanNumber == scanNumber).MassSpectrum;
 
             // 8.5 was selected as this is the magic number found in Classic Deconvolution
