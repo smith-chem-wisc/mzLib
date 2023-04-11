@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using System.Diagnostics.CodeAnalysis;
+using Readers;
 
 namespace Test
 {
@@ -29,7 +30,9 @@ namespace Test
             const double selectedIonMz = 1374.16;
             const int precursorPpmTolerance = 20;
             var range = new MzRange(selectedIonMz - 8.5, selectedIonMz + 8.5);
-            var spectrum = SpectraFileHandler.LoadAllScansFromFile(pathToDataFile)
+            var spectrum = MsDataFileReader.GetDataFile(pathToDataFile)
+                .LoadAllStaticData()
+                .GetAllScansList()
                 .First(p => p.OneBasedScanNumber == scanNumber).MassSpectrum;
 
             var testCase = new SinglePeakDeconvolutionTestCase(classicTopDownDeconvoluter, sampleInformation, pathToDataFile,
@@ -62,7 +65,9 @@ namespace Test
             int[] expectedIonChargeState = new[] { 9 };
             double[] selectedIonMz = new[] { 1374.16 };
             const int precursorPpmTolerance = 20;
-            var spectrum = SpectraFileHandler.LoadAllScansFromFile(pathToDataFile)
+            var spectrum = MsDataFileReader.GetDataFile(pathToDataFile)
+                .LoadAllStaticData()
+                .GetAllScansList()
                 .First(p => p.OneBasedScanNumber == scanNumber).MassSpectrum;
 
             var testCase = new WholeSpectrumDeconvolutionTestCase(classicTopDownDeconvoluter, sampleInformation, pathToDataFile, scanNumber,
