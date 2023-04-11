@@ -32,7 +32,9 @@ namespace Development.Deconvolution
             ExpectedIonChargeStates = expectedIonChargeStates;
             SelectedIonMzs = selectedIonMzs;
             DeconvolutionPPmTolerance = new PpmTolerance(precursorPpmMassTolerance);
-            SpectrumToDeconvolute = SpectraFileHandler.LoadAllScansFromFile(spectrumPath)
+            SpectrumToDeconvolute = MsDataFileReader.GetDataFile(spectrumPath)
+                .LoadAllStaticData()
+                .GetAllScansList()
                 .First(p => p.OneBasedScanNumber == scanNumber).MassSpectrum;
             Count = selectedIonMzs.Length;
         }
