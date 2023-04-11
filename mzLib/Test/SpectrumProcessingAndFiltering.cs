@@ -1,5 +1,5 @@
 ﻿using Chemistry;
-using IO.MzML;
+using Readers;
 using MassSpectrometry;
 using NUnit.Framework;
 using System;
@@ -33,7 +33,7 @@ namespace Test
 
             FilteringParams f = new FilteringParams(peaksToKeep, null, nominalWindowWidthDaltons, null, normalize, false, false);
 
-            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, 100, 2000, false);
+            WindowModeHelper.Run(ref intArray, ref mzArray, f, 100, 2000, false);
 
             if (nominalWindowWidthDaltons.HasValue)
             {
@@ -63,7 +63,7 @@ namespace Test
 
             FilteringParams f = new FilteringParams(null, 0.05, null, null, false, false, false);
 
-            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
+            WindowModeHelper.Run(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
             //The first five intensities are below 5% and therefore removed.
             Assert.AreEqual(95, intArray.Count());
@@ -84,7 +84,7 @@ namespace Test
 
             FilteringParams f = new FilteringParams(100, null, null, null, false, false, false);
 
-            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
+            WindowModeHelper.Run(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
             Assert.AreEqual(100, intArray.Count());
             Assert.AreEqual(100, mzArray.Count());
@@ -108,7 +108,7 @@ namespace Test
 
             FilteringParams f = new FilteringParams(10, null, 20, 10, false, false, false);
 
-            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
+            WindowModeHelper.Run(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
             Assert.AreEqual(100, intArray.Count());
             Assert.AreEqual(100, mzArray.Count());
@@ -139,7 +139,7 @@ namespace Test
 
             FilteringParams f = new FilteringParams(100, null, null, null, false, false, false);
 
-            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
+            WindowModeHelper.Run(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
             List<double> myOut = intArray.ToList();
             myOut.Sort((x, y) => y.CompareTo(x));
@@ -206,11 +206,13 @@ namespace Test
         [Test]
         public static void ProcessXcorrInMzSpectrum()
         {
-            Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
+            Dictionary<string, Readers.MsDataFile> MyMsDataFiles = new Dictionary<string, Readers.MsDataFile>();
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "BinGenerationTest.mzML");
             FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, true);
 
-            MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
+            var reader = MsDataFileReader.GetDataFile(origDataFile); 
+            reader.LoadAllStaticData(filter, 1);
+            MyMsDataFiles[origDataFile] = reader; 
 
             var scans = MyMsDataFiles[origDataFile].GetAllScansList();
 
@@ -234,7 +236,9 @@ namespace Test
 
             List<string> expectedResults = File.ReadAllLines(expectedResultFile, Encoding.UTF8).ToList();
 
-            MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
+            var reader = MsDataFileReader.GetDataFile(origDataFile); 
+            reader.LoadAllStaticData(filter, 1);
+            MyMsDataFiles[origDataFile] = reader;
 
             var scans = MyMsDataFiles[origDataFile].GetAllScansList();
 
