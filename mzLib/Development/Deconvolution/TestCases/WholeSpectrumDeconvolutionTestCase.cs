@@ -1,42 +1,42 @@
 ﻿using MassSpectrometry;
 using MzLibUtil;
-using SpectralAveraging;
 using Readers;
 
 namespace Development.Deconvolution
 {
     /// <summary>
-    /// Contains the expected results from deconvolution a single isotopic peak as well as information on the sample
+    /// Contains expected results from deconvolution of a whole spectrum as well as information on the sample
     /// </summary>
-    public class SinglePeakDeconvolutionTestCase
+    public class WholeSpectrumDeconvolutionTestCase
     {
         /// <summary>
-        /// Instantiate a SinglePeakDeconvolutionTestCase
+        /// Instantiate a WholeSpectrumDeconvolutionTestCase
         /// </summary>
         /// <param name="deconvoluter">The object which will be performing the deconvolution when tested</param>
         /// <param name="sampleInformation">Quick information relevant to the sample, will be visible on test failing. Use this field to allow other to quickly identify which tests are failing</param>
         /// <param name="spectrumPath">path to the spectrum of interest, current implementation expects the file to </param>
         /// <param name="scanNumber">One based scan number of spectrum to deconvolute</param>
-        /// <param name="expectedMostAbundantObservedIsotopicMass">Expected mass from deconvolution result</param>
-        /// <param name="expectedIonChargeState">Expected charge state from deconvolution result</param>
-        /// <param name="selectedIonMz">M/z of peak to deconvolute from spectrum</param>
         /// <param name="precursorPpmMassTolerance">Tolerance which deconvolution results must match expected value</param>
-        public SinglePeakDeconvolutionTestCase(Deconvoluter deconvoluter, string sampleInformation, string spectrumPath, int scanNumber,
-            double expectedMostAbundantObservedIsotopicMass, int expectedIonChargeState, double selectedIonMz, double precursorPpmMassTolerance)
+        /// <param name="expectedMostAbundantObservedIsotopicMasses">Expected masses from deconvolution result</param>
+        /// <param name="expectedIonChargeStates">Expected charge states from deconvolution result</param>
+        /// <param name="selectedIonMzs">M/z of peaks to deconvolute from spectrum</param>
+        public WholeSpectrumDeconvolutionTestCase(Deconvoluter deconvoluter, string sampleInformation, string spectrumPath, int scanNumber,
+            double precursorPpmMassTolerance, double[] expectedMostAbundantObservedIsotopicMasses, int[] expectedIonChargeStates, double[] selectedIonMzs)
         {
+            if (!new[] { expectedMostAbundantObservedIsotopicMasses.Length, expectedIonChargeStates.Length, selectedIonMzs.Length }.AllSame())
+                throw new MzLibException("Must have same number of masses, charges, and mzs");
+
             Deconvoluter = deconvoluter;
             SampleInformation = sampleInformation;
-            ExpectedMostAbundantObservedIsotopicMass = expectedMostAbundantObservedIsotopicMass;
-            ExpectedIonChargeState = expectedIonChargeState;
-            SelectedIonMz = selectedIonMz;
+            ExpectedMostAbundantObservedIsotopicMasses = expectedMostAbundantObservedIsotopicMasses;
+            ExpectedIonChargeStates = expectedIonChargeStates;
+            SelectedIonMzs = selectedIonMzs;
             DeconvolutionPPmTolerance = new PpmTolerance(precursorPpmMassTolerance);
             SpectrumToDeconvolute = MsDataFileReader.GetDataFile(spectrumPath)
                 .LoadAllStaticData()
                 .GetAllScansList()
                 .First(p => p.OneBasedScanNumber == scanNumber).MassSpectrum;
-
-            // 8.5 was selected as this is the magic number found in Classic Deconvolution
-            RangeToDeconvolute = new MzRange(selectedIonMz - 8.5, selectedIonMz + 8.5);
+            Count = selectedIonMzs.Length;
         }
 
         /// <summary>
@@ -51,25 +51,19 @@ namespace Development.Deconvolution
         public string SampleInformation { get; init; }
 
         /// <summary>
-        /// Expected mass from deconvolution result
+        /// Expected masses from deconvolution result
         /// </summary>
-        public double ExpectedMostAbundantObservedIsotopicMass { get; init; }
+        public double[] ExpectedMostAbundantObservedIsotopicMasses { get; init; }
 
         /// <summary>
-        /// Expected charge state from deconvolution result
+        /// Expected charge states from deconvolution result
         /// </summary>
-        public int ExpectedIonChargeState { get; init; }
+        public int[] ExpectedIonChargeStates { get; init; }
 
         /// <summary>
-        /// M/z of peak to deconvolute from spectrum
+        /// M/z of peaks to deconvolute from spectrum
         /// </summary>
-        public double SelectedIonMz { get; init; }
-
-        /// <summary>
-        /// Range within the spectrum to deconvolute
-        /// Currently set to +- 8.5 mz from SelectedIonMz per MetaMorpheus default heuristic
-        /// </summary>
-        public MzRange RangeToDeconvolute { get; init; }
+        public double[] SelectedIonMzs { get; init; }
 
         /// <summary>
         /// Spectrum to Deconvolute
@@ -81,10 +75,14 @@ namespace Development.Deconvolution
         /// </summary>
         public PpmTolerance DeconvolutionPPmTolerance { get; init; }
 
+        /// <summary>
+        /// Number of deconvoluted masses that are to be assessed
+        /// </summary>
+        public double Count { get; init; }
+
         public override string ToString()
         {
-            return $"{Deconvoluter.DeconvolutionType}: {SampleInformation} Charge: {ExpectedIonChargeState}";
+            return $"{Deconvoluter.DeconvolutionType}: {SampleInformation}";
         }
     }
 }
-
