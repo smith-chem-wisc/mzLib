@@ -8,7 +8,7 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public enum DeconvolutionTypes
+    public enum DeconvolutionType
     {
         ClassicDeconvolution,
         AlexDeconvolution,
@@ -20,10 +20,10 @@ namespace MassSpectrometry
     public class Deconvoluter
     {
         public DeconvolutionAlgorithm DeconvolutionAlgorithm { get; private set; }
-        public DeconvolutionTypes DeconvolutionType { get; }
+        public DeconvolutionType DeconvolutionType { get; }
         public DeconvolutionParameters DeconvolutionParameters { get; }
 
-        public Deconvoluter(DeconvolutionTypes deconType, DeconvolutionParameters deconParameters)
+        public Deconvoluter(DeconvolutionType deconType, DeconvolutionParameters deconParameters)
         {
             DeconvolutionParameters = deconParameters;
             DeconvolutionType = deconType;
@@ -43,10 +43,10 @@ namespace MassSpectrometry
             // set deconvolution parameters that are only present in the MsDataScan
             switch (DeconvolutionType)
             {
-                case DeconvolutionTypes.ClassicDeconvolution:
+                case DeconvolutionType.ClassicDeconvolution:
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
+                case DeconvolutionType.AlexDeconvolution:
                     break;
             }
 
@@ -65,11 +65,11 @@ namespace MassSpectrometry
             // construct algorithm object
             switch (DeconvolutionType)
             {
-                case DeconvolutionTypes.ClassicDeconvolution:
+                case DeconvolutionType.ClassicDeconvolution:
                     DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
                     break;
 
-                case DeconvolutionTypes.AlexDeconvolution:
+                case DeconvolutionType.AlexDeconvolution:
                     DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithm(deconParameters);
                     break;
 
