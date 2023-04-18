@@ -20,6 +20,11 @@ namespace IO.ThermoRawFileReader
     {
 
     }
+
+    public class ThermoRawFileReaderLicence : Readers.ThermoRawFileReaderLicence
+    {
+
+    }
 }
 
 
