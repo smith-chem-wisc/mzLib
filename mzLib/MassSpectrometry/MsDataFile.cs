@@ -23,9 +23,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MassSpectrometry; 
 
-namespace Readers
+namespace MassSpectrometry
 {
     // TODO: Define scope of class 
     // Class scope is to provide to the data loaded from the DataFile. 
@@ -75,23 +74,6 @@ namespace Readers
 
         public abstract void CloseDynamicConnection();
         public abstract void InitiateDynamicConnection();
-
-        #endregion
-
-        #region Static to Ensure Backwards Compatibility
-
-        /// <summary>
-        /// Load all data from a file, ensures backwards compatibility with previous implementations of MzLib
-        /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="filteringParams"></param>
-        /// <param name="maxThreads"></param>
-        /// <returns></returns>
-        public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
-            int maxThreads = 1)
-        {
-            return MsDataFileReader.GetDataFile(filePath);
-        }
 
         #endregion
 

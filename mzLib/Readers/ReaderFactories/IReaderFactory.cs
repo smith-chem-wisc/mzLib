@@ -1,4 +1,6 @@
-﻿namespace Readers.ReaderFactories
+﻿using MassSpectrometry;
+
+namespace Readers.ReaderFactories
 {
     internal interface IReaderFactory
     {

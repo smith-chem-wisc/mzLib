@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Readers;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -45,25 +46,23 @@ namespace Test.FileReadingTests
             MsDataFile dataFile;
             switch (Path.GetExtension(filePath).ToLower())
             {
-                case "raw":
-                    dataFile = ThermoRawFileReader.LoadAllStaticData(filePath);
+                case ".raw":
+                    dataFile = IO.ThermoRawFileReader.ThermoRawFileReader.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 
-                case "mzml":
-                    dataFile = Mzml.LoadAllStaticData(filePath);
+                case ".mzml":
+                    dataFile = IO.MzML.Mzml.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 
-                case "mgf":
-                    dataFile = Mgf.LoadAllStaticData(filePath);
+                case ".mgf":
+                    dataFile = IO.Mgf.Mgf.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 
                 default:
-                    dataFile = MsDataFile.LoadAllStaticData(filePath);
-                    scans = dataFile.GetAllScansList();
-                    break;
+                    throw new MzLibException("File type not needed to test for backwards compatibility");
             }
 
             var sourceFile = dataFile.GetSourceFile();

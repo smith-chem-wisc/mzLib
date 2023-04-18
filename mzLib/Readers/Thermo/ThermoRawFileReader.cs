@@ -13,15 +13,22 @@ using ThermoFisher.CommonCore.Data.Interfaces;
 using ThermoFisher.CommonCore.RawFileReader;
 using UsefulProteomicsDatabases;
 
+// old namespace to ensure backwards compatibility
+namespace IO.ThermoRawFileReader
+{
+    public class ThermoRawFileReader : Readers.ThermoRawFileReader
+    {
+
+    }
+}
+
+
+
 // This .cs file uses:
 // RawFileReader reading tool. Copyright © 2016 by Thermo Fisher Scientific, Inc. All rights reserved.
 // See the full Software Licence Agreement for detailed requirements for use.
-
 namespace Readers
 {
-    /// <summary>
-    ///
-    /// </summary>
     // I think that ThermoRawFileReader should be used to store the data from the files, 
     // but the actual implementation details should be completely hidden. 
     public class ThermoRawFileReader : MsDataFile
@@ -218,8 +225,8 @@ namespace Readers
         /// <param name="filteringParams"></param>
         /// <param name="maxThreads"></param>
         /// <returns></returns>
-        public new static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
-            int maxThreads = 1) => MsDataFile.LoadAllStaticData(filePath, filteringParams, maxThreads);
+        public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
+            int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
         private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
         {

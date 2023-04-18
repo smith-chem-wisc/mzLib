@@ -8,6 +8,15 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using UsefulProteomicsDatabases;
 
+// old namespace to ensure backwards compatibility
+namespace IO.Mgf
+{
+    public class Mgf : Readers.Mgf
+    {
+
+    }
+}
+
 namespace Readers
 {
     public class Mgf : MsDataFile
@@ -122,8 +131,8 @@ namespace Readers
         /// <param name="filteringParams"></param>
         /// <param name="maxThreads"></param>
         /// <returns></returns>
-        public new static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
-            int maxThreads = 1) => MsDataFile.LoadAllStaticData(filePath, filteringParams, maxThreads);
+        public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
+            int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
         private static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
