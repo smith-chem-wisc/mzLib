@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
+    <ProjectReference Include="..\Development\Development.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
