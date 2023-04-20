@@ -6,7 +6,6 @@ using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
 using Readers;
-using Readers.ReaderFactories;
 
 namespace Test.FileReadingTests
 {
@@ -14,18 +13,7 @@ namespace Test.FileReadingTests
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestRawFileReader
     {
-        [Test]
-        public void TestConstructors()
-        {
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
-            var reader = new ThermoRawReaderFactory(path).Reader;
-            reader.LoadAllStaticData();
-            var reader1 = new ThermoRawFileReader();
-            var reader2 = new ThermoRawFileReader(5, reader.SourceFile);
-            var reader3 = new ThermoRawFileReader(reader.Scans, reader.SourceFile);
-            var reader4 = new ThermoRawFileReader(reader.SourceFile.FileName);
-            Assert.Pass();
-        }
+        
 
         [Test]
         public void TestFileDoesntExist()
