@@ -18,7 +18,7 @@ namespace IO.ThermoRawFileReader
 {
     public class ThermoRawFileReader : Readers.ThermoRawFileReader
     {
-
+        public ThermoRawFileReader(string path) : base(path) { }
     }
 
     public class ThermoRawFileReaderLicence : Readers.ThermoRawFileReaderLicence
@@ -38,26 +38,7 @@ namespace Readers
     // but the actual implementation details should be completely hidden. 
     public class ThermoRawFileReader : MsDataFile
     {
-        public ThermoRawFileReader(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
-        {
-            Scans = new MsDataScan[numSpectra];
-            SourceFile = sourceFile;
-        }
-        public ThermoRawFileReader(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
-        {
-            Scans = scans;
-            SourceFile = sourceFile;
-        }
-
-        public ThermoRawFileReader()
-        {
-
-        }
-
-        public ThermoRawFileReader(string path) : base(path)
-        {
-
-        }
+        public ThermoRawFileReader(string path) : base(path) { }
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {

@@ -13,7 +13,7 @@ namespace IO.Mgf
 {
     public class Mgf : Readers.Mgf
     {
-
+        public Mgf(string filePath) : base(filePath) { }
     }
 }
 
@@ -21,25 +21,8 @@ namespace Readers
 {
     public class Mgf : MsDataFile
     {
-        public Mgf(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
-        {
-            Scans = new MsDataScan[numSpectra];
-            SourceFile = sourceFile;
-        }
-        public Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
-        {
-            Scans = scans;
-            SourceFile = sourceFile;
-        }
-        public Mgf()
-        {
+        public Mgf(string filePath) : base(filePath) { }
 
-        }
-
-        public Mgf(string filePath) : base(filePath)
-        {
-
-        }
         public override MsDataFile LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
         {
             if (!File.Exists(FilePath))

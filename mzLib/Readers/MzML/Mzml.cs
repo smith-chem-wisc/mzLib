@@ -37,7 +37,7 @@ namespace IO.MzML
 {
     public class Mzml : Readers.Mzml
     {
-
+        public Mzml(string filePath) : base(filePath) { }
     }
 }
 
@@ -130,20 +130,6 @@ namespace Readers
 
 
         Generated.mzMLType _mzMLConnection;
-
-        public Mzml(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
-        {
-            InitializeConnection();
-        }
-        public Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
-        {
-            InitializeConnection();
-        }
-
-        public Mzml() : base()
-        {
-            InitializeConnection();
-        }
 
         public Mzml(string filePath) : base(filePath)
         {

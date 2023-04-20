@@ -51,11 +51,6 @@ namespace MassSpectrometry
             SourceFile = sourceFile;
         }
 
-        protected MsDataFile()
-        {
-
-        }
-
         protected MsDataFile(string filePath)
         {
             FilePath = filePath;
@@ -81,6 +76,8 @@ namespace MassSpectrometry
 
         public virtual MsDataScan[] GetMsDataScans()
         {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
             return Scans;
         }
 
@@ -179,7 +176,7 @@ namespace MassSpectrometry
 
         #endregion
 
-        internal virtual bool CheckIfScansLoaded()
+        public virtual bool CheckIfScansLoaded()
         {
             return (Scans != null && Scans.Length > 0);
         }

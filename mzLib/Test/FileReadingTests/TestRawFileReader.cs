@@ -13,7 +13,6 @@ namespace Test.FileReadingTests
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestRawFileReader
     {
-        
         [Test]
         public void TestFileDoesntExist()
         {

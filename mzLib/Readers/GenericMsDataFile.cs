@@ -8,7 +8,6 @@ public class GenericMsDataFile : MsDataFile
     {
         throw new NotImplementedException();
     }
-
     public override SourceFile GetSourceFile()
     {
         throw new NotImplementedException();
@@ -33,11 +32,6 @@ public class GenericMsDataFile : MsDataFile
 
     }
     public GenericMsDataFile(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
-    {
-
-    }
-
-    public GenericMsDataFile() : base()
     {
 
     }
