@@ -14,7 +14,6 @@ namespace Test.FileReadingTests
     public sealed class TestRawFileReader
     {
         
-
         [Test]
         public void TestFileDoesntExist()
         {
