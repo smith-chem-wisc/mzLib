@@ -17,32 +17,30 @@ namespace Proteomics
                 (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
         }
 
-        // commented out by AVC 4/5/23. Unused in current code base. 
-        // Can't rule out needed in the future. 
         /// <summary>
         /// Determines if the modification falls on a variant amino acid
         /// </summary>
         /// <param name="protein"></param>
         /// <param name=""></param>
         /// <returns></returns>
-        // public static bool IsSequenceVariantModification(SequenceVariation appliedVariant, int variantProteinIndex)
-        // {
-        //     return appliedVariant != null && appliedVariant.Includes(variantProteinIndex);
-        // }
+        public static bool IsSequenceVariantModification(SequenceVariation appliedVariant, int variantProteinIndex)
+        {
+            return appliedVariant != null && appliedVariant.Includes(variantProteinIndex);
+        }
 
         /// <summary>
         /// Restores modification index on a variant protein to the index on the nonvariant protein,
         /// or if it falls on a variant, this restores the position on the protein with only that variant
         /// </summary>
-        /// <param name="variantProteinIndex"></param>
-        /// <param name="modification"></param>
+        /// <param name="protein">Protein containing applied sequence variations</param>
+        /// <param name="variantProteinModificationIndex">The one-based index of the amino acid residue bearing a modification</param>
         /// <returns></returns>
-        // public static int RestoreModificationIndex(Protein protein, int variantProteinIndex)
-        // {
-        //     return variantProteinIndex - protein.AppliedSequenceVariations
-        //         .Where(v => v.OneBasedEndPosition < variantProteinIndex)
-        //         .Sum(v => v.VariantSequence.Length - v.OriginalSequence.Length);
-        // }
+        public static int RestoreModificationIndex(Protein protein, int variantProteinModificationIndex)
+        {
+            return variantProteinModificationIndex - protein.AppliedSequenceVariations
+                .Where(v => v.OneBasedEndPosition < variantProteinModificationIndex)
+                .Sum(v => v.VariantSequence.Length - v.OriginalSequence.Length);
+        }
 
         /// <summary>
         /// Format string to append to accession
