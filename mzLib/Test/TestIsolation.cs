@@ -22,6 +22,7 @@ using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Linq;
+using Test.FileReadingTests;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test

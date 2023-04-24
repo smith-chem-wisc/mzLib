@@ -101,6 +101,18 @@ namespace Test
         }
 
         [Test]
+        public static void AddFormulasWithNegativeIsotopeValues()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("H-1N-1O");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H-1N-1O");
+            ChemicalFormula formulaC = ChemicalFormula.ParseFormula("H-2N-2O2");
+
+            formulaA.Add(formulaB);
+
+            Assert.AreEqual(formulaA, formulaC);
+        }
+
+        [Test]
         public static void AddFormulaToItself()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
@@ -1045,9 +1057,9 @@ namespace Test
         {
             ChemicalFormula f = ChemicalFormula.ParseFormula("CO");
             f.Add("O", -10);
-            Assert.That(f.Formula == "C");
-            Assert.That(f.NumberOfUniqueElementsByAtomicNumber == 1);
-            Assert.That(f.MonoisotopicMass == 12);
+            Assert.That(f.Formula == "CO-9");
+            Assert.That(f.NumberOfUniqueElementsByAtomicNumber == 2);
+            Assert.That(f.MonoisotopicMass, Is.EqualTo(-131.95423157613).Within(0.001));
         }
 
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula

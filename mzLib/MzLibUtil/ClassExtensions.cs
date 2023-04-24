@@ -78,6 +78,28 @@ namespace MzLibUtil
             }
             return cnt.Values.All(c => c == 0);
         }
-        
+
+        /// <summary>
+        /// Determines if all items in collection are equal
+        /// </summary>
+        /// <typeparam name="T">type to check</typeparam>
+        /// <param name="list">collection to check</param>
+        /// <returns></returns>
+        public static bool AllSame<T>(this IEnumerable<T> list)
+        {
+            var enumerable = list.ToList();
+            T comparand = enumerable.First();
+
+            bool first = true;
+            foreach (T item in enumerable)
+            {
+                if (first) comparand = item;
+                else if (!item.Equals(comparand)) return false;
+                first = false;
+            }
+
+            return true;
+        }
+
     }
 }

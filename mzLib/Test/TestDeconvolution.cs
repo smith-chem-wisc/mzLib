@@ -1,5 +1,5 @@
 using Chemistry;
-using IO.MzML;
+using Readers;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -11,6 +11,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using MassSpectrometry;
+using Test.FileReadingTests;
 
 namespace Test
 {
@@ -74,10 +76,11 @@ namespace Test
             double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-            Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
+            var reader = MsDataFileReader.GetDataFile(singleScan); 
+            reader.LoadAllStaticData();
 
-            List<MsDataScan> singlescan = singleMZML.GetAllScansList();
-
+            List<MsDataScan> singlescan = reader.GetAllScansList();
+            
             MzSpectrum singlespec = singlescan[0].MassSpectrum;
             MzRange singleRange = new MzRange(singlespec.XArray.Min(), singlespec.XArray.Max());
             int minAssumedChargeState = 1;
@@ -134,9 +137,9 @@ namespace Test
             // The ones marked 2 are for checking an overload method
 
             DeconvolutionParameters deconParameters = new ClassicDeconvolutionParameters(1, 60, 4, 3);
-            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionTypes.ClassicDeconvolution, deconParameters);
+            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionType.ClassicDeconvolution, deconParameters);
 
-            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(DeconvolutionTypes.ClassicDeconvolution, deconParameters).ToList();
+            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(DeconvolutionType.ClassicDeconvolution, deconParameters).ToList();
             List<IsotopicEnvelope> isolatedMasses2 = scan.GetIsolatedMassesAndCharges(deconvoluter).ToList();
 
             List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
@@ -160,7 +163,7 @@ namespace Test
             double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
 
             string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
-            Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
+            Mzml singleMZML = (Mzml)MsDataFileReader.GetDataFile(singleScan).LoadAllStaticData();
 
             List<MsDataScan> singlescan = singleMZML.GetAllScansList();
 
@@ -174,17 +177,16 @@ namespace Test
             DeconvolutionParameters deconParameters =
                 new ClassicDeconvolutionParameters(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
                     intensityRatioLimit);
-            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionTypes.ClassicDeconvolution, deconParameters);
+            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionType.ClassicDeconvolution, deconParameters);
 
             //check assigned correctly
 
-            List<IsotopicEnvelope> lie2 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
-
+            List<IsotopicEnvelope> lie2 = deconvoluter.Deconvolute(singlespec, singleRange).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
             Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
 
             //check that if already assigned, skips assignment and just recalls same value
-            List<IsotopicEnvelope> lie3 = deconvoluter.ClassicDeconvoluteMzSpectra(singlespec, singleRange).ToList();
+            List<IsotopicEnvelope> lie3 = deconvoluter.Deconvolute(singlespec, singleRange).ToList();
             Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
         }
 
