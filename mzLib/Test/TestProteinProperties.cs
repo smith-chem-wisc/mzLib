@@ -56,6 +56,49 @@ namespace Test
         }
 
         [Test]
+        public void TestProteinVariantModMethods()
+        {
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
+            Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            int mpModLocationInCanonicalProtein = 4;
+
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motifT);
+            Modification mt = new Modification("mod", null, "type", null, motifT, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            int mtModLocationInCanonicalProtein = 5;
+
+            Protein protein1 = new Protein("MPEPTIDE", "protein1",
+                sequenceVariations: new List<SequenceVariation>
+                {
+                    new SequenceVariation(4, 4, "P", "PV",
+                        @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30")
+                },
+                oneBasedModifications: new Dictionary<int, List<Modification>> 
+                { 
+                    { mpModLocationInCanonicalProtein, new[] { mp }.ToList() },
+                    { mtModLocationInCanonicalProtein, new[] { mt }.ToList() }
+                });
+
+            // If a protein has a modification at a specific residue and that residue is a potential variant, we need to include a variant protein bearing the same
+            // modification in the variant database. IsSequenceVariantModifiation is used in MetaMorpheus to facilitate that process.
+            Assert.IsTrue(VariantApplication.IsSequenceVariantModification(protein1.SequenceVariations.First(), mpModLocationInCanonicalProtein));
+            Assert.IsFalse(VariantApplication.IsSequenceVariantModification(protein1.SequenceVariations.First(), mtModLocationInCanonicalProtein));
+            
+            int mtModLocationInVariant = 7;
+            Protein protein2 = new Protein("MPEPTIDE", "protein2",
+                appliedSequenceVariations: new List<SequenceVariation>
+                {
+                    new SequenceVariation(4, 4, "P", "PPP",
+                        @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
+                        new Dictionary<int, List<Modification>> { { mtModLocationInVariant, new[] { mt }.ToList() } })
+                });
+
+            // RestoreModificationIndex translates the position of a modification in a variant protein to the equivalent location on the canonical protein
+            // Here, the variant is MPEPPPT[Modification on T: mt]IDE, with the mt mod at position 7
+            // and the canonical is MPEPT[[Modification on T: mt]IDE, with the mt mod at position 5
+            Assert.AreEqual(VariantApplication.RestoreModificationIndex(protein2, mtModLocationInVariant), mtModLocationInCanonicalProtein);
+        }
+
+        [Test]
         public void TestHashAndEqualsDbRef()
         {
             DatabaseReference db1 = new DatabaseReference("type", "id", new List<Tuple<string, string>> { new Tuple<string, string>("1", "2") });
