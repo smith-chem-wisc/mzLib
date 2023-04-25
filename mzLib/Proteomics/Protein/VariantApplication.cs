@@ -22,7 +22,13 @@ namespace Proteomics
         /// </summary>
         /// <param name="protein"></param>
         /// <param name=""></param>
-        /// <returns></returns>
+        /// <returns>true if a modification index on the protein falls within the applied variant</returns>
+        /// <remarks>
+        /// A. Cesnik - 4/25/23 
+        /// Variants annotated in protein entries can be applied to a sequence, i.e. a change is made to the sequence. 
+        /// One of the things Spritz can do that no other tool can do is enable finding modifications on these sites of variation, 
+        /// since I amended the sequence variant XML entries to have modifications.
+        /// </remarks>
         public static bool IsSequenceVariantModification(SequenceVariation appliedVariant, int variantProteinIndex)
         {
             return appliedVariant != null && appliedVariant.Includes(variantProteinIndex);
@@ -35,6 +41,12 @@ namespace Proteomics
         /// <param name="protein">Protein containing applied sequence variations</param>
         /// <param name="variantProteinModificationIndex">The one-based index of the amino acid residue bearing a modification</param>
         /// <returns></returns>
+        /// <remarks>
+        /// A. Cesnik - 4/25/23 
+        /// Useful for comparing modification indices on variant proteins to the original protein.
+        /// Variations can introduce length changes and other changes to the sequence, 
+        /// so the indices of the modifications aren’t directly comparable, but this method makes that possible.
+        /// </remarks>
         public static int RestoreModificationIndex(Protein protein, int variantProteinModificationIndex)
         {
             return variantProteinModificationIndex - protein.AppliedSequenceVariations
