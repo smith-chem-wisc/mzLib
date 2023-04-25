@@ -45,6 +45,9 @@ namespace MzLibUtil.NoiseEstimation
                 // 4. Compute the multiresolution support M that is derived from the wavelet coefficients
                 // and the standard deviation of the noise at each level. 
                 // 5. Select all points that belong to the noise; they don't have an significant coefficients above noise 
+                // 1.97 is the z-score representing a value that is two standard deviations away from the mean. 
+                // z-score is calculated as z = (x - mean) / standard deviation. So values below two standard deviations from the mean will be considered 
+                // noise values during level booleanization. 
                 var booleanizedLevels = BooleanizeLevels(wtOutput,
                     estimatedStandardDeviation, 1.97); 
                 int[] mrsIndices = CreateMultiResolutionSupport(booleanizedLevels);
