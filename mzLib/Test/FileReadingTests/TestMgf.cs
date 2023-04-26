@@ -29,17 +29,6 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public void TestMgfConstructors()
-        {
-            var reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
-            reader.LoadAllStaticData();
-
-            Mgf reader1 = new Mgf();
-            Mgf reader2 = new Mgf(5, reader.SourceFile);
-            Mgf reader3 = new Mgf(reader.SourceFile.FileName);
-            Mgf reader4 = new Mgf(reader.Scans, reader.SourceFile);
-        }
-        [Test]
         public static void TestLoadMgf()
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",

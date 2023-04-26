@@ -1,16 +1,11 @@
-﻿using Development.Deconvolution;
-using MzLibUtil;
+﻿using MzLibUtil;
 using NUnit.Framework;
-using SpectralAveraging;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using MassSpectrometry;
 using System.Diagnostics.CodeAnalysis;
 using Readers;
 
-namespace Test
+namespace Development.Deconvolution
+
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

@@ -50,6 +50,5 @@ namespace Readers
         {
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file, destinationPath, writeIndexed);
         }
-
     }
 }
