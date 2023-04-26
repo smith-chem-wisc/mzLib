@@ -35,12 +35,22 @@ namespace IO.BrukerFileReader
 		private ulong? _handle;
 		
 		// tables used for LoadAllStaticData. 
+		// These tables reflect the sqlite tables found in the Bruker file support. 
 		private List<AcqKeyRow> _acqKeyTable = new List<AcqKeyRow>();
 		private List<SpectraTableRow> _spectraTable = new List<SpectraTableRow>();
 		private List<StepsRow> _stepsTable = new List<StepsRow>();
 
 		public override MsDataFile LoadAllStaticData(FilteringParams? filteringParams = null, int maxThreads = 1)
 		{
+			// special notes regarding the Bruker file import: 
+			/*
+			 * 1) Database file connection is opened.
+			 * 2) The tables from the bruker sqlite databases are loaded into C# in memory.
+			 * 3) The tables are parsed. 
+			 * 4) File connection is closed.
+			 * 5) Scans are ordered and returned. 
+			 */ 
+
 			if (!Directory.Exists(FilePath))
 			{
 				throw new FileNotFoundException(); 
@@ -122,6 +132,7 @@ namespace IO.BrukerFileReader
 		}
 		private const string GetTotalSpectraCountString =
 			@"SELECT COUNT(*) FROM Spectra"; 
+		// Total spectra count required for determining iteration values in LoadAllStaticData. 
 		private int GetTotalSpectraCount()
 		{
 			using var command = new SQLiteCommand(_connection); 
@@ -144,6 +155,7 @@ namespace IO.BrukerFileReader
 			_stepsTable = GetFullStepsTable();
 		}
 
+		// Sqlite commands to fetch tables and load them into C#. 
 		private const string GetSingleSpectrumString = @"SELECT * FROM Spectra" +
 		                                               "WHERE Id = ";
 
@@ -152,6 +164,7 @@ namespace IO.BrukerFileReader
 
 		private const string GetSingleStepsKey = @"SELECT * FROM Steps" +
 		                                         "WHERE TargetSpectrum = "; 
+		// Executes as single sqlite queries. 
 		private MsDataScan GetMsDataScanDynamic(int id, IFilteringParams? filteringParams)
 		{
 			// use a SQL statement with a variable to filter the tables
@@ -170,6 +183,7 @@ namespace IO.BrukerFileReader
 			AcqKeyRow? acqKey = new AcqKeyRow();
 			StepsRow? stepsRow = new StepsRow();
 
+			// only need to get the acquisition key list a single time. 
             var acqKeyList = GetAcqKeyTable(); 
 
 			// load in the rows that correspond to the one based spectrum count that you want.
@@ -202,6 +216,15 @@ namespace IO.BrukerFileReader
 			return GetMsDataScan(spectraTableRow, acqKeyList, stepsRow, filteringParams);
 		}
 
+		/// <summary>
+		/// Converts relevant information from the three main sqlite datatables into
+		/// an MsDataScan object. 
+		/// </summary>
+		/// <param name="spectraRow"></param>
+		/// <param name="acqKeyRow"></param>
+		/// <param name="stepsRow"></param>
+		/// <param name="filterParams"></param>
+		/// <returns></returns>
 		private MsDataScan GetMsDataScan(SpectraTableRow spectraRow, 
 			List<AcqKeyRow> acqKeyRow, StepsRow? stepsRow, IFilteringParams? filterParams)
         {
@@ -209,7 +232,8 @@ namespace IO.BrukerFileReader
             var acquisitionKeyMsLevelLink = acqKeyRow
                 .ToDictionary(i => i.Id, i => (i.MsLevel, i.Polarity)); 
 			
-            // if the id fields are null, then it doesn't exist.
+            // Bruker data can record profile, centroid or both. So GetSpectraData return an integer 
+			// value indicating the scenario. 
 			int isCentroidIntSwitch = GetSpectraData(spectraRow, filterParams, out MzSpectrum spectrumData);
             bool isCentroid = false; 
             switch (isCentroidIntSwitch)
@@ -262,6 +286,7 @@ namespace IO.BrukerFileReader
 				isolationMZ: selectedIonMz);
 		}
 
+		// maps the integer codes in the Bruker tables to the enum in mzlib. 
 		private static Dictionary<int, DissociationType> _dissociationTypes = new()
         {
             {0, DissociationType.Unknown}, 
@@ -269,7 +294,7 @@ namespace IO.BrukerFileReader
             {4, DissociationType.ISCID}, 
             {255, DissociationType.Unknown}
         }; 
-
+		// Converst SQLite to C# parseable objects. Returns 0 upon success. 
 		private int GetSpectraData(SpectraTableRow spectraInfo, IFilteringParams? filteringParams, out MzSpectrum spectrum)
 		{
 			// get centroided data if available. Otherwise, default to profile.
@@ -312,8 +337,7 @@ namespace IO.BrukerFileReader
         }
 
 		private const string GetAcqKeyTableString = @"SELECT * FROM AcquisitionKeys";
-		private const int AcqKeyTableColumns = 5; 
-		private List<AcqKeyRow> GetAcqKeyTable()
+        private List<AcqKeyRow> GetAcqKeyTable()
 		{
 			List<AcqKeyRow> spectraList = new();
 			using var command = new SQLiteCommand(_connection);
