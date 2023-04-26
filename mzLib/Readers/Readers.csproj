@@ -10,6 +10,7 @@
 	<ItemGroup>
 		<PackageReference Include="OpenMcdf" Version="2.2.1.12" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.2.1.4" />
+		<PackageReference Include="System.Data.SQLite" Version="1.0.117" />
 	</ItemGroup>
 
 	<ItemGroup>
