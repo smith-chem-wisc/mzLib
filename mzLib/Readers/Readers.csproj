@@ -42,6 +42,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<None Update="Bruker\baf2sql_c.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
