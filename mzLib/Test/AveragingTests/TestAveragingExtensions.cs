@@ -129,8 +129,8 @@ namespace Test.AveragingTests
             foreach (var scan in scans)
             {
                 var spectra = new MzSpectrum(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true);
-                scan.NormalizeSpectrum();
-                spectra.NormalizeSpectrum();
+                scan.NormalizeSpectrum(NormalizationType.AbsoluteToTic);
+                spectra.NormalizeSpectrum(NormalizationType.AbsoluteToTic);
                 Assert.That(Math.Abs(scan.MassSpectrum.SumOfAllY - 1) < 0.0001);
                 Assert.That(Math.Abs(spectra.SumOfAllY - 1) < 0.0001);
             }

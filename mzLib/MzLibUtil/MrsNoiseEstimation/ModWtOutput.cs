@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
-namespace SpectralAveraging;
+namespace MzLibUtil.NoiseEstimation;
 
 public class ModWtOutput
 {

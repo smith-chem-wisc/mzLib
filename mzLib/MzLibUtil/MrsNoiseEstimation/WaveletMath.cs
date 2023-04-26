@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SpectralAveraging
+namespace MzLibUtil.NoiseEstimation
 {
     public class WaveletMath
     {

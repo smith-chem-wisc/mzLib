@@ -1,4 +1,4 @@
-﻿namespace SpectralAveraging;
+﻿namespace MzLibUtil.NoiseEstimation;
 
 public enum WaveletType
 {
