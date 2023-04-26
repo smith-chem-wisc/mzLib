@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace IO.BrukerFileReader
 {
-	internal class SpectraTableRow
+    // class used as a one-to-one map of sqlite object in bruker analysis.baf file for conversion to MsDataScan. 
+    internal class SpectraTableRow
 	{
 		public int Id { get; set; }
 		public double Rt { get; set; }

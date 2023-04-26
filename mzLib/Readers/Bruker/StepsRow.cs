@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace IO.BrukerFileReader
 {
-	internal class StepsRow
+    // class used as a one-to-one map of sqlite object in bruker analysis.baf file for conversion to MsDataScan. 
+    internal class StepsRow
 	{
 		public int TargetSpectrum { get; set; }
 		public int Number { get; set; }
