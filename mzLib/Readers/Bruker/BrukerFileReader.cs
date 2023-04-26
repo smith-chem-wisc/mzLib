@@ -300,12 +300,12 @@ namespace IO.BrukerFileReader
 			double[] lineMzs = GetBafDoubleArray(_handle!.Value, (ulong)spectraInfo.LineMzId!);
 			double[] lineInt = GetBafDoubleArray(_handle!.Value, (ulong)spectraInfo.LineIntensityId!);
 			if (filteringParams != null
-			    && lineMzs.Length > 0
+			    && lineMzs.Length > 1
 			    && filteringParams.ApplyTrimmingToMsMs)
 			{
 				WindowModeHelper.Run(ref lineInt,
 					ref lineMzs, filteringParams,
-					lineMzs[0], lineMzs[^0]);
+					lineMzs[0], lineMzs[^1]);
 			}
 			spectrum = new MzSpectrum(lineMzs, lineInt, true);
             return 1;
