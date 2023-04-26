@@ -11,7 +11,6 @@ using MzLibUtil;
 using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
 using Readers;
-using MsDataFile = Readers.MsDataFile;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.FileReadingTests
