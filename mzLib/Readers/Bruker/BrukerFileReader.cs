@@ -16,9 +16,9 @@ namespace IO.BrukerFileReader
 	/// These are stored in const strings right above the methods they are used in. Please don't move
 	/// or change them without understanding SQL. -AVC
 	/// </summary>
-	public class Bruker : MsDataFile
+	public class BrukerFileReader : MsDataFile
 	{
-		public Bruker(string filePath) : base(filePath) { }
+		public BrukerFileReader(string filePath) : base(filePath) { }
 
 		/* There are three tables that contain all of the information required to create an MsDataScan object: Steps (which has isolation information),
 		 Spectra (contains the spectrum metadata), and AcqKeys (contains more metadata). Unfortunately, the metadata is spread over the three tables, 
