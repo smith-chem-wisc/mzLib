@@ -10,11 +10,17 @@ namespace Test.FileReadingTests
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class TestBruker
     {
+        static string _centroidPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+            "centroid_1x_MS1_4x_autoMS2.d");
+        private string _profilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+            "profile_1x_MS1_4x_autoMS2.d");
+        private string _profileAndCentroid = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+            "profile_and_centroid_1x_MS1_4x_autoMS2.d"); 
+
         [Test]
-        [TestCase(@"D:\BurkerFileSupport\SmallFiles\centroid_1x_MS1_4x_autoMS2.d")]
-        public void TestConstructors(string path)
+        public void TestConstructors()
         {
-            var reader = MsDataFileReader.GetDataFile(path); 
+            var reader = MsDataFileReader.GetDataFile(_centroidPath); 
             Assert.That(reader, !Is.Null);
         }
 
@@ -28,10 +34,9 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"D:\BurkerFileSupport\SmallFiles\centroid_1x_MS1_4x_autoMS2.d")]
-        public void TestLoadAllStaticDataCentroid(string path)
+        public void TestLoadAllStaticDataCentroid()
         {
-            MsDataFile brukerData = MsDataFileReader.GetDataFile(path).LoadAllStaticData();
+            MsDataFile brukerData = MsDataFileReader.GetDataFile(_centroidPath).LoadAllStaticData();
             Assert.That(brukerData.NumSpectra, Is.EqualTo(5));
             Assert.That(brukerData.Scans[1].Polarity == Polarity.Positive);
             Assert.That(brukerData.Scans[1].DissociationType == DissociationType.CID);
@@ -43,10 +48,10 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"D:\BurkerFileSupport\SmallFiles\profile_1x_MS1_4x_autoMS2.d")]
-        public void TestLoadAllStaticDataProfile(string path)
+       
+        public void TestLoadAllStaticDataProfile()
         {
-            MsDataFile brukerData = MsDataFileReader.GetDataFile(path).LoadAllStaticData();
+            MsDataFile brukerData = MsDataFileReader.GetDataFile(_profilePath).LoadAllStaticData();
             Assert.That(brukerData.NumSpectra, Is.EqualTo(5));
             Assert.That(brukerData.Scans[1].Polarity == Polarity.Positive);
             Assert.That(brukerData.Scans[1].DissociationType == DissociationType.CID);
@@ -58,10 +63,9 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"D:\BurkerFileSupport\SmallFiles\profile_and_centroid_1x_MS1_4x_autoMS2.d")]
-        public void TestLoadAllStaticDataProfileAndCentroid(string path)
+        public void TestLoadAllStaticDataProfileAndCentroid()
         {
-            MsDataFile brukerData = MsDataFileReader.GetDataFile(path).LoadAllStaticData();
+            MsDataFile brukerData = MsDataFileReader.GetDataFile(_profileAndCentroid).LoadAllStaticData();
             Assert.That(brukerData.NumSpectra, Is.EqualTo(5));
             Assert.That(brukerData.Scans[1].Polarity == Polarity.Positive);
             Assert.That(brukerData.Scans[1].DissociationType == DissociationType.CID);
@@ -74,21 +78,19 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"D:\BurkerFileSupport\SmallFiles\centroid_1x_MS1_4x_autoMS2.d")]
-        public void TestGetSourceFile(string path)
+        public void TestGetSourceFile()
         {
-            var sourceFile = MsDataFileReader.GetDataFile(path).GetSourceFile();
-            Assert.That(path == sourceFile.Uri.OriginalString);
+            var sourceFile = MsDataFileReader.GetDataFile(_centroidPath).GetSourceFile();
+            Assert.That(_centroidPath == sourceFile.Uri.OriginalString);
             Assert.That(sourceFile.FileName == "analysis.baf");
             Assert.That(sourceFile.MassSpectrometerFileFormat == "mzML format");
             Assert.That(sourceFile.NativeIdFormat == "scan number only nativeID format");
         }
 
         [Test]
-        [TestCase(@"D:\BurkerFileSupport\SmallFiles\centroid_1x_MS1_4x_autoMS2.d")]
-        public void TestDynamicConnection(string path)
+        public void TestDynamicConnection()
         {
-            MsDataFile brukerReader = MsDataFileReader.GetDataFile(path);
+            MsDataFile brukerReader = MsDataFileReader.GetDataFile(_centroidPath);
             brukerReader.InitiateDynamicConnection();
             var scan = brukerReader.GetOneBasedScan(2);
             
@@ -102,11 +104,10 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"D:\BurkerFileSupport\SmallFiles\centroid_1x_MS1_4x_autoMS2.d")]
-        public void TestPeakFiltering(string path)
+        public void TestPeakFiltering()
         {
             FilteringParams filteringParams = new(null, 0.5);
-            var scan = MsDataFileReader.GetDataFile(path).LoadAllStaticData(filteringParams).Scans[0];
+            var scan = MsDataFileReader.GetDataFile(_centroidPath).LoadAllStaticData(filteringParams).Scans[0];
             Assert.That(scan.MassSpectrum.XArray.Length == 1);
         }
     }
