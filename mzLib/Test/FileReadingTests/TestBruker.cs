@@ -92,7 +92,7 @@ namespace Test.FileReadingTests
         {
             MsDataFile brukerReader = MsDataFileReader.GetDataFile(_centroidPath);
             brukerReader.InitiateDynamicConnection();
-            var scan = brukerReader.GetOneBasedScan(2);
+            var scan = brukerReader.GetOneBasedScanFromDynamicConnection(2);
             
             Assert.That(scan.Polarity == Polarity.Positive);
             Assert.That(scan.DissociationType == DissociationType.CID);
@@ -104,11 +104,51 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestDynamicConnectionToAllScans()
+        {
+            MsDataFile brukerReader = MsDataFileReader.GetDataFile(_centroidPath);
+            brukerReader.InitiateDynamicConnection();
+            int counter = 5;
+            while (counter > 0)
+            {
+                Assert.DoesNotThrow(delegate
+                {
+                    brukerReader.GetOneBasedScanFromDynamicConnection(counter);
+                });
+                counter--; 
+            }
+        }
+
+        [Test]
+        public void TestOpenAndCloseConnection()
+        {
+            MsDataFile brukerReader = MsDataFileReader.GetDataFile(_centroidPath);
+            Assert.DoesNotThrow(delegate
+            {
+                brukerReader.InitiateDynamicConnection();
+            });
+            Assert.DoesNotThrow(delegate
+            {
+                brukerReader.CloseDynamicConnection();
+            });
+        }
+
+        [Test]
         public void TestPeakFiltering()
         {
             FilteringParams filteringParams = new(null, 0.5);
             var scan = MsDataFileReader.GetDataFile(_centroidPath).LoadAllStaticData(filteringParams).Scans[0];
             Assert.That(scan.MassSpectrum.XArray.Length == 1);
+        }
+
+        [Test]
+        public void TestFileNotFoundExceptionThrown()
+        {
+            MsDataFile brukerReader = MsDataFileReader.GetDataFile("notrealfile.d");
+            Assert.Throws<FileNotFoundException>(delegate
+            {
+                brukerReader.LoadAllStaticData(); 
+            });
         }
     }
 }

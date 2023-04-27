@@ -156,13 +156,12 @@ namespace IO.BrukerFileReader
 		}
 
 		// Sqlite commands to fetch tables and load them into C#. 
-		private const string GetSingleSpectrumString = @"SELECT * FROM Spectra" +
+		private const string GetSingleSpectrumString = @"SELECT * FROM Spectra " +
 		                                               "WHERE Id = ";
 
-		private const string GetSingleAcqKeys = @"SELECT * FROM AcquisitionKeys" +
-		                                        "WHERE Id = ";
+		private const string GetSingleAcqKeys = @"SELECT * FROM AcquisitionKeys";
 
-		private const string GetSingleStepsKey = @"SELECT * FROM Steps" +
+		private const string GetSingleStepsKey = @"SELECT * FROM Steps " +
 		                                         "WHERE TargetSpectrum = "; 
 		// Executes as single sqlite queries. 
 		private MsDataScan GetMsDataScanDynamic(int id, IFilteringParams? filteringParams)
@@ -175,12 +174,12 @@ namespace IO.BrukerFileReader
 			string[] queryStringsArray = new[]
 			{
 				spectrumQuery,
-				acqKeyQuery,
-				stepsQuery
-			}; 
+                stepsQuery,
+				acqKeyQuery
+            }; 
 
 			SpectraTableRow? spectraTableRow = new SpectraTableRow();
-			AcqKeyRow? acqKey = new AcqKeyRow();
+			List<AcqKeyRow> acqKey = new List<AcqKeyRow>();
 			StepsRow? stepsRow = new StepsRow();
 
 			// only need to get the acquisition key list a single time. 
@@ -189,7 +188,7 @@ namespace IO.BrukerFileReader
 			// load in the rows that correspond to the one based spectrum count that you want.
 			for (int i = 0; i < 2; i++)
 			{
-				using var sqliteCommand = new SQLiteCommand();
+				using var sqliteCommand = new SQLiteCommand(_connection);
 				sqliteCommand.CommandText = queryStringsArray[i]; 
 
 				using var sqliteReader = sqliteCommand.ExecuteReader();
@@ -468,6 +467,7 @@ namespace IO.BrukerFileReader
 			   (int ignore_calibrator_ami, byte[] filename_utf8);
 
 		[DllImport("Bruker/baf2sql_c.dll", CallingConvention = CallingConvention.Cdecl)]
+		// bruker doesn't actually provide a way to determine if the sqlite database is closed correctly. 
 		private static extern void baf2sql_array_close_storage(UInt64 handle);
 
 		[DllImport("Bruker/baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
