@@ -16,12 +16,12 @@ namespace Test.AveragingTests
     public class TestOutlierRejection
     {
         private SpectralAveragingParameters _parameters;
+        
         private static readonly double[] MinMaxTest = { 10, 9, 8, 7, 6, 5 };
         private static readonly double[] MinMaxExpected = { 9, 8, 7, 6 };
 
         private static readonly double[] PercentileTest = new double[]
             { 100, 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 5, 0 };
-
         private static readonly double[] PercentileExpected = new double[]
             { 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 5 };
 
@@ -33,8 +33,7 @@ namespace Test.AveragingTests
 
         private static readonly double[] TestAveragedSigma =
             { 120, 65, 64, 63, 62, 61, 60, 59, 59, 58, 57, 56, 30, 15 };
-
-        private static readonly double[] ExpectedAveragedSigma = TestAveragedSigma[1..^2];
+        private static readonly double[] ExpectedAveragedSigma = TestAveragedSigma[1..^1];
 
         private static readonly double[] TestThreshold = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
         private static readonly double[] ExpectedThreshold = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
@@ -218,7 +217,7 @@ namespace Test.AveragingTests
             };
             var test = new double[] { 120, 65, 64, 63, 62, 61, 60, 59, 59, 58, 57, 56, 30, 15 };
             double[] averagedSigmaClipping = OutlierRejection.RejectOutliers(test, parameters);
-            var expected = test[1..test.Length];
+            var expected = test[..];
             Assert.That(averagedSigmaClipping, Is.EqualTo(expected));
             Assert.That(RejectAsBinnedPeak(test, parameters).SequenceEqual(expected));
 
@@ -239,38 +238,10 @@ namespace Test.AveragingTests
             parameters.MinSigmaValue = 1.5;
             parameters.MaxSigmaValue = 1.5;
             averagedSigmaClipping = OutlierRejection.RejectOutliers(test, parameters);
-            expected = test[1..^2];
+            expected = test[1..^1];
             Assert.That(averagedSigmaClipping, Is.EqualTo(expected));
             Assert.That(RejectAsBinnedPeak(test, parameters).SequenceEqual(expected));
         }
-
-        [Test]
-        public static void TestBelowThresholdRejection()
-        {
-            SpectralAveragingParameters parameters = new()
-            {
-                OutlierRejectionType = OutlierRejectionType.BelowThresholdRejection
-            };
-            var arr = new double[] { 0, 10, 0, 0, 0, 0, 0 };
-            var arr2 = new double[] { 0, 10, 0, 0, 0 };
-            var arr3 = new double[] { 0, 10, 0, 0 };
-            var copy3 = new double[arr3.Length];
-            Array.Copy(arr3, copy3, arr3.Length);
-
-            // test array entry point
-            var result = OutlierRejection.RejectOutliers(arr, parameters);
-            Assert.That(result.All(p => p == 0));
-            Assert.That(RejectAsBinnedPeak(arr, parameters).All(p => p == 0));
-
-            result = OutlierRejection.RejectOutliers(arr2, parameters);
-            Assert.That(result.All(p => p == 0));
-            Assert.That(RejectAsBinnedPeak(arr2, parameters).All(p => p == 0));
-
-            result = OutlierRejection.RejectOutliers(arr3, parameters);
-            Assert.That(result.SequenceEqual(copy3));
-            Assert.That(RejectAsBinnedPeak(arr3, parameters).SequenceEqual(copy3));
-        }
-
 
         [Test]
         public static void TestSetValuesAndRejectOutliersSwitch()
@@ -284,8 +255,7 @@ namespace Test.AveragingTests
             Assert.That(1.5, Is.EqualTo(parameters.MinSigmaValue));
             Assert.That(1.5, Is.EqualTo(parameters.MaxSigmaValue));
 
-            parameters.SetValues(OutlierRejectionType.MinMaxClipping, SpectraWeightingType.WeightEvenly,
-                SpectralAveragingType.MzBinning,
+            parameters.SetValues(OutlierRejectionType.MinMaxClipping, SpectraWeightingType.WeightEvenly, SpectralAveragingType.MzBinning,
                 normalizationType: NormalizationType.RelativeToTics, percentile: .8, minSigma: 2, maxSigma: 4);
             Assert.That(parameters.OutlierRejectionType == OutlierRejectionType.MinMaxClipping);
             Assert.That(0.8, Is.EqualTo(parameters.Percentile));
@@ -324,17 +294,16 @@ namespace Test.AveragingTests
             parameters.SetValues(outlierRejectionType: OutlierRejectionType.WinsorizedSigmaClipping);
             Assert.That(parameters.OutlierRejectionType == OutlierRejectionType.WinsorizedSigmaClipping);
             output = OutlierRejection.RejectOutliers(test, parameters);
-            expected = new double[] { 10, 8, 6, 5, 4, 2 };
+            expected = new double[] { 10, 8, 6, 5, 4, 2, 0 };
             Assert.That(output, Is.EqualTo(expected));
             output = OutlierRejection.RejectOutliers(new double[] { }, parameters);
             Assert.That(output.SequenceEqual(new double[] { }));
 
             // averaged sigma
-            parameters.SetValues(outlierRejectionType: OutlierRejectionType.AveragedSigmaClipping, minSigma: 1,
-                maxSigma: 1);
+            parameters.SetValues(outlierRejectionType: OutlierRejectionType.AveragedSigmaClipping, minSigma: 1, maxSigma:1);
             Assert.That(parameters.OutlierRejectionType == OutlierRejectionType.AveragedSigmaClipping);
             output = OutlierRejection.RejectOutliers(test, parameters);
-            expected = new double[] { 6, 5 };
+            expected = new double[] { 8, 6, 5, 4, 2 };
             Assert.That(output, Is.EqualTo(expected));
 
             // below threshold
@@ -345,6 +314,32 @@ namespace Test.AveragingTests
             Assert.That(output, Is.EqualTo(expected));
         }
 
+        [Test]
+        public static void TestBelowThresholdRejection()
+        {
+            SpectralAveragingParameters parameters = new()
+            {
+                OutlierRejectionType = OutlierRejectionType.BelowThresholdRejection
+            };
+            var arr = new double[] { 0, 10, 0, 0, 0, 0, 0 };
+            var arr2 = new double[] { 0, 10, 0, 0, 0 };
+            var arr3 = new double[] { 0, 10, 0, 0 };
+            var copy3 = new double[arr3.Length];
+            Array.Copy(arr3, copy3, arr3.Length);
+
+            // test array entry point
+            var result = OutlierRejection.RejectOutliers(arr, parameters);
+            Assert.That(result.All(p => p == 0));
+            Assert.That(RejectAsBinnedPeak(arr, parameters).All(p => p == 0));
+
+            result = OutlierRejection.RejectOutliers(arr2, parameters);
+            Assert.That(result.All(p => p == 0));
+            Assert.That(RejectAsBinnedPeak(arr2, parameters).All(p => p == 0));
+
+            result = OutlierRejection.RejectOutliers(arr3, parameters);
+            Assert.That(result.SequenceEqual(copy3));
+            Assert.That(RejectAsBinnedPeak(arr3, parameters).SequenceEqual(copy3));
+        }
 
         private static double[] RejectAsBinnedPeak(double[] testArray, SpectralAveragingParameters parameters)
         {

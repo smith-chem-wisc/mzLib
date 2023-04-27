@@ -1,5 +1,6 @@
-﻿using System; 
-namespace SpectralAveraging;
+﻿using System;
+
+namespace MzLibUtil.NoiseEstimation;
 internal static class WaveletMathUtils
 {
     /// <summary>

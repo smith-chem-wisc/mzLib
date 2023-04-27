@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using MathNet.Numerics.Statistics;
 
-namespace SpectralAveraging
+namespace MzLibUtil.NoiseEstimation
 {
     public static class MRSNoiseEstimator
     {
@@ -25,7 +23,7 @@ namespace SpectralAveraging
         {
             int iterations = 0; 
             // 1. Estimate the standard deviation of the noise in the original signal. 
-            double stdevPrevious = BasicStatistics.CalculateStandardDeviation(signal);
+            double estimatedStandardDeviation = signal.StandardDeviation();
 
             // 2. Compute the modwt of the image
             WaveletFilter filter = new(); 
@@ -47,8 +45,11 @@ namespace SpectralAveraging
                 // 4. Compute the multiresolution support M that is derived from the wavelet coefficients
                 // and the standard deviation of the noise at each level. 
                 // 5. Select all points that belong to the noise; they don't have an significant coefficients above noise 
+                // 1.97 is the z-score representing a value that is two standard deviations away from the mean. 
+                // z-score is calculated as z = (x - mean) / standard deviation. So values below two standard deviations from the mean will be considered 
+                // noise values during level booleanization. 
                 var booleanizedLevels = BooleanizeLevels(wtOutput,
-                    stdevPrevious, 1.97); 
+                    estimatedStandardDeviation, 1.97); 
                 int[] mrsIndices = CreateMultiResolutionSupport(booleanizedLevels);
 
                 // 6. For the selected pixels, calculate original array - smoothed array and compute the standard deviation 
@@ -58,14 +59,14 @@ namespace SpectralAveraging
 
                 // 7. n = n + l. 
                 // 8. start again at 4 if sigma_I^n - sigma_I^(n-1) / sigma_I^(n) > epsilon. 
-                criticalVal = Math.Abs(stdevNext - stdevPrevious) / stdevPrevious;
+                criticalVal = Math.Abs(stdevNext - estimatedStandardDeviation) / estimatedStandardDeviation;
 
                 // setup for next iteration 
                 iterations++; 
-                stdevPrevious = stdevNext;
+                estimatedStandardDeviation = stdevNext;
             } while (criticalVal > epsilon && iterations <= maxIterations);
 
-            noiseEstimate = stdevPrevious; 
+            noiseEstimate = estimatedStandardDeviation; 
             return iterations < maxIterations;
         }
 
@@ -166,7 +167,7 @@ namespace SpectralAveraging
                 }
             }
             // returns the standard deviation of the noise values. 
-            return BasicStatistics.CalculateStandardDeviation(noiseValues);
+            return noiseValues.StandardDeviation();
         }
     }
 
