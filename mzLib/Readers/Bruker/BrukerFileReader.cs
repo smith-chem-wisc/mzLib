@@ -7,7 +7,7 @@ using Easy.Common.Extensions;
 using MzLibUtil;
 using UsefulProteomicsDatabases;
 
-namespace IO.BrukerFileReader
+namespace Readers
 {
 	/// <summary>
 	/// Reads Bruker data files (but not TimsTOF data). The major quirk of the
