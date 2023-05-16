@@ -10,6 +10,7 @@
 	<ItemGroup>
 		<PackageReference Include="OpenMcdf" Version="2.2.1.12" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.2.1.4" />
+		<PackageReference Include="System.Data.SQLite" Version="1.0.117" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -41,6 +42,21 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<None Update="Bruker\baf2sql_c.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\baf2sql_c.lib">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\msvcp110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\msvcr110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcomp110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
