@@ -734,6 +734,22 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
                 null, true);
+
+            // Create & run a new engine with AmbiguousQuant enabled
+            engine = new FlashLfqEngine(new List<Identification> { id3, id4 }, quantifyAmbiguousPeptides: true);
+            results = engine.Run();
+
+            Assert.That(results.Peaks[mzml].Count == 1);
+            Assert.That(results.Peaks[mzml].First().Intensity > 0);
+            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().NumIdentificationsByFullSeq == 2);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml) > 0);
+            Assert.That(
+                results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml),
+                Is.EqualTo(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml)).Within(0.01)
+            );
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) == 0);
         }
 
         [Test]
@@ -1418,7 +1434,7 @@ namespace Test
             FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 });
             res.Peaks[fraction1].Add(peak1);
             res.Peaks[fraction2].Add(peak2);
-            res.CalculatePeptideResults();
+            res.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
 
             var peptides = res.PeptideModifiedSequences;
             Assert.That(peptides["peptide1"].GetIntensity(fraction1) == 0);

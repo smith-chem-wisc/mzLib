@@ -23,7 +23,6 @@
   <ItemGroup>
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
-    <ProjectReference Include="..\Development\Development.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
@@ -369,7 +368,16 @@
     </None>
     <None Update="ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+	</None>
+	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</None>
+	  <None Update="DataFiles\profile_1x_MS1_4x_autoMS2.d\**">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DataFiles\profile_and_centroid_1x_MS1_4x_autoMS2.d\**">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
   </ItemGroup>
 
   <ItemGroup>

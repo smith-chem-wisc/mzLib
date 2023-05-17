@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="Easy.Common" Version="4.3.0" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
   </ItemGroup>
 

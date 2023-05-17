@@ -50,7 +50,6 @@ public class TestGenericMsDataFile
         // Tests to see if any errors are thrown in the constructors
         var sf = new SourceFile("no nativeID format", "mgf format", null, null, null);
         string dummyPath = String.Empty;
-        GenericMsDataFile gFile = new GenericMsDataFile();
         GenericMsDataFile gFile2 = new GenericMsDataFile(_scans, sf);
         GenericMsDataFile gFile3 = new GenericMsDataFile(_scans.Length, sf);
         GenericMsDataFile gFile4 = new GenericMsDataFile(dummyPath); 
@@ -59,7 +58,7 @@ public class TestGenericMsDataFile
     [Test]
     public void TestAbstractOverrides()
     {
-        GenericMsDataFile gFile = new GenericMsDataFile();
+        GenericMsDataFile gFile = new GenericMsDataFile("");
         Assert.Throws<NotImplementedException>(() =>
         {
             gFile.LoadAllStaticData();

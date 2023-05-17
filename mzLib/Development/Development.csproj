@@ -16,11 +16,9 @@
   <ItemGroup>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
-    <ProjectReference Include="..\MzML\MzML.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
-    <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
   </ItemGroup>
 
   <ItemGroup>

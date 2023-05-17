@@ -2,6 +2,5 @@
 
 public enum OutputType
 {
-    Text,
     MzML
 }
