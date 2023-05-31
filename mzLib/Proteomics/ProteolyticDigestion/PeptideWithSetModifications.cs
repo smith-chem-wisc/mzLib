@@ -124,7 +124,15 @@ namespace Proteomics.ProteolyticDigestion
                 ChemicalFormula fullChemicalFormula = new Proteomics.AminoAcidPolymer.Peptide(BaseSequence).GetChemicalFormula();
                 foreach (var mod in AllModsOneIsNterminus.Values)
                 {
-                    fullChemicalFormula.Add(mod.ChemicalFormula);
+                    if (mod.ChemicalFormula != null)
+                    {
+                        fullChemicalFormula.Add(mod.ChemicalFormula);
+                    }
+                    else
+                    {
+                        fullChemicalFormula = null;
+                        break;
+                    }
                 }
                 
                 _fullChemicalFormula = fullChemicalFormula;
