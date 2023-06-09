@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Easy.Common.Extensions;
 using ThermoFisher.CommonCore.Data.Business;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 using ThermoFisher.CommonCore.Data.Interfaces;
@@ -73,28 +74,34 @@ namespace Readers
             rawFileAccessor.SelectInstrument(Device.MS, 1);
             var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
 
-            Parallel.ForEach(Partitioner.Create(0, msDataScans.Length), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
+            Parallel.ForEach(Partitioner.Create(0, msDataScans.Length),
+                new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
             {
-                IRawDataPlus myThreadDataReader = threadManager.CreateThreadAccessor();
-                myThreadDataReader.SelectInstrument(Device.MS, 1);
-
-                for (int s = fff.Item1; s < fff.Item2; s++)
+                using (var myThreadDataReader = threadManager.CreateThreadAccessor())
                 {
-                    try
+                    myThreadDataReader.SelectInstrument(Device.MS, 1);
+
+                    for (int s = fff.Item1; s < fff.Item2; s++)
                     {
-                        var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
-                        msDataScans[s] = scan;
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
+                        try
+                        {
+                            var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
+                            msDataScans[s] = scan;
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
+                        }
                     }
                 }
+                // IRawDataPlus myThreadDataReader = threadManager.CreateThreadAccessor();
+
             });
 
             rawFileAccessor.Dispose();
             Scans = msDataScans;
             SourceFile = GetSourceFile();
+
             return this;
         }
 
@@ -107,11 +114,13 @@ namespace Readers
                 byte[] checksum = sha.ComputeHash(stream);
                 sendCheckSum = BitConverter.ToString(checksum)
                     .Replace("-", string.Empty);
+
+
             }
 
             SourceFile sourceFile = new SourceFile(
                 @"Thermo nativeID format",
-                @"Thermo RAW format",
+                @"Thermo raw format",
                 sendCheckSum,
                 @"SHA-1",
                 FilePath,
@@ -156,6 +165,7 @@ namespace Readers
             }
 
             dynamicConnection.SelectInstrument(Device.MS, 1);
+
             GetMsOrdersByScanInDynamicConnection();
         }
 
@@ -170,7 +180,8 @@ namespace Readers
                 throw new MzLibException("The dynamic connection has not been created yet!");
             }
 
-            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || 
+                oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
             {
                 return null;
             }
@@ -186,6 +197,7 @@ namespace Readers
             if (dynamicConnection != null)
             {
                 dynamicConnection.Dispose();
+                
             }
         }
 
@@ -193,11 +205,13 @@ namespace Readers
         {
             if (dynamicConnection != null)
             {
+                
                 int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
                 var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
 
                 int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
 
+                
                 return msorders;
             }
 
@@ -212,13 +226,18 @@ namespace Readers
         /// <param name="maxThreads"></param>
         /// <returns></returns>
         public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
-            int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
+            int maxThreads = 1)
+        {
+            return MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
+        }
 
-        private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
+        private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams,
+            int scanNumber)
         {
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
 
             string scanFilterString = filter.ToString();
+            
             int msOrder = (int)filter.MSOrder;
             if (msOrder < 1 || msOrder > 10)
             {
@@ -232,7 +251,7 @@ namespace Readers
             double scanRangeHigh = scanStats.HighMass;
             double scanRangeLow = scanStats.LowMass;
             MzRange scanWindowRange = new(scanRangeLow, scanRangeHigh);
-
+            
             double? ionInjectionTime = null;
             double? precursorSelectedMonoisotopicIonMz = null;
             int? selectedIonChargeState = null;
@@ -246,7 +265,7 @@ namespace Readers
             var trailer = rawFile.GetTrailerExtraInformation(scanNumber);
             string[] labels = trailer.Labels;
             string[] values = trailer.Values;
-
+            
             for (int i = 0; i < trailer.Labels.Length; i++)
             {
                 if (labels[i].StartsWith("Ion Injection Time (ms)", StringComparison.Ordinal))
@@ -307,7 +326,7 @@ namespace Readers
                 {
                     dissociationType = DissociationType.EThcD;
                 }
-
+                
                 if (ms2IsolationWidth == null)
                 {
                     ms2IsolationWidth = reaction.IsolationWidth;
@@ -382,9 +401,12 @@ namespace Readers
                 oneBasedPrecursorScanNumber: precursorScanNumber,
                 selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz,
                 hcdEnergy: HcdEnergy);
+
+            
         }
 
-        private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams, int scanNumber, string scanFilter, int scanOrder)
+        private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams,
+            int scanNumber, string scanFilter, int scanOrder)
         {
             MzSpectrum spectrum;
             double[] xArray;
@@ -401,6 +423,7 @@ namespace Readers
             if (centroidStream.Masses == null || centroidStream.Intensities == null)
             {
                 var scan = Scan.FromFile(rawFile, scanNumber);
+                
                 var mzs = scan.PreferredMasses;
                 xArray = scan.PreferredMasses;
                 yArray = scan.PreferredIntensities;
@@ -446,7 +469,7 @@ namespace Readers
                 double scanRangeHigh = scanStats.HighMass;
                 double scanRangeLow = scanStats.LowMass;
 
-                WindowModeHelper.Run(ref intensityArray, ref mzArray, filterParams,
+               WindowModeHelper.Run(ref intensityArray, ref mzArray, filterParams,
                     scanRangeLow, scanRangeHigh);
 
                 Array.Sort(mzArray, intensityArray);

@@ -16,13 +16,9 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Chemistry;
-using MzLibUtil;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
@@ -32,7 +28,7 @@ namespace MassSpectrometry
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public abstract class MsDataFile
+    public abstract class MsDataFile : IDisposable
     {
         public MsDataScan[] Scans { get; set; }
         public SourceFile SourceFile { get; set; }
@@ -179,6 +175,11 @@ namespace MassSpectrometry
         public virtual bool CheckIfScansLoaded()
         {
             return (Scans != null && Scans.Length > 0);
+        }
+
+        public void Dispose()
+        {
+            Dispose();
         }
     }
 }

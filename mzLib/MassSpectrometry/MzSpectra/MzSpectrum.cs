@@ -501,14 +501,19 @@ namespace MassSpectrometry
 
         public static byte[] Get64Bitarray(IEnumerable<double> array)
         {
-            var mem = new MemoryStream();
-            foreach (var okk in array)
+            using (var mem = new MemoryStream())
             {
-                byte[] ok = BitConverter.GetBytes(okk);
-                mem.Write(ok, 0, ok.Length);
+                foreach (var okk in array)
+                {
+                    byte[] ok = BitConverter.GetBytes(okk);
+                    mem.Write(ok, 0, ok.Length);
+                }
+                mem.Position = 0;
+                var memory = mem.ToArray();
+                mem.Dispose();
+                return memory;
             }
-            mem.Position = 0;
-            return mem.ToArray();
+            //var mem = new MemoryStream();
         }
 
         public byte[] Get64BitYarray()
@@ -526,7 +531,9 @@ namespace MassSpectrometry
             return string.Format("{0} (Peaks {1})", Range, Size);
         }
 
-        public void XCorrPrePreprocessing(double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
+        public void XCorrPrePreprocessing(double scanRangeMinMz, double scanRangeMaxMz,
+            double precursorMz, double precursorDiscardRange = 1.5,
+            double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
         {
             //The discrete bin value 1.0005079 was from J. Proteome Res., 2018, 17 (11), pp 3644–3656
 
@@ -565,9 +572,13 @@ namespace MassSpectrometry
 
             //we've already filtered for when multiple mzs appear in a single nominal mass bin
             int nominalWindowWidthDaltons = (int)(Math.Round((scanRangeMaxMz - scanRangeMinMz) / 10d, 0));
-            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, null, true, false, false);
 
-            WindowModeHelper.Run(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), true);
+            FilteringParams secondFilter = new FilteringParams(null,
+                minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, null,
+                true, false, false);
+
+            WindowModeHelper.Run(ref genericIntensityArray, ref genericMzArray, secondFilter,
+                genericMzArray.Min(), genericMzArray.Max(), true);
 
             Array.Sort(genericMzArray, genericIntensityArray);
 

@@ -101,6 +101,7 @@ namespace UsefulProteomicsDatabases
                             }
                         }
                     }
+                    stream.Close();
                 }
             }
 

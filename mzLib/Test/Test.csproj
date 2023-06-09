@@ -346,19 +346,19 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\TestConnectionFiles\sliced_ethcd.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\TestConnectionFiles\sliced_ethcd.raw">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\TestConnectionFiles\small.RAW">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\TestConnectionFiles\SmallCalibratibleYeast.mgf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\TestConnectionFiles\SmallCalibratibleYeast.mzml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="ModificationTests\CommonArtifacts.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -398,10 +398,6 @@
   <ItemGroup>
     <Compile Remove="TestSummedDataFile.cs" />
     <Compile Remove="TestAbsoluteTolerance.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="FileReadingTests\TestConnectionFiles\MoveHere\" />
   </ItemGroup>
 
 </Project>
