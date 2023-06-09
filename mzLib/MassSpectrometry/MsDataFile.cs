@@ -28,8 +28,9 @@ namespace MassSpectrometry
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public abstract class MsDataFile : IDisposable
+    public abstract class MsDataFile
     {
+
         public MsDataScan[] Scans { get; set; }
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans.Length;
@@ -175,11 +176,6 @@ namespace MassSpectrometry
         public virtual bool CheckIfScansLoaded()
         {
             return (Scans != null && Scans.Length > 0);
-        }
-
-        public void Dispose()
-        {
-            Dispose();
         }
     }
 }

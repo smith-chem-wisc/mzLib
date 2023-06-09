@@ -15,7 +15,7 @@ namespace Test.FileReadingTests
     public sealed class TestReaderConnection
     {
         [Test]
-        [Parallelizable(ParallelScope.All)]
+        //[Parallelizable(ParallelScope.All)]
         [TestCase(@"FileReadingTests/TestConnectionFiles/sliced_ethcd.mzML", "sliced_ethcd.mzML")]
         [TestCase(@"FileReadingTests/TestConnectionFiles/sliced_ethcd.raw", "sliced_ethcd.raw")]
         [TestCase(@"FileReadingTests/TestConnectionFiles/small.RAW", "small.RAW")]
@@ -24,19 +24,21 @@ namespace Test.FileReadingTests
         {
             string spectraPath = Path.Combine(TestContext.CurrentContext.TestDirectory, filePath);
             MsDataFile datafile = MsDataFileReader.GetDataFile(spectraPath);
-            // datafile.CloseDynamicConnection();
-            
-            List<MsDataScan> scans = datafile.GetAllScansList();
-            string movingDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"FileReadingTests/TestConnectionFiles/MoveHere");
 
+            List<MsDataScan> scans = datafile.GetAllScansList();
+
+            //datafile.CloseDynamicConnection();
+
+            Console.WriteLine("afdsadas " + scans.Count);
+            string movingDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "FileReadingTests/TestConnectionFiles/MoveHere");
+            
 
             Directory.CreateDirectory(movingDirectory);
 
             File.Move(spectraPath, movingDirectory + '/' + fileName);
 
-
-            Directory.Delete(movingDirectory, true);
+            Directory.Delete("FileReadingTests/TestConnectionFiles/MoveHere", true);
 
             Assert.Pass();
         }
