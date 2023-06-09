@@ -53,8 +53,7 @@ namespace Readers
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
             temp.Dispose();
-            //var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath);
-            //var rawFileAccessor = threadManager.CreateThreadAccessor();
+
             using (var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath))
             {
                 var rawFileAccessor = threadManager.CreateThreadAccessor();
@@ -96,10 +95,7 @@ namespace Readers
                                     throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
                                 }
                             }
-                            //threadManager.Dispose();
-                            //myThreadDataReader.Dispose();
                         }
-                        // IRawDataPlus myThreadDataReader = threadManager.CreateThreadAccessor();
                     });
 
                 rawFileAccessor.Dispose();

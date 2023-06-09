@@ -27,13 +27,9 @@ namespace Test.FileReadingTests
 
             List<MsDataScan> scans = datafile.GetAllScansList();
 
-            //datafile.CloseDynamicConnection();
-
-            Console.WriteLine("afdsadas " + scans.Count);
             string movingDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
                 "FileReadingTests/TestConnectionFiles/MoveHere");
             
-
             Directory.CreateDirectory(movingDirectory);
 
             File.Move(spectraPath, movingDirectory + '/' + fileName);
