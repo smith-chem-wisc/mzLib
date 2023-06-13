@@ -31,7 +31,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv", 484)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv", 1470)]
         public void TestMs1TsvFileLoadsAndCountCorrect(string path, int count)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
