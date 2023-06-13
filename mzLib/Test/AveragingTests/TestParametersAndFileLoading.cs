@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using MassSpectrometry;
-using MzLibUtil;
+using System.Linq;
 using NUnit.Framework;
-using Readers;
 using SpectralAveraging;
 
 namespace Test.AveragingTests
@@ -118,6 +115,53 @@ namespace Test.AveragingTests
             Assert.That(Math.Abs(parameters.BinSize - 2) < 0.001);
 
 
+        }
+
+        [Test]
+        [TestCase(new[] { 0.1 }, new[] { 5 }, new[] { 0 }, new[] { 1.3 }, new[] { 0.8 }, 
+            new[] {SpectraWeightingType.MrsNoiseEstimation, SpectraWeightingType.WeightEvenly, SpectraWeightingType.TicValue}, 
+            new[] {OutlierRejectionType.PercentileClipping, OutlierRejectionType.MinMaxClipping, OutlierRejectionType.SigmaClipping, 
+                OutlierRejectionType.WinsorizedSigmaClipping, OutlierRejectionType.AveragedSigmaClipping, OutlierRejectionType.BelowThresholdRejection},
+            new[] {NormalizationType.RelativeToTics, NormalizationType.NoNormalization})]
+        [TestCase(new[] { 0.01, 0.1 }, new[] { 5, 10, 20 }, new[] { 2, 3, 4 }, new[] { 1.0, 2.0, 3.0 }, 
+            new[] { 0.5, 0.7, 0.9 }, new[] { SpectraWeightingType.MrsNoiseEstimation, SpectraWeightingType.WeightEvenly, SpectraWeightingType.TicValue },
+            new[] {OutlierRejectionType.PercentileClipping, OutlierRejectionType.MinMaxClipping, OutlierRejectionType.SigmaClipping,
+                OutlierRejectionType.WinsorizedSigmaClipping, OutlierRejectionType.AveragedSigmaClipping, OutlierRejectionType.BelowThresholdRejection},
+            new[] { NormalizationType.RelativeToTics, NormalizationType.NoNormalization })]
+        [TestCase(new[] { 0.01, 0.1 }, new[] { 5, 10, 20 }, new[] { 2, 3, 4, 10, 15 }, new[] { 1.0, 2.0, 3.0, 4.0 },
+            new[] { 0.5, 0.7, 0.9 }, new[] { SpectraWeightingType.MrsNoiseEstimation, SpectraWeightingType.WeightEvenly, SpectraWeightingType.TicValue },
+            new[] {OutlierRejectionType.PercentileClipping, OutlierRejectionType.MinMaxClipping, OutlierRejectionType.SigmaClipping,
+                OutlierRejectionType.WinsorizedSigmaClipping, OutlierRejectionType.AveragedSigmaClipping, OutlierRejectionType.BelowThresholdRejection},
+            new[] { NormalizationType.RelativeToTics, NormalizationType.NoNormalization })]
+        public static void TestGenerateSpectralAveragingParameters(double[] binSizes,
+            int[] numberOfScansToAverage, int[] scanOverlap, double[] sigmas, double[] percentiles, 
+            SpectraWeightingType[] weightingTypes, OutlierRejectionType[] outlierRejectionTypes, 
+            NormalizationType[] normalizationTypes)
+        {
+            int rejectionTypes = outlierRejectionTypes
+                .Count(p => !p.ToString().Contains("Sigma") && !p.ToString().Contains("Percent"));
+
+            int sigmaTypes = (int)Math.Pow(sigmas.Length, 2) *
+                             outlierRejectionTypes.Count(p => p.ToString().Contains("Sigma"));
+
+            int scanToAverageCount = 0;
+            foreach (var scanCount in numberOfScansToAverage)
+            {
+                foreach (var overlap in scanOverlap)
+                {
+                    if (overlap < scanCount)
+                        scanToAverageCount++;
+                }
+            }
+
+            var averagingParamCount =
+                weightingTypes.Length * normalizationTypes.Length * (sigmaTypes + percentiles.Length + rejectionTypes) * binSizes.Length * scanToAverageCount;
+
+
+            var result = SpectralAveragingParameters.GenerateSpectralAveragingParameters(binSizes,
+                numberOfScansToAverage, scanOverlap, sigmas, percentiles, weightingTypes, outlierRejectionTypes,
+                normalizationTypes);
+            Assert.That(result.Count, Is.EqualTo(averagingParamCount));
         }
     }
 }

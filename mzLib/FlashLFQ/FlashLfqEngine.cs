@@ -27,6 +27,7 @@ namespace FlashLFQ
         public readonly bool IdSpecificChargeState;
         public readonly bool Normalize;
         public readonly double DiscriminationFactorToCutPeak;
+        public readonly bool QuantifyAmbiguousPeptides;
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -65,6 +66,7 @@ namespace FlashLFQ
             bool integrate = false,
             int numIsotopesRequired = 2,
             bool idSpecificChargeState = false,
+            bool quantifyAmbiguousPeptides = false,
             bool silent = false,
             int maxThreads = -1,
 
@@ -103,6 +105,7 @@ namespace FlashLFQ
             MbrPpmTolerance = matchBetweenRunsPpmTolerance;
             Integrate = integrate;
             NumIsotopesRequired = numIsotopesRequired;
+            QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
             Silent = silent;
             IdSpecificChargeState = idSpecificChargeState;
             MbrRtWindow = maxMbrWindow;
@@ -202,7 +205,7 @@ namespace FlashLFQ
             }
 
             // calculate peptide intensities
-            _results.CalculatePeptideResults();
+            _results.CalculatePeptideResults(QuantifyAmbiguousPeptides);
 
             // do top3 protein quantification
             _results.CalculateProteinResultsMedianPolish(UseSharedPeptidesForProteinQuant);

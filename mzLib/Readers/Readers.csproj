@@ -8,9 +8,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="CsvHelper" Version="30.0.1" />
 		<PackageReference Include="OpenMcdf" Version="2.2.1.12" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.2.1.4" />
-		<PackageReference Include="System.Data.SQLite" Version="1.0.116" />
+		<PackageReference Include="System.Data.SQLite" Version="1.0.117" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -20,32 +21,18 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Reference Include="BaseCommon">
-		  <HintPath>Agilent\BaseCommon.dll</HintPath>
-		</Reference>
-		<Reference Include="BaseDataAccess">
-		  <HintPath>Agilent\BaseDataAccess.dll</HintPath>
-		</Reference>
-		<Reference Include="BaseError">
-		  <HintPath>Agilent\BaseError.dll</HintPath>
-		</Reference>
-		<Reference Include="BaseTof">
-		  <HintPath>Agilent\BaseTof.dll</HintPath>
-		</Reference>
-		<Reference Include="MassSpecDataReader">
-		  <HintPath>Agilent\MassSpecDataReader.dll</HintPath>
-		</Reference>
+	
 		<Reference Include="ThermoFisher.CommonCore.BackgroundSubtraction">
-			<HintPath>dll\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
+			<HintPath>Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
 		</Reference>
 		<Reference Include="ThermoFisher.CommonCore.Data">
-			<HintPath>dll\ThermoFisher.CommonCore.Data.dll</HintPath>
+			<HintPath>Thermo\ThermoFisher.CommonCore.Data.dll</HintPath>
 		</Reference>
 		<Reference Include="ThermoFisher.CommonCore.MassPrecisionEstimator">
-			<HintPath>dll\ThermoFisher.CommonCore.MassPrecisionEstimator.dll</HintPath>
+			<HintPath>Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll</HintPath>
 		</Reference>
 		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
-			<HintPath>dll\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
+			<HintPath>Thermo\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 
@@ -56,6 +43,21 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<None Update="Bruker\baf2sql_c.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\baf2sql_c.lib">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\msvcp110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\msvcr110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcomp110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
@@ -68,10 +70,6 @@
 		<None Update="Thermo\ThermoFisher.CommonCore.RawFileReader.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Compile Remove="SummedMsDataFile.cs" />
 	</ItemGroup>
 
 </Project>

@@ -23,7 +23,7 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    public class MsDataScan
+    public class MsDataScan 
     {
         public MsDataScan(MzSpectrum massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer,
             double totalIonCurrent, double? injectionTime, double[,] noiseData, string nativeId, double? selectedIonMz = null, int? selectedIonChargeStateGuess = null, double? selectedIonIntensity = null, double? isolationMZ = null,
@@ -141,7 +141,7 @@ namespace MassSpectrometry
         /// <param name="type">deconvolution type to be performed</param>
         /// <param name="deconParameters">deconvolution parameters</param>
         /// <returns></returns>
-        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(DeconvolutionTypes type,
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(DeconvolutionType type,
             DeconvolutionParameters deconParameters)
         {
             Deconvoluter deconvoluter = new Deconvoluter(type, deconParameters);

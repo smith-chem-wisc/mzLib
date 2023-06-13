@@ -1058,6 +1058,20 @@ namespace Test
             PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
             ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
             Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
+
+            ModificationMotif.TryGetMotif("C", out var motif_c);
+            ModificationMotif.TryGetMotif("G", out var motif_g);
+            Dictionary<string, Modification> modDict =
+                new()
+                {
+                    { "Carbamidomethyl on C", new Modification(_originalId: "Carbamidomethyl", _modificationType: "Common Fixed",
+                        _target: motif_c, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3ON")) },
+                    { "BS on G" , new Modification(_originalId: "BS on G", _modificationType: "BS", _target: motif_g, _monoisotopicMass: 96.0875)}
+                };
+            PeptideWithSetModifications pwsmWithMissingCfMods = new PeptideWithSetModifications(
+                "ENQGDETQG[Speculative:BS on G]C[Common Fixed:Carbamidomethyl on C]PPQR", modDict, p: new Protein("ENQGDETQGCPPQR", "FakeProtein"), digestionParams: new DigestionParams(),
+                oneBasedStartResidueInProtein: 1, oneBasedEndResidueInProtein: 14);
+            Assert.Null(pwsmWithMissingCfMods.FullChemicalFormula);
         }
 
         [Test]

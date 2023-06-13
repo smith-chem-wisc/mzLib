@@ -3,11 +3,13 @@ using NUnit.Framework;
 using Readers;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using IO.ThermoRawFileReader;
 using MzLibUtil;
 
 namespace Test.FileReadingTests
@@ -45,29 +47,115 @@ namespace Test.FileReadingTests
             MsDataFile dataFile;
             switch (Path.GetExtension(filePath).ToLower())
             {
-                case "raw":
-                    dataFile = ThermoRawFileReader.LoadAllStaticData(filePath);
+                case ".raw":
+                    dataFile = IO.ThermoRawFileReader.ThermoRawFileReader.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 
-                case "mzml":
-                    dataFile = Mzml.LoadAllStaticData(filePath);
+                case ".mzml":
+                    dataFile = IO.MzML.Mzml.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 
-                case "mgf":
-                    dataFile = Mgf.LoadAllStaticData(filePath);
+                case ".mgf":
+                    dataFile = IO.Mgf.Mgf.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 
                 default:
-                    dataFile = MsDataFile.LoadAllStaticData(filePath);
-                    scans = dataFile.GetAllScansList();
-                    break;
+                    throw new MzLibException("File type not needed to test for backwards compatibility");
             }
 
             var sourceFile = dataFile.GetSourceFile();
             Assert.That(scans.Count, Is.EqualTo(expectedScanCount));
+            Assert.That(sourceFile.NativeIdFormat, Is.EqualTo(sourceFormat));
+        }
+
+        [Test]
+        [TestCase("DataFiles/small.RAW", 48, "Thermo nativeID format")]
+        [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
+        [TestCase("DataFiles/SmallCalibratibleYeast.mzml", 142, "Thermo nativeID format")]
+        [TestCase("DataFiles/tester.mzML", 7, null)]
+        [TestCase("DataFiles/tester.mgf", 5, "no nativeID format")]
+        public static void EnsureBackwardsCompatibilityConstrucor(string filePath, int expectedScanCount, string sourceFormat)
+        {
+            List<MsDataScan> scans;
+            MsDataFile dataFile;
+            switch (Path.GetExtension(filePath).ToLower())
+            {
+                case ".raw":
+                    dataFile = new IO.ThermoRawFileReader.ThermoRawFileReader(filePath);
+                    scans = dataFile.GetAllScansList();
+                    break;
+
+                case ".mzml":
+                    dataFile = new IO.MzML.Mzml(filePath);
+                    scans = dataFile.GetAllScansList();
+                    break;
+
+                case ".mgf":
+                    dataFile = new IO.Mgf.Mgf(filePath);
+                    scans = dataFile.GetAllScansList();
+                    break;
+
+                default:
+                    throw new MzLibException("File type not needed to test for backwards compatibility");
+            }
+
+            var sourceFile = dataFile.GetSourceFile();
+            Assert.That(scans.Count, Is.EqualTo(expectedScanCount));
+            Assert.That(sourceFile.NativeIdFormat, Is.EqualTo(sourceFormat));
+        }
+
+        [Test]
+        [TestCase("DataFiles/small.RAW", 48, "Thermo nativeID format")]
+        [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
+        [TestCase("DataFiles/SmallCalibratibleYeast.mzml", 142, "Thermo nativeID format")]
+        [TestCase("DataFiles/tester.mzML", 7, null)]
+        [TestCase("DataFiles/tester.mgf", 5, "no nativeID format")]
+        public static void TestWithFactoryMethod(string filePath, int expectedScanCount, string sourceFormat)
+        {
+            List<MsDataScan> scans;
+            List<MsDataScan> factoryScans;
+            MsDataFile dataFile;
+            MsDataFileToResultFileAdapter adapter;
+            
+            switch (Path.GetExtension(filePath).ToLower())
+            {
+                case ".raw":
+                    dataFile = new IO.ThermoRawFileReader.ThermoRawFileReader(filePath);
+                    scans = dataFile.GetAllScansList();
+
+                    adapter = FileReader.ReadFile<MsDataFileToResultFileAdapter>(filePath);
+                    factoryScans = adapter.Results;
+                    break;
+
+                case ".mzml":
+                    dataFile = new IO.MzML.Mzml(filePath);
+                    scans = dataFile.GetAllScansList();
+
+                    adapter = FileReader.ReadFile<MsDataFileToResultFileAdapter>(filePath);
+                    factoryScans = adapter.Results;
+                    break;
+
+                case ".mgf":
+                    dataFile = new IO.Mgf.Mgf(filePath);
+                    scans = dataFile.GetAllScansList();
+
+                    adapter = FileReader.ReadFile<MsDataFileToResultFileAdapter>(filePath);
+                    factoryScans = adapter.Results;
+                    break;
+
+                default:
+                    throw new MzLibException("File type not needed to test for backwards compatibility");
+            }
+
+            var sourceFile = dataFile.GetSourceFile();
+            Assert.That(scans.Count, Is.EqualTo(expectedScanCount));
+            Assert.That(sourceFile.NativeIdFormat, Is.EqualTo(sourceFormat));
+
+            sourceFile = adapter.GetSourceFile();
+            Assert.That(factoryScans.Count, Is.EqualTo(expectedScanCount));
             Assert.That(sourceFile.NativeIdFormat, Is.EqualTo(sourceFormat));
         }
     }

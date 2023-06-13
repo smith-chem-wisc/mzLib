@@ -20,13 +20,13 @@ public class TestReaderCreator
             "tester.mgf",
             "SmallCalibratibleYeast.mzml",
             "humanInsulin.fasta",
-            "fakeFile.d"
+            "fakeFile.sci"
         };
 
         foreach (string path in filePaths)
         {
             string testPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", path);
-            if (path == "fakeFile.d")
+            if (path == "fakeFile.sci")
             {
                 Assert.Throws<MzLibException>(() =>
                 {
