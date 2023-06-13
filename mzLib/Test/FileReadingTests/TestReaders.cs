@@ -1,4 +1,4 @@
-﻿using MassSpectrometry;
+using MassSpectrometry;
 using NUnit.Framework;
 using Readers;
 using System;
@@ -92,7 +92,7 @@ namespace Test.FileReadingTests
                     dataFile = new IO.MzML.Mzml(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
-
+                
                 case ".mgf":
                     dataFile = new IO.Mgf.Mgf(filePath);
                     scans = dataFile.GetAllScansList();
