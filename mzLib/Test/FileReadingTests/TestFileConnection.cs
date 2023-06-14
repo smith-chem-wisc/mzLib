@@ -28,13 +28,13 @@ namespace Test.FileReadingTests
             List<MsDataScan> scans = datafile.GetAllScansList();
 
             string movingDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                "FileReadingTests/TestConnectionFiles/MoveHere");
+                "FileReadingTests/MoveHere");
             
             Directory.CreateDirectory(movingDirectory);
 
             File.Move(spectraPath, movingDirectory + '/' + fileName);
 
-            Directory.Delete("FileReadingTests/TestConnectionFiles/MoveHere", true);
+            Directory.Delete("FileReadingTests/MoveHere", true);
 
             Assert.Pass();
         }

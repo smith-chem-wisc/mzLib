@@ -28,8 +28,6 @@ namespace IO.ThermoRawFileReader
     }
 }
 
-
-
 // This .cs file uses:
 // RawFileReader reading tool. Copyright © 2016 by Thermo Fisher Scientific, Inc. All rights reserved.
 // See the full Software Licence Agreement for detailed requirements for use.
@@ -39,6 +37,8 @@ namespace Readers
     // but the actual implementation details should be completely hidden. 
     public class ThermoRawFileReader : MsDataFile
     {
+        private IRawDataPlus? dynamicConnection;
+        private int[] MsOrdersByScan;
         public ThermoRawFileReader(string path) : base(path) { }
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
@@ -149,8 +149,6 @@ namespace Readers
 
             dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
 
-            //InitiateDynamicConnection();
-
             if (!dynamicConnection.IsOpen)
             {
                 throw new MzLibException("Unable to access RAW file!");
@@ -214,7 +212,6 @@ namespace Readers
                 var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
 
                 int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
-
                 
                 return msorders;
             }
@@ -290,18 +287,21 @@ namespace Readers
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
                 }
+                
                 if (labels[i].StartsWith("Monoisotopic M/Z", StringComparison.Ordinal))
                 {
                     precursorSelectedMonoisotopicIonMz = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
                 }
+
                 if (labels[i].StartsWith("Charge State", StringComparison.Ordinal))
                 {
                     selectedIonChargeState = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
+                
                 if (labels[i].StartsWith("Master Scan Number", StringComparison.Ordinal)
                     || labels[i].StartsWith("Master Index", StringComparison.Ordinal))
                 {
@@ -309,6 +309,7 @@ namespace Readers
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
+                
                 if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal))
                 {
                     HcdEnergy = values[i];
@@ -405,8 +406,6 @@ namespace Readers
                 oneBasedPrecursorScanNumber: precursorScanNumber,
                 selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz,
                 hcdEnergy: HcdEnergy);
-
-            
         }
 
         private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams,
@@ -529,8 +528,6 @@ namespace Readers
         }
 
 
-        private IRawDataPlus? dynamicConnection;
-        private int[] MsOrdersByScan;
 
         /// <summary>
         /// Gets all the MS orders of all scans in a dynamic connection. This is useful if you want to open all MS1 scans
