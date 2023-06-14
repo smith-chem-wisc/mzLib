@@ -16,10 +16,10 @@ namespace Test.FileReadingTests
     {
         [Test]
         //[Parallelizable(ParallelScope.All)]
-        [TestCase(@"FileReadingTests/TestConnectionFiles/sliced_ethcd.mzML", "sliced_ethcd.mzML")]
-        [TestCase(@"FileReadingTests/TestConnectionFiles/sliced_ethcd.raw", "sliced_ethcd.raw")]
-        [TestCase(@"FileReadingTests/TestConnectionFiles/small.RAW", "small.RAW")]
-        [TestCase(@"FileReadingTests/TestConnectionFiles/SmallCalibratibleYeast.mzml", "SmallCalibratibleYeast.mzml")]
+        [TestCase(@"DataFiles/sliced_ethcd.mzML", "sliced_ethcd.mzML")]
+        [TestCase(@"DataFiles/sliced_ethcd.raw", "sliced_ethcd.raw")]
+        [TestCase(@"DataFiles/small.RAW", "small.RAW")]
+        [TestCase(@"DataFiles/SmallCalibratibleYeast.mzml", "SmallCalibratibleYeast.mzml")]
         public static void TestReaderClosesConnection(string filePath, string fileName)
         {
             string spectraPath = Path.Combine(TestContext.CurrentContext.TestDirectory, filePath);
