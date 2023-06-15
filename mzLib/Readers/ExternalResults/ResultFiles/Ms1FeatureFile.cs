@@ -11,9 +11,21 @@ namespace Readers
     {
         public override SupportedFileType FileType => SupportedFileType.Ms1Feature;
 
-        public override Software Software { get; set; }
+        public sealed override Software Software { get; set; }
 
-        public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath, deconSoftware) { }
+        public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath,
+            deconSoftware)
+        {
+            using (var sr = new StreamReader(filePath))
+            {
+                string firstLine = sr.ReadLine() ?? "";
+                if (firstLine.Contains("\tApex_intensity\t") || firstLine.Contains("\tIntensity_Apex\t"))
+                    Software = Software.TopFD;
+                else
+                    Software = Software.FLASHDeconv;
+
+            }
+        }
 
         /// <summary>
         /// Constructor used to initialize from the factory method

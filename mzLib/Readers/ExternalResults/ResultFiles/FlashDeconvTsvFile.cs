@@ -10,7 +10,8 @@ namespace Readers
     public class FlashDeconvTsvFile : ResultFile<FlashDeconvTsv>, IResultFile
     {
         public override SupportedFileType FileType => SupportedFileType.Tsv_FlashDeconv;
-        public override Software Software { get; set; }
+
+        public override Software Software { get; set; } = Software.FLASHDeconv;
 
         public FlashDeconvTsvFile(string filePath) : base(filePath, Software.FLASHDeconv) { }
 

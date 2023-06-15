@@ -35,6 +35,7 @@ namespace Readers
         public List<MsDataScan> Results { get; set; }
         public void LoadResults()
         {
+            FileType = FilePath.ParseFileType();
             _dataFile = MsDataFileReader.GetDataFile(FilePath).LoadAllStaticData();
             Results = _dataFile.GetAllScansList();
         }

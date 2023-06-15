@@ -29,7 +29,7 @@ using System.Text.Json;
 
 namespace MassSpectrometry
 {
-    public class MzSpectrum
+    public class MzSpectrum : IEquatable<MzSpectrum>
     {
         private const int numAveraginesToGenerate = 1500;
         private static readonly double[][] allMasses = new double[numAveraginesToGenerate][];
@@ -811,24 +811,25 @@ namespace MassSpectrometry
             return numerator / denominator;
         }
 
-        public override bool Equals(object spectrumToCompare)
+        public bool Equals(MzSpectrum? other)
         {
-            if (spectrumToCompare.GetType() != typeof(MzSpectrum))
-                return false;
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return (XArray.SequenceEqual(other.XArray) && YArray.SequenceEqual(other.YArray));
+        }
 
-            MzSpectrum typedSpectrum = (MzSpectrum)spectrumToCompare;
-            if (!typedSpectrum.XArray.SequenceEqual(XArray))
-                return false;
-            if (!typedSpectrum.YArray.SequenceEqual(YArray))
-                return false;
-            
-            return true;
+        public override bool Equals(object? spectrumToCompare)
+        {
+            if (ReferenceEquals(null, spectrumToCompare)) return false;
+            if (ReferenceEquals(this, spectrumToCompare)) return true;
+            if (spectrumToCompare.GetType() != this.GetType()) return false;
+            return Equals((MzSpectrum)spectrumToCompare);
         }
 
         public override int GetHashCode()
         {
             return ((IStructuralEquatable)XArray).GetHashCode(EqualityComparer<double>.Default) +
-                   ((IStructuralEquatable)YArray).GetHashCode(EqualityComparer<double>.Default) + 
+                   ((IStructuralEquatable)YArray).GetHashCode(EqualityComparer<double>.Default) +
                    XArray.Sum().GetHashCode() + YArray.Sum().GetHashCode();
         }
 

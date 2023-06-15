@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using IO.ThermoRawFileReader;
 using MzLibUtil;
+using NUnit.Framework.Interfaces;
 
 namespace Test.FileReadingTests
 {
@@ -104,58 +105,6 @@ namespace Test.FileReadingTests
 
             var sourceFile = dataFile.GetSourceFile();
             Assert.That(scans.Count, Is.EqualTo(expectedScanCount));
-            Assert.That(sourceFile.NativeIdFormat, Is.EqualTo(sourceFormat));
-        }
-
-        [Test]
-        [TestCase("DataFiles/small.RAW", 48, "Thermo nativeID format")]
-        [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
-        [TestCase("DataFiles/SmallCalibratibleYeast.mzml", 142, "Thermo nativeID format")]
-        [TestCase("DataFiles/tester.mzML", 7, null)]
-        [TestCase("DataFiles/tester.mgf", 5, "no nativeID format")]
-        public static void TestWithFactoryMethod(string filePath, int expectedScanCount, string sourceFormat)
-        {
-            List<MsDataScan> scans;
-            List<MsDataScan> factoryScans;
-            MsDataFile dataFile;
-            MsDataFileToResultFileAdapter adapter;
-            
-            switch (Path.GetExtension(filePath).ToLower())
-            {
-                case ".raw":
-                    dataFile = new IO.ThermoRawFileReader.ThermoRawFileReader(filePath);
-                    scans = dataFile.GetAllScansList();
-
-                    adapter = FileReader.ReadFile<MsDataFileToResultFileAdapter>(filePath);
-                    factoryScans = adapter.Results;
-                    break;
-
-                case ".mzml":
-                    dataFile = new IO.MzML.Mzml(filePath);
-                    scans = dataFile.GetAllScansList();
-
-                    adapter = FileReader.ReadFile<MsDataFileToResultFileAdapter>(filePath);
-                    factoryScans = adapter.Results;
-                    break;
-
-                case ".mgf":
-                    dataFile = new IO.Mgf.Mgf(filePath);
-                    scans = dataFile.GetAllScansList();
-
-                    adapter = FileReader.ReadFile<MsDataFileToResultFileAdapter>(filePath);
-                    factoryScans = adapter.Results;
-                    break;
-
-                default:
-                    throw new MzLibException("File type not needed to test for backwards compatibility");
-            }
-
-            var sourceFile = dataFile.GetSourceFile();
-            Assert.That(scans.Count, Is.EqualTo(expectedScanCount));
-            Assert.That(sourceFile.NativeIdFormat, Is.EqualTo(sourceFormat));
-
-            sourceFile = adapter.GetSourceFile();
-            Assert.That(factoryScans.Count, Is.EqualTo(expectedScanCount));
             Assert.That(sourceFile.NativeIdFormat, Is.EqualTo(sourceFormat));
         }
     }

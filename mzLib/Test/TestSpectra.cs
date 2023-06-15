@@ -321,17 +321,25 @@ namespace Test
             MzSpectrum identicalSpectrum = new(_mzSpectrumA.XArray, _mzSpectrumA.YArray, true);
             Assert.AreEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
             Assert.IsTrue(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsTrue(identicalSpectrum.Equals((object)_mzSpectrumA));
 
             // changed x value
             identicalSpectrum.XArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsFalse(identicalSpectrum.Equals((object)_mzSpectrumA));
             Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
             identicalSpectrum.XArray[1] -= 10;
 
             // changed y value
             identicalSpectrum.YArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsFalse(identicalSpectrum.Equals((object)_mzSpectrumA));
             Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
+
+            Assert.That(!_mzSpectrumA.Equals(null));
+            Assert.That(!_mzSpectrumA.Equals((object)null));
+            Assert.That(!_mzSpectrumA.Equals(2));
+            Assert.That(!_mzSpectrumA.Equals((object)2));
         }
     }
 }

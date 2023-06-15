@@ -36,6 +36,7 @@ namespace Test.FileReadingTests
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             TopFDMzrtFile file = new TopFDMzrtFile(filePath);
             Assert.That(file.Count(), Is.EqualTo(recordCount));
+            Assert.That(file.CanRead(path));
         }
 
         [Test]

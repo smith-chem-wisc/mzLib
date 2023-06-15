@@ -44,6 +44,7 @@ namespace Test.FileReadingTests
                         var featureFile = new Ms1FeatureFile(filePath);
                         Assert.That(featureFile.Count() == featureCount);
                         Assert.That(featureFile.Results.Count() == featureCount);
+                        Assert.That(featureFile.CanRead(path));
 
                         featureFile = FileReader.ReadFile<Ms1FeatureFile>(filePath);
                         Assert.That(featureFile.Count() == featureCount);
@@ -55,6 +56,7 @@ namespace Test.FileReadingTests
                         var featureFile = new Ms2FeatureFile(filePath);
                         Assert.That(featureFile.Count() == featureCount);
                         Assert.That(featureFile.Results.Count() == featureCount);
+                        Assert.That(featureFile.CanRead(path));
 
                         featureFile = FileReader.ReadFile<Ms2FeatureFile>(filePath);
                         Assert.That(featureFile.Count() == featureCount);

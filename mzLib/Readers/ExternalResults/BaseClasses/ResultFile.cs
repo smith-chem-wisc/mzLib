@@ -24,7 +24,6 @@ namespace Readers
             set => _results = value;
         }
 
-
         #endregion
 
         #region Constructors
@@ -40,6 +39,7 @@ namespace Readers
         {
             FilePath = "";
             _results = new();
+            Software = Software.Unspecified;
         }
 
         #endregion
@@ -86,9 +86,7 @@ namespace Readers
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return _results.Equals(other._results) 
-                   && FilePath == other.FilePath 
-                   && Software == other.Software;
+            return GetHashCode() == other.GetHashCode();
         }
 
         public override bool Equals(object? obj)
@@ -101,7 +99,7 @@ namespace Readers
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(_results, FilePath, Software);
+            return HashCode.Combine(FilePath, Software, FileType);
         }
 
         #endregion

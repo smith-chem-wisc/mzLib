@@ -36,7 +36,7 @@ namespace Readers
                 SupportedFileType.MzML => ".mzML",
                 SupportedFileType.Mgf => ".mgf",
                 SupportedFileType.BrukerD => ".d",
-                _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+                _ => throw new MzLibException("File type not supported")
             };
         }
 
@@ -53,12 +53,12 @@ namespace Readers
                         return SupportedFileType.Ms1Feature;
                     if (filePath.EndsWith("_ms2.feature", StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms2Feature;
-                    throw new MzLibException("Feature File type not supported");
+                    throw new MzLibException("Feature file type not supported");
 
                 case ".csv":
                     if (filePath.EndsWith("mzrt.csv", StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Mzrt_TopFd;
-                    throw new MzLibException("csv file type not supported");
+                    throw new MzLibException("Csv file type not supported");
 
                 case ".tsv":
                     if (filePath.EndsWith("_ms1.tsv", StringComparison.InvariantCultureIgnoreCase))
@@ -66,10 +66,10 @@ namespace Readers
                     if (filePath.EndsWith(".tsv", StringComparison.InvariantCultureIgnoreCase) &&
                         !filePath.EndsWith("_ms1.tsv", StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Tsv_FlashDeconv;
-                    throw new MzLibException("tsv file type not supported");
+                    throw new MzLibException("Tsv file type not supported");
 
                 default:
-                    throw new MzLibException("File extension not supported");
+                    throw new MzLibException("File type not supported");
             }
         }
     }

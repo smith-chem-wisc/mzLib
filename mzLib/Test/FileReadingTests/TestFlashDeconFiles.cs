@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using MassSpectrometry;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using pepXML.Generated;
@@ -37,6 +39,7 @@ namespace Test.FileReadingTests
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             FlashDeconvMs1TsvFile file = new FlashDeconvMs1TsvFile(filePath);
             Assert.That(file.Count(), Is.EqualTo(count));
+            Assert.That(file.CanRead(path));
         }
 
         [Test]
@@ -46,6 +49,7 @@ namespace Test.FileReadingTests
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             FlashDeconvTsvFile file = new FlashDeconvTsvFile(filePath);
             Assert.That(file.Count(), Is.EqualTo(count));
+            Assert.That(file.CanRead(path));
         }
 
         [Test]
