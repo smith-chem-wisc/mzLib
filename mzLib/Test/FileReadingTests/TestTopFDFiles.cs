@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -11,6 +12,7 @@ using Readers;
 namespace Test.FileReadingTests
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class TestTopFDFiles
     {
         private static string directoryPath;

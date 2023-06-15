@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
@@ -14,6 +15,7 @@ using Readers;
 namespace Test.FileReadingTests
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class TestFlashDeconFiles
     {
         private static string directoryPath;

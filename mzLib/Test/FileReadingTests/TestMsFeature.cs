@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using CsvHelper;
 using MzLibUtil;
@@ -9,6 +10,7 @@ using Readers;
 namespace Test.FileReadingTests
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class TestMsFeature
     {
 
