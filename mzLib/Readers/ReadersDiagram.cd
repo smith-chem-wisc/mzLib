@@ -54,7 +54,6 @@
       <HashCode>gAAAAAIEAAAQBACQANEBAABAICkIQCAAAAEAMABgAgA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\FlashDeconvMs1TsvRecord.cs</FileName>
     </TypeIdentifier>
-    <Lollipop Position="0.2" Collapsed="true" />
   </Class>
   <Class Name="Readers.FlashDeconvTsv" BaseTypeListCollapsed="true">
     <Position X="11.25" Y="9" Width="2.25" />
@@ -62,7 +61,6 @@
       <HashCode>AAIIAAAAAAAAA4CAIAAAAAAABwAoAAAQAAADEBhAAAA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\FlashDeconvTsvRecord.cs</FileName>
     </TypeIdentifier>
-    <Lollipop Position="0.2" Collapsed="true" />
   </Class>
   <Class Name="Readers.Ms1Feature" BaseTypeListCollapsed="true">
     <Position X="8.5" Y="9" Width="2" />
@@ -70,7 +68,6 @@
       <HashCode>AAIKAAAAAAAAAAAAAAAAAAQIAgBIAAAQAAgAEBCAAAA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\Ms1Feature.cs</FileName>
     </TypeIdentifier>
-    <Lollipop Position="0.2" Collapsed="true" />
   </Class>
   <Class Name="Readers.Ms2Feature" BaseTypeListCollapsed="true">
     <Position X="5.75" Y="9" Width="2" />
@@ -78,7 +75,6 @@
       <HashCode>AAIQCQAACAABABAAAAAAgAAEEAAIAAAAQAAAABBAACA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\Ms2Feature.cs</FileName>
     </TypeIdentifier>
-    <Lollipop Position="0.2" Collapsed="true" />
   </Class>
   <Class Name="Readers.TopFdMzrt" BaseTypeListCollapsed="true">
     <Position X="3.25" Y="9" Width="2" />
@@ -86,7 +82,6 @@
       <HashCode>AAASEAACAAQIBBAAAAAAAQAOAAAJAAAAAAAAAACAAAA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\TopFDMzrtRecord.cs</FileName>
     </TypeIdentifier>
-    <Lollipop Position="0.2" Collapsed="true" />
   </Class>
   <Class Name="IO.MzML.Mzml" Collapsed="true">
     <Position X="20.75" Y="7.75" Width="1.5" />
@@ -150,13 +145,6 @@
     <TypeIdentifier>
       <HashCode>AAAAAgAAAAEAAAAAAAAAAAAAAAAAAQAAAQBAAAAAAAA=</HashCode>
       <FileName>ExternalResults\BaseClasses\IResultFile.cs</FileName>
-    </TypeIdentifier>
-  </Interface>
-  <Interface Name="Readers.IResult" Collapsed="true">
-    <Position X="1.25" Y="9" Width="1.5" />
-    <TypeIdentifier>
-      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
-      <FileName>ExternalResults\BaseClasses\IResult.cs</FileName>
     </TypeIdentifier>
   </Interface>
   <Font Name="Segoe UI" Size="9" />

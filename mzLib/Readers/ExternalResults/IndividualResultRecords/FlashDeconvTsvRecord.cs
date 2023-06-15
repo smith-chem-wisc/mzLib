@@ -10,7 +10,7 @@ namespace Readers
     /// For supported versions and software this file type can come from see
     ///     Readers.ExternalResources.SupportedVersions.txt
     /// </summary>
-    public class FlashDeconvTsv : IResult
+    public class FlashDeconvTsv
     {
         [Ignore]
         public static CsvConfiguration CsvConfiguration => new CsvConfiguration(CultureInfo.InvariantCulture)

@@ -5,7 +5,7 @@ using CsvHelper.Configuration.Attributes;
 
 namespace Readers
 {
-    public class TopFdMzrt : IResult
+    public class TopFdMzrt
     {
 
         public static CsvConfiguration CsvConfiguration => new CsvConfiguration(CultureInfo.InvariantCulture)

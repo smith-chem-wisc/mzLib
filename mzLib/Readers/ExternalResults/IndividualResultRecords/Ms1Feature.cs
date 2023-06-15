@@ -10,7 +10,7 @@ namespace Readers
     /// For supported versions and software this file type can come from see
     ///     Readers.ExternalResources.SupportedVersions.txt
     /// </summary>
-    public class Ms1Feature : IResult
+    public class Ms1Feature
     {
         [Ignore]
         public static CsvConfiguration CsvConfiguration => new CsvConfiguration(CultureInfo.InvariantCulture)

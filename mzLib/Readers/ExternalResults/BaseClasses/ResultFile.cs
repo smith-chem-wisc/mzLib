@@ -7,7 +7,7 @@ namespace Readers
     /// Generic abstract class for all types of result files in MzLib
     /// </summary>
     /// <typeparam name="TResult">type of result being contained</typeparam>
-    public abstract class ResultFile<TResult> : IResultFile, IEquatable<ResultFile<TResult>>, IEnumerable<TResult> where TResult : IResult
+    public abstract class ResultFile<TResult> : IResultFile, IEquatable<ResultFile<TResult>>, IEnumerable<TResult> 
     {
         #region Base Properties
         public string FilePath { get; set; }
