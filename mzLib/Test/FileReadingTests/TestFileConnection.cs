@@ -15,7 +15,6 @@ namespace Test.FileReadingTests
     public sealed class TestReaderConnection
     {
         [Test]
-        //[Parallelizable(ParallelScope.All)]
         [TestCase(@"DataFiles/sliced_ethcd.mzML", "sliced_ethcd.mzML")]
         [TestCase(@"DataFiles/sliced_ethcd.raw", "sliced_ethcd.raw")]
         [TestCase(@"DataFiles/small.RAW", "small.RAW")]
@@ -34,7 +33,7 @@ namespace Test.FileReadingTests
 
             File.Move(spectraPath, movingDirectory + '/' + fileName);
 
-            Directory.Delete("FileReadingTests/MoveHere", true);
+            Directory.Delete(movingDirectory, true);
 
             Assert.Pass();
         }

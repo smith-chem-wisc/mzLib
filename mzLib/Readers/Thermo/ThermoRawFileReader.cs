@@ -1,13 +1,9 @@
-﻿using MassSpectrometry;
+﻿using Easy.Common.Extensions;
+using MassSpectrometry;
 using MzLibUtil;
-using System;
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
-using System.Threading.Tasks;
-using Easy.Common.Extensions;
 using ThermoFisher.CommonCore.Data.Business;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 using ThermoFisher.CommonCore.Data.Interfaces;
@@ -52,7 +48,6 @@ namespace Readers
 
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
-            temp.Dispose();
 
             using (var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath))
             {
@@ -102,6 +97,7 @@ namespace Readers
                 Scans = msDataScans;
                 SourceFile = GetSourceFile();
             }
+            temp.Dispose();
 
             return this;
         }
@@ -119,7 +115,7 @@ namespace Readers
 
             SourceFile sourceFile = new SourceFile(
                 @"Thermo nativeID format",
-                @"Thermo raw format",
+                @"Thermo RAW format",
                 sendCheckSum,
                 @"SHA-1",
                 FilePath,
@@ -183,7 +179,7 @@ namespace Readers
                 throw new MzLibException("The dynamic connection has not been created yet!");
             }
 
-            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || 
+            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum ||
                 oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
             {
                 return null;
@@ -205,14 +201,15 @@ namespace Readers
 
         public override int[] GetMsOrderByScanInDynamicConnection()
         {
+
             if (dynamicConnection != null)
             {
-                
+
                 int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
                 var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
 
                 int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
-                
+
                 return msorders;
             }
 
@@ -238,7 +235,7 @@ namespace Readers
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
 
             string scanFilterString = filter.ToString();
-            
+
             int msOrder = (int)filter.MSOrder;
             if (msOrder < 1 || msOrder > 10)
             {
@@ -252,7 +249,7 @@ namespace Readers
             double scanRangeHigh = scanStats.HighMass;
             double scanRangeLow = scanStats.LowMass;
             MzRange scanWindowRange = new(scanRangeLow, scanRangeHigh);
-            
+
             double? ionInjectionTime = null;
             double? precursorSelectedMonoisotopicIonMz = null;
             int? selectedIonChargeState = null;
@@ -266,7 +263,7 @@ namespace Readers
             var trailer = rawFile.GetTrailerExtraInformation(scanNumber);
             string[] labels = trailer.Labels;
             string[] values = trailer.Values;
-            
+
             for (int i = 0; i < trailer.Labels.Length; i++)
             {
                 if (labels[i].StartsWith("Ion Injection Time (ms)", StringComparison.Ordinal))
@@ -287,7 +284,7 @@ namespace Readers
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
                 }
-                
+
                 if (labels[i].StartsWith("Monoisotopic M/Z", StringComparison.Ordinal))
                 {
                     precursorSelectedMonoisotopicIonMz = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
@@ -301,7 +298,7 @@ namespace Readers
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
-                
+
                 if (labels[i].StartsWith("Master Scan Number", StringComparison.Ordinal)
                     || labels[i].StartsWith("Master Index", StringComparison.Ordinal))
                 {
@@ -309,7 +306,7 @@ namespace Readers
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
-                
+
                 if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal))
                 {
                     HcdEnergy = values[i];
@@ -331,7 +328,7 @@ namespace Readers
                 {
                     dissociationType = DissociationType.EThcD;
                 }
-                
+
                 if (ms2IsolationWidth == null)
                 {
                     ms2IsolationWidth = reaction.IsolationWidth;
@@ -426,7 +423,7 @@ namespace Readers
             if (centroidStream.Masses == null || centroidStream.Intensities == null)
             {
                 var scan = Scan.FromFile(rawFile, scanNumber);
-                
+
                 var mzs = scan.PreferredMasses;
                 xArray = scan.PreferredMasses;
                 yArray = scan.PreferredIntensities;
@@ -472,8 +469,8 @@ namespace Readers
                 double scanRangeHigh = scanStats.HighMass;
                 double scanRangeLow = scanStats.LowMass;
 
-               WindowModeHelper.Run(ref intensityArray, ref mzArray, filterParams,
-                    scanRangeLow, scanRangeHigh);
+                WindowModeHelper.Run(ref intensityArray, ref mzArray, filterParams,
+                     scanRangeLow, scanRangeHigh);
 
                 Array.Sort(mzArray, intensityArray);
                 spectrum = new MzSpectrum(mzArray, intensityArray, false);
@@ -535,6 +532,11 @@ namespace Readers
         /// </summary>
         private int[] GetMsOrdersByScanInDynamicConnection()
         {
+            if(MsOrdersByScan.IsNotNullOrEmpty())
+            {
+                return MsOrdersByScan;
+            }
+
             if (dynamicConnection != null)
             {
                 int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
@@ -542,7 +544,9 @@ namespace Readers
 
                 int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
 
-                dynamicConnection = null;
+                //dynamicConnection = null;
+
+                MsOrdersByScan = msorders;
 
                 return msorders;
             }
