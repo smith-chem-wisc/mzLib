@@ -23,7 +23,6 @@ namespace Readers
                     Software = Software.TopFD;
                 else
                     Software = Software.FLASHDeconv;
-
             }
         }
 

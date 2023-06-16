@@ -6,7 +6,7 @@
     /// <typeparam name="TFactory"></typeparam>
     public interface IResultFile
     {
-        public string FilePath { get; set; }
+        public string FilePath { get; internal set; }
         public SupportedFileType FileType { get; }
         public Software Software { get; set; }
 

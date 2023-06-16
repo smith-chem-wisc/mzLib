@@ -99,7 +99,7 @@ namespace Readers
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(FilePath, Software, FileType);
+            return HashCode.Combine(FilePath);
         }
 
         #endregion
