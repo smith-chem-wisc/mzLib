@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using NUnit.Framework;
 using Readers;
+using System.Collections.Generic;
 using System.IO;
-using System.Printing.IndexedProperties;
-using System.Threading;
-using System.Windows.Shapes;
 using Path = System.IO.Path;
 
 namespace Test.FileReadingTests
@@ -28,7 +24,7 @@ namespace Test.FileReadingTests
 
             string movingDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
                 "FileReadingTests/MoveHere");
-            
+
             Directory.CreateDirectory(movingDirectory);
 
             File.Copy(spectraPath, movingDirectory + '/' + fileName);

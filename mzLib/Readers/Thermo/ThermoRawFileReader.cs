@@ -532,7 +532,7 @@ namespace Readers
         /// </summary>
         private int[] GetMsOrdersByScanInDynamicConnection()
         {
-            if(MsOrdersByScan.IsNotNullOrEmpty())
+            if (MsOrdersByScan.IsNotNullOrEmpty())
             {
                 return MsOrdersByScan;
             }
