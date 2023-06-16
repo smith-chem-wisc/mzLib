@@ -31,7 +31,7 @@ namespace Test.FileReadingTests
             
             Directory.CreateDirectory(movingDirectory);
 
-            File.Move(spectraPath, movingDirectory + '/' + fileName);
+            File.Copy(spectraPath, movingDirectory + '/' + fileName);
 
             Directory.Delete(movingDirectory, true);
 
