@@ -35,6 +35,9 @@ namespace Readers
             Software = software;
         }
 
+        /// <summary>
+        /// Constructor used to initialize from the factory method
+        /// </summary>
         protected internal ResultFile()
         {
             FilePath = "";
