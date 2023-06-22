@@ -71,11 +71,52 @@ namespace TestFlashLFQ
                 Q_XArray: nistXic.Select(p => p.RetentionTime).ToArray(),
                 Q_YArray: nistXic.Select(p => p.Intensity).ToArray(),
                 SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
-                toleranceInPpm: 250, // Not sure what the ideal ppmTolerance is here
+                toleranceInPpm: 250, // Not sure what the ideal ppmTolerance is here. 100 ppm resulted in 34 not matched points, 250 ppm matches all points
                 allPeaks: true,
                 filterOutBelowThisMz: 0);
-            double? xicAngle = xicSimilarity.SpectralContrastAngle();
+            double? rawXicAngle = xicSimilarity.SpectralContrastAngle();
+
+            double nistOffset = XicProcessing.AlignXICs(inflixXic, nistXic);
+
+            SpectralSimilarity alignedXicSimilarity = new SpectralSimilarity(
+                P_XArray: inflixXic.Select(p => p.RetentionTime).ToArray(),
+                P_YArray: inflixXic.Select(p => p.Intensity).ToArray(),
+                Q_XArray: nistXic.Select(p => p.RetentionTime + nistOffset).ToArray(),
+                Q_YArray: nistXic.Select(p => p.Intensity).ToArray(),
+                SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
+                toleranceInPpm: 250, // Not sure what the ideal ppmTolerance is here. 100 ppm resulted in 34 not matched points, 250 ppm matches all points
+                allPeaks: true,
+                filterOutBelowThisMz: 0);
+            double? alignedXicAngle = alignedXicSimilarity.SpectralContrastAngle();
+
+            Assert.That(alignedXicAngle, Is.GreaterThan(rawXicAngle));
+
             int placeholder = 0;
+        }
+
+        [Test]
+        public static void TestXicSizeEqualization()
+        {
+            double[] smallArray = { 0, 1, 2, 3, 4, 5, 6 };
+            double[] bigArray = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+            double[] expectedArrayPostTrim =  { 3, 4, 5, 6, 7, 8, 9, 10 };
+            List<IndexedMassSpectralPeak> smallPeakList =
+                smallArray.Select(d => new IndexedMassSpectralPeak(mz: d, 0, 0, 0)).ToList();
+            List<IndexedMassSpectralPeak> bigPeakList =
+                bigArray.Select(d => new IndexedMassSpectralPeak(mz: d, 0, 0, 0)).ToList();
+
+            XicProcessing.EqualizeListLength(ref smallPeakList, ref bigPeakList);
+            // Removing an even number of peaks
+            Assert.AreEqual(bigPeakList.Select(p => p.Mz).ToArray(),
+                expectedArrayPostTrim);
+
+            bigArray = new double[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
+            bigPeakList =
+                bigArray.Select(d => new IndexedMassSpectralPeak(mz: d, 0, 0, 0)).ToList();
+            XicProcessing.EqualizeListLength(ref bigPeakList, ref smallPeakList);
+            // Removing an odd number of peaks. EqualizeListSize should remove more from the end
+            Assert.AreEqual(bigPeakList.Select(p => p.Mz).ToArray(),
+                expectedArrayPostTrim);
         }
     }
 }
