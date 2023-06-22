@@ -68,6 +68,12 @@
     <None Update="TestData\UP000005640_reviewedproteinPruned.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\XICAlignment\JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\XICAlignment\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

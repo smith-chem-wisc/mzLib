@@ -18,6 +18,18 @@ namespace FlashLFQ
             this.Intensity = intensity;
         }
 
+        /// <summary>
+        /// Creates a deep copy of an IndexedMassSpectralPeak
+        /// </summary>
+        /// <param name="peak"> IndexedMassSpectralPeak to be copied </param>
+        public IndexedMassSpectralPeak(IndexedMassSpectralPeak peak)
+        {
+            this.Mz = peak.Mz;
+            this.ZeroBasedMs1ScanIndex = peak.ZeroBasedMs1ScanIndex;
+            this.RetentionTime = peak.RetentionTime;
+            this.Intensity = peak.Intensity;
+        }
+
         public override bool Equals(object obj)
         {
             var otherPeak = (IndexedMassSpectralPeak)obj;

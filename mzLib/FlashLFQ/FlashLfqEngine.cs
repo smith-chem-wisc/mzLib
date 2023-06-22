@@ -249,6 +249,10 @@ namespace FlashLFQ
             return _results;
         }
 
+        public PeakIndexingEngine GetIndexingEngine()
+        {
+            return _peakIndexingEngine;
+        }
         /// <summary>
         /// Creates a theoretical isotope distribution for each of the identified sequences
         /// If the sequence is modified, this uses averagine for the modified part
