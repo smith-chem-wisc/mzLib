@@ -100,6 +100,10 @@ namespace FlashLFQ
                 double maxIntensity = IsotopicEnvelopes.Max(p => p.Intensity);
                 Apex = IsotopicEnvelopes.First(p => p.Intensity == maxIntensity);
 
+                // TODO: Fix integration
+                // Integration != summing intensities, becuase you need to take retention time into account
+                // There can be situations where one run has 5 scans across a peak, and a different run
+                // has 10 scans. Simply summing the envelopes will result in very different values
                 if (integrate)
                 {
                     Intensity = IsotopicEnvelopes.Sum(p => p.Intensity);
