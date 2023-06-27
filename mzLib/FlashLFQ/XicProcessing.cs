@@ -20,12 +20,12 @@ namespace FlashLFQ
         /// last chromatographic peaks of interest (i.e., longer XICs are better). Alignment will fail if the
         /// magnitude of the RT shift is greater than 1/4 the RT span of either XIC
         /// The XICs are up-sampled to allow for sub-pixel resolution (one XIC datapoint = one pixel).
-        /// (Suggested reading: Convolution theorem, https://dsp.stackexchange.com/questions/51409/maximum-of-cross-correlation-not-moving)
         /// </summary>
         /// <param name="refXIC">List of peaks to be used as a reference, ordered by retention time</param>
         /// <param name="expXIC">List of peaks to be aligned, ordered by retention time</param>
         /// <param name="resolution">Up-sampling resolution. Higher values allow for more precise shifts</param>
-        /// <returns>The retention time difference between the experimental and reference XICs</returns>
+        /// <returns>The retention time correction to align the experimental and reference XICs</returns>
+        /// (Suggested reading: Convolution theorem, https://dsp.stackexchange.com/questions/51409/maximum-of-cross-correlation-not-moving)
         public static double AlignXICs(List<IndexedMassSpectralPeak> refXIC, List<IndexedMassSpectralPeak> expXIC, int resolution = 100)
         {
             // First step is to pad the XICs, adding zeros to either end
@@ -40,7 +40,6 @@ namespace FlashLFQ
             var expSpline = LinearSpline.InterpolateSorted(
                 expXIC.Select(p => p.RetentionTime).ToArray(), expXIC.Select(p => p.Intensity).ToArray());
 
-            // Should maybe change flip max and min, now that I'm padding
             var startTime = Math.Max(refXIC.First().RetentionTime, expXIC.First().RetentionTime);
             var endTime = Math.Min(refXIC.Last().RetentionTime, expXIC.Last().RetentionTime);
             var timeSpan = endTime - startTime;
@@ -55,7 +54,7 @@ namespace FlashLFQ
             // subtract the mean for both intensity arrays, leaving the zero padded data points intact
             var refIntensityMean = refInterpolatedIntensities.Average();
             var expIntensityMean = expInterpolatedIntensities.Average();
-            for (int i = 0; i < interpArrayLength/2; i++)
+            for (int i = 0; i < interpArrayLength / 2; i++)
             {
                 refInterpolatedIntensities[i + interpArrayLength / 4] -= refIntensityMean;
                 expInterpolatedIntensities[i + interpArrayLength / 4] -= expIntensityMean;
@@ -98,11 +97,10 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Returns a new XIC with added zero intensity peaks at the beginning and end of
-        /// the XIC
+        /// Returns a new List of indexed mass spectral peaks with added
+        /// zero intensity peaks at the beginning and end of
         /// </summary>
         /// <param name="XIC">XIC to be padded</param>
-        /// <returns></returns>
         private static List<IndexedMassSpectralPeak> PadXICs(List<IndexedMassSpectralPeak> XIC)
         {
             List<IndexedMassSpectralPeak> paddedXICs = new List<IndexedMassSpectralPeak>();
