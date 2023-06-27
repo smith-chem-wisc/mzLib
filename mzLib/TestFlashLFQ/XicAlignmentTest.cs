@@ -37,14 +37,18 @@ namespace TestFlashLFQ
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
             double monoisotopicMass = 2005.980136305;
+
             // In the actual data, these are identical but have mods on different positions.
             double peakFindingMass = 670.00;
+
             string sequence1 = "PWEPIYYLGGVFQLEK"; // CF3 on W
             double ms2RetentionTime1Inflix = 32.464;
             double ms2RetentionTime1Nist = 32.488;
+
             string sequence2 = "PWYYEPILGGVFQLEK"; // CF3 on Y
             double ms2RetentionTime2Inflix = 33.393; // No Ms2 was actual present here, this is the peak apex RT from MBR
             double ms2RetentionTime2Nist = 33.224;
+
             Identification pep1Inflix = new Identification(inflix, sequence1, sequence1, monoisotopicMass,
                 ms2RetentionTime1Inflix, 3, new List<ProteinGroup> { pg });
             Identification pep1Nist = new Identification(nist, sequence1, sequence1, monoisotopicMass,
@@ -59,12 +63,21 @@ namespace TestFlashLFQ
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { pep1Inflix, pep1Nist, pep2Inflix, pep2Nist },
                 normalize: true, maxThreads: 1, matchBetweenRuns: true); // peaks are only serialized if match between runs = true
 
-            // run the engine
-            var results = engine.Run();
+            // run the engine and grab XICs
+            engine.Run();
             var indexingEngine = engine.GetIndexingEngine();
             var inflixXic = indexingEngine.GetXIC(peakFindingMass, inflix);
             var nistXic = indexingEngine.GetXIC(peakFindingMass, nist);
 
+            // generate a fake XIC with a known shift and test that AlignXICs returns the correct shift
+            double rtShift = 0.15;
+            var shiftedInflixXic = inflixXic.Select(p =>
+                    new IndexedMassSpectralPeak(p.Mz, p.Intensity, p.ZeroBasedMs1ScanIndex, p.RetentionTime + rtShift))
+                .ToList();
+            double shiftedOffset = XicProcessing.AlignXICs(inflixXic, shiftedInflixXic, 100);
+            Assert.That(shiftedOffset, Is.EqualTo(-1*rtShift).Within(0.01));
+
+            // Calculate similarity of the two real XICs with and w/o alignment.
             SpectralSimilarity xicSimilarity = new SpectralSimilarity(
                 P_XArray: inflixXic.Select(p => p.RetentionTime).ToArray(),
                 P_YArray: inflixXic.Select(p => p.Intensity).ToArray(),
@@ -77,7 +90,7 @@ namespace TestFlashLFQ
             double? rawXicAngle = xicSimilarity.SpectralContrastAngle();
 
             double nistOffset = XicProcessing.AlignXICs(inflixXic, nistXic);
-
+            
             SpectralSimilarity alignedXicSimilarity = new SpectralSimilarity(
                 P_XArray: inflixXic.Select(p => p.RetentionTime).ToArray(),
                 P_YArray: inflixXic.Select(p => p.Intensity).ToArray(),
@@ -90,8 +103,6 @@ namespace TestFlashLFQ
             double? alignedXicAngle = alignedXicSimilarity.SpectralContrastAngle();
 
             Assert.That(alignedXicAngle, Is.GreaterThan(rawXicAngle));
-
-            int placeholder = 0;
         }
 
         [Test]
