@@ -28,22 +28,18 @@ namespace FlashLFQ
 
             var startTime = Math.Max(refXIC.First().RetentionTime, expXIC.First().RetentionTime);
             var endTime = Math.Min(refXIC.Last().RetentionTime, expXIC.Last().RetentionTime);
-            var minLength = Math.Min(expXIC.Count, refXIC.Count);
             var timeSpan = endTime - startTime;
-
-            var interpArrayLength = (int)Math.Floor(timeSpan * resolution * minLength);
-            double[] refInterpolatedTimes = Generate.LinearSpaced(length: interpArrayLength, startTime, endTime);
+            int minArrayLength = Math.Min(expXIC.Count, refXIC.Count);
+            
+            // Create the arrays of interpolated data
+            int interpArrayLength = resolution * minArrayLength;
+            double[] interpolatedTimes = Generate.LinearSpaced(length: interpArrayLength, startTime, endTime);
             double[] refInterpolatedIntensities =
-                refInterpolatedTimes.Select(t => referenceSpline.Interpolate(t)).ToArray();
-
-
-            EqualizeListLength(ref refXIC, ref expXIC);
-
-            double[] expInterpolatedTimes = Generate.LinearSpaced(length: interpArrayLength, startTime, endTime);
+                interpolatedTimes.Select(t => referenceSpline.Interpolate(t)).ToArray();
             double[] expInterpolatedIntensities =
-                expInterpolatedTimes.Select(t => expSpline.Interpolate(t)).ToArray();
+                interpolatedTimes.Select(t => expSpline.Interpolate(t)).ToArray();
 
-
+            // subtract the mean for both intensity arrays
             var refIntensityMean = refInterpolatedIntensities.Average();
             var expIntensityMean = expInterpolatedIntensities.Average();
             for (int i = 0; i < refInterpolatedIntensities.Length; i++)
@@ -52,10 +48,7 @@ namespace FlashLFQ
                 expInterpolatedIntensities[i] -= expIntensityMean;
             }
 
-            double[][] intensityMatrix = { refInterpolatedIntensities, expInterpolatedIntensities };
-            //var test = Correlation.PearsonMatrix(intensityMatrix);
-
-            //double[] complexComponent = new double[refInterpolatedIntensities.Length];
+            // Create arrays of complex numbers from the intensity arrays
             Complex[] refArray = new Complex[refInterpolatedIntensities.Length];
             Complex[] expArray = new Complex[expInterpolatedIntensities.Length];
             for (int i = 0; i < refInterpolatedIntensities.Length; i++)
@@ -64,6 +57,9 @@ namespace FlashLFQ
                 expArray[i] = new Complex(expInterpolatedIntensities[i], 0);
             }
 
+            // The fourier transform of the refArray is multiplied (element-wise) by 
+            // the complex conjugate of the fourier transform of the exp array.
+            // Then, an inverse Fourier transform is performed on the resulting product array
             Fourier.Forward(refArray);
             Fourier.Forward(expArray);
             Complex[] product = new Complex[refArray.Length];
@@ -71,9 +67,9 @@ namespace FlashLFQ
             {
                 product[i] = Complex.Multiply(refArray[i], expArray[i].Conjugate());
             }
+            Fourier.Inverse(product); 
 
-            Fourier.Inverse(product); // Looks like the zero is already in the middle?
-
+            // This shifts the product so that the zero shift is in the middle
             double[] shiftedReals = new double[product.Length];
             for (int i = 0; i < shiftedReals.Length / 2; i++)
             {
