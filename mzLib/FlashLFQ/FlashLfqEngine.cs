@@ -59,7 +59,7 @@ namespace FlashLFQ
         /// isotopes for a given peptide
         /// </summary>
         private Dictionary<string, List<(double massShift, double normalizedAbundance)>> _modifiedSequenceToIsotopicDistribution;
-        private IEnumerable<int> _chargeStates;
+        private List<int> _chargeStates;
         private FlashLfqResults _results;
         private Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
         private PeakIndexingEngine _peakIndexingEngine;
@@ -261,7 +261,8 @@ namespace FlashLFQ
         }
         /// <summary>
         /// Creates a theoretical isotope distribution for each of the identified sequences
-        /// If the sequence is modified, this uses averagine for the modified part
+        /// If the sequence is modified and the modification has an unknown chemical formula,
+        /// averagine is used for the modified part
         /// </summary>
         private void CalculateTheoreticalIsotopeDistributions()
         {
@@ -360,8 +361,7 @@ namespace FlashLFQ
 
             var minChargeState = _allIdentifications.Min(p => p.PrecursorChargeState);
             var maxChargeState = _allIdentifications.Max(p => p.PrecursorChargeState);
-            // TODO: Cast to list
-            _chargeStates = Enumerable.Range(minChargeState, (maxChargeState - minChargeState) + 1);
+            _chargeStates = Enumerable.Range(minChargeState, (maxChargeState - minChargeState) + 1).ToList();
 
             var peptideModifiedSequences = _allIdentifications.GroupBy(p => p.ModifiedSequence);
             foreach (var identifications in peptideModifiedSequences)
@@ -379,11 +379,11 @@ namespace FlashLFQ
 
         /// <summary>
         /// Creates an ChromatographicPeak for each MS2 ID in a given file. Works by first
-        /// finding every scan that neighbors the MS2 ID and contains the peak finding mass (most abundant isotope),
-        /// then finding every isotope peak within that scan. Isotope peak intensities are summed and 
-        /// an IsotopicEnvelope object is created from the summed intensities. Multiple IsotopicEnvelopes
-        /// are associated with each ChromatographicPeak (corresponding to different scans and different
-        /// charge states)
+        /// finding every MS1 scan that neighbors the MS2 scan the ID originated from and that
+        /// contains the peak finding mass (most abundant isotope), then finds every isotope peak within that scan.
+        /// Isotope peak intensities are summed and an IsotopicEnvelope object is created from the summed intensities.
+        /// Multiple IsotopicEnvelopes are associated with each ChromatographicPeak (corresponding to different scans 
+        /// and different charge states)
         /// </summary>
         /// <param name="fileInfo">File to be quantified</param>
         private void QuantifyMs2IdentifiedPeptides(SpectraFileInfo fileInfo)
@@ -1010,6 +1010,12 @@ namespace FlashLFQ
             return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
         }
 
+        /// <summary>
+        /// Checks for and resolves situations where one IndexedMassSpectralPeak is defined as the apex 
+        /// for multiple ChromatographicPeaks. In these situations, the two peaks are merged and the merged
+        /// peak is stored in the FlashLFQ results.
+        /// </summary>
+        /// <param name="spectraFile"></param>
         private void RunErrorChecking(SpectraFileInfo spectraFile)
         {
             if (!Silent)
@@ -1020,8 +1026,8 @@ namespace FlashLFQ
             _results.Peaks[spectraFile].RemoveAll(p => p == null || p.IsMbrPeak && !p.IsotopicEnvelopes.Any());
 
             // merge duplicate peaks and handle MBR/MSMS peakfinding conflicts
-            var peaksGroupedByApex = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
-            var peaks = new List<ChromatographicPeak>();
+            var errorCheckedPeaksGroupedByApex = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
+            var errorCheckedPeaks = new List<ChromatographicPeak>();
             foreach (ChromatographicPeak tryPeak in _results.Peaks[spectraFile].OrderBy(p => p.IsMbrPeak))
             {
                 tryPeak.CalculateIntensityForThisFeature(Integrate);
@@ -1034,12 +1040,12 @@ namespace FlashLFQ
                         continue;
                     }
 
-                    peaks.Add(tryPeak);
+                    errorCheckedPeaks.Add(tryPeak);
                     continue;
                 }
 
-                IndexedMassSpectralPeak apexPeak = tryPeak.Apex.IndexedPeak;
-                if (peaksGroupedByApex.TryGetValue(apexPeak, out ChromatographicPeak storedPeak))
+                IndexedMassSpectralPeak apexImsPeak = tryPeak.Apex.IndexedPeak;
+                if (errorCheckedPeaksGroupedByApex.TryGetValue(apexImsPeak, out ChromatographicPeak storedPeak))
                 {
                     if (tryPeak.IsMbrPeak && storedPeak == null)
                     {
@@ -1062,19 +1068,19 @@ namespace FlashLFQ
                         }
                         else if (tryPeak.MbrScore > storedPeak.MbrScore)
                         {
-                            peaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
+                            errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
                         }
                     }
                 }
                 else
                 {
-                    peaksGroupedByApex.Add(apexPeak, tryPeak);
+                    errorCheckedPeaksGroupedByApex.Add(apexImsPeak, tryPeak);
                 }
             }
 
-            peaks.AddRange(peaksGroupedByApex.Values.Where(p => p != null));
+            errorCheckedPeaks.AddRange(errorCheckedPeaksGroupedByApex.Values.Where(p => p != null));
 
-            _results.Peaks[spectraFile] = peaks;
+            _results.Peaks[spectraFile] = errorCheckedPeaks;
         }
 
         /// <summary>
@@ -1260,6 +1266,16 @@ namespace FlashLFQ
             return corr > 0.7 && corrShiftedLeft - corrWithPadding < 0.1 && corrShiftedRight - corrWithPadding < 0.1;
         }
 
+        /// <summary>
+        /// Finds peaks with a given mz (mass/charge + H) that occur on either side of a given
+        /// retention time. Peak searching iterates backwards through MS1 scans until the peak 
+        /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
+        /// MissedScansAllowed property. Missed scans don't have to be sequential. The same procedure
+        /// is then repeated in the forward direction.
+        /// </summary>
+        /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
+        /// <param name="mass"> Peakfinding mass </param>
+        /// <returns></returns>
         public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
             var xic = new List<IndexedMassSpectralPeak>();
@@ -1329,6 +1345,13 @@ namespace FlashLFQ
             return xic;
         }
 
+        /// <summary>
+        /// Recursively cuts ChromatographicPeaks, removing all IsotopicEnvelopes
+        /// that occur before or after potential "valleys" surrounding the identification's
+        /// MS2 retention time. Then, the peak intensity is recalculated
+        /// </summary>
+        /// <param name="peak"> Peak to be cut, where envelopes are sorted by MS1 scan number </param>
+        /// <param name="identificationTime"> MS2 scan retention time </param>
         private void CutPeak(ChromatographicPeak peak, double identificationTime)
         {
             // find out if we need to split this peak by using the discrimination factor
