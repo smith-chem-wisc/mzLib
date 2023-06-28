@@ -1,0 +1,113 @@
+﻿using Chemistry;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Transcriptomics
+{
+    public enum FragmentType
+    {
+        None,
+        a,
+        adot,
+        aBase,
+        b,
+        bdot,
+        bBase,
+        c,
+        cdot,
+        cBase,
+        d,
+        ddot,
+        dBase,
+        dH2O,   
+        w,
+        wdot,
+        wBase,
+        x,
+        xdot,
+        xBase,
+        y,
+        ydot,
+        yBase,
+        z,
+        zdot,
+        zBase,
+        Internal,
+        All
+    }
+
+    public static class FragmentTypeExtensions
+    {
+        private static readonly Dictionary<FragmentType, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentType, ChemicalFormula>
+        {
+            {FragmentType.a, ChemicalFormula.ParseFormula("H-1")},
+            {FragmentType.adot, ChemicalFormula.ParseFormula("")},
+            {FragmentType.b, ChemicalFormula.ParseFormula("OH1")},
+            {FragmentType.bdot, ChemicalFormula.ParseFormula("OH2")},
+            {FragmentType.c, ChemicalFormula.ParseFormula("O3P")},
+            {FragmentType.cdot, ChemicalFormula.ParseFormula("O3HP")},
+            {FragmentType.d, ChemicalFormula.ParseFormula("O4H2P")},
+            {FragmentType.ddot, ChemicalFormula.ParseFormula("O4H3P")},
+            {FragmentType.w, ChemicalFormula.ParseFormula("H")},
+            {FragmentType.wdot, ChemicalFormula.ParseFormula("H2")},
+            {FragmentType.x, ChemicalFormula.ParseFormula("O-1H-1")},
+            {FragmentType.xdot, ChemicalFormula.ParseFormula("O-1")},
+            {FragmentType.y, ChemicalFormula.ParseFormula("O-3P-1")},
+            {FragmentType.ydot, ChemicalFormula.ParseFormula("O-3HP-1")},
+            {FragmentType.z, ChemicalFormula.ParseFormula("O-4H-2P-1")},
+            {FragmentType.zdot, ChemicalFormula.ParseFormula("O-4H-1P-1")},
+            //fragment - Base chemical formula is the corresponding fragment chemical formula subtracing 1 H as H is lost when base is removed
+            {FragmentType.aBase, ChemicalFormula.ParseFormula("H-2")}, // "H-1" -H 
+            {FragmentType.bBase, ChemicalFormula.ParseFormula("O")}, //"OH1" -H
+            {FragmentType.cBase, ChemicalFormula.ParseFormula("O3H-1P")}, //"O3P" -H
+            {FragmentType.dBase, ChemicalFormula.ParseFormula("O4H1P")}, //"O4H2P" -H
+            {FragmentType.wBase, new ChemicalFormula()}, //"H"-H
+            {FragmentType.xBase, ChemicalFormula.ParseFormula("O-1H-2")}, //"O-1H-1" -H
+            {FragmentType.yBase, ChemicalFormula.ParseFormula("O-3H-1P-1")}, //"O-3P-1" -H
+            {FragmentType.zBase, ChemicalFormula.ParseFormula("O-4H-3P-1")}, //"O-4H-3P-1" -1
+            //d-H2O
+            {FragmentType.dH2O, ChemicalFormula.ParseFormula("O3P")},
+        };
+
+        public static IEnumerable<FragmentType> GetIndividualFragmentTypes(this FragmentType fragmentTypes)
+        {
+            if (fragmentTypes == FragmentType.None)
+                yield break;
+            foreach (FragmentType site in Enum.GetValues(typeof(FragmentType)))
+            {
+                if (site == FragmentType.None || site == FragmentType.All || site == FragmentType.Internal)
+                {
+                    continue;
+                }
+                if ((fragmentTypes & site) == site)
+                {
+                    yield return site;
+                }
+            }
+        }
+
+        public static Terminus GetTerminus(this FragmentType fragmentType)
+        {
+            // Super handy: http://stackoverflow.com/questions/4624248/c-logical-riddle-with-bit-operations-only-one-bit-is-set
+            if (fragmentType == FragmentType.None || (fragmentType & (fragmentType - 1)) != FragmentType.None)
+            {
+                throw new ArgumentException("Fragment Type must be a single value to determine the terminus", "fragmentType");
+            }
+            var returnValue = fragmentType >= FragmentType.w ? Terminus.ThreePrime : Terminus.FivePrime;
+            return returnValue;
+        }
+
+        public static ChemicalFormula GetIonCap(this FragmentType fragmentType)
+        {
+            if (fragmentType == FragmentType.None || (fragmentType & (fragmentType - 1)) != FragmentType.None)
+            {
+                throw new ArgumentException("Fragment Type must be a single value to determine the ion cap", "fragmentType");
+            }
+
+            return FragmentIonCaps[fragmentType];
+        }
+    }
+}

@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Chemistry
 {
@@ -63,6 +64,38 @@ namespace Chemistry
             {
                 Add(new Tuple<T1, T2>(item, item2));
             }
+        }
+
+
+        /// <summary>
+        /// The mass difference tolerance for having identical masses
+        /// </summary>
+        public const double AbsoluteMassDifferenceAcceptor = 1e-10;
+
+        public static bool MassEquals(this double mass1, IHasMass mass2, double epsilon = AbsoluteMassDifferenceAcceptor)
+        {
+            if (mass2 == null)
+                return false;
+            return mass1.MassEquals(mass2.MonoisotopicMass);
+        }
+
+        public static bool MassEquals(this double mass1, double mass2, double epsilon = AbsoluteMassDifferenceAcceptor)
+        {
+            return Math.Abs(mass1 - mass2) < epsilon;
+        }
+
+        public static bool MassEquals(this IHasMass mass1, double mass2, double epsilon = AbsoluteMassDifferenceAcceptor)
+        {
+            if (mass1 == null)
+                return false;
+            return mass1.MonoisotopicMass.MassEquals(mass2);
+        }
+
+        public static bool MassEquals(this IHasMass mass1, IHasMass mass2, double epsilon = AbsoluteMassDifferenceAcceptor)
+        {
+            if (mass1 == null || mass2 == null)
+                return false;
+            return mass1.MonoisotopicMass.MassEquals(mass2.MonoisotopicMass);
         }
     }
 }
