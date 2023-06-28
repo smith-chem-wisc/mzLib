@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -31,7 +32,7 @@ namespace Chemistry
     /// Formula can change!!! If isotopes or elements are changed.
     /// </summary>
     [Serializable]
-    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>
+    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>, IHasChemicalFormula
     {
         // Main data stores, the isotopes and elements
 
@@ -64,6 +65,8 @@ namespace Chemistry
             Isotopes = new Dictionary<Isotope, int>(capFormula.Isotopes);
             Elements = new Dictionary<Element, int>(capFormula.Elements);
         }
+
+        public ChemicalFormula ThisChemicalFormula => this;
 
         /// <summary>
         /// Gets the average mass of this chemical formula
@@ -522,6 +525,11 @@ namespace Chemistry
 
             otherParts.Sort();
             return s + string.Join("", otherParts);
+        }
+
+        public override string ToString()
+        {
+            return $"{ThisChemicalFormula.Formula} : {MonoisotopicMass}";
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
+using Easy.Common.Extensions;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace Transcriptomics
@@ -11,7 +12,7 @@ namespace Transcriptomics
     /// <summary>
     /// A linear polymer of Nucleic acids
     /// </summary>
-    public class NucleicAcid : INucleicAcid, IHasMass, IEquatable<NucleicAcid>
+    public abstract class NucleicAcid : INucleicAcid, IEquatable<NucleicAcid>
     {
 
         #region Static Properties
@@ -19,7 +20,7 @@ namespace Transcriptomics
         /// <summary>
         /// The default chemical formula of the five prime (hydroxyl group)
         /// </summary>
-        public static readonly ChemicalFormula DefaultFivePrimeTerminus = ChemicalFormula.ParseFormula("O-3P-1");
+        public static readonly ChemicalFormula DefaultFivePrimeTerminus = ChemicalFormula.ParseFormula("H1");
 
         /// <summary>
         /// The default chemical formula of the three prime terminus (hydroxyl group)
@@ -30,18 +31,24 @@ namespace Transcriptomics
 
         #region Constuctors
 
-        protected NucleicAcid(IHasMass[] modifications)
+        //protected NucleicAcid(IHasMass[] modifications)
+        //{
+        //    Modifications = modifications;
+        //}
+
+        protected NucleicAcid(string sequence) 
+            : this(sequence, DefaultFivePrimeTerminus, DefaultThreePrimeTerminus)
         {
-            Modifications = modifications;
         }
 
-        protected NucleicAcid(string sequence, IHasChemicalFormula fivePrimeTerm, IHasChemicalFormula threePrimeTerm, IHasMass[] modifications)
+        protected NucleicAcid(string sequence, IHasChemicalFormula fivePrimeTerm, IHasChemicalFormula threePrimeTerm)
         {
-            Modifications = modifications;
             MonoisotopicMass = 0;
             Length = sequence.Length;
+            _nucleicAcids = new Nucleotide[Length];
             ThreePrimeTerminus = threePrimeTerm;
             FivePrimeTerminus = fivePrimeTerm;
+            ParseSequence(sequence);
         }
 
         #endregion
@@ -96,10 +103,7 @@ namespace Transcriptomics
         /// <summary>
         /// The internal data store for the nucleic acids
         /// </summary>
-        internal Nucleotide[] NucleicAcids
-        {
-            get { return _nucleicAcids; }
-        }
+        internal Nucleotide[] NucleicAcids => _nucleicAcids;
 
         #endregion
 
@@ -110,8 +114,8 @@ namespace Transcriptomics
         /// </summary>
         public IHasChemicalFormula FivePrimeTerminus
         {
-            get { return _5PrimeTerminus; }
-            set { ReplaceTerminus(ref _5PrimeTerminus, value); }
+            get => _5PrimeTerminus;
+            set => ReplaceTerminus(ref _5PrimeTerminus, value);
         }
 
         /// <summary>
@@ -119,8 +123,8 @@ namespace Transcriptomics
         /// </summary>
         public IHasChemicalFormula ThreePrimeTerminus
         {
-            get { return _3PrimeTerminus; }
-            set { ReplaceTerminus(ref _3PrimeTerminus, value); }
+            get => _3PrimeTerminus;
+            set => ReplaceTerminus(ref _3PrimeTerminus, value);
         }
 
         /// <summary>
@@ -136,10 +140,7 @@ namespace Transcriptomics
         /// <summary>
         /// Returns a copy of the nucleic acid array, used for -base mass calculations.
         /// </summary>
-        public Nucleotide[] NucleicAcidArray
-        {
-            get { return _nucleicAcids; }
-        }
+        public Nucleotide[] NucleicAcidArray => _nucleicAcids;
 
         #endregion
 
@@ -194,7 +195,38 @@ namespace Transcriptomics
 
         #region Chemical Formula
 
-        // TODO:
+        public ChemicalFormula GetChemicalFormula()
+        {
+            var formula = new ChemicalFormula();
+
+            // Handle Modifications
+            //if (ContainsModifications())
+            //{
+            //    for (int i = 0; i < Length + 2; i++)
+            //    {
+            //        IChemicalFormula chemMod = _modifications[i] as IChemicalFormula;
+
+            //        if (chemMod == null)
+            //            continue;
+
+            //        formula.Add(chemMod.ChemicalFormula);
+            //    }
+            //}
+
+            // Handle 5'-Terminus
+            formula.Add(FivePrimeTerminus.ThisChemicalFormula);
+
+            // Handle 3'-Terminus
+            formula.Add(ThreePrimeTerminus.ThisChemicalFormula);
+
+            // Handle Nucleic Acid Residues
+            for (int i = 0; i < Length; i++)
+            {
+                formula.Add(_nucleicAcids[i].ThisChemicalFormula);
+            }
+
+            return formula;
+        }
 
         #endregion
 
@@ -231,6 +263,7 @@ namespace Transcriptomics
             int index = 0;
 
             double monoMass = 0;
+            ChemicalFormula chemFormula = new();
 
             StringBuilder sb = null;
             sb = new StringBuilder(sequence.Length);
@@ -286,6 +319,8 @@ namespace Transcriptomics
                         }
 
                         threePrimeTerminalMod = false;
+
+                        //TODO: Account for mods in chemical formula
                     }
                     else
                     {
@@ -339,6 +374,7 @@ namespace Transcriptomics
             Array.Resize(ref _nucleicAcids, Length);
             if (_modifications != null)
                 Array.Resize(ref _modifications, Length + 2);
+
             IsDirty = true;
 
             return true;
@@ -348,15 +384,31 @@ namespace Transcriptomics
 
         #region Interface Implemntations and Overrides
 
-        public bool Equals(NucleicAcid? other)
-        {
-            throw new NotImplementedException();
-        }
+      
 
         #endregion
 
 
-     
-        
+        public bool Equals(NucleicAcid? other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return _5PrimeTerminus.Equals(other._5PrimeTerminus) 
+                   && _3PrimeTerminus.Equals(other._3PrimeTerminus) 
+                   && _sequenceWithMods == other._sequenceWithMods;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((NucleicAcid)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(_5PrimeTerminus, _3PrimeTerminus, _sequenceWithMods);
+        }
     }
 }
