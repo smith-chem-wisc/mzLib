@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Readers;
+using MassSpectrometry;
 using MzLibUtil;
-using Readers.ReaderFactories;
 
 namespace Readers
 {
@@ -13,15 +14,14 @@ namespace Readers
         public static MsDataFile GetDataFile(string filePath)
         {
             string fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
-            IReaderFactory factory = null;
-            factory = fileExtension switch
+            return fileExtension switch
             {
-                ".raw" => new ThermoRawReaderFactory(filePath),
-                ".mzml" => new MzMLReaderFactory(filePath),
-                ".mgf" => new MgfReaderFactory(filePath),
+                ".raw" => new ThermoRawFileReader(filePath),
+                ".mzml" => new Mzml(filePath),
+                ".mgf" => new Mgf(filePath),
+                ".d" => new BrukerFileReader(filePath), 
                 _ => throw new MzLibException("File extension not supported."),
             };
-            return factory.Reader; 
         }
     }
 }

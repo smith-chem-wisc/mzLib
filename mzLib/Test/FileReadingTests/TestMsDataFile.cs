@@ -302,5 +302,53 @@ namespace Test.FileReadingTests
 
             return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
+
+        [Test]
+        public void TestMsDataFileWithoutLoadingStaticData()
+        {
+            string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
+            var dataFile = MsDataFileReader.GetDataFile(dataFilePath);
+
+            Assert.That(!dataFile.CheckIfScansLoaded());
+            var scansArray = dataFile.GetMsDataScans();
+            Assert.That(dataFile.CheckIfScansLoaded());
+            Assert.That(scansArray.Length == 142);
+
+            dataFile = MsDataFileReader.GetDataFile(dataFilePath);
+            Assert.That(!dataFile.CheckIfScansLoaded());
+            var scanslist = dataFile.GetAllScansList();
+            Assert.That(dataFile.CheckIfScansLoaded());
+            Assert.That(scanslist.Count == 142);
+
+            dataFile = MsDataFileReader.GetDataFile(dataFilePath);
+            Assert.That(!dataFile.CheckIfScansLoaded());
+            var ms1ScanList = dataFile.GetMS1Scans().ToList();
+            Assert.That(dataFile.CheckIfScansLoaded());
+            Assert.That(ms1ScanList.All(p => p.MsnOrder == 1));
+            Assert.That(scanslist.Count == 142);
+
+            dataFile = MsDataFileReader.GetDataFile(dataFilePath);
+            Assert.That(!dataFile.CheckIfScansLoaded());
+            var scan = dataFile.GetOneBasedScan(1);
+            Assert.That(dataFile.CheckIfScansLoaded());
+
+            dataFile = MsDataFileReader.GetDataFile(dataFilePath);
+            Assert.That(!dataFile.CheckIfScansLoaded());
+            var scanslistInTimeRange = dataFile.GetMsScansInTimeRange(0,100).ToList();
+            Assert.That(dataFile.CheckIfScansLoaded());
+            Assert.That(scanslistInTimeRange.Count == 142);
+
+            dataFile = MsDataFileReader.GetDataFile(dataFilePath);
+            Assert.That(!dataFile.CheckIfScansLoaded());
+            var scanslistInIndexRange = dataFile.GetMsScansInIndexRange(1, 10).ToList();
+            Assert.That(dataFile.CheckIfScansLoaded());
+            Assert.That(scanslistInIndexRange.Count == 10);
+
+            dataFile = MsDataFileReader.GetDataFile(dataFilePath);
+            Assert.That(!dataFile.CheckIfScansLoaded());
+            var index = dataFile.GetClosestOneBasedSpectrumNumber(5);
+            Assert.That(dataFile.CheckIfScansLoaded());
+            Assert.That(scanslist.Count == 142);
+        }
     }
 }

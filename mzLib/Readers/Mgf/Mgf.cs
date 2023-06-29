@@ -8,29 +8,21 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using UsefulProteomicsDatabases;
 
+// old namespace to ensure backwards compatibility
+namespace IO.Mgf
+{
+    public class Mgf : Readers.Mgf
+    {
+        public Mgf(string filePath) : base(filePath) { }
+    }
+}
+
 namespace Readers
 {
     public class Mgf : MsDataFile
     {
-        public Mgf(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
-        {
-            Scans = new MsDataScan[numSpectra];
-            SourceFile = sourceFile;
-        }
-        public Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
-        {
-            Scans = scans;
-            SourceFile = sourceFile;
-        }
-        public Mgf()
-        {
+        public Mgf(string filePath) : base(filePath) { }
 
-        }
-
-        public Mgf(string filePath) : base(filePath)
-        {
-
-        }
         public override MsDataFile LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
         {
             if (!File.Exists(FilePath))
@@ -122,8 +114,8 @@ namespace Readers
         /// <param name="filteringParams"></param>
         /// <param name="maxThreads"></param>
         /// <returns></returns>
-        public new static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
-            int maxThreads = 1) => MsDataFile.LoadAllStaticData(filePath, filteringParams, maxThreads);
+        public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
+            int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
         private static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)

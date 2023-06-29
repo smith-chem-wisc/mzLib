@@ -26,6 +26,10 @@ public static class SpectraNormalization
                 NormalizeRelativeToTics(yArrays);
                 break;
 
+            case NormalizationType.RelativeIntensity:
+                ToRelativeIntensity(yArrays);
+                break;
+
             default:
                 throw new MzLibException("Normalization Type not yet implemented");
         }
@@ -59,6 +63,20 @@ public static class SpectraNormalization
         {
             var tic = tics[i] == 0 ? 1 : tics[i];
             for (var j = 0; j < yArrays[i].Length; j++) yArrays[i][j] = yArrays[i][j] / tic * averageTic;
+        }
+    }
+
+    /// <summary>
+    /// Divides each y value by the maximum y value
+    /// </summary>
+    /// <param name="yArrays">y arrays to be normalized</param>
+    private static void ToRelativeIntensity(double[][] yArrays)
+    {
+        for (int i = 0; i < yArrays.Length; i++)
+        {
+            double maxValue = yArrays[i].Max();
+            for (int j = 0; j < yArrays[i].Length; j++)
+                yArrays[i][j] /= maxValue;
         }
     }
 }

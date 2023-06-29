@@ -32,6 +32,15 @@ using System.Threading.Tasks;
 using System.Xml;
 using UsefulProteomicsDatabases;
 
+// old namespace to ensure backwards compatibility
+namespace IO.MzML
+{
+    public class Mzml : Readers.Mzml
+    {
+        public Mzml(string filePath) : base(filePath) { }
+    }
+}
+
 namespace Readers
 {
     public class Mzml : MsDataFile
@@ -121,20 +130,6 @@ namespace Readers
 
 
         Generated.mzMLType _mzMLConnection;
-
-        public Mzml(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
-        {
-            InitializeConnection();
-        }
-        public Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
-        {
-            InitializeConnection();
-        }
-
-        public Mzml() : base()
-        {
-            InitializeConnection();
-        }
 
         public Mzml(string filePath) : base(filePath)
         {
@@ -1086,8 +1081,8 @@ namespace Readers
         /// <param name="filteringParams"></param>
         /// <param name="maxThreads"></param>
         /// <returns></returns>
-        public new static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
-            int maxThreads = 1) => MsDataFile.LoadAllStaticData(filePath, filteringParams, maxThreads);
+        public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
+            int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
         private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {

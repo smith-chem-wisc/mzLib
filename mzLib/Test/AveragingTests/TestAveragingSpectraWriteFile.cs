@@ -32,7 +32,6 @@ namespace Test.AveragingTests
             Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScansWithOverlap;
             DdaCompositeSpectra = SpectraFileAveraging.AverageSpectraFile(Scans, Parameters);
             Assert.That(DdaCompositeSpectra.Length > 1);
-
         }
 
         [OneTimeTearDown]
@@ -41,12 +40,18 @@ namespace Test.AveragingTests
             if (Directory.Exists(Path.Combine(OutputDirectory, "AveragedSpectra")))
                 Directory.Delete(Path.Combine(OutputDirectory, "AveragedSpectra"), true);
             string[] filesToDelete =
-                Directory.GetFiles(OutputDirectory).Where(p => p.Contains("Averaged")).ToArray();
+                Directory.GetFiles(OutputDirectory).Where(p => p.Contains("Averaged", StringComparison.InvariantCultureIgnoreCase)).ToArray();
             foreach (var file in filesToDelete)
             {
                 File.Delete(file);
             }
             Assert.That(Directory.GetFiles(OutputDirectory).Length == 2);
+
+            foreach (var directoryToDelete in Directory.GetDirectories(OutputDirectory).Where(p => p.Contains("Averaged", StringComparison.InvariantCultureIgnoreCase)))
+            {
+                Directory.Delete(directoryToDelete, true);
+            }
+            Assert.That(!Directory.GetDirectories(OutputDirectory).Any());
         }
 
         [Test]
@@ -56,7 +61,7 @@ namespace Test.AveragingTests
             Assert.That(Parameters.OutputType == OutputType.MzML);
             AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
             string averagedSpectraPath = Path.Combine(OutputDirectory,
-                "Averaged_" + Path.GetFileNameWithoutExtension(SpectraPath) + ".mzML");
+                Path.GetFileNameWithoutExtension(SpectraPath) + "-averaged.mzML");
             Assert.That(File.Exists(averagedSpectraPath));
 
             MsDataScan[] loadedScans = MsDataFileReader.GetDataFile(averagedSpectraPath).GetAllScansList().ToArray();
@@ -78,40 +83,72 @@ namespace Test.AveragingTests
         }
 
         [Test]
-        public static void OutputAveragedSpectraAsTxt()
+        public static void TestRepeatOutputToSameDirectoryWithSameNameMzML()
         {
-            Parameters.OutputType = OutputType.Text;
-            Assert.That(Parameters.OutputType == OutputType.Text);
+            string averagedSpectraPath = Path.Combine(OutputDirectory, Path.GetFileNameWithoutExtension(SpectraPath) + "-averaged.mzML");
+            string secondOutputPath = Path.Combine(OutputDirectory, Path.GetFileNameWithoutExtension(SpectraPath) + "-averaged(1).mzML");
+            string thirdOutputPath = Path.Combine(OutputDirectory, Path.GetFileNameWithoutExtension(SpectraPath) + "-averaged(2).mzML");
 
-            Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScansWithOverlap;
-            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
-            Assert.That(Directory.Exists(Path.Combine(OutputDirectory, "AveragedSpectra")));
-            string[] txtFiles = Directory.GetFiles(Path.Combine(OutputDirectory, "AveragedSpectra"))
-                .OrderBy(p => double.Parse(p.Split('_').Last().Replace(".txt", ""))).ToArray();
-            Assert.That(txtFiles.Length == DdaCompositeSpectra.Length);
-            for (var i = 0; i < txtFiles.Length; i++)
+            // clean up from any previous tests
+            foreach (var averagedFile in Directory.GetFiles(OutputDirectory)
+                         .Where(p => p.Contains("Averaged", StringComparison.InvariantCultureIgnoreCase)))
             {
-
-                double[] xArray = new double[DdaCompositeSpectra[i].MassSpectrum.XArray.Length];
-                double[] yArray = new double[DdaCompositeSpectra[i].MassSpectrum.YArray.Length];
-                string[] mzAndInts = File.ReadAllLines(txtFiles[i]);
-                for (var j = 0; j < mzAndInts.Length; j++)
-                {
-                    xArray[j] = double.Parse(mzAndInts[j].Split(',')[0]);
-                    yArray[j] = double.Parse(mzAndInts[j].Split(',')[1]);
-                }
-
-                MzSpectrum loadedSpectra = new(xArray, yArray, false);
-                Assert.That(loadedSpectra.Equals(DdaCompositeSpectra[i].MassSpectrum));
+                File.Delete(averagedFile);
             }
 
-            // test errors
-            var exception = Assert.Throws<MzLibException>(() => 
-            { 
-                AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, "");
-            } );
-            Assert.That(exception.Message == "Cannot Access Spectra Directory");
-
+            // write three times and ensure unique outputs are generated
+            Parameters.OutputType = OutputType.MzML;
+            Assert.That(!File.Exists(averagedSpectraPath));
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
+            Assert.That(File.Exists(averagedSpectraPath));
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
+            Assert.That(File.Exists(secondOutputPath));
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath);
+            Assert.That(File.Exists(thirdOutputPath));
         }
+
+        [Test]
+        public static void TestOutputToCustomDirectoryAndNameMzML()
+        {
+            // output to a different directory than the files were originally in
+            Parameters.OutputType = OutputType.MzML;
+            string customDestinationDirectory = Path.Combine(OutputDirectory, "NewTestingDirectory");
+            string customDestinationDirectory2 = Path.Combine(OutputDirectory, "NewTestingDirectory2");
+            Directory.CreateDirectory(customDestinationDirectory);
+            string customName = "AveragedSpectra";
+
+            // custom destination, original name
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath,
+                customDestinationDirectory);
+            var files = Directory.GetFiles(customDestinationDirectory);
+            Assert.That(files.Length == 1);
+            Assert.That(files.Contains(Path.Combine(customDestinationDirectory,
+                Path.GetFileNameWithoutExtension(SpectraPath) + "-averaged.mzML")));
+
+            // custom destination, custom name
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath,
+                customDestinationDirectory, customName);
+            files = Directory.GetFiles(customDestinationDirectory);
+            Assert.That(files.Length == 2);
+            Assert.That(files.Contains(Path.Combine(customDestinationDirectory, customName + ".mzML")));
+            
+            // custom destination, custom name : directory not created before run
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath,
+                customDestinationDirectory2, customName);
+            files = Directory.GetFiles(customDestinationDirectory2);
+            Assert.That(files.Length == 1);
+            Assert.That(files.Contains(Path.Combine(customDestinationDirectory2, customName + ".mzML")));
+
+            // original destination, custom name
+            AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath, null, customName);
+            Assert.That(File.Exists(Path.Combine(OutputDirectory, customName + ".mzML")));
+
+            // clean up custom destinations
+            Directory.Delete(customDestinationDirectory, true);
+            Directory.Delete(customDestinationDirectory2, true);
+        }
+
+       
+
     }
 }
