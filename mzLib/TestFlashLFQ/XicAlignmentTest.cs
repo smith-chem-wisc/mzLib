@@ -209,6 +209,15 @@ namespace TestFlashLFQ
             // run the engine and grab XICs
             var results = engine.Run();
 
+            Assert.That(results.PeptideModifiedSequences.ContainsKey(y7ModSeq + "|" + y3ModSeq));
+            Assert.That(results.PeptideModifiedSequences[y7ModSeq + "|" + y3ModSeq].GetIntensity(nist),
+                Is.EqualTo(firstPeakIntensity).Within(1));
+
+            Assert.That(results.PeptideModifiedSequences.ContainsKey("PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"));
+            // Questionable about whether or not we want to assign any intensity to this one. Probably not
+            Assert.That(results.PeptideModifiedSequences["PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"].GetIntensity(nist),
+                Is.EqualTo(null));
+
         }
 
         [Test]
