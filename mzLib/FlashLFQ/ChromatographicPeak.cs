@@ -93,12 +93,19 @@ namespace FlashLFQ
             RtInterquartileRange = rtInterquartileRange;
         }
 
-        public void CalculateIntensityForThisFeature(bool integrate)
+        /// <summary>
+        /// Sets the peak intensity and peak Apex. Apex is defined as the peak with the highest intensity.
+        /// </summary>
+        /// <param name="apexCharge"> The intensity and peak apex are determined based on the intensity of the specified charge state.
+        /// If no value is provided, the most intense charge state is used </param>
+        public void CalculateIntensityForThisFeature(bool integrate, int? apexCharge = null)
         {
             if (IsotopicEnvelopes.Any())
             {
-                double maxIntensity = IsotopicEnvelopes.Max(p => p.Intensity);
-                Apex = IsotopicEnvelopes.First(p => p.Intensity == maxIntensity);
+                Apex = apexCharge == null || apexCharge <= 0 
+                    ? IsotopicEnvelopes.MaxBy(p => p.Intensity)
+                    : IsotopicEnvelopes.Where(p => p.ChargeState == apexCharge)
+                        .MaxBy(p => p.Intensity);
 
                 // TODO: Fix integration
                 // Integration != summing intensities, becuase you need to take retention time into account

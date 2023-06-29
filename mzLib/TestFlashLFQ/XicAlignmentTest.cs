@@ -111,6 +111,9 @@ namespace TestFlashLFQ
             // In FPOP and PLIMB data, we observe cases where a modification on an aromatic residue can result in 
             // multiple chromatographic peaks belonging to the same ID ( think F modified at ortho, meta, and para positions)
             // get the raw file paths
+
+            // This test is designed to simulate a situtation where the same peptides elutes twice as two well behaved peaks.
+            // The first peak is MS/MS id'd in one file (inflix), and the second peak is MS/MS id'd in the second (nist)
             SpectraFileInfo inflix = new SpectraFileInfo(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
                 "inflix", 0, 0, 0);
@@ -142,7 +145,7 @@ namespace TestFlashLFQ
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { pepInflix, pepNist },
-                normalize: true, maxThreads: 1, matchBetweenRuns: true); // peaks are only serialized if match between runs = true
+                normalize: false, maxThreads: 1, matchBetweenRuns: true); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
             var results = engine.Run();
@@ -152,6 +155,60 @@ namespace TestFlashLFQ
 
             Assert.That(results.PeptideModifiedSequences[fullSequence].GetIntensity(nist),
                 Is.EqualTo(firstPeakNistIntensity + secondPeakNistIntensity).Within(1));
+        }
+
+        [Test]
+        public static void TestPeakRecognitionForCoelutingIsobars()
+        {
+            // In FPOP and PLIMB data, we observe cases where a modification on an aromatic residue can result in 
+            // multiple chromatographic peaks belonging to the same ID ( think F modified at ortho, meta, and para positions)
+            // get the raw file paths
+
+            // This test simulates a situation where three peaks elute very close together - close enough that FlashLFQ considers it 
+            // one peak.
+            // Peak 1 - One broad peak that is most likely caused by two co-eluting (only small rt shift) peptides,
+            //      "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK", score 16 and "PWY[CF3:CF3 on Y]EPIYLGGVFQLEK", score 6
+            // Peak 2 - One broad peak w/o a good MS2 scan. Based on other runs, this peak most likely belongs to
+            //      "PW[CF3:CF3 on W]YEPIYLGGVFQLEK". However, in this run, only one ambiguous MS2 scan was collected at the start
+            //      of the peak elution. Ideally, this peak would be identified by MBR. Another test will be written for that case
+            // Peak 3 - Undetermined, most likely two co-eluting species. Unimportant for the purposes of this test
+
+            SpectraFileInfo nist = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
+                "nist", 1, 0, 0);
+
+            // create IDs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            double monoisotopicMass = 2005.980136305;
+            double peakFindingMass = 670.00;
+
+            string baseSequence = "PWYEPIYLGGVFQLEK"; // 
+            string ambiguousModSeq = "PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWY[CF3:CF3 on Y]EPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"; // score of 5
+            string y7ModSeq = "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK";
+            string y3ModSeq = "PWY[CF3:CF3 on Y]EPIYLGGVFQLE";
+            
+            double y7ModRt = 33.22371; 
+            double y3ModRt = 33.27658;
+            double ambiguousModRt = 33.2862;
+
+            // Intensities were found by examining the XICs and finding a local maxima
+            double firstPeakIntensity = 533157;
+            double secondPeakIntensity = 1778368;
+
+            Identification y7ModId = new Identification(nist, baseSequence, y7ModSeq, monoisotopicMass,
+                y7ModRt, 3, new List<ProteinGroup> { pg });
+            Identification y3ModId = new Identification(nist, baseSequence, y3ModSeq, monoisotopicMass,
+                y3ModRt, 3, new List<ProteinGroup> { pg });
+            Identification ambiguousModId = new Identification(nist, baseSequence, ambiguousModSeq, monoisotopicMass,
+                ambiguousModRt, 3, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { y7ModId, y3ModId, ambiguousModId },
+                normalize: false, maxThreads: 1, matchBetweenRuns: true); // peaks are only serialized if match between runs = true
+
+            // run the engine and grab XICs
+            var results = engine.Run();
+
         }
 
         [Test]
