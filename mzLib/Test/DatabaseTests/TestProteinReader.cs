@@ -178,7 +178,9 @@ namespace Test.DatabaseTests
         [Test]
         public static void XmlGzTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml.gz"),
+            string directory = Path.Combine(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests"));
+            
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(directory, @"xml.xml.gz"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             Assert.AreEqual('M', ok[0][0]);
