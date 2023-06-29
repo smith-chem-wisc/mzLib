@@ -106,6 +106,55 @@ namespace TestFlashLFQ
         }
 
         [Test]
+        public static void TestModPeptideWithMultiplePeaks()
+        {
+            // In FPOP and PLIMB data, we observe cases where a modification on an aromatic residue can result in 
+            // multiple chromatographic peaks belonging to the same ID ( think F modified at ortho, meta, and para positions)
+            // get the raw file paths
+            SpectraFileInfo inflix = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
+                "inflix", 0, 0, 0);
+            SpectraFileInfo nist = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
+                "nist", 1, 0, 0);
+
+            // create IDs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            double monoisotopicMass = 2005.980136305;
+            double peakFindingMass = 670.00;
+
+            string baseSequence = "PWYEPIYLGGVFQLEK"; // 
+            string fullSequence = "PW[CF3:CF3 on W]YEPIYLGGVFQLEK";
+            double ms2RetentionTimeInflix = 32.464; // MS2 from first, largest peak
+            double ms2RetentionTimeNist = 33.064; // MS2 from second, smaller peak
+
+            // Intensities were found by examining the XICs at the RT flashLFQ defines as the peak apex
+            double firstPeakInflixIntensity = 22710240; // MSMS Peak
+            double secondPeakInflixIntensity = 771447; // No MSMS
+
+            double firstPeakNistIntensity = 26988416; // No MSMS
+            double secondPeakNistIntensity = 955824.06; // MSMS Peak
+
+            Identification pepInflix = new Identification(inflix, baseSequence, fullSequence, monoisotopicMass,
+                ms2RetentionTimeInflix, 3, new List<ProteinGroup> { pg });
+            Identification pepNist = new Identification(nist, baseSequence, fullSequence, monoisotopicMass,
+                ms2RetentionTimeNist, 3, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { pepInflix, pepNist },
+                normalize: true, maxThreads: 1, matchBetweenRuns: true); // peaks are only serialized if match between runs = true
+
+            // run the engine and grab XICs
+            var results = engine.Run();
+
+            Assert.That(results.PeptideModifiedSequences[fullSequence].GetIntensity(inflix), 
+                Is.EqualTo(firstPeakInflixIntensity + secondPeakInflixIntensity).Within(1));
+
+            Assert.That(results.PeptideModifiedSequences[fullSequence].GetIntensity(nist),
+                Is.EqualTo(firstPeakNistIntensity + secondPeakNistIntensity).Within(1));
+        }
+
+        [Test]
         public static void TestXicSizeEqualization()
         {
             double[] smallArray = { 0, 1, 2, 3, 4, 5, 6 };
