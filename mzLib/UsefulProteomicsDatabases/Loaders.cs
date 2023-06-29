@@ -298,7 +298,7 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadUniprot(string uniprotLocation)
         {
-            DownloadContent(@"http://legacy.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
+            DownloadContent(@"http://uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
         }
     }
 }
