@@ -198,6 +198,20 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public static void FastaGzTest()
+        {
+            string directory = Path.Combine(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests"));
+
+            var ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(directory, @"isoform.fasta.gz"),
+                true, DecoyType.Reverse, false, out var a,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.AreEqual(20, ok.Count);
+        }
+
+
+        [Test]
         public static void XmlFunkySequenceTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"),
@@ -311,6 +325,7 @@ namespace Test.DatabaseTests
         public static void CompareOxidationWithAndWithoutCf()
         {
             string aString =
+                //These next lines CANNOT be tabbed over becaue the leading characters mess up the reading.
 @"ID   Methionine (R)-sulfoxide
 AC   PTM-0480
 FT   MOD_RES
