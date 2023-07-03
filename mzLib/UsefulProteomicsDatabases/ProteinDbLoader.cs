@@ -201,7 +201,7 @@ namespace UsefulProteomicsDatabases
             //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
             if (proteinDbLocation.EndsWith(".gz"))
             {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.xml");
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.fasta");
                 using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using FileStream outputFileStream = File.Create(newProteinDbLocation);
                 using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
