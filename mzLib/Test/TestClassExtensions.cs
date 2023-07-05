@@ -22,9 +22,6 @@ namespace Test
             // First, make sure default binary search works how I think it does
             Assert.AreEqual(Array.BinarySearch(sortedArray, 3.1), ~3);
 
-            var x = ~0;
-            var y = ~x;
-
             // Then, the new extension
             Assert.AreEqual(sortedArray.GetClosestIndex(3.1), 2);
             Assert.AreEqual(sortedArray.GetClosestValue(3.1), 3);
