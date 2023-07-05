@@ -16,13 +16,9 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Chemistry;
-using MzLibUtil;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
@@ -34,8 +30,13 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class MsDataFile
     {
+        internal Dictionary<int, double> ScansAndRetentionTime { get; }
         public MsDataScan[] Scans { get; set; }
         public SourceFile SourceFile { get; set; }
+
+        /// <summary>
+        /// Number of Scans in File
+        /// </summary>
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }
 
@@ -43,17 +44,20 @@ namespace MassSpectrometry
         {
             Scans = new MsDataScan[numSpectra];
             SourceFile = sourceFile;
+            ScansAndRetentionTime = Scans.ToDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
         }
 
         protected MsDataFile(MsDataScan[] scans, SourceFile sourceFile)
         {
             Scans = scans;
             SourceFile = sourceFile;
+            ScansAndRetentionTime = Scans.ToDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
         }
 
         protected MsDataFile(string filePath)
         {
             FilePath = filePath;
+            ScansAndRetentionTime = Scans.ToDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
         }
 
         #region Abstract members
@@ -126,9 +130,12 @@ namespace MassSpectrometry
         public virtual IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
+            }
 
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
+
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
                 MsDataScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
@@ -146,22 +153,39 @@ namespace MassSpectrometry
             }
         }
 
+        /// <summary>
+        /// Performs a Binary Search and returns the closest Spectrum Number to the given Retention Time
+        /// </summary>
+        /// <param name="retentionTime"></param>
+        /// <returns></returns>
         public virtual int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             if (!CheckIfScansLoaded())
-                LoadAllStaticData();
-
-            // TODO need to convert this to a binary search of some sort. Or if the data is indexedMZML see if the indices work better.
-            double bestDiff = double.MaxValue;
-            for (int i = 0; i < NumSpectra; i++)
             {
-                double diff = Math.Abs(GetOneBasedScan(i + 1).RetentionTime - retentionTime);
-                if (diff > bestDiff)
-                    return i;
-                bestDiff = diff;
+                LoadAllStaticData();
             }
 
-            return NumSpectra;
+            int search = Array.BinarySearch(ScansAndRetentionTime.Values.ToArray(), retentionTime);
+
+            if (search < 0)
+            {
+                int indexFromSearch = ~search;
+                if (indexFromSearch < ScansAndRetentionTime.Keys.Count)
+                {
+                    return ScansAndRetentionTime.ElementAt(indexFromSearch).Key;
+                }
+
+                if (indexFromSearch >= ScansAndRetentionTime.Keys.Count)
+                {
+                    return ScansAndRetentionTime.ElementAt(indexFromSearch - 1).Key;
+                }
+            }
+            else
+            {
+                return ScansAndRetentionTime.ElementAt(search).Key;
+            }
+
+            return -1;
         }
 
         public virtual IEnumerator<MsDataScan> GetEnumerator()
