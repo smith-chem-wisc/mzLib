@@ -30,13 +30,9 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class MsDataFile
     {
-        internal Dictionary<int, double> ScansAndRetentionTime { get; }
+        public Dictionary<int, double>? ScansAndRetentionTime { get; set; }
         public MsDataScan[] Scans { get; set; }
         public SourceFile SourceFile { get; set; }
-
-        /// <summary>
-        /// Number of Scans in File
-        /// </summary>
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }
 
@@ -44,20 +40,17 @@ namespace MassSpectrometry
         {
             Scans = new MsDataScan[numSpectra];
             SourceFile = sourceFile;
-            ScansAndRetentionTime = Scans.ToDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
         }
 
         protected MsDataFile(MsDataScan[] scans, SourceFile sourceFile)
         {
             Scans = scans;
             SourceFile = sourceFile;
-            ScansAndRetentionTime = Scans.ToDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
         }
 
         protected MsDataFile(string filePath)
         {
             FilePath = filePath;
-            ScansAndRetentionTime = Scans.ToDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
         }
 
         #region Abstract members
@@ -81,14 +74,20 @@ namespace MassSpectrometry
         public virtual MsDataScan[] GetMsDataScans()
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
+                SetScansAndRetentionTimeDictionary();
+            }
             return Scans;
         }
 
         public virtual List<MsDataScan> GetAllScansList()
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
+                SetScansAndRetentionTimeDictionary();
+            }
 
             return Scans.ToList();
         }
@@ -96,7 +95,11 @@ namespace MassSpectrometry
         public virtual IEnumerable<MsDataScan> GetMS1Scans()
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
+                SetScansAndRetentionTimeDictionary();
+            }
+
             for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
@@ -110,14 +113,24 @@ namespace MassSpectrometry
         public virtual MsDataScan GetOneBasedScan(int scanNumber)
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
+            }
+
+            if (ScansAndRetentionTime == null)
+            {
+                SetScansAndRetentionTimeDictionary();
+            }
+
             return Scans.SingleOrDefault(i => i.OneBasedScanNumber == scanNumber);
         }
 
         public virtual IEnumerable<MsDataScan> GetMsScansInIndexRange(int firstSpectrumNumber, int lastSpectrumNumber)
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
+            }
 
             for (int oneBasedSpectrumNumber = firstSpectrumNumber;
                  oneBasedSpectrumNumber <= lastSpectrumNumber;
@@ -165,6 +178,11 @@ namespace MassSpectrometry
                 LoadAllStaticData();
             }
 
+            if (ScansAndRetentionTime == null)
+            {
+                SetScansAndRetentionTimeDictionary();
+            }
+
             int search = Array.BinarySearch(ScansAndRetentionTime.Values.ToArray(), retentionTime);
 
             if (search < 0)
@@ -203,6 +221,11 @@ namespace MassSpectrometry
         public virtual bool CheckIfScansLoaded()
         {
             return (Scans != null && Scans.Length > 0);
+        }
+
+        public void SetScansAndRetentionTimeDictionary()
+        {
+            ScansAndRetentionTime = Scans.ToDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
         }
     }
 }
