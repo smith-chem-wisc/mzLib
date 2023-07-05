@@ -17,6 +17,7 @@ using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using MathNet.Numerics.Interpolation;
+using SharpLearning.Containers.Extensions;
 
 namespace TestFlashLFQ
 {
@@ -107,6 +108,32 @@ namespace TestFlashLFQ
         }
 
         [Test]
+        public static void GetRtPairsTest()
+        {
+            double[] refArray = { 1, 2, 3, 4, 5 };
+            double[] expArray = { 1, 3, 5 };
+
+            var pairs = XicProcessing.GetRetentionTimePairs(refArray, expArray);
+            Assert.AreEqual(pairs, new List<(double, double)>
+            {
+                (1, 1),
+                (3, 3),
+                (5, 5)
+            });
+
+
+            double[] refArray2 = { 1, 3, 5.1, 5.3, 5.5 };
+            double[] expArray2 = { 1, 1.2, 3, 3.2, 4, 4.25, 4.75, 5 };
+            pairs = XicProcessing.GetRetentionTimePairs(refArray2, expArray2);
+            Assert.AreEqual(pairs, new List<(double, double)>
+            {
+                (1, 1),
+                (3, 3),
+                (5.1, 5)
+            });
+        }
+
+        [Test]
         public static void SplineScratchPad()
         {
             // get the raw file paths
@@ -153,6 +180,60 @@ namespace TestFlashLFQ
             var nistXic = indexingEngine.GetXIC(peakFindingMass, nist);
 
             double nistOffset = XicProcessing.AlignXICs(inflixXic, nistXic);
+
+            // Creates a spline, or a smoothed representation of the XIC which allows for up-sampling of the data
+            // Unsure about whether to use cubic or linear. Can maybe be a delegate argument?
+            var inflixSpline = CubicSpline.InterpolateAkimaSorted(
+                inflixXic.Select(p => p.RetentionTime).ToArray(), inflixXic.Select(p => p.Intensity).ToArray());
+            var nistSpline = CubicSpline.InterpolateAkimaSorted(
+                nistXic.Select(p => p.RetentionTime + nistOffset).ToArray(), nistXic.Select(p => p.Intensity).ToArray());
+
+            var inflixStationaryPoint = inflixSpline.StationaryPoints();
+            Array.Sort(inflixStationaryPoint);
+            // This is probably unneccesary. Just check the first 2nd derivate and make sure it's positive (local minima)
+            // Then, the sorted array is going to alternate between positive and negative (local min, local max)
+            var inflixSecondDerivatives = inflixStationaryPoint.Select(zero => inflixSpline.Differentiate2(zero)).ToArray();
+
+            var nistStationaryPoint = nistSpline.StationaryPoints();
+            Array.Sort(nistStationaryPoint);
+            var nistSecondDerivates = nistStationaryPoint.Select(zero => nistSpline.Differentiate2(zero)).ToArray();
+
+            var test = XicProcessing.GetRetentionTimePairs(inflixStationaryPoint, nistStationaryPoint);
+
+            var placeholder = 0;
+
+            //var splineSimilarity100 = new SpectralSimilarity(
+            //    inflixStationaryPoint,
+            //    inflixStationaryPoint.Select(zero => inflixSpline.Interpolate(zero)).ToArray(),
+            //    nistStationaryPoint,
+            //    nistStationaryPoint.Select(zero => nistSpline.Interpolate(zero)).ToArray(),
+            //    SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
+            //    toleranceInPpm: 100, // Not sure what the ideal ppmTolerance is here. 100 ppm resulted in 34 not matched points, 250 ppm matches all points
+            //    allPeaks: true,
+            //    filterOutBelowThisMz: 0);
+            //var pairedPoint100 = splineSimilarity100.intensityPairs.Where(t => t.Item1 > 0 && t.Item2 > 0).ToList();
+
+            //var splineSimilarity250 = new SpectralSimilarity(
+            //    inflixStationaryPoint,
+            //    inflixStationaryPoint.Select(zero => inflixSpline.Interpolate(zero)).ToArray(),
+            //    nistStationaryPoint,
+            //    nistStationaryPoint.Select(zero => nistSpline.Interpolate(zero)).ToArray(),
+            //    SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
+            //    toleranceInPpm: 250, // Not sure what the ideal ppmTolerance is here. 100 ppm resulted in 34 not matched points, 250 ppm matches all points
+            //    allPeaks: true,
+            //    filterOutBelowThisMz: 0);
+            //var pairedPoint250 = splineSimilarity250.intensityPairs.Where(t => t.Item1 > 0 && t.Item2 > 0).ToList();
+
+            //var splineSimilarity500 = new SpectralSimilarity(
+            //    inflixStationaryPoint,
+            //    inflixStationaryPoint.Select(zero => inflixSpline.Interpolate(zero)).ToArray(),
+            //    nistStationaryPoint,
+            //    nistStationaryPoint.Select(zero => nistSpline.Interpolate(zero)).ToArray(),
+            //    SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
+            //    toleranceInPpm: 500, // Not sure what the ideal ppmTolerance is here. 100 ppm resulted in 34 not matched points, 250 ppm matches all points
+            //    allPeaks: true,
+            //    filterOutBelowThisMz: 0);
+            //var pairedPoint500 = splineSimilarity500.intensityPairs.Where(t => t.Item1 > 0 && t.Item2 > 0).ToList();
 
 
         }

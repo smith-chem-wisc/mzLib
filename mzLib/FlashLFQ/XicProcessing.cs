@@ -4,6 +4,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using Chemistry;
 using Easy.Common.Extensions;
 using MathNet.Numerics;
 using MathNet.Numerics.IntegralTransforms;
@@ -132,6 +133,56 @@ namespace FlashLFQ
             return paddedXICs;
         }
 
+        public static List<(double refTime, double expTime)> GetRetentionTimePairs(double[] refExtrema, double[] expExtrema)
+        {
+            // The reference should be shorter than the experimental (requires fewer iterations)
+            // if that isn't the case, we swap the ref and exp arrays.
+            if (refExtrema.Length > expExtrema.Length)
+            {
+                double[] temp = new double[refExtrema.Length];
+                Array.Copy(refExtrema, temp, refExtrema.Length);
+                refExtrema = expExtrema;
+                expExtrema = temp;
+            }
+
+            List<(double, double)> rtPairs = new List<(double, double)>();
+            List<int> expIndices = new();
+            foreach(double refExtremum in refExtrema)
+            {
+                expIndices.Add(expExtrema.GetClosestIndex(refExtremum));
+            }
+
+            for(int i = 0; i < expIndices.Count; i++)
+            {
+                // It's possible that multiple reference extrema will all be closest
+                // to one experimental extremum. In that case, we should report the RT
+                // pair where the experimental and reference extrema are closest in time
+                if (i < expIndices.Count - 1 && expIndices[i] == expIndices[i+1])
+                {
+                    int duplicateIndex = expIndices[i];
+                    double diff = Math.Abs(expExtrema[expIndices[i]] - refExtrema[i]);
+                    Dictionary<int, double> indexDiffDict = new Dictionary<int, double>{ {i, diff} };
+                    i++;
+
+                    while(i < expIndices.Count && expIndices[i] == duplicateIndex)
+                    {
+                        diff = Math.Abs(expExtrema[expIndices[i]] - refExtrema[i]);
+                        indexDiffDict.Add(i, diff);
+                        i++;
+                    }
+
+                    int indexOfClosestPair = indexDiffDict.MinBy(kvp => kvp.Value).Key;
+                    rtPairs.Add((refExtrema[indexOfClosestPair], expExtrema[expIndices[indexOfClosestPair]]));
+                }
+                else
+                {
+                    rtPairs.Add((refExtrema[i], expExtrema[expIndices[i]]));
+                }
+            }
+
+            return rtPairs;
+        }
+
         /// <summary>
         /// Modifies lists such that they have an equal length. The longer of the two lists will
         /// have the ends trimmed, yielding a segment from the middle. In cases where an odd number
@@ -171,4 +222,5 @@ namespace FlashLFQ
             return trimmedList;
         } 
     }
+
 }
