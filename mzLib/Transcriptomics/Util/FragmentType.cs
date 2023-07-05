@@ -23,7 +23,7 @@ namespace Transcriptomics
         d = 1 << 9,
         ddot = 1 << 10,
         dBase = 1 << 11,
-        dH2O = 1 << 12,
+        dH2O = 1 << 12, // d-H20
         w = 1 << 13,
         wdot = 1 << 14,
         wBase = 1 << 15,
@@ -44,38 +44,42 @@ namespace Transcriptomics
     {
         private static readonly Dictionary<FragmentType, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentType, ChemicalFormula>
         {
-            {FragmentType.a, ChemicalFormula.ParseFormula("H-1")},
-            {FragmentType.adot, ChemicalFormula.ParseFormula("")},
-            {FragmentType.b, ChemicalFormula.ParseFormula("OH1")},
+            {FragmentType.a, ChemicalFormula.ParseFormula("H")},
+            {FragmentType.adot, new ChemicalFormula()},
+            {FragmentType.b, ChemicalFormula.ParseFormula("OH")},
             {FragmentType.bdot, ChemicalFormula.ParseFormula("OH2")},
-            {FragmentType.c, ChemicalFormula.ParseFormula("O3P")},
+            {FragmentType.c, ChemicalFormula.ParseFormula("O3H2P")},
             {FragmentType.cdot, ChemicalFormula.ParseFormula("O3HP")},
             {FragmentType.d, ChemicalFormula.ParseFormula("O4H2P")},
             {FragmentType.ddot, ChemicalFormula.ParseFormula("O4H3P")},
+
             {FragmentType.w, ChemicalFormula.ParseFormula("H")},
             {FragmentType.wdot, ChemicalFormula.ParseFormula("H2")},
-            {FragmentType.x, ChemicalFormula.ParseFormula("O-1H-1")},
+            {FragmentType.x, ChemicalFormula.ParseFormula("O-1H")},
             {FragmentType.xdot, ChemicalFormula.ParseFormula("O-1")},
             {FragmentType.y, ChemicalFormula.ParseFormula("O-3P-1")},
             {FragmentType.ydot, ChemicalFormula.ParseFormula("O-3HP-1")},
-            {FragmentType.z, ChemicalFormula.ParseFormula("O-4H-2P-1")},
+            {FragmentType.z, ChemicalFormula.ParseFormula("O-4P-1")},
             {FragmentType.zdot, ChemicalFormula.ParseFormula("O-4H-1P-1")},
+
             //fragment - Base chemical formula is the corresponding fragment chemical formula subtracing 1 H as H is lost when base is removed
             {FragmentType.aBase, ChemicalFormula.ParseFormula("H-2")}, // "H-1" -H 
-            {FragmentType.bBase, ChemicalFormula.ParseFormula("O")}, //"OH1" -H
+            {FragmentType.bBase, ChemicalFormula.ParseFormula("O1H-2")}, //"OH1" -H
+
             {FragmentType.cBase, ChemicalFormula.ParseFormula("O3H-1P")}, //"O3P" -H
-            {FragmentType.dBase, ChemicalFormula.ParseFormula("O4H1P")}, //"O4H2P" -H
+            {FragmentType.dBase, ChemicalFormula.ParseFormula("O4H-1P")}, //"O4H2P" -H
             {FragmentType.wBase, new ChemicalFormula()}, //"H"-H
-            {FragmentType.xBase, ChemicalFormula.ParseFormula("O-1H-2")}, //"O-1H-1" -H
+            {FragmentType.xBase, ChemicalFormula.ParseFormula("O-1")}, //"O-1H" -H
             {FragmentType.yBase, ChemicalFormula.ParseFormula("O-3H-1P-1")}, //"O-3P-1" -H
-            {FragmentType.zBase, ChemicalFormula.ParseFormula("O-4H-3P-1")}, //"O-4H-3P-1" -1
+            {FragmentType.zBase, ChemicalFormula.ParseFormula("O-4H-2P-1")}, //"O-4H-1P-1" -1
             //d-H2O
             {FragmentType.dH2O, ChemicalFormula.ParseFormula("O3P")},
+
         };
 
-        public static IEnumerable<FragmentType> GetIndividualFragmentTypes(this FragmentType fragmentTypes)
+        public static IEnumerable<FragmentType> GetIndividualFragmentTypes(this FragmentType fragmentType)
         {
-            if (fragmentTypes == FragmentType.None)
+            if (fragmentType == FragmentType.None)
                 yield break;
             foreach (FragmentType site in Enum.GetValues(typeof(FragmentType)))
             {
@@ -83,7 +87,7 @@ namespace Transcriptomics
                 {
                     continue;
                 }
-                if ((fragmentTypes & site) == site)
+                if ((fragmentType & site) == site)
                 {
                     yield return site;
                 }

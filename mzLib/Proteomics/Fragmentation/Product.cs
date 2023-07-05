@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Text;
+using Chemistry;
 
 namespace Proteomics.Fragmentation
 {
-    public struct Product
+    public readonly struct Product : IHasMass
     {
         public readonly double NeutralMass;
         public readonly ProductType ProductType;
@@ -13,6 +14,8 @@ namespace Proteomics.Fragmentation
         public readonly int AminoAcidPosition;
         public readonly ProductType? SecondaryProductType; //used for internal fragment ions
         public readonly int SecondaryFragmentNumber; //used for internal fragment ions
+
+        public double MonoisotopicMass { get; }
 
         /// <summary>
         /// A product is the individual neutral fragment from an MS dissociation. A fragmentation product here contains one of the two termini (N- or C-). 
@@ -30,6 +33,7 @@ namespace Proteomics.Fragmentation
             AminoAcidPosition = aminoAcidPosition;
             SecondaryProductType = secondaryProductType;
             SecondaryFragmentNumber = secondaryFragmentNumber;
+            MonoisotopicMass = NeutralMass;
         }
 
         public string Annotation
@@ -94,5 +98,7 @@ namespace Proteomics.Fragmentation
         {
             return NeutralMass.GetHashCode();
         }
+
+       
     }
 }

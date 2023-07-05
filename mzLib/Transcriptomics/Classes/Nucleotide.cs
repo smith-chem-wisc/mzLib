@@ -89,6 +89,7 @@ namespace Transcriptomics
         public string Name { get; private set; }
         public double MonoisotopicMass { get; private set; }
         public ChemicalFormula ThisChemicalFormula { get; private set; }
+        public ChemicalFormula BaseChemicalFormula { get; private set; }
         public char Letter { get; private set; }
         public string Symbol { get; private set; }
         public ModificationSite ModificationSite { get; private set; }
@@ -108,7 +109,8 @@ namespace Transcriptomics
             Name = name;
             Letter = oneLetterAbbreviation;
             Symbol = threeLetterAbbreviation;
-            ThisChemicalFormula = baseChemicalFormula;
+            ThisChemicalFormula = new ChemicalFormula(baseChemicalFormula);
+            BaseChemicalFormula = baseChemicalFormula;
 
             // calculation for monoisoptic mass of DNA and RNA
             if (Name.Equals("DeoxyAdenine") || Name.Equals("DeoxyCytosine") || Name.Equals("DeoxyGuanine") || Name.Equals("DeoxyThymine"))
@@ -122,7 +124,8 @@ namespace Transcriptomics
                 _sugarAndPhosphate = ChemicalFormula.ParseFormula("C5H8O6P1"); 
             }
 
-            MonoisotopicMass = ThisChemicalFormula.MonoisotopicMass + _sugarAndPhosphate.MonoisotopicMass;
+            ThisChemicalFormula.Add(_sugarAndPhosphate);
+            MonoisotopicMass = ThisChemicalFormula.MonoisotopicMass;
         }
 
         #endregion

@@ -4,12 +4,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Transcriptomics
 {
     public class Fragment : IHasMass, IEquatable<Fragment>
     {
+        public Fragment(FragmentType type, int number, double monoisotopicMass, NucleicAcid parent)
+        {
+            Type = type;
+            Number = number;
+            Parent = parent;
+            MonoisotopicMass = monoisotopicMass;
+        }
+
         public double MonoisotopicMass { get; private set; }
 
         public int Number { get; private set; }
@@ -59,6 +66,8 @@ namespace Transcriptomics
             return parentSeq.Substring(parentSeq.Length - Number, Number);
         }
 
+        #region Interface Implementaiton and Overrides
+
         public override string ToString()
         {
             return $"{Enum.GetName(typeof(FragmentType), Type)}{Number}";
@@ -80,5 +89,7 @@ namespace Transcriptomics
         {
             return Type.Equals(other.Type) && Number.Equals(other.Number) && MonoisotopicMass.MassEquals(other.MonoisotopicMass);
         }
+
+        #endregion
     }
 }

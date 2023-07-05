@@ -12,7 +12,7 @@ namespace Transcriptomics
     /// <summary>
     /// A linear polymer of Nucleic acids
     /// </summary>
-    public abstract class NucleicAcid : INucleicAcid, IEquatable<NucleicAcid>
+    public abstract class NucleicAcid : INucleicAcid, IEquatable<NucleicAcid>, IHasMass
     {
 
         #region Static Properties
@@ -20,7 +20,7 @@ namespace Transcriptomics
         /// <summary>
         /// The default chemical formula of the five prime (hydroxyl group)
         /// </summary>
-        public static readonly ChemicalFormula DefaultFivePrimeTerminus = ChemicalFormula.ParseFormula("H1");
+        public static readonly ChemicalFormula DefaultFivePrimeTerminus = ChemicalFormula.ParseFormula("O-3P-1");
 
         /// <summary>
         /// The default chemical formula of the three prime terminus (hydroxyl group)
@@ -183,13 +183,155 @@ namespace Transcriptomics
 
         #region Fragmentation
 
-        // TODO:
+        /// <summary>
+        /// Calculates all the fragments of the types you specify
+        /// </summary>
+        /// <param name="types"></param>
+        /// <param name="calculateChemicalFormula"></param>
+        /// <returns></returns>
+        public IEnumerable<Fragment> GetNeutralFragments(FragmentType types, bool calculateChemicalFormula = false)
+        {
+            return GetNeutralFragments(types, 1, Length - 1, calculateChemicalFormula);
+        }
+
+        public IEnumerable<Fragment> GetNeutralFragments(FragmentType types, int number, bool calculateChemicalFormula = false)
+        {
+            return GetNeutralFragments(types, number, number, calculateChemicalFormula);
+        }
+
+        public IEnumerable<Fragment> GetNeutralFragments(FragmentType types, int min, int max, bool calculateChemicalFormula = false)
+        {
+            if (min > max)
+                throw new ArgumentOutOfRangeException();
+
+            if (min < 1 || max > Length - 1)
+                throw new IndexOutOfRangeException();
+
+            foreach (FragmentType type in types.GetIndividualFragmentTypes())
+            {
+                // determine mass of piece remaining after fragmentation
+                bool isChemicalFormula = calculateChemicalFormula;
+                ChemicalFormula capFormula = type.GetIonCap();
+                double monoMass = capFormula.MonoisotopicMass;
+                ChemicalFormula formula = new ChemicalFormula(capFormula);
+
+                // determine mass of terminal cap and add to fragment
+                bool isThreePrimeTerminal = type.GetTerminus() == Terminus.ThreePrime;
+                IHasChemicalFormula terminus = isThreePrimeTerminal ? ThreePrimeTerminus : FivePrimeTerminus;
+                monoMass += terminus.MonoisotopicMass;
+
+                if (isChemicalFormula)
+                {
+                    formula.Add(terminus);
+                }
+
+                // determine mass of each polymer component that is contained within the fragment and add to fragment
+                bool first = true; //set first to true to hand the terminus mod first
+                bool hasMod = _modifications != null;
+
+                for (int i = 0; i <= max; i++)
+                {
+                    formula = new(formula);
+                    int naIndex = isThreePrimeTerminal ? Length - i : i - 1;
+
+                    // Handle the terminus mods first in a special case
+                    IHasMass mod;
+                    if (first)
+                    {
+                        first = false; //set to false so only handled once
+                        if (hasMod) //checks for if there are modifications in the array (if there are mods on the RNA)
+                        {
+                            mod = _modifications[naIndex + 1];
+                            if (mod != null)
+                            {
+                                monoMass += mod.MonoisotopicMass;
+                                if (isChemicalFormula)
+                                {
+                                    IHasChemicalFormula modFormula = mod as IHasChemicalFormula;
+                                    if (modFormula != null)
+                                    {
+                                        formula.Add(modFormula);
+                                    }
+                                    else
+                                    {
+                                        isChemicalFormula = false;
+                                    }
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    monoMass += _nucleicAcids[naIndex].MonoisotopicMass;
+                    formula.Add(_nucleicAcids[naIndex]);
+
+                    if (hasMod)
+                    {
+                        mod = _modifications[naIndex + 1];
+                        if (mod != null)
+                        {
+                            monoMass += mod.MonoisotopicMass;
+                            if (isChemicalFormula)
+                            {
+                                IHasChemicalFormula modFormula = mod as IHasChemicalFormula;
+                                if (modFormula != null)
+                                {
+                                    formula.Add(modFormula);
+                                }
+                                else
+                                {
+                                    isChemicalFormula = false;
+                                }
+                            }
+                        }
+                    }
+
+                    if (i < min)
+                        continue;
+
+                    var previousNucleotide = _nucleicAcids[naIndex];
+                    if (isChemicalFormula)
+                    {
+                        ChemicalFormula neutralLoss = new();
+                        if (type.ToString().Contains("Base"))
+                        {
+                            neutralLoss.Add(previousNucleotide.BaseChemicalFormula);
+                        }
+
+                        yield return new ChemicalFormulaFragment(type, i, formula - neutralLoss, this);
+                    }
+                    else
+                    {
+                        double neutralLoss = 0;
+                        if (type.ToString().Contains("Base"))
+                        {
+                            neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
+                        }
+                        yield return new Fragment(type, i, monoMass - neutralLoss, this);
+                    }
+                }
+            }
+        }
 
         #endregion
 
         #region Modifications
 
         // TODO:
+
+        #endregion
+
+        #region Electrospray
+
+        public IEnumerable<double> GetElectrospraySeries(int minCharge, int maxCharge)
+        {
+            for (int i = minCharge; i < maxCharge; i++)
+            {
+                yield return this.ToMz(i);
+            }
+        }
+
+        
 
         #endregion
 
@@ -384,17 +526,12 @@ namespace Transcriptomics
 
         #region Interface Implemntations and Overrides
 
-      
-
-        #endregion
-
-
         public bool Equals(NucleicAcid? other)
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return _5PrimeTerminus.Equals(other._5PrimeTerminus) 
-                   && _3PrimeTerminus.Equals(other._3PrimeTerminus) 
+            return _5PrimeTerminus.Equals(other._5PrimeTerminus)
+                   && _3PrimeTerminus.Equals(other._3PrimeTerminus)
                    && _sequenceWithMods == other._sequenceWithMods;
         }
 
@@ -410,5 +547,7 @@ namespace Transcriptomics
         {
             return HashCode.Combine(_5PrimeTerminus, _3PrimeTerminus, _sequenceWithMods);
         }
+
+        #endregion
     }
 }
