@@ -57,7 +57,7 @@ namespace Transcriptomics
             if (Parent == null)
                 return "";
 
-            string parentSeq = Parent.Sequence;
+            string parentSeq = Parent.BaseSequence;
             if (Type.GetTerminus() == Terminus.FivePrime)
             {
                 return parentSeq.Substring(0, Number);

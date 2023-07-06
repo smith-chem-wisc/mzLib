@@ -150,7 +150,7 @@ namespace Transcriptomics
         /// <summary>
         /// Gets the base nucleic acid sequence
         /// </summary>
-        public string Sequence
+        public string BaseSequence
         {
             get
             {
@@ -167,7 +167,7 @@ namespace Transcriptomics
         ///// <summary>
         ///// Gets the nucleic acid sequence with modifications
         ///// </summary>
-        //public string SequenceWithModifications
+        //public string FullSequence
         //{
         //    get
         //    {
@@ -317,6 +317,12 @@ namespace Transcriptomics
         #endregion
 
         #region Modifications
+
+        // TODO:
+
+        #endregion
+
+        #region Digestion
 
         // TODO:
 

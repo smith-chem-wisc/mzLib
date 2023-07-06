@@ -10,8 +10,4 @@
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Digestion\" />
-  </ItemGroup>
 </Project>

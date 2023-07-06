@@ -11,7 +11,7 @@ namespace Transcriptomics
         /// <summary>
         /// The amino acid sequence
         /// </summary>
-        string Sequence { get; }
+        string BaseSequence { get; }
 
         /// <summary>
         /// The length of the amino acid sequence
