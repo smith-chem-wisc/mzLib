@@ -177,9 +177,6 @@ namespace MassSpectrometry
             ImmutableSortedDictionary<int, double> scansAndRetentionTime =
                 Scans.ToImmutableSortedDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
 
-            if (scansAndRetentionTime == null)
-            {
-            }
 
             if (retentionTime <= scansAndRetentionTime.ElementAt(scansAndRetentionTime.Keys.Count() - 1).Key && retentionTime >= 0)
             {
