@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
 
-namespace Transcriptomics
+namespace Transcriptomics.Fragmentation
 {
     public class ChemicalFormulaFragment : Fragment, IHasChemicalFormula
     {
@@ -14,7 +14,7 @@ namespace Transcriptomics
         {
         }
 
-        public ChemicalFormulaFragment(FragmentType type, int number, ChemicalFormula chemicalFormula, NucleicAcid parent) 
+        public ChemicalFormulaFragment(FragmentType type, int number, ChemicalFormula chemicalFormula, NucleicAcid parent)
             : base(type, number, chemicalFormula.MonoisotopicMass, parent)
         {
             ThisChemicalFormula = chemicalFormula;

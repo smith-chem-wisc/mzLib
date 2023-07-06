@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Chemistry;
 using NUnit.Framework;
 using Transcriptomics;
+using Transcriptomics.Fragmentation;
 using UsefulProteomicsDatabases;
 
 namespace Test.Transcriptomics

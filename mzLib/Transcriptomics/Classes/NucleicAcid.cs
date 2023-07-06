@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
 using Easy.Common.Extensions;
+using Transcriptomics.Fragmentation;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace Transcriptomics

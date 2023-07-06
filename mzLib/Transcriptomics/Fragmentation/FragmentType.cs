@@ -45,33 +45,32 @@ namespace Transcriptomics
         private static readonly Dictionary<FragmentType, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentType, ChemicalFormula>
         {
             {FragmentType.a, ChemicalFormula.ParseFormula("H")},
-            {FragmentType.adot, new ChemicalFormula()},
+            {FragmentType.adot, ChemicalFormula.ParseFormula("H2")},
             {FragmentType.b, ChemicalFormula.ParseFormula("OH")},
             {FragmentType.bdot, ChemicalFormula.ParseFormula("OH2")},
             {FragmentType.c, ChemicalFormula.ParseFormula("O3H2P")},
-            {FragmentType.cdot, ChemicalFormula.ParseFormula("O3HP")},
+            {FragmentType.cdot, ChemicalFormula.ParseFormula("O3H3P")},
             {FragmentType.d, ChemicalFormula.ParseFormula("O4H2P")},
             {FragmentType.ddot, ChemicalFormula.ParseFormula("O4H3P")},
 
             {FragmentType.w, ChemicalFormula.ParseFormula("H")},
             {FragmentType.wdot, ChemicalFormula.ParseFormula("H2")},
             {FragmentType.x, ChemicalFormula.ParseFormula("O-1H")},
-            {FragmentType.xdot, ChemicalFormula.ParseFormula("O-1")},
+            {FragmentType.xdot, ChemicalFormula.ParseFormula("O-1H2")},
             {FragmentType.y, ChemicalFormula.ParseFormula("O-3P-1")},
             {FragmentType.ydot, ChemicalFormula.ParseFormula("O-3HP-1")},
             {FragmentType.z, ChemicalFormula.ParseFormula("O-4P-1")},
-            {FragmentType.zdot, ChemicalFormula.ParseFormula("O-4H-1P-1")},
-
+            {FragmentType.zdot, ChemicalFormula.ParseFormula("O-4HP-1")},
             //fragment - Base chemical formula is the corresponding fragment chemical formula subtracing 1 H as H is lost when base is removed
             {FragmentType.aBase, ChemicalFormula.ParseFormula("H-2")}, // "H-1" -H 
             {FragmentType.bBase, ChemicalFormula.ParseFormula("O1H-2")}, //"OH1" -H
-
             {FragmentType.cBase, ChemicalFormula.ParseFormula("O3H-1P")}, //"O3P" -H
             {FragmentType.dBase, ChemicalFormula.ParseFormula("O4H-1P")}, //"O4H2P" -H
-            {FragmentType.wBase, new ChemicalFormula()}, //"H"-H
-            {FragmentType.xBase, ChemicalFormula.ParseFormula("O-1")}, //"O-1H" -H
-            {FragmentType.yBase, ChemicalFormula.ParseFormula("O-3H-1P-1")}, //"O-3P-1" -H
-            {FragmentType.zBase, ChemicalFormula.ParseFormula("O-4H-2P-1")}, //"O-4H-1P-1" -1
+
+            {FragmentType.wBase, ChemicalFormula.ParseFormula("H-2")}, //"H"-H
+            {FragmentType.xBase, ChemicalFormula.ParseFormula("O-1H-2")}, //"O-1H" -H
+            {FragmentType.yBase, ChemicalFormula.ParseFormula("O-3H-2P-1")}, //"O-3P-1" -H
+            {FragmentType.zBase, ChemicalFormula.ParseFormula("O-4H-3P-1")}, //"O-4H-1P-1" -1
             //d-H2O
             {FragmentType.dH2O, ChemicalFormula.ParseFormula("O3P")},
 
@@ -97,7 +96,7 @@ namespace Transcriptomics
         public static Terminus GetTerminus(this FragmentType fragmentType)
         {
             // Super handy: http://stackoverflow.com/questions/4624248/c-logical-riddle-with-bit-operations-only-one-bit-is-set
-            if (fragmentType == FragmentType.None || (fragmentType & (fragmentType - 1)) != FragmentType.None)
+            if (fragmentType == FragmentType.None || (fragmentType & fragmentType - 1) != FragmentType.None)
             {
                 throw new ArgumentException("Fragment Type must be a single value to determine the terminus", "fragmentType");
             }
@@ -107,7 +106,7 @@ namespace Transcriptomics
 
         public static ChemicalFormula GetIonCap(this FragmentType fragmentType)
         {
-            if (fragmentType == FragmentType.None || (fragmentType & (fragmentType - 1)) != FragmentType.None)
+            if (fragmentType == FragmentType.None || (fragmentType & fragmentType - 1) != FragmentType.None)
             {
                 throw new ArgumentException("Fragment Type must be a single value to determine the ion cap", "fragmentType");
             }
