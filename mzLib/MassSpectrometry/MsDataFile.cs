@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -31,7 +32,6 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class MsDataFile
     {
-        public Dictionary<int, double>? ScansAndRetentionTime { get; set; }
         public MsDataScan[] Scans { get; set; }
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans.Length;
@@ -77,7 +77,6 @@ namespace MassSpectrometry
             if (!CheckIfScansLoaded())
             {
                 LoadAllStaticData();
-                SetScansAndRetentionTimeDictionary();
             }
             return Scans;
         }
@@ -87,7 +86,6 @@ namespace MassSpectrometry
             if (!CheckIfScansLoaded())
             {
                 LoadAllStaticData();
-                SetScansAndRetentionTimeDictionary();
             }
 
             return Scans.ToList();
@@ -98,7 +96,6 @@ namespace MassSpectrometry
             if (!CheckIfScansLoaded())
             {
                 LoadAllStaticData();
-                SetScansAndRetentionTimeDictionary();
             }
 
             for (int i = 1; i <= NumSpectra; i++)
@@ -116,11 +113,6 @@ namespace MassSpectrometry
             if (!CheckIfScansLoaded())
             {
                 LoadAllStaticData();
-            }
-
-            if (ScansAndRetentionTime == null)
-            {
-                SetScansAndRetentionTimeDictionary();
             }
 
             return Scans.SingleOrDefault(i => i.OneBasedScanNumber == scanNumber);
@@ -182,31 +174,33 @@ namespace MassSpectrometry
                 LoadAllStaticData();
             }
 
-            if (ScansAndRetentionTime == null)
+            ImmutableSortedDictionary<int, double> scansAndRetentionTime =
+                Scans.ToImmutableSortedDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
+
+            if (scansAndRetentionTime == null)
             {
-                SetScansAndRetentionTimeDictionary();
             }
 
-            if (retentionTime <= ScansAndRetentionTime.ElementAt(ScansAndRetentionTime.Keys.Count - 1).Key && retentionTime >= 0)
+            if (retentionTime <= scansAndRetentionTime.ElementAt(scansAndRetentionTime.Keys.Count() - 1).Key && retentionTime >= 0)
             {
-                int search = Array.BinarySearch(ScansAndRetentionTime.Values.ToArray(), index: 0, length: ScansAndRetentionTime.Values.Count, retentionTime);
+                int search = Array.BinarySearch(scansAndRetentionTime.Values.ToArray(), index: 0, length: scansAndRetentionTime.Values.Count(), retentionTime);
                 int indexFromSearch = ~search;
 
                 if (search < 0)
                 {
-                    if (indexFromSearch < ScansAndRetentionTime.Keys.Count)
+                    if (indexFromSearch < scansAndRetentionTime.Keys.Count())
                     {
-                        return ScansAndRetentionTime.ElementAt(indexFromSearch).Key;
+                        return scansAndRetentionTime.ElementAt(indexFromSearch).Key;
                     }
 
-                    if (indexFromSearch == ScansAndRetentionTime.Keys.Count)
+                    if (indexFromSearch == scansAndRetentionTime.Keys.Count())
                     {
-                        return ScansAndRetentionTime.ElementAt(indexFromSearch - 1).Key;
+                        return scansAndRetentionTime.ElementAt(indexFromSearch - 1).Key;
                     }
                 }
-                else if (search < ScansAndRetentionTime.Keys.Count)
+                else if (search < scansAndRetentionTime.Keys.Count())
                 {
-                    return ScansAndRetentionTime.ElementAt(search).Key;
+                    return scansAndRetentionTime.ElementAt(search).Key;
                 }
             }
             
@@ -229,11 +223,6 @@ namespace MassSpectrometry
         public virtual bool CheckIfScansLoaded()
         {
             return (Scans != null && Scans.Length > 0);
-        }
-
-        public void SetScansAndRetentionTimeDictionary()
-        {
-            ScansAndRetentionTime = Scans.ToDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
         }
     }
 }
