@@ -149,7 +149,7 @@ namespace MassSpectrometry
             }
 
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
-
+            
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
                 MsDataScan scan = GetOneBasedScan(oneBasedSpectrumNumber);

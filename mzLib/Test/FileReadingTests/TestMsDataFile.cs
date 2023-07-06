@@ -159,6 +159,22 @@ namespace Test.FileReadingTests
                 ok4 += 1;
 
             Assert.AreEqual(0, ok4);
+
+            MsDataScan theSpectrum3 = new MsDataScan(_mzSpectrumA, 1, 1,
+                true, Polarity.Positive, 3, new MzRange(300, 1000), "fake scan filter",
+                MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 3, null, "scan=1");
+
+            MsDataScan[] theList3 = new MsDataScan[1];
+
+            theList3[0] = theSpectrum3;
+
+            FakeMsDataFile thefile3 = new FakeMsDataFile(theList3);
+
+            int ok5 = 0;
+            foreach (var i in thefile3.GetMsScansInTimeRange(1, 2))
+                ok5 += 1;
+
+            Assert.AreEqual(0, ok5);
         }
 
         [Test]
