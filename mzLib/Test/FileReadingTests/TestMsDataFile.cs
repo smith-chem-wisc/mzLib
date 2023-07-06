@@ -178,6 +178,17 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestGetMsOrderByScanInDynamicConnection()
+        {
+            var file = new GenericMsDataFile(new MsDataScan[1],
+                new SourceFile("scan number only nativeID format",
+                    "mzML format",
+                    null, "SHA-1", @"C:\fake.mzML", null));
+
+            Assert.Throws<NotImplementedException>(() => file.GetMsOrderByScanInDynamicConnection());
+        }
+
+        [Test]
         public void TestAMoreRealFile()
         {
             var theScan = myMsDataFile.GetOneBasedScan(2);
