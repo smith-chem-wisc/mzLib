@@ -187,10 +187,16 @@ namespace MassSpectrometry
             if (retentionTime <= scansAndRetentionTime.ElementAt(scansAndRetentionTime.Keys.Count() - 1).Key && retentionTime >= 0)
             {
                 int search = Array.BinarySearch(scansAndRetentionTime.Values.ToArray(), index: 0, length: scansAndRetentionTime.Values.Count(), retentionTime);
-                int indexFromSearch = ~search;
 
+                if (search >= 0)
+                {
+                    return search;
+                }
+                
                 if (search < 0)
                 {
+                    int indexFromSearch = ~search;
+
                     if (indexFromSearch < scansAndRetentionTime.Keys.Count())
                     {
                         return scansAndRetentionTime.ElementAt(indexFromSearch).Key;

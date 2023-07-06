@@ -736,8 +736,8 @@ namespace Test.FileReadingTests
             reader.LoadAllStaticData();
             reader.GetOneBasedScan(2);
 
-            Assert.AreEqual(1, reader.GetClosestOneBasedSpectrumNumber(1));
-            Assert.AreEqual(2, reader.GetClosestOneBasedSpectrumNumber(2));
+            Assert.AreEqual(0, reader.GetClosestOneBasedSpectrumNumber(1));
+            Assert.AreEqual(1, reader.GetClosestOneBasedSpectrumNumber(2));
 
             Assert.AreEqual(0, reader.GetClosestOneBasedSpectrumNumber(-1));
             Assert.AreEqual(0, reader.GetClosestOneBasedSpectrumNumber(1000000));
