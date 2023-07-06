@@ -134,6 +134,8 @@ namespace FlashLFQ
             return paddedXICs;
         }
 
+        // Visual inspection suggests that the true peaks tend to have a min and max relatively close to one another. 
+        // A large time delta between minima and maxima suggests a broad peak, or two otherwise poorly behave peaks.
         public static List<Extremum[]> ReconcileExtrema(List<Extremum> refExtrema, List<List<Extremum>> expExtremaList)
         {
             Extremum[] refMaxima = refExtrema.Where(e => e.Type == ExtremumType.Maximum).ToArray();

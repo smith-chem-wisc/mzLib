@@ -149,6 +149,8 @@ namespace TestFlashLFQ
             var matchedExtrema = XicProcessing.ReconcileExtrema(nistXic.Extrema,
                 new List<List<Extremum>> { inflixXic.Extrema });
 
+            var refType = matchedExtrema[0].Select(e => e.Type).ToArray();
+
             Assert.AreEqual(matchedExtrema[0].Length, 16);
             Assert.AreEqual(matchedExtrema[1].Length, 16);
         }
@@ -258,38 +260,7 @@ namespace TestFlashLFQ
 
             var placeholder = 0;
 
-            //var splineSimilarity100 = new SpectralSimilarity(
-            //    inflixStationaryPoint,
-            //    inflixStationaryPoint.Select(zero => inflixSpline.Interpolate(zero)).ToArray(),
-            //    nistStationaryPoint,
-            //    nistStationaryPoint.Select(zero => nistSpline.Interpolate(zero)).ToArray(),
-            //    SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
-            //    toleranceInPpm: 100, // Not sure what the ideal ppmTolerance is here. 100 ppm resulted in 34 not matched points, 250 ppm matches all points
-            //    allPeaks: true,
-            //    filterOutBelowThisMz: 0);
-            //var pairedPoint100 = splineSimilarity100.intensityPairs.Where(t => t.Item1 > 0 && t.Item2 > 0).ToList();
-
-            //var splineSimilarity250 = new SpectralSimilarity(
-            //    inflixStationaryPoint,
-            //    inflixStationaryPoint.Select(zero => inflixSpline.Interpolate(zero)).ToArray(),
-            //    nistStationaryPoint,
-            //    nistStationaryPoint.Select(zero => nistSpline.Interpolate(zero)).ToArray(),
-            //    SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
-            //    toleranceInPpm: 250, // Not sure what the ideal ppmTolerance is here. 100 ppm resulted in 34 not matched points, 250 ppm matches all points
-            //    allPeaks: true,
-            //    filterOutBelowThisMz: 0);
-            //var pairedPoint250 = splineSimilarity250.intensityPairs.Where(t => t.Item1 > 0 && t.Item2 > 0).ToList();
-
-            //var splineSimilarity500 = new SpectralSimilarity(
-            //    inflixStationaryPoint,
-            //    inflixStationaryPoint.Select(zero => inflixSpline.Interpolate(zero)).ToArray(),
-            //    nistStationaryPoint,
-            //    nistStationaryPoint.Select(zero => nistSpline.Interpolate(zero)).ToArray(),
-            //    SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
-            //    toleranceInPpm: 500, // Not sure what the ideal ppmTolerance is here. 100 ppm resulted in 34 not matched points, 250 ppm matches all points
-            //    allPeaks: true,
-            //    filterOutBelowThisMz: 0);
-            //var pairedPoint500 = splineSimilarity500.intensityPairs.Where(t => t.Item1 > 0 && t.Item2 > 0).ToList();
+            
 
 
         }
