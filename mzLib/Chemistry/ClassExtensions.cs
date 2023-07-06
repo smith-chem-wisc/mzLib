@@ -71,7 +71,7 @@ namespace Chemistry
             if (defaultImplementationIndex == 0)
                 return 0;
             if (defaultImplementationIndex == sortedArray.Length)
-                defaultImplementationIndex--;
+                return defaultImplementationIndex - 1;
 
             int closestIndex;
             switch (searchType)

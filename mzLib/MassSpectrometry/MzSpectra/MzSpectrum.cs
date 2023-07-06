@@ -288,19 +288,7 @@ namespace MassSpectrometry
                         double testMostIntenseMass = candidateForMostIntensePeakMz.ToMass(chargeState);
 
                         //get the index of the theoretical isotopic envelope for an averagine model that's close in mass
-                        int massIndex = Array.BinarySearch(mostIntenseMasses, testMostIntenseMass);
-                        if (massIndex < 0)
-                        {
-                            massIndex = ~massIndex;
-                        }
-                        if (massIndex == mostIntenseMasses.Length)
-                        {
-                            break;
-                        }
-                        if (massIndex != 0 && mostIntenseMasses[massIndex] - testMostIntenseMass > testMostIntenseMass - mostIntenseMasses[massIndex - 1])
-                        {
-                            massIndex--;
-                        }
+                        int massIndex = mostIntenseMasses.GetClosestIndex(testMostIntenseMass);
 
                         //create a list for each isotopic peak from this envelope. This is used to fine tune the monoisotopic mass and is populated in "FindIsotopicEnvelope"
                         List<double> monoisotopicMassPredictions = new List<double>();
@@ -464,20 +452,11 @@ namespace MassSpectrometry
         [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         public (int start, int end) ExtractIndices(double minX, double maxX)
         {
-            int ind = Array.BinarySearch(XArray, minX);
-            if (ind < 0)
+            int start = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
+            if (XArray[start] <= maxX)
             {
-                ind = ~ind;
-            }
-            if (ind < Size && XArray[ind] <= maxX)
-            {
-                int start = ind;
-                while (ind < Size && XArray[ind] <= maxX)
-                {
-                    ind++;
-                }
-                ind--;
-                return (start, ind);
+                int end = XArray.GetClosestIndex(maxX, ArraySearchOption.Previous);
+                return (start, end);
             }
             else
             {
@@ -620,27 +599,7 @@ namespace MassSpectrometry
 
         public int GetClosestPeakIndex(double x)
         {
-            int index = Array.BinarySearch(XArray, x);
-            if (index >= 0)
-            {
-                return index;
-            }
-            index = ~index;
-
-            if (index >= Size)
-            {
-                return index - 1;
-            }
-            if (index == 0)
-            {
-                return index;
-            }
-
-            if (x - XArray[index - 1] > XArray[index] - x)
-            {
-                return index;
-            }
-            return index - 1;
+            return XArray.GetClosestIndex(x);
         }
 
         public void ReplaceXbyApplyingFunction(Func<MzPeak, double> convertor)
@@ -667,31 +626,20 @@ namespace MassSpectrometry
             {
                 return null;
             }
-            return XArray[GetClosestPeakIndex(x)];
+            return XArray.GetClosestValue(x);
         }
 
+        /// <summary>
+        /// Reports the number of peaks between minX and maxX, inclusive
+        /// </summary>
         public int NumPeaksWithinRange(double minX, double maxX)
         {
-            int startingIndex = Array.BinarySearch(XArray, minX);
-            if (startingIndex < 0)
-            {
-                startingIndex = ~startingIndex;
-            }
-            if (startingIndex >= Size)
-            {
+            if (XArray.Last() < minX || XArray.First() > maxX)
                 return 0;
-            }
-            int endIndex = Array.BinarySearch(XArray, maxX);
-            if (endIndex < 0)
-            {
-                endIndex = ~endIndex;
-            }
-            if (endIndex == 0)
-            {
-                return 0;
-            }
 
-            return endIndex - startingIndex;
+            int startingIndex = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
+            int endIndex = XArray.GetClosestIndex(maxX, ArraySearchOption.Previous);
+            return endIndex - startingIndex + 1;
         }
 
         public IEnumerable<MzPeak> FilterByNumberOfMostIntense(int topNPeaks)
@@ -717,11 +665,7 @@ namespace MassSpectrometry
 
         public IEnumerable<MzPeak> Extract(double minX, double maxX)
         {
-            int ind = Array.BinarySearch(XArray, minX);
-            if (ind < 0)
-            {
-                ind = ~ind;
-            }
+            int ind = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
             while (ind < Size && XArray[ind] <= maxX)
             {
                 yield return GetPeak(ind);

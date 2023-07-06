@@ -125,10 +125,11 @@ namespace Test
             Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987 + 0.001));
         }
 
+        // Tests in current implementation
         [Test]
         public void SpectrumContainsPeakInRangeEnd()
         {
-            Assert.AreEqual(0, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987));
+            Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987));
         }
 
         [Test]
@@ -140,7 +141,7 @@ namespace Test
         [Test]
         public void SpectrumContainsPeakInRangeStartEnd()
         {
-            Assert.AreEqual(0, _mzSpectrumA.NumPeaksWithinRange(448.23987, 448.23987));
+            Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987, 448.23987));
         }
 
         [Test]
@@ -246,16 +247,15 @@ namespace Test
         {
             double[] xArray = { 1, 2, 3, 4, 5, 6, 7 };
             double[] yArray = { 1, 2, 1, 5, 1, 2, 1 };
-
             var thisSpectrum = new MzSpectrum(xArray, yArray, false);
 
             Assert.AreEqual(7, thisSpectrum.NumPeaksWithinRange(double.MinValue, double.MaxValue));
 
-            Assert.AreEqual(6, thisSpectrum.NumPeaksWithinRange(1, 7));
+            Assert.AreEqual(7, thisSpectrum.NumPeaksWithinRange(1, 7));
 
-            Assert.AreEqual(0, thisSpectrum.NumPeaksWithinRange(1, 1));
+            Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(1, 1));
 
-            Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(1, 2));
+            Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(1, 2));
 
             Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(0.001, 2.999));
 
@@ -263,7 +263,7 @@ namespace Test
 
             Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(6.5, 8));
 
-            Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(3, 5));
+            Assert.AreEqual(3, thisSpectrum.NumPeaksWithinRange(3, 5));
 
             Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(3.5, 5.5));
 
