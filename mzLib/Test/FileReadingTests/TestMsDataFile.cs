@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Easy.Common.Extensions;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.FileReadingTests
@@ -129,19 +130,19 @@ namespace Test.FileReadingTests
             foreach (var i in thefile.GetMsScansInTimeRange(0, 2))
                 ok1 += 1;
 
-            Assert.AreEqual(1, ok1);
+            Assert.Throws<ArgumentException>(() =>
+            {
+                int ok2 = 0;
+                foreach (var i in thefile.GetMsScansInTimeRange(2, 4))
+                    ok2 += 1;
+            });
 
-            int ok2 = 0;
-            foreach (var i in thefile.GetMsScansInTimeRange(2, 4))
-                ok2 += 1;
-
-            Assert.AreEqual(0, ok2);
-
-            int ok3 = 0;
-            foreach (var i in thefile.GetMsScansInTimeRange(-4, -2))
-                ok3 += 1;
-
-            Assert.AreEqual(0, ok3);
+            Assert.Throws<ArgumentException>(() =>
+            {
+                int ok3 = 0;
+                foreach (var i in thefile.GetMsScansInTimeRange(-4, -2))
+                    ok3 += 1;
+            });
         }
 
         [Test]

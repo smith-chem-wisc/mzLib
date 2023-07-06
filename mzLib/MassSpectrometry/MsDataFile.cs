@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace MassSpectrometry
@@ -167,7 +168,10 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// Performs a Binary Search and returns the closest Spectrum Number to the given Retention Time
+        /// 
+        /// Performs a Binary Search and returns the closest Spectrum Number to the given Retention Time (RT).
+        /// If RT is negative or bigger than last RT recorded in file, an ArgumentException will be thrown.
+        /// 
         /// </summary>
         /// <param name="retentionTime"></param>
         /// <returns></returns>
@@ -183,34 +187,38 @@ namespace MassSpectrometry
                 SetScansAndRetentionTimeDictionary();
             }
 
-            int search = Array.BinarySearch(ScansAndRetentionTime.Values.ToArray(), retentionTime);
-
-            if (search < 0)
+            if (retentionTime <= ScansAndRetentionTime.ElementAt(ScansAndRetentionTime.Keys.Count - 1).Key && retentionTime >= 0)
             {
+                int search = Array.BinarySearch(ScansAndRetentionTime.Values.ToArray(), index: 0, length: ScansAndRetentionTime.Values.Count, retentionTime);
                 int indexFromSearch = ~search;
-                if (indexFromSearch < ScansAndRetentionTime.Keys.Count)
-                {
-                    return ScansAndRetentionTime.ElementAt(indexFromSearch).Key;
-                }
 
-                if (indexFromSearch >= ScansAndRetentionTime.Keys.Count)
+                if (search < 0)
                 {
-                    return ScansAndRetentionTime.ElementAt(indexFromSearch - 1).Key;
+                    if (indexFromSearch < ScansAndRetentionTime.Keys.Count)
+                    {
+                        return ScansAndRetentionTime.ElementAt(indexFromSearch).Key;
+                    }
+
+                    if (indexFromSearch == ScansAndRetentionTime.Keys.Count)
+                    {
+                        return ScansAndRetentionTime.ElementAt(indexFromSearch - 1).Key;
+                    }
+                }
+                else if (search < ScansAndRetentionTime.Keys.Count)
+                {
+                    return ScansAndRetentionTime.ElementAt(search).Key;
                 }
             }
-            else
-            {
-                return ScansAndRetentionTime.ElementAt(search).Key;
-            }
-
-            return -1;
+            
+            throw new ArgumentException(
+                "Retention Time can't be bigger than the last Retention Time in file or smaller than the first Retention Time Recorded in file");
         }
 
         public virtual IEnumerator<MsDataScan> GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
-
+        
         public virtual int[] GetMsOrderByScanInDynamicConnection()
         {
             throw new NotImplementedException();
