@@ -145,6 +145,12 @@ namespace MassSpectrometry
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
                 MsDataScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
+
+                if (scan == null)
+                {
+                    break;
+                }
+
                 double rt = scan.RetentionTime;
                 if (rt < firstRT)
                 {
@@ -162,7 +168,7 @@ namespace MassSpectrometry
         /// <summary>
         /// 
         /// Performs a Binary Search and returns the closest Spectrum Number to the given Retention Time (RT).
-        /// If RT is negative or bigger than last RT recorded in file, an ArgumentException will be thrown.
+        /// If RT is negative or bigger than last RT recorded in file, it will return 0.
         /// 
         /// </summary>
         /// <param name="retentionTime"></param>
@@ -200,9 +206,8 @@ namespace MassSpectrometry
                     return scansAndRetentionTime.ElementAt(search).Key;
                 }
             }
-            
-            throw new ArgumentException(
-                "Retention Time can't be bigger than the last Retention Time in file or smaller than the first Retention Time Recorded in file");
+
+            return 0;
         }
 
         public virtual IEnumerator<MsDataScan> GetEnumerator()

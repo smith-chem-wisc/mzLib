@@ -129,20 +129,17 @@ namespace Test.FileReadingTests
             int ok1 = 0;
             foreach (var i in thefile.GetMsScansInTimeRange(0, 2))
                 ok1 += 1;
+            Assert.AreEqual(1, ok1);
 
-            Assert.Throws<ArgumentException>(() =>
-            {
-                int ok2 = 0;
-                foreach (var i in thefile.GetMsScansInTimeRange(2, 4))
-                    ok2 += 1;
-            });
+            int ok2 = 0;
+            foreach (var i in thefile.GetMsScansInTimeRange(2, 4))
+                ok2 += 1;
+            Assert.AreEqual(0, ok2);
 
-            Assert.Throws<ArgumentException>(() =>
-            {
-                int ok3 = 0;
-                foreach (var i in thefile.GetMsScansInTimeRange(-4, -2))
-                    ok3 += 1;
-            });
+            int ok3 = 0;
+            foreach (var i in thefile.GetMsScansInTimeRange(-4, -2))
+                ok3 += 1;
+            Assert.AreEqual(0, ok3);
 
             MsDataScan theSpectrum2 = new MsDataScan(_mzSpectrumA, 1, 1, 
                 true, Polarity.Positive,0, new MzRange(300, 1000), "fake scan filter",
