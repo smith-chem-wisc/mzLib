@@ -145,7 +145,7 @@ namespace TestFlashLFQ
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { pepInflix, pepNist },
-                normalize: false, maxThreads: 1, matchBetweenRuns: true); // peaks are only serialized if match between runs = true
+                normalize: false, maxThreads: 1, matchBetweenRuns: false); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
             var results = engine.Run();
@@ -182,11 +182,11 @@ namespace TestFlashLFQ
             double monoisotopicMass = 2005.980136305;
             double peakFindingMass = 670.00;
 
-            string baseSequence = "PWYEPIYLGGVFQLEK"; // 
-            string ambiguousModSeq = "PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWY[CF3:CF3 on Y]EPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"; // score of 5
+            string baseSequence = "PWYEPIYLGGVFQLEK";
             string y7ModSeq = "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK";
             string y3ModSeq = "PWY[CF3:CF3 on Y]EPIYLGGVFQLE";
-            
+            string ambiguousModSeq = "PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWY[CF3:CF3 on Y]EPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"; // score of 5
+
             double y7ModRt = 33.22371; 
             double y3ModRt = 33.27658;
             double ambiguousModRt = 33.2862;
@@ -204,11 +204,12 @@ namespace TestFlashLFQ
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { y7ModId, y3ModId, ambiguousModId },
-                normalize: false, maxThreads: 1, matchBetweenRuns: true); // peaks are only serialized if match between runs = true
+                normalize: false, maxThreads: 1, matchBetweenRuns: false, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
             var results = engine.Run();
 
+            // Remeber that intensity is the sum of the isotopic envelope, so you have to do something else here.
             Assert.That(results.PeptideModifiedSequences.ContainsKey(y7ModSeq + "|" + y3ModSeq));
             Assert.That(results.PeptideModifiedSequences[y7ModSeq + "|" + y3ModSeq].GetIntensity(nist),
                 Is.EqualTo(firstPeakIntensity).Within(1));
@@ -217,6 +218,9 @@ namespace TestFlashLFQ
             // Questionable about whether or not we want to assign any intensity to this one. Probably not
             Assert.That(results.PeptideModifiedSequences["PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"].GetIntensity(nist),
                 Is.EqualTo(null));
+
+            // Currently, y3 and the ambiguous are getting assigned to the same peak (the second one)
+            // We need a better peak finding algorithm. I'm thinking splines
 
         }
 
