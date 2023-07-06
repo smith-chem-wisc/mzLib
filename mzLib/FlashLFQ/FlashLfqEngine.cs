@@ -1270,11 +1270,7 @@ namespace FlashLFQ
         /// Finds peaks with a given mz (mass/charge + H) that occur on either side of a given
         /// retention time. Peak searching iterates backwards through MS1 scans until the peak 
         /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
-<<<<<<< HEAD
         /// MissedScansAllowed property). Missed scans don't have to be sequential. The same procedure
-=======
-        /// MissedScansAllowed property. Missed scans don't have to be sequential. The same procedure
->>>>>>> BinarySearchExtension
         /// is then repeated in the forward direction.
         /// </summary>
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>

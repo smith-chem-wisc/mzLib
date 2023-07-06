@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Easy.Common.Extensions;
+using FlashLFQ.PeakPicking;
 using MassSpectrometry.MzSpectra;
 using Test.FileReadingTests;
 using UsefulProteomicsDatabases;
@@ -71,12 +72,12 @@ namespace TestFlashLFQ
             var inflixXic = indexingEngine.GetXIC(peakFindingMass, inflix);
             var nistXic = indexingEngine.GetXIC(peakFindingMass, nist);
 
-            // generate a fake XIC with a known shift and test that AlignXICs returns the correct shift
+            // generate a fake XIC with a known shift and test that AlignPeaks returns the correct shift
             double rtShift = 0.15;
             var shiftedInflixXic = inflixXic.Select(p =>
                     new IndexedMassSpectralPeak(p.Mz, p.Intensity, p.ZeroBasedMs1ScanIndex, p.RetentionTime + rtShift))
                 .ToList();
-            double shiftedOffset = XicProcessing.AlignXICs(inflixXic, shiftedInflixXic, 100);
+            double shiftedOffset = XicProcessing.AlignPeaks(inflixXic, shiftedInflixXic, 100);
             Assert.That(shiftedOffset, Is.EqualTo(-1*rtShift).Within(0.01));
 
             // Calculate similarity of the two real XICs with and w/o alignment.
@@ -91,7 +92,7 @@ namespace TestFlashLFQ
                 filterOutBelowThisMz: 0);
             double? rawXicAngle = xicSimilarity.SpectralContrastAngle();
 
-            double nistOffset = XicProcessing.AlignXICs(inflixXic, nistXic);
+            double nistOffset = XicProcessing.AlignPeaks(inflixXic, nistXic);
             
             SpectralSimilarity alignedXicSimilarity = new SpectralSimilarity(
                 P_XArray: inflixXic.Select(p => p.RetentionTime).ToArray(),
@@ -108,28 +109,83 @@ namespace TestFlashLFQ
         }
 
         [Test]
+        public static void TestReconcileExtrema()
+        {
+            SpectraFileInfo nist = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
+                "nist", 1, 0, 0);
+            SpectraFileInfo inflix = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
+                "inflix", 0, 0, 0);
+
+            // create IDs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            double monoisotopicMass = 2005.980136305;
+            double peakFindingMass = 670.00;
+
+            string baseSequence = "PWYEPIYLGGVFQLEK";
+            string modSeq = "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK";
+            double rt = 33.22371;
+
+            Identification y7ModId = new Identification(nist, baseSequence, modSeq, monoisotopicMass,
+                rt, 3, new List<ProteinGroup> { pg });
+            Identification y7ModIdInflix = new Identification(inflix, baseSequence, modSeq, monoisotopicMass,
+                rt, 3, new List<ProteinGroup> { pg });
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { y7ModId, y7ModIdInflix },
+                normalize: false, maxThreads: 1, matchBetweenRuns: true, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
+
+            // run the engine and grab XICs
+            var results = engine.Run();
+
+            var indexingEngine = engine.GetIndexingEngine();
+            var nistPeaks = indexingEngine.GetXIC(peakFindingMass, nist);
+            var inflixPeaks = indexingEngine.GetXIC(peakFindingMass, inflix);
+            double inflixAdjustment = XicProcessing.AlignPeaks(nistPeaks, inflixPeaks, 100);
+
+            Xic nistXic = new Xic(nistPeaks, peakFindingMass, nist, 0, referenceXic: true);
+            Xic inflixXic = new Xic(inflixPeaks, peakFindingMass, inflix, inflixAdjustment, referenceXic: false);
+
+            var matchedExtrema = XicProcessing.ReconcileExtrema(nistXic.Extrema,
+                new List<List<Extremum>> { inflixXic.Extrema });
+
+            Assert.AreEqual(matchedExtrema[0].Length, 16);
+            Assert.AreEqual(matchedExtrema[1].Length, 16);
+        }
+
+        [Test]
         public static void GetRtPairsTest()
         {
-            double[] refArray = { 1, 2, 3, 4, 5 };
-            double[] expArray = { 1, 3, 5 };
+            var ex1 = new Extremum(1, 0, ExtremumType.Maximum);
+            var ex2 = new Extremum(2, 0, ExtremumType.Maximum);
+            var ex3 = new Extremum(3, 0, ExtremumType.Maximum);
+            var ex4 = new Extremum(4, 0, ExtremumType.Maximum);
+            var ex5 = new Extremum(5, 0, ExtremumType.Maximum);
+            Extremum[] refArray = { ex1, ex2, ex3, ex4, ex5 };
+            Extremum[] expArray = { ex1, ex3, ex5 };
 
             var pairs = XicProcessing.GetRetentionTimePairs(refArray, expArray);
-            Assert.AreEqual(pairs, new List<(double, double)>
+            Assert.AreEqual(pairs, new List<(Extremum, Extremum)>
             {
-                (1, 1),
-                (3, 3),
-                (5, 5)
+                (ex1, ex1),
+                (ex3, ex3),
+                (ex5, ex5)
             });
 
-
-            double[] refArray2 = { 1, 3, 5.1, 5.3, 5.5 };
-            double[] expArray2 = { 1, 1.2, 3, 3.2, 4, 4.25, 4.75, 5 };
+            var ex32 = new Extremum(3.2, 0, ExtremumType.Maximum);
+            var ex47 = new Extremum(4.7, 0, ExtremumType.Maximum);
+            var ex51 = new Extremum(5.1, 0, ExtremumType.Maximum);
+            var ex53 = new Extremum(5.3, 0, ExtremumType.Maximum);
+            var ex55 = new Extremum(5.5, 0, ExtremumType.Maximum);
+            
+            Extremum[] refArray2 = { ex1, ex3, ex51, ex53, ex55 };
+            Extremum[] expArray2 = { ex1, ex1, ex3, ex32, ex4, ex47, ex5, ex5 };
             pairs = XicProcessing.GetRetentionTimePairs(refArray2, expArray2);
-            Assert.AreEqual(pairs, new List<(double, double)>
+            Assert.AreEqual(pairs, new List<(Extremum, Extremum)>
             {
-                (1, 1),
-                (3, 3),
-                (5.1, 5)
+                (ex1, ex1),
+                (ex3, ex3),
+                (ex51, ex5)
             });
         }
 
@@ -179,7 +235,7 @@ namespace TestFlashLFQ
             var inflixXic = indexingEngine.GetXIC(peakFindingMass, inflix);
             var nistXic = indexingEngine.GetXIC(peakFindingMass, nist);
 
-            double nistOffset = XicProcessing.AlignXICs(inflixXic, nistXic);
+            double nistOffset = XicProcessing.AlignPeaks(inflixXic, nistXic);
 
             // Creates a spline, or a smoothed representation of the XIC which allows for up-sampling of the data
             // Unsure about whether to use cubic or linear. Can maybe be a delegate argument?
@@ -198,7 +254,7 @@ namespace TestFlashLFQ
             Array.Sort(nistStationaryPoint);
             var nistSecondDerivates = nistStationaryPoint.Select(zero => nistSpline.Differentiate2(zero)).ToArray();
 
-            var test = XicProcessing.GetRetentionTimePairs(inflixStationaryPoint, nistStationaryPoint);
+            //var test = XicProcessing.GetRetentionTimePairs(inflixStationaryPoint, nistStationaryPoint);
 
             var placeholder = 0;
 
