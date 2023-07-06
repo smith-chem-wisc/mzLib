@@ -143,6 +143,22 @@ namespace Test.FileReadingTests
                 foreach (var i in thefile.GetMsScansInTimeRange(-4, -2))
                     ok3 += 1;
             });
+
+            MsDataScan theSpectrum2 = new MsDataScan(_mzSpectrumA, 1, 1, 
+                true, Polarity.Positive,0, new MzRange(300, 1000), "fake scan filter",
+                MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 3, null, "scan=1");
+
+            MsDataScan[] theList2 = new MsDataScan[1];
+
+            theList2[0] = theSpectrum2;
+
+            FakeMsDataFile thefile2 = new FakeMsDataFile(theList2);
+
+            int ok4 = 0;
+            foreach (var i in thefile2.GetMsScansInTimeRange(1, 2))
+                ok4 += 1;
+
+            Assert.AreEqual(0, ok4);
         }
 
         [Test]
