@@ -96,6 +96,9 @@
     <None Update="DatabaseTests\Isoform.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\Isoform.fasta.gz">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\isoformTest.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
