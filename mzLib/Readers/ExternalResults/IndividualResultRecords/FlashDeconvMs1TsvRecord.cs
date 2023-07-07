@@ -2,6 +2,7 @@
 using CsvHelper.Configuration;
 using System.Globalization;
 using System.Text;
+using Chemistry;
 
 namespace Readers
 {
@@ -10,7 +11,7 @@ namespace Readers
     /// For supported versions and software this file type can come from see
     ///     Readers.ExternalResources.SupportedVersions.txt
     /// </summary>
-    public class FlashDeconvMs1Tsv
+    public class FlashDeconvMs1Tsv : IHasMass
     {
         [Ignore]
         public static CsvConfiguration CsvConfiguration => new CsvConfiguration(CultureInfo.InvariantCulture)
@@ -24,7 +25,7 @@ namespace Readers
         public int Index { get; set; }
 
         [Name("FileName")]
-        public string FileName { get; set; }
+        public string SpectraFileName { get; set; }
 
         [Name("ScanNum")]
         public int ScanNum { get; set; }
@@ -105,13 +106,13 @@ namespace Readers
         /// Start mz of the entries representative peak
         /// </summary>
         [Name("RepresentativeMzStart")]
-        public double RepresentativeMzStart { get; set; }
+        public double RepresentativeMzMin { get; set; }
 
         /// <summary>
         /// End mz of the entries representative peak
         /// </summary>
         [Name("RepresentativeMzEnd")]
-        public double RepresentativeMzEnd { get; set; }
+        public double RepresentativeMzMax { get; set; }
 
         [Name("QScore")]
         public double QScore { get; set; }

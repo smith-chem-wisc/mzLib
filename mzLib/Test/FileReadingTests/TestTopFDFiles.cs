@@ -32,7 +32,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_jurkat_td_rep1_fract2_frac.mzrt.csv", 45941)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_jurkat_td_rep1_fract2_frac.mzrt.csv", 4)]
         public void TestTopFDMzRTLoadsAndCountCorrect(string path, int recordCount)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -55,13 +55,13 @@ namespace Test.FileReadingTests
             Assert.That(first.FractionId, Is.EqualTo(0));
             Assert.That(first.EnvelopeNumber, Is.EqualTo(5));
             Assert.That(first.Mass, Is.EqualTo(10835.9));
-            Assert.That(first.MonoisotopicMz, Is.EqualTo(1548.99));
+            Assert.That(first.MonoisotopicMass, Is.EqualTo(1548.99));
             Assert.That(first.Charge, Is.EqualTo(7));
             Assert.That(first.Intensity, Is.EqualTo(8.57517e+06));
-            Assert.That(first.MinimumMz, Is.EqualTo(1549.03));
-            Assert.That(first.MaximumMz, Is.EqualTo(1551.23));
-            Assert.That(first.RetentionTimeMinimum, Is.EqualTo(39.6613));
-            Assert.That(first.RetentionTimeMaximum, Is.EqualTo(39.9085));
+            Assert.That(first.MzMin, Is.EqualTo(1549.03));
+            Assert.That(first.MzMax, Is.EqualTo(1551.23));
+            Assert.That(first.RetentionTimeBegin, Is.EqualTo(39.6613));
+            Assert.That(first.RetentionTimeEnd, Is.EqualTo(39.9085));
             Assert.That(first.ColorHexcode, Is.EqualTo("#FF0000"));
             Assert.That(first.Opacity, Is.EqualTo(0.1));
             Assert.That(first.PromexScore, Is.EqualTo(40.1092));
@@ -70,13 +70,13 @@ namespace Test.FileReadingTests
             Assert.That(last.FractionId, Is.EqualTo(0));
             Assert.That(last.EnvelopeNumber, Is.EqualTo(1));
             Assert.That(last.Mass, Is.EqualTo(1841.07));
-            Assert.That(last.MonoisotopicMz, Is.EqualTo(1842.08));
+            Assert.That(last.MonoisotopicMass, Is.EqualTo(1842.08));
             Assert.That(last.Charge, Is.EqualTo(1));
             Assert.That(last.Intensity, Is.EqualTo(3279.65));
-            Assert.That(last.MinimumMz, Is.EqualTo(1841.98));
-            Assert.That(last.MaximumMz, Is.EqualTo(1846.18));
-            Assert.That(last.RetentionTimeMinimum, Is.EqualTo(52.0425));
-            Assert.That(last.RetentionTimeMaximum, Is.EqualTo(52.0425));
+            Assert.That(last.MzMin, Is.EqualTo(1841.98));
+            Assert.That(last.MzMax, Is.EqualTo(1846.18));
+            Assert.That(last.RetentionTimeBegin, Is.EqualTo(52.0425));
+            Assert.That(last.RetentionTimeEnd, Is.EqualTo(52.0425));
             Assert.That(last.ColorHexcode, Is.EqualTo("#FF0000"));
             Assert.That(last.Opacity, Is.EqualTo(0.1));
             Assert.That(last.PromexScore, Is.EqualTo(-1000));

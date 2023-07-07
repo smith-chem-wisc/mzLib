@@ -35,7 +35,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv", 1470)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv", 8)]
         public void TestMs1TsvFileLoadsAndCountCorrect(string path, int count)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -45,7 +45,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_jurkat_td_rep1_fract2.tsv", 16532)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_jurkat_td_rep1_fract2.tsv", 5)]
         public void TestFlashDeconTsvFileLoadsAndCountCorrect(string path, int count)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -65,7 +65,7 @@ namespace Test.FileReadingTests
 
 
             Assert.That(first.Index, Is.EqualTo(1));
-            Assert.That(first.FileName, Is.EqualTo("D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
+            Assert.That(first.SpectraFileName, Is.EqualTo("D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
             Assert.That(first.ScanNum, Is.EqualTo(-1));
             Assert.That(first.Decoy, Is.EqualTo(0));
             Assert.That(first.RetentionTime, Is.EqualTo(1.236057));
@@ -81,8 +81,8 @@ namespace Test.FileReadingTests
             Assert.That(first.MassSNR, Is.EqualTo(5.68748));
             Assert.That(first.ChargeSNR, Is.EqualTo(5.68748));
             Assert.That(first.RepresentativeCharge, Is.EqualTo(1));
-            Assert.That(first.RepresentativeMzStart, Is.EqualTo(610.185324));
-            Assert.That(first.RepresentativeMzEnd, Is.EqualTo(611.185295));
+            Assert.That(first.RepresentativeMzMin, Is.EqualTo(610.185324));
+            Assert.That(first.RepresentativeMzMax, Is.EqualTo(611.185295));
             Assert.That(first.QScore, Is.EqualTo(0.622148));
             Assert.That(first.Qvalue, Is.EqualTo(0.0333624));
             Assert.That(first.QvalueWithIsotopeDecoyOnly, Is.EqualTo(0.0211648));
@@ -92,7 +92,7 @@ namespace Test.FileReadingTests
             Assert.That(first.PerIsotopeIntensity, Is.EqualTo(new List<double> { 1330.02, 737.107 }));
 
             Assert.That(last.Index, Is.EqualTo(58));
-            Assert.That(last.FileName, Is.EqualTo("D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
+            Assert.That(last.SpectraFileName, Is.EqualTo("D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
             Assert.That(last.ScanNum, Is.EqualTo(-1));
             Assert.That(last.Decoy, Is.EqualTo(2));
             Assert.That(last.RetentionTime, Is.EqualTo(5392.704300));
@@ -108,8 +108,8 @@ namespace Test.FileReadingTests
             Assert.That(last.MassSNR, Is.EqualTo(0.140764));
             Assert.That(last.ChargeSNR, Is.EqualTo(0.0997334));
             Assert.That(last.RepresentativeCharge, Is.EqualTo(6));
-            Assert.That(last.RepresentativeMzStart, Is.EqualTo(1046.205181));
-            Assert.That(last.RepresentativeMzEnd, Is.EqualTo(1046.486308));
+            Assert.That(last.RepresentativeMzMin, Is.EqualTo(1046.205181));
+            Assert.That(last.RepresentativeMzMax, Is.EqualTo(1046.486308));
             Assert.That(last.QScore, Is.EqualTo(0.0662357));
             Assert.That(last.Qvalue, Is.EqualTo(1));
             Assert.That(last.QvalueWithIsotopeDecoyOnly, Is.EqualTo(1));
@@ -131,7 +131,7 @@ namespace Test.FileReadingTests
 
 
             Assert.That(first.FeatureIndex, Is.EqualTo(0));
-            Assert.That(first.FileName,
+            Assert.That(first.SpectraFileName,
                 Is.EqualTo(
                     "D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
             Assert.That(first.MonoisotopicMass, Is.EqualTo(10835.850545));
@@ -144,8 +144,8 @@ namespace Test.FileReadingTests
             Assert.That(first.IntensityOfAllPeaks, Is.EqualTo(1.21145e+10));
             Assert.That(first.IntensityOfMostAbundantPeak, Is.EqualTo(3.31923e+09));
             Assert.That(first.FeatureQuantity, Is.EqualTo(4.30496e+10));
-            Assert.That(first.ChargeStateMinimum, Is.EqualTo(7));
-            Assert.That(first.ChargeStateMaximum, Is.EqualTo(18));
+            Assert.That(first.ChargeStateMin, Is.EqualTo(7));
+            Assert.That(first.ChargeStateMax, Is.EqualTo(18));
             Assert.That(first.ChargeCount, Is.EqualTo(12));
             Assert.That(first.IsotopeCosineSimilarity, Is.EqualTo(0.997606));
             Assert.That(first.MaxQScore, Is.EqualTo(0.730994));
@@ -166,7 +166,7 @@ namespace Test.FileReadingTests
 
 
             Assert.That(last.FeatureIndex, Is.EqualTo(16531));
-            Assert.That(last.FileName,
+            Assert.That(last.SpectraFileName,
                 Is.EqualTo(
                     "D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
             Assert.That(last.MonoisotopicMass, Is.EqualTo(618.236581));
@@ -179,8 +179,8 @@ namespace Test.FileReadingTests
             Assert.That(last.IntensityOfAllPeaks, Is.EqualTo(885.019));
             Assert.That(last.IntensityOfMostAbundantPeak, Is.EqualTo(225.488));
             Assert.That(last.FeatureQuantity, Is.EqualTo(5521.45));
-            Assert.That(last.ChargeStateMinimum, Is.EqualTo(1));
-            Assert.That(last.ChargeStateMaximum, Is.EqualTo(1));
+            Assert.That(last.ChargeStateMin, Is.EqualTo(1));
+            Assert.That(last.ChargeStateMax, Is.EqualTo(1));
             Assert.That(last.ChargeCount, Is.EqualTo(1));
             Assert.That(last.IsotopeCosineSimilarity, Is.EqualTo(0.919741));
             Assert.That(last.MaxQScore, Is.EqualTo(0.0723919));

@@ -46,15 +46,15 @@ namespace Readers
         public double? IntensityApex { get; set; }
 
         [Name("Minimum_charge_state")]
-        public int ChargeStateMinimum { get; set; }
+        public int ChargeStateMin { get; set; }
 
         [Name("Maximum_charge_state")]
-        public int ChargeStateMaximum { get; set; }
+        public int ChargeStateMax { get; set; }
 
         [Name("Minimum_fraction_id")]
-        public int FractionIdMinimum { get; set; }
+        public int FractionIdMin { get; set; }
 
         [Name("Maximum_fraction_id")]
-        public int FractionIdMaximum { get; set; }
+        public int FractionIdMax { get; set; }
     }
 }

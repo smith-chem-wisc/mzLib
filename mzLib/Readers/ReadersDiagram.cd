@@ -51,21 +51,22 @@
   <Class Name="Readers.FlashDeconvMs1Tsv" BaseTypeListCollapsed="true">
     <Position X="14" Y="9" Width="2.25" />
     <TypeIdentifier>
-      <HashCode>gAAAAAIEAAAQBACQANEBAABAICkIQCAAAAEAMABgAgA=</HashCode>
+      <HashCode>gAAAAAIEAAAQBACAANEBARBEICkIQCAAAAEAMAAAAgA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\FlashDeconvMs1TsvRecord.cs</FileName>
     </TypeIdentifier>
+    <Lollipop Position="0.2" />
   </Class>
   <Class Name="Readers.FlashDeconvTsv" BaseTypeListCollapsed="true">
     <Position X="11.25" Y="9" Width="2.25" />
     <TypeIdentifier>
-      <HashCode>AAIIAAAAAAAAA4CAIAAAAAAABwAoAAAQAAADEBhAAAA=</HashCode>
+      <HashCode>AAAIAAAAAAACA4CAIAAAABAAByAoAAAQAAADEBgAAAA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\FlashDeconvTsvRecord.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="Readers.Ms1Feature" BaseTypeListCollapsed="true">
     <Position X="8.5" Y="9" Width="2" />
     <TypeIdentifier>
-      <HashCode>AAIKAAAAAAAAAAAAAAAAAAQIAgBIAAAQAAgAEBCAAAA=</HashCode>
+      <HashCode>AAACAAAAAAACAAAAAAAAAAQIAiAIAAAQAAgAADCACAA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\Ms1Feature.cs</FileName>
     </TypeIdentifier>
   </Class>
@@ -79,9 +80,10 @@
   <Class Name="Readers.TopFdMzrt" BaseTypeListCollapsed="true">
     <Position X="3.25" Y="9" Width="2" />
     <TypeIdentifier>
-      <HashCode>AAASEAACAAQIBBAAAAAAAQAOAAAJAAAAAAAAAACAAAA=</HashCode>
+      <HashCode>ABQCEAACAAQIABCAAAAAAAAMAgAIAAAAAAAAABCAAAA=</HashCode>
       <FileName>ExternalResults\IndividualResultRecords\TopFDMzrtRecord.cs</FileName>
     </TypeIdentifier>
+    <Lollipop Position="0.2" />
   </Class>
   <Class Name="IO.MzML.Mzml" Collapsed="true">
     <Position X="20.75" Y="7.75" Width="1.5" />

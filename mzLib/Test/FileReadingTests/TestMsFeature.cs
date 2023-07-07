@@ -31,10 +31,10 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Feature_jurkat_td_rep1_fract2_ms1.feature", 1, 16533)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Feature_jurkat_td_rep1_fract2_ms1.feature", 1, 7)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs2Feature_jurkat_td_rep1_fract2_ms2.feature", 2, 1)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature", 1, 20554)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDMs2Feature_jurkat_td_rep1_fract2_ms2.feature", 2, 2808)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature", 1, 4)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDMs2Feature_jurkat_td_rep1_fract2_ms2.feature", 2, 5)]
         public void TestFeaturesLoadAndCountIsCorrect(string path, int type, int featureCount)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -79,15 +79,15 @@ namespace Test.FileReadingTests
             Assert.That(first.SampleId, Is.EqualTo(0));
             Assert.That(first.Id, Is.EqualTo(1));
             Assert.That(first.Mass, Is.EqualTo(10835.9).Within(0.00001));
-            Assert.That(first.Intensity, Is.EqualTo(1.21145e+10).Within(0.00001));
+            Assert.That(first.Intensity, Is.EqualTo(1.21e+10).Within(0.00001));
             Assert.That(first.RetentionTimeBegin, Is.EqualTo(2375.98));
             Assert.That(first.RetentionTimeEnd, Is.EqualTo(2398.21));
             Assert.That(first.RetentionTimeApex, Is.EqualTo(2390.8));
             Assert.That(first.IntensityApex, Is.EqualTo(null));
-            Assert.That(first.ChargeStateMinimum, Is.EqualTo(7));
-            Assert.That(first.ChargeStateMaximum, Is.EqualTo(18));
-            Assert.That(first.FractionIdMinimum, Is.EqualTo(0));
-            Assert.That(first.FractionIdMaximum, Is.EqualTo(0));
+            Assert.That(first.ChargeStateMin, Is.EqualTo(7));
+            Assert.That(first.ChargeStateMax, Is.EqualTo(18));
+            Assert.That(first.FractionIdMin, Is.EqualTo(0));
+            Assert.That(first.FractionIdMax, Is.EqualTo(0));
 
             Assert.That(last.SampleId, Is.EqualTo(0));
             Assert.That(last.Id, Is.EqualTo(16533));
@@ -97,10 +97,10 @@ namespace Test.FileReadingTests
             Assert.That(last.RetentionTimeEnd, Is.EqualTo(5393.7));
             Assert.That(last.RetentionTimeApex, Is.EqualTo(5392.7));
             Assert.That(last.IntensityApex, Is.EqualTo(null));
-            Assert.That(last.ChargeStateMinimum, Is.EqualTo(7));
-            Assert.That(last.ChargeStateMaximum, Is.EqualTo(18));
-            Assert.That(last.FractionIdMinimum, Is.EqualTo(0));
-            Assert.That(last.FractionIdMaximum, Is.EqualTo(0));
+            Assert.That(last.ChargeStateMin, Is.EqualTo(7));
+            Assert.That(last.ChargeStateMax, Is.EqualTo(18));
+            Assert.That(last.FractionIdMin, Is.EqualTo(0));
+            Assert.That(last.FractionIdMax, Is.EqualTo(0));
         }
 
         [Test]
@@ -164,10 +164,10 @@ namespace Test.FileReadingTests
             Assert.That(first.RetentionTimeEnd, Is.EqualTo(2401.92));
             Assert.That(first.RetentionTimeApex, Is.EqualTo(2390.8));
             Assert.That(first.IntensityApex, Is.EqualTo(912795138.8));
-            Assert.That(first.ChargeStateMinimum, Is.EqualTo(7));
-            Assert.That(first.ChargeStateMaximum, Is.EqualTo(17));
-            Assert.That(first.FractionIdMinimum, Is.EqualTo(0));
-            Assert.That(first.FractionIdMaximum, Is.EqualTo(0));
+            Assert.That(first.ChargeStateMin, Is.EqualTo(7));
+            Assert.That(first.ChargeStateMax, Is.EqualTo(17));
+            Assert.That(first.FractionIdMin, Is.EqualTo(0));
+            Assert.That(first.FractionIdMax, Is.EqualTo(0));
 
             Assert.That(last.SampleId, Is.EqualTo(0));
             Assert.That(last.Id, Is.EqualTo(20553));
@@ -177,10 +177,10 @@ namespace Test.FileReadingTests
             Assert.That(last.RetentionTimeEnd, Is.EqualTo(3122.55));
             Assert.That(last.RetentionTimeApex, Is.EqualTo(3122.55));
             Assert.That(last.IntensityApex, Is.EqualTo(3279.65));
-            Assert.That(last.ChargeStateMinimum, Is.EqualTo(1));
-            Assert.That(last.ChargeStateMaximum, Is.EqualTo(1));
-            Assert.That(last.FractionIdMinimum, Is.EqualTo(0));
-            Assert.That(last.FractionIdMaximum, Is.EqualTo(0));
+            Assert.That(last.ChargeStateMin, Is.EqualTo(1));
+            Assert.That(last.ChargeStateMax, Is.EqualTo(1));
+            Assert.That(last.FractionIdMin, Is.EqualTo(0));
+            Assert.That(last.FractionIdMax, Is.EqualTo(0));
         }
 
         [Test]

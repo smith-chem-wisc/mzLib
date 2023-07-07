@@ -24,7 +24,7 @@ namespace Readers
         public int FeatureIndex { get; set; }
 
         [Name("FileName")]
-        public string FileName { get; set; }
+        public string SpectraFileName { get; set; }
 
         [Name("MonoisotopicMass")]
         public double MonoisotopicMass { get; set; }
@@ -57,10 +57,10 @@ namespace Readers
         public double FeatureQuantity { get; set; }
 
         [Name("MinCharge")]
-        public int ChargeStateMinimum { get; set; }
+        public int ChargeStateMin { get; set; }
 
         [Name("MaxCharge")]
-        public int ChargeStateMaximum { get; set; }
+        public int ChargeStateMax { get; set; }
 
         [Name("ChargeCount")]
         public int ChargeCount { get; set; }

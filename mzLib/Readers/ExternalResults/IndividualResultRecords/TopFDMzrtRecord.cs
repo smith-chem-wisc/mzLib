@@ -1,11 +1,12 @@
 ﻿using System.Globalization;
 using System.Text;
+using Chemistry;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 
 namespace Readers
 {
-    public class TopFdMzrt
+    public class TopFdMzrt : IHasMass
     {
 
         public static CsvConfiguration CsvConfiguration => new CsvConfiguration(CultureInfo.InvariantCulture)
@@ -28,7 +29,7 @@ namespace Readers
         public double Mass { get; set; }
 
         [Name("MonoMz")]
-        public double MonoisotopicMz { get; set; }
+        public double MonoisotopicMass { get; set; }
 
         [Name("Charge")]
         public int Charge { get; set; }
@@ -37,16 +38,16 @@ namespace Readers
         public double Intensity { get; set; }
 
         [Name("mzLo")]
-        public double MinimumMz { get; set; }
+        public double MzMin { get; set; }
 
         [Name("mzHi")]
-        public double MaximumMz { get; set; }
+        public double MzMax { get; set; }
 
         [Name("rtLo")]
-        public double RetentionTimeMinimum { get; set; }
+        public double RetentionTimeBegin { get; set; }
 
         [Name("rtHi")]
-        public double RetentionTimeMaximum { get; set; }
+        public double RetentionTimeEnd { get; set; }
 
         [Name("color")]
         public string ColorHexcode { get; set; }
