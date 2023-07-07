@@ -207,10 +207,6 @@ namespace MassSpectrometry
                         return scansAndRetentionTime.ElementAt(indexFromSearch - 1).Key;
                     }
                 }
-                else if (search < scansAndRetentionTime.Keys.Count())
-                {
-                    return scansAndRetentionTime.ElementAt(search).Key;
-                }
             }
 
             return 0;
