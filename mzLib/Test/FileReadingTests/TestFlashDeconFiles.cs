@@ -35,7 +35,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv", 8)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_OpenMs3.0.0_ms1.tsv", 8)]
         public void TestMs1TsvFileLoadsAndCountCorrect(string path, int count)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -45,7 +45,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_jurkat_td_rep1_fract2.tsv", 5)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_OpenMs3.0.0.tsv", 5)]
         public void TestFlashDeconTsvFileLoadsAndCountCorrect(string path, int count)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -58,7 +58,7 @@ namespace Test.FileReadingTests
         public void TestFlashDeconMs1TsvFirstAndLastAreCorrect()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv");
+                @"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_OpenMs3.0.0_ms1.tsv");
             var ms1TsvFile = new FlashDeconvMs1TsvFile(filePath);
             var first = ms1TsvFile.First();
             var last = ms1TsvFile.Last();
@@ -124,7 +124,7 @@ namespace Test.FileReadingTests
         public void TestFlashDeconvTsvFirstAndLastAreCorrect()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_jurkat_td_rep1_fract2.tsv");
+                @"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_OpenMs3.0.0.tsv");
             var ms1TsvFile = new FlashDeconvTsvFile(filePath);
             var first = ms1TsvFile.First();
             var last = ms1TsvFile.Last();
@@ -200,7 +200,7 @@ namespace Test.FileReadingTests
         public static void TestFlashDeconMs1TsvReadWrite()
         {
             var testFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv");
+                @"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_OpenMs3.0.0_ms1.tsv");
             var testOutputPath = Path.Combine(directoryPath, "ms1TsvOut_ms1.tsv");
 
             // load in file
@@ -231,7 +231,7 @@ namespace Test.FileReadingTests
         public static void TestFlashDeconTsvReadWrite()
         {
             var testFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_jurkat_td_rep1_fract2.tsv");
+                @"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_OpenMs3.0.0.tsv");
             var testOutputPath = Path.Combine(directoryPath, "tsvOut.tsv");
 
             // load in file

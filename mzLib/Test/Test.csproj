@@ -273,25 +273,25 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FlashDeconvMs1Feature_jurkat_td_rep1_fract2_ms1.feature">
+    <None Update="FileReadingTests\ExternalFileTypes\FlashDeconvMs1Feature_OpenMs3.0.0_ms1.feature">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv">
+    <None Update="FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_OpenMs3.0.0_ms1.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FlashDeconvMs2Feature_jurkat_td_rep1_fract2_ms2.feature">
+    <None Update="FileReadingTests\ExternalFileTypes\FlashDeconvMs2Feature_OpenMs3.0.0_ms2.feature">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FlashDeconvTsv_jurkat_td_rep1_fract2.tsv">
+    <None Update="FileReadingTests\ExternalFileTypes\FlashDeconvTsv_OpenMs3.0.0.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature">
+    <None Update="FileReadingTests\ExternalFileTypes\TopFDMs1Feature_v1.6.2_ms1.feature">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\TopFDMs2Feature_jurkat_td_rep1_fract2_ms2.feature">
+    <None Update="FileReadingTests\ExternalFileTypes\TopFDMs2Feature_v1.6.2_ms2.feature">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\TopFDmzrt_jurkat_td_rep1_fract2_frac.mzrt.csv">
+    <None Update="FileReadingTests\ExternalFileTypes\TopFDmzrt_v1.6.2.mzrt.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\humanInsulin.fasta">

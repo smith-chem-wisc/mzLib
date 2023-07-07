@@ -17,11 +17,11 @@ namespace Test.FileReadingTests
         public static void TestEquals()
         {
             string path1 =
-                @"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature";
+                @"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_v1.6.2_ms1.feature";
             string path2 =
-                @"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Feature_jurkat_td_rep1_fract2_ms1.feature";
+                @"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Feature_OpenMs3.0.0_ms1.feature";
             string ms2FeaturePath =
-                @"FileReadingTests\ExternalFileTypes\TopFDMs2Feature_jurkat_td_rep1_fract2_ms2.feature";
+                @"FileReadingTests\ExternalFileTypes\TopFDMs2Feature_v1.6.2_ms2.feature";
 
             Ms1FeatureFile ms1Features = new Ms1FeatureFile(path1);
             Assert.That(ms1Features.Software == Software.TopFD);
@@ -55,7 +55,7 @@ namespace Test.FileReadingTests
         public static void TestGetEnumerator()
         {
             string path1 =
-                @"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature";
+                @"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_v1.6.2_ms1.feature";
 
             Ms1FeatureFile ms1Features = new Ms1FeatureFile(path1);
 
