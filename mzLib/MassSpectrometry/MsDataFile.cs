@@ -168,7 +168,7 @@ namespace MassSpectrometry
         /// <summary>
         /// 
         /// Performs a Binary Search and returns the closest Spectrum Number to the given Retention Time (RT).
-        /// If RT is negative or bigger than last RT recorded in file, it will return 0.
+        /// If RT is negative or bigger than last RT recorded in the experiment file, it will return 0.
         /// 
         /// </summary>
         /// <param name="retentionTime"></param>
