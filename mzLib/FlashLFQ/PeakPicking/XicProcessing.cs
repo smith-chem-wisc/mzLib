@@ -11,6 +11,9 @@ using MathNet.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 using MathNet.Numerics.Interpolation;
 using MathNet.Numerics.Statistics;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("MyTests")]
 
 namespace FlashLFQ
 {
@@ -103,7 +106,7 @@ namespace FlashLFQ
         /// zero intensity peaks at the beginning and end of
         /// </summary>
         /// <param name="Peaks">Peaks to be padded</param>
-        private static List<IndexedMassSpectralPeak> PadPeaks(List<IndexedMassSpectralPeak> Peaks)
+        internal static List<IndexedMassSpectralPeak> PadPeaks(List<IndexedMassSpectralPeak> Peaks)
         {
             List<IndexedMassSpectralPeak> paddedXICs = new List<IndexedMassSpectralPeak>();
             double mz = Peaks.First().Mz;
@@ -136,39 +139,153 @@ namespace FlashLFQ
 
         // Visual inspection suggests that the true peaks tend to have a min and max relatively close to one another. 
         // A large time delta between minima and maxima suggests a broad peak, or two otherwise poorly behave peaks.
-        public static List<Extremum[]> ReconcileExtrema(List<Extremum> refExtrema, List<List<Extremum>> expExtremaList)
+        internal static Extremum[,] ReconcileExtrema(List<Extremum> refExtrema, List<List<Extremum>> expExtremaList)
         {
+            // While I'm 99% sure these are always going to alternate (max, min, max), I'm not
+            // 100% sure on the implementation of CubicSpline, so I'm going to play it safe and map the
+            // min + max indices to the full array indices instead of just doing an odds and evens thing
+            // If you're reading this and feel confident, feel free to rewrite
             Extremum[] refMaxima = refExtrema.Where(e => e.Type == ExtremumType.Maximum).ToArray();
+            int[] refMaxIndexMap = Enumerable.Range(0, refExtrema.Count)
+                .Where(i => refExtrema[i].Type == ExtremumType.Maximum)
+                .ToArray();
             Extremum[] refMinima = refExtrema.Where(e => e.Type == ExtremumType.Minimum).ToArray();
-            // One array corresponding to the reference extrema paired against each of the extrema
-            List<Extremum[]> pairedRefExtremaList = new();
-            // One array containing the paired extrema from each experimental array
-            List<Extremum[]> pairedExpExtremaList = new(); 
-            foreach (List<Extremum> expExtrema in expExtremaList)
+            int[] refMinIndexMap = Enumerable.Range(0, refExtrema.Count)
+                .Where(i => refExtrema[i].Type == ExtremumType.Minimum)
+                .ToArray();
+
+            // 2D array where rows are the extrema from different runs (reference extrema, then exp)
+            // and each column maps to a reference extrema
+            Extremum[,] extrema2dArray = new Extremum[refExtrema.Count, 1 + expExtremaList.Count];
+            
+            for (int i = 0; i < expExtremaList.Count; i++)
             {
-                Extremum[] expMaxima = expExtrema.Where(e => e.Type == ExtremumType.Maximum).ToArray();
-                Extremum[] expMinima = expExtrema.Where(e => e.Type == ExtremumType.Minimum).ToArray();
+                Extremum[] expMaxima = expExtremaList[i].Where(e => e != null && e.Type == ExtremumType.Maximum).ToArray();
+                if (expMaxima.IsNotNullOrEmpty())
+                {
+                    var matchedExpMaxima = MatchExtrema(refMaxima, expMaxima);
+                    for (int j = 0; j < refMaxIndexMap.Length; j++)
+                    {
+                        extrema2dArray[refMaxIndexMap[j], i + 1] = matchedExpMaxima[j];
+                    }
+                }
+                
 
-                var maxPairs = GetRetentionTimePairs(refMaxima, expMaxima);
-                var minPairs = GetRetentionTimePairs(refMinima, expMinima);
-
-                pairedRefExtremaList.Add(maxPairs
-                        .Select(t => t.reference)
-                        .Union(minPairs.Select(t => t.reference))
-                        .OrderBy(t => t.RetentionTime)
-                        .ToArray());
-                pairedExpExtremaList.Add(maxPairs
-                    .Select(t => t.exp)
-                    .Union(minPairs.Select(t => t.exp))
-                    .OrderBy(t => t.RetentionTime)
-                    .ToArray());
+                Extremum[] expMinima = expExtremaList[i].Where(e => e != null && e.Type == ExtremumType.Minimum).ToArray();
+                if (expMinima.IsNotNullOrEmpty())
+                {
+                    var matchedExpMinima = MatchExtrema(refMinima, expMinima);
+                    for (int j = 0; j < refMinIndexMap.Length; j++)
+                    {
+                        extrema2dArray[refMinIndexMap[j], i + 1] = matchedExpMinima[j];
+                    }
+                }
             }
-            // TODO: Create some consensus list from the different sets of reference extrema
 
-            pairedExpExtremaList.Insert(0,pairedRefExtremaList[0]);
-            return pairedExpExtremaList;
+            // Fill in the first row with all the refExtrema. Some will be removed in the ResolveExtremaArray method
+            for (int col = 0; col < extrema2dArray.GetLength(0); col++) 
+                extrema2dArray[col, 0] = refExtrema[col]; 
+            
+            ResolveExtremaArray(ref extrema2dArray);
+
+            return extrema2dArray;
         }
 
+        internal static Extremum[] MatchExtrema(Extremum[] refExtrema, Extremum[] expExtrema)
+        {
+            if (!refExtrema.IsNotNullOrEmpty() || !expExtrema.IsNotNullOrEmpty())
+                return null;
+            // For every reference Extremum, we search for potential pairs in the exp Extrema. If a 
+            // partner is found, it is placed into the paired Exp Extrema array at the same index as 
+            // that of the reference Extremum in the refExtrema array
+            Extremum[] pairedExpExtrema = new Extremum[refExtrema.Length];
+
+            // For each position in the reference away, stores the index of the closest Extremum in the experimental array
+            int[] expIndices = new int[refExtrema.Length];
+            for(int j = 0; j < refExtrema.Length; j++)
+            {
+                expIndices[j] = expExtrema.GetClosestIndex(refExtrema[j]);
+            }
+
+            int i = 0;
+            while(i < expIndices.Length)
+            {
+                // It's possible that multiple reference extrema will all be closest
+                // to one experimental extremum. In that case, we should report the RT
+                // pair where the experimental and reference extrema are closest in time
+                if (i < expIndices.Length - 1 && expIndices[i] == expIndices[i + 1])
+                {
+                    int duplicateIndex = expIndices[i];
+                    double diff = Math.Abs(expExtrema[expIndices[i]] - refExtrema[i]);
+                    Dictionary<int, double> indexDiffDict = new Dictionary<int, double> { { i, diff } };
+                    i++;
+
+                    while (i < expIndices.Length && expIndices[i] == duplicateIndex)
+                    {
+                        diff = Math.Abs(expExtrema[expIndices[i]] - refExtrema[i]);
+                        indexDiffDict.Add(i, diff);
+                        i++;
+                    }
+
+                    int indexOfClosestPair = indexDiffDict.MinBy(kvp => kvp.Value).Key;
+                    pairedExpExtrema[indexOfClosestPair] = expExtrema[expIndices[indexOfClosestPair]];
+                }
+                else
+                {
+                    pairedExpExtrema[i] = expExtrema[expIndices[i]];
+                    i++;
+                }
+            }
+
+            return pairedExpExtrema;
+        }
+
+        /// <summary>
+        /// Creates consensus within the array containing extrema that were paired with the reference extrema array.
+        /// Reference array is the first row of the array.
+        /// Method iterates through each non-reference column - if half or more ((num rows - 1)/2) have values,
+        /// then that reference extremum is retained, all paired non-reference extrema are retained,
+        /// and any rows (here, rows are unique XICs from different runs) that don't contain a paired extrema,
+        /// an imputed extrema is inserted with retention time = average retention time for the column,
+        /// type = reference type, and intensity = -1. If fewer than half have values, all extrema in that
+        /// column are discarded, including the reference extrema
+        /// </summary>
+        public static void ResolveExtremaArray(ref Extremum[,] array)
+        {
+            int nonReferenceCount = array.GetLength(1) - 1;
+
+            for (int col = 0; col < array.GetLength(0); col++)
+            {
+                double meanTime = array[col, 0].RetentionTime;
+                int nullCount = 0;
+                for(int row = 1; row < array.GetLength(1); row++)
+                {
+                    if (array[col, row] == null)
+                        nullCount++;
+                    else
+                        meanTime += array[col, row].RetentionTime;
+                }
+
+                if (nullCount > nonReferenceCount / 2)
+                    SetColumnToNull(ref array, col);
+                else if (nullCount > 0)
+                {
+                    meanTime = meanTime / (double)array.GetLength(1);
+                    Extremum imputedExtremum = new Extremum(meanTime, -1, array[col, 0].Type);
+                    for (int row = 1; row < array.GetLength(1); row++)
+                    {
+                        if (array[col, row] == null)
+                            array[col, row] = imputedExtremum;
+                    }
+                }
+            }
+        }
+
+        public static void SetColumnToNull(ref Extremum[,] array, int col)
+        {
+            for(int row = 0; row < array.GetLength(1); row++)
+                array[col, row] = null;
+        }
         //public static Extremum[] OrderExtrema(List<Extremum> maxima, List<Extremum> minima)
         //{
         //    Extremum[] orderedExtrema = new Extremum[maxima.Count + minima.Count];
@@ -200,59 +317,6 @@ namespace FlashLFQ
         //    return orderedExtrema;
         //}
 
-        public static List<(Extremum reference, Extremum exp)> GetRetentionTimePairs(Extremum[] refExtrema, Extremum[] expExtrema)
-        {
-            // The reference should be shorter than the experimental (requires fewer iterations)
-            // if that isn't the case, we swap the ref and exp arrays.
-            bool swapped = false;
-            if (refExtrema.Length > expExtrema.Length)
-            {
-                Extremum[] temp = new Extremum[refExtrema.Length];
-                Array.Copy(refExtrema, temp, refExtrema.Length);
-                refExtrema = expExtrema;
-                expExtrema = temp;
-                swapped = true;
-            }
-
-            List<(Extremum, Extremum)> rtPairs = new List<(Extremum, Extremum)>();
-            List<int> expIndices = new();
-            foreach(Extremum refExtremum in refExtrema)
-            {
-                expIndices.Add(expExtrema.GetClosestIndex(refExtremum));
-            }
-
-            for(int i = 0; i < expIndices.Count; i++)
-            {
-                // It's possible that multiple reference extrema will all be closest
-                // to one experimental extremum. In that case, we should report the RT
-                // pair where the experimental and reference extrema are closest in time
-                if (i < expIndices.Count - 1 && expIndices[i] == expIndices[i+1])
-                {
-                    int duplicateIndex = expIndices[i];
-                    double diff = Math.Abs(expExtrema[expIndices[i]] - refExtrema[i]);
-                    Dictionary<int, double> indexDiffDict = new Dictionary<int, double>{ {i, diff} };
-                    i++;
-
-                    while(i < expIndices.Count && expIndices[i] == duplicateIndex)
-                    {
-                        diff = Math.Abs(expExtrema[expIndices[i]] - refExtrema[i]);
-                        indexDiffDict.Add(i, diff);
-                        i++;
-                    }
-
-                    int indexOfClosestPair = indexDiffDict.MinBy(kvp => kvp.Value).Key;
-                    rtPairs.Add((refExtrema[indexOfClosestPair], expExtrema[expIndices[indexOfClosestPair]]));
-                }
-                else
-                {
-                    rtPairs.Add((refExtrema[i], expExtrema[expIndices[i]]));
-                }
-            }
-
-            return swapped // If the two were swapped up top, they're swapped back here
-                ? rtPairs.Select(pair => (pair.Item2, pair.Item1)).ToList() 
-                : rtPairs;
-        }
 
         /// <summary>
         /// Modifies lists such that they have an equal length. The longer of the two lists will

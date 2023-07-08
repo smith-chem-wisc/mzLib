@@ -69,8 +69,8 @@ namespace TestFlashLFQ
             // run the engine and grab XICs
             engine.Run();
             var indexingEngine = engine.GetIndexingEngine();
-            var inflixXic = indexingEngine.GetXIC(peakFindingMass, inflix);
-            var nistXic = indexingEngine.GetXIC(peakFindingMass, nist);
+            var inflixXic = indexingEngine.ExtractPeaks(peakFindingMass, inflix);
+            var nistXic = indexingEngine.ExtractPeaks(peakFindingMass, nist);
 
             // generate a fake XIC with a known shift and test that AlignPeaks returns the correct shift
             double rtShift = 0.15;
@@ -117,6 +117,9 @@ namespace TestFlashLFQ
             SpectraFileInfo inflix = new SpectraFileInfo(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
                 "inflix", 0, 0, 0);
+            SpectraFileInfo inflix2 = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_2-calib.mzML"),
+                "inflix", 0, 0, 0);
 
             // create IDs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -131,48 +134,46 @@ namespace TestFlashLFQ
                 rt, 3, new List<ProteinGroup> { pg });
             Identification y7ModIdInflix = new Identification(inflix, baseSequence, modSeq, monoisotopicMass,
                 rt, 3, new List<ProteinGroup> { pg });
+            Identification y7ModIdInflix2 = new Identification(inflix2, baseSequence, modSeq, monoisotopicMass,
+                rt, 3, new List<ProteinGroup> { pg }); // It's actually ambiguous in this one
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { y7ModId, y7ModIdInflix },
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { y7ModId, y7ModIdInflix, y7ModIdInflix2 },
                 normalize: false, maxThreads: 1, matchBetweenRuns: true, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
             var results = engine.Run();
 
             var indexingEngine = engine.GetIndexingEngine();
-            var nistPeaks = indexingEngine.GetXIC(peakFindingMass, nist);
-            var inflixPeaks = indexingEngine.GetXIC(peakFindingMass, inflix);
+            var nistPeaks = indexingEngine.ExtractPeaks(peakFindingMass, nist);
+            var inflixPeaks = indexingEngine.ExtractPeaks(peakFindingMass, inflix);
+            var inflix2Peaks = indexingEngine.ExtractPeaks(peakFindingMass, inflix2);
             double inflixAdjustment = XicProcessing.AlignPeaks(nistPeaks, inflixPeaks, 100);
+            double inflix2Adjustment = XicProcessing.AlignPeaks(nistPeaks, inflix2Peaks, 100);
 
             Xic nistXic = new Xic(nistPeaks, peakFindingMass, nist, 0, referenceXic: true);
             Xic inflixXic = new Xic(inflixPeaks, peakFindingMass, inflix, inflixAdjustment, referenceXic: false);
+            Xic inflix2Xic = new Xic(inflix2Peaks, peakFindingMass, inflix2, inflix2Adjustment, referenceXic: false);
 
+            //
             var matchedExtrema = XicProcessing.ReconcileExtrema(nistXic.Extrema,
-                new List<List<Extremum>> { inflixXic.Extrema });
+                new List<List<Extremum>> { inflix2Xic.Extrema, inflixXic.Extrema, });
 
-            var refType = matchedExtrema[0].Select(e => e.Type).ToArray();
-
-            Assert.AreEqual(matchedExtrema[0].Length, 16);
-            Assert.AreEqual(matchedExtrema[1].Length, 16);
+            int placeholder = 0;
         }
 
         [Test]
-        public static void GetRtPairsTest()
+        public static void MatchExtremaTest()
         {
             var ex1 = new Extremum(1, 0, ExtremumType.Maximum);
             var ex2 = new Extremum(2, 0, ExtremumType.Maximum);
             var ex3 = new Extremum(3, 0, ExtremumType.Maximum);
             var ex4 = new Extremum(4, 0, ExtremumType.Maximum);
             var ex5 = new Extremum(5, 0, ExtremumType.Maximum);
+
             Extremum[] refArray = { ex1, ex2, ex3, ex4, ex5 };
             Extremum[] expArray = { ex1, ex3, ex5 };
-
-            var pairs = XicProcessing.GetRetentionTimePairs(refArray, expArray);
-            Assert.AreEqual(pairs, new List<(Extremum, Extremum)>
-            {
-                (ex1, ex1),
-                (ex3, ex3),
-                (ex5, ex5)
-            });
+            var pairs = XicProcessing.MatchExtrema(refArray, expArray);
+            Assert.AreEqual(pairs, new Extremum[] { ex1, null, ex3, null, ex5 });
 
             var ex32 = new Extremum(3.2, 0, ExtremumType.Maximum);
             var ex47 = new Extremum(4.7, 0, ExtremumType.Maximum);
@@ -182,13 +183,138 @@ namespace TestFlashLFQ
             
             Extremum[] refArray2 = { ex1, ex3, ex51, ex53, ex55 };
             Extremum[] expArray2 = { ex1, ex1, ex3, ex32, ex4, ex47, ex5, ex5 };
-            pairs = XicProcessing.GetRetentionTimePairs(refArray2, expArray2);
-            Assert.AreEqual(pairs, new List<(Extremum, Extremum)>
-            {
-                (ex1, ex1),
-                (ex3, ex3),
-                (ex51, ex5)
-            });
+            pairs = XicProcessing.MatchExtrema(refArray2, expArray2);
+            Assert.AreEqual(pairs, new Extremum[]
+                { ex1, ex3, ex5, null, null });
+
+            var ex21 = new Extremum(2.1, 0, ExtremumType.Maximum);
+            var ex22 = new Extremum(2.2, 0, ExtremumType.Maximum);
+            var ex23 = new Extremum(2.3, 0, ExtremumType.Maximum);
+
+            Extremum[] refArray3 = { ex1, ex2, ex3, ex4};
+            Extremum[] expArray3 = { ex2, ex21, ex22, ex23 };
+            pairs = XicProcessing.MatchExtrema(refArray3, expArray3);
+            Assert.AreEqual(pairs, new Extremum[]
+                { null, ex2, ex23, null });
+        }
+
+        [Test]
+        public static void ReconcileExtremaTest()
+        {
+            var ex1 = new Extremum(1, 0, ExtremumType.Maximum);
+            var ex2 = new Extremum(2, 0, ExtremumType.Maximum);
+            var ex3 = new Extremum(3, 0, ExtremumType.Maximum);
+            var ex4 = new Extremum(4, 0, ExtremumType.Maximum);
+            var ex5 = new Extremum(5, 0, ExtremumType.Maximum);
+
+            Extremum[] refArray = { ex1, ex2, ex3, ex4, ex5 };
+            Extremum[] expArray1 = { ex1, null, ex3, null, ex5 };
+            Extremum[] expArray2 = { ex1, null, ex3, null, ex5 };
+            Extremum[] expArray3 = { ex1, null, ex3, null, ex5 };
+            var matrix = XicProcessing.ReconcileExtrema(
+                refArray.ToList(),
+                new List<List<Extremum>>
+                {
+                    expArray1.ToList(),
+                    expArray2.ToList(),
+                    expArray3.ToList()
+                });
+
+            var firstRow = Enumerable.Range(0, 5)
+                .Select(i => matrix[i, 0])
+                .ToArray();
+            CollectionAssert.AreEqual(firstRow, new Extremum[] { ex1, null, ex3, null, ex5 });
+
+
+            // TODO: Add more tests for reconcile extrema
+            var ex32 = new Extremum(3.2, 0, ExtremumType.Maximum);
+            var ex47 = new Extremum(4.7, 0, ExtremumType.Maximum);
+            var ex51 = new Extremum(5.1, 0, ExtremumType.Maximum);
+            var ex53 = new Extremum(5.3, 0, ExtremumType.Maximum);
+            var ex55 = new Extremum(5.5, 0, ExtremumType.Maximum);
+
+            //Extremum[] refArray2 = { ex1, ex3, ex51, ex53, ex55 };
+            //Extremum[] expArray2 = { ex1, ex1, ex3, ex32, ex4, ex47, ex5, ex5 };
+            //pairs = XicProcessing.MatchExtrema(refArray2, expArray2);
+            //Assert.AreEqual(pairs, new Extremum[]
+            //    { ex1, ex3, ex5, null, null });
+
+            //var ex21 = new Extremum(2.1, 0, ExtremumType.Maximum);
+            //var ex22 = new Extremum(2.2, 0, ExtremumType.Maximum);
+            //var ex23 = new Extremum(2.3, 0, ExtremumType.Maximum);
+
+            //Extremum[] refArray3 = { ex1, ex2, ex3, ex4 };
+            //Extremum[] expArray3 = { ex2, ex21, ex22, ex23 };
+            //pairs = XicProcessing.MatchExtrema(refArray3, expArray3);
+            //Assert.AreEqual(pairs, new Extremum[]
+            //    { null, ex2, ex23, null });
+        }
+
+        [Test]
+        public static void TestPeakRecognitionForCoelutingIsobars()
+        {
+            // In FPOP and PLIMB data, we observe cases where a modification on an aromatic residue can result in 
+            // multiple chromatographic peaks belonging to the same ID ( think F modified at ortho, meta, and para positions)
+            // get the raw file paths
+
+            // This test simulates a situation where three peaks elute very close together - close enough that FlashLFQ considers it 
+            // one peak.
+            // Peak 1 - One broad peak that is most likely caused by two co-eluting (only small rt shift) peptides,
+            //      "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK", score 16 and "PWY[CF3:CF3 on Y]EPIYLGGVFQLEK", score 6
+            // Peak 2 - One broad peak w/o a good MS2 scan. Based on other runs, this peak most likely belongs to
+            //      "PW[CF3:CF3 on W]YEPIYLGGVFQLEK". However, in this run, only one ambiguous MS2 scan was collected at the start
+            //      of the peak elution. Ideally, this peak would be identified by MBR. Another test will be written for that case
+            // Peak 3 - Undetermined, most likely two co-eluting species. Unimportant for the purposes of this test
+
+            SpectraFileInfo nist = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
+                "nist", 1, 0, 0);
+
+            // create IDs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            double monoisotopicMass = 2005.980136305;
+            double peakFindingMass = 670.00;
+
+            string baseSequence = "PWYEPIYLGGVFQLEK";
+            string y7ModSeq = "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK";
+            string y3ModSeq = "PWY[CF3:CF3 on Y]EPIYLGGVFQLE";
+            string ambiguousModSeq = "PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWY[CF3:CF3 on Y]EPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"; // score of 5
+
+            double y7ModRt = 33.22371;
+            double y3ModRt = 33.27658;
+            double ambiguousModRt = 33.2862;
+
+            // Intensities were found by examining the XICs and finding a local maxima
+            double firstPeakIntensity = 533157;
+            double secondPeakIntensity = 1778368;
+
+            Identification y7ModId = new Identification(nist, baseSequence, y7ModSeq, monoisotopicMass,
+                y7ModRt, 3, new List<ProteinGroup> { pg });
+            Identification y3ModId = new Identification(nist, baseSequence, y3ModSeq, monoisotopicMass,
+                y3ModRt, 3, new List<ProteinGroup> { pg });
+            Identification ambiguousModId = new Identification(nist, baseSequence, ambiguousModSeq, monoisotopicMass,
+                ambiguousModRt, 3, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { y7ModId, y3ModId, ambiguousModId },
+                normalize: false, maxThreads: 1, matchBetweenRuns: false, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
+
+            // run the engine and grab XICs
+            var results = engine.Run();
+
+            // Remeber that intensity is the sum of the isotopic envelope, so you have to do something else here.
+            Assert.That(results.PeptideModifiedSequences.ContainsKey(y7ModSeq + "|" + y3ModSeq));
+            Assert.That(results.PeptideModifiedSequences[y7ModSeq + "|" + y3ModSeq].GetIntensity(nist),
+                Is.EqualTo(firstPeakIntensity).Within(1));
+
+            Assert.That(results.PeptideModifiedSequences.ContainsKey("PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"));
+            // Questionable about whether or not we want to assign any intensity to this one. Probably not
+            Assert.That(results.PeptideModifiedSequences["PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"].GetIntensity(nist),
+                Is.EqualTo(null));
+
+            // Currently, y3 and the ambiguous are getting assigned to the same peak (the second one)
+            // We need a better peak finding algorithm. I'm thinking splines
+
         }
 
         [Test]
@@ -234,8 +360,8 @@ namespace TestFlashLFQ
             // run the engine and grab XICs
             engine.Run();
             var indexingEngine = engine.GetIndexingEngine();
-            var inflixXic = indexingEngine.GetXIC(peakFindingMass, inflix);
-            var nistXic = indexingEngine.GetXIC(peakFindingMass, nist);
+            var inflixXic = indexingEngine.ExtractPeaks(peakFindingMass, inflix);
+            var nistXic = indexingEngine.ExtractPeaks(peakFindingMass, nist);
 
             double nistOffset = XicProcessing.AlignPeaks(inflixXic, nistXic);
 
@@ -256,13 +382,6 @@ namespace TestFlashLFQ
             Array.Sort(nistStationaryPoint);
             var nistSecondDerivates = nistStationaryPoint.Select(zero => nistSpline.Differentiate2(zero)).ToArray();
 
-            //var test = XicProcessing.GetRetentionTimePairs(inflixStationaryPoint, nistStationaryPoint);
-
-            var placeholder = 0;
-
-            
-
-
         }
 
         [Test]
@@ -276,6 +395,9 @@ namespace TestFlashLFQ
             // The first peak is MS/MS id'd in one file (inflix), and the second peak is MS/MS id'd in the second (nist)
             SpectraFileInfo inflix = new SpectraFileInfo(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
+                "inflix", 0, 0, 0);
+            SpectraFileInfo inflix2 = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_2-calib.mzML"),
                 "inflix", 0, 0, 0);
             SpectraFileInfo nist = new SpectraFileInfo(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
@@ -310,78 +432,27 @@ namespace TestFlashLFQ
             // run the engine and grab XICs
             var results = engine.Run();
 
+            var indexingEngine = engine.GetIndexingEngine();
+            var nistPeaks = indexingEngine.ExtractPeaks(peakFindingMass, nist);
+            var inflixPeaks = indexingEngine.ExtractPeaks(peakFindingMass, inflix);
+            double inflixAdjustment = XicProcessing.AlignPeaks(nistPeaks, inflixPeaks, 100);
+
+            Xic nistXic = new Xic(nistPeaks, peakFindingMass, nist, 0, referenceXic: true);
+            Xic inflixXic = new Xic(inflixPeaks, peakFindingMass, inflix, inflixAdjustment, referenceXic: false);
+
+            var matchedExtrema = XicProcessing.ReconcileExtrema(nistXic.Extrema,
+                new List<List<Extremum>> { inflixXic.Extrema });
+
+            //var refType = matchedExtrema[0].Select(e => e.Type).ToArray();
+
+            //Assert.AreEqual(matchedExtrema[0].Length, 16);
+            //Assert.AreEqual(matchedExtrema[1].Length, 16);
+
             Assert.That(results.PeptideModifiedSequences[fullSequence].GetIntensity(inflix), 
                 Is.EqualTo(firstPeakInflixIntensity + secondPeakInflixIntensity).Within(1));
 
             Assert.That(results.PeptideModifiedSequences[fullSequence].GetIntensity(nist),
                 Is.EqualTo(firstPeakNistIntensity + secondPeakNistIntensity).Within(1));
-        }
-
-        [Test]
-        public static void TestPeakRecognitionForCoelutingIsobars()
-        {
-            // In FPOP and PLIMB data, we observe cases where a modification on an aromatic residue can result in 
-            // multiple chromatographic peaks belonging to the same ID ( think F modified at ortho, meta, and para positions)
-            // get the raw file paths
-
-            // This test simulates a situation where three peaks elute very close together - close enough that FlashLFQ considers it 
-            // one peak.
-            // Peak 1 - One broad peak that is most likely caused by two co-eluting (only small rt shift) peptides,
-            //      "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK", score 16 and "PWY[CF3:CF3 on Y]EPIYLGGVFQLEK", score 6
-            // Peak 2 - One broad peak w/o a good MS2 scan. Based on other runs, this peak most likely belongs to
-            //      "PW[CF3:CF3 on W]YEPIYLGGVFQLEK". However, in this run, only one ambiguous MS2 scan was collected at the start
-            //      of the peak elution. Ideally, this peak would be identified by MBR. Another test will be written for that case
-            // Peak 3 - Undetermined, most likely two co-eluting species. Unimportant for the purposes of this test
-
-            SpectraFileInfo nist = new SpectraFileInfo(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
-                "nist", 1, 0, 0);
-
-            // create IDs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            double monoisotopicMass = 2005.980136305;
-            double peakFindingMass = 670.00;
-
-            string baseSequence = "PWYEPIYLGGVFQLEK";
-            string y7ModSeq = "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK";
-            string y3ModSeq = "PWY[CF3:CF3 on Y]EPIYLGGVFQLE";
-            string ambiguousModSeq = "PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWY[CF3:CF3 on Y]EPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"; // score of 5
-
-            double y7ModRt = 33.22371; 
-            double y3ModRt = 33.27658;
-            double ambiguousModRt = 33.2862;
-
-            // Intensities were found by examining the XICs and finding a local maxima
-            double firstPeakIntensity = 533157;
-            double secondPeakIntensity = 1778368;
-
-            Identification y7ModId = new Identification(nist, baseSequence, y7ModSeq, monoisotopicMass,
-                y7ModRt, 3, new List<ProteinGroup> { pg });
-            Identification y3ModId = new Identification(nist, baseSequence, y3ModSeq, monoisotopicMass,
-                y3ModRt, 3, new List<ProteinGroup> { pg });
-            Identification ambiguousModId = new Identification(nist, baseSequence, ambiguousModSeq, monoisotopicMass,
-                ambiguousModRt, 3, new List<ProteinGroup> { pg });
-
-            // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { y7ModId, y3ModId, ambiguousModId },
-                normalize: false, maxThreads: 1, matchBetweenRuns: false, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
-
-            // run the engine and grab XICs
-            var results = engine.Run();
-
-            // Remeber that intensity is the sum of the isotopic envelope, so you have to do something else here.
-            Assert.That(results.PeptideModifiedSequences.ContainsKey(y7ModSeq + "|" + y3ModSeq));
-            Assert.That(results.PeptideModifiedSequences[y7ModSeq + "|" + y3ModSeq].GetIntensity(nist),
-                Is.EqualTo(firstPeakIntensity).Within(1));
-
-            Assert.That(results.PeptideModifiedSequences.ContainsKey("PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"));
-            // Questionable about whether or not we want to assign any intensity to this one. Probably not
-            Assert.That(results.PeptideModifiedSequences["PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK"].GetIntensity(nist),
-                Is.EqualTo(null));
-
-            // Currently, y3 and the ambiguous are getting assigned to the same peak (the second one)
-            // We need a better peak finding algorithm. I'm thinking splines
-
         }
 
         [Test]

@@ -96,7 +96,7 @@ namespace FlashLFQ
             return true;
         }
 
-        public List<IndexedMassSpectralPeak> GetXIC(double mz, SpectraFileInfo spectraFile)
+        public List<IndexedMassSpectralPeak> ExtractPeaks(double mz, SpectraFileInfo spectraFile)
         {
             DeserializeIndex(spectraFile);
             int mzIndex = (int)Math.Round(mz * BinsPerDalton, 0);

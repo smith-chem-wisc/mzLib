@@ -1083,6 +1083,11 @@ namespace FlashLFQ
             _results.Peaks[spectraFile] = errorCheckedPeaks;
         }
 
+        public void MultiRunConsesus()
+        {
+
+        }
+
         /// <summary>
         /// Takes in a list of imsPeaks and finds all the isotopic peaks in each scan. If the experimental isotopic distribution
         /// matches the theoretical distribution, an IsotopicEnvelope object is created from the summed intensities of each isotopic peak.
