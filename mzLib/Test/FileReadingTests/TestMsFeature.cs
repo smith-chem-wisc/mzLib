@@ -130,7 +130,7 @@ namespace Test.FileReadingTests
             Assert.That(first.SampleFeatureIntensity, Is.EqualTo(813423).Within(0.00001));
 
             Assert.That(last.ZeroBasedScanNumber, Is.EqualTo(-1));
-            Assert.That(first.OneBasedScanNumber, Is.EqualTo(0));
+            Assert.That(last.OneBasedScanNumber, Is.EqualTo(0));
             Assert.That(last.FractionId, Is.EqualTo(0));
             Assert.That(last.FilePath, Is.EqualTo(
                 "D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
@@ -212,7 +212,7 @@ namespace Test.FileReadingTests
             Assert.That(first.SampleFeatureIntensity, Is.EqualTo(141018972.3899998).Within(0.00001));
 
             Assert.That(last.ZeroBasedScanNumber, Is.EqualTo(2808));
-            Assert.That(first.OneBasedScanNumber, Is.EqualTo(2809));
+            Assert.That(last.OneBasedScanNumber, Is.EqualTo(2809));
             Assert.That(last.FractionId, Is.EqualTo(0));
             Assert.That(last.FilePath, Is.EqualTo(
                 "D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
