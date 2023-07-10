@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
 using Easy.Common.Extensions;
+using Easy.Common.Interfaces;
 using Transcriptomics.Fragmentation;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -324,7 +325,10 @@ namespace Transcriptomics
 
         #region Digestion
 
-        // TODO:
+        public IEnumerable<NucleicAcid> Digest()
+        {
+            throw new NotImplementedException();
+        }
 
         #endregion
 
