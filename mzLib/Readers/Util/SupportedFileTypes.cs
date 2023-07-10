@@ -49,22 +49,23 @@ namespace Readers
                 case ".mgf": return SupportedFileType.Mgf;
                 case ".d": return SupportedFileType.BrukerD;
                 case ".feature":
-                    if (filePath.EndsWith("_ms1.feature", StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;
-                    if (filePath.EndsWith("_ms2.feature", StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Ms2Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms2Feature;
                     throw new MzLibException("Feature file type not supported");
 
                 case ".csv":
-                    if (filePath.EndsWith("mzrt.csv", StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Mzrt_TopFd;
                     throw new MzLibException("Csv file type not supported");
 
                 case ".tsv":
-                    if (filePath.EndsWith("_ms1.tsv", StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Tsv_FlashDeconv;
-                    if (filePath.EndsWith(".tsv", StringComparison.InvariantCultureIgnoreCase) &&
-                        !filePath.EndsWith("_ms1.tsv", StringComparison.InvariantCultureIgnoreCase))
+                    // catchall for other tsv types, one one implemented right now
+                    if (filePath.EndsWith(SupportedFileType.Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase) &&
+                        !filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Tsv_FlashDeconv;
                     throw new MzLibException("Tsv file type not supported");
 
