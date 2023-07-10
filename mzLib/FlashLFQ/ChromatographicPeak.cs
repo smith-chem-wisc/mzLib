@@ -68,7 +68,7 @@ namespace FlashLFQ
                 sb.Append("Peak MZ" + "\t");
                 sb.Append("Peak Charge" + "\t");
                 sb.Append("Num Charge States Observed" + "\t");
-                sb.Append("Peak Detection Type" + "\t");
+                sb.Append("Peak Detection ExtremumType" + "\t");
                 sb.Append("MBR Score" + "\t");
                 sb.Append("PSMs Mapped" + "\t");
                 sb.Append("Base Sequences Mapped" + "\t");

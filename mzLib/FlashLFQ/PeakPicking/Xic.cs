@@ -16,7 +16,7 @@ namespace FlashLFQ.PeakPicking
         public readonly SpectraFileInfo SpectraFile;
         public CubicSpline Spline;
         public List<Extremum> Extrema { get; private set; }
-        public Dictionary<int, DoubleRange> Regions { get; private set; }
+        public Dictionary<int, DoubleRange> PeakRegions { get; internal set; }
         /// <summary>
         /// If true, this XIC is used as the retention time reference.
         /// All other XICs  are aligned such that they are maximally similar to

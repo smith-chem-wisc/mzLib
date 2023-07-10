@@ -158,7 +158,7 @@ namespace Test.AveragingTests
             {
                 DummyMzSpectra.AverageSpectra(parameters);
             });
-            Assert.That(exception.Message == "Spectrum Averaging Type Not Yet Implemented");
+            Assert.That(exception.Message == "Spectrum Averaging ExtremumType Not Yet Implemented");
         }
 
         [Test]

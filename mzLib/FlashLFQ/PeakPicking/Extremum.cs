@@ -18,12 +18,12 @@ namespace FlashLFQ.PeakPicking
         /// Interpolated intensity
         /// </summary>
         public readonly int Intensity;
-        public readonly ExtremumType Type;
+        public readonly ExtremumType ExtremumType;
         public Extremum(double retentionTime, int intensity, ExtremumType type)
         {
             RetentionTime = retentionTime;
             Intensity = intensity;
-            Type = type;
+            ExtremumType = type;
         }
 
         public int CompareTo(Extremum other)
@@ -33,7 +33,28 @@ namespace FlashLFQ.PeakPicking
             return RetentionTime.CompareTo(other.RetentionTime);
         }
 
-        
+        /// <summary>
+        /// Returns true if both objects are extrema, both extrema 
+        /// have the same intensity, same type, and retention times
+        /// within 6 milliseconds of one another
+        /// </summary>
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as Extremum);
+        }
+
+        /// <summary>
+        /// Returns true if both extrema have the same intensity,
+        /// same type, and retention times within 6 milliseconds
+        /// of one another
+        /// </summary>
+        public bool Equals(Extremum obj)
+        {
+            return obj != null 
+                && Math.Abs(obj - this) <= 0.0001 
+                && obj.Intensity == this.Intensity
+                && obj.ExtremumType == this.ExtremumType;
+        }
 
         public static bool operator > (Extremum operand1, Extremum operand2)
         {

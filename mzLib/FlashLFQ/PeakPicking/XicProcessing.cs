@@ -141,17 +141,15 @@ namespace FlashLFQ
         // A large time delta between minima and maxima suggests a broad peak, or two otherwise poorly behave peaks.
         internal static Extremum[,] ReconcileExtrema(List<Extremum> refExtrema, List<List<Extremum>> expExtremaList)
         {
-            // While I'm 99% sure these are always going to alternate (max, min, max), I'm not
-            // 100% sure on the implementation of CubicSpline, so I'm going to play it safe and map the
-            // min + max indices to the full array indices instead of just doing an odds and evens thing
-            // If you're reading this and feel confident, feel free to rewrite
-            Extremum[] refMaxima = refExtrema.Where(e => e.Type == ExtremumType.Maximum).ToArray();
+            // When finding Extrema on a cubic spline, there is no guarantee that it will alternate min + max indices 
+            // (e.g., max, min, max, min). So, we need to record the location of each min and max w/in the ref array
+            Extremum[] refMaxima = refExtrema.Where(e => e.ExtremumType == ExtremumType.Maximum).ToArray();
             int[] refMaxIndexMap = Enumerable.Range(0, refExtrema.Count)
-                .Where(i => refExtrema[i].Type == ExtremumType.Maximum)
+                .Where(i => refExtrema[i].ExtremumType == ExtremumType.Maximum)
                 .ToArray();
-            Extremum[] refMinima = refExtrema.Where(e => e.Type == ExtremumType.Minimum).ToArray();
+            Extremum[] refMinima = refExtrema.Where(e => e.ExtremumType == ExtremumType.Minimum).ToArray();
             int[] refMinIndexMap = Enumerable.Range(0, refExtrema.Count)
-                .Where(i => refExtrema[i].Type == ExtremumType.Minimum)
+                .Where(i => refExtrema[i].ExtremumType == ExtremumType.Minimum)
                 .ToArray();
 
             // 2D array where rows are the extrema from different runs (reference extrema, then exp)
@@ -160,7 +158,7 @@ namespace FlashLFQ
             
             for (int i = 0; i < expExtremaList.Count; i++)
             {
-                Extremum[] expMaxima = expExtremaList[i].Where(e => e != null && e.Type == ExtremumType.Maximum).ToArray();
+                Extremum[] expMaxima = expExtremaList[i].Where(e => e != null && e.ExtremumType == ExtremumType.Maximum).ToArray();
                 if (expMaxima.IsNotNullOrEmpty())
                 {
                     var matchedExpMaxima = MatchExtrema(refMaxima, expMaxima);
@@ -171,7 +169,7 @@ namespace FlashLFQ
                 }
                 
 
-                Extremum[] expMinima = expExtremaList[i].Where(e => e != null && e.Type == ExtremumType.Minimum).ToArray();
+                Extremum[] expMinima = expExtremaList[i].Where(e => e != null && e.ExtremumType == ExtremumType.Minimum).ToArray();
                 if (expMinima.IsNotNullOrEmpty())
                 {
                     var matchedExpMinima = MatchExtrema(refMinima, expMinima);
@@ -252,8 +250,6 @@ namespace FlashLFQ
         /// </summary>
         public static void ResolveExtremaArray(ref Extremum[,] array)
         {
-            int nonReferenceCount = array.GetLength(1) - 1;
-
             for (int col = 0; col < array.GetLength(0); col++)
             {
                 double meanTime = array[col, 0].RetentionTime;
@@ -266,12 +262,12 @@ namespace FlashLFQ
                         meanTime += array[col, row].RetentionTime;
                 }
 
-                if (nullCount > nonReferenceCount / 2)
+                if (nullCount > array.GetLength(1) / 2)
                     SetColumnToNull(ref array, col);
                 else if (nullCount > 0)
                 {
-                    meanTime = meanTime / (double)array.GetLength(1);
-                    Extremum imputedExtremum = new Extremum(meanTime, -1, array[col, 0].Type);
+                    meanTime = meanTime / (double)(array.GetLength(1) - nullCount);
+                    Extremum imputedExtremum = new Extremum(meanTime, -1, array[col, 0].ExtremumType);
                     for (int row = 1; row < array.GetLength(1); row++)
                     {
                         if (array[col, row] == null)

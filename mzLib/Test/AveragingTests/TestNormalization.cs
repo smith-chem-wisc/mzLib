@@ -103,7 +103,7 @@ namespace Test.AveragingTests
             {
                 SpectraNormalization.NormalizeSpectra( new double[1][], (NormalizationType)(-1));
             });
-            Assert.That(exception.Message == "Normalization Type not yet implemented");
+            Assert.That(exception.Message == "Normalization ExtremumType not yet implemented");
         }
 
         [Test]
