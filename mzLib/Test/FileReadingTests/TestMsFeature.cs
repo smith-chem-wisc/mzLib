@@ -112,9 +112,10 @@ namespace Test.FileReadingTests
             var first = ms1Features.First();
             var last = ms1Features.Last();
 
-            Assert.That(first.SpectraId, Is.EqualTo(-1));
+            Assert.That(first.ZeroBasedScanNumber, Is.EqualTo(-1));
+            Assert.That(first.OneBasedScanNumber, Is.EqualTo(0));
             Assert.That(first.FractionId, Is.EqualTo(0));
-            Assert.That(first.FileName, Is.EqualTo(
+            Assert.That(first.FilePath, Is.EqualTo(
                     "D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
             Assert.That(first.Scans, Is.EqualTo(-1));
             Assert.That(first.Ms1Id, Is.EqualTo(-1));
@@ -128,9 +129,10 @@ namespace Test.FileReadingTests
             Assert.That(first.SampleFeatureId, Is.EqualTo(16533));
             Assert.That(first.SampleFeatureIntensity, Is.EqualTo(813423).Within(0.00001));
 
-            Assert.That(last.SpectraId, Is.EqualTo(-1));
+            Assert.That(last.ZeroBasedScanNumber, Is.EqualTo(-1));
+            Assert.That(first.OneBasedScanNumber, Is.EqualTo(0));
             Assert.That(last.FractionId, Is.EqualTo(0));
-            Assert.That(last.FileName, Is.EqualTo(
+            Assert.That(last.FilePath, Is.EqualTo(
                 "D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
             Assert.That(last.Scans, Is.EqualTo(-1));
             Assert.That(last.Ms1Id, Is.EqualTo(-1));
@@ -192,9 +194,10 @@ namespace Test.FileReadingTests
             var first = ms1Features.First();
             var last = ms1Features.Last();
 
-            Assert.That(first.SpectraId, Is.EqualTo(0));
+            Assert.That(first.ZeroBasedScanNumber, Is.EqualTo(0));
+            Assert.That(first.OneBasedScanNumber, Is.EqualTo(1));
             Assert.That(first.FractionId, Is.EqualTo(0));
-            Assert.That(first.FileName, Is.EqualTo(
+            Assert.That(first.FilePath, Is.EqualTo(
                     "D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
             Assert.That(first.Scans, Is.EqualTo(614));
             Assert.That(first.Ms1Id, Is.EqualTo(612));
@@ -208,9 +211,10 @@ namespace Test.FileReadingTests
             Assert.That(first.SampleFeatureId, Is.EqualTo(20141));
             Assert.That(first.SampleFeatureIntensity, Is.EqualTo(141018972.3899998).Within(0.00001));
 
-            Assert.That(last.SpectraId, Is.EqualTo(2808));
+            Assert.That(last.ZeroBasedScanNumber, Is.EqualTo(2808));
+            Assert.That(first.OneBasedScanNumber, Is.EqualTo(2809));
             Assert.That(last.FractionId, Is.EqualTo(0));
-            Assert.That(last.FileName, Is.EqualTo(
+            Assert.That(last.FilePath, Is.EqualTo(
                 "D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML"));
             Assert.That(last.Scans, Is.EqualTo(5555));
             Assert.That(last.Ms1Id, Is.EqualTo(2745));

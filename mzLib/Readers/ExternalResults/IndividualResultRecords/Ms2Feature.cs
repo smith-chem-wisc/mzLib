@@ -21,13 +21,16 @@ namespace Readers
         };
 
         [Name("Spec_ID")]
-        public int SpectraId { get; set; }
+        public int ZeroBasedScanNumber { get; set; }
+
+        [Ignore] 
+        public int OneBasedScanNumber => ZeroBasedScanNumber + 1;
 
         [Name("Fraction_ID")]
         public int FractionId { get; set; }
 
         [Name("File_name")]
-        public string FileName { get; set; }
+        public string FilePath { get; set; }
 
         [Name("Scans")]
         public int Scans { get; set; }

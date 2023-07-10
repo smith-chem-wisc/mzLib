@@ -24,7 +24,7 @@ namespace Readers
         public int FeatureIndex { get; set; }
 
         [Name("FileName")]
-        public string SpectraFileName { get; set; }
+        public string FilePath { get; set; }
 
         [Name("MonoisotopicMass")]
         public double MonoisotopicMass { get; set; }

@@ -25,10 +25,13 @@ namespace Readers
         public int Index { get; set; }
 
         [Name("FileName")]
-        public string SpectraFileName { get; set; }
+        public string FileName { get; set; }
 
         [Name("ScanNum")]
-        public int ScanNum { get; set; }
+        public int ZeroBasedScanNumber { get; set; }
+
+        [Ignore]
+        public int OneBasedScanNumber => ZeroBasedScanNumber + 1;
 
         /// <summary>
         /// Target Decoy of FlashDeconv
