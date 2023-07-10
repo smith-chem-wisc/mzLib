@@ -19,11 +19,11 @@ namespace Test.FileReadingTests
         [TestCase("DataFiles/SmallCalibratibleYeast.mzml", SupportedFileType.MzML)]
         [TestCase("DataFiles/tester.mgf", SupportedFileType.Mgf)]
         [TestCase("DataFiles/tester.d", SupportedFileType.BrukerD)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs2Feature_jurkat_td_rep1_fract2_ms2.feature", SupportedFileType.Ms2Feature)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms2Feature_FlashDeconvjurkat_td_rep1_fract2_ms2.feature", SupportedFileType.Ms2Feature)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature", SupportedFileType.Ms1Feature)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_jurkat_td_rep1_fract2_frac.mzrt.csv", SupportedFileType.Mzrt_TopFd)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvMs1Tsv_jurkat_td_rep1_fract2_ms1.tsv", SupportedFileType.Ms1Tsv_FlashDeconv)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashDeconvTsv_jurkat_td_rep1_fract2.tsv", SupportedFileType.Tsv_FlashDeconv)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Tsv_FlashDeconvjurkat_td_rep1_fract2_ms1.tsv", SupportedFileType.Ms1Tsv_FlashDeconv)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Tsv_FlashDeconvjurkat_td_rep1_fract2.tsv", SupportedFileType.Tsv_FlashDeconv)]
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();

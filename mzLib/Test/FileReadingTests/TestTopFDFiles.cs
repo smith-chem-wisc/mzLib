@@ -32,7 +32,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_v1.6.2.mzrt.csv", 4)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\mzrt_TopFDv1.6.2.mzrt.csv", 4)]
         public void TestTopFDMzRTLoadsAndCountCorrect(string path, int recordCount)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -42,7 +42,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_v1.6.2.mzrt.csv")]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\mzrt_TopFDv1.6.2.mzrt.csv")]
         public void TestTopFDMzRTFirstAndLastAreCorrect(string path)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -86,7 +86,7 @@ namespace Test.FileReadingTests
         public static void TestTopFdMzRteReadWrite()
         {
             var testFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"FileReadingTests\ExternalFileTypes\TopFDmzrt_v1.6.2.mzrt.csv");
+                @"FileReadingTests\ExternalFileTypes\mzrt_TopFDv1.6.2.mzrt.csv");
             var testOutputPath = Path.Combine(directoryPath, "topfdmzrt.mzrt.csv");
 
             // load in file
