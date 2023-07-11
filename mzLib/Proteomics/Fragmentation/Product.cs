@@ -38,7 +38,7 @@ namespace Proteomics.Fragmentation
             SecondaryFragmentNumber = secondaryFragmentNumber;
         }
 
-        
+        public override string ToString() => (this as IFragment<ProductType, FragmentationTerminus>).GetStringRepresentation();
 
         public bool Equals(IFragment<ProductType, FragmentationTerminus> other)
         {

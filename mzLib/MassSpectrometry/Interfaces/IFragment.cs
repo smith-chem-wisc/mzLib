@@ -7,6 +7,7 @@ using Chemistry;
 
 namespace MassSpectrometry
 {
+    
     public interface IFragment<TProductType, TTerminusType> : IHasMass, IEquatable<IFragment<TProductType, TTerminusType>>
         where TProductType : struct, System.Enum
         where TTerminusType : struct, System.Enum
@@ -54,7 +55,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Summarizes a Product into a string for debug purposes
         /// </summary>
-        public string ToString()
+        public virtual string GetStringRepresentation()
         {
             if (SecondaryProductType == null)
             {

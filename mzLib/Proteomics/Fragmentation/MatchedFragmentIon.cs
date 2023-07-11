@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using System.Text;
+using MassSpectrometry;
 
 namespace Proteomics.Fragmentation
 {

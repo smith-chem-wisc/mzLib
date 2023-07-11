@@ -84,6 +84,7 @@ namespace Transcriptomics
 
         #region Interface Implementaiton and Overrides
 
+        public override string ToString() => (this as IFragment<FragmentType, Terminus>).GetStringRepresentation();
         public bool Equals(IFragment<FragmentType, Terminus>? other)
         {
             return NeutralMass.Equals(other.NeutralMass) && FragmentNumber == other.FragmentNumber &&
