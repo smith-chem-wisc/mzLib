@@ -47,6 +47,7 @@ namespace FlashLFQ
         /// Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6
         /// </summary>
         public double? RtInterquartileRange { get; private set; }
+        public int? Region { get; private set; }
 
         public static string TabSeparatedHeader
         {
@@ -68,7 +69,7 @@ namespace FlashLFQ
                 sb.Append("Peak MZ" + "\t");
                 sb.Append("Peak Charge" + "\t");
                 sb.Append("Num Charge States Observed" + "\t");
-                sb.Append("Peak Detection Type" + "\t");
+                sb.Append("Peak Detection ExtremumType" + "\t");
                 sb.Append("MBR Score" + "\t");
                 sb.Append("PSMs Mapped" + "\t");
                 sb.Append("Base Sequences Mapped" + "\t");
@@ -93,13 +94,24 @@ namespace FlashLFQ
             RtInterquartileRange = rtInterquartileRange;
         }
 
-        public void CalculateIntensityForThisFeature(bool integrate)
+        /// <summary>
+        /// Sets the peak intensity and peak Apex. Apex is defined as the peak with the highest intensity.
+        /// </summary>
+        /// <param name="apexCharge"> The intensity and peak apex are determined based on the intensity of the specified charge state.
+        /// If no value is provided, the most intense charge state is used </param>
+        public void CalculateIntensityForThisFeature(bool integrate, int? apexCharge = null)
         {
             if (IsotopicEnvelopes.Any())
             {
-                double maxIntensity = IsotopicEnvelopes.Max(p => p.Intensity);
-                Apex = IsotopicEnvelopes.First(p => p.Intensity == maxIntensity);
+                Apex = apexCharge == null || apexCharge <= 0 
+                    ? IsotopicEnvelopes.MaxBy(p => p.Intensity)
+                    : IsotopicEnvelopes.Where(p => p.ChargeState == apexCharge)
+                        .MaxBy(p => p.Intensity);
 
+                // TODO: Fix integration
+                // Integration != summing intensities, becuase you need to take retention time into account
+                // There can be situations where one run has 5 scans across a peak, and a different run
+                // has 10 scans. Simply summing the envelopes will result in very different values
                 if (integrate)
                 {
                     Intensity = IsotopicEnvelopes.Sum(p => p.Intensity);

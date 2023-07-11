@@ -416,7 +416,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
-            Assert.AreEqual("Type", new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).OfType<Modification>().First().ModificationType);
+            Assert.AreEqual("ExtremumType", new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).OfType<Modification>().First().ModificationType);
             Assert.AreEqual("Palmitoylation on C", new_proteins[0].OneBasedPossibleLocalizedModifications[2][0].IdWithMotif);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications[2].OfType<Modification>().Count());
 
@@ -475,7 +475,7 @@ namespace Test.DatabaseTests
 
             var modReadFromFile = sampleModList.First() as Modification;
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
-            Modification newMod = new Modification(_originalId: "Palmitoylation of C", _modificationType: "Type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: modReadFromFile.ChemicalFormula, _monoisotopicMass: modReadFromFile.MonoisotopicMass, _featureType: "MOD_RES", _fileOrigin: "E:\\GitClones\\mzLib\\Test\\bin\\x64\\Debug\\DatabaseTests\\z.txt");
+            Modification newMod = new Modification(_originalId: "Palmitoylation of C", _modificationType: "ExtremumType", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: modReadFromFile.ChemicalFormula, _monoisotopicMass: modReadFromFile.MonoisotopicMass, _featureType: "MOD_RES", _fileOrigin: "E:\\GitClones\\mzLib\\Test\\bin\\x64\\Debug\\DatabaseTests\\z.txt");
 
             Assert.IsTrue(newMod.Equals(sampleModList.First()));
 

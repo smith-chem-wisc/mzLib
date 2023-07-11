@@ -41,7 +41,7 @@ namespace Test.AveragingTests
             {
                 SpectralWeighting.CalculateSpectraWeights(xArrays, yArrays, (SpectraWeightingType)(-1));
             });
-            Assert.That(exception.Message == "Spectra Weighting Type Not Implemented");
+            Assert.That(exception.Message == "Spectra Weighting ExtremumType Not Implemented");
         }
 
         [Test]

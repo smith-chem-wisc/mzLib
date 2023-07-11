@@ -189,7 +189,7 @@ namespace Test
             FragmentTypes f = FragmentTypes.All;
             Assert.That(() => f.GetIonCap(), Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
-                                            .EqualTo("Fragment Type must be a single value to determine the ion cap"));
+                                            .EqualTo("Fragment ExtremumType must be a single value to determine the ion cap"));
         }
 
         [Test]
@@ -198,7 +198,7 @@ namespace Test
             FragmentTypes f = FragmentTypes.a | FragmentTypes.adot;
             Assert.That(() => f.GetTerminus(), Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
-                                            .EqualTo("Fragment Type must be a single value to determine the terminus"));
+                                            .EqualTo("Fragment ExtremumType must be a single value to determine the terminus"));
         }
 
         [Test]

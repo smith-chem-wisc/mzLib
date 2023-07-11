@@ -1083,6 +1083,15 @@ namespace FlashLFQ
             _results.Peaks[spectraFile] = errorCheckedPeaks;
         }
 
+        public void MultiRunConsesus()
+        {
+            // group identifications by peak finding mass
+            // find all chromatographic peaks that contain those identifications for each group
+            // some sort of trimming by RT. a peak @ 10 min isn't coeluting at with a peak @ 30
+            // create isobar cluster for each
+
+        }
+
         /// <summary>
         /// Takes in a list of imsPeaks and finds all the isotopic peaks in each scan. If the experimental isotopic distribution
         /// matches the theoretical distribution, an IsotopicEnvelope object is created from the summed intensities of each isotopic peak.
@@ -1270,7 +1279,7 @@ namespace FlashLFQ
         /// Finds peaks with a given mz (mass/charge + H) that occur on either side of a given
         /// retention time. Peak searching iterates backwards through MS1 scans until the peak 
         /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
-        /// MissedScansAllowed property. Missed scans don't have to be sequential. The same procedure
+        /// MissedScansAllowed property). Missed scans don't have to be sequential. The same procedure
         /// is then repeated in the forward direction.
         /// </summary>
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
