@@ -1,21 +1,24 @@
 ﻿using System;
 using System.Text;
 using Chemistry;
+using MassSpectrometry;
 
 namespace Proteomics.Fragmentation
 {
-    public readonly struct Product : IHasMass
+    public readonly struct Product : IFragment<ProductType, FragmentationTerminus>
     {
-        public readonly double NeutralMass;
-        public readonly ProductType ProductType;
-        public readonly double NeutralLoss;
-        public readonly FragmentationTerminus Terminus;
-        public readonly int FragmentNumber;
-        public readonly int AminoAcidPosition;
-        public readonly ProductType? SecondaryProductType; //used for internal fragment ions
-        public readonly int SecondaryFragmentNumber; //used for internal fragment ions
+        public double NeutralMass { get; }
+        public  ProductType ProductType { get; }
+        public double NeutralLoss { get; }
+        public  FragmentationTerminus Terminus { get; }
+        public int FragmentNumber { get; }
+        public int AminoAcidPosition { get; } 
+        public int ResiduePosition => AminoAcidPosition; // added for interface compatibility 
+        public ProductType? SecondaryProductType { get; } //used for internal fragment ions
+        public int? SecondaryFragmentNumber { get; } //used for internal fragment ions
+        public double MonoisotopicMass => NeutralMass;
 
-        public double MonoisotopicMass { get; }
+        public string Annotation => (this as IFragment<ProductType, FragmentationTerminus>).Annotation;
 
         /// <summary>
         /// A product is the individual neutral fragment from an MS dissociation. A fragmentation product here contains one of the two termini (N- or C-). 
@@ -33,72 +36,38 @@ namespace Proteomics.Fragmentation
             AminoAcidPosition = aminoAcidPosition;
             SecondaryProductType = secondaryProductType;
             SecondaryFragmentNumber = secondaryFragmentNumber;
-            MonoisotopicMass = NeutralMass;
         }
 
-        public string Annotation
+        
+
+        public bool Equals(IFragment<ProductType, FragmentationTerminus> other)
         {
-            get
-            {
-                StringBuilder sb = new StringBuilder();
-
-                if (SecondaryProductType == null)
-                {
-                    sb.Append(ProductType);
-
-                    // for "normal" fragments this is just the fragment number (e.g., the 3 in the b3 ion)
-                    // for diagnostic ions, it's the m/z assuming z=1
-                    // (e.g., a diagnostic ion with neutral mass 100 Da will be reported as the D101 fragment)
-                    sb.Append(FragmentNumber);
-                }
-                else
-                {
-                    //internal fragment ion, annotation used here: 10.1007/s13361-015-1078-1
-                    //example: yIb[18-36]
-                    sb.Append(ProductType + "I" + SecondaryProductType.Value + "[" + FragmentNumber + "-" + SecondaryFragmentNumber + "]");
-                }
-                if (NeutralLoss != 0)
-                {
-                    sb.Append("-");
-                    sb.Append(NeutralLoss.ToString("F2"));
-                }
-
-                return sb.ToString();
-            }
-        }
-
-        /// <summary>
-        /// Summarizes a Product into a string for debug purposes
-        /// </summary>
-        public override string ToString()
-        {
-            if (SecondaryProductType == null)
-            {
-                return ProductType + "" + FragmentNumber + ";" + NeutralMass.ToString("F5") + "-" + string.Format("{0:0.##}", NeutralLoss);
-            }
-            else
-            {
-                return ProductType + "I" + SecondaryProductType.Value + "[" + FragmentNumber + "-" + SecondaryFragmentNumber + "]" + ";" + NeutralMass.ToString("F5") + "-" + string.Format("{0:0.##}", NeutralLoss);
-            }
+            return NeutralMass.Equals(other.NeutralMass) && ProductType == other.ProductType &&
+                   NeutralLoss.Equals(other.NeutralLoss) && Terminus == other.Terminus &&
+                   FragmentNumber == other.FragmentNumber && Math.Abs(ResiduePosition - other.ResiduePosition) < 0.0001 &&
+                   SecondaryProductType == other.SecondaryProductType &&
+                   SecondaryFragmentNumber == other.SecondaryFragmentNumber &&
+                   MonoisotopicMass.Equals(other.MonoisotopicMass);
         }
 
         public override bool Equals(object obj)
         {
-            Product other = (Product)obj;
-
-            return this.ProductType == other.ProductType
-                && this.NeutralMass == other.NeutralMass
-                && this.FragmentNumber == other.FragmentNumber
-                && this.NeutralLoss == other.NeutralLoss
-                && this.SecondaryFragmentNumber == other.SecondaryFragmentNumber
-                && this.SecondaryProductType == other.SecondaryProductType;
+            return obj is Product other && Equals(other);
         }
 
         public override int GetHashCode()
         {
-            return NeutralMass.GetHashCode();
+            var hashCode = new HashCode();
+            hashCode.Add(NeutralMass);
+            hashCode.Add((int)ProductType);
+            hashCode.Add(NeutralLoss);
+            hashCode.Add((int)Terminus);
+            hashCode.Add(FragmentNumber);
+            hashCode.Add(AminoAcidPosition);
+            hashCode.Add(SecondaryProductType);
+            hashCode.Add(SecondaryFragmentNumber);
+            hashCode.Add(MonoisotopicMass);
+            return hashCode.ToHashCode();
         }
-
-       
     }
 }

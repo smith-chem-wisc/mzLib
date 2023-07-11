@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Chemistry;
 using Easy.Common.Extensions;
 using Easy.Common.Interfaces;
-using Transcriptomics.Fragmentation;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace Transcriptomics
@@ -55,7 +54,7 @@ namespace Transcriptomics
 
         #endregion
 
-        #region Private Properties *DONE*
+        #region Private Properties
 
         /// <summary>
         /// The 5-Prime chemical formula cap. This is different from the 5-prime terminus modification.
@@ -95,7 +94,7 @@ namespace Transcriptomics
 
         #endregion
 
-        #region Internal Properties *DONE*
+        #region Internal Properties
 
         /// <summary>
         /// The internal data store for the modifications (2 larger than the length to handle the 5' and 3' termini)
@@ -109,7 +108,7 @@ namespace Transcriptomics
 
         #endregion
 
-        #region Public Properties *DONE*
+        #region Public Properties
 
         /// <summary>
         /// Gets or sets the 5' terminus of this nucleic acid polymer
@@ -191,17 +190,17 @@ namespace Transcriptomics
         /// <param name="types"></param>
         /// <param name="calculateChemicalFormula"></param>
         /// <returns></returns>
-        public IEnumerable<Fragment> GetNeutralFragments(FragmentType types, bool calculateChemicalFormula = false)
+        public IEnumerable<RNAFragment> GetNeutralFragments(FragmentType types, bool calculateChemicalFormula = false)
         {
             return GetNeutralFragments(types, 1, Length - 1, calculateChemicalFormula);
         }
 
-        public IEnumerable<Fragment> GetNeutralFragments(FragmentType types, int number, bool calculateChemicalFormula = false)
+        public IEnumerable<RNAFragment> GetNeutralFragments(FragmentType types, int number, bool calculateChemicalFormula = false)
         {
             return GetNeutralFragments(types, number, number, calculateChemicalFormula);
         }
 
-        public IEnumerable<Fragment> GetNeutralFragments(FragmentType types, int min, int max, bool calculateChemicalFormula = false)
+        public IEnumerable<RNAFragment> GetNeutralFragments(FragmentType types, int min, int max, bool calculateChemicalFormula = false)
         {
             if (min > max)
                 throw new ArgumentOutOfRangeException();
@@ -292,25 +291,28 @@ namespace Transcriptomics
                         continue;
 
                     var previousNucleotide = _nucleicAcids[naIndex];
-                    if (isChemicalFormula)
-                    {
-                        ChemicalFormula neutralLoss = new();
-                        if (type.ToString().Contains("Base"))
-                        {
-                            neutralLoss.Add(previousNucleotide.BaseChemicalFormula);
-                        }
+                    //if (isChemicalFormula)
+                    //{
+                    //    ChemicalFormula neutralLoss = new();
+                    //    if (type.ToString().Contains("Base"))
+                    //    {
+                    //        neutralLoss.Add(previousNucleotide.BaseChemicalFormula);
+                    //    }
 
-                        yield return new ChemicalFormulaFragment(type, i, formula - neutralLoss, this);
-                    }
-                    else
-                    {
+                    //    yield return new ChemicalFormulaRnaFragment(type, i, formula - neutralLoss, this);
+                    //}
+                    //else
+                    //{
                         double neutralLoss = 0;
                         if (type.ToString().Contains("Base"))
                         {
                             neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
                         }
-                        yield return new Fragment(type, i, monoMass - neutralLoss, this);
-                    }
+
+                        yield return new RNAFragment(this, type,
+                            isThreePrimeTerminal ? Terminus.ThreePrime : Terminus.FivePrime, monoMass - neutralLoss, i,
+                            i, neutralLoss, null, null);
+                    //}
                 }
             }
         }
