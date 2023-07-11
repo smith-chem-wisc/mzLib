@@ -47,6 +47,7 @@ namespace FlashLFQ
         /// Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6
         /// </summary>
         public double? RtInterquartileRange { get; private set; }
+        public int? Region { get; private set; }
 
         public static string TabSeparatedHeader
         {

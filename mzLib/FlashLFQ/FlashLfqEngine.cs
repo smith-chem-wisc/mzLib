@@ -1085,6 +1085,10 @@ namespace FlashLFQ
 
         public void MultiRunConsesus()
         {
+            // group identifications by peak finding mass
+            // find all chromatographic peaks that contain those identifications for each group
+            // some sort of trimming by RT. a peak @ 10 min isn't coeluting at with a peak @ 30
+            // create isobar cluster for each
 
         }
 

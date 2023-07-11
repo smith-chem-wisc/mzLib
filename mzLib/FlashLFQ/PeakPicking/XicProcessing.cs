@@ -105,29 +105,29 @@ namespace FlashLFQ
         /// Returns a new List of indexed mass spectral peaks with added
         /// zero intensity peaks at the beginning and end of
         /// </summary>
-        /// <param name="Peaks">Peaks to be padded</param>
-        internal static List<IndexedMassSpectralPeak> PadPeaks(List<IndexedMassSpectralPeak> Peaks)
+        /// <param name="peaks"> Peaks to be padded</param>
+        internal static List<IndexedMassSpectralPeak> PadPeaks(List<IndexedMassSpectralPeak> peaks)
         {
             List<IndexedMassSpectralPeak> paddedXICs = new List<IndexedMassSpectralPeak>();
-            double mz = Peaks.First().Mz;
-            int arrayQuarterLength = Peaks.Count / 4;
-            double startTime = Peaks.First().RetentionTime;
-            double endTime = Peaks.Last().RetentionTime;
+            double mz = peaks.First().Mz;
+            int arrayQuarterLength = peaks.Count / 4;
+            double startTime = peaks.First().RetentionTime;
+            double endTime = peaks.Last().RetentionTime;
 
             // Calculate the average RT difference between successive scans
             double summedScanSeparations = 0;
-            for (int i = 0; i < Peaks.Count - 1; i++)
+            for (int i = 0; i < peaks.Count - 1; i++)
             {
-                summedScanSeparations += Peaks[i + 1].RetentionTime - Peaks[i].RetentionTime;
+                summedScanSeparations += peaks[i + 1].RetentionTime - peaks[i].RetentionTime;
             }
-            double averageScanSeparation = summedScanSeparations / (Peaks.Count - 1);
+            double averageScanSeparation = summedScanSeparations / (peaks.Count - 1);
 
             for (int i = 0; i < arrayQuarterLength; i++)
             {
                 paddedXICs.Add(new IndexedMassSpectralPeak(mz: mz, intensity: 0, zeroBasedMs1ScanIndex: 0, 
                     retentionTime: startTime - averageScanSeparation * (arrayQuarterLength - i)));
             }
-            paddedXICs.AddRange(Peaks);
+            paddedXICs.AddRange(peaks);
             for (int i = 0; i < arrayQuarterLength; i++)
             {
                 paddedXICs.Add(new IndexedMassSpectralPeak(mz: mz, intensity: 0, zeroBasedMs1ScanIndex: 0,
@@ -154,7 +154,7 @@ namespace FlashLFQ
 
             // 2D array where rows are the extrema from different runs (reference extrema, then exp)
             // and each column maps to a reference extrema
-            Extremum[,] extrema2dArray = new Extremum[refExtrema.Count, 1 + expExtremaList.Count];
+            Extremum[,] extrema2dArray = new Extremum[1 + expExtremaList.Count, refExtrema.Count];
             
             for (int i = 0; i < expExtremaList.Count; i++)
             {
@@ -164,7 +164,7 @@ namespace FlashLFQ
                     var matchedExpMaxima = MatchExtrema(refMaxima, expMaxima);
                     for (int j = 0; j < refMaxIndexMap.Length; j++)
                     {
-                        extrema2dArray[refMaxIndexMap[j], i + 1] = matchedExpMaxima[j];
+                        extrema2dArray[i + 1, refMaxIndexMap[j]] = matchedExpMaxima[j];
                     }
                 }
                 
@@ -175,14 +175,14 @@ namespace FlashLFQ
                     var matchedExpMinima = MatchExtrema(refMinima, expMinima);
                     for (int j = 0; j < refMinIndexMap.Length; j++)
                     {
-                        extrema2dArray[refMinIndexMap[j], i + 1] = matchedExpMinima[j];
+                        extrema2dArray[i + 1, refMinIndexMap[j]] = matchedExpMinima[j];
                     }
                 }
             }
 
             // Fill in the first row with all the refExtrema. Some will be removed in the ResolveExtremaArray method
-            for (int col = 0; col < extrema2dArray.GetLength(0); col++) 
-                extrema2dArray[col, 0] = refExtrema[col]; 
+            for (int col = 0; col < extrema2dArray.GetLength(1); col++) 
+                extrema2dArray[0, col] = refExtrema[col]; 
             
             ResolveExtremaArray(ref extrema2dArray);
 
@@ -250,28 +250,28 @@ namespace FlashLFQ
         /// </summary>
         public static void ResolveExtremaArray(ref Extremum[,] array)
         {
-            for (int col = 0; col < array.GetLength(0); col++)
+            for (int col = 0; col < array.GetLength(1); col++)
             {
-                double meanTime = array[col, 0].RetentionTime;
+                double meanTime = array[0, col].RetentionTime;
                 int nullCount = 0;
-                for(int row = 1; row < array.GetLength(1); row++)
+                for(int row = 1; row < array.GetLength(0); row++)
                 {
-                    if (array[col, row] == null)
+                    if (array[row, col] == null)
                         nullCount++;
                     else
-                        meanTime += array[col, row].RetentionTime;
+                        meanTime += array[row, col].RetentionTime;
                 }
 
-                if (nullCount > array.GetLength(1) / 2)
+                if (nullCount > array.GetLength(0) / 2)
                     SetColumnToNull(ref array, col);
                 else if (nullCount > 0)
                 {
-                    meanTime = meanTime / (double)(array.GetLength(1) - nullCount);
-                    Extremum imputedExtremum = new Extremum(meanTime, -1, array[col, 0].ExtremumType);
-                    for (int row = 1; row < array.GetLength(1); row++)
+                    meanTime /= (double)(array.GetLength(0) - nullCount);
+                    Extremum imputedExtremum = new Extremum(meanTime, -1, array[0, col].ExtremumType);
+                    for (int row = 1; row < array.GetLength(0); row++)
                     {
-                        if (array[col, row] == null)
-                            array[col, row] = imputedExtremum;
+                        if (array[row, col] == null)
+                            array[row, col] = imputedExtremum;
                     }
                 }
             }
@@ -279,8 +279,8 @@ namespace FlashLFQ
 
         public static void SetColumnToNull(ref Extremum[,] array, int col)
         {
-            for(int row = 0; row < array.GetLength(1); row++)
-                array[col, row] = null;
+            for(int row = 0; row < array.GetLength(0); row++)
+                array[row, col] = null;
         }
         //public static Extremum[] OrderExtrema(List<Extremum> maxima, List<Extremum> minima)
         //{

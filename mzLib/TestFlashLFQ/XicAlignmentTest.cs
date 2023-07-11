@@ -169,7 +169,7 @@ namespace TestFlashLFQ
                 });
 
             var firstRow = Enumerable.Range(0, 5)
-                .Select(i => matrix[i, 0])
+                .Select(col => matrix[0, col])
                 .ToArray();
             CollectionAssert.AreEqual(firstRow, expArray);
 
@@ -185,12 +185,12 @@ namespace TestFlashLFQ
                 });
 
             firstRow = Enumerable.Range(0, 5)
-                .Select(i => matrix[i, 0])
+                .Select(col => matrix[0, col])
                 .ToArray();
             CollectionAssert.AreEqual(firstRow, refArray);
 
             var fourthRow = Enumerable.Range(0, 5)
-                .Select(i => matrix[i, 3])
+                .Select(col => matrix[3, col])
                 .ToArray();
             CollectionAssert.AreNotEqual(fourthRow, expArray);
 
@@ -212,16 +212,17 @@ namespace TestFlashLFQ
                 });
 
             firstRow = Enumerable.Range(0, 5)
-                .Select(i => matrix[i, 0])
+                .Select(col => matrix[0, col])
                 .ToArray();
             CollectionAssert.AreEqual(firstRow, expArray);
 
             var secondRow = Enumerable.Range(0, 5)
-                .Select(i => matrix[i, 1])
+                .Select(col => matrix[1, col])
                 .ToArray();
             CollectionAssert.AreEqual(secondRow, expArray);
         }
 
+        // In base FlashLFQ, some IDs get merged and then assigned to the wrong peaks. Multi-run consensus should prevent this issue
         [Test]
         public static void TestReconcileExtremaRealData()
         {
@@ -241,21 +242,40 @@ namespace TestFlashLFQ
             double peakFindingMass = 670.00;
 
             string baseSequence = "PWYEPIYLGGVFQLEK";
-            string modSeq = "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK";
-            double rt = 33.22371;
 
-            Identification y7ModId = new Identification(nist, baseSequence, modSeq, monoisotopicMass,
+            string y7ModSeq = "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK";
+            double rt = 33.22371;
+            // Y7 is observed in all three runs. It coelutes with y3.
+            Identification y7ModId = new Identification(nist, baseSequence, y7ModSeq, monoisotopicMass,
                 rt, 3, new List<ProteinGroup> { pg });
-            Identification y7ModIdInflix = new Identification(inflix, baseSequence, modSeq, monoisotopicMass,
+            Identification y7ModIdInflix = new Identification(inflix, baseSequence, y7ModSeq, monoisotopicMass,
                 rt, 3, new List<ProteinGroup> { pg });
-            Identification y7ModIdInflix2 = new Identification(inflix2, baseSequence, modSeq, monoisotopicMass,
+            Identification y7ModIdInflix2 = new Identification(inflix2, baseSequence, y7ModSeq, monoisotopicMass,
                 rt, 3, new List<ProteinGroup> { pg }); // It's actually ambiguous in this one
+
+            string y3ModSeq = "PWY[CF3:CF3 on Y]EPIYLGGVFQLEK";
+            // Nist ambiguous/unique IDs
+            // These IDs get assigned to a peak where the peak with a defined start time after both MS2 IDs
+            // We would like to see the y3 mod get assigned to the y7 peak, as this is what happens in inflix 2
+            Identification y3ModId = new Identification(nist, baseSequence, y3ModSeq , monoisotopicMass,
+                33.27658, 3, new List<ProteinGroup> { pg });
+            Identification ambiguousId = new Identification(
+                nist, baseSequence, "PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWY[CF3:CF3 on Y]EPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK",
+                monoisotopicMass, 33.2862, 3, new List<ProteinGroup> { pg });
+
+            // Inflix2 ID 
+            Identification y3ModIdInflix2 = new Identification(inflix2, baseSequence, y3ModSeq, monoisotopicMass,
+                33.22545, 3, new List<ProteinGroup> { pg });
+
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { y7ModId, y7ModIdInflix, y7ModIdInflix2 },
+            FlashLfqEngine engine = new FlashLfqEngine(
+                new List<Identification> { y3ModId, ambiguousId, y7ModId, y7ModIdInflix, y7ModIdInflix2, y3ModIdInflix2 },
                 normalize: false, maxThreads: 1, matchBetweenRuns: true, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
-            engine.Run();
+            var results = engine.Run();
+
+            var peaks = results.Peaks.SelectMany(kvp => kvp.Value).ToList();
 
             var indexingEngine = engine.GetIndexingEngine();
             var nistPeaks = indexingEngine.ExtractPeaks(peakFindingMass, nist);
@@ -295,8 +315,8 @@ namespace TestFlashLFQ
             // multiple chromatographic peaks belonging to the same ID ( think F modified at ortho, meta, and para positions)
             // get the raw file paths
 
-            // This test simulates a situation where three peaks elute very close together - close enough that FlashLFQ considers it 
-            // one peak.
+            // This test simulates a situation where three peaks elute very close together
+
             // Peak 1 - One broad peak that is most likely caused by two co-eluting (only small rt shift) peptides,
             //      "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK", score 16 and "PWY[CF3:CF3 on Y]EPIYLGGVFQLEK", score 6
             // Peak 2 - One broad peak w/o a good MS2 scan. Based on other runs, this peak most likely belongs to
