@@ -57,6 +57,15 @@ namespace Chemistry
             return myNumber;
         }
 
+        /// <summary>
+        /// Finds the index of the array element closest to the target value.
+        /// </summary>
+        /// <param name="sortedArray"> A double array, sorted in ascending order </param>
+        /// <param name="target"> Target value for binary search </param>
+        /// <param name="searchType"> Determines whether the the closest, previous, or next index - relative to the target - is returned </param>
+        /// <returns> Index of the array element closest to the target value. If target is greater than the
+        /// maximum array value, this returns the index of the last array element (array.count - 1). If the target is less than
+        /// the minimum array value, returns 0. </returns>
         public static int GetClosestIndex(this double[] sortedArray, double target,
             ArraySearchOption searchType = ArraySearchOption.Closest)
         {
@@ -95,6 +104,15 @@ namespace Chemistry
             return closestIndex;
         }
 
+        /// <summary>
+        /// Finds array element closest to the target value.
+        /// </summary>
+        /// <param name="sortedArray"> A double array, sorted in ascending order </param>
+        /// <param name="target"> Target value for binary search </param>
+        /// <param name="searchType"> Determines whether the the closest, previous, or next value - relative to the target - is returned  </param>
+        /// <returns> The array element closest to the target value. If target is greater than the
+        /// maximum array value, this returns the last element of the array. If the target is less than
+        /// the minimum array value, returns the minimum array value. </returns>
         public static double GetClosestValue(this double[] sortedArray, double target,
             ArraySearchOption searchType = ArraySearchOption.Closest)
         {
