@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Chemistry;
 using Easy.Common.Extensions;
 using Easy.Common.Interfaces;
+using MassSpectrometry;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace Transcriptomics
@@ -190,17 +191,17 @@ namespace Transcriptomics
         /// <param name="types"></param>
         /// <param name="calculateChemicalFormula"></param>
         /// <returns></returns>
-        public IEnumerable<RNAFragment> GetNeutralFragments(FragmentType types, bool calculateChemicalFormula = false)
+        public IEnumerable<IProduct> GetNeutralFragments(ProductType types, bool calculateChemicalFormula = false)
         {
             return GetNeutralFragments(types, 1, Length - 1, calculateChemicalFormula);
         }
 
-        public IEnumerable<RNAFragment> GetNeutralFragments(FragmentType types, int number, bool calculateChemicalFormula = false)
+        public IEnumerable<IProduct> GetNeutralFragments(ProductType types, int number, bool calculateChemicalFormula = false)
         {
             return GetNeutralFragments(types, number, number, calculateChemicalFormula);
         }
 
-        public IEnumerable<RNAFragment> GetNeutralFragments(FragmentType types, int min, int max, bool calculateChemicalFormula = false)
+        public IEnumerable<IProduct> GetNeutralFragments(ProductType type, int min, int max, bool calculateChemicalFormula = false)
         {
             if (min > max)
                 throw new ArgumentOutOfRangeException();
@@ -208,8 +209,7 @@ namespace Transcriptomics
             if (min < 1 || max > Length - 1)
                 throw new IndexOutOfRangeException();
 
-            foreach (FragmentType type in types.GetIndividualFragmentTypes())
-            {
+
                 // determine mass of piece remaining after fragmentation
                 bool isChemicalFormula = calculateChemicalFormula;
                 ChemicalFormula capFormula = type.GetIonCap();
@@ -217,7 +217,7 @@ namespace Transcriptomics
                 ChemicalFormula formula = new ChemicalFormula(capFormula);
 
                 // determine mass of terminal cap and add to fragment
-                bool isThreePrimeTerminal = type.GetTerminus() == Terminus.ThreePrime;
+                bool isThreePrimeTerminal = type.GetRnaTerminusType() == FragmentationTerminus.ThreePrime;
                 IHasChemicalFormula terminus = isThreePrimeTerminal ? ThreePrimeTerminus : FivePrimeTerminus;
                 monoMass += terminus.MonoisotopicMass;
 
@@ -309,11 +309,11 @@ namespace Transcriptomics
                             neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
                         }
 
-                        yield return new RNAFragment(this, type,
-                            isThreePrimeTerminal ? Terminus.ThreePrime : Terminus.FivePrime, monoMass - neutralLoss, i,
-                            i, neutralLoss, null, null);
+                        yield return new RnaProduct( type,
+                            isThreePrimeTerminal ? FragmentationTerminus.ThreePrime : FragmentationTerminus.FivePrime, monoMass - neutralLoss, i,
+                            i, neutralLoss, null, 0);
                     //}
-                }
+                
             }
         }
 

@@ -1,4 +1,6 @@
-﻿using Proteomics.Fragmentation;
+﻿global using FragmentationTerminus = MassSpectrometry.FragmentationTerminus;
+global using ProductType = MassSpectrometry.ProductType;
+using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;

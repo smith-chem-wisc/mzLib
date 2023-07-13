@@ -1,12 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
-using System.Xml;
-using Chemistry;
+using System.Threading.Tasks;
 using MassSpectrometry;
 
-namespace Proteomics.Fragmentation
+namespace Transcriptomics
 {
-    public readonly struct Product : IProduct
+    public class RnaProduct : IProduct
     {
         public double NeutralMass { get; }
         public ProductType ProductType { get; }
@@ -14,20 +15,15 @@ namespace Proteomics.Fragmentation
         public FragmentationTerminus Terminus { get; }
         public int FragmentNumber { get; }
         public int AminoAcidPosition { get; }
-        public int ResiduePosition => AminoAcidPosition; // added for interface compatibility 
-        public ProductType? SecondaryProductType { get; } //used for internal fragment ions
-        public int? SecondaryFragmentNumber { get; } //used for internal fragment ions
+        public ProductType? SecondaryProductType { get; }
+        public int? SecondaryFragmentNumber { get; }
         public double MonoisotopicMass => NeutralMass;
         public string Annotation => (this as IProduct).GetAnnotation();
+        public NucleicAcid? Parent { get; }
 
-        /// <summary>
-        /// A product is the individual neutral fragment from an MS dissociation. A fragmentation product here contains one of the two termini (N- or C-). 
-        /// The ProductType describes where along the backbone the fragmentaiton occurred (e.g. b-, y-, c-, zdot-). The neutral loss mass (if any) that 
-        /// occurred from a mod on the fragment is listed as a mass. Finally the neutral mass of the whole fragment is provided.
-        /// </summary>
-        public Product(ProductType productType, FragmentationTerminus terminus, double neutralMass,
+        public RnaProduct(ProductType productType, FragmentationTerminus terminus, double neutralMass,
             int fragmentNumber, int aminoAcidPosition, double neutralLoss, ProductType? secondaryProductType = null, 
-            int secondaryFragmentNumber = 0)
+            int secondaryFragmentNumber = 0, NucleicAcid? parent = null)
         {
             NeutralMass = neutralMass;
             ProductType = productType;
@@ -37,9 +33,8 @@ namespace Proteomics.Fragmentation
             AminoAcidPosition = aminoAcidPosition;
             SecondaryProductType = secondaryProductType;
             SecondaryFragmentNumber = secondaryFragmentNumber;
+            Parent = parent;
         }
-
-        
 
         /// <summary>
         /// Summarizes a Product into a string for debug purposes
@@ -59,19 +54,22 @@ namespace Proteomics.Fragmentation
             }
         }
 
-        public bool Equals(IProduct other)
+        public bool Equals(IProduct? other)
         {
             return NeutralMass.Equals(other.NeutralMass) && ProductType == other.ProductType &&
                    NeutralLoss.Equals(other.NeutralLoss) && Terminus == other.Terminus &&
-                   FragmentNumber == other.FragmentNumber && Math.Abs(ResiduePosition - other.ResiduePosition) < 0.0001 &&
+                   FragmentNumber == other.FragmentNumber && AminoAcidPosition == other.AminoAcidPosition &&
                    SecondaryProductType == other.SecondaryProductType &&
                    SecondaryFragmentNumber == other.SecondaryFragmentNumber &&
                    MonoisotopicMass.Equals(other.MonoisotopicMass);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
-            return obj is Product other && Equals(other);
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((IProduct)obj);
         }
 
         public override int GetHashCode()

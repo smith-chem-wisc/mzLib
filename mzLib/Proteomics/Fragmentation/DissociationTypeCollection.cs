@@ -1,4 +1,5 @@
-﻿using Chemistry;
+﻿using System;
+using Chemistry;
 using Easy.Common.Extensions;
 using MassSpectrometry;
 using System.Collections.Generic;
@@ -102,6 +103,27 @@ namespace Proteomics.Fragmentation
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
             { ProductType.Ycore, null},// neutral Molecular product can be used with neutral loss as fragment
             { ProductType.Y, null},// diagnostic ions are not shifted but added sumarily
+
+            // Rna Specific types are not shifted through this method, but added to not break the code. 
+            {ProductType.adot , null},
+            {ProductType.aBase , null},
+            {ProductType.bdot , null},
+            {ProductType.bBase , null},
+            {ProductType.cdot , null},
+            {ProductType.cBase , null},
+            {ProductType.d , null},
+            {ProductType.ddot , null},
+            {ProductType.dBase , null},
+            {ProductType.dH2O , null},
+            {ProductType.w , null},
+            {ProductType.wdot , null},
+            {ProductType.wBase , null},
+            {ProductType.xdot , null},
+            {ProductType.xBase , null},
+            {ProductType.ydot , null},
+            {ProductType.yBase , null},
+            {ProductType.z , null},
+            {ProductType.zBase , null},
         };
 
         private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToTerminusMassShift = new Dictionary<DissociationType, (double[], double[])>();
@@ -156,6 +178,31 @@ namespace Proteomics.Fragmentation
                         case ProductType.D: NeutralMassShiftFromProductType[productType] = 0; break;// no change
                         case ProductType.Ycore: NeutralMassShiftFromProductType[productType] = 0; break;// no change
                         case ProductType.Y: NeutralMassShiftFromProductType[productType] = 0; break;// no change
+
+                        // Nucleic Acid Specific Product Types
+                        case ProductType.adot:
+                        case ProductType.aBase:
+                        case ProductType.bdot:
+                        case ProductType.bBase:
+                        case ProductType.cdot:
+                        case ProductType.cBase:
+                        case ProductType.d:
+                        case ProductType.ddot:
+                        case ProductType.dBase:
+                        case ProductType.dH2O:
+                        case ProductType.w:
+                        case ProductType.wdot:
+                        case ProductType.wBase:
+                        case ProductType.xdot:
+                        case ProductType.xBase:
+                        case ProductType.ydot:
+                        case ProductType.yBase:
+                        case ProductType.z:
+                        case ProductType.zBase:
+                            return 0.0;
+
+                        default:
+                            throw new ArgumentOutOfRangeException(nameof(productType), productType, null);
                     }
                 }
 

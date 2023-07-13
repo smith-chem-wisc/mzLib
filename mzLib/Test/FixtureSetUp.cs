@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+global using FragmentationTerminus = MassSpectrometry.FragmentationTerminus;
+global using ProductType = MassSpectrometry.ProductType;
 using NUnit.Framework;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;

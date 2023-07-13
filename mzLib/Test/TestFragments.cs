@@ -28,7 +28,6 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test

@@ -1,6 +1,7 @@
 ﻿using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
+using MassSpectrometry;
 
 namespace Proteomics.ProteolyticDigestion
 {

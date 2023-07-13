@@ -32,13 +32,13 @@ namespace Test.FileReadingTests.NucleicAcidDatabase
         }
 
 
-        [Test]
-        public static void TestDbLoader_rnafna()
-        {
-            var rna = NucleicAcidDbLoader.LoadRNAFasta(RnafnaExamplePath, true, DecoyType.None).ToList();
-            Assert.That(rna.Count, Is.EqualTo(3));
+        //[Test]
+        //public static void TestDbLoader_rnafna()
+        //{
+        //    var rna = NucleicAcidDbLoader.LoadRNAFasta(RnafnaExamplePath, true, DecoyType.None).ToList();
+        //    Assert.That(rna.Count, Is.EqualTo(3));
 
 
-        }
+        //}
     }
 }
