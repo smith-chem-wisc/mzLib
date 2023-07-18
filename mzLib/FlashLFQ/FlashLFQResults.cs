@@ -12,6 +12,8 @@ namespace FlashLFQ
         public readonly List<SpectraFileInfo> SpectraFiles;
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
+        // While the peaks dictionary can only be assigned once, the dictionary remains 
+        // mutable and can be changed, overwritten, emptied, etc. 
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)

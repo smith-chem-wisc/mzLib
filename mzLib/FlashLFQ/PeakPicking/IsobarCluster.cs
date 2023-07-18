@@ -27,8 +27,12 @@ namespace FlashLFQ.PeakPicking
 
         // Unclear if we need this or the pruned extrema can be stored in the xic
         public Dictionary<SpectraFileInfo, List<Extremum>> ConsensusExtrema { get; private set; }
-        
-        public Dictionary<int, List<Identification>> RegionIdDictionary;
+
+        /// <summary>
+        /// Dictionary linking each peak region to a list of chromatographic peaks with
+        /// apexes inside that region
+        /// </summary>
+        public Dictionary<int, List<ChromatographicPeak>> RegionPeakDictionary;
 
         public IsobarCluster(List<ChromatographicPeak> peaks, PeakIndexingEngine peakIndexingEngine)
         {
@@ -52,8 +56,8 @@ namespace FlashLFQ.PeakPicking
 
             DefinePeakRegions();
 
+            // Separate function, shouldn't be in constructor
             AssignIDs();
-
         }
 
         private void SetTimeRange()
@@ -125,6 +129,7 @@ namespace FlashLFQ.PeakPicking
                 ConsensusExtrema.Add(otherXics[row-1].SpectraFile, extrema);
             }
         }
+        
         /// <summary>
         /// Every XIC has a dictionary mapping an integer to a double range called PeakRegions.
         /// A peak region must start with either a minimum or the beginning of an XIC, contain at least
@@ -170,40 +175,32 @@ namespace FlashLFQ.PeakPicking
 
         internal void AssignIDs()
         {
-            RegionIdDictionary = new Dictionary<int, List<Identification>>();
+            RegionPeakDictionary = new Dictionary<int, List<ChromatographicPeak>>();
 
-            foreach (Identification id in Identifications)
+            // Link each region to a list of IDs
+            foreach (ChromatographicPeak peak in Peaks)
             {
-                // Find the region the id belongs to
-                // region boundaries are slightly different for each file, which is why it's 
-                // done this way
-                Xic idXic = Xics[id.FileInfo];
-                foreach (var region in idXic.PeakRegions)
+                //TODO: group by spectra file info so we're not pulling the same xic multiple times
+                Xic xicContainingPeak = Xics[peak.SpectraFileInfo];
+                foreach (var region in xicContainingPeak.PeakRegions)
                 {
-                    if (region.Value.Contains(id.Ms2RetentionTimeInMinutes))
+                    if (region.Value.Contains(peak.ApexRetentionTime))
                     {
-                        if(!RegionIdDictionary.ContainsKey(region.Key))
-                            RegionIdDictionary.Add(region.Key, new List<Identification>());
+                        if (!RegionPeakDictionary.ContainsKey(region.Key))
+                            RegionPeakDictionary.Add(region.Key, new List<ChromatographicPeak>());
+                        RegionPeakDictionary[region.Key].Add(peak);
 
-                        RegionIdDictionary[region.Key].Add(id);
                         break;
                     }
                 }
             }
 
-            // This is going to be less than ideal, but here we go
-            // take every kvp in the region id dictionary
-            // transform into Dict<FullSeq, List<int> regions>
-            //  any full seq with multiple regions - handle that case
-            //  any regions with multiple IDs - handle that case
-
             #region OnePeptideMultiRegion
 
             Dictionary<string, List<int>> fullSeqToRegion = new();
-
-            foreach (var kvp in RegionIdDictionary)
+            foreach (var kvp in RegionPeakDictionary)
             {
-                foreach (var id in kvp.Value)
+                foreach (var id in kvp.Value.SelectMany(peak => peak.Identifications))
                 {
                     string[] fullSeqs = id.ModifiedSequence.Split('|');
                     foreach (string seq in fullSeqs)
@@ -220,6 +217,46 @@ namespace FlashLFQ.PeakPicking
             {
                 if (kvp.Value.Distinct().Count() > 1)
                 {
+                    // This algorithm needs to assign peaks such that ambiguity is minimized
+
+                    // Handle case where consensus is peak ambiguity, e.g. most files have two peptides
+                    // assigned to one peak.
+                    List<int> regions = kvp.Value;
+                    var regionCountDictionary = regions
+                        .GroupBy(i => i)
+                        .ToDictionary(
+                            keySelector: group => group.Key,
+                            elementSelector: group => group.Count());
+                    if (regionCountDictionary.Values.Distinct().Count() < regionCountDictionary.Count)
+                    {
+                        //TODO: Come up with tie-breaking mechanism
+                    }
+                    int bestRegion = regionCountDictionary.MaxBy(kvp => kvp.Value).Key;
+
+                    foreach (int region in kvp.Value)
+                    {
+                        if (region == bestRegion) continue; // These were accurately sorted already
+                        foreach (var peak in RegionPeakDictionary[region])
+                        {
+                            // Remove and reassign the id
+                            if (peak.Identifications
+                                .Select(id => id.ModifiedSequence)
+                                .Contains(kvp.Key))
+                            {
+                                int idIndex = peak.Identifications
+                                    .FindIndex(id => id.ModifiedSequence == kvp.Key);
+                                Identification id = peak.Identifications[idIndex];
+                                peak.Identifications.Remove(id);
+                                RegionPeakDictionary[bestRegion]
+                                    .First(peak => peak.SpectraFileInfo.Equals(id.FileInfo))
+                                    .Identifications.Add(id);
+                            }
+                        }
+                    }
+                    // Assign every id to a new peak in the best region. 
+
+                    // Differential assignment
+                    // One identification is assigned to different peaks in different files 
                     // Handle case where one peptide just has multiple peaks (e.g., mod on aromatic)
                     // Handle case where peptide is assigned differently in different files
                     // do something
@@ -236,6 +273,8 @@ namespace FlashLFQ.PeakPicking
                 {
                     // Does this happen in the same file? e.g. coeluting isobars both observed in MS2
                     // Is there disagreement between files? 
+                    // Is this even necessary? Like, this is just co-eluting species
+                    // If none of the peptides are assigned to different regions, can't we just leave well enough alone
                 }
             }
 
@@ -248,20 +287,97 @@ namespace FlashLFQ.PeakPicking
 
         }
 
-        public IsobarCluster(List<Identification> identifications, List<Xic> xics)
+        public static List<IsobarCluster> FindIsobarClusters(List<Identification> identifications, 
+            FlashLfqResults results, PeakIndexingEngine indexingEngine)
         {
-            Identifications = identifications;
-            //OtherXics = xics;
+            var isobarGroups = identifications
+                .GroupBy(id => Math.Round(id.PeakfindingMass, 2));
+            List<IsobarCluster> isobarClusters = new();
 
-            ReferenceFile = Identifications.GroupBy(id => id.FileInfo)
-                .ToDictionary(keySelector: group => group.Key, elementSelector: group => group.Count())
-                .MaxBy(kvp => kvp.Value)
-                .Key;
+            foreach (var group in isobarGroups)
+            {
+                List<Identification> isobaricIds = group.ToList();
+                List<ChromatographicPeak> isobaricPeaks = new();
+                foreach (var peaksKvp in results.Peaks)
+                {
+                    isobaricPeaks.AddRange(peaksKvp.Value
+                            .Where(peak => peak.Identifications.Intersect(isobaricIds).Any())
+                            .ToList());
+                }
 
-            // build reference XIC
-            //ReferenceXic = OtherXics.First(x => x.SpectraFile == ReferenceFile);
+                isobaricPeaks.Sort();
+                List<List<ChromatographicPeak>> clusteredPeaks = ClusterPeaks(isobaricPeaks);
+                foreach (var peakCluster in clusteredPeaks)
+                {
+                    isobarClusters.Add(new IsobarCluster(peakCluster, indexingEngine));
+                }
 
-            // Foreach loop to build non-reference XICs
+            }
+
+            return isobarClusters;
+        }
+
+        /// <summary>
+        /// Add summary comment here
+        /// </summary>
+        /// <param name="orderedPeaks"></param>
+        /// <returns></returns>
+        internal static List<List<ChromatographicPeak>> ClusterPeaks(List<ChromatographicPeak> orderedPeaks)
+        {
+            List<List<ChromatographicPeak>> peakClusters = new List<List<ChromatographicPeak>>();
+            ClusterPeaks(orderedPeaks, ref peakClusters, minIndex:0, maxIndex: orderedPeaks.Count - 1);
+            return peakClusters;
+        }
+
+        private static void ClusterPeaks(
+            List<ChromatographicPeak> orderedPeaks, 
+            ref List<List<ChromatographicPeak>> peakClusters, 
+            int minIndex, 
+            int maxIndex)
+        {
+            // Maximum allowable time difference for two peaks to be grouped into the same cluster
+            double deltaMax = 1;
+
+            // Define the base case
+            if (minIndex == maxIndex)
+                return;
+            int leftIndex = minIndex;
+            int rightIndex = maxIndex;
+
+            int centerIndex = (maxIndex - minIndex + 1) / 2;
+
+            List<ChromatographicPeak> peakCluster =
+                new List<ChromatographicPeak>() { orderedPeaks[centerIndex] };
+            int[] directions = { -1, 1 };
+
+            foreach (int direction in directions)
+            {
+                double currentRt = orderedPeaks[centerIndex].ApexRetentionTime;
+                for (int i = centerIndex + direction; minIndex <= i && i <= maxIndex; i += direction)
+                {
+                    double rtDelta = Math.Abs(orderedPeaks[i].ApexRetentionTime - currentRt);
+                    if (rtDelta < deltaMax)
+                    {
+                        peakCluster.Add(orderedPeaks[i]);
+                    }
+                    else
+                    {
+                        if (direction < 0) leftIndex = i;
+                        else rightIndex = i;
+
+                        break;
+                    }
+                }
+            }
+            
+            // Check to see if there's more than one species in the cluster
+            if(peakCluster.SelectMany(peak => peak.Identifications).Distinct().Count() > 1)
+                peakClusters.Add(peakCluster);
+
+            // Recurse left
+            ClusterPeaks(orderedPeaks, ref peakClusters, minIndex, leftIndex);
+            // Recurse right
+            ClusterPeaks(orderedPeaks, ref peakClusters, rightIndex, maxIndex);
         }
     }
 }

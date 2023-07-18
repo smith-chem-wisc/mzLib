@@ -210,6 +210,12 @@ namespace FlashLFQ
                 new IntensityNormalizationEngine(_results, Integrate, Silent, MaxThreads).NormalizeResults();
             }
 
+            // Multi-Run Consensus
+            if (QuantifyAmbiguousPeptides)
+            {
+                MultiRunConsesus();
+            }
+
             // calculate peptide intensities
             _results.CalculatePeptideResults(QuantifyAmbiguousPeptides);
 
@@ -259,6 +265,7 @@ namespace FlashLFQ
         {
             return _peakIndexingEngine;
         }
+
         /// <summary>
         /// Creates a theoretical isotope distribution for each of the identified sequences
         /// If the sequence is modified and the modification has an unknown chemical formula,
@@ -383,7 +390,7 @@ namespace FlashLFQ
         /// contains the peak finding mass (most abundant isotope), then finds every isotope peak within that scan.
         /// Isotope peak intensities are summed and an IsotopicEnvelope object is created from the summed intensities.
         /// Multiple IsotopicEnvelopes are associated with each ChromatographicPeak (corresponding to different scans 
-        /// and different charge states)
+        /// and different charge states). Chromatographic peaks are then added to _results.Peaks[fileInfo]
         /// </summary>
         /// <param name="fileInfo">File to be quantified</param>
         private void QuantifyMs2IdentifiedPeptides(SpectraFileInfo fileInfo)
@@ -470,11 +477,10 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// This method maps identified peaks from other chromatographic runs ("donors") onto
-        /// the defined chromatographic run ("acceptor"). The goal is to reduce the number of missing
-        /// intensity measurements. Missing values occur generally either because 1) the analyte is
-        /// in the sample but didn't get fragmented/identified or 2) the analyte is genuinely missing
-        /// from the sample.
+        /// This method maps identified peptides from one chromatographic runs ("donors") onto a second
+        /// chromatographic run where the peptide was not identified ("acceptors"). For a given peptide,
+        /// a matching chromatographic peak is found and the identification is assigned to that new peak. The new
+        /// chromatographic peak is then added to _results.Peaks
         /// </summary>
         private void QuantifyMatchBetweenRunsPeaks(SpectraFileInfo idAcceptorFile)
         {
@@ -1085,6 +1091,8 @@ namespace FlashLFQ
 
         public void MultiRunConsesus()
         {
+            var isobarGroups = _allIdentifications
+                .GroupBy(id => Math.Round(id.PeakfindingMass, 2));
             // group identifications by peak finding mass
             // find all chromatographic peaks that contain those identifications for each group
             // some sort of trimming by RT. a peak @ 10 min isn't coeluting at with a peak @ 30

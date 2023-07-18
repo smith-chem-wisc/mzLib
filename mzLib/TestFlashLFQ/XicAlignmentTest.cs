@@ -229,83 +229,96 @@ namespace TestFlashLFQ
             SpectraFileInfo nist = new SpectraFileInfo(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
                 "nist", 1, 0, 0);
-            SpectraFileInfo inflix = new SpectraFileInfo(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
-                "inflix", 0, 0, 0);
             SpectraFileInfo inflix2 = new SpectraFileInfo(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_2-calib.mzML"),
                 "inflix", 0, 0, 0);
-
+            SpectraFileInfo inflix3 = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
+                "inflix", 0, 0, 0);
+            
             // create IDs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
+            string baseSequence = "PWYEPIYLGGVFQLEK";
             double monoisotopicMass = 2005.980136305;
             double peakFindingMass = 670.00;
 
-            string baseSequence = "PWYEPIYLGGVFQLEK";
-
+            // Define the modified peptide identifications
             string y7ModSeq = "PWYEPIY[CF3:CF3 on Y]LGGVFQLEK";
-            double rt = 33.22371;
+            double rty7 = 33.22371;
+
             // Y7 is observed in all three runs. It coelutes with y3.
             Identification y7ModId = new Identification(nist, baseSequence, y7ModSeq, monoisotopicMass,
-                rt, 3, new List<ProteinGroup> { pg });
-            Identification y7ModIdInflix = new Identification(inflix, baseSequence, y7ModSeq, monoisotopicMass,
-                rt, 3, new List<ProteinGroup> { pg });
+                rty7, 3, new List<ProteinGroup> { pg });
             Identification y7ModIdInflix2 = new Identification(inflix2, baseSequence, y7ModSeq, monoisotopicMass,
-                rt, 3, new List<ProteinGroup> { pg }); // It's actually ambiguous in this one
+                rty7, 3, new List<ProteinGroup> { pg });
+            Identification y7ModIdInflix3 = new Identification(inflix3, baseSequence, y7ModSeq, monoisotopicMass,
+                rty7, 3, new List<ProteinGroup> { pg });
 
             string y3ModSeq = "PWY[CF3:CF3 on Y]EPIYLGGVFQLEK";
-            // Nist ambiguous/unique IDs
-            // These IDs get assigned to a peak where the peak with a defined start time after both MS2 IDs
-            // We would like to see the y3 mod get assigned to the y7 peak, as this is what happens in inflix 2
+            double rty3 = 33.22545;
+
+            // The y3 modified peptide co-elutes with y7 in these runs (Actually, only in inflix 2 is that observed confidently.)
+            Identification y3ModIdInflix2 = new Identification(inflix2, baseSequence, y3ModSeq, monoisotopicMass,
+                rty3, 3, new List<ProteinGroup> { pg });
+            Identification y3ModIdInflix3 = new Identification(inflix3, baseSequence, y7ModSeq, monoisotopicMass,
+                rty3, 3, new List<ProteinGroup> { pg });
+
+            // In NIST, the y3 mod peptide gets assigned to next peak. This peak has a FlashLFQ defined start time
+            // that is after (greater than) the scan MS2 retention time. We want multi run consensus to see that the 
+            // peptides coelutes in the inflix runs and adjust the peak assignment
             Identification y3ModId = new Identification(nist, baseSequence, y3ModSeq , monoisotopicMass,
                 33.27658, 3, new List<ProteinGroup> { pg });
-            Identification ambiguousId = new Identification(
-                nist, baseSequence, "PW[CF3:CF3 on W]YEPIYLGGVFQLEK|PWY[CF3:CF3 on Y]EPIYLGGVFQLEK|PWYE[CF3:CF3 on E]PIYLGGVFQLEK",
-                monoisotopicMass, 33.2862, 3, new List<ProteinGroup> { pg });
-
-            // Inflix2 ID 
-            Identification y3ModIdInflix2 = new Identification(inflix2, baseSequence, y3ModSeq, monoisotopicMass,
-                33.22545, 3, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(
-                new List<Identification> { y3ModId, ambiguousId, y7ModId, y7ModIdInflix, y7ModIdInflix2, y3ModIdInflix2 },
+                new List<Identification> { 
+                    y3ModId, y3ModIdInflix2, y3ModIdInflix3, 
+                    y7ModId, y7ModIdInflix2, y7ModIdInflix3},
                 normalize: false, maxThreads: 1, matchBetweenRuns: true, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
             var results = engine.Run();
-
-            var peaks = results.Peaks.SelectMany(kvp => kvp.Value).ToList();
-
+            // Check that the peptides are assigned to the same peak in the inflix conditions
+            // and separate peaks in the nist condition
+            Assert.AreEqual(2, results.Peaks[nist].Count);
+            Assert.AreEqual(1, results.Peaks[inflix2].Count);
+            Assert.AreEqual(1, results.Peaks[inflix3].Count);
+           
             var indexingEngine = engine.GetIndexingEngine();
             var nistPeaks = indexingEngine.ExtractPeaks(peakFindingMass, nist);
-            var inflixPeaks = indexingEngine.ExtractPeaks(peakFindingMass, inflix);
+            var inflixPeaks = indexingEngine.ExtractPeaks(peakFindingMass, inflix3);
             var inflix2Peaks = indexingEngine.ExtractPeaks(peakFindingMass, inflix2);
             double inflixAdjustment = XicProcessing.AlignPeaks(nistPeaks, inflixPeaks, 100);
             double inflix2Adjustment = XicProcessing.AlignPeaks(nistPeaks, inflix2Peaks, 100);
 
             Xic nistXic = new Xic(nistPeaks, peakFindingMass, nist, 0, referenceXic: true);
-            Xic inflixXic = new Xic(inflixPeaks, peakFindingMass, inflix, inflixAdjustment, referenceXic: false);
+            Xic inflixXic = new Xic(inflixPeaks, peakFindingMass, inflix3, inflixAdjustment, referenceXic: false);
             Xic inflix2Xic = new Xic(inflix2Peaks, peakFindingMass, inflix2, inflix2Adjustment, referenceXic: false);
 
             var matchedExtrema = XicProcessing.ReconcileExtrema(nistXic.Extrema,
                 new List<List<Extremum>> { inflix2Xic.Extrema, inflixXic.Extrema });
 
-            int placeholder = 0;
-
-            Assert.AreEqual(nistXic.Extrema.Count, matchedExtrema.GetLength(0));
-            Assert.AreEqual(3, matchedExtrema.GetLength(1));
+            Assert.AreEqual(3, matchedExtrema.GetLength(0));
+            Assert.AreEqual(nistXic.Extrema.Count, matchedExtrema.GetLength(1));
 
             var firstRow = Enumerable.Range(0, nistXic.Extrema.Count)
-                .Select(i => matchedExtrema[i, 0])
+                .Select(i => matchedExtrema[0, i])
                 .ToArray();
             var secondRow = Enumerable.Range(0, nistXic.Extrema.Count)
-                .Select(i => matchedExtrema[i, 1])
+                .Select(i => matchedExtrema[1, i])
                 .ToArray();
             Assert.AreEqual(firstRow.Count(e => e == null), secondRow.Count(e => e == null));
             Assert.AreEqual(
                 firstRow.Where(e => e != null).Count(e => e.ExtremumType == ExtremumType.Maximum),
                 secondRow.Where(e => e != null).Count(e => e.ExtremumType == ExtremumType.Maximum));
+
+
+            // Test Group Peaks
+            //TODO: Test the ClusterPeaks function more rigorously
+            var groupedPeaks = IsobarCluster.ClusterPeaks(results.Peaks.SelectMany(kvp => kvp.Value).ToList());
+
+            Assert.AreEqual(1, groupedPeaks.Count);
+            Assert.AreEqual(4, groupedPeaks.First().Count);
         }
 
         [Test]
@@ -485,7 +498,7 @@ namespace TestFlashLFQ
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { pepInflix, pepNist },
-                normalize: false, maxThreads: 1, matchBetweenRuns: false); // peaks are only serialized if match between runs = true
+                normalize: false, maxThreads: 1, matchBetweenRuns: true); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
             var results = engine.Run();

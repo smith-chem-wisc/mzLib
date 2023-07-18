@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using FlashLFQ.PeakPicking;
 using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
@@ -7,12 +8,14 @@ using System.Text;
 
 namespace FlashLFQ
 {
-    public class ChromatographicPeak
+    public class ChromatographicPeak : IComparable<ChromatographicPeak>
     {
         public double Intensity;
         public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
+        //TODO: Investigate how this gets assigned. It looks to be more accurate than the reported peak start time
         public double SplitRT;
+        public double ApexRetentionTime => Apex?.IndexedPeak == null ? -1 : Apex.IndexedPeak.RetentionTime;
         public readonly bool IsMbrPeak;
         public double MbrScore;
 
@@ -47,7 +50,17 @@ namespace FlashLFQ
         /// Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6
         /// </summary>
         public double? RtInterquartileRange { get; private set; }
+
+        //TODO: Figure out whether this is needed
         public int? Region { get; private set; }
+
+        public int CompareTo(ChromatographicPeak other)
+        {
+            if (other?.Apex?.IndexedPeak == null) return 1;
+            if (this.Apex?.IndexedPeak == null) return -1;
+
+            return Apex.IndexedPeak.RetentionTime.CompareTo(other.Apex.IndexedPeak.RetentionTime);
+        }
 
         public static string TabSeparatedHeader
         {
