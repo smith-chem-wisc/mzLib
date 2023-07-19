@@ -116,5 +116,32 @@ namespace Test.Transcriptomics
             if (Nucleotide.TryGetResidue("Taco", out outTide))
                 Assert.Fail();
         }
+
+        [Test]
+        public void TestEquality()
+        {
+            Assert.That(Nucleotide.TryGetResidue('A', out Nucleotide a));
+            Assert.That(Nucleotide.TryGetResidue("Ade", out Nucleotide a2));    
+            Assert.That(Nucleotide.TryGetResidue("U", out Nucleotide u));    
+            Assert.That(Nucleotide.TryGetResidue("Ura", out Nucleotide u2));    
+
+            Assert.That(a.Equals(a));
+            Assert.That(a.Equals(a2));
+            Assert.That(a.GetHashCode(), Is.EqualTo(a2.GetHashCode()));
+            Assert.That(u.Equals(u2));
+            Assert.That(u.GetHashCode(), Is.EqualTo(u2.GetHashCode()));
+            Assert.That(!a.Equals(u2));
+            Assert.That(a.GetHashCode(), Is.Not.EqualTo(u.GetHashCode()));
+            Assert.That(!u.Equals(a2));
+            Assert.That(u.GetHashCode(), Is.Not.EqualTo(a.GetHashCode()));
+            Assert.That(!u.Equals(null));
+            Assert.That(a.Equals((object)a2));
+            Assert.That(a.Equals((object)a));
+            Assert.That(u.Equals((object)u2));
+            Assert.That(!a.Equals((object)u2));
+            Assert.That(!u.Equals((object)a2));
+            Assert.That(!u.Equals((object)null));
+            Assert.That(!u.Equals((object) new Action(() => { })));
+        }
     }
 }

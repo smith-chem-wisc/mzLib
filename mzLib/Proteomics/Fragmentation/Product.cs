@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Xml;
 using Chemistry;
@@ -6,7 +8,7 @@ using MassSpectrometry;
 
 namespace Proteomics.Fragmentation
 {
-    public readonly struct Product : IProduct
+    public class Product : IProduct
     {
         public double NeutralMass { get; }
         public ProductType ProductType { get; }
@@ -16,7 +18,7 @@ namespace Proteomics.Fragmentation
         public int AminoAcidPosition { get; }
         public int ResiduePosition => AminoAcidPosition; // added for interface compatibility 
         public ProductType? SecondaryProductType { get; } //used for internal fragment ions
-        public int? SecondaryFragmentNumber { get; } //used for internal fragment ions
+        public int SecondaryFragmentNumber { get; } //used for internal fragment ions
         public double MonoisotopicMass => NeutralMass;
         public string Annotation => (this as IProduct).GetAnnotation();
 
@@ -38,8 +40,6 @@ namespace Proteomics.Fragmentation
             SecondaryProductType = secondaryProductType;
             SecondaryFragmentNumber = secondaryFragmentNumber;
         }
-
-        
 
         /// <summary>
         /// Summarizes a Product into a string for debug purposes

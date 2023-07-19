@@ -11,6 +11,5 @@ namespace Transcriptomics
     {
         char Letter { get; }
         string Symbol { get; }
-        ModificationSite ModificationSite { get; }
     }
 }

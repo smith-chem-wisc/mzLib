@@ -14,10 +14,10 @@ namespace MassSpectrometry
         public double NeutralLoss { get; }
         public FragmentationTerminus Terminus { get; }
         public int FragmentNumber { get; }
-        public int AminoAcidPosition { get; }
-        public int ResiduePosition => AminoAcidPosition; // added for interface compatibility 
+        public int ResiduePosition { get; } // added for interface compatibility 
+        public int AminoAcidPosition => ResiduePosition;
         public ProductType? SecondaryProductType { get; } //used for internal fragment ions
-        public int? SecondaryFragmentNumber { get; } //used for internal fragment ions
+        public int SecondaryFragmentNumber { get; } //used for internal fragment ions
         public double MonoisotopicMass => NeutralMass;
         public string Annotation { get; }
 
@@ -50,4 +50,6 @@ namespace MassSpectrometry
             return sb.ToString();
         }
     }
+
+
 }

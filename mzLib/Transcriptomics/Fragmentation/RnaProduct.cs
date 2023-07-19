@@ -14,15 +14,15 @@ namespace Transcriptomics
         public double NeutralLoss { get; }
         public FragmentationTerminus Terminus { get; }
         public int FragmentNumber { get; }
-        public int AminoAcidPosition { get; }
+        public int ResiduePosition { get; }
         public ProductType? SecondaryProductType { get; }
-        public int? SecondaryFragmentNumber { get; }
+        public int SecondaryFragmentNumber { get; }
         public double MonoisotopicMass => NeutralMass;
         public string Annotation => (this as IProduct).GetAnnotation();
         public NucleicAcid? Parent { get; }
 
         public RnaProduct(ProductType productType, FragmentationTerminus terminus, double neutralMass,
-            int fragmentNumber, int aminoAcidPosition, double neutralLoss, ProductType? secondaryProductType = null, 
+            int fragmentNumber, int residuePosition, double neutralLoss, ProductType? secondaryProductType = null, 
             int secondaryFragmentNumber = 0, NucleicAcid? parent = null)
         {
             NeutralMass = neutralMass;
@@ -30,7 +30,7 @@ namespace Transcriptomics
             NeutralLoss = neutralLoss;
             Terminus = terminus;
             FragmentNumber = fragmentNumber;
-            AminoAcidPosition = aminoAcidPosition;
+            ResiduePosition = residuePosition;
             SecondaryProductType = secondaryProductType;
             SecondaryFragmentNumber = secondaryFragmentNumber;
             Parent = parent;
@@ -54,22 +54,19 @@ namespace Transcriptomics
             }
         }
 
-        public bool Equals(IProduct? other)
+        public bool Equals(IProduct other)
         {
             return NeutralMass.Equals(other.NeutralMass) && ProductType == other.ProductType &&
                    NeutralLoss.Equals(other.NeutralLoss) && Terminus == other.Terminus &&
-                   FragmentNumber == other.FragmentNumber && AminoAcidPosition == other.AminoAcidPosition &&
+                   FragmentNumber == other.FragmentNumber && Math.Abs(ResiduePosition - other.ResiduePosition) < 0.0001 &&
                    SecondaryProductType == other.SecondaryProductType &&
                    SecondaryFragmentNumber == other.SecondaryFragmentNumber &&
                    MonoisotopicMass.Equals(other.MonoisotopicMass);
         }
 
-        public override bool Equals(object? obj)
+        public override bool Equals(object obj)
         {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((IProduct)obj);
+            return obj is RnaProduct other && Equals(other);
         }
 
         public override int GetHashCode()
@@ -80,7 +77,7 @@ namespace Transcriptomics
             hashCode.Add(NeutralLoss);
             hashCode.Add((int)Terminus);
             hashCode.Add(FragmentNumber);
-            hashCode.Add(AminoAcidPosition);
+            hashCode.Add(ResiduePosition);
             hashCode.Add(SecondaryProductType);
             hashCode.Add(SecondaryFragmentNumber);
             hashCode.Add(MonoisotopicMass);

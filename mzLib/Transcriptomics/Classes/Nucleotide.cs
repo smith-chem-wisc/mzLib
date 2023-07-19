@@ -92,7 +92,6 @@ namespace Transcriptomics
         public ChemicalFormula BaseChemicalFormula { get; private set; }
         public char Letter { get; private set; }
         public string Symbol { get; private set; }
-        public ModificationSite ModificationSite { get; private set; }
 
         #endregion
 
@@ -208,8 +207,7 @@ namespace Transcriptomics
             if (ReferenceEquals(this, other)) return true;
             return Name == other.Name && ThisChemicalFormula.Equals(other.ThisChemicalFormula)
                                       && Letter == other.Letter
-                                      && Symbol == other.Symbol
-                                      && ModificationSite == other.ModificationSite;
+                                      && Symbol == other.Symbol;
         }
 
         public override bool Equals(object? obj)
@@ -222,8 +220,7 @@ namespace Transcriptomics
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Name, ThisChemicalFormula, Letter, Symbol,
-                (int)ModificationSite);
+            return HashCode.Combine(Name, ThisChemicalFormula, Letter, Symbol);
         }
 
         #endregion
