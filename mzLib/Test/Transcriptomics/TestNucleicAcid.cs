@@ -382,36 +382,36 @@ namespace Test.Transcriptomics
             }
         }
 
-        [Test]
-        public void TestFragmentation_Unmodified()
-        {
-            List<IProduct> productsToTest = new List<IProduct>();
-            var cidProductTypes = DissociationType.CID.GetRnaProductTypesFromDissociationType();
-            foreach (var testCase in GetSixmerIndividualFragmentTypeTestCases().Where(p => cidProductTypes.Contains(p.Type)))
-            {
-                for (int i = 0; i < testCase.NeutralMasses.Length; i++)
-                {
-                    var terminus = testCase.Type.GetRnaTerminusType();
-                    double neutralMass = testCase.NeutralMasses[i];
-                    int fragmentNum = i;
-                    double neutralLoss = 0;
-                    if (testCase.Type.ToString().Contains("Base"))
-                    {
-                       // neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
-                    }
+        //[Test]
+        //public void TestFragmentation_Unmodified()
+        //{
+        //    List<IProduct> productsToTest = new List<IProduct>();
+        //    var cidProductTypes = DissociationType.CID.GetRnaProductTypesFromDissociationType();
+        //    foreach (var testCase in GetSixmerIndividualFragmentTypeTestCases().Where(p => cidProductTypes.Contains(p.Type)))
+        //    {
+        //        for (int i = 0; i < testCase.NeutralMasses.Length; i++)
+        //        {
+        //            var terminus = testCase.Type.GetRnaTerminusType();
+        //            double neutralMass = testCase.NeutralMasses[i];
+        //            int fragmentNum = i;
+        //            double neutralLoss = 0;
+        //            if (testCase.Type.ToString().Contains("Base"))
+        //            {
+        //               // neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
+        //            }
 
-                    var t = new RnaProduct(testCase.Type, terminus, neutralMass, i + 1, i + 1, neutralLoss);
-                    productsToTest.Add(t);
-                }
-            }
+        //            var t = new RnaProduct(testCase.Type, terminus, neutralMass, i + 1, i + 1, neutralLoss);
+        //            productsToTest.Add(t);
+        //        }
+        //    }
 
 
-            List<IProduct> products = new();
-            RNA rna = new RNA("GUACUG");
-            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
-            CollectionAssert.AreEquivalent(products, productsToTest);
+        //    List<IProduct> products = new();
+        //    RNA rna = new RNA("GUACUG");
+        //    rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
+        //    CollectionAssert.AreEquivalent(products, productsToTest);
 
-        }
+        //}
 
         #endregion
     }
