@@ -1,5 +1,4 @@
 ﻿using Chemistry;
-using MassSpectrometry;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.Fragmentation;

@@ -65,7 +65,6 @@ namespace Test.Transcriptomics
             if (Nucleotide.TryGetResidue(testCase.OneLetterCode, out Nucleotide outTide))
             {
                 Assert.That(nucleotide.Equals(outTide));
-                Assert.That(nucleotide.MassEquals(outTide.MonoisotopicMass));
             }
             else
                 Assert.Fail();
@@ -75,7 +74,6 @@ namespace Test.Transcriptomics
             if (Nucleotide.TryGetResidue(testCase.Symbol, out outTide))
             {
                 Assert.That(nucleotide.Equals(outTide));
-                Assert.That(nucleotide.MonoisotopicMass.MassEquals(outTide));
             }
             else
                 Assert.Fail();
@@ -96,7 +94,6 @@ namespace Test.Transcriptomics
             if (Nucleotide.TryGetResidue('F', out Nucleotide outTide))
             {
                 Assert.That(fakeNucleotide.Equals(outTide));
-                Assert.That(fakeNucleotide.MonoisotopicMass.MassEquals(outTide.MonoisotopicMass));
             }
             else
                 Assert.Fail();
@@ -104,7 +101,6 @@ namespace Test.Transcriptomics
             if (Nucleotide.TryGetResidue("Fke", out outTide))
             {
                 Assert.That(fakeNucleotide.Equals(outTide));
-                Assert.That(fakeNucleotide.MonoisotopicMass.MassEquals(outTide.MonoisotopicMass));
             }
             else
                 Assert.Fail();

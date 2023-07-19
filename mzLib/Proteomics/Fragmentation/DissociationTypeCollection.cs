@@ -1,14 +1,11 @@
-﻿using System;
-using Chemistry;
-using Easy.Common.Extensions;
+﻿using Easy.Common.Extensions;
 using MassSpectrometry;
 using System.Collections.Generic;
 using System.Linq;
-using System.Xml;
 
 namespace Proteomics.Fragmentation
 {
-    public class DissociationTypeCollection 
+    public class DissociationTypeCollection
     {
         public static Dictionary<DissociationType, List<ProductType>> ProductsFromDissociationType = new Dictionary<DissociationType, List<ProductType>>
         {
