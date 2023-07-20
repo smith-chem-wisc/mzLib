@@ -77,10 +77,11 @@ namespace Chemistry
             }
 
             defaultImplementationIndex = ~defaultImplementationIndex; // point to the first value larger than the target.
-            if (defaultImplementationIndex == 0)
-                return 0;
             if (defaultImplementationIndex == sortedArray.Length)
                 return defaultImplementationIndex - 1;
+            if (defaultImplementationIndex == 0)
+                return 0;
+            
 
             int closestIndex;
             switch (searchType)
