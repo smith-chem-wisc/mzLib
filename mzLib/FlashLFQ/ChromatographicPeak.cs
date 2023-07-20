@@ -94,6 +94,12 @@ namespace FlashLFQ
             }
         }
 
+        public void AddIdentification(Identification id)
+        {
+            if(!Identifications.Contains(id))
+                Identifications.Add(id);
+        }
+
         /// <summary>
         /// Sets retention time information for a given peak. Used for MBR peaks
         /// </summary>

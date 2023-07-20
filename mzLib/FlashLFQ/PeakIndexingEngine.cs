@@ -96,12 +96,24 @@ namespace FlashLFQ
             return true;
         }
 
-        public List<IndexedMassSpectralPeak> ExtractPeaks(double mz, SpectraFileInfo spectraFile)
+        public List<IndexedMassSpectralPeak> ExtractPeaks(double mz, SpectraFileInfo spectraFile, 
+            double? startTime = null, double? endTime = null)
         {
-            DeserializeIndex(spectraFile);
+            DeserializeIndex(spectraFile, deleteIndex: false);
             int mzIndex = (int)Math.Round(mz * BinsPerDalton, 0);
-            List<IndexedMassSpectralPeak> xic = _indexedPeaks[mzIndex].ConvertAll(peak => new IndexedMassSpectralPeak(peak));
+            // conversion is necessary to ensure peaks remain after index is cleared
+            List<IndexedMassSpectralPeak> xic = _indexedPeaks[mzIndex]
+                .ConvertAll(peak => new IndexedMassSpectralPeak(peak));
             ClearIndex();
+
+            xic.Sort(IndexedMassSpectralPeak.CompareRetentionTime);
+            if (startTime != null && endTime != null)
+            {
+                return xic.Where(peak =>
+                        peak.RetentionTime >= (double)startTime && peak.RetentionTime <= (double)endTime)
+                    .ToList();
+            }
+
             return xic;
         }
 
@@ -136,7 +148,7 @@ namespace FlashLFQ
             }
         }
 
-        public void DeserializeIndex(SpectraFileInfo file)
+        public void DeserializeIndex(SpectraFileInfo file, bool deleteIndex = true)
         {
             string dir = Path.GetDirectoryName(file.FullFilePathWithExtension);
             string indexPath = Path.Combine(dir, file.FilenameWithoutExtension + ".ind");
@@ -146,7 +158,8 @@ namespace FlashLFQ
                 _indexedPeaks = (List<IndexedMassSpectralPeak>[])_serializer.Deserialize(indexFile);
             }
 
-            File.Delete(indexPath);
+            if(deleteIndex)
+                File.Delete(indexPath);
         }
 
         public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState)

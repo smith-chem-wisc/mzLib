@@ -42,6 +42,7 @@ namespace FlashLFQ.PeakPicking
         {
             return Equals(obj as Extremum);
         }
+        //TODO: override GetHashcode
 
         /// <summary>
         /// Returns true if both extrema have the same intensity,

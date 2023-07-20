@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Chemistry;
 using Easy.Common.Extensions;
 
 namespace FlashLFQ.PeakPicking
@@ -13,7 +14,8 @@ namespace FlashLFQ.PeakPicking
     /// </summary>
     public class IsobarCluster
     {
-        public readonly double PeakFindingMass;
+        public readonly double PeakFindingMz;
+        public readonly int ChargeState;
 
         public List<ChromatographicPeak> Peaks;
         public List<Identification> Identifications { get; }
@@ -36,11 +38,24 @@ namespace FlashLFQ.PeakPicking
 
         public IsobarCluster(List<ChromatographicPeak> peaks, PeakIndexingEngine peakIndexingEngine)
         {
+            // I have no idea what causes a peak to be apex-less.
+            // TODO: Figure out why some peaks have no apex
+            if (peaks.Any(peak => peak.Apex == null))
+            {
+                throw new ArgumentException("All peaks must have a defined apex");
+            }
+
             Peaks = peaks;
             Identifications = peaks.SelectMany(peak => peak.Identifications).ToList();
 
-            PeakFindingMass = Identifications
-                .Average(group => group.PeakfindingMass);
+            ChargeState = Peaks
+                .Where(p => p?.Apex != null)
+                .Select(p => p.Apex.ChargeState)
+                .GroupBy(z => z)
+                .OrderByDescending(group => group.Count())
+                .First().Key;
+            PeakFindingMz = Identifications
+                .Average(group => group.PeakfindingMass.ToMz(ChargeState));
 
             // The file with the most unambiguous peaks is chosen as the reference file that all other files are aligned to
             ReferenceFile = Peaks.Where(peak => peak.Identifications.IsNotNullOrEmpty() && peak.Identifications.Count ==1)
@@ -55,9 +70,6 @@ namespace FlashLFQ.PeakPicking
             FindConsensusExtrema();
 
             DefinePeakRegions();
-
-            // Separate function, shouldn't be in constructor
-            AssignIDs();
         }
 
         private void SetTimeRange()
@@ -79,12 +91,18 @@ namespace FlashLFQ.PeakPicking
                 ? 0.25
                 : (RetentionTimeRange.Width) / 4.0;
 
-            
             Xics = new Dictionary<SpectraFileInfo, Xic>();
 
-            //TODO: add time span param to Extract peaks and pull rtRange.min - buffer, rtRange.max + buffer
-            List<IndexedMassSpectralPeak> refPeaks = peakIndexingEngine.ExtractPeaks(PeakFindingMass, ReferenceFile);
-            Xics.Add(ReferenceFile, new Xic(refPeaks, PeakFindingMass, ReferenceFile, 0, referenceXic: true));
+            //TODO: This is deserializing each file multiple times, which comes with a performance hit
+            List<IndexedMassSpectralPeak> refPeaks = peakIndexingEngine.ExtractPeaks(
+                PeakFindingMz, ReferenceFile, 
+                startTime: RetentionTimeRange.Minimum - timeBuffer,
+                endTime: RetentionTimeRange.Maximum + timeBuffer);
+            if (refPeaks.Count <= 5)
+            {
+                throw new Exception("XIC too short");
+            }
+            Xics.Add(ReferenceFile, new Xic(refPeaks, PeakFindingMz, ReferenceFile, 0, referenceXic: true));
             
             List<SpectraFileInfo> otherFiles = Peaks.Select(peak => peak.SpectraFileInfo)
                 .Distinct()
@@ -93,9 +111,16 @@ namespace FlashLFQ.PeakPicking
 
             foreach(SpectraFileInfo file in otherFiles)
             {
-                List<IndexedMassSpectralPeak> peaks = peakIndexingEngine.ExtractPeaks(PeakFindingMass, file);
+                List<IndexedMassSpectralPeak> peaks = peakIndexingEngine.ExtractPeaks(
+                    PeakFindingMz, file,
+                    startTime: RetentionTimeRange.Minimum - timeBuffer,
+                    endTime: RetentionTimeRange.Maximum + timeBuffer);
                 double rtAdjustment = XicProcessing.AlignPeaks(refPeaks, peaks);
-                Xics.Add(file, new Xic(peaks, PeakFindingMass, file, rtAdjustment, referenceXic: false));
+                if (peaks.Count <= 5)
+                {
+                    throw new Exception("XIC too short");
+                }
+                Xics.Add(file, new Xic(peaks, PeakFindingMz, file, rtAdjustment, referenceXic: false));
             }
         }
 
@@ -173,7 +198,8 @@ namespace FlashLFQ.PeakPicking
             }
         }
 
-        internal void AssignIDs()
+
+        public void ReassignPeakIDs()
         {
             RegionPeakDictionary = new Dictionary<int, List<ChromatographicPeak>>();
 
@@ -197,23 +223,25 @@ namespace FlashLFQ.PeakPicking
 
             #region OnePeptideMultiRegion
 
-            Dictionary<string, List<int>> fullSeqToRegion = new();
+            Dictionary<string, List<int>> msmsIdFullSeqToRegion = new();
             foreach (var kvp in RegionPeakDictionary)
             {
-                foreach (var id in kvp.Value.SelectMany(peak => peak.Identifications))
+                foreach (var id in kvp.Value
+                             .Where(peak => !peak.IsMbrPeak)
+                             .SelectMany(peak => peak.Identifications))
                 {
                     string[] fullSeqs = id.ModifiedSequence.Split('|');
                     foreach (string seq in fullSeqs)
                     {
-                        if (!fullSeqToRegion.TryAdd(seq, new List<int> { kvp.Key }))
+                        if (!msmsIdFullSeqToRegion.TryAdd(seq, new List<int> { kvp.Key }))
                         {
-                            fullSeqToRegion[seq].Add(kvp.Key);
+                            msmsIdFullSeqToRegion[seq].Add(kvp.Key);
                         }
                     }
                 }
             }
 
-            foreach (var kvp in fullSeqToRegion)
+            foreach (var kvp in msmsIdFullSeqToRegion)
             {
                 if (kvp.Value.Distinct().Count() > 1)
                 {
@@ -227,9 +255,11 @@ namespace FlashLFQ.PeakPicking
                         .ToDictionary(
                             keySelector: group => group.Key,
                             elementSelector: group => group.Count());
+
                     if (regionCountDictionary.Values.Distinct().Count() < regionCountDictionary.Count)
                     {
                         //TODO: Come up with tie-breaking mechanism
+                        continue;
                     }
                     int bestRegion = regionCountDictionary.MaxBy(kvp => kvp.Value).Key;
 
@@ -247,9 +277,10 @@ namespace FlashLFQ.PeakPicking
                                     .FindIndex(id => id.ModifiedSequence == kvp.Key);
                                 Identification id = peak.Identifications[idIndex];
                                 peak.Identifications.Remove(id);
-                                RegionPeakDictionary[bestRegion]
-                                    .First(peak => peak.SpectraFileInfo.Equals(id.FileInfo))
-                                    .Identifications.Add(id);
+
+                                var bestPeak = RegionPeakDictionary[bestRegion]
+                                    .First(p => p.SpectraFileInfo.Equals(id.FileInfo));
+                                bestPeak.AddIdentification(id);
                             }
                         }
                     }
@@ -258,8 +289,8 @@ namespace FlashLFQ.PeakPicking
                     // Differential assignment
                     // One identification is assigned to different peaks in different files 
                     // Handle case where one peptide just has multiple peaks (e.g., mod on aromatic)
-                    // Handle case where peptide is assigned differently in different files
-                    // do something
+
+                    // TODO: MBR for ambiguous peaks, improved mbr
                 }
             }
 
@@ -267,9 +298,12 @@ namespace FlashLFQ.PeakPicking
 
             #region OneRegionMultiPeptide
 
-            foreach (var kvp in RegionIdDictionary)
+            foreach (var kvp in RegionPeakDictionary)
             {
-                if (kvp.Value.Select(id => id.ModifiedSequence).Distinct().Count() > 1)
+                if (kvp.Value
+                        .SelectMany(peak => peak.Identifications)
+                        .Select(id => id.ModifiedSequence)
+                        .Distinct().Count() > 1)
                 {
                     // Does this happen in the same file? e.g. coeluting isobars both observed in MS2
                     // Is there disagreement between files? 
@@ -282,11 +316,8 @@ namespace FlashLFQ.PeakPicking
 
         }
 
-        internal void AssignPeaks()
-        {
-
-        }
-
+        // Clusters things with identical peak finding masses
+        // Pull chromPeaks from all files, the recursively groups them together
         public static List<IsobarCluster> FindIsobarClusters(List<Identification> identifications, 
             FlashLfqResults results, PeakIndexingEngine indexingEngine)
         {
@@ -307,9 +338,11 @@ namespace FlashLFQ.PeakPicking
 
                 isobaricPeaks.Sort();
                 List<List<ChromatographicPeak>> clusteredPeaks = ClusterPeaks(isobaricPeaks);
-                foreach (var peakCluster in clusteredPeaks)
+                foreach (var peakCluster in 
+                         clusteredPeaks.Where(peakList => peakList.IsNotNullOrEmpty()))
                 {
-                    isobarClusters.Add(new IsobarCluster(peakCluster, indexingEngine));
+                    if(peakCluster.All(peak => peak.Apex != null))
+                        isobarClusters.Add(new IsobarCluster(peakCluster, indexingEngine));
                 }
 
             }
@@ -317,6 +350,7 @@ namespace FlashLFQ.PeakPicking
             return isobarClusters;
         }
 
+        //TODO: SUmmary comment
         /// <summary>
         /// Add summary comment here
         /// </summary>
@@ -371,7 +405,10 @@ namespace FlashLFQ.PeakPicking
             }
             
             // Check to see if there's more than one species in the cluster
-            if(peakCluster.SelectMany(peak => peak.Identifications).Distinct().Count() > 1)
+            if(peakCluster.SelectMany(peak => 
+                        peak.Identifications.Select(id => id.ModifiedSequence))
+                   .Distinct()
+                   .Count() > 1)
                 peakClusters.Add(peakCluster);
 
             // Recurse left

@@ -30,6 +30,22 @@ namespace FlashLFQ
             this.Intensity = peak.Intensity;
         }
 
+        public static int CompareRetentionTime(IndexedMassSpectralPeak peak1, IndexedMassSpectralPeak peak2)
+        {
+            if (peak1 == null)
+            {
+                if (peak2 == null)
+                    return 0;
+                else
+                    return -1;
+            }
+
+            if (peak2 == null)
+                return 1;
+
+            return (int)Math.Ceiling(peak1.RetentionTime - peak2.RetentionTime);
+        }
+
         public override bool Equals(object obj)
         {
             var otherPeak = (IndexedMassSpectralPeak)obj;

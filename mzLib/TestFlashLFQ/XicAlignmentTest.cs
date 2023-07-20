@@ -19,6 +19,7 @@ using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using MathNet.Numerics.Interpolation;
 using SharpLearning.Containers.Extensions;
+using static Nett.TomlObjectFactory;
 
 namespace TestFlashLFQ
 {
@@ -222,7 +223,9 @@ namespace TestFlashLFQ
             CollectionAssert.AreEqual(secondRow, expArray);
         }
 
-        // In base FlashLFQ, some IDs get merged and then assigned to the wrong peaks. Multi-run consensus should prevent this issue
+        // In base FlashLFQ, some IDs get merged and then assigned to the wrong peaks.
+        // Multi-run consensus should prevent this issue
+        // This tests like 17 different things, but they all work!
         [Test]
         public static void TestReconcileExtremaRealData()
         {
@@ -260,7 +263,7 @@ namespace TestFlashLFQ
             // The y3 modified peptide co-elutes with y7 in these runs (Actually, only in inflix 2 is that observed confidently.)
             Identification y3ModIdInflix2 = new Identification(inflix2, baseSequence, y3ModSeq, monoisotopicMass,
                 rty3, 3, new List<ProteinGroup> { pg });
-            Identification y3ModIdInflix3 = new Identification(inflix3, baseSequence, y7ModSeq, monoisotopicMass,
+            Identification y3ModIdInflix3 = new Identification(inflix3, baseSequence, y3ModSeq, monoisotopicMass,
                 rty3, 3, new List<ProteinGroup> { pg });
 
             // In NIST, the y3 mod peptide gets assigned to next peak. This peak has a FlashLFQ defined start time
@@ -269,11 +272,15 @@ namespace TestFlashLFQ
             Identification y3ModId = new Identification(nist, baseSequence, y3ModSeq , monoisotopicMass,
                 33.27658, 3, new List<ProteinGroup> { pg });
 
+
+            List<Identification> allIdentifications = new List<Identification>
+            {
+                y3ModId, y3ModIdInflix2, y3ModIdInflix3,
+                y7ModId, y7ModIdInflix2, y7ModIdInflix3
+            };
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(
-                new List<Identification> { 
-                    y3ModId, y3ModIdInflix2, y3ModIdInflix3, 
-                    y7ModId, y7ModIdInflix2, y7ModIdInflix3},
+                allIdentifications,
                 normalize: false, maxThreads: 1, matchBetweenRuns: true, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
@@ -312,13 +319,167 @@ namespace TestFlashLFQ
                 firstRow.Where(e => e != null).Count(e => e.ExtremumType == ExtremumType.Maximum),
                 secondRow.Where(e => e != null).Count(e => e.ExtremumType == ExtremumType.Maximum));
 
-
             // Test Group Peaks
             //TODO: Test the ClusterPeaks function more rigorously
             var groupedPeaks = IsobarCluster.ClusterPeaks(results.Peaks.SelectMany(kvp => kvp.Value).ToList());
 
             Assert.AreEqual(1, groupedPeaks.Count);
             Assert.AreEqual(4, groupedPeaks.First().Count);
+
+            // The peaks in results are all mutable, so we need to take a snapshot of the results before
+            // reassignment is performed
+            var nistPeaksBeforeReassignment = results.Peaks[nist]
+                .OrderBy(peak => peak)
+                .Select(peak => (peak.ApexRetentionTime, string.Join('|', peak.Identifications)))
+                .ToList(); // Have to make sure enumeration runs here, before IDs are reassigned
+
+            // Test full IsobarCluster class
+            var isobarCluster = IsobarCluster.FindIsobarClusters(allIdentifications, results, indexingEngine).First();
+            isobarCluster.ReassignPeakIDs();
+            var nistPeaksAfterReassignment = results.Peaks[nist]
+                .OrderBy(peak => peak)
+                .Select(peak => (peak.ApexRetentionTime, string.Join('|', peak.Identifications)))
+                .ToList();
+
+            Assert.AreEqual(y7ModSeq,nistPeaksBeforeReassignment.First().Item2);
+            Assert.AreEqual(y7ModSeq + "|" + y3ModSeq, nistPeaksAfterReassignment.First().Item2);
+        }
+
+        [Test]
+        public static void TNFaSliceMbrTest()
+        {
+            string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", 
+                "XICAlignment", @"AllPSMs_slices.psmtsv");
+
+            SpectraFileInfo nist = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
+                "nist", 1, 0, 0);
+            SpectraFileInfo inflix2 = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_2-calib.mzML"),
+                "inflix", 0, 0, 0);
+            SpectraFileInfo inflix3 = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
+                "inflix", 0, 0, 0);
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("NIST"))
+                {
+                    file = nist;
+                }
+                else if (split[0].Contains("Inflix_Tryp_60s_2"))
+                {
+                    file = inflix2;
+                }
+                else if (split[0].Contains("Inflix_Tryp_60s_3"))
+                {
+                    file = inflix3;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[22]);
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[25].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            string outputFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData",
+                "XICAlignment");
+
+            // TODO: Report ambiguous but don't do multi-run consensus
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false,
+                quantifyAmbiguousPeptides: false, maxThreads: 1);
+            //var results = engine.Run(out var exceptionList);
+            //Assert.IsEmpty(exceptionList);
+            //results.WriteResults(Path.Combine(outputFolder, "MultiRunConsensus_Peaks.tsv"), null, null, null, true);
+            //results.WriteResults(null, Path.Combine(outputFolder, "Default_Peptides.tsv"), null, null, true);
+
+            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false,
+                quantifyAmbiguousPeptides: true, maxThreads: 1);
+            var results = engine.Run(out var exceptions);
+
+            results.WriteResults(Path.Combine(outputFolder, "MultiRunConsensus_Peaks.tsv"), null, null, null, true);
+            results.WriteResults(null, Path.Combine(outputFolder, "MultiRunConsensus_Peptides.tsv"), null, null, true);
+
+
+            var f1r1MbrResults = results
+                .PeptideModifiedSequences
+                .Where(p => p.Value.GetDetectionType(nist) == DetectionType.MBR && p.Value.GetDetectionType(inflix2) == DetectionType.MSMS).ToList();
+
+            // TODO: group peaks by full sequence, look for reduction in SD
+            // and/or just count the number of reassigned peaks
+
+            //Assert.That(f1r1MbrResults.Count >= 132);
+
+            //var f1r2MbrResults = results.PeptideModifiedSequences
+            //    .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
+
+            //Assert.That(f1r2MbrResults.Count >= 77);
+
+            //List<(double, double)> peptideIntensities = new List<(double, double)>();
+
+            //foreach (var peptide in f1r1MbrResults)
+            //{
+            //    double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
+            //    double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
+            //    peptideIntensities.Add((mbrIntensity, msmsIntensity));
+            //}
+
+            //double corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+            //Assert.That(corr > 0.8);
+
+            //peptideIntensities.Clear();
+            //foreach (var peptide in f1r2MbrResults)
+            //{
+            //    double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
+            //    double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
+            //    peptideIntensities.Add((mbrIntensity, msmsIntensity));
+            //}
+
+            //corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+
+            //Assert.That(corr > 0.7);
+
+            //// the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
+            //// has to be observed in a condition for match-between-runs
+            //f1r1.Condition = "b";
+            //engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1);
+            //results = engine.Run();
+            //var proteinsObservedInF1 = ids.Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
+            //var proteinsObservedInF2 = ids.Where(p => p.FileInfo == f1r2).SelectMany(p => p.ProteinGroups).Distinct().ToList();
+            //var proteinsObservedInF1ButNotF2 = proteinsObservedInF1.Except(proteinsObservedInF2).ToList();
+            //foreach (ProteinGroup protein in proteinsObservedInF1ButNotF2)
+            //{
+            //    Assert.That(results.ProteinGroups[protein.ProteinGroupName].GetIntensity(f1r2) == 0);
+            //}
         }
 
         [Test]

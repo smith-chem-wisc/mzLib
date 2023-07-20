@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using FlashLFQ.PeakPicking;
 using UsefulProteomicsDatabases;
 
 namespace FlashLFQ
@@ -144,9 +145,15 @@ namespace FlashLFQ
 
         public FlashLfqResults Run()
         {
+            return (Run(out var exceptions));
+        }
+
+        public FlashLfqResults Run(out List<Exception> exceptions)
+        {
             _globalStopwatch.Start();
             _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
             _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications);
+            exceptions = new();
 
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
@@ -165,7 +172,7 @@ namespace FlashLFQ
                 QuantifyMs2IdentifiedPeptides(spectraFile);
 
                 // write the indexed peaks for MBR later
-                if (MatchBetweenRuns)
+                if (MatchBetweenRuns | QuantifyAmbiguousPeptides)
                 {
                     _peakIndexingEngine.SerializeIndex(spectraFile);
                 }
@@ -213,7 +220,31 @@ namespace FlashLFQ
             // Multi-Run Consensus
             if (QuantifyAmbiguousPeptides)
             {
-                MultiRunConsesus();
+                List<IsobarCluster> isobarClusters = null;
+                try
+                {
+                    isobarClusters =
+                        IsobarCluster.FindIsobarClusters(_allIdentifications, _results, _peakIndexingEngine);
+                }
+                catch (Exception e)
+                {
+                    exceptions.Add(e);
+                }
+
+                if (isobarClusters != null)
+                {
+                    foreach (IsobarCluster cluster in isobarClusters)
+                    {
+                        try
+                        {
+                            cluster.ReassignPeakIDs();
+                        }
+                        catch (Exception e)
+                        {
+                            exceptions.Add(e);
+                        }
+                    }
+                }
             }
 
             // calculate peptide intensities
@@ -520,7 +551,8 @@ namespace FlashLFQ
             Tolerance mbrTol = new PpmTolerance(filespecificMbrPpmTolerance);
 
             // deserialize the file's indexed mass spectral peaks. these were stored and serialized to a file earlier
-            _peakIndexingEngine.DeserializeIndex(idAcceptorFile);
+            // If QuantifyAmbiguousPeptides/MultiRun consensus is being performed, we need the serialized files to hang around
+            _peakIndexingEngine.DeserializeIndex(idAcceptorFile, deleteIndex: !QuantifyAmbiguousPeptides);
 
             // these are the analytes already identified in this run. we don't need to try to match them from other runs
             var acceptorFileIdentifiedSequences = new HashSet<string>(acceptorFileIdentifiedPeaks.Where(p => p.IsotopicEnvelopes.Any())
@@ -1087,17 +1119,6 @@ namespace FlashLFQ
             errorCheckedPeaks.AddRange(errorCheckedPeaksGroupedByApex.Values.Where(p => p != null));
 
             _results.Peaks[spectraFile] = errorCheckedPeaks;
-        }
-
-        public void MultiRunConsesus()
-        {
-            var isobarGroups = _allIdentifications
-                .GroupBy(id => Math.Round(id.PeakfindingMass, 2));
-            // group identifications by peak finding mass
-            // find all chromatographic peaks that contain those identifications for each group
-            // some sort of trimming by RT. a peak @ 10 min isn't coeluting at with a peak @ 30
-            // create isobar cluster for each
-
         }
 
         /// <summary>
