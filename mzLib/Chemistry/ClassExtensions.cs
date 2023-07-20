@@ -76,10 +76,15 @@ namespace Chemistry
                 return defaultImplementationIndex; 
             }
 
-            defaultImplementationIndex = ~defaultImplementationIndex; // point to the first value larger than the target.
+            // Negative indices mean no exact match. Taking there bitwise complement yield the index
+            // of the first element with a value greater than the target.
+            defaultImplementationIndex = ~defaultImplementationIndex; 
+
             if (defaultImplementationIndex == sortedArray.Length)
+                // This implies that the target value was greater than the largest element in the array
                 return defaultImplementationIndex - 1;
             if (defaultImplementationIndex == 0)
+                // This implies that the target value was less than the smallest element in the array
                 return 0;
             
 
