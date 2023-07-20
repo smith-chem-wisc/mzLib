@@ -1,4 +1,5 @@
-﻿using Easy.Common.Extensions;
+﻿using System;
+using Chemistry;
 using MassSpectrometry;
 using System.Collections.Generic;
 using System.Linq;
@@ -103,24 +104,22 @@ namespace Proteomics.Fragmentation
             { ProductType.Y, null},// diagnostic ions are not shifted but added sumarily
 
             // Rna Specific types are not shifted through this method, but added to not break the code. 
-            {ProductType.adot , null},
+            {ProductType.aWaterLoss , null},
             {ProductType.aBase , null},
-            {ProductType.bdot , null},
             {ProductType.bBase , null},
-            {ProductType.cdot , null},
+            {ProductType.cWaterLoss , null},
             {ProductType.cBase , null},
             {ProductType.d , null},
-            {ProductType.ddot , null},
+            {ProductType.dWaterLoss , null},
             {ProductType.dBase , null},
-            {ProductType.dH2O , null},
             {ProductType.w , null},
-            {ProductType.wdot , null},
+            {ProductType.wWaterLoss , null},
             {ProductType.wBase , null},
-            {ProductType.xdot , null},
+            {ProductType.xWaterLoss , null},
             {ProductType.xBase , null},
-            {ProductType.ydot , null},
             {ProductType.yBase , null},
             {ProductType.z , null},
+            {ProductType.zWaterLoss , null},
             {ProductType.zBase , null},
         };
 
@@ -178,24 +177,22 @@ namespace Proteomics.Fragmentation
                         case ProductType.Y: NeutralMassShiftFromProductType[productType] = 0; break;// no change
 
                         // Nucleic Acid Specific Product Types
-                        case ProductType.adot:
+                        case ProductType.aWaterLoss:
                         case ProductType.aBase:
-                        case ProductType.bdot:
                         case ProductType.bBase:
-                        case ProductType.cdot:
+                        case ProductType.cWaterLoss:
                         case ProductType.cBase:
                         case ProductType.d:
-                        case ProductType.ddot:
+                        case ProductType.dWaterLoss:
                         case ProductType.dBase:
-                        case ProductType.dH2O:
                         case ProductType.w:
-                        case ProductType.wdot:
+                        case ProductType.wWaterLoss:
                         case ProductType.wBase:
-                        case ProductType.xdot:
+                        case ProductType.xWaterLoss:
                         case ProductType.xBase:
-                        case ProductType.ydot:
                         case ProductType.yBase:
                         case ProductType.z:
+                        case ProductType.zWaterLoss:
                         case ProductType.zBase:
                             return 0.0;
 

@@ -7,6 +7,7 @@ using Chemistry;
 using Easy.Common.Extensions;
 using Easy.Common.Interfaces;
 using MassSpectrometry;
+using MathNet.Numerics;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace Transcriptomics
@@ -32,11 +33,6 @@ namespace Transcriptomics
         #endregion
 
         #region Constuctors
-
-        //protected NucleicAcid(IHasMass[] modifications)
-        //{
-        //    Modifications = modifications;
-        //}
 
         protected NucleicAcid(string sequence) 
             : this(sequence, DefaultFivePrimeTerminus, DefaultThreePrimeTerminus)
@@ -87,11 +83,6 @@ namespace Transcriptomics
         /// The nucleic acid sequence. Is ignored if 'StoreSequenceString' is false
         /// </summary>
         private string _sequence;
-
-        /// <summary>
-        /// The internal flag to represent that the sequence with modifications have been changed and need to be updated
-        /// </summary>
-        internal bool IsDirty { get; set; }
 
         #endregion
 
@@ -165,27 +156,9 @@ namespace Transcriptomics
             }
         }
 
-        ///// <summary>
-        ///// Gets the nucleic acid sequence with modifications
-        ///// </summary>
-        //public string FullSequence
-        //{
-        //    get
-        //    {
-        //        if (!IsDirty && !string.IsNullOrEmpty(_sequenceWithMods))
-        //            return _sequenceWithMods;
-
-        //        _sequenceWithMods = GetSequenceWithModifications();
-        //        IsDirty = false;
-        //        return _sequenceWithMods;
-        //    }
-        //}
-
         #endregion
 
         #region Fragmentation
-
-        
 
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
             List<IProduct> products)
@@ -226,7 +199,6 @@ namespace Transcriptomics
         /// <returns></returns>
         internal IEnumerable<IProduct> GetNeutralFragments(ProductType type)
         {
-
             // determine mass of piece remaining after fragmentation
             double monoMass = type.GetRnaMassShiftFromProductType();
 
@@ -235,43 +207,18 @@ namespace Transcriptomics
             IHasChemicalFormula terminus = isThreePrimeTerminal ? ThreePrimeTerminus : FivePrimeTerminus;
             monoMass += terminus.MonoisotopicMass;
 
-
-
             // determine mass of each polymer component that is contained within the fragment and add to fragment
             bool first = true; //set first to true to hand the terminus mod first
-            bool hasMod = _modifications != null;
-
             for (int i = 0; i <= BaseSequence.Length - 1; i++)
             {
 
                 int naIndex = isThreePrimeTerminal ? Length - i : i - 1;
-
-                // Handle the terminus mods first in a special case
-                IHasMass mod;
                 if (first)
                 {
                     first = false; //set to false so only handled once
-                    if (hasMod) //checks for if there are modifications in the array (if there are mods on the RNA)
-                    {
-                        mod = _modifications[naIndex + 1];
-                        if (mod != null)
-                        {
-                            monoMass += mod.MonoisotopicMass;
-                        }
-                    }
                     continue;
                 }
-
                 monoMass += _nucleicAcids[naIndex].MonoisotopicMass;
-
-                if (hasMod)
-                {
-                    mod = _modifications[naIndex + 1];
-                    if (mod != null)
-                    {
-                        monoMass += mod.MonoisotopicMass;
-                    }
-                }
 
                 if (i < 1)
                     continue;
@@ -301,10 +248,7 @@ namespace Transcriptomics
 
         #region Digestion
 
-        public IEnumerable<NucleicAcid> Digest()
-        {
-            throw new NotImplementedException();
-        }
+        // TODO: 
 
         #endregion
 
@@ -318,8 +262,6 @@ namespace Transcriptomics
             }
         }
 
-        
-
         #endregion
 
         #region Chemical Formula
@@ -327,20 +269,6 @@ namespace Transcriptomics
         public ChemicalFormula GetChemicalFormula()
         {
             var formula = new ChemicalFormula();
-
-            // Handle Modifications
-            //if (ContainsModifications())
-            //{
-            //    for (int i = 0; i < Length + 2; i++)
-            //    {
-            //        IChemicalFormula chemMod = _modifications[i] as IChemicalFormula;
-
-            //        if (chemMod == null)
-            //            continue;
-
-            //        formula.Add(chemMod.ChemicalFormula);
-            //    }
-            //}
 
             // Handle 5'-Terminus
             formula.Add(FivePrimeTerminus.ThisChemicalFormula);
@@ -387,8 +315,6 @@ namespace Transcriptomics
             if (string.IsNullOrEmpty(sequence))
                 return false;
 
-            bool inMod = false;
-            bool threePrimeTerminalMod = false; // 5' or 3' terminal modification
             int index = 0;
 
             double monoMass = 0;
@@ -400,102 +326,31 @@ namespace Transcriptomics
             StringBuilder modSb = new StringBuilder(10);
             foreach (char letter in sequence)
             {
-                if (inMod)
+                Nucleotide residue;
+                //char upperletter = char.ToUpper(letter); // moved to nucleic acid dictionary
+                if (Nucleotide.TryGetResidue(letter, out residue))
                 {
-                    if (letter == ']')
-                    {
-                        inMod = false; // end the modification phase
-
-                        string modString = modSb.ToString();
-                        modSb.Clear();
-                        IHasMass modification = null;
-                        switch (modString)
-                        {
-                            default:
-                                double mass;
-                                //Modification mod;
-                                ////if (ModificationDictionary.TryGetModification(modString, out mod))
-                                ////{
-                                ////    modification = mod;
-                                ////}
-                                ////else if (ChemicalFormula.IsValidChemicalFormula(modString))
-                                ////{
-                                ////    modification = new ChemicalFormula(modString);
-                                ////}
-                                ////else if (double.TryParse(modString, out mass))
-                                ////{
-                                ////    modification = new Mass(mass);
-                                ////}
-                                ////else
-                                ////{
-                                ////    throw new ArgumentException("Unable to correctly parse the following modification: " + modString);
-                                ////}
-                                break;
-                        }
-
-                        monoMass += modification.MonoisotopicMass;
-
-                        if (_modifications == null)
-                            _modifications = new IHasMass[Length + 2];
-
-                        if (threePrimeTerminalMod)
-                        {
-                            _modifications[index + 1] = modification;
-                        }
-                        else
-                        {
-                            _modifications[index] = modification;
-                        }
-
-                        threePrimeTerminalMod = false;
-
-                        //TODO: Account for mods in chemical formula
-                    }
-                    else
-                    {
-                        modSb.Append(letter);
-                    }
+                    _nucleicAcids[index++] = residue;
+                    sb.Append(residue.Letter);
+                    monoMass += residue.MonoisotopicMass;
                 }
                 else
                 {
-                    Nucleotide residue;
-                    //char upperletter = char.ToUpper(letter); // moved to nucleic acid dictionary
-                    if (Nucleotide.TryGetResidue(letter, out residue))
+                    switch (letter)
                     {
-                        _nucleicAcids[index++] = residue;
-                        sb.Append(residue.Letter);
-                        monoMass += residue.MonoisotopicMass;
-                    }
-                    else
-                    {
-                        switch (letter)
-                        {
-                            case '[': // start of a modification
-                                inMod = true;
-                                break;
+                        case ' ': // ignore spaces
+                            break;
 
-                            case '-': // start of a 3'-terminal modification
-                                threePrimeTerminalMod = (index > 0);
-                                break;
+                        case '*': // ignore *
+                            break;
 
-                            case ' ': // ignore spaces
-                                break;
-
-                            case '*': // ignore *
-                                break;
-
-                            default:
-                                throw new ArgumentException(string.Format("Nucleic Acid Letter {0} does not exist in the Nucleic Acid Dictionary. {0} is also not a valid character", letter));
-                        }
+                        default:
+                            throw new ArgumentException(string.Format(
+                                "Nucleic Acid Letter {0} does not exist in the Nucleic Acid Dictionary. {0} is also not a valid character",
+                                letter));
                     }
                 }
             }
-
-            if (inMod)
-            {
-                throw new ArgumentException("Couldn't find the closing ] for a modification in this sequence: " + sequence);
-            }
-
 
             _sequence = sb.ToString();
             Length = index;
@@ -503,8 +358,6 @@ namespace Transcriptomics
             Array.Resize(ref _nucleicAcids, Length);
             if (_modifications != null)
                 Array.Resize(ref _modifications, Length + 2);
-
-            IsDirty = true;
 
             return true;
         }

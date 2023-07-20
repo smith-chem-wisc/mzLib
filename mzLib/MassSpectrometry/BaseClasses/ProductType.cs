@@ -26,42 +26,42 @@ namespace MassSpectrometry
         //    //y°	        y-H2O
         //    //z             [C]+[M]-NH2
 
+
+
         a,
         aStar,
         aDegree,
-        adot,
+        aWaterLoss,
         aBase,
         b,
         bAmmoniaLoss,
         bWaterLoss,
-        //BnoB1ions,
-        bdot,
+        //BnoB1ions,            
         bBase,
         c,
-        cdot,
+        cWaterLoss,
         cBase,
         d,
-        ddot,
+        dWaterLoss,
         dBase,
-        dH2O, // d-H20
         w,
-        wdot,
+        wWaterLoss,
         wBase,
         x,
-        xdot,
+        xWaterLoss,
         xBase,
         y,
         yAmmoniaLoss,
         yWaterLoss,
-        ydot,
         yBase,
         z,
-        zPlusOne,//This is zDot plus H
+        zPlusOne,       //This is zDot plus H
         zDot,
+        zWaterLoss,
         zBase,
-        M, //this is the molecular ion // [M]
-        D, //this is a diagnostic ion // Modification loss mass
-        Ycore, //Glyco core Y ions // [pep] + Neutral core Glycan mass (such as: [pep] + [N]) //Which already consider the loss of H2O and H-transfer
-        Y //Glyco Y ions // [pep] + other Glycan mass 
+        M,              //this is the molecular ion // [M]
+        D,              //this is a diagnostic ion // Modification loss mass
+        Ycore,          //Glyco core Y ions // [pep] + Neutral core Glycan mass (such as: [pep] + [N]) //Which already consider the loss of H2O and H-transfer
+        Y               //Glyco Y ions // [pep] + other Glycan mass 
     }
 }

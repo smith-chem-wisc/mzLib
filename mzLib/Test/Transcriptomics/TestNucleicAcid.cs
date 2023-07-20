@@ -12,6 +12,7 @@ using Proteomics.Fragmentation;
 using Readers;
 using Transcriptomics;
 using UsefulProteomicsDatabases;
+using Constants = Chemistry.Constants;
 
 namespace Test.Transcriptomics
 {
@@ -40,7 +41,7 @@ namespace Test.Transcriptomics
             yield return new SixmerTestCase("GUACUG", ProductType.d,
                 new[] { 363.05, 669.075, 998.128, 1303.169, 1609.195 },
             new[] { "C10H14N5O8P", "C19H25N7O16P2", "C29H37N12O22P3", "C38H49N15O29P4", "C47H60N17O37P5", });
-            yield return new SixmerTestCase("GUACUG", ProductType.dH2O,
+            yield return new SixmerTestCase("GUACUG", ProductType.dWaterLoss,
                 new[] { 345.039, 651.064, 980.116, 1285.157, 1591.184 },
             new[] { "C10H12N5O7P", "C19H23N7O15P2", "C29H35N12O21P3", "C38H47N15O28P4", "C47H58N17O36P5", });
             yield return new SixmerTestCase("GUACUG", ProductType.w, 
@@ -70,7 +71,7 @@ namespace Test.Transcriptomics
                 new[] { 209.993, 555.04, 861.066, 1190.118, 1495.16 },
                 new[] { "C5H7O7P", "C15H19N5O14P2", "C24H30N7O22P3", "C34H42N12O28P4", "C43H54N15O35P5" });
 
-            // TODO: Add dot
+            // TODO: Add water loss besides d-H2O
         }
 
 
@@ -93,6 +94,9 @@ namespace Test.Transcriptomics
             Assert.IsNotNull(rna);
             Assert.That(rna.Length, Is.EqualTo(sequence.Length));
             Assert.That(rna.MonoisotopicMass, Is.EqualTo(monoMass).Within(0.01));
+            Assert.That(rna.GetChemicalFormula().MonoisotopicMass, Is.EqualTo(monoMass).Within(0.01));
+            Assert.That(rna.NucleicAcids.Length, Is.EqualTo(sequence.Length));
+            CollectionAssert.AreEqual(rna.NucleicAcids.Select(p => p.Letter), sequence);
             Assert.That(rna.FivePrimeTerminus.Equals(NucleicAcid.DefaultFivePrimeTerminus));
             Assert.That(rna.ThreePrimeTerminus.Equals(NucleicAcid.DefaultThreePrimeTerminus));
             List<Nucleotide> nucList = new();
@@ -117,7 +121,29 @@ namespace Test.Transcriptomics
             Assert.That(rna.NucleicAcidArray.SequenceEqual(nucList.ToArray()));
 
             Assert.That(rna.Equals(rna2));
+            Assert.That(rna.Equals(rna));
+            Assert.That(!rna.Equals(null));
             Assert.That(rna.Equals((object)rna2));
+            Assert.That(rna.Equals((object)rna));
+            Assert.That(!rna.Equals((object)null));
+            Assert.That(!rna.Equals((object)new Double()));
+        }
+
+        [Test]
+        public void TestParseSequence()
+        {
+            var rna1 = new RNA("GUACUG");
+            var rna2 = new RNA("GU ACU G");
+            var rna3 = new RNA("GU*ACU*G");
+
+            Assert.That(rna1.BaseSequence, Is.EqualTo(rna2.BaseSequence));
+            Assert.That(rna1.BaseSequence, Is.EqualTo(rna3.BaseSequence));
+            Assert.That(rna1.GetHashCode(), Is.EqualTo(rna3.GetHashCode()));
+            Assert.That(rna1.GetHashCode(), Is.EqualTo(rna3.GetHashCode()));
+            Assert.That(rna1.Length, Is.EqualTo(rna3.Length));
+            Assert.That(rna1.Length, Is.EqualTo(rna3.Length));
+
+            Assert.Throws<ArgumentException>(() => new RNA("GUA~CUG"));
         }
 
 
@@ -135,284 +161,19 @@ namespace Test.Transcriptomics
             }
         }
 
-        #region Product Type Retreival
-
         [Test]
-        [TestCase(DissociationType.HCD, new[] {ProductType.y, ProductType.w, ProductType.aBase, ProductType.dH2O} )]
-        [TestCase(DissociationType.CID, new[] {ProductType.y, ProductType.w, ProductType.aBase, ProductType.dH2O} )]
-        public void TestProductTypes_Dissociation(DissociationType dissociation, ProductType[] products)
+        [TestCase("GUACUG", new[] { -1, -2, -3, -4, -5, -6 }, new[] { 1953.239, 976.116, 650.408, 487.554, 389.841, 324.700 })]
+        public void TestReplaceTerminusWithElectroSpraySeries(string sequence, int[] charges, double[] mzs)
         {
-            CollectionAssert.AreEquivalent(products, dissociation.GetRnaProductTypesFromDissociationType());
-        }
+            RNA rna = new("GUACUG");
+            rna.FivePrimeTerminus = new ChemicalFormula();
 
-        [Test]
-        [TestCase(FragmentationTerminus.FivePrime, new[]
-        {
-            ProductType.a, ProductType.adot, ProductType.aBase,
-            ProductType.b, ProductType.bdot, ProductType.bBase,
-            ProductType.c, ProductType.cdot, ProductType.cBase,
-            ProductType.d, ProductType.ddot, ProductType.dBase, ProductType.dH2O
-        })]
-        [TestCase(FragmentationTerminus.ThreePrime, new[]
-        {
-            ProductType.w, ProductType.wdot, ProductType.wBase,
-            ProductType.x, ProductType.xdot, ProductType.xBase,
-            ProductType.y, ProductType.ydot, ProductType.yBase,
-            ProductType.z, ProductType.zDot, ProductType.zBase,
-        })]
-        public void TestProductTypes_Terminus(FragmentationTerminus terminus, ProductType[] products)
-        {
-            CollectionAssert.AreEquivalent(products, terminus.GetRnaTerminusSpecificProductTypes());
-        }
-
-        [Test]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.FivePrime, new[] {ProductType.aBase, ProductType.dH2O})]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.ThreePrime, new[] {ProductType.w, ProductType.y})]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.Both, new[] {ProductType.w, ProductType.y, ProductType.aBase, ProductType.dH2O })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.FivePrime, new[] {ProductType.aBase, ProductType.dH2O})]
-        [TestCase(DissociationType.CID, FragmentationTerminus.ThreePrime, new[] {ProductType.w, ProductType.y})]
-        [TestCase(DissociationType.CID, FragmentationTerminus.Both, new[] {ProductType.w, ProductType.y, ProductType.aBase, ProductType.dH2O })]
-        public void TestProductTypes_TerminusAndDissociation(DissociationType dissociation, FragmentationTerminus terminus, ProductType[] products)
-        {
-            CollectionAssert.AreEquivalent(products, dissociation.GetRnaTerminusSpecificProductTypesFromDissociation(terminus));
-        }
-
-        [Test]
-        public static void Test_NeutralMassShiftFromProductType()
-        {
-            foreach (ProductType p in Enum.GetValues(typeof(ProductType)))
+            int i = 0;
+            foreach (var ion in rna.GetElectrospraySeries(charges.First(), charges.Last()))
             {
-                double mass = 0;
-                switch (p)
-                {
-                    case ProductType.a:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.b:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("OH").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.c:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3H2P").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.x:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-1H").MonoisotopicMass , 2).Value, mass);
-                        break;
-
-                    case ProductType.y:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-3P-1").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.zDot:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-4HP-1").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.adot:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H2").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.aBase:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-2").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.bdot:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("OH2").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.bBase:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O1H-2").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.cdot:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3H3P").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.cBase:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3H-1P").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.d:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O4H2P").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.ddot:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O4H3P").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.dBase:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O4H-1P").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.dH2O:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3P").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.w:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.wdot:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H2").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.xdot:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-1H2").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.ydot:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-3HP-1").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.z:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-4P-1").MonoisotopicMass, 2).Value, mass);
-                        break;
-
-                    case ProductType.wBase:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-2").MonoisotopicMass, 2).Value, mass);
-                        break;
-                    case ProductType.xBase:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-1H-2").MonoisotopicMass, 2).Value, mass);
-                        break;
-                    case ProductType.yBase:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-3H-2P-1").MonoisotopicMass, 2).Value, mass);
-                        break;
-                    case ProductType.zBase:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-4H-3P-1").MonoisotopicMass, 2).Value, mass);
-                        break;
-                }
+                Assert.That(ion, Is.EqualTo(mzs[i]).Within(0.001));
+                i++;
             }
         }
-
-        [Test]
-        public void TestProductTypes_GetRnaTerminusType()
-        {
-            foreach (var type in Enum.GetValues<ProductType>())
-            {
-                switch (type)
-                {
-                    case ProductType.a:
-                    case ProductType.adot:
-                    case ProductType.aBase:
-                    case ProductType.b:
-                    case ProductType.bdot:
-                    case ProductType.bBase:
-                    case ProductType.c:
-                    case ProductType.cdot:
-                    case ProductType.cBase:
-                    case ProductType.d:
-                    case ProductType.ddot:
-                    case ProductType.dBase:
-                    case ProductType.dH2O:
-                        Assert.That(type.GetRnaTerminusType(), Is.EqualTo(FragmentationTerminus.FivePrime));
-                        break;
-
-                    case ProductType.w:
-                    case ProductType.wdot:
-                    case ProductType.wBase:
-                    case ProductType.x:
-                    case ProductType.xdot:
-                    case ProductType.xBase:
-                    case ProductType.y:
-                    case ProductType.ydot:
-                    case ProductType.yBase:
-                    case ProductType.z:
-                    case ProductType.zDot:
-                    case ProductType.zBase:
-                        Assert.That(type.GetRnaTerminusType(), Is.EqualTo(FragmentationTerminus.ThreePrime));
-                        break;
-
-                    case ProductType.M:
-                    case ProductType.aStar:
-                    case ProductType.bAmmoniaLoss:
-                    case ProductType.bWaterLoss:
-                    case ProductType.D:
-                    case ProductType.Ycore:
-                    case ProductType.Y:
-                    case ProductType.aDegree:
-                    case ProductType.yAmmoniaLoss:
-                    case ProductType.zPlusOne:
-                    case ProductType.yWaterLoss:
-                        Assert.Throws<ArgumentOutOfRangeException>(() => type.GetRnaTerminusType());
-                        break;
-                }
-            }
-        }
-
-        #endregion
-
-        #region Fragmentation
-
-        [Test]
-        [TestCaseSource(nameof(GetSixmerIndividualFragmentTypeTestCases))]
-        public void TestGetNeutralFragments(SixmerTestCase testCase)
-        {
-            RNA rna = new(testCase.Sequence);
-
-            var neutralFragments = rna.GetNeutralFragments(testCase.Type).ToList();
-            for (int i = 1; i < neutralFragments.Count; i++)
-            {
-                Assert.That(neutralFragments[i].NeutralMass, Is.EqualTo(testCase.NeutralMasses[i]).Within(0.01));
-            }
-        }
-
-        //[Test]
-        //public void TestFragmentation_Unmodified()
-        //{
-        //    List<IProduct> productsToTest = new List<IProduct>();
-        //    var cidProductTypes = DissociationType.CID.GetRnaProductTypesFromDissociationType();
-        //    foreach (var testCase in GetSixmerIndividualFragmentTypeTestCases().Where(p => cidProductTypes.Contains(p.Type)))
-        //    {
-        //        for (int i = 0; i < testCase.NeutralMasses.Length; i++)
-        //        {
-        //            var terminus = testCase.Type.GetRnaTerminusType();
-        //            double neutralMass = testCase.NeutralMasses[i];
-        //            int fragmentNum = i;
-        //            double neutralLoss = 0;
-        //            if (testCase.Type.ToString().Contains("Base"))
-        //            {
-        //               // neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
-        //            }
-
-        //            var t = new RnaProduct(testCase.Type, terminus, neutralMass, i + 1, i + 1, neutralLoss);
-        //            productsToTest.Add(t);
-        //        }
-        //    }
-
-
-        //    List<IProduct> products = new();
-        //    RNA rna = new RNA("GUACUG");
-        //    rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
-        //    CollectionAssert.AreEquivalent(products, productsToTest);
-
-        //}
-
-        #endregion
     }
 }

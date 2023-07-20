@@ -54,34 +54,28 @@ namespace Transcriptomics
             }
         }
 
+
         public bool Equals(IProduct other)
         {
+            if (other is null) return false;
             return NeutralMass.Equals(other.NeutralMass) && ProductType == other.ProductType &&
                    NeutralLoss.Equals(other.NeutralLoss) && Terminus == other.Terminus &&
-                   FragmentNumber == other.FragmentNumber && Math.Abs(ResiduePosition - other.ResiduePosition) < 0.0001 &&
+                   FragmentNumber == other.FragmentNumber && ResiduePosition == other.ResiduePosition &&
                    SecondaryProductType == other.SecondaryProductType &&
-                   SecondaryFragmentNumber == other.SecondaryFragmentNumber &&
-                   MonoisotopicMass.Equals(other.MonoisotopicMass);
+                   SecondaryFragmentNumber == other.SecondaryFragmentNumber;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
-            return obj is RnaProduct other && Equals(other);
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((RnaProduct)obj);
         }
 
         public override int GetHashCode()
         {
-            var hashCode = new HashCode();
-            hashCode.Add(NeutralMass);
-            hashCode.Add((int)ProductType);
-            hashCode.Add(NeutralLoss);
-            hashCode.Add((int)Terminus);
-            hashCode.Add(FragmentNumber);
-            hashCode.Add(ResiduePosition);
-            hashCode.Add(SecondaryProductType);
-            hashCode.Add(SecondaryFragmentNumber);
-            hashCode.Add(MonoisotopicMass);
-            return hashCode.ToHashCode();
+            return HashCode.Combine(NeutralMass, (int)ProductType, NeutralLoss, (int)Terminus, FragmentNumber, ResiduePosition, SecondaryProductType, SecondaryFragmentNumber);
         }
     }
 }
