@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using FlashLFQ.PeakPicking;
 using UsefulProteomicsDatabases;
+using System.IO;
 
 namespace FlashLFQ
 {
@@ -20,9 +21,6 @@ namespace FlashLFQ
         public readonly bool Silent;
 
         public readonly int MaxThreads;
-        public readonly double PeakfindingPpmTolerance;
-        public readonly double PpmTolerance;
-        public readonly double IsotopePpmTolerance;
         public readonly bool Integrate;
         public readonly int MissedScansAllowed;
         public readonly int NumIsotopesRequired;
@@ -31,12 +29,20 @@ namespace FlashLFQ
         public readonly double DiscriminationFactorToCutPeak;
         public readonly bool QuantifyAmbiguousPeptides;
 
+        public readonly double PeakfindingPpmToleranceValue;
+        public readonly double PpmToleranceValue;
+        public readonly double IsotopePpmToleranceValue;
+        public PpmTolerance PeakfindingPpmTolerance { get; }
+        public PpmTolerance PpmTolerance { get; }
+        public PpmTolerance IsotopePpmTolerance { get; }
+
         // MBR settings
         public readonly bool MatchBetweenRuns;
 
         public readonly double MbrRtWindow;
-        public readonly double MbrPpmTolerance;
         public readonly bool RequireMsmsIdInCondition;
+        public readonly double MbrPpmToleranceValue;
+        public Tolerance MbrPpmTolerance { get; }
 
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
@@ -106,10 +112,16 @@ namespace FlashLFQ
                 .ThenBy(p => p.TechnicalReplicate).ToList();
 
             _allIdentifications = allIdentifications;
-            PpmTolerance = ppmTolerance;
-            IsotopePpmTolerance = isotopeTolerancePpm;
+            // Peak finding tolerance is generally higher than ppmTolerance
+            PpmToleranceValue = ppmTolerance;
+            IsotopePpmToleranceValue = isotopeTolerancePpm;
+            PeakfindingPpmToleranceValue= 20.0;
+            PpmTolerance = new PpmTolerance(PpmToleranceValue);
+            IsotopePpmTolerance = new PpmTolerance(IsotopePpmToleranceValue);
+            PeakfindingPpmTolerance = new PpmTolerance(PeakfindingPpmToleranceValue);
             MatchBetweenRuns = matchBetweenRuns;
-            MbrPpmTolerance = matchBetweenRunsPpmTolerance;
+            MbrPpmToleranceValue = matchBetweenRunsPpmTolerance;
+            MbrPpmTolerance = new PpmTolerance(MbrPpmToleranceValue);
             Integrate = integrate;
             NumIsotopesRequired = numIsotopesRequired;
             QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
@@ -138,7 +150,7 @@ namespace FlashLFQ
                 MaxThreads = 1;
             }
 
-            PeakfindingPpmTolerance = 20.0;
+            
             MissedScansAllowed = 1;
             DiscriminationFactorToCutPeak = 0.6;
         }
@@ -438,8 +450,6 @@ namespace FlashLFQ
                 return;
             }
 
-            Tolerance peakfindingTol = new PpmTolerance(PeakfindingPpmTolerance); // Peak finding tolerance is generally higher than ppmTolerance
-            Tolerance ppmTolerance = new PpmTolerance(PpmTolerance);
             ChromatographicPeak[] chromatographicPeaks = new ChromatographicPeak[ms2IdsForThisFile.Count];
 
             Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
@@ -464,14 +474,13 @@ namespace FlashLFQ
                                     identification.Ms2RetentionTimeInMinutes,
                                     identification.PeakfindingMass,
                                     chargeState,
-                                    identification.FileInfo,
-                                    peakfindingTol)
+                                    identification.FileInfo)
                                 .OrderBy(p => p.RetentionTime)
                                 .ToList();
 
                             // filter by smaller mass tolerance
                             xic.RemoveAll(p => 
-                                !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.PeakfindingMass));
+                                !PpmTolerance.Within(p.Mz.ToMass(chargeState), identification.PeakfindingMass));
 
                             // filter by isotopic distribution
                             List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
@@ -505,6 +514,62 @@ namespace FlashLFQ
                 });
 
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
+        }
+
+        public ChromatographicPeak GetChromatographicPeak(Identification identification, SpectraFileInfo fileInfo)
+        {
+            ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, false, fileInfo);
+
+            foreach (var chargeState in _chargeStates)
+            {
+                if (IdSpecificChargeState && chargeState != identification.PrecursorChargeState)
+                {
+                    continue;
+                }
+
+                // get XIC (peakfinding)
+                List<IndexedMassSpectralPeak> xic = Peakfind(
+                        identification.Ms2RetentionTimeInMinutes,
+                        identification.PeakfindingMass,
+                        chargeState,
+                        identification.FileInfo)
+                    .OrderBy(p => p.RetentionTime)
+                    .ToList();
+
+                // filter by smaller mass tolerance
+                xic.RemoveAll(p =>
+                    !PpmTolerance.Within(p.Mz.ToMass(chargeState), identification.PeakfindingMass));
+
+                // filter by isotopic distribution
+                List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
+
+                // add isotopic envelopes to the chromatographic peak
+                chromatographicPeak.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
+            }
+
+            chromatographicPeak.CalculateIntensityForThisFeature(Integrate);
+            CutPeak(chromatographicPeak, identification.Ms2RetentionTimeInMinutes);
+
+            if (!chromatographicPeak.IsotopicEnvelopes.Any())
+            {
+                return null;
+            }
+
+            var precursorXic = chromatographicPeak.IsotopicEnvelopes.Where(p => p.ChargeState == identification.PrecursorChargeState).ToList();
+
+            if (!precursorXic.Any())
+            {
+                chromatographicPeak.IsotopicEnvelopes.Clear();
+                return null;
+            }
+
+            int min = precursorXic.Min(p => p.IndexedPeak.ZeroBasedMs1ScanIndex);
+            int max = precursorXic.Max(p => p.IndexedPeak.ZeroBasedMs1ScanIndex);
+            chromatographicPeak.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedMs1ScanIndex < min);
+            chromatographicPeak.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedMs1ScanIndex > max);
+            chromatographicPeak.CalculateIntensityForThisFeature(Integrate);
+
+            return chromatographicPeak;
         }
 
         /// <summary>
@@ -545,7 +610,7 @@ namespace FlashLFQ
 
             Normal ppmDistribution = new Normal(ppmErrors.Median(), ppmSpread);
 
-            double filespecificMbrPpmTolerance = Math.Min(Math.Abs(ppmErrors.Median()) + ppmSpread * 4, MbrPpmTolerance);
+            double filespecificMbrPpmTolerance = Math.Min(Math.Abs(ppmErrors.Median()) + ppmSpread * 4, MbrPpmToleranceValue);
 
             // match between runs PPM tolerance
             Tolerance mbrTol = new PpmTolerance(filespecificMbrPpmTolerance);
@@ -824,7 +889,7 @@ namespace FlashLFQ
                                     var acceptorPeak = new ChromatographicPeak(donorIdentification, true, idAcceptorFile);
                                     IsotopicEnvelope seedEnv = chargeEnvelopes.First();
 
-                                    var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorIdentification.PeakfindingMass, z, idAcceptorFile, mbrTol);
+                                    var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorIdentification.PeakfindingMass, z, idAcceptorFile, mbr: true);
                                     List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorIdentification, z);
                                     acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
                                     acceptorPeak.CalculateIntensityForThisFeature(Integrate);
@@ -1137,8 +1202,6 @@ namespace FlashLFQ
                 return isotopicEnvelopes;
             }
 
-            PpmTolerance isotopeTolerance = new PpmTolerance(IsotopePpmTolerance);
-
             double[] experimentalIsotopeIntensities = new double[isotopeMassShifts.Count];
             double[] theoreticalIsotopeMassShifts = isotopeMassShifts.Select(p => p.Item1).ToArray();
             double[] theoreticalIsotopeAbundances = isotopeMassShifts.Select(p => p.Item2).ToArray();
@@ -1192,7 +1255,7 @@ namespace FlashLFQ
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
                             IndexedMassSpectralPeak isotopePeak = _peakIndexingEngine.GetIndexedPeak(isotopeMass,
-                                peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+                                peak.ZeroBasedMs1ScanIndex, IsotopePpmTolerance, chargeState);
 
                             if (isotopePeak == null
                                 || isotopePeak.Intensity < theoreticalIsotopeIntensity / 4.0
@@ -1217,7 +1280,7 @@ namespace FlashLFQ
                 }
 
                 // Check that the experimental envelope matches the theoretical
-                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance))
+                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, IsotopePpmTolerance))
                 {
                     // impute unobserved isotope peak intensities
                     // TODO: Figure out why value imputation is performed. Build a toggle?
@@ -1314,9 +1377,13 @@ namespace FlashLFQ
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
         /// <param name="mass"> Peakfinding mass </param>
         /// <returns></returns>
-        public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
+        public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, bool mbr = false)
         {
             var xic = new List<IndexedMassSpectralPeak>();
+
+            Tolerance peakfindingTolerance = mbr
+                ? MbrPpmTolerance
+                : PeakfindingPpmTolerance;
 
             // get precursor scan to start at
             Ms1ScanInfo[] ms1Scans = _ms1Scans[spectraFileInfo];
@@ -1337,7 +1404,7 @@ namespace FlashLFQ
             int missedScans = 0;
             for (int t = precursorScanIndex; t < ms1Scans.Length; t++)
             {
-                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, PeakfindingPpmTolerance, charge);
 
                 if (peak == null && t != precursorScanIndex)
                 {
@@ -1359,7 +1426,7 @@ namespace FlashLFQ
             missedScans = 0;
             for (int t = precursorScanIndex - 1; t >= 0; t--)
             {
-                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, PeakfindingPpmTolerance, charge);
 
                 if (peak == null && t != precursorScanIndex)
                 {

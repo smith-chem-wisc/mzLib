@@ -1143,19 +1143,19 @@ namespace Test
                 ids.Add(id);
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, quantifyAmbiguousPeptides: false);
             var results = engine.Run();
 
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
 
-            Assert.That(f1r1MbrResults.Count >= 132);
+            Assert.That(f1r1MbrResults.Count, Is.GreaterThan(131));
 
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
-            Assert.That(f1r2MbrResults.Count >= 77);
+            Assert.That(f1r2MbrResults.Count, Is.GreaterThan(76));
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 

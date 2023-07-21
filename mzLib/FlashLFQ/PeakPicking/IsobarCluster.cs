@@ -278,7 +278,7 @@ namespace FlashLFQ.PeakPicking
 
                     foreach (int region in kvp.Value)
                     {
-                        if (region == bestRegion) continue; // These were accurately sorted already
+                        if (region == bestRegion) continue; // These were accurately assigned already
                         foreach (var peak in RegionPeakDictionary[region])
                         {
                             // Remove and reassign the id
@@ -292,7 +292,11 @@ namespace FlashLFQ.PeakPicking
                                 peak.RemoveIdentification(id);
 
                                 var bestPeak = RegionPeakDictionary[bestRegion]
-                                    .First(p => p.SpectraFileInfo.Equals(id.FileInfo));
+                                    .FirstOrDefault(p => p.SpectraFileInfo.Equals(id.FileInfo));
+                                if (bestPeak == null)
+                                {
+                                    // Create new peak
+                                }
                                 bestPeak.AddIdentification(id);
                             }
                         }
