@@ -43,7 +43,7 @@ namespace FlashLFQ
             if (peak2 == null)
                 return 1;
 
-            return (int)Math.Ceiling(peak1.RetentionTime - peak2.RetentionTime);
+            return peak1.RetentionTime.CompareTo(peak2.RetentionTime);
         }
 
         public override bool Equals(object obj)

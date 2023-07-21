@@ -98,6 +98,14 @@ namespace FlashLFQ
         {
             if(!Identifications.Contains(id))
                 Identifications.Add(id);
+            ResolveIdentifications();
+        }
+
+        public void RemoveIdentification(Identification id)
+        {
+            if (Identifications.Contains(id))
+                Identifications.Remove(id);
+            ResolveIdentifications();
         }
 
         /// <summary>

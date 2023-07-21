@@ -73,6 +73,8 @@ namespace TestFlashLFQ
             var inflixXic = indexingEngine.ExtractPeaks(peakFindingMass, inflix);
             var nistXic = indexingEngine.ExtractPeaks(peakFindingMass, nist);
 
+            CollectionAssert.AreEqual(inflixXic, inflixXic.OrderBy(p => p.RetentionTime).ToList());
+
             // generate a fake XIC with a known shift and test that AlignPeaks returns the correct shift
             double rtShift = 0.15;
             var shiftedInflixXic = inflixXic.Select(p =>
@@ -281,7 +283,10 @@ namespace TestFlashLFQ
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(
                 allIdentifications,
-                normalize: false, maxThreads: 1, matchBetweenRuns: true, quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
+                normalize: false,
+                maxThreads: 1,
+                matchBetweenRuns: true,
+                quantifyAmbiguousPeptides: false); // peaks are only serialized if match between runs = true
 
             // run the engine and grab XICs
             var results = engine.Run();
@@ -349,7 +354,7 @@ namespace TestFlashLFQ
         public static void TNFaSliceMbrTest()
         {
             string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", 
-                "XICAlignment", @"AllPSMs_slices.psmtsv");
+                "XICAlignment", @"UnambiguousPSMs_slices.psmtsv");
 
             SpectraFileInfo nist = new SpectraFileInfo(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML"),
@@ -415,71 +420,66 @@ namespace TestFlashLFQ
                 "XICAlignment");
 
             // TODO: Report ambiguous but don't do multi-run consensus
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false,
-                quantifyAmbiguousPeptides: false, maxThreads: 1);
-            //var results = engine.Run(out var exceptionList);
-            //Assert.IsEmpty(exceptionList);
-            //results.WriteResults(Path.Combine(outputFolder, "MultiRunConsensus_Peaks.tsv"), null, null, null, true);
-            //results.WriteResults(null, Path.Combine(outputFolder, "Default_Peptides.tsv"), null, null, true);
+            var engine = new FlashLfqEngine(ids, 
+                matchBetweenRuns: true, 
+                requireMsmsIdInCondition: false,
+                quantifyAmbiguousPeptides: false, 
+                maxThreads: 1);
+            var results = engine.Run(out var exceptionList);
+            Assert.IsEmpty(exceptionList);
+            results.WriteResults(Path.Combine(outputFolder, "MultiRunConsensus_Peaks.tsv"), null, null, null, true);
+            results.WriteResults(null, Path.Combine(outputFolder, "Default_Peptides.tsv"), null, null, true);
+
+            var allPeaks = results.Peaks
+                .SelectMany(kvp => kvp.Value);
+            Dictionary<string, List<double>> rtDict = new();
+            foreach (var peak in allPeaks)
+            {
+                foreach (var id in peak.Identifications)
+                {
+                    if (!rtDict.ContainsKey(id.ModifiedSequence))
+                        rtDict.Add(id.ModifiedSequence, new());
+                    rtDict[id.ModifiedSequence].Add(peak.ApexRetentionTime);
+                }
+            }
+            // Get the average variance in retention times for all species
+            double averageRtVariance = rtDict
+                .Average(kvp =>
+                {
+                    var mean = kvp.Value.Average();
+                    return kvp.Value.Sum(d => Math.Pow(d - mean, 2));
+                });
 
             engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false,
                 quantifyAmbiguousPeptides: true, maxThreads: 1);
-            var results = engine.Run(out var exceptions);
+            results = engine.Run(out var exceptions);
+            Assert.IsEmpty(exceptionList);
 
             results.WriteResults(Path.Combine(outputFolder, "MultiRunConsensus_Peaks.tsv"), null, null, null, true);
             results.WriteResults(null, Path.Combine(outputFolder, "MultiRunConsensus_Peptides.tsv"), null, null, true);
 
+            allPeaks = results.Peaks
+                .SelectMany(kvp => kvp.Value);
+            rtDict.Clear();
+            foreach (var peak in allPeaks)
+            {
+                foreach (var id in peak.Identifications)
+                {
+                    if (!rtDict.ContainsKey(id.ModifiedSequence))
+                        rtDict.Add(id.ModifiedSequence, new());
+                    rtDict[id.ModifiedSequence].Add(peak.ApexRetentionTime);
+                }
+            }
 
-            var f1r1MbrResults = results
-                .PeptideModifiedSequences
-                .Where(p => p.Value.GetDetectionType(nist) == DetectionType.MBR && p.Value.GetDetectionType(inflix2) == DetectionType.MSMS).ToList();
+            // Get the average variance in retention times for all species
+            double averageRtVarianceAfterAmbiguousQuant = rtDict
+                .Average(kvp =>
+                {
+                    var mean = kvp.Value.Average();
+                    return kvp.Value.Sum(d => Math.Pow(d - mean, 2));
+                });
 
-            // TODO: group peaks by full sequence, look for reduction in SD
-            // and/or just count the number of reassigned peaks
-
-            //Assert.That(f1r1MbrResults.Count >= 132);
-
-            //var f1r2MbrResults = results.PeptideModifiedSequences
-            //    .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
-
-            //Assert.That(f1r2MbrResults.Count >= 77);
-
-            //List<(double, double)> peptideIntensities = new List<(double, double)>();
-
-            //foreach (var peptide in f1r1MbrResults)
-            //{
-            //    double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
-            //    double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
-            //    peptideIntensities.Add((mbrIntensity, msmsIntensity));
-            //}
-
-            //double corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-            //Assert.That(corr > 0.8);
-
-            //peptideIntensities.Clear();
-            //foreach (var peptide in f1r2MbrResults)
-            //{
-            //    double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
-            //    double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
-            //    peptideIntensities.Add((mbrIntensity, msmsIntensity));
-            //}
-
-            //corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-
-            //Assert.That(corr > 0.7);
-
-            //// the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
-            //// has to be observed in a condition for match-between-runs
-            //f1r1.Condition = "b";
-            //engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1);
-            //results = engine.Run();
-            //var proteinsObservedInF1 = ids.Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
-            //var proteinsObservedInF2 = ids.Where(p => p.FileInfo == f1r2).SelectMany(p => p.ProteinGroups).Distinct().ToList();
-            //var proteinsObservedInF1ButNotF2 = proteinsObservedInF1.Except(proteinsObservedInF2).ToList();
-            //foreach (ProteinGroup protein in proteinsObservedInF1ButNotF2)
-            //{
-            //    Assert.That(results.ProteinGroups[protein.ProteinGroupName].GetIntensity(f1r2) == 0);
-            //}
+            Assert.That( averageRtVarianceAfterAmbiguousQuant < averageRtVariance);
         }
 
         [Test]

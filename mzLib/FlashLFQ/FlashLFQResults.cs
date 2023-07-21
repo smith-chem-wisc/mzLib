@@ -555,7 +555,8 @@ namespace FlashLFQ
                     output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
 
                     foreach (var peak in Peaks.SelectMany(p => p.Value)
-                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
+                            .Where(peak => peak.Identifications.Count > 0)
+                            .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
                         .ThenByDescending(p => p.Intensity))
                     {
                         output.WriteLine(peak.ToString());

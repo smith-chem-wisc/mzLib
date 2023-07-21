@@ -20,9 +20,9 @@ namespace FlashLFQ.PeakPicking
             }
 
             defaultImplementationIndex = ~defaultImplementationIndex; // point to the first value larger than the target.
-            
+
             if (defaultImplementationIndex == extremaArray.Length)
-                defaultImplementationIndex--;
+                return defaultImplementationIndex - 1;
             if (defaultImplementationIndex == 0)
                 return 0;
 

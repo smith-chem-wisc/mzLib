@@ -57,8 +57,13 @@ namespace FlashLFQ.PeakPicking
             PeakFindingMz = Identifications
                 .Average(group => group.PeakfindingMass.ToMz(ChargeState));
 
+            // Sometimes there are no peaks with only one ID. In that case, we look for the file with the most peaks with
+            // the fewest number of associated IDs
+            int minPeakIds = Peaks
+                .Where(peak => peak.Identifications.IsNotNullOrEmpty())
+                .Min(peak => peak.Identifications.Count);
             // The file with the most unambiguous peaks is chosen as the reference file that all other files are aligned to
-            ReferenceFile = Peaks.Where(peak => peak.Identifications.IsNotNullOrEmpty() && peak.Identifications.Count ==1)
+            ReferenceFile = Peaks.Where(peak => peak.Identifications.IsNotNullOrEmpty() && peak.Identifications.Count == minPeakIds)
                 .GroupBy(peak => peak.SpectraFileInfo)
                 .MaxBy(group => group.Count())
                 .Key;
@@ -88,7 +93,7 @@ namespace FlashLFQ.PeakPicking
         {
             
             double timeBuffer = RetentionTimeRange.Width < 1
-                ? 0.25
+                ? .25
                 : (RetentionTimeRange.Width) / 4.0;
 
             Xics = new Dictionary<SpectraFileInfo, Xic>();
@@ -221,6 +226,10 @@ namespace FlashLFQ.PeakPicking
                 }
             }
 
+            // Something went wrong
+            if (RegionPeakDictionary.Count == 0)
+                return;
+
             #region OnePeptideMultiRegion
 
             Dictionary<string, List<int>> msmsIdFullSeqToRegion = new();
@@ -250,17 +259,21 @@ namespace FlashLFQ.PeakPicking
                     // Handle case where consensus is peak ambiguity, e.g. most files have two peptides
                     // assigned to one peak.
                     List<int> regions = kvp.Value;
+
+                    // For each region (key), contains the number of IDs made in that region
                     var regionCountDictionary = regions
                         .GroupBy(i => i)
                         .ToDictionary(
                             keySelector: group => group.Key,
                             elementSelector: group => group.Count());
 
-                    if (regionCountDictionary.Values.Distinct().Count() < regionCountDictionary.Count)
+                    if (regionCountDictionary.Values.Max() == regionCountDictionary.Values.Min())
                     {
                         //TODO: Come up with tie-breaking mechanism
                         continue;
                     }
+
+                    // TODO: Come up with tie-breaking mechanism here. Like, if two regions each have 3 IDs
                     int bestRegion = regionCountDictionary.MaxBy(kvp => kvp.Value).Key;
 
                     foreach (int region in kvp.Value)
@@ -276,7 +289,7 @@ namespace FlashLFQ.PeakPicking
                                 int idIndex = peak.Identifications
                                     .FindIndex(id => id.ModifiedSequence == kvp.Key);
                                 Identification id = peak.Identifications[idIndex];
-                                peak.Identifications.Remove(id);
+                                peak.RemoveIdentification(id);
 
                                 var bestPeak = RegionPeakDictionary[bestRegion]
                                     .First(p => p.SpectraFileInfo.Equals(id.FileInfo));
