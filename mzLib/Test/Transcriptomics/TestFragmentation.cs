@@ -75,7 +75,6 @@ namespace Test.Transcriptomics
                 Assert.That(null, Is.EqualTo(product.SecondaryProductType));
                 Assert.That(null, Is.EqualTo(product.Parent));
                 Assert.That(0, Is.EqualTo(product.SecondaryFragmentNumber));
-                Assert.That(i + 1, Is.EqualTo(product.FragmentNumber));
 
                 string annotation = $"{product.ProductType}{product.FragmentNumber}";
                 Assert.That(annotation, Is.EqualTo(product.Annotation));
@@ -83,6 +82,27 @@ namespace Test.Transcriptomics
                     $"{product.ProductType}{product.FragmentNumber};{product.NeutralMass:F5}-{product.NeutralLoss:0.##}";
                 Assert.That(toString, Is.EqualTo(product.ToString()));
             }
+        }
+
+        [Test]
+        [TestCaseSource(nameof(GetSixMerIndividualFragmentTypeTestCases))]
+        public void TestRnaFragmentNumbers(SixmerTestCase testCase)
+        {
+            RNA rna = new("GUACUG");
+            List<RnaProduct> products = rna.GetNeutralFragments(testCase.Type).Select(p => (RnaProduct)p).ToList();
+
+            for (int i = 0; i < products.Count; i++)
+            {
+                var product = products[i];
+                bool isThreePrime = product.ProductType.GetRnaTerminusType() == FragmentationTerminus.ThreePrime;
+
+                int fragmentNumber = i + 1;
+                int residuePosition = isThreePrime ? rna.Length - fragmentNumber : fragmentNumber;
+
+                Assert.That(product.FragmentNumber, Is.EqualTo(fragmentNumber));
+                Assert.That(product.ResiduePosition, Is.EqualTo(residuePosition));
+            }
+
         }
 
         [Test]

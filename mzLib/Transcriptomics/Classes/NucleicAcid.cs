@@ -233,8 +233,8 @@ namespace Transcriptomics
 
                 yield return new RnaProduct(type,
                     isThreePrimeTerminal ? FragmentationTerminus.ThreePrime : FragmentationTerminus.FivePrime,
-                    monoMass - neutralLoss, i,
-                    i, 0, null, 0);
+                    monoMass - neutralLoss, i ,
+                    isThreePrimeTerminal ? BaseSequence.Length - i : i, 0, null, 0);
             }
         }
 
