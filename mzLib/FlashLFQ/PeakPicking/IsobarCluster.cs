@@ -36,7 +36,12 @@ namespace FlashLFQ.PeakPicking
         /// </summary>
         public Dictionary<int, List<ChromatographicPeak>> RegionPeakDictionary;
 
-        public IsobarCluster(List<ChromatographicPeak> peaks, PeakIndexingEngine peakIndexingEngine)
+        private FlashLfqEngine _flashLfqEngine;
+        private FlashLfqResults _results;
+        private PeakIndexingEngine _peakIndexingEngine;
+
+        public IsobarCluster(List<ChromatographicPeak> peaks, PeakIndexingEngine peakIndexingEngine, FlashLfqEngine flashLfqEngine, 
+            FlashLfqResults results = null)
         {
             // I have no idea what causes a peak to be apex-less.
             // TODO: Figure out why some peaks have no apex
@@ -47,6 +52,9 @@ namespace FlashLFQ.PeakPicking
 
             Peaks = peaks;
             Identifications = peaks.SelectMany(peak => peak.Identifications).ToList();
+            _flashLfqEngine = flashLfqEngine;
+            _results = results;
+            _peakIndexingEngine = peakIndexingEngine;
 
             ChargeState = Peaks
                 .Where(p => p?.Apex != null)
@@ -207,6 +215,8 @@ namespace FlashLFQ.PeakPicking
         public void ReassignPeakIDs()
         {
             RegionPeakDictionary = new Dictionary<int, List<ChromatographicPeak>>();
+            foreach(int region in Xics[ReferenceFile].PeakRegions.Keys)
+                RegionPeakDictionary.Add(region, new List<ChromatographicPeak>());
 
             // Link each region to a list of IDs
             foreach (ChromatographicPeak peak in Peaks)
@@ -227,6 +237,7 @@ namespace FlashLFQ.PeakPicking
             }
 
             // Something went wrong
+            // TODO: Make this throw an exception
             if (RegionPeakDictionary.Count == 0)
                 return;
 
@@ -295,7 +306,22 @@ namespace FlashLFQ.PeakPicking
                                     .FirstOrDefault(p => p.SpectraFileInfo.Equals(id.FileInfo));
                                 if (bestPeak == null)
                                 {
-                                    // Create new peak
+                                    var xic = Xics[id.FileInfo];
+                                    double rtApex = xic.Extrema
+                                        .Where(ext => ext.ExtremumType == ExtremumType.Maximum)
+                                        .Where(ext => xic.PeakRegions[bestRegion].Contains(ext.RetentionTime))
+                                        .Average(ext => ext.RetentionTime);
+
+                                    // Need to find a better way to avoid serializing/deserializing
+                                    // XIC contains all the indexes ms peaks you would need (for a given charge state)
+                                    // Probably just pass that in
+                                    _peakIndexingEngine.DeserializeIndex(id.FileInfo, deleteIndex: false);
+                                    bestPeak = _flashLfqEngine.GetChromatographicPeak(id, id.FileInfo, rtApex, xic.PeakRegions[bestRegion]);
+                                    _peakIndexingEngine.ClearIndex();
+                                    RegionPeakDictionary[bestRegion].Add(bestPeak);
+                                    //TODO: Clean this up
+                                    if(_results != null)
+                                        _results.Peaks[id.FileInfo].Add(bestPeak);
                                 }
                                 bestPeak.AddIdentification(id);
                             }
@@ -336,7 +362,7 @@ namespace FlashLFQ.PeakPicking
         // Clusters things with identical peak finding masses
         // Pull chromPeaks from all files, the recursively groups them together
         public static List<IsobarCluster> FindIsobarClusters(List<Identification> identifications, 
-            FlashLfqResults results, PeakIndexingEngine indexingEngine)
+            FlashLfqResults results, PeakIndexingEngine indexingEngine, FlashLfqEngine flashLfqEngine)
         {
             var isobarGroups = identifications
                 .GroupBy(id => Math.Round(id.PeakfindingMass, 2));
@@ -359,7 +385,7 @@ namespace FlashLFQ.PeakPicking
                          clusteredPeaks.Where(peakList => peakList.IsNotNullOrEmpty()))
                 {
                     if(peakCluster.All(peak => peak.Apex != null))
-                        isobarClusters.Add(new IsobarCluster(peakCluster, indexingEngine));
+                        isobarClusters.Add(new IsobarCluster(peakCluster, indexingEngine, flashLfqEngine, results));
                 }
 
             }
@@ -390,7 +416,7 @@ namespace FlashLFQ.PeakPicking
             double deltaMax = 1;
 
             // Define the base case
-            if (minIndex == maxIndex)
+            if (minIndex == maxIndex || maxIndex < 0)
                 return;
             int leftIndex = minIndex;
             int rightIndex = maxIndex;

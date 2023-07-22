@@ -339,7 +339,7 @@ namespace TestFlashLFQ
                 .ToList(); // Have to make sure enumeration runs here, before IDs are reassigned
 
             // Test full IsobarCluster class
-            var isobarCluster = IsobarCluster.FindIsobarClusters(allIdentifications, results, indexingEngine).First();
+            var isobarCluster = IsobarCluster.FindIsobarClusters(allIdentifications, results, indexingEngine, engine).First();
             isobarCluster.ReassignPeakIDs();
             var nistPeaksAfterReassignment = results.Peaks[nist]
                 .OrderBy(peak => peak)
@@ -348,6 +348,26 @@ namespace TestFlashLFQ
 
             Assert.AreEqual(y7ModSeq,nistPeaksBeforeReassignment.First().Item2);
             Assert.AreEqual(y7ModSeq + "|" + y3ModSeq, nistPeaksAfterReassignment.First().Item2);
+
+            // I'd like to sincerely apologize to my future self for the length of this test
+
+            // We're going to remove one of the identifications from Nist and see if ReassignPeakIDs will succesfully
+            // create a new chromatographic peak
+            allIdentifications = new List<Identification>
+            {
+                y3ModId, y3ModIdInflix2, y3ModIdInflix3,
+                y7ModIdInflix2, y7ModIdInflix3
+            };
+            // create the FlashLFQ engine
+            engine = new FlashLfqEngine(
+                allIdentifications,
+                normalize: false,
+                maxThreads: 1,
+                matchBetweenRuns: true,
+                quantifyAmbiguousPeptides: true);
+
+            results = engine.Run();
+            Assert.That(results.Peaks[nist].First(peak => peak.Identifications.Contains(y3ModId)).ApexRetentionTime, Is.LessThan(33.3));
         }
 
         [Test]
@@ -479,7 +499,9 @@ namespace TestFlashLFQ
                     return kvp.Value.Sum(d => Math.Pow(d - mean, 2));
                 });
 
-            Assert.That( averageRtVarianceAfterAmbiguousQuant < averageRtVariance);
+            int placeholder = 0;
+
+            Assert.That( averageRtVarianceAfterAmbiguousQuant, Is.LessThan(averageRtVariance));
         }
 
         [Test]
