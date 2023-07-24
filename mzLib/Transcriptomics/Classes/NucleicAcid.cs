@@ -197,7 +197,7 @@ namespace Transcriptomics
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
-        internal IEnumerable<IProduct> GetNeutralFragments(ProductType type)
+        public IEnumerable<IProduct> GetNeutralFragments(ProductType type)
         {
             // determine mass of piece remaining after fragmentation
             double monoMass = type.GetRnaMassShiftFromProductType();
