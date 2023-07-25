@@ -283,15 +283,14 @@ namespace FlashLFQ
 
                 var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundance)>();
 
-                if (formula == null)
+                if(formula is null)
                 {
-                    double massDiff = id.MonoisotopicMass;
-                    if (!String.IsNullOrEmpty(id.BaseSequence))
+                    try
                     {
-                        Proteomics.AminoAcidPolymer.Peptide baseSequence = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
-                        formula = baseSequence.GetChemicalFormula();
-                        // add averagine for any unknown mass difference (i.e., a modification)
-                        massDiff -= baseSequence.MonoisotopicMass;
+                        // there are sometimes non-parsable sequences in the base sequence input
+                        formula = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
+                        double massDiff = id.MonoisotopicMass;
+                        massDiff -= formula.MonoisotopicMass;
 
                         if (Math.Abs(massDiff) > 20)
                         {
@@ -304,10 +303,10 @@ namespace FlashLFQ
                             formula.Add("S", (int)Math.Round(averagines * averageS, 0));
                         }
                     }
-                    else
+                    catch
                     {
-                        double averagines = massDiff / averagineMass;
-                        string averagineFormulaString = 
+                        double averagines = id.MonoisotopicMass / averagineMass;
+                        string averagineFormulaString =
                             "C" + (int)Math.Round(averagines * averageC, 0) +
                             "H" + (int)Math.Round(averagines * averageH, 0) +
                             "O" + (int)Math.Round(averagines * averageO, 0) +
@@ -316,6 +315,7 @@ namespace FlashLFQ
                         formula = ChemicalFormula.ParseFormula(averagineFormulaString);
                     }
                 }
+                
 
                 var isotopicDistribution = IsotopicDistribution.GetDistribution(formula, 0.125, 1e-8);
 
