@@ -1,0 +1,3 @@
+﻿Software	VersionTested	FileTypes
+FLASHDeconv	OpenMS-3.0.0	Ms1Feature, Ms2Feature, FlashDeconvMs1Tsv, FlashDeconvTsv
+TopFD		1.6.2			Ms1Feature, Ms2Feature, mzrt.csv
