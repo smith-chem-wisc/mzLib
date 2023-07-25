@@ -36,7 +36,7 @@ namespace FlashLFQ
         public List<Identification> Identifications { get; private set; }
         public int NumChargeStatesObserved { get; private set; }
         public int NumIdentificationsByBaseSeq { get; private set; }
-        public int NumIdentificationsByFullSeq { get; private set; }
+        public int NumIdentificationsByFullSeq { get; internal set; }
         public double MassError { get; private set; }
         /// <summary>
         /// Expected retention time for MBR acceptor peaks (mean)

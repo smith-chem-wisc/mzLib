@@ -117,6 +117,35 @@ namespace FlashLFQ
             return xic;
         }
 
+        /// <summary>
+        /// Calling this, it's assumed that the peaks are all already stored in the Index
+        /// </summary>
+        /// <param name="mz"></param>
+        /// <param name="startTime"></param>
+        /// <param name="endTime"></param>
+        /// <returns></returns>
+        public List<IndexedMassSpectralPeak> ExtractPeaks(double mz,
+            double? startTime = null, double? endTime = null)
+        {
+            int mzIndex = (int)Math.Round(mz * BinsPerDalton, 0);
+            // conversion is necessary to ensure peaks remain after index is cleared
+            if (_indexedPeaks[mzIndex] == null)
+                return null;
+
+            List<IndexedMassSpectralPeak> xic = _indexedPeaks[mzIndex]
+                .ConvertAll(peak => new IndexedMassSpectralPeak(peak));
+
+            xic.Sort(IndexedMassSpectralPeak.CompareRetentionTime);
+            if (startTime != null && endTime != null)
+            {
+                return xic.Where(peak =>
+                        peak.RetentionTime >= (double)startTime && peak.RetentionTime <= (double)endTime)
+                    .ToList();
+            }
+
+            return xic;
+        }
+
         public void ClearIndex()
         {
             if (_indexedPeaks != null)

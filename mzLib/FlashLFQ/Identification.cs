@@ -38,5 +38,6 @@ namespace FlashLFQ
         {
             return ModifiedSequence;
         }
+
     }
 }

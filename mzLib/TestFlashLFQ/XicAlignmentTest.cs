@@ -338,6 +338,12 @@ namespace TestFlashLFQ
                 .Select(peak => (peak.ApexRetentionTime, string.Join('|', peak.Identifications)))
                 .ToList(); // Have to make sure enumeration runs here, before IDs are reassigned
 
+            engine.IndexDict = new Dictionary<SpectraFileInfo, PeakIndexingEngine>();
+            foreach (SpectraFileInfo file in new List<SpectraFileInfo>() { nist, inflix2, inflix3 })
+            {
+                engine.IndexDict.Add(file, new PeakIndexingEngine());
+                engine.IndexDict[file].DeserializeIndex(file, deleteIndex: true);
+            }
             // Test full IsobarCluster class
             var isobarCluster = IsobarCluster.FindIsobarClusters(allIdentifications, results, indexingEngine, engine).First();
             isobarCluster.ReassignPeakIDs();
@@ -368,6 +374,42 @@ namespace TestFlashLFQ
 
             results = engine.Run();
             Assert.That(results.Peaks[nist].First(peak => peak.Identifications.Contains(y3ModId)).ApexRetentionTime, Is.LessThan(33.3));
+            // Make sure that all chromatographic peaks with all IDs removed are filtered from the results
+            Assert.AreEqual(0, results.Peaks[nist].Count(peak => peak.Identifications.Count == 0));
+
+            // Checking for problems in reassigning the peak indexing engine and getting peak intensities
+            // Make sure no peaks were accidentally duplicated/pulled from the wrong file
+            Assert.AreNotEqual(
+                results.Peaks[nist].First().Intensity,
+                results.Peaks[inflix2].First().Intensity);
+            Assert.AreNotEqual(
+                results.Peaks[nist].First().Intensity,
+                results.Peaks[inflix3].First().Intensity);
+            Assert.AreNotEqual(
+                results.Peaks[inflix2].First().Intensity,
+                results.Peaks[inflix3].First().Intensity);
+
+            var y3NistPeak = results.Peaks[nist]
+                .First(peak => peak.Identifications.Contains(y3ModId));
+            DoubleRange region = new DoubleRange(
+                y3NistPeak.IsotopicEnvelopes.Min(e => e.IndexedPeak.RetentionTime),
+                y3NistPeak.IsotopicEnvelopes.Max(e => e.IndexedPeak.RetentionTime));
+
+            // This should be correct. This is essentially what IsobarCluster does when 
+            // reassigning peaks, and this peak was reassigned
+            engine.SwapPeakIndexingEngine(nist);
+            var peakNist = engine.GetChromatographicPeak(y3ModId, nist, rty3, region);
+            Assert.AreEqual(peakNist.Intensity, results.Peaks[nist].First().Intensity, 1);
+
+            // Assert that peaks found by the normal MS2 Quant workflow match up with those 
+            // found by swapping the indexing engine and manually defining boundaries
+            engine.SwapPeakIndexingEngine(inflix2);
+            var peakInflix2 = engine.GetChromatographicPeak(y3ModId, nist, rty3, region);
+            Assert.AreEqual(peakInflix2.Intensity, results.Peaks[inflix2].First().Intensity, 1);
+
+            engine.SwapPeakIndexingEngine(inflix3);
+            var peakInflix3 = engine.GetChromatographicPeak(y3ModId, nist, rty3, region);
+            Assert.AreEqual(peakInflix3.Intensity, results.Peaks[inflix3].First().Intensity, 1);
         }
 
         [Test]
@@ -502,6 +544,8 @@ namespace TestFlashLFQ
             int placeholder = 0;
 
             Assert.That( averageRtVarianceAfterAmbiguousQuant, Is.LessThan(averageRtVariance));
+
+            results.CalculatePeptideResults(true);
         }
 
         [Test]

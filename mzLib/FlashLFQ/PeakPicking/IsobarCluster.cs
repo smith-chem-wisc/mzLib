@@ -38,9 +38,8 @@ namespace FlashLFQ.PeakPicking
 
         private FlashLfqEngine _flashLfqEngine;
         private FlashLfqResults _results;
-        private PeakIndexingEngine _peakIndexingEngine;
 
-        public IsobarCluster(List<ChromatographicPeak> peaks, PeakIndexingEngine peakIndexingEngine, FlashLfqEngine flashLfqEngine, 
+        public IsobarCluster(List<ChromatographicPeak> peaks, FlashLfqEngine flashLfqEngine, 
             FlashLfqResults results = null)
         {
             // I have no idea what causes a peak to be apex-less.
@@ -54,7 +53,6 @@ namespace FlashLFQ.PeakPicking
             Identifications = peaks.SelectMany(peak => peak.Identifications).ToList();
             _flashLfqEngine = flashLfqEngine;
             _results = results;
-            _peakIndexingEngine = peakIndexingEngine;
 
             ChargeState = Peaks
                 .Where(p => p?.Apex != null)
@@ -78,7 +76,7 @@ namespace FlashLFQ.PeakPicking
 
             SetTimeRange();
 
-            PullXics(peakIndexingEngine);
+            PullXics();
 
             FindConsensusExtrema();
 
@@ -97,7 +95,7 @@ namespace FlashLFQ.PeakPicking
         /// as to increase accuracy of peak alignment
         /// </summary>
         /// <param name="peakIndexingEngine"></param>
-        private void PullXics(PeakIndexingEngine peakIndexingEngine)
+        private void PullXics()
         {
             
             double timeBuffer = RetentionTimeRange.Width < 1
@@ -107,10 +105,10 @@ namespace FlashLFQ.PeakPicking
             Xics = new Dictionary<SpectraFileInfo, Xic>();
 
             //TODO: This is deserializing each file multiple times, which comes with a performance hit
-            List<IndexedMassSpectralPeak> refPeaks = peakIndexingEngine.ExtractPeaks(
-                PeakFindingMz, ReferenceFile, 
-                startTime: RetentionTimeRange.Minimum - timeBuffer,
-                endTime: RetentionTimeRange.Maximum + timeBuffer);
+            List<IndexedMassSpectralPeak> refPeaks = _flashLfqEngine.IndexDict[ReferenceFile]
+                .ExtractPeaks(PeakFindingMz,
+                    startTime: RetentionTimeRange.Minimum - timeBuffer,
+                    endTime: RetentionTimeRange.Maximum + timeBuffer);
             if (refPeaks.Count <= 5)
             {
                 throw new Exception("XIC too short");
@@ -124,10 +122,10 @@ namespace FlashLFQ.PeakPicking
 
             foreach(SpectraFileInfo file in otherFiles)
             {
-                List<IndexedMassSpectralPeak> peaks = peakIndexingEngine.ExtractPeaks(
-                    PeakFindingMz, file,
-                    startTime: RetentionTimeRange.Minimum - timeBuffer,
-                    endTime: RetentionTimeRange.Maximum + timeBuffer);
+                List<IndexedMassSpectralPeak> peaks = _flashLfqEngine.IndexDict[file]
+                    .ExtractPeaks(PeakFindingMz,
+                        startTime: RetentionTimeRange.Minimum - timeBuffer,
+                        endTime: RetentionTimeRange.Maximum + timeBuffer);
                 double rtAdjustment = XicProcessing.AlignPeaks(refPeaks, peaks);
                 if (peaks.Count <= 5)
                 {
@@ -315,10 +313,14 @@ namespace FlashLFQ.PeakPicking
                                     // Need to find a better way to avoid serializing/deserializing
                                     // XIC contains all the indexes ms peaks you would need (for a given charge state)
                                     // Probably just pass that in
-                                    _peakIndexingEngine.DeserializeIndex(id.FileInfo, deleteIndex: false);
+
+                                    // This is faster, but it feels extremely fragile. Side-effects almost guaranteed.
+                                    // There's a refactor a-coming, but not today
+                                    _flashLfqEngine.SwapPeakIndexingEngine(id.FileInfo);
+
                                     bestPeak = _flashLfqEngine.GetChromatographicPeak(id, id.FileInfo, rtApex, xic.PeakRegions[bestRegion]);
-                                    _peakIndexingEngine.ClearIndex();
                                     RegionPeakDictionary[bestRegion].Add(bestPeak);
+
                                     //TODO: Clean this up
                                     if(_results != null)
                                         _results.Peaks[id.FileInfo].Add(bestPeak);
@@ -362,7 +364,8 @@ namespace FlashLFQ.PeakPicking
         // Clusters things with identical peak finding masses
         // Pull chromPeaks from all files, the recursively groups them together
         public static List<IsobarCluster> FindIsobarClusters(List<Identification> identifications, 
-            FlashLfqResults results, PeakIndexingEngine indexingEngine, FlashLfqEngine flashLfqEngine)
+            FlashLfqResults results, PeakIndexingEngine indexingEngine, FlashLfqEngine flashLfqEngine, 
+            List<Exception> exceptions = null)
         {
             var isobarGroups = identifications
                 .GroupBy(id => Math.Round(id.PeakfindingMass, 2));
@@ -384,8 +387,23 @@ namespace FlashLFQ.PeakPicking
                 foreach (var peakCluster in 
                          clusteredPeaks.Where(peakList => peakList.IsNotNullOrEmpty()))
                 {
-                    if(peakCluster.All(peak => peak.Apex != null))
-                        isobarClusters.Add(new IsobarCluster(peakCluster, indexingEngine, flashLfqEngine, results));
+                    if (peakCluster.All(peak => peak.Apex != null))
+                    {
+                        IsobarCluster isoCluster = null;
+                        try
+                        {
+                            isoCluster = new IsobarCluster(peakCluster, flashLfqEngine, results);
+
+                        }
+                        catch (Exception ex)
+                        {
+                            if (exceptions != null)
+                                exceptions.Add(ex);
+                        }
+                        if (isoCluster != null)
+                            isobarClusters.Add(new IsobarCluster(peakCluster, flashLfqEngine, results));
+                    }
+                        
                 }
 
             }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Easy.Common.Extensions;
 
 namespace FlashLFQ
 {
@@ -119,9 +120,13 @@ namespace FlashLFQ
 
             foreach (var filePeaks in Peaks)
             {
+                //TODO: This filtering shouldn't be necessary, but it is. This implies that the numIdentificationsByFullSeq is inaccurate in some situations
+                // I should probably track that down
+                filePeaks.Value.RemoveAll(peak => peak?.Identifications == null || peak.Identifications.Count == 0);
+
                 var groupedPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
-                    .GroupBy(p => p.Identifications.First().ModifiedSequence)
+                    .GroupBy(p =>  p.Identifications.First().ModifiedSequence)
                     .ToList();
 
                 foreach (var sequenceWithPeaks in groupedPeaks)

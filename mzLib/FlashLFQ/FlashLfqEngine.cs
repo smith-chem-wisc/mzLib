@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using FlashLFQ.PeakPicking;
 using UsefulProteomicsDatabases;
 using System.IO;
+using Easy.Common.Extensions;
 
 namespace FlashLFQ
 {
@@ -70,6 +71,16 @@ namespace FlashLFQ
         private FlashLfqResults _results;
         private Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
         private PeakIndexingEngine _peakIndexingEngine;
+        public Dictionary<SpectraFileInfo, PeakIndexingEngine> IndexDict;
+
+        public void SwapPeakIndexingEngine(SpectraFileInfo file)
+        {
+            if (IndexDict.IsNotNullOrEmpty())
+            {
+                if (IndexDict.TryGetValue(file, out var peakEngine))
+                    _peakIndexingEngine = peakEngine;
+            }
+        }
 
         public FlashLfqEngine(
             List<Identification> allIdentifications,
@@ -232,11 +243,18 @@ namespace FlashLFQ
             // Multi-Run Consensus
             if (QuantifyAmbiguousPeptides)
             {
+                IndexDict = new();
+                foreach (SpectraFileInfo file in _spectraFileInfo)
+                {
+                    IndexDict[file] = new PeakIndexingEngine();
+                    IndexDict[file].DeserializeIndex(file);
+                }
                 List<IsobarCluster> isobarClusters = null;
                 try
                 {
                     isobarClusters =
-                        IsobarCluster.FindIsobarClusters(_allIdentifications, _results, _peakIndexingEngine, this);
+                        IsobarCluster.FindIsobarClusters(_allIdentifications, _results, _peakIndexingEngine,
+                            this, exceptions);
                 }
                 catch (Exception e)
                 {
