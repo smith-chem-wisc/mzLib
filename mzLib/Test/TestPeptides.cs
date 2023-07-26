@@ -593,6 +593,22 @@ namespace Test
             Assert.IsTrue(pepA.GetSequenceCoverage(myList).SequenceEqual(new List<int> { 0, 1, 2, 2, 1, 1 }));
         }
 
+        [TestCase("PEPTIDEK", ExpectedResult = true)]
+        [TestCase("PEPTUDEK", ExpectedResult = true)] // U is selenocysteine
+        [TestCase("R", ExpectedResult = true)]
+        [TestCase("PEPTJDEK", ExpectedResult = false)]
+        [TestCase("peptidek", ExpectedResult = false)]
+        [TestCase("", ExpectedResult = false)]
+        [TestCase("PEPTIDEK ", ExpectedResult = false)]
+        [TestCase("P3PT1D3K", ExpectedResult = false)]
+        [TestCase("PEP-TIDEK", ExpectedResult = false)]
+        [TestCase("PEP_TIDEK", ExpectedResult = false)]
+        [TestCase(".PEPTIDEK", ExpectedResult = false)]
+        public bool TestValidBaseSequence(string sequence)
+        {
+            return sequence.CheckBaseSequence();
+        }
+
         [Test]
         public void GenerateIsotopologues()
         {
