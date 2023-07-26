@@ -135,13 +135,34 @@ namespace FlashLFQ
             List<IndexedMassSpectralPeak> xic = _indexedPeaks[mzIndex]
                 .ConvertAll(peak => new IndexedMassSpectralPeak(peak));
 
+            //TODO: Sort by scan number instead
             xic.Sort(IndexedMassSpectralPeak.CompareRetentionTime);
             if (startTime != null && endTime != null)
             {
-                return xic.Where(peak =>
-                        peak.RetentionTime >= (double)startTime && peak.RetentionTime <= (double)endTime)
+                xic = xic.Where(peak =>
+                        peak.RetentionTime >= (double)startTime 
+                        && peak.RetentionTime <= (double)endTime )
                     .ToList();
             }
+
+            // Trim the ends of the XIC. We should start with sequential scans
+            while(xic.Count > 1)
+            {
+                var temp = xic[1].ZeroBasedMs1ScanIndex - xic[0].ZeroBasedMs1ScanIndex;
+                if (xic[1].ZeroBasedMs1ScanIndex - xic[0].ZeroBasedMs1ScanIndex > 1)
+                    xic.RemoveAt(0);
+                else
+                    break;
+            }
+            while(xic.Count > 1)
+            {
+                var temp = xic[^1].ZeroBasedMs1ScanIndex - xic[^2].ZeroBasedMs1ScanIndex;
+                if (xic[^1].ZeroBasedMs1ScanIndex - xic[^2].ZeroBasedMs1ScanIndex > 1)
+                    xic.RemoveAt(xic.Count - 1);
+                else
+                    break;
+            }
+                
 
             return xic;
         }

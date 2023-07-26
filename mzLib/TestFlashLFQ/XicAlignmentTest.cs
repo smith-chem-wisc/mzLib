@@ -225,6 +225,63 @@ namespace TestFlashLFQ
             CollectionAssert.AreEqual(secondRow, expArray);
         }
 
+        //[Test]
+        //public static void TestVVRealData()
+        //{
+        //    SpectraFileInfo nist2 = new SpectraFileInfo(
+        //        @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML",
+        //        "nist2", 1, 0, 0);
+        //    SpectraFileInfo nist3 = new SpectraFileInfo(
+        //        @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML", "nist3", 1, 0, 0);
+        //    SpectraFileInfo nist5 = new SpectraFileInfo(
+        //        @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_5-calib.mzML", "nist5", 1, 0, 0);
+
+        //    // create IDs
+        //    var pg = new ProteinGroup("MyProtein", "gene", "org");
+        //    string baseSequence = "VVSVLTVLHQDWLNGK";
+        //    double monoisotopicMass = 1874.987;
+        //    double peakFindingMass = 938.5006;
+
+        //    // Define the modified peptide identifications
+        //    string wModSeq = "VVSVLTVLHQDW[CF3:CF3 on W]LNGK";
+        //    double rt2 = 30.71;
+        //    double rt3 = 30.596;
+        //    double rt5 = 31.50;
+
+        //    // Y7 is observed in all three runs. It coelutes with y3.
+        //    Identification vvNist2 = new Identification(nist2, baseSequence, wModSeq, monoisotopicMass,
+        //        rt2, 3, new List<ProteinGroup> { pg });
+        //    Identification vvNist3 = new Identification(nist3, baseSequence, wModSeq, monoisotopicMass,
+        //        rt3, 3, new List<ProteinGroup> { pg });
+        //    Identification vvNist5 = new Identification(nist5, baseSequence, wModSeq, monoisotopicMass,
+        //        rt5, 3, new List<ProteinGroup> { pg });
+
+
+        //    List<Identification> allIdentifications = new List<Identification>
+        //    {
+        //        vvNist2, vvNist3, vvNist5
+        //    };
+
+        //    // create the FlashLFQ engine
+        //    FlashLfqEngine engine = new FlashLfqEngine(
+        //        allIdentifications,
+        //        normalize: false,
+        //        maxThreads: 1,
+        //        matchBetweenRuns: true,
+        //        quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
+
+        //    var results = engine.Run();
+        //    DoubleRange rtRange = new DoubleRange(30.0, 32.0);
+        //    List<ChromatographicPeak> peaks = results.Peaks.SelectMany(kvp => kvp.Value).ToList();
+        //    IsobarCluster testCluster = new IsobarCluster(peaks, engine, results, rtRange);
+
+        //    int placeholder = 0;
+
+        //    testCluster.ReassignPeakIDs();
+
+        //    placeholder = 1;
+        //}
+
         // In base FlashLFQ, some IDs get merged and then assigned to the wrong peaks.
         // Multi-run consensus should prevent this issue
         // This tests like 17 different things, but they all work!
@@ -494,18 +551,18 @@ namespace TestFlashLFQ
 
             var allPeaks = results.Peaks
                 .SelectMany(kvp => kvp.Value);
-            Dictionary<string, List<double>> rtDict = new();
+            Dictionary<string, List<double>> rtDictBefore = new();
             foreach (var peak in allPeaks)
             {
                 foreach (var id in peak.Identifications)
                 {
-                    if (!rtDict.ContainsKey(id.ModifiedSequence))
-                        rtDict.Add(id.ModifiedSequence, new());
-                    rtDict[id.ModifiedSequence].Add(peak.ApexRetentionTime);
+                    if (!rtDictBefore.ContainsKey(id.ModifiedSequence))
+                        rtDictBefore.Add(id.ModifiedSequence, new());
+                    rtDictBefore[id.ModifiedSequence].Add(peak.ApexRetentionTime);
                 }
             }
             // Get the average variance in retention times for all species
-            double averageRtVariance = rtDict
+            double averageRtVariance = rtDictBefore
                 .Average(kvp =>
                 {
                     var mean = kvp.Value.Average();
@@ -522,30 +579,29 @@ namespace TestFlashLFQ
 
             allPeaks = results.Peaks
                 .SelectMany(kvp => kvp.Value);
-            rtDict.Clear();
+
+            Dictionary<string, List<double>> rtDictAfter = new();
             foreach (var peak in allPeaks)
             {
                 foreach (var id in peak.Identifications)
                 {
-                    if (!rtDict.ContainsKey(id.ModifiedSequence))
-                        rtDict.Add(id.ModifiedSequence, new());
-                    rtDict[id.ModifiedSequence].Add(peak.ApexRetentionTime);
+                    if (!rtDictAfter.ContainsKey(id.ModifiedSequence))
+                        rtDictAfter.Add(id.ModifiedSequence, new());
+                    rtDictAfter[id.ModifiedSequence].Add(peak.ApexRetentionTime);
                 }
             }
 
             // Get the average variance in retention times for all species
-            double averageRtVarianceAfterAmbiguousQuant = rtDict
+            double averageRtVarianceAfterAmbiguousQuant = rtDictAfter
                 .Average(kvp =>
                 {
                     var mean = kvp.Value.Average();
                     return kvp.Value.Sum(d => Math.Pow(d - mean, 2));
                 });
 
-            int placeholder = 0;
-
             Assert.That( averageRtVarianceAfterAmbiguousQuant, Is.LessThan(averageRtVariance));
 
-            results.CalculatePeptideResults(true);
+            Assert.DoesNotThrow(() => results.CalculatePeptideResults(true));
         }
 
         [Test]

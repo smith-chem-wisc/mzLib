@@ -40,7 +40,7 @@ namespace FlashLFQ.PeakPicking
         private FlashLfqResults _results;
 
         public IsobarCluster(List<ChromatographicPeak> peaks, FlashLfqEngine flashLfqEngine, 
-            FlashLfqResults results = null)
+            FlashLfqResults results = null, DoubleRange rtRange = null)
         {
             // I have no idea what causes a peak to be apex-less.
             // TODO: Figure out why some peaks have no apex
@@ -74,7 +74,7 @@ namespace FlashLFQ.PeakPicking
                 .MaxBy(group => group.Count())
                 .Key;
 
-            SetTimeRange();
+            SetTimeRange(rtRange);
 
             PullXics();
 
@@ -83,11 +83,11 @@ namespace FlashLFQ.PeakPicking
             DefinePeakRegions();
         }
 
-        private void SetTimeRange()
+        private void SetTimeRange(DoubleRange rtRange)
         {
             double firstPeakStart = Peaks.Min(peak => peak.IsotopicEnvelopes.Min(e => e.IndexedPeak.RetentionTime));
             double lastPeakEnd = Peaks.Max(peak => peak.IsotopicEnvelopes.Max(e => e.IndexedPeak.RetentionTime));
-            RetentionTimeRange = new DoubleRange(firstPeakStart, lastPeakEnd);
+            RetentionTimeRange = rtRange ?? new DoubleRange(firstPeakStart, lastPeakEnd);
         }
 
         /// <summary>
@@ -205,7 +205,8 @@ namespace FlashLFQ.PeakPicking
                     }
                 }
 
-                Xics[kvp.Key].PeakRegions = peakRegions;
+                //Xics[kvp.Key].PeakRegions = peakRegions;
+                Xics[kvp.Key].SetPeakRegions(peakRegions);
             }
         }
 
@@ -288,6 +289,8 @@ namespace FlashLFQ.PeakPicking
                     foreach (int region in kvp.Value)
                     {
                         if (region == bestRegion) continue; // These were accurately assigned already
+                        // Peaks are added to the dictionary within the foreach loop, so it's important to stash the 
+                        // peaks before entering the loop
                         foreach (var peak in RegionPeakDictionary[region])
                         {
                             // Remove and reassign the id

@@ -14,7 +14,15 @@ namespace FlashLFQ.PeakPicking
         public List<IndexedMassSpectralPeak> ImsPeaks;
         public readonly double PeakFindingMass;
         public readonly SpectraFileInfo SpectraFile;
+        /// <summary>
+        /// The spline is created by adding the retention time adjustment to the retention time 
+        /// of each ImsPeak. 
+        /// </summary>
         public CubicSpline Spline;
+        /// <summary>
+        /// Extrema are defined using post-alignment times. I.e., the extrema retention
+        /// times are adjusted relative to the reference
+        /// </summary>
         public List<Extremum> Extrema { get; private set; }
         public Dictionary<int, DoubleRange> PeakRegions { get; internal set; }
         /// <summary>
@@ -62,6 +70,18 @@ namespace FlashLFQ.PeakPicking
                     intensity: (int)Spline.Interpolate(firstDerivativeZeros[i]),
                     type));
             }
+        }
+
+        public void SetPeakRegions(Dictionary<int, DoubleRange> peakRegions)
+        {
+            foreach(int key in peakRegions.Keys)
+            {
+                var offsetRegion = peakRegions[key]; // The retention times included here have the retention time adjustment baked in
+                peakRegions[key] = new DoubleRange(
+                    offsetRegion.Minimum - RetentionTimeAdjustment,
+                    offsetRegion.Maximum - RetentionTimeAdjustment);
+            }
+            PeakRegions = peakRegions;
         }
 
     }
