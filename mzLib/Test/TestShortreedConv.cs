@@ -119,8 +119,7 @@ namespace Test
                 }
   
             }
-            File.WriteAllLines(@"C:\Users\Michael Shortreed\Downloads\try.txt", myOUt.ToArray());
-            Assert.IsTrue(false);
+            File.WriteAllLines(@"C:\Users\____\Downloads\try.txt", myOUt.ToArray());
         }
 
         public static List<int> MzValuesSignificant(PeptideWithSetModifications pwsm)
