@@ -110,10 +110,9 @@ namespace UsefulProteomicsDatabases
                                 targets.Add(newProtein);
                             }
                         }
-                    }
-                    stream.Close();
-                }
 
+                    }
+                }
             }
 
             if (newProteinDbLocation != proteinDbLocation)
