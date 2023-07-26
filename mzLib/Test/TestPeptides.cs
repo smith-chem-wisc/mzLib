@@ -604,9 +604,10 @@ namespace Test
         [TestCase("PEP-TIDEK", ExpectedResult = false)]
         [TestCase("PEP_TIDEK", ExpectedResult = false)]
         [TestCase(".PEPTIDEK", ExpectedResult = false)]
+        [TestCase("PEPT[]IDEK", ExpectedResult = false)]
         public bool TestValidBaseSequence(string sequence)
         {
-            return sequence.CheckBaseSequence();
+            return sequence.ValidBaseSequence();
         }
 
         [Test]

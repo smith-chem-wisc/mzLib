@@ -90,7 +90,7 @@ namespace Proteomics.AminoAcidPolymer
         /// </summary>
         /// <param name="baseSequence"> Sequence to be checked </param>
         /// <returns> True if the sequence is valid. False otherwise. </returns>
-        public static bool CheckBaseSequence(this string baseSequence)
+        public static bool ValidBaseSequence(this string baseSequence)
         {
             if (baseSequence.IsNullOrEmpty()) return false;
             return !InvalidResidueRegex.IsMatch(baseSequence);
