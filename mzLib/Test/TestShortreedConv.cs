@@ -33,27 +33,33 @@ namespace Test
 
             foreach (Protein protein in proteins)
             {
-                foreach (PeptideWithSetModifications pwsm in protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()))
+                if(protein.Accession == "P31327")
                 {
-                    int peptideHash = pwsm.GetHashCode();
-                    if (!hashToPeptide.ContainsKey(peptideHash))
+                    foreach (PeptideWithSetModifications pwsm in protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()))
                     {
-                        hashToPeptide.Add(peptideHash, pwsm.ToString());
-                    }
-
-                    foreach (int mz in MzValuesSignificant(pwsm))
-                    {
-                        if (peakToListHash.ContainsKey(mz))
+                        if(pwsm.BaseSequence == "IEFEGQPVDFVDPNKQNLIAEVSTK")
                         {
-                            peakToListHash[mz].Add(peptideHash);
-                        }
-                        else
-                        {
-                            peakToListHash.Add(mz, new List<int> { peptideHash });
+                            int peptideHash = pwsm.GetHashCode();
+                            if (!hashToPeptide.ContainsKey(peptideHash))
+                            {
+                                hashToPeptide.Add(peptideHash, pwsm.ToString());
+                            }
+
+                            foreach (int mz in MzValuesSignificant(pwsm))
+                            {
+                                if (peakToListHash.ContainsKey(mz))
+                                {
+                                    peakToListHash[mz].Add(peptideHash);
+                                }
+                                else
+                                {
+                                    peakToListHash.Add(mz, new List<int> { peptideHash });
+                                }
+                            }
                         }
                     }
-
                 }
+                
             }
 
             foreach (KeyValuePair<int, List<int>> item in peakToListHash)
@@ -65,7 +71,7 @@ namespace Test
                     "DeconTests", "TaGe_SA_HeLa_04_subset_longestSeq.mzML"));
             reader.LoadAllStaticData();
 
-            var ms1scans = reader.Scans.Where(s=>s.MsnOrder == 1).ToList();
+            var ms1scans = reader.Scans.Where(s=>s.MsnOrder == 1 && s.OneBasedScanNumber == 96).ToList();
 
             List<string> myOUt = new List<string>();
 
@@ -73,6 +79,9 @@ namespace Test
             {
                 double[] intensities = spectrum.MassSpectrum.YArray;
                 double[] mzs = spectrum.MassSpectrum.XArray;
+
+                List<double> someMzs = mzs.Where(m => m > 705 && m < 709).ToList();
+
 
                 Array.Sort(intensities, mzs);
 
@@ -84,7 +93,7 @@ namespace Test
 
                 for (int i = 0; i < max; i++)
                 {
-                    mzsToLookUp.Add((int)(mzs[i] * 100).Round(0));
+                    mzsToLookUp.Add((int)(mzs[i] * 10).Round(0));
                 }
 
                 List<int> hashes = new List<int>();
@@ -99,7 +108,9 @@ namespace Test
 
                 var most = hashes.GroupBy(i => i).OrderByDescending(grp => grp.Count()).Select(grp => grp.Key).ToList();
 
-                for (int i = 0; i < 10; i++)
+                int mostCount = most.Count();
+
+                for (int i = 0; i < Math.Min(10, mostCount); i++)
                 {
                     if (hashToPeptide.ContainsKey(most[i]))
                     {
@@ -134,11 +145,11 @@ namespace Test
             {
                 foreach (var mass in acceptableMasses)
                 {
-                    result.Add((int)(mass.ToMz(i) * 100).Round(0));
+                    result.Add((int)(mass.ToMz(i) * 10).Round(0));
                 }
             }
 
-            return result;
+            return result.Distinct().ToList();
         }
     }
 }
