@@ -27,17 +27,37 @@ namespace Test
         {
             Dictionary<int, string> hashToPeptide = new Dictionary<int, string>();
             Dictionary<int, List<int>> peakToListHash = new Dictionary<int, List<int>>();
+            Dictionary<int, List<int>> precursorMzToPeptide = new Dictionary<int, List<int>>();
 
-            List<Protein> proteins = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DeconTests", @"hela_snip_for_unitTest.fasta"), true, DecoyType.None, false, out var a,
+            var reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
+                    "DeconTests", "TaGe_SA_HeLa_04_subset_longestSeq.mzML"));
+            reader.LoadAllStaticData();
+
+            var ms1scans = reader.Scans.Where(s => s.MsnOrder == 1).ToList();
+            var mzRangesForMs2s = reader.Scans.Where(s => s.MsnOrder == 2).Select(j => j.IsolationRange).ToList();
+
+            List<Protein> proteins = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DeconTests", @"hela_snip_for_unitTest.fasta"), true, DecoyType.Reverse, false, out var a,
                 ProteinDbLoader.EnsemblAccessionRegex, ProteinDbLoader.EnsemblFullNameRegex, ProteinDbLoader.EnsemblAccessionRegex, ProteinDbLoader.EnsemblGeneNameRegex, null);
 
             foreach (Protein protein in proteins)
             {
-                if(protein.Accession == "P31327")
+                if (true) 
                 {
                     foreach (PeptideWithSetModifications pwsm in protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()))
                     {
-                        if(pwsm.BaseSequence == "IEFEGQPVDFVDPNKQNLIAEVSTK")
+                        List<double> precursorMzs = new List<double> { pwsm.MonoisotopicMass.ToMz(2), pwsm.MonoisotopicMass.ToMz(3), pwsm.MonoisotopicMass.ToMz(4) };
+                        bool dontIgnoreThisPeptide = false; 
+                        foreach (double precursorMz in precursorMzs)
+                        {
+                            if(mzRangesForMs2s.Select(r => r.Minimum < precursorMz && r.Maximum > precursorMz).Any())
+                            {
+                                dontIgnoreThisPeptide = true;
+                                break;
+                            }
+                        }
+
+                        
+                        if(dontIgnoreThisPeptide)
                         {
                             int peptideHash = pwsm.GetHashCode();
                             if (!hashToPeptide.ContainsKey(peptideHash))
@@ -57,6 +77,10 @@ namespace Test
                                 }
                             }
                         }
+                        else
+                        {
+                            int j = 9;
+                        }
                     }
                 }
                 
@@ -67,11 +91,8 @@ namespace Test
                 peakToListHash[item.Key] = item.Value.Distinct().ToList();
             }
 
-            var reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
-                    "DeconTests", "TaGe_SA_HeLa_04_subset_longestSeq.mzML"));
-            reader.LoadAllStaticData();
+            
 
-            var ms1scans = reader.Scans.Where(s=>s.MsnOrder == 1 && s.OneBasedScanNumber == 96).ToList();
 
             List<string> myOUt = new List<string>();
 
@@ -80,14 +101,15 @@ namespace Test
                 double[] intensities = spectrum.MassSpectrum.YArray;
                 double[] mzs = spectrum.MassSpectrum.XArray;
 
-                List<double> someMzs = mzs.Where(m => m > 705 && m < 709).ToList();
+                //File.WriteAllLines(@"E:\junk\int.txt", intensities.Select(i=>i.ToString()).ToArray());
+                //File.WriteAllLines(@"E:\junk\mzs.txt", mzs.Select(i => i.ToString()).ToArray());
 
 
                 Array.Sort(intensities, mzs);
 
                 Array.Reverse(mzs,0,mzs.Length);
 
-                int max = Math.Min(400,mzs.Length);
+                int max = Math.Max(intensities.Count(i=>i > 4000),mzs.Length);
 
                 List<int> mzsToLookUp = new List<int>();
 
@@ -110,7 +132,7 @@ namespace Test
 
                 int mostCount = most.Count();
 
-                for (int i = 0; i < Math.Min(10, mostCount); i++)
+                for (int i = 0; i < Math.Min(50, mostCount); i++)
                 {
                     if (hashToPeptide.ContainsKey(most[i]))
                     {
@@ -119,7 +141,7 @@ namespace Test
                 }
   
             }
-            File.WriteAllLines(@"C:\Users\____\Downloads\try.txt", myOUt.ToArray());
+            File.WriteAllLines(@"E:\junk\peptidesFromMs1.txt", myOUt.ToArray());
         }
 
         public static List<int> MzValuesSignificant(PeptideWithSetModifications pwsm)
@@ -136,7 +158,7 @@ namespace Test
             Array.Sort(intensities, masses);
             Array.Reverse(masses,0,masses.Length);
 
-            int max = Math.Min(50,masses.Length);
+            int max = Math.Min(100,masses.Length);
 
             List<double> acceptableMasses = masses[0..max].ToList();
 
