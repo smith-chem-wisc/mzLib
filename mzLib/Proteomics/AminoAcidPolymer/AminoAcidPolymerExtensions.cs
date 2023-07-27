@@ -20,6 +20,7 @@ using Easy.Common.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace Proteomics.AminoAcidPolymer
@@ -73,13 +74,22 @@ namespace Proteomics.AminoAcidPolymer
             return bits;
         }
 
+        public static bool AllSequenceResiduesAreValid(this string baseSequence)
+        {
+            if (baseSequence.IsNullOrEmpty()) return false;
+            char[] baseSequenceChars = baseSequence.ToCharArray();
+            char[] distinctBaseSequenceChars = baseSequenceChars.Distinct().ToArray();
+            char[] residuesInDictionary = Residue.ResiduesDictionary.Values.Select(l => l.Letter).ToArray();
+            var k = distinctBaseSequenceChars.Except(residuesInDictionary).ToList();
+            return (!k.Any());
+        }
+
         private static Regex _invalidResidueRegex;
         public static Regex InvalidResidueRegex
         {
             get
             {
-                if (_invalidResidueRegex == null)
-                    _invalidResidueRegex = new Regex(@"[BJXZa-z\s\p{P}\d]");
+                _invalidResidueRegex ??= new Regex(@"[BJXZa-z\s\p{P}\d]");
                 return _invalidResidueRegex;
             }
         }

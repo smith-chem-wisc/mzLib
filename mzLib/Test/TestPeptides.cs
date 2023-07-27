@@ -25,6 +25,7 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -607,8 +608,22 @@ namespace Test
         [TestCase("PEPT[]IDEK", ExpectedResult = false)]
         public bool TestValidBaseSequence(string sequence)
         {
-            return sequence.ValidBaseSequence();
+            return sequence.AllSequenceResiduesAreValid();
         }
+
+        [Test]
+        public void TestValidBaseSequenceWithResidueAddedToResidueDictionary()
+        {
+            string sequence = "PEPTIDEa";
+            Assert.IsFalse(sequence.AllSequenceResiduesAreValid());
+
+            Loaders.LoadElements();
+            Residue x = new Residue("a", 'a', "a", new ChemicalFormula(), ModificationSites.All); //+8 lysine
+            Residue.AddNewResiduesToDictionary(new List<Residue> { x });
+
+            Assert.IsTrue(sequence.AllSequenceResiduesAreValid());
+        }
+
 
         [Test]
         public void GenerateIsotopologues()
