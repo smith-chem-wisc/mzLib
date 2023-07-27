@@ -84,7 +84,11 @@ namespace Proteomics.AminoAcidPolymer
         public static bool AllSequenceResiduesAreValid(this string baseSequence)
         {
             if (baseSequence.IsNullOrEmpty()) return false;
-            return !baseSequence.ToCharArray().Distinct().Except(Residue.ResiduesDictionary.Values.Select(l => l.Letter)).Any();
+
+            return !baseSequence.ToCharArray().Distinct(). //the input is the base sequence. this line eliminates any duplicated amino acids to save search time.
+                Except(Residue.ResiduesDictionary.Values.Select(l => l.Letter)). //This line removes from the base sequence array any residues that are known in the dictionary
+                Any(); //If there are any leftovers, then that means that there are base sequence characters not in the dictionary. therefore the sequence is not valide.
+                // please note the "!" at the start of the whole linq statement.
         }
     }
 }
