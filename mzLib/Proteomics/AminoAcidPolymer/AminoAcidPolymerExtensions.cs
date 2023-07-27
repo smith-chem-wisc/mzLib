@@ -84,13 +84,6 @@ namespace Proteomics.AminoAcidPolymer
         public static bool AllSequenceResiduesAreValid(this string baseSequence)
         {
             if (baseSequence.IsNullOrEmpty()) return false;
-            //char[] baseSequenceChars = baseSequence.ToCharArray();
-            //char[] distinctBaseSequenceChars = baseSequenceChars.Distinct().ToArray();
-            //char[] residuesInDictionary = Residue.ResiduesDictionary.Values.Select(l => l.Letter).ToArray();
-            //var k = distinctBaseSequenceChars.Except(residuesInDictionary).ToList();
-            //return (!k.Any());
-
-            //return !baseSequence.ToCharArray().Distinct().ToArray().Except(Residue.ResiduesDictionary.Values.Select(l => l.Letter).ToArray()).ToList().Any();
             return !baseSequence.ToCharArray().Distinct().Except(Residue.ResiduesDictionary.Values.Select(l => l.Letter)).Any();
         }
     }
