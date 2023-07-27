@@ -74,36 +74,24 @@ namespace Proteomics.AminoAcidPolymer
             return bits;
         }
 
-        public static bool AllSequenceResiduesAreValid(this string baseSequence)
-        {
-            if (baseSequence.IsNullOrEmpty()) return false;
-            char[] baseSequenceChars = baseSequence.ToCharArray();
-            char[] distinctBaseSequenceChars = baseSequenceChars.Distinct().ToArray();
-            char[] residuesInDictionary = Residue.ResiduesDictionary.Values.Select(l => l.Letter).ToArray();
-            var k = distinctBaseSequenceChars.Except(residuesInDictionary).ToList();
-            return (!k.Any());
-        }
-
-        private static Regex _invalidResidueRegex;
-        public static Regex InvalidResidueRegex
-        {
-            get
-            {
-                _invalidResidueRegex ??= new Regex(@"[BJXZa-z\s\p{P}\d]");
-                return _invalidResidueRegex;
-            }
-        }
-
         /// <summary>
         /// Checks whether a given string represents a valid peptide sequence without modifications. 
-        /// Valid sequences contain only uppercase letters that represent amino acids. 
+        /// Valid sequences contain only residues in the ResidueDictionary.
+        /// Note: the residue dictionary can be externally modified. Unusual amino acid letters can and do appear in peptide sequences.
         /// </summary>
         /// <param name="baseSequence"> Sequence to be checked </param>
         /// <returns> True if the sequence is valid. False otherwise. </returns>
-        public static bool ValidBaseSequence(this string baseSequence)
+        public static bool AllSequenceResiduesAreValid(this string baseSequence)
         {
             if (baseSequence.IsNullOrEmpty()) return false;
-            return !InvalidResidueRegex.IsMatch(baseSequence);
+            //char[] baseSequenceChars = baseSequence.ToCharArray();
+            //char[] distinctBaseSequenceChars = baseSequenceChars.Distinct().ToArray();
+            //char[] residuesInDictionary = Residue.ResiduesDictionary.Values.Select(l => l.Letter).ToArray();
+            //var k = distinctBaseSequenceChars.Except(residuesInDictionary).ToList();
+            //return (!k.Any());
+
+            //return !baseSequence.ToCharArray().Distinct().ToArray().Except(Residue.ResiduesDictionary.Values.Select(l => l.Letter).ToArray()).ToList().Any();
+            return !baseSequence.ToCharArray().Distinct().Except(Residue.ResiduesDictionary.Values.Select(l => l.Letter)).Any();
         }
     }
 }

@@ -614,14 +614,13 @@ namespace Test
         [Test]
         public void TestValidBaseSequenceWithResidueAddedToResidueDictionary()
         {
-            string sequence = "PEPTIDEa";
-            Assert.IsFalse(sequence.AllSequenceResiduesAreValid());
+            string testSequenceForThisTest = "PEPTIDEa";
 
             Loaders.LoadElements();
-            Residue x = new Residue("a", 'a', "a", new ChemicalFormula(), ModificationSites.All); //+8 lysine
+            Residue x = new Residue("a", 'a', "a", new ChemicalFormula(), ModificationSites.All); 
             Residue.AddNewResiduesToDictionary(new List<Residue> { x });
 
-            Assert.IsTrue(sequence.AllSequenceResiduesAreValid());
+            Assert.IsTrue(testSequenceForThisTest.AllSequenceResiduesAreValid());
         }
 
 

@@ -297,6 +297,7 @@ namespace FlashLFQ
 
                 if(formula is null)
                 {
+                    formula = new ChemicalFormula();
                     if (id.BaseSequence.AllSequenceResiduesAreValid())
                     {
                         // there are sometimes non-parsable sequences in the base sequence input
