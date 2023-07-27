@@ -1,5 +1,4 @@
 ﻿using Chemistry;
-using Easy.Common.Extensions;
 using MassSpectrometry;
 using MathNet.Numerics;
 using NUnit.Framework;
@@ -10,9 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Documents;
 using UsefulProteomicsDatabases;
 
 namespace Test
