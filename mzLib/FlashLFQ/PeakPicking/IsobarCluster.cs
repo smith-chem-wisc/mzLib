@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Chemistry;
 using Easy.Common.Extensions;
@@ -260,15 +261,16 @@ namespace FlashLFQ.PeakPicking
                 }
             }
 
-            foreach (var kvp in msmsIdFullSeqToRegion)
+            // This isn't gonna work for MBR. There, we could have one MSMS id and still need to run this
+            foreach (var seqToRegionsKvp in msmsIdFullSeqToRegion)
             {
-                if (kvp.Value.Distinct().Count() > 1)
+                if (seqToRegionsKvp.Value.Distinct().Count() > 1)
                 {
                     // This algorithm needs to assign peaks such that ambiguity is minimized
 
                     // Handle case where consensus is peak ambiguity, e.g. most files have two peptides
                     // assigned to one peak.
-                    List<int> regions = kvp.Value;
+                    List<int> regions = seqToRegionsKvp.Value;
 
                     // For each region (key), contains the number of IDs made in that region
                     var regionCountDictionary = regions
@@ -286,9 +288,13 @@ namespace FlashLFQ.PeakPicking
                     // TODO: Come up with tie-breaking mechanism here. Like, if two regions each have 3 IDs
                     int bestRegion = regionCountDictionary.MaxBy(kvp => kvp.Value).Key;
 
-                    foreach (int region in kvp.Value)
+                    foreach (int region in seqToRegionsKvp.Value)
                     {
-                        if (region == bestRegion) continue; // These were accurately assigned already
+                        if (region == bestRegion) 
+                        {
+
+                            continue; // These were accurately assigned already
+                        }
                         // Peaks are added to the dictionary within the foreach loop, so it's important to stash the 
                         // peaks before entering the loop
                         foreach (var peak in RegionPeakDictionary[region])
@@ -296,15 +302,17 @@ namespace FlashLFQ.PeakPicking
                             // Remove and reassign the id
                             if (peak.Identifications
                                 .Select(id => id.ModifiedSequence)
-                                .Contains(kvp.Key))
+                                .Contains(seqToRegionsKvp.Key))
                             {
                                 int idIndex = peak.Identifications
-                                    .FindIndex(id => id.ModifiedSequence == kvp.Key);
+                                    .FindIndex(id => id.ModifiedSequence == seqToRegionsKvp.Key);
                                 Identification id = peak.Identifications[idIndex];
                                 peak.RemoveIdentification(id);
 
+                                
                                 var bestPeak = RegionPeakDictionary[bestRegion]
-                                    .FirstOrDefault(p => p.SpectraFileInfo.Equals(id.FileInfo));
+                                    .FirstOrDefault(p => p.SpectraFileInfo.Equals(peak.SpectraFileInfo));
+
                                 if (bestPeak == null)
                                 {
                                     var xic = Xics[id.FileInfo];
@@ -384,8 +392,10 @@ namespace FlashLFQ.PeakPicking
                             .Where(peak => peak.Identifications.Intersect(isobaricIds).Any())
                             .ToList());
                 }
-
+                // In MBR, one ID can lead to many peaks. However, if there's only one peak, we don't need to be concerned
+                if (isobaricPeaks.Count() <= 1) continue;
                 isobaricPeaks.Sort();
+
                 List<List<ChromatographicPeak>> clusteredPeaks = ClusterPeaks(isobaricPeaks);
                 foreach (var peakCluster in 
                          clusteredPeaks.Where(peakList => peakList.IsNotNullOrEmpty()))
@@ -467,18 +477,34 @@ namespace FlashLFQ.PeakPicking
                     }
                 }
             }
-            
-            // Check to see if there's more than one species in the cluster
-            if(peakCluster.SelectMany(peak => 
-                        peak.Identifications.Select(id => id.ModifiedSequence))
-                   .Distinct()
-                   .Count() > 1)
-                peakClusters.Add(peakCluster);
 
+            var peakIds = peakCluster
+                .SelectMany(peak => peak.Identifications.Select(id => id.ModifiedSequence))
+                .ToList();
+
+            // Check to see if the cluster contains modified aromatic residues and/or multiple species
+            if (peakIds.Any(seq => ModifiedAromaticResidueRegex.IsMatch(seq))
+                || peakIds.Distinct().Count() > 1)
+            {
+                peakClusters.Add(peakCluster);
+            }
+            
             // Recurse left
             ClusterPeaks(orderedPeaks, ref peakClusters, minIndex, leftIndex);
             // Recurse right
             ClusterPeaks(orderedPeaks, ref peakClusters, rightIndex, maxIndex);
         }
+
+        public static Regex ModifiedAromaticResidueRegex
+        {
+            get
+            {
+                if (_modifiedAromaticResidueRegex == null)
+                    _modifiedAromaticResidueRegex = new Regex(@"[WYF]\[");
+                return _modifiedAromaticResidueRegex;
+            }
+        }
+
+        private static Regex _modifiedAromaticResidueRegex;
     }
 }

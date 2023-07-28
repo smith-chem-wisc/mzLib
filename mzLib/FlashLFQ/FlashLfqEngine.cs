@@ -252,6 +252,9 @@ namespace FlashLFQ
                 List<IsobarCluster> isobarClusters = null;
                 try
                 {
+                    // TODO: Fix
+                    // There is an issue where match between runs PEAKS will bear an identification from a different file
+                    // This results in funny business down the line
                     isobarClusters =
                         IsobarCluster.FindIsobarClusters(_allIdentifications, _results, _peakIndexingEngine,
                             this, exceptions);
