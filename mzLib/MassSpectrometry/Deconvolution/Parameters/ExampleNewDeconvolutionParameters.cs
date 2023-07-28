@@ -10,7 +10,8 @@ namespace MassSpectrometry
     [ExcludeFromCodeCoverage]
     public class ExampleNewDeconvolutionParameters : DeconvolutionParameters
     {
-        public ExampleNewDeconvolutionParameters() : base()
+        public ExampleNewDeconvolutionParameters(int minCharge, int maxCharge, Polarity polarity = Polarity.Positive)
+            : base(minCharge, maxCharge, polarity)
         {
 
         }

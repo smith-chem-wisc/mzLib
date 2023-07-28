@@ -11,7 +11,7 @@ namespace MassSpectrometry
     public enum DeconvolutionType
     {
         ClassicDeconvolution,
-        AlexDeconvolution,
+        ExampleNewDeconvolution,
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ namespace MassSpectrometry
                 case DeconvolutionType.ClassicDeconvolution:
                     break;
 
-                case DeconvolutionType.AlexDeconvolution:
+                case DeconvolutionType.ExampleNewDeconvolution:
                     break;
             }
 
@@ -69,7 +69,7 @@ namespace MassSpectrometry
                     DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
                     break;
 
-                case DeconvolutionType.AlexDeconvolution:
+                case DeconvolutionType.ExampleNewDeconvolution:
                     DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithm(deconParameters);
                     break;
 
