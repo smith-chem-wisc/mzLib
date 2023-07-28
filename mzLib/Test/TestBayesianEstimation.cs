@@ -95,6 +95,7 @@ namespace Test
             Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 1.062);
         }
 
+
         [Test]
         /// <summary>
         /// Bayesian estimation of the difference in means between two samples.

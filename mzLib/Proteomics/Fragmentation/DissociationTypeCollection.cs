@@ -104,6 +104,8 @@ namespace Proteomics.Fragmentation
             { ProductType.Y, null},// diagnostic ions are not shifted but added sumarily
 
             // Rna Specific types are not shifted through this method, but added to not break the code. 
+            // This is due to proteins and rna having shared ions (e.g. b,y) that have different mass shifts
+            // This behavior for rna is handled by DissociationTypeCollection.GetRnaMassShiftFromProductType
             {ProductType.aWaterLoss , null},
             {ProductType.aBase , null},
             {ProductType.bBase , null},

@@ -23,11 +23,21 @@ namespace Transcriptomics
         /// <summary>
         /// The default chemical formula of the five prime (hydroxyl group)
         /// </summary>
+        /// <remarks>
+        /// This means that the five prime cap will remove the excess components of first nucleotides
+        /// phospho group, leaving only the hydroxyl. This formula will be used for the five prime cap, unless
+        /// the nucleic acid is constructed with a different chemical formula
+        /// </remarks>
         public static readonly ChemicalFormula DefaultFivePrimeTerminus = ChemicalFormula.ParseFormula("O-3P-1");
 
         /// <summary>
         /// The default chemical formula of the three prime terminus (hydroxyl group)
         /// </summary>
+        /// <remarks>
+        /// This is used to account for the mass of the additional hydroxyl group at the three end of most oligonucleotides.
+        /// This formula will be used for the three prime cap, unless the nucleic acid is constructed with a different
+        /// chemical formula
+        /// </remarks>
         public static readonly ChemicalFormula DefaultThreePrimeTerminus = ChemicalFormula.ParseFormula("OH");
 
         #endregion
@@ -160,6 +170,15 @@ namespace Transcriptomics
 
         #region Fragmentation
 
+
+        /// <summary>
+        /// Populated the list of IProducts based upon the dissociation type and fragmentation terminus
+        /// Dissociation type is populated by DissociationTypeCollection.GetRnaProductTypesFromDissociationType
+        /// Fragmentation Terminus is populated by DissociationTypeCollection.GetRnaTerminusSpecificProductTypes
+        /// </summary>
+        /// <param name="dissociationType"></param>
+        /// <param name="fragmentationTerminus"></param>
+        /// <param name="products"></param>
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
             List<IProduct> products)
         {

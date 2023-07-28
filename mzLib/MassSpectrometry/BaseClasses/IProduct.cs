@@ -19,7 +19,7 @@ namespace MassSpectrometry
         public ProductType? SecondaryProductType { get; } //used for internal fragment ions
         public int SecondaryFragmentNumber { get; } //used for internal fragment ions
         public double MonoisotopicMass => NeutralMass;
-        public string Annotation { get; }
+        public string Annotation => GetAnnotation();
 
         public string GetAnnotation()
         {
