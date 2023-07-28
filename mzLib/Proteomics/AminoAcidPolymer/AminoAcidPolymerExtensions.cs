@@ -16,9 +16,11 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using Easy.Common.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Proteomics.AminoAcidPolymer
 {
@@ -69,6 +71,29 @@ namespace Proteomics.AminoAcidPolymer
                 }
             }
             return bits;
+        }
+
+        private static Regex _invalidResidueRegex;
+        public static Regex InvalidResidueRegex
+        {
+            get
+            {
+                if (_invalidResidueRegex == null)
+                    _invalidResidueRegex = new Regex(@"[BJXZa-z\s\p{P}\d]");
+                return _invalidResidueRegex;
+            }
+        }
+
+        /// <summary>
+        /// Checks whether a given string represents a valid peptide sequence without modifications. 
+        /// Valid sequences contain only uppercase letters that represent amino acids. 
+        /// </summary>
+        /// <param name="baseSequence"> Sequence to be checked </param>
+        /// <returns> True if the sequence is valid. False otherwise. </returns>
+        public static bool ValidBaseSequence(this string baseSequence)
+        {
+            if (baseSequence.IsNullOrEmpty()) return false;
+            return !InvalidResidueRegex.IsMatch(baseSequence);
         }
     }
 }
