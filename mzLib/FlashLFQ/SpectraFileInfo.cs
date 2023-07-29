@@ -29,5 +29,10 @@
         {
             return FullFilePathWithExtension.GetHashCode();
         }
+
+        public override string ToString()
+        {
+            return Condition + "_" + BiologicalReplicate.ToString();
+        }
     }
 }

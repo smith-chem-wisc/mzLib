@@ -20,15 +20,18 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 using MathNet.Numerics.Interpolation;
 using SharpLearning.Containers.Extensions;
 using static Nett.TomlObjectFactory;
+using System.Windows.Documents;
+using System.Reflection;
+using NUnit.Framework.Internal;
 
 namespace TestFlashLFQ
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    internal class XicAlignmentTest
+    internal static class XicAlignmentTest
     {
         [Test]
-        public void TestSignalAlignment()
+        public static void TestSignalAlignment()
         {
             // get the raw file paths
             SpectraFileInfo inflix = new SpectraFileInfo(
@@ -228,13 +231,24 @@ namespace TestFlashLFQ
         [Test]
         public static void TestVVRealData()
         {
+            // Laptop
+
+            //SpectraFileInfo nist2 = new SpectraFileInfo(
+            //    @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML",
+            //    "nist2", 1, 0, 0);
+            //SpectraFileInfo nist3 = new SpectraFileInfo(
+            //    @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML", "nist3", 1, 0, 0);
+            //SpectraFileInfo nist5 = new SpectraFileInfo(
+            //    @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\\JD020823_TNFa_NIST_Tryp_60s_5-calib.mzML", "nist5", 1, 0, 0);
+
+            // Alecto
+
             SpectraFileInfo nist2 = new SpectraFileInfo(
-                @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML",
-                "nist2", 1, 0, 0);
+                @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML", "nist2", 1, 0, 0);
             SpectraFileInfo nist3 = new SpectraFileInfo(
-                @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML", "nist3", 1, 0, 0);
+                @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML", "nist3", 1, 0, 0);
             SpectraFileInfo nist5 = new SpectraFileInfo(
-                @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\\JD020823_TNFa_NIST_Tryp_60s_5-calib.mzML", "nist5", 1, 0, 0);
+                @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_5-calib.mzML", "nist5", 1, 0, 0);
 
             // create IDs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -280,6 +294,129 @@ namespace TestFlashLFQ
             testCluster.ReassignPeakIDs();
 
             placeholder = 1;
+        }
+
+        [Test]
+        public static void TestAmbiguousPeptideResults()
+        {
+            SpectraFileInfo inflix1 = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"TNFa_Inflix_Tryp_1-calib_ASQ.mzML"),
+                "inflix", 1, 0, 0);
+            SpectraFileInfo inflix3 = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"TNFa_Inflix_Tryp_3-calib_ASQ.mzML"),
+                "inflix", 2, 0, 0);
+            SpectraFileInfo inflix4 = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"TNFa_Inflix_Tryp_4-calib_ASQ.mzML"),
+                "inflix", 3, 0, 0);
+
+            // create IDs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            string baseSequence = "ASQFVGSSIHWYQQR";
+            double monoisotopicMass = 1860.852;
+            double peakFindingMass = 621.2912;
+
+            // Define the modified peptide identifications
+            string wModSeq = "ASQFVGSSIHW[CF3:CF3 on W]YQQR";
+            double rtw1 = 23.48327;
+            double rtw3 = 21.08657;
+            double rtw4 = 21.22665;
+
+            string ambigModSeq = "ASQFVGSSIHW[CF3:CF3 on W]YQQR|ASQFVGSSIHWYQQR[CF3:CF3 on R]";
+            double rtambig = 21.20498;
+
+            // Y7 is observed in all three runs. It coelutes with y3.
+            Identification w1ModId = new Identification(inflix1, baseSequence, wModSeq, monoisotopicMass,
+                rtw1, 3, new List<ProteinGroup> { pg });
+            Identification w3ModId= new Identification(inflix3, baseSequence, wModSeq, monoisotopicMass,
+                rtw3, 3, new List<ProteinGroup> { pg });
+            Identification w4ModId = new Identification(inflix4, baseSequence, wModSeq, monoisotopicMass,
+                rtw4, 3, new List<ProteinGroup> { pg });
+
+            Identification ambigModId = new Identification(inflix1, baseSequence, ambigModSeq, monoisotopicMass,
+                rtambig, 3, new List<ProteinGroup> { pg });
+
+            List<Identification> allIdentifications = new List<Identification>
+            {
+                w1ModId, w3ModId, w4ModId, ambigModId
+            };
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(
+                allIdentifications,
+                normalize: false,
+                maxThreads: 1,
+                matchBetweenRuns: true,
+                quantifyAmbiguousPeptides: false); // peaks are only serialized if match between runs = true
+
+            var results = engine.Run();
+
+            FlashLFQ.Peptide wModPeptide = results.PeptideModifiedSequences[wModSeq];
+            List<double> wModIntensities = new();
+            foreach(var file in results.SpectraFiles)
+            {
+                wModIntensities.Add(wModPeptide.GetIntensity(file));
+            }
+
+            // Make sure that the default behavior is picking different peaks
+            double wModIntensityVariance = wModIntensities.StandardDeviation();
+            Assert.Greater(wModIntensityVariance, 1e7);
+
+            engine = new FlashLfqEngine(
+                allIdentifications,
+                normalize: false,
+                maxThreads: 1,
+                matchBetweenRuns: true,
+                quantifyAmbiguousPeptides: true); // peaks are only serialized if match between runs = true
+
+            results = engine.Run();
+
+            wModPeptide = results.PeptideModifiedSequences[wModSeq];
+            wModIntensities.Clear();
+            foreach (var file in results.SpectraFiles)
+            {
+                wModIntensities.Add(wModPeptide.GetIntensity(file));
+            }
+            
+            double wModIntensityVariance_Ambig = wModIntensities.StandardDeviation();
+            Assert.Greater(wModIntensityVariance, wModIntensityVariance_Ambig);
+            Assert.Less(wModIntensityVariance_Ambig, 1e7);
+
+            // With QuantifyAmbiguous turned on, a new MBR peak is created by splitting the ambiguous ID
+            // This peak has a higher intensity than the peak associated with the MSMS id
+            // Now, I want to test the situation where the MSMS id has a higher intensity, but the retention time 
+            // is shifted compared to the majority of peaks for that peptide.
+
+            var x = results.Peaks[inflix1].First(peak => peak.Identifications.Contains(w1ModId));
+            x.SetChromatographicPeakProperties(propName: "Intensity", newValue: (double)1e13);
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+            wModPeptide = results.PeptideModifiedSequences[wModSeq];
+            wModIntensities.Clear();
+            foreach (var file in results.SpectraFiles)
+            {
+                wModIntensities.Add(wModPeptide.GetIntensity(file));
+            }
+            double wModIntensityVarianceWithReflection = wModIntensities.StandardDeviation();
+            // This tests that the MSMS id peak's intensity was changed, and as a result, 
+            // that peak was used to define the peptide intensity
+            Assert.Greater(wModIntensityVarianceWithReflection, wModIntensityVariance_Ambig);
+
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides: true, clusters: engine.IsobarClusters);
+            wModPeptide = results.PeptideModifiedSequences[wModSeq];
+            wModIntensities.Clear();
+            foreach (var file in results.SpectraFiles)
+            {
+                wModIntensities.Add(wModPeptide.GetIntensity(file));
+            }
+            double wModIntensityVariance_AmbigPeptideTest = wModIntensities.StandardDeviation();
+            // This tests that the MSMS id peak's intensity was changed, and as a result, 
+            // that peak was used to define the peptide intensity
+            Assert.AreEqual(wModIntensityVariance_AmbigPeptideTest, wModIntensityVariance_Ambig, delta: 0.01);
+        }
+
+        public static void SetChromatographicPeakProperties(this ChromatographicPeak peak, string propName, Object newValue)
+        {
+            PropertyInfo propertyInfo = typeof(ChromatographicPeak).GetProperty(propName);
+            if (propertyInfo == null || propertyInfo.PropertyType != newValue.GetType()) return;
+            propertyInfo.SetValue(peak, newValue);
         }
 
         // In base FlashLFQ, some IDs get merged and then assigned to the wrong peaks.
@@ -455,17 +592,17 @@ namespace TestFlashLFQ
             // This should be correct. This is essentially what IsobarCluster does when 
             // reassigning peaks, and this peak was reassigned
             engine.SwapPeakIndexingEngine(nist);
-            var peakNist = engine.GetChromatographicPeak(y3ModId, nist, rty3, region);
+            var peakNist = engine.GetChromatographicPeak(y3ModId, nist, rtApex: rty3, peakRegion: region);
             Assert.AreEqual(peakNist.Intensity, results.Peaks[nist].First().Intensity, 1);
 
             // Assert that peaks found by the normal MS2 Quant workflow match up with those 
             // found by swapping the indexing engine and manually defining boundaries
             engine.SwapPeakIndexingEngine(inflix2);
-            var peakInflix2 = engine.GetChromatographicPeak(y3ModId, nist, rty3, region);
+            var peakInflix2 = engine.GetChromatographicPeak(y3ModId, nist, rtApex: rty3, peakRegion: region);
             Assert.AreEqual(peakInflix2.Intensity, results.Peaks[inflix2].First().Intensity, 1);
 
             engine.SwapPeakIndexingEngine(inflix3);
-            var peakInflix3 = engine.GetChromatographicPeak(y3ModId, nist, rty3, region);
+            var peakInflix3 = engine.GetChromatographicPeak(y3ModId, nist, rtApex: rty3, peakRegion: region);
             Assert.AreEqual(peakInflix3.Intensity, results.Peaks[inflix3].First().Intensity, 1);
         }
 

@@ -80,6 +80,15 @@
     <None Update="TestData\XICAlignment\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\XICAlignment\TNFa_Inflix_Tryp_1-calib_ASQ.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\XICAlignment\TNFa_Inflix_Tryp_3-calib_ASQ.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\XICAlignment\TNFa_Inflix_Tryp_4-calib_ASQ.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\XICAlignment\UnambiguousPsms_Slices.psmtsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

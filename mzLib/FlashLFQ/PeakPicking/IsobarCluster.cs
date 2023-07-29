@@ -35,10 +35,22 @@ namespace FlashLFQ.PeakPicking
         /// Dictionary linking each peak region to a list of chromatographic peaks with
         /// apexes inside that region
         /// </summary>
-        public Dictionary<int, List<ChromatographicPeak>> RegionPeakDictionary;
+        private Dictionary<int, List<ChromatographicPeak>> _regionPeakDictionary;
+
+        public Dictionary<int, List<ChromatographicPeak>> RegionPeakDictionary
+        {
+            get { return _regionPeakDictionary; }
+        }
+
+        /// <summary>
+        /// This dictionary is used to determine what peaks should be used for peptide quantification
+        /// </summary>
+        public Dictionary<string, List<int>> SequenceRegionDictionary { get; private set; }
 
         private FlashLfqEngine _flashLfqEngine;
         private FlashLfqResults _results;
+
+        //TODO: Need to link IDs/Peptides to peaks within the isobar cluster class
 
         public IsobarCluster(List<ChromatographicPeak> peaks, FlashLfqEngine flashLfqEngine, 
             FlashLfqResults results = null, DoubleRange rtRange = null)
@@ -214,9 +226,10 @@ namespace FlashLFQ.PeakPicking
 
         public void ReassignPeakIDs()
         {
-            RegionPeakDictionary = new Dictionary<int, List<ChromatographicPeak>>();
+            _regionPeakDictionary = new Dictionary<int, List<ChromatographicPeak>>();
+            SequenceRegionDictionary = new Dictionary<string, List<int>>();
             foreach(int region in Xics[ReferenceFile].PeakRegions.Keys)
-                RegionPeakDictionary.Add(region, new List<ChromatographicPeak>());
+                _regionPeakDictionary.Add(region, new List<ChromatographicPeak>());
 
             // Link each region to a list of IDs
             foreach (ChromatographicPeak peak in Peaks)
@@ -227,9 +240,10 @@ namespace FlashLFQ.PeakPicking
                 {
                     if (region.Value.Contains(peak.ApexRetentionTime))
                     {
-                        if (!RegionPeakDictionary.ContainsKey(region.Key))
-                            RegionPeakDictionary.Add(region.Key, new List<ChromatographicPeak>());
-                        RegionPeakDictionary[region.Key].Add(peak);
+                        if (!_regionPeakDictionary.ContainsKey(region.Key))
+                            _regionPeakDictionary.Add(region.Key, new List<ChromatographicPeak>());
+                        _regionPeakDictionary[region.Key].Add(peak);
+                        peak.Region = region.Key;
 
                         break;
                     }
@@ -238,13 +252,13 @@ namespace FlashLFQ.PeakPicking
 
             // Something went wrong
             // TODO: Make this throw an exception
-            if (RegionPeakDictionary.Count == 0)
+            if (_regionPeakDictionary.Count == 0)
                 return;
 
             #region OnePeptideMultiRegion
 
             Dictionary<string, List<int>> msmsIdFullSeqToRegion = new();
-            foreach (var kvp in RegionPeakDictionary)
+            foreach (var kvp in _regionPeakDictionary)
             {
                 foreach (var id in kvp.Value
                              .Where(peak => !peak.IsMbrPeak)
@@ -287,39 +301,61 @@ namespace FlashLFQ.PeakPicking
 
                     // TODO: Come up with tie-breaking mechanism here. Like, if two regions each have 3 IDs
                     int bestRegion = regionCountDictionary.MaxBy(kvp => kvp.Value).Key;
+                    foreach (string seq in _regionPeakDictionary[bestRegion]
+                                .SelectMany(peak => peak.Identifications)
+                                .SelectMany(id => id.ModifiedSequence.Split('|')))
+                    {
+                        //TODO: Need to weight unambiguous identifications higher 
+                        if (!SequenceRegionDictionary.ContainsKey(seq))
+                            SequenceRegionDictionary.Add(seq, new List<int>());
+                        SequenceRegionDictionary[seq].Add(bestRegion);
+                    }
 
                     foreach (int region in seqToRegionsKvp.Value)
                     {
                         if (region == bestRegion) 
                         {
-
                             continue; // These were accurately assigned already
                         }
                         // Peaks are added to the dictionary within the foreach loop, so it's important to stash the 
                         // peaks before entering the loop
-                        foreach (var peak in RegionPeakDictionary[region])
+                        foreach (var peak in _regionPeakDictionary[region])
                         {
                             // Remove and reassign the id
                             if (peak.Identifications
-                                .Select(id => id.ModifiedSequence)
+                                .SelectMany(id => id.ModifiedSequence.Split('|'))
                                 .Contains(seqToRegionsKvp.Key))
                             {
                                 int idIndex = peak.Identifications
                                     .FindIndex(id => id.ModifiedSequence == seqToRegionsKvp.Key);
-                                Identification id = peak.Identifications[idIndex];
-                                peak.RemoveIdentification(id);
-
+                                Identification id = null;
+                                // If an identification with a modified sequence exactly matching
+                                // the sequence in question (i.e., not ambiguous and separated by '|'),
+                                // Then we remove the id and add it to a different peak
+                                if (idIndex >= 0)
+                                {
+                                    id = peak.Identifications[idIndex];
+                                    peak.RemoveIdentification(id);
+                                }
+                                // Otherwise, we borrow an identification, just like in MBR
+                                else
+                                {
+                                    // If there is an id with an exact sequence match (i.e., non-ambiguous), we use that
+                                    id = _regionPeakDictionary[bestRegion]
+                                            .SelectMany(peak => peak.Identifications)
+                                            .FirstOrDefault(id => id.ModifiedSequence.Equals(seqToRegionsKvp.Key))
+                                         // Otherwise, we use an ambiguous id 
+                                         ?? _regionPeakDictionary[bestRegion].First().Identifications.First();
+                                    
+                                }
                                 
-                                var bestPeak = RegionPeakDictionary[bestRegion]
+                                var bestPeak = _regionPeakDictionary[bestRegion]
                                     .FirstOrDefault(p => p.SpectraFileInfo.Equals(peak.SpectraFileInfo));
 
                                 if (bestPeak == null)
                                 {
-                                    var xic = Xics[id.FileInfo];
-                                    double rtApex = xic.Extrema
-                                        .Where(ext => ext.ExtremumType == ExtremumType.Maximum)
-                                        .Where(ext => xic.PeakRegions[bestRegion].Contains(ext.RetentionTime))
-                                        .Average(ext => ext.RetentionTime);
+                                    var xic = Xics[peak.SpectraFileInfo];
+                                    double rtApex = xic.PeakRegions[bestRegion].Mean;
 
                                     // Need to find a better way to avoid serializing/deserializing
                                     // XIC contains all the indexes ms peaks you would need (for a given charge state)
@@ -327,17 +363,31 @@ namespace FlashLFQ.PeakPicking
 
                                     // This is faster, but it feels extremely fragile. Side-effects almost guaranteed.
                                     // There's a refactor a-coming, but not today
-                                    _flashLfqEngine.SwapPeakIndexingEngine(id.FileInfo);
+                                    _flashLfqEngine.SwapPeakIndexingEngine(peak.SpectraFileInfo);
 
-                                    bestPeak = _flashLfqEngine.GetChromatographicPeak(id, id.FileInfo, rtApex, xic.PeakRegions[bestRegion]);
-                                    RegionPeakDictionary[bestRegion].Add(bestPeak);
+                                    bestPeak = _flashLfqEngine.GetChromatographicPeak(
+                                        id, 
+                                        peak.SpectraFileInfo, 
+                                        isMbrPeak: peak.SpectraFileInfo != id.FileInfo, // TODO: Add an alternate classication system for ambgiuous peaks. MBR isn't totally accurate 
+                                        rtApex, 
+                                        xic.PeakRegions[bestRegion]);
+                                    _regionPeakDictionary[bestRegion].Add(bestPeak);
 
                                     //TODO: Clean this up
                                     if(_results != null)
-                                        _results.Peaks[id.FileInfo].Add(bestPeak);
+                                        _results.Peaks[peak.SpectraFileInfo].Add(bestPeak);
                                 }
                                 bestPeak.AddIdentification(id);
+                                bestPeak.Region = bestRegion;
+                                foreach(string seq in id.ModifiedSequence.Split('|'))
+                                {
+                                    if (!SequenceRegionDictionary.ContainsKey(seq))
+                                        SequenceRegionDictionary.Add(seq, new List<int>());
+                                    SequenceRegionDictionary[seq].Add(bestRegion);
+                                }
                             }
+
+                            //TODO: Do additional MBR stuff here. If there's a file without a peak in the region, create one
                         }
                     }
                     // Assign every id to a new peak in the best region. 
@@ -354,7 +404,7 @@ namespace FlashLFQ.PeakPicking
 
             #region OneRegionMultiPeptide
 
-            foreach (var kvp in RegionPeakDictionary)
+            foreach (var kvp in _regionPeakDictionary)
             {
                 if (kvp.Value
                         .SelectMany(peak => peak.Identifications)

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Easy.Common.Extensions;
+using FlashLFQ.PeakPicking;
 
 namespace FlashLFQ
 {
@@ -107,7 +108,7 @@ namespace FlashLFQ
             }
         }
 
-        public void CalculatePeptideResults(bool quantifyAmbiguousPeptides)
+        public void CalculatePeptideResults(bool quantifyAmbiguousPeptides, List<IsobarCluster> clusters = null)
         {
             foreach (var sequence in PeptideModifiedSequences)
             {
@@ -192,6 +193,26 @@ namespace FlashLFQ
                     }
                 }
                 
+            }
+
+            if(clusters.IsNotNullOrEmpty())
+            {
+                foreach(IsobarCluster cluster in clusters)
+                {
+                    foreach(var sequenceRegionsKvp in cluster.SequenceRegionDictionary)
+                    {
+                        // Count the occurences of each region
+                        // Select the region with the max number of occurences
+                        int bestRegion = sequenceRegionsKvp.Value.GroupBy(i => i).MaxBy(group => group.Count()).Key;
+                        // Grab all peaks from that region
+                        foreach(ChromatographicPeak peak in cluster.RegionPeakDictionary[bestRegion])
+                        {
+                            // This can probably be fine-tuned to add more specific detection types
+                            PeptideModifiedSequences[sequenceRegionsKvp.Key].SetIntensity(peak.SpectraFileInfo, peak.Intensity);
+                        }
+                        // Set the intensity of the peptide with given sequence using the peaks from that region
+                    }
+                }
             }
 
             if (!quantifyAmbiguousPeptides)

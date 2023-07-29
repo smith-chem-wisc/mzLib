@@ -72,6 +72,7 @@ namespace FlashLFQ
         private Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
         private PeakIndexingEngine _peakIndexingEngine;
         public Dictionary<SpectraFileInfo, PeakIndexingEngine> IndexDict;
+        public List<IsobarCluster> IsobarClusters { get; private set; }
 
         public void SwapPeakIndexingEngine(SpectraFileInfo file)
         {
@@ -249,13 +250,13 @@ namespace FlashLFQ
                     IndexDict[file] = new PeakIndexingEngine();
                     IndexDict[file].DeserializeIndex(file);
                 }
-                List<IsobarCluster> isobarClusters = null;
+                IsobarClusters = new List<IsobarCluster>();
                 try
                 {
                     // TODO: Fix
                     // There is an issue where match between runs PEAKS will bear an identification from a different file
                     // This results in funny business down the line
-                    isobarClusters =
+                    IsobarClusters =
                         IsobarCluster.FindIsobarClusters(_allIdentifications, _results, _peakIndexingEngine,
                             this, exceptions);
                 }
@@ -264,9 +265,9 @@ namespace FlashLFQ
                     exceptions.Add(e);
                 }
 
-                if (isobarClusters != null)
+                if (IsobarClusters != null)
                 {
-                    foreach (IsobarCluster cluster in isobarClusters)
+                    foreach (IsobarCluster cluster in IsobarClusters)
                     {
                         try
                         {
@@ -276,6 +277,8 @@ namespace FlashLFQ
                         {
                             exceptions.Add(e);
                         }
+                        var mins = cluster.ConsensusExtrema.Select(kvp => kvp.Value.MinBy(ext => ext.Intensity)).ToList();
+                        var maxs = cluster.ConsensusExtrema.Select(kvp => kvp.Value.MaxBy(ext => ext.Intensity)).ToList();
                     }
                 }
             }
@@ -486,10 +489,14 @@ namespace FlashLFQ
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
         }
 
-        public ChromatographicPeak GetChromatographicPeak(Identification identification, SpectraFileInfo fileInfo, double? rtApex = null,
+        public ChromatographicPeak GetChromatographicPeak(
+            Identification identification, 
+            SpectraFileInfo fileInfo,
+            bool isMbrPeak = false,
+            double? rtApex = null,
             DoubleRange peakRegion = null)
         {
-            ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, false, fileInfo);
+            ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, isMbrPeak, fileInfo);
 
             foreach (var chargeState in _chargeStates)
             {

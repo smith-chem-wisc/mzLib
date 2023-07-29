@@ -10,7 +10,6 @@ namespace FlashLFQ
 {
     public class ChromatographicPeak : IComparable<ChromatographicPeak>
     {
-        public double Intensity;
         public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         //TODO: Investigate how this gets assigned. It looks to be more accurate than the reported peak start time
@@ -32,6 +31,7 @@ namespace FlashLFQ
             SpectraFileInfo = fileInfo;
         }
 
+        public double Intensity { get; private set; }
         public IsotopicEnvelope Apex { get; private set; }
         public List<Identification> Identifications { get; private set; }
         public int NumChargeStatesObserved { get; private set; }
@@ -52,7 +52,7 @@ namespace FlashLFQ
         public double? RtInterquartileRange { get; private set; }
 
         //TODO: Figure out whether this is needed
-        public int? Region { get; private set; }
+        public int? Region { get; internal set; }
 
         public int CompareTo(ChromatographicPeak other)
         {
