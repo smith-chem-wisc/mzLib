@@ -14,7 +14,8 @@ namespace FlashLFQ
         public readonly List<SpectraFileInfo> SpectraFiles;
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
-        // While the peaks dictionary can only be assigned once, the dictionary remains 
+        public bool ReportPeptideRetentionTimes { get; private set; }
+        // While the peaks dictionary can only be assigned once, themes; dictionary remains 
         // mutable and can be changed, overwritten, emptied, etc. 
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
 
@@ -108,8 +109,12 @@ namespace FlashLFQ
             }
         }
 
-        public void CalculatePeptideResults(bool quantifyAmbiguousPeptides, List<IsobarCluster> clusters = null)
+        public void CalculatePeptideResults(
+            bool quantifyAmbiguousPeptides, 
+            bool reportRetentionTimes = false,
+            List<IsobarCluster> clusters = null)
         {
+            ReportPeptideRetentionTimes = reportRetentionTimes;
             foreach (var sequence in PeptideModifiedSequences)
             {
                 foreach (SpectraFileInfo file in SpectraFiles)
@@ -156,6 +161,11 @@ namespace FlashLFQ
 
                     PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, intensity);
                     PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, detectionType);
+                    if (reportRetentionTimes)
+                    {
+                        double rt = sequenceWithPeaks.MaxBy(p => p.Intensity).ApexRetentionTime;
+                        PeptideModifiedSequences[sequence].SetRetentionTime(filePeaks.Key, rt);
+                    } 
                 }
 
                 // report ambiguous quantification
@@ -178,6 +188,8 @@ namespace FlashLFQ
                             {
                                 PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
                                 PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, ambiguousPeak.Intensity);
+                                if (reportRetentionTimes)
+                                    PeptideModifiedSequences[sequence].SetRetentionTime(filePeaks.Key, ambiguousPeak.ApexRetentionTime);
                             }
                             // If the peptide intensity has already been recorded, that value is retained. 
                             else if (fractionAmbiguous > 0.3)
@@ -209,6 +221,9 @@ namespace FlashLFQ
                         {
                             // This can probably be fine-tuned to add more specific detection types
                             PeptideModifiedSequences[sequenceRegionsKvp.Key].SetIntensity(peak.SpectraFileInfo, peak.Intensity);
+                            PeptideModifiedSequences[sequenceRegionsKvp.Key].SetDetectionType(peak.SpectraFileInfo, DetectionType.MultiRunConsensus);
+                            if (reportRetentionTimes)
+                                PeptideModifiedSequences[sequenceRegionsKvp.Key].SetRetentionTime(peak.SpectraFileInfo, peak.ApexRetentionTime);
                         }
                         // Set the intensity of the peptide with given sequence using the peaks from that region
                     }
@@ -594,11 +609,11 @@ namespace FlashLFQ
             {
                 using (StreamWriter output = new StreamWriter(modPeptideOutputPath))
                 {
-                    output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
+                    output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles, ReportPeptideRetentionTimes));
 
                     foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
                     {
-                        output.WriteLine(peptide.Value.ToString(SpectraFiles));
+                        output.WriteLine(peptide.Value.ToString(SpectraFiles, ReportPeptideRetentionTimes));
                     }
                 }
             }

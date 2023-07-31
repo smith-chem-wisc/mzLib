@@ -7,6 +7,7 @@
         NotDetected,
         MSMSAmbiguousPeakfinding,
         MSMSIdentifiedButNotQuantified,
+        MultiRunConsensus,
         Imputed
     }
 }

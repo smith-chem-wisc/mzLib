@@ -29,6 +29,7 @@ namespace FlashLFQ
         public readonly bool Normalize;
         public readonly double DiscriminationFactorToCutPeak;
         public readonly bool QuantifyAmbiguousPeptides;
+        public readonly bool ReportPeptideRetentionTimes;
 
         public readonly double PeakfindingPpmToleranceValue;
         public readonly double PpmToleranceValue;
@@ -92,6 +93,7 @@ namespace FlashLFQ
             int numIsotopesRequired = 2,
             bool idSpecificChargeState = false,
             bool quantifyAmbiguousPeptides = false,
+            bool reportPeptideRetentionTimes = false,
             bool silent = false,
             int maxThreads = -1,
 
@@ -137,6 +139,7 @@ namespace FlashLFQ
             Integrate = integrate;
             NumIsotopesRequired = numIsotopesRequired;
             QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
+            ReportPeptideRetentionTimes = reportPeptideRetentionTimes;
             Silent = silent;
             IdSpecificChargeState = idSpecificChargeState;
             MbrRtWindow = maxMbrWindow;
@@ -284,7 +287,7 @@ namespace FlashLFQ
             }
 
             // calculate peptide intensities
-            _results.CalculatePeptideResults(QuantifyAmbiguousPeptides);
+            _results.CalculatePeptideResults(QuantifyAmbiguousPeptides, reportRetentionTimes: ReportPeptideRetentionTimes);
 
             // do top3 protein quantification
             _results.CalculateProteinResultsMedianPolish(UseSharedPeptidesForProteinQuant);

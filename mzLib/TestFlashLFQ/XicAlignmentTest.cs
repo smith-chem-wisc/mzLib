@@ -733,6 +733,7 @@ namespace TestFlashLFQ
                 matchBetweenRuns: true, 
                 requireMsmsIdInCondition: false,
                 quantifyAmbiguousPeptides: true, 
+                reportPeptideRetentionTimes: true,
                 maxThreads: 1);
             results = engine.Run(out var exceptions);
             Assert.IsEmpty(exceptionList);

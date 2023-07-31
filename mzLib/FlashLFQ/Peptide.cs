@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using Easy.Common.Extensions;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -10,6 +12,7 @@ namespace FlashLFQ
         public readonly string BaseSequence;
         private Dictionary<SpectraFileInfo, double> Intensities;
         private Dictionary<SpectraFileInfo, DetectionType> DetectionTypes;
+        private Dictionary<SpectraFileInfo, double> PeakRetentionTimes;
         public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly bool UseForProteinQuant;
         public double IonizationEfficiency;
@@ -24,7 +27,7 @@ namespace FlashLFQ
             this.UseForProteinQuant = useForProteinQuant;
         }
 
-        public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
+        public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles, bool reportRetentionTimes = false)
         {
             var sb = new StringBuilder();
             sb.Append("Sequence" + "\t");
@@ -40,7 +43,14 @@ namespace FlashLFQ
             {
                 sb.Append("Detection Type_" + rawfile.FilenameWithoutExtension + "\t");
             }
-            return sb.ToString();
+            if (reportRetentionTimes)
+            {
+                foreach (var rawfile in rawFiles)
+                {
+                    sb.Append("PeakApexRt_" + rawfile.FilenameWithoutExtension + "\t");
+                }
+            }
+            return sb.ToString().Trim();
         }
 
         public double GetIntensity(SpectraFileInfo fileInfo)
@@ -91,7 +101,34 @@ namespace FlashLFQ
             }
         }
 
-        public string ToString(List<SpectraFileInfo> rawFiles)
+        public double GetRetentionTime(SpectraFileInfo fileInfo)
+        {
+            if (PeakRetentionTimes != null && PeakRetentionTimes.TryGetValue(fileInfo, out double retentionTime))
+            {
+                return retentionTime;
+            }
+            else
+            {
+                return -1;
+            }
+        }
+
+        public void SetRetentionTime(SpectraFileInfo fileInfo, double retentionTime)
+        {
+            if (PeakRetentionTimes == null)
+                PeakRetentionTimes = new Dictionary<SpectraFileInfo, double>();
+
+            if (PeakRetentionTimes.ContainsKey(fileInfo))
+            {
+                PeakRetentionTimes[fileInfo] = retentionTime;
+            }
+            else
+            {
+                PeakRetentionTimes.Add(fileInfo, retentionTime);
+            }
+        }
+
+        public string ToString(List<SpectraFileInfo> rawFiles, bool reportRetentionTime = false)
         {
             StringBuilder str = new StringBuilder();
             str.Append(Sequence + "\t");
@@ -119,6 +156,14 @@ namespace FlashLFQ
             foreach (var file in rawFiles)
             {
                 str.Append(GetDetectionType(file) + "\t");
+            }
+            if(reportRetentionTime)
+            {
+                foreach (var file in rawFiles)
+                {
+                    double rt = GetRetentionTime(file);
+                    str.Append((rt > 0 ? String.Format("{0:0.000}", GetRetentionTime(file))  : " ") + "\t");
+                }
             }
 
             return str.ToString().TrimEnd('\t');
