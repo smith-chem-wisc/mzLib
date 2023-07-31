@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using Readers;
 
@@ -23,6 +24,33 @@ namespace Test.FileReadingTests
                 reader.InitiateDynamicConnection();
             });
         }
+
+        #region Testing Exceptions
+
+        [Test]
+        public void TestRawFileReaderFileNotFoundException()
+        {
+            var fakeRawFile = "asdasd.raw";
+
+            var ex = Assert.Throws<FileNotFoundException>(() => MsDataFileReader.GetDataFile(fakeRawFile).LoadAllStaticData());
+
+            Assert.That(ex.Message, Is.EqualTo(new FileNotFoundException().Message));
+        }
+
+        [Test]
+        public void TestRawFileReaderUnableToAccessRawFile()
+        {
+             var rawFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+
+             var rawDataFileMsOrder = MsDataFileReader.GetDataFile(rawFilePath).GetOneBasedScanFromDynamicConnection(-1);
+
+             int i = 0;
+
+        }
+
+        #endregion
+
+
         /// <summary>
         /// Tests LoadAllStaticData for ThermoRawFileReader
         /// </summary>

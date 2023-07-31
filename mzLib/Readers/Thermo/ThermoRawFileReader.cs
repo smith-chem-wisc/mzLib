@@ -53,14 +53,14 @@ namespace Readers
             {
                 var rawFileAccessor = threadManager.CreateThreadAccessor();
 
-                if (!rawFileAccessor.IsOpen)
-                {
-                    throw new MzLibException("Unable to access RAW file!");
-                }
-
                 if (rawFileAccessor.IsError)
                 {
                     throw new MzLibException("Error opening RAW file!");
+                }
+
+                if (!rawFileAccessor.IsOpen)
+                {
+                    throw new MzLibException("Unable to access RAW file!");
                 }
 
                 if (rawFileAccessor.InAcquisition)
@@ -80,15 +80,15 @@ namespace Readers
 
                             for (int s = fff.Item1; s < fff.Item2; s++)
                             {
-                                try
-                                {
+                                //try
+                                //{
                                     var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
                                     msDataScans[s] = scan;
-                                }
-                                catch (Exception ex)
-                                {
-                                    throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
-                                }
+                                //}
+                                //catch (Exception ex)
+                                //{
+                                //    throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
+                                //}
                             }
                         }
                     });
