@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 namespace MassSpectrometry
 {
     [ExcludeFromCodeCoverage]
-    public class ExampleNewDeconvolutionParameters : DeconvolutionParameters
+    public class ExampleNewDeconvolutionParametersTemplate : DeconvolutionParameters
     {
-        public ExampleNewDeconvolutionParameters(int minCharge, int maxCharge, Polarity polarity = Polarity.Positive)
+        public ExampleNewDeconvolutionParametersTemplate(int minCharge, int maxCharge, Polarity polarity = Polarity.Positive)
             : base(minCharge, maxCharge, polarity)
         {
 
