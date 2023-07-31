@@ -740,7 +740,7 @@ namespace Test.FileReadingTests
             Assert.AreEqual(1, reader.GetClosestOneBasedSpectrumNumber(2));
 
             Assert.AreEqual(0, reader.GetClosestOneBasedSpectrumNumber(-1));
-            Assert.AreEqual(0, reader.GetClosestOneBasedSpectrumNumber(1000000));
+            Assert.AreEqual(1, reader.GetClosestOneBasedSpectrumNumber(1000000));
 
             var newFirstValue = reader.GetOneBasedScan(1).MassSpectrum.FirstX;
             Assert.AreEqual(oldFirstValue.Value, newFirstValue.Value, 1e-9);

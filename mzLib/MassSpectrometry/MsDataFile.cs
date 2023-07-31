@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Chemistry;
 
 namespace MassSpectrometry
 {
@@ -139,40 +140,28 @@ namespace MassSpectrometry
             {
                 LoadAllStaticData();
             }
-
-            int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             
-            while (oneBasedSpectrumNumber <= NumSpectra)
+            int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT)+1;
+            
+            while (oneBasedSpectrumNumber < NumSpectra + 1)
             {
                 MsDataScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
 
-                if (scan == null)
-                {
-                    break;
-                }
-
                 double rt = scan.RetentionTime;
+
                 if (rt < firstRT)
                 {
                     oneBasedSpectrumNumber++;
                     continue;
                 }
-
-                if (rt > lastRT)
+                else if (rt > lastRT)
                     yield break;
+                
                 yield return scan;
                 oneBasedSpectrumNumber++;
             }
         }
 
-        /// <summary>
-        /// 
-        /// Performs a Binary Search and returns the closest Spectrum Number to the given Retention Time (RT).
-        /// If RT is negative or bigger than last RT recorded in the experiment file, it will return 0.
-        /// 
-        /// </summary>
-        /// <param name="retentionTime"></param>
-        /// <returns></returns>
         public virtual int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             if (!CheckIfScansLoaded())
@@ -183,37 +172,7 @@ namespace MassSpectrometry
             ImmutableSortedDictionary<int, double> scansAndRetentionTime =
                 Scans.ToImmutableSortedDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
 
-
-            if (retentionTime <= scansAndRetentionTime.ElementAt(scansAndRetentionTime.Keys.Count() - 1).Key && retentionTime >= 0)
-            {
-                int search = Array.BinarySearch(scansAndRetentionTime.Values.ToArray(), index: 0, length: scansAndRetentionTime.Values.Count(), retentionTime);
-
-                if (search >= 0)
-                {
-                    return search;
-                }
-                
-                if (search < 0)
-                {
-                    int indexFromSearch = ~search;
-
-                    if (indexFromSearch < scansAndRetentionTime.Keys.Count())
-                    {
-                        return scansAndRetentionTime.ElementAt(indexFromSearch).Key;
-                    }
-
-                    if (indexFromSearch == scansAndRetentionTime.Keys.Count())
-                    {
-                        return scansAndRetentionTime.ElementAt(indexFromSearch - 1).Key;
-                    }
-                }
-                else if (search < scansAndRetentionTime.Keys.Count())
-                {
-                    return scansAndRetentionTime.ElementAt(search).Key;
-                }
-            }
-
-            return 0;
+            return Chemistry.ClassExtensions.GetClosestIndex(scansAndRetentionTime.Values.ToArray(), retentionTime);
         }
 
         public virtual IEnumerator<MsDataScan> GetEnumerator()

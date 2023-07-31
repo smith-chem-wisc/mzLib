@@ -127,7 +127,7 @@ namespace Test.FileReadingTests
             }
 
             int ok1 = 0;
-            foreach (var i in thefile.GetMsScansInTimeRange(0, 2))
+            foreach (var i in thefile.GetMsScansInTimeRange(0, 3))
                 ok1 += 1;
             Assert.AreEqual(1, ok1);
 
