@@ -262,22 +262,20 @@ namespace FlashLFQ
                     exceptions.Add(e);
                 }
 
-                if (IsobarClusters != null)
+                if (IsobarClusters.IsNotNullOrEmpty())
                 {
                     foreach (IsobarCluster cluster in IsobarClusters)
                     {
                         try
                         {
                             cluster.ReassignPeakIDs();
+                            _results.IsobarClusters.Add(cluster);
                         }
                         catch (Exception e)
                         {
                             exceptions.Add(e);
                         }
-                        var mins = cluster.ConsensusExtrema.Select(kvp => kvp.Value.MinBy(ext => ext.Intensity)).ToList();
-                        var maxs = cluster.ConsensusExtrema.Select(kvp => kvp.Value.MaxBy(ext => ext.Intensity)).ToList();
                     }
-                    _results.IsobarClusters = IsobarClusters;
                 }
             }
 

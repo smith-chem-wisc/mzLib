@@ -270,10 +270,47 @@ namespace TestFlashLFQ
             Identification vvNist5 = new Identification(nist5, baseSequence, wModSeq, monoisotopicMass,
                 rt5, 2, new List<ProteinGroup> { pg });
 
+            // create IDs
+            var pg2 = new ProteinGroup("MyProtein2", "gene2", "org");
+            string baseSequence2 = "FNWYVDGVEVHNAK";
+            double monoisotopicMass2 = 1744.7821052;
+            double peakFindingMass2 = 582.6013115;
+
+            // Define the modified peptide identifications
+            string fnwModSeq = "FNW[CF3:CF3 on W]YVDGVEVHNAK";
+            double[] fnwNist2Rts = new double[] { 25.10657, 25.55654, 20.0672 };
+            double[] fnwNist3Rts = new double[] { 23.544, 25.0764, 25.348 };
+            double[] fnwNist5Rts = new double[] { 23.4831, 25.06, 25.681 };
+
+            
+            Identification fnwNist2_1 = new Identification(nist2, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist2Rts[0], 3, new List<ProteinGroup> { pg2 });
+            Identification fnwNist2_2 = new Identification(nist2, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist2Rts[1], 3, new List<ProteinGroup> { pg2 });
+            Identification fnwNist2_3 = new Identification(nist2, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist2Rts[2], 3, new List<ProteinGroup> { pg2 });
+
+            Identification fnwNist3_1 = new Identification(nist3, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist3Rts[0], 3, new List<ProteinGroup> { pg2 });
+            Identification fnwNist3_2 = new Identification(nist3, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist3Rts[1], 3, new List<ProteinGroup> { pg2 });
+            Identification fnwNist3_3 = new Identification(nist3, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist3Rts[2], 3, new List<ProteinGroup> { pg2 });
+
+            Identification fnwNist5_1 = new Identification(nist5, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist5Rts[0], 3, new List<ProteinGroup> { pg2 });
+            Identification fnwNist5_2 = new Identification(nist5, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist5Rts[1], 3, new List<ProteinGroup> { pg2 });
+            Identification fnwNist5_3 = new Identification(nist5, baseSequence2, fnwModSeq, monoisotopicMass2,
+                fnwNist5Rts[2], 3, new List<ProteinGroup> { pg2 });
+
 
             List<Identification> allIdentifications = new List<Identification>
             {
-                vvNist2, vvNist3, vvNist5
+                vvNist2, vvNist3, vvNist5,
+                fnwNist2_1, fnwNist2_2, fnwNist2_3,
+                fnwNist3_1, fnwNist3_2, fnwNist3_3,
+                fnwNist5_1, fnwNist5_2, fnwNist5_3
             };
 
             // create the FlashLFQ engine

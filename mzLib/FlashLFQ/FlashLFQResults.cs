@@ -209,21 +209,31 @@ namespace FlashLFQ
 
             if(IsobarClusters.IsNotNullOrEmpty())
             {
-                foreach(IsobarCluster cluster in IsobarClusters)
+                foreach(IsobarCluster cluster in IsobarClusters
+                    .Where(cluster => cluster.SequenceRegionDictionary.IsNotNullOrEmpty()))
                 {
-                    foreach(var sequenceRegionsKvp in cluster.SequenceRegionDictionary)
+                    foreach(var sequenceRegionsKvp in cluster.SequenceRegionDictionary
+                        .Where(kvp => kvp.Value.IsNotNullOrEmpty()))
                     {
                         // Count the occurences of each region
                         // Select the region with the max number of occurences
                         int bestRegion = sequenceRegionsKvp.Value.GroupBy(i => i).MaxBy(group => group.Count()).Key;
+                        
+                        // I don't think it's possible for this siation to arise
+                        if (!cluster.RegionPeakDictionary[bestRegion].IsNotNullOrEmpty()) continue;
+
                         // Grab all peaks from that region
-                        foreach(ChromatographicPeak peak in cluster.RegionPeakDictionary[bestRegion])
+                        foreach (ChromatographicPeak peak in cluster.RegionPeakDictionary[bestRegion])
                         {
+                            if(PeptideModifiedSequences.TryGetValue(sequenceRegionsKvp.Key, out Peptide peptide))
+                            {
+                                peptide.SetIntensity(peak.SpectraFileInfo, peak.Intensity);
+                                peptide.SetDetectionType(peak.SpectraFileInfo, DetectionType.MultiRunConsensus);
+                                if (reportRetentionTimes)
+                                    peptide.SetRetentionTime(peak.SpectraFileInfo, peak.ApexRetentionTime);
+
+                            }
                             // This can probably be fine-tuned to add more specific detection types
-                            PeptideModifiedSequences[sequenceRegionsKvp.Key].SetIntensity(peak.SpectraFileInfo, peak.Intensity);
-                            PeptideModifiedSequences[sequenceRegionsKvp.Key].SetDetectionType(peak.SpectraFileInfo, DetectionType.MultiRunConsensus);
-                            if (reportRetentionTimes)
-                                PeptideModifiedSequences[sequenceRegionsKvp.Key].SetRetentionTime(peak.SpectraFileInfo, peak.ApexRetentionTime);
                         }
                         // Set the intensity of the peptide with given sequence using the peaks from that region
                     }

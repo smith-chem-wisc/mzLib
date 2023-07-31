@@ -456,15 +456,13 @@ namespace FlashLFQ.PeakPicking
                         try
                         {
                             isoCluster = new IsobarCluster(peakCluster, flashLfqEngine, results);
-
+                            isobarClusters.Add(isoCluster);
                         }
                         catch (Exception ex)
                         {
                             if (exceptions != null)
                                 exceptions.Add(ex);
                         }
-                        if (isoCluster != null)
-                            isobarClusters.Add(new IsobarCluster(peakCluster, flashLfqEngine, results));
                     }
                         
                 }
