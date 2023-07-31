@@ -264,12 +264,12 @@ namespace FlashLFQ
 
                 if (IsobarClusters.IsNotNullOrEmpty())
                 {
+                    _results.IsobarClusters = IsobarClusters;
                     foreach (IsobarCluster cluster in IsobarClusters)
                     {
                         try
                         {
                             cluster.ReassignPeakIDs();
-                            _results.IsobarClusters.Add(cluster);
                         }
                         catch (Exception e)
                         {

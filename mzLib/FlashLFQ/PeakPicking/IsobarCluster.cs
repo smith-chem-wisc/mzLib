@@ -481,19 +481,22 @@ namespace FlashLFQ.PeakPicking
         internal static List<List<ChromatographicPeak>> ClusterPeaks(List<ChromatographicPeak> orderedPeaks)
         {
             List<List<ChromatographicPeak>> peakClusters = new List<List<ChromatographicPeak>>();
-            ClusterPeaks(orderedPeaks, ref peakClusters, minIndex:0, maxIndex: orderedPeaks.Count - 1);
+
+            // Maximum allowable time difference for two peaks to be grouped into the same cluster
+            // This may need to be adjusted to be larger
+            double meanRt = orderedPeaks.Average(peak => peak.ApexRetentionTime);
+            double deltaMax = 1 + meanRt / 10.0;
+            ClusterPeaks(orderedPeaks, ref peakClusters, deltaMax, minIndex:0, maxIndex: orderedPeaks.Count - 1);
             return peakClusters;
         }
 
         private static void ClusterPeaks(
             List<ChromatographicPeak> orderedPeaks, 
             ref List<List<ChromatographicPeak>> peakClusters, 
+            double deltaMax,
             int minIndex, 
             int maxIndex)
         {
-            // Maximum allowable time difference for two peaks to be grouped into the same cluster
-            double deltaMax = 1;
-
             // Define the base case
             if (minIndex == maxIndex || maxIndex < 0)
                 return;
@@ -538,9 +541,9 @@ namespace FlashLFQ.PeakPicking
             }
             
             // Recurse left
-            ClusterPeaks(orderedPeaks, ref peakClusters, minIndex, leftIndex);
+            ClusterPeaks(orderedPeaks, ref peakClusters, deltaMax, minIndex, leftIndex);
             // Recurse right
-            ClusterPeaks(orderedPeaks, ref peakClusters, rightIndex, maxIndex);
+            ClusterPeaks(orderedPeaks, ref peakClusters, deltaMax, rightIndex, maxIndex);
         }
 
         public static Regex ModifiedAromaticResidueRegex
