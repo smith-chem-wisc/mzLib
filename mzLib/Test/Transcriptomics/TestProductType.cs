@@ -16,8 +16,8 @@ namespace Test.Transcriptomics
     public class TestProductType
     {
         [Test]
-        [TestCase(DissociationType.HCD, new[] { ProductType.y, ProductType.w, ProductType.aBase, ProductType.dWaterLoss })]
-        [TestCase(DissociationType.CID, new[] { ProductType.y, ProductType.w, ProductType.aBase, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.HCD, new[] { ProductType.y, ProductType.w, ProductType.aBaseLoss, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.CID, new[] { ProductType.y, ProductType.w, ProductType.aBaseLoss, ProductType.dWaterLoss })]
         public void TestProductTypes_Dissociation(DissociationType dissociation, ProductType[] products)
         {
             CollectionAssert.AreEquivalent(products, dissociation.GetRnaProductTypesFromDissociationType());
@@ -26,17 +26,17 @@ namespace Test.Transcriptomics
         [Test]
         [TestCase(FragmentationTerminus.FivePrime, new[]
         {
-            ProductType.a, ProductType.aWaterLoss, ProductType.aBase,
-            ProductType.b, ProductType.bWaterLoss, ProductType.bBase,
-            ProductType.c, ProductType.cWaterLoss, ProductType.cBase,
-            ProductType.d, ProductType.dWaterLoss, ProductType.dBase,
+            ProductType.a, ProductType.aWaterLoss, ProductType.aBaseLoss,
+            ProductType.b, ProductType.bWaterLoss, ProductType.bBaseLoss,
+            ProductType.c, ProductType.cWaterLoss, ProductType.cBaseloss,
+            ProductType.d, ProductType.dWaterLoss, ProductType.dBaseLoss,
         })]
         [TestCase(FragmentationTerminus.ThreePrime, new[]
         {
-            ProductType.w, ProductType.wWaterLoss, ProductType.wBase,
-            ProductType.x, ProductType.xWaterLoss, ProductType.xBase,
-            ProductType.y, ProductType.yWaterLoss, ProductType.yBase,
-            ProductType.z, ProductType.zWaterLoss, ProductType.zBase,
+            ProductType.w, ProductType.wWaterLoss, ProductType.wBaseLoss,
+            ProductType.x, ProductType.xWaterLoss, ProductType.xBaseLoss,
+            ProductType.y, ProductType.yWaterLoss, ProductType.yBaseLoss,
+            ProductType.z, ProductType.zWaterLoss, ProductType.zBaseLoss,
         })]
         public void TestProductTypes_Terminus(FragmentationTerminus terminus, ProductType[] products)
         {
@@ -44,12 +44,12 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.FivePrime, new[] { ProductType.aBase, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.HCD, FragmentationTerminus.FivePrime, new[] { ProductType.aBaseLoss, ProductType.dWaterLoss })]
         [TestCase(DissociationType.HCD, FragmentationTerminus.ThreePrime, new[] { ProductType.w, ProductType.y })]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.Both, new[] { ProductType.w, ProductType.y, ProductType.aBase, ProductType.dWaterLoss })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.FivePrime, new[] { ProductType.aBase, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.HCD, FragmentationTerminus.Both, new[] { ProductType.w, ProductType.y, ProductType.aBaseLoss, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.CID, FragmentationTerminus.FivePrime, new[] { ProductType.aBaseLoss, ProductType.dWaterLoss })]
         [TestCase(DissociationType.CID, FragmentationTerminus.ThreePrime, new[] { ProductType.w, ProductType.y })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.Both, new[] { ProductType.w, ProductType.y, ProductType.aBase, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.CID, FragmentationTerminus.Both, new[] { ProductType.w, ProductType.y, ProductType.aBaseLoss, ProductType.dWaterLoss })]
         public void TestProductTypes_TerminusAndDissociation(DissociationType dissociation, FragmentationTerminus terminus, ProductType[] products)
         {
             CollectionAssert.AreEquivalent(products, dissociation.GetRnaTerminusSpecificProductTypesFromDissociation(terminus));
@@ -98,12 +98,12 @@ namespace Test.Transcriptomics
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-1O-1").MonoisotopicMass, 2).Value, mass);
                         break;
 
-                    case ProductType.aBase:
+                    case ProductType.aBaseLoss:
                         mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-2").MonoisotopicMass, 2).Value, mass);
                         break;
 
-                    case ProductType.bBase:
+                    case ProductType.bBaseLoss:
                         mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O1H-2").MonoisotopicMass, 2).Value, mass);
                         break;
@@ -113,7 +113,7 @@ namespace Test.Transcriptomics
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O2P").MonoisotopicMass, 2).Value, mass);
                         break;
 
-                    case ProductType.cBase:
+                    case ProductType.cBaseloss:
                         mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3H-1P").MonoisotopicMass, 2).Value, mass);
                         break;
@@ -128,7 +128,7 @@ namespace Test.Transcriptomics
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3P").MonoisotopicMass, 2).Value, mass);
                         break;
 
-                    case ProductType.dBase:
+                    case ProductType.dBaseLoss:
                         mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O4H-1P").MonoisotopicMass, 2).Value, mass);
                         break;
@@ -159,19 +159,19 @@ namespace Test.Transcriptomics
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-4P-1").MonoisotopicMass, 2).Value, mass);
                         break;
 
-                    case ProductType.wBase:
+                    case ProductType.wBaseLoss:
                         mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-2").MonoisotopicMass, 2).Value, mass);
                         break;
-                    case ProductType.xBase:
+                    case ProductType.xBaseLoss:
                         mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-1H-2").MonoisotopicMass, 2).Value, mass);
                         break;
-                    case ProductType.yBase:
+                    case ProductType.yBaseLoss:
                         mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-3H-2P-1").MonoisotopicMass, 2).Value, mass);
                         break;
-                    case ProductType.zBase:
+                    case ProductType.zBaseLoss:
                         mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
                         Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-4H-3P-1").MonoisotopicMass, 2).Value, mass);
                         break;
@@ -188,31 +188,31 @@ namespace Test.Transcriptomics
                 {
                     case ProductType.a:
                     case ProductType.aWaterLoss:
-                    case ProductType.aBase:
+                    case ProductType.aBaseLoss:
                     case ProductType.b:
                     case ProductType.bWaterLoss:
-                    case ProductType.bBase:
+                    case ProductType.bBaseLoss:
                     case ProductType.c:
                     case ProductType.cWaterLoss:
-                    case ProductType.cBase:
+                    case ProductType.cBaseloss:
                     case ProductType.d:
                     case ProductType.dWaterLoss:
-                    case ProductType.dBase:
+                    case ProductType.dBaseLoss:
                         Assert.That(type.GetRnaTerminusType(), Is.EqualTo(FragmentationTerminus.FivePrime));
                         break;
 
                     case ProductType.w:
                     case ProductType.wWaterLoss:
-                    case ProductType.wBase:
+                    case ProductType.wBaseLoss:
                     case ProductType.x:
                     case ProductType.xWaterLoss:
-                    case ProductType.xBase:
+                    case ProductType.xBaseLoss:
                     case ProductType.y:
                     case ProductType.yWaterLoss:
-                    case ProductType.yBase:
+                    case ProductType.yBaseLoss:
                     case ProductType.z:
                     case ProductType.zWaterLoss:
-                    case ProductType.zBase:
+                    case ProductType.zBaseLoss:
                         Assert.That(type.GetRnaTerminusType(), Is.EqualTo(FragmentationTerminus.ThreePrime));
                         break;
 

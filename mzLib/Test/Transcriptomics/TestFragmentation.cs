@@ -44,12 +44,12 @@ namespace Test.Transcriptomics
             // both termini
             rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
             Assert.That(products.Count, Is.EqualTo(20));
-            Assert.That(products.All(p => p.ProductType is ProductType.w or ProductType.dWaterLoss or ProductType.y or ProductType.aBase));
+            Assert.That(products.All(p => p.ProductType is ProductType.w or ProductType.dWaterLoss or ProductType.y or ProductType.aBaseLoss));
 
             // only 5'
             rna.Fragment(DissociationType.CID, FragmentationTerminus.FivePrime, products);
             Assert.That(products.Count, Is.EqualTo(10));
-            Assert.That(products.All(p => p.ProductType is ProductType.dWaterLoss or  ProductType.aBase));
+            Assert.That(products.All(p => p.ProductType is ProductType.dWaterLoss or  ProductType.aBaseLoss));
 
             // only 3'
             rna.Fragment(DissociationType.CID, FragmentationTerminus.ThreePrime, products);

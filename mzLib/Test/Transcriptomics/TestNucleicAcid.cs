@@ -58,16 +58,16 @@ namespace Test.Transcriptomics
             new[] { "C10H13N5O4", "C19H24N7O12P", "C28H36N10O19P2", "C38H48N15O25P3", "C47H59N17O33P4", });
 
 
-            yield return new SixmerTestCase("GUACUG", ProductType.aBase,
+            yield return new SixmerTestCase("GUACUG", ProductType.aBaseLoss,
                 new[] { 114.03, 459.07, 765.095, 1094.147, 1399.198 },
                 new[] { "C5H6O3", "C15H18N5O10P", "C24H29N7O18P2", "C34H41N12O24P3", "C43H53N15O31P4" });
-            yield return new SixmerTestCase("GUACUG", ProductType.bBase,
+            yield return new SixmerTestCase("GUACUG", ProductType.bBaseLoss,
                 new[] { 130.027, 475.074, 781.099, 1110.152, 1415.193 }, 
                 new[] { "C5H6O4", "C15H18N5O11P", "C24H29N7O19P2", "C34H41N12O25P3", "C43H53N15O32P4" });
-            yield return new SixmerTestCase("GUACUG", ProductType.cBase, 
+            yield return new SixmerTestCase("GUACUG", ProductType.cBaseloss, 
                 new[] { 193.998, 539.045, 845.071, 1174.123, 1479.164 },
                 new[] { "C5H7O6P", "C15H19N5O13P2", "C24H30N7O21P3", "C34H42N12O27P4", "C43H54N15O34P5" });
-            yield return new SixmerTestCase("GUACUG", ProductType.dBase,
+            yield return new SixmerTestCase("GUACUG", ProductType.dBaseLoss,
                 new[] { 209.993, 555.04, 861.066, 1190.118, 1495.16 },
                 new[] { "C5H7O7P", "C15H19N5O14P2", "C24H30N7O22P3", "C34H42N12O28P4", "C43H54N15O35P5" });
 

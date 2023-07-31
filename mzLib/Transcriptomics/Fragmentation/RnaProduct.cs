@@ -58,11 +58,14 @@ namespace Transcriptomics
         public bool Equals(IProduct other)
         {
             if (other is null) return false;
-            return NeutralMass.Equals(other.NeutralMass) && ProductType == other.ProductType &&
-                   NeutralLoss.Equals(other.NeutralLoss) && Terminus == other.Terminus &&
-                   FragmentNumber == other.FragmentNumber && ResiduePosition == other.ResiduePosition &&
-                   SecondaryProductType == other.SecondaryProductType &&
-                   SecondaryFragmentNumber == other.SecondaryFragmentNumber;
+            return NeutralMass.Equals(other.NeutralMass) 
+                   && ProductType == other.ProductType 
+                   && NeutralLoss.Equals(other.NeutralLoss) 
+                   && Terminus == other.Terminus
+                   && FragmentNumber == other.FragmentNumber 
+                   && ResiduePosition == other.ResiduePosition
+                   && SecondaryProductType == other.SecondaryProductType 
+                   && SecondaryFragmentNumber == other.SecondaryFragmentNumber;
         }
 
         public override bool Equals(object? obj)

@@ -8,6 +8,7 @@ using MassSpectrometry;
 
 namespace Proteomics.Fragmentation
 {
+    // 230731 - Changed this from a struct to a class, may need to revise in the future if large performance losses occur
     public class Product : IProduct
     {
         public double NeutralMass { get; }
@@ -61,12 +62,15 @@ namespace Proteomics.Fragmentation
 
         public bool Equals(IProduct other)
         {
-            return NeutralMass.Equals(other.NeutralMass) && ProductType == other.ProductType &&
-                   NeutralLoss.Equals(other.NeutralLoss) && Terminus == other.Terminus &&
-                   FragmentNumber == other.FragmentNumber && Math.Abs(ResiduePosition - other.ResiduePosition) < 0.0001 &&
-                   SecondaryProductType == other.SecondaryProductType &&
-                   SecondaryFragmentNumber == other.SecondaryFragmentNumber &&
-                   MonoisotopicMass.Equals(other.MonoisotopicMass);
+            return NeutralMass.Equals(other.NeutralMass) 
+                   && ProductType == other.ProductType
+                   && NeutralLoss.Equals(other.NeutralLoss) 
+                   && Terminus == other.Terminus 
+                   && FragmentNumber == other.FragmentNumber 
+                   && ResiduePosition == other.ResiduePosition
+                   && SecondaryProductType == other.SecondaryProductType
+                   && SecondaryFragmentNumber == other.SecondaryFragmentNumber 
+                   && MonoisotopicMass.Equals(other.MonoisotopicMass);
         }
 
         public override bool Equals(object obj)

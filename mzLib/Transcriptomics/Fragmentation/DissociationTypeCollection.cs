@@ -22,7 +22,7 @@ namespace Transcriptomics
                 { DissociationType.Unknown, new List<ProductType>() },
                 {
                     DissociationType.CID,
-                    new List<ProductType> { ProductType.w, ProductType.y, ProductType.aBase, ProductType.dWaterLoss }
+                    new List<ProductType> { ProductType.w, ProductType.y, ProductType.aBaseLoss, ProductType.dWaterLoss }
                 },
                 { DissociationType.LowCID, new List<ProductType>() { } },
                 { DissociationType.IRMPD, new List<ProductType>() { } },
@@ -31,7 +31,7 @@ namespace Transcriptomics
                 { DissociationType.ETD, new List<ProductType> { } },
                 {
                     DissociationType.HCD,
-                    new List<ProductType> { ProductType.w, ProductType.y, ProductType.aBase, ProductType.dWaterLoss }
+                    new List<ProductType> { ProductType.w, ProductType.y, ProductType.aBaseLoss, ProductType.dWaterLoss }
                 },
                 { DissociationType.AnyActivationType, new List<ProductType> { } },
                 { DissociationType.EThcD, new List<ProductType> { } },
@@ -72,15 +72,15 @@ namespace Transcriptomics
                 { ProductType.z, ChemicalFormula.ParseFormula("O-4P-1") },
                 { ProductType.zWaterLoss, ChemicalFormula.ParseFormula("O-5H-2P-1") },
                 //fragment - Base chemical formula is the corresponding fragment chemical formula subtracing 1 H as H is lost when base is removed
-                { ProductType.aBase, ChemicalFormula.ParseFormula("H-2") }, // "H-1" -H 
-                { ProductType.bBase, ChemicalFormula.ParseFormula("O1H-2") }, //"OH1" -H
-                { ProductType.cBase, ChemicalFormula.ParseFormula("O3H-1P") }, //"O3P" -H
-                { ProductType.dBase, ChemicalFormula.ParseFormula("O4H-1P") }, //"O4H2P" -H
+                { ProductType.aBaseLoss, ChemicalFormula.ParseFormula("H-2") }, // "H-1" -H 
+                { ProductType.bBaseLoss, ChemicalFormula.ParseFormula("O1H-2") }, //"OH1" -H
+                { ProductType.cBaseloss, ChemicalFormula.ParseFormula("O3H-1P") }, //"O3P" -H
+                { ProductType.dBaseLoss, ChemicalFormula.ParseFormula("O4H-1P") }, //"O4H2P" -H
 
-                { ProductType.wBase, ChemicalFormula.ParseFormula("H-2") }, //"H"-H
-                { ProductType.xBase, ChemicalFormula.ParseFormula("O-1H-2") }, //"O-1H" -H
-                { ProductType.yBase, ChemicalFormula.ParseFormula("O-3H-2P-1") }, //"O-3P-1" -H
-                { ProductType.zBase, ChemicalFormula.ParseFormula("O-4H-3P-1") }, //"O-4H-1P-1" -1
+                { ProductType.wBaseLoss, ChemicalFormula.ParseFormula("H-2") }, //"H"-H
+                { ProductType.xBaseLoss, ChemicalFormula.ParseFormula("O-1H-2") }, //"O-1H" -H
+                { ProductType.yBaseLoss, ChemicalFormula.ParseFormula("O-3H-2P-1") }, //"O-3P-1" -H
+                { ProductType.zBaseLoss, ChemicalFormula.ParseFormula("O-4H-3P-1") }, //"O-4H-1P-1" -1
             };
 
         /// <summary>
@@ -96,30 +96,30 @@ namespace Transcriptomics
             {
                 case ProductType.a:
                 case ProductType.aWaterLoss:
-                case ProductType.aBase:
+                case ProductType.aBaseLoss:
                 case ProductType.b:
                 case ProductType.bWaterLoss:
-                case ProductType.bBase:
+                case ProductType.bBaseLoss:
                 case ProductType.c:
                 case ProductType.cWaterLoss:
-                case ProductType.cBase:
+                case ProductType.cBaseloss:
                 case ProductType.d:
                 case ProductType.dWaterLoss:
-                case ProductType.dBase:
+                case ProductType.dBaseLoss:
                     return FragmentationTerminus.FivePrime;
 
                 case ProductType.w:
                 case ProductType.wWaterLoss:
-                case ProductType.wBase:
+                case ProductType.wBaseLoss:
                 case ProductType.x:
                 case ProductType.xWaterLoss:
-                case ProductType.xBase:
+                case ProductType.xBaseLoss:
                 case ProductType.y:
                 case ProductType.yWaterLoss:
-                case ProductType.yBase:
+                case ProductType.yBaseLoss:
                 case ProductType.z:
                 case ProductType.zWaterLoss:
-                case ProductType.zBase:
+                case ProductType.zBaseLoss:
                     return FragmentationTerminus.ThreePrime;
 
                 case ProductType.aStar:
@@ -145,33 +145,33 @@ namespace Transcriptomics
                 {
                     FragmentationTerminus.FivePrime, new List<ProductType>
                     {
-                        ProductType.a, ProductType.aWaterLoss, ProductType.aBase,
-                        ProductType.b, ProductType.bWaterLoss, ProductType.bBase,
-                        ProductType.c, ProductType.cWaterLoss, ProductType.cBase,
-                        ProductType.d, ProductType.dWaterLoss, ProductType.dBase, 
+                        ProductType.a, ProductType.aWaterLoss, ProductType.aBaseLoss,
+                        ProductType.b, ProductType.bWaterLoss, ProductType.bBaseLoss,
+                        ProductType.c, ProductType.cWaterLoss, ProductType.cBaseloss,
+                        ProductType.d, ProductType.dWaterLoss, ProductType.dBaseLoss, 
                     }
                 },
                 {
                     FragmentationTerminus.ThreePrime, new List<ProductType>
                     {
-                        ProductType.w, ProductType.wWaterLoss, ProductType.wBase,
-                        ProductType.x, ProductType.xWaterLoss, ProductType.xBase,
-                        ProductType.y, ProductType.yWaterLoss, ProductType.yBase,
-                        ProductType.z, ProductType.zWaterLoss, ProductType.zBase,
+                        ProductType.w, ProductType.wWaterLoss, ProductType.wBaseLoss,
+                        ProductType.x, ProductType.xWaterLoss, ProductType.xBaseLoss,
+                        ProductType.y, ProductType.yWaterLoss, ProductType.yBaseLoss,
+                        ProductType.z, ProductType.zWaterLoss, ProductType.zBaseLoss,
                     }
                 },
                 {
                     FragmentationTerminus.Both, new List<ProductType>
                     {
 
-                        ProductType.a, ProductType.aWaterLoss, ProductType.aBase,
-                        ProductType.b, ProductType.bWaterLoss, ProductType.bBase,
-                        ProductType.c, ProductType.cWaterLoss, ProductType.cBase,
-                        ProductType.d, ProductType.dWaterLoss, ProductType.dBase, 
-                        ProductType.w, ProductType.wWaterLoss, ProductType.wBase,
-                        ProductType.x, ProductType.xWaterLoss, ProductType.xBase,
-                        ProductType.y, ProductType.yWaterLoss, ProductType.yBase,
-                        ProductType.z, ProductType.zWaterLoss, ProductType.zBase,
+                        ProductType.a, ProductType.aWaterLoss, ProductType.aBaseLoss,
+                        ProductType.b, ProductType.bWaterLoss, ProductType.bBaseLoss,
+                        ProductType.c, ProductType.cWaterLoss, ProductType.cBaseloss,
+                        ProductType.d, ProductType.dWaterLoss, ProductType.dBaseLoss, 
+                        ProductType.w, ProductType.wWaterLoss, ProductType.wBaseLoss,
+                        ProductType.x, ProductType.xWaterLoss, ProductType.xBaseLoss,
+                        ProductType.y, ProductType.yWaterLoss, ProductType.yBaseLoss,
+                        ProductType.z, ProductType.zWaterLoss, ProductType.zBaseLoss,
                     }
                 }
             };

@@ -107,22 +107,22 @@ namespace Proteomics.Fragmentation
             // This is due to proteins and rna having shared ions (e.g. b,y) that have different mass shifts
             // This behavior for rna is handled by DissociationTypeCollection.GetRnaMassShiftFromProductType
             {ProductType.aWaterLoss , null},
-            {ProductType.aBase , null},
-            {ProductType.bBase , null},
+            {ProductType.aBaseLoss , null},
+            {ProductType.bBaseLoss , null},
             {ProductType.cWaterLoss , null},
-            {ProductType.cBase , null},
+            {ProductType.cBaseloss , null},
             {ProductType.d , null},
             {ProductType.dWaterLoss , null},
-            {ProductType.dBase , null},
+            {ProductType.dBaseLoss , null},
             {ProductType.w , null},
             {ProductType.wWaterLoss , null},
-            {ProductType.wBase , null},
+            {ProductType.wBaseLoss , null},
             {ProductType.xWaterLoss , null},
-            {ProductType.xBase , null},
-            {ProductType.yBase , null},
+            {ProductType.xBaseLoss , null},
+            {ProductType.yBaseLoss , null},
             {ProductType.z , null},
             {ProductType.zWaterLoss , null},
-            {ProductType.zBase , null},
+            {ProductType.zBaseLoss , null},
         };
 
         private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToTerminusMassShift = new Dictionary<DissociationType, (double[], double[])>();
@@ -180,22 +180,22 @@ namespace Proteomics.Fragmentation
 
                         // Nucleic Acid Specific Product Types
                         case ProductType.aWaterLoss:
-                        case ProductType.aBase:
-                        case ProductType.bBase:
+                        case ProductType.aBaseLoss:
+                        case ProductType.bBaseLoss:
                         case ProductType.cWaterLoss:
-                        case ProductType.cBase:
+                        case ProductType.cBaseloss:
                         case ProductType.d:
                         case ProductType.dWaterLoss:
-                        case ProductType.dBase:
+                        case ProductType.dBaseLoss:
                         case ProductType.w:
                         case ProductType.wWaterLoss:
-                        case ProductType.wBase:
+                        case ProductType.wBaseLoss:
                         case ProductType.xWaterLoss:
-                        case ProductType.xBase:
-                        case ProductType.yBase:
+                        case ProductType.xBaseLoss:
+                        case ProductType.yBaseLoss:
                         case ProductType.z:
                         case ProductType.zWaterLoss:
-                        case ProductType.zBase:
+                        case ProductType.zBaseLoss:
                             return 0.0;
 
                         default:
