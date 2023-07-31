@@ -80,15 +80,8 @@ namespace Readers
 
                             for (int s = fff.Item1; s < fff.Item2; s++)
                             {
-                                //try
-                                //{
                                     var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
                                     msDataScans[s] = scan;
-                                //}
-                                //catch (Exception ex)
-                                //{
-                                //    throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
-                                //}
                             }
                         }
                     });

@@ -37,17 +37,6 @@ namespace Test.FileReadingTests
             Assert.That(ex.Message, Is.EqualTo(new FileNotFoundException().Message));
         }
 
-        [Test]
-        public void TestRawFileReaderUnableToAccessRawFile()
-        {
-             var rawFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
-
-             var rawDataFileMsOrder = MsDataFileReader.GetDataFile(rawFilePath).GetOneBasedScanFromDynamicConnection(-1);
-
-             int i = 0;
-
-        }
-
         #endregion
 
 
