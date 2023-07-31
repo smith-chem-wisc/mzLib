@@ -14,7 +14,7 @@ namespace FlashLFQ
         private readonly FlashLfqResults results;
         private readonly bool integrate;
         private readonly bool silent;
-        private readonly bool quantifyAmbiguousPeptides;
+        private readonly bool _quantifyAmbiguousPeptides;
         private readonly int maxThreads;
 
         public IntensityNormalizationEngine(FlashLfqResults results, bool integrate, bool silent, int maxThreads, bool quantifyAmbiguousPeptides = false)
@@ -23,6 +23,7 @@ namespace FlashLFQ
             this.integrate = integrate;
             this.silent = silent;
             this.maxThreads = maxThreads;
+            _quantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
         }
 
         /// <summary>
@@ -30,7 +31,7 @@ namespace FlashLFQ
         /// </summary>
         public void NormalizeResults()
         {
-            results.CalculatePeptideResults(quantifyAmbiguousPeptides);
+            results.CalculatePeptideResults(_quantifyAmbiguousPeptides);
 
             // run normalization functions, recalculating intensity between each function
             if (!silent)
@@ -38,21 +39,21 @@ namespace FlashLFQ
                 Console.WriteLine("Normalizing fractions");
             }
             NormalizeFractions();
-            results.CalculatePeptideResults(quantifyAmbiguousPeptides);
+            results.CalculatePeptideResults(_quantifyAmbiguousPeptides);
 
             if (!silent)
             {
                 Console.WriteLine("Normalizing bioreps and conditions");
             }
             NormalizeBioreps();
-            results.CalculatePeptideResults(quantifyAmbiguousPeptides);
+            results.CalculatePeptideResults(_quantifyAmbiguousPeptides);
 
             if (!silent)
             {
                 Console.WriteLine("Normalizing techreps");
             }
             NormalizeTechreps();
-            results.CalculatePeptideResults(quantifyAmbiguousPeptides);
+            results.CalculatePeptideResults(_quantifyAmbiguousPeptides);
         }
 
         /// <summary>

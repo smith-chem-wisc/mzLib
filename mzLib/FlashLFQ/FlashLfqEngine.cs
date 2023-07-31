@@ -238,12 +238,6 @@ namespace FlashLFQ
                 }
             }
 
-            // normalize
-            if (Normalize)
-            {
-                new IntensityNormalizationEngine(_results, Integrate, Silent, MaxThreads).NormalizeResults();
-            }
-
             // Multi-Run Consensus
             if (QuantifyAmbiguousPeptides)
             {
@@ -283,7 +277,15 @@ namespace FlashLFQ
                         var mins = cluster.ConsensusExtrema.Select(kvp => kvp.Value.MinBy(ext => ext.Intensity)).ToList();
                         var maxs = cluster.ConsensusExtrema.Select(kvp => kvp.Value.MaxBy(ext => ext.Intensity)).ToList();
                     }
+                    _results.IsobarClusters = IsobarClusters;
                 }
+            }
+
+            // normalize
+            if (Normalize)
+            {
+                new IntensityNormalizationEngine(_results, Integrate, Silent, MaxThreads, QuantifyAmbiguousPeptides)
+                    .NormalizeResults();
             }
 
             // calculate peptide intensities

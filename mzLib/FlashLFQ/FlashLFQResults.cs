@@ -14,6 +14,7 @@ namespace FlashLFQ
         public readonly List<SpectraFileInfo> SpectraFiles;
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
+        public List<IsobarCluster> IsobarClusters { get; internal set; }
         public bool ReportPeptideRetentionTimes { get; private set; }
         // While the peaks dictionary can only be assigned once, themes; dictionary remains 
         // mutable and can be changed, overwritten, emptied, etc. 
@@ -111,8 +112,7 @@ namespace FlashLFQ
 
         public void CalculatePeptideResults(
             bool quantifyAmbiguousPeptides, 
-            bool reportRetentionTimes = false,
-            List<IsobarCluster> clusters = null)
+            bool reportRetentionTimes = false)
         {
             ReportPeptideRetentionTimes = reportRetentionTimes;
             foreach (var sequence in PeptideModifiedSequences)
@@ -207,9 +207,9 @@ namespace FlashLFQ
                 
             }
 
-            if(clusters.IsNotNullOrEmpty())
+            if(IsobarClusters.IsNotNullOrEmpty())
             {
-                foreach(IsobarCluster cluster in clusters)
+                foreach(IsobarCluster cluster in IsobarClusters)
                 {
                     foreach(var sequenceRegionsKvp in cluster.SequenceRegionDictionary)
                     {

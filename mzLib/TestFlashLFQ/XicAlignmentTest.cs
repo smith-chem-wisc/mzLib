@@ -387,6 +387,10 @@ namespace TestFlashLFQ
 
             var x = results.Peaks[inflix1].First(peak => peak.Identifications.Contains(w1ModId));
             x.SetChromatographicPeakProperties(propName: "Intensity", newValue: (double)1e13);
+            // IsobarClusters are used to adjust peptide quantification. We need to remove them to 
+            // observed the default behaviour of CalculatePeptideResults
+            var stashClusters = results.IsobarClusters;
+            results.IsobarClusters = null;
             results.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
             wModPeptide = results.PeptideModifiedSequences[wModSeq];
             wModIntensities.Clear();
@@ -399,7 +403,8 @@ namespace TestFlashLFQ
             // that peak was used to define the peptide intensity
             Assert.Greater(wModIntensityVarianceWithReflection, wModIntensityVariance_Ambig);
 
-            results.CalculatePeptideResults(quantifyAmbiguousPeptides: true, clusters: engine.IsobarClusters);
+            results.IsobarClusters = stashClusters;
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides: true);
             wModPeptide = results.PeptideModifiedSequences[wModSeq];
             wModIntensities.Clear();
             foreach (var file in results.SpectraFiles)
