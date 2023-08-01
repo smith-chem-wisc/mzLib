@@ -20,6 +20,7 @@ using Easy.Common.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace Proteomics.AminoAcidPolymer
@@ -73,27 +74,22 @@ namespace Proteomics.AminoAcidPolymer
             return bits;
         }
 
-        private static Regex _invalidResidueRegex;
-        public static Regex InvalidResidueRegex
-        {
-            get
-            {
-                if (_invalidResidueRegex == null)
-                    _invalidResidueRegex = new Regex(@"[BJXZa-z\s\p{P}\d]");
-                return _invalidResidueRegex;
-            }
-        }
-
         /// <summary>
         /// Checks whether a given string represents a valid peptide sequence without modifications. 
-        /// Valid sequences contain only uppercase letters that represent amino acids. 
+        /// Valid sequences contain only residues in the ResidueDictionary.
+        /// Note: the residue dictionary can be externally modified. Unusual amino acid letters can and do appear in peptide sequences.
         /// </summary>
         /// <param name="baseSequence"> Sequence to be checked </param>
         /// <returns> True if the sequence is valid. False otherwise. </returns>
-        public static bool ValidBaseSequence(this string baseSequence)
+        public static bool AllSequenceResiduesAreValid(this string baseSequence)
         {
             if (baseSequence.IsNullOrEmpty()) return false;
-            return !InvalidResidueRegex.IsMatch(baseSequence);
+
+            return !baseSequence.ToCharArray() //the input is the base sequence.
+                .Distinct() //this line eliminates any duplicated amino acids to save search time.
+                .Except(Residue.ResiduesDictionary.Values.Select(l => l.Letter)) //This line removes from the base sequence array any residues that are known in the dictionary
+                .Any(); //If there are any leftovers, then that means that there are base sequence characters not in the dictionary. therefore the sequence is not valide.
+                // please note the "!" at the start of the whole linq statement.
         }
     }
 }
