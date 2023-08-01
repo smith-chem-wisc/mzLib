@@ -21,7 +21,9 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Xml.Schema;
 using Chemistry;
+using Easy.Common.Extensions;
 
 namespace MassSpectrometry
 {
@@ -37,7 +39,8 @@ namespace MassSpectrometry
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }
-
+        public int[] OneBasedScanNumbers { get; set; }
+        public double[] RetentionTimes { get; set; }
         protected MsDataFile(int numSpectra, SourceFile sourceFile)
         {
             Scans = new MsDataScan[numSpectra];
@@ -169,10 +172,13 @@ namespace MassSpectrometry
                 LoadAllStaticData();
             }
 
-            ImmutableSortedDictionary<int, double> scansAndRetentionTime =
-                Scans.ToImmutableSortedDictionary(x => x.OneBasedScanNumber, x => x.RetentionTime);
+            if (Scans[0] is not null)
+            {
+                OneBasedScanNumbers = Scans.Select(x => x.OneBasedScanNumber).ToArray();
+                RetentionTimes = Scans.Select(x => x.RetentionTime).ToArray();
+            };
 
-            return Chemistry.ClassExtensions.GetClosestIndex(scansAndRetentionTime.Values.ToArray(), retentionTime);
+            return ClassExtensions.GetClosestIndex(RetentionTimes, retentionTime);
         }
 
         public virtual IEnumerator<MsDataScan> GetEnumerator()
@@ -189,7 +195,7 @@ namespace MassSpectrometry
 
         public virtual bool CheckIfScansLoaded()
         {
-            return (Scans != null && Scans.Length > 0);
+            return (Scans != null && Scans.Length > 0); // && RetentionTimes is not null);
         }
     }
 }

@@ -29,6 +29,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Easy.Common.Extensions;
+using pepXML.Generated;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.FileReadingTests
@@ -77,6 +78,26 @@ namespace Test.FileReadingTests
         public static void TearDown()
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
+        [Test]
+        public void TestOneBasedScanNumbersAndRetentionTimesAreInOrder()
+        {
+            string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
+            var reader = MsDataFileReader.GetDataFile(dataFilePath).LoadAllStaticData();
+            var scans = reader.GetMsDataScans();
+
+            var exampleRetentionTimeToSetUpArrays = reader.GetClosestOneBasedSpectrumNumber(scans[0].RetentionTime);
+
+            var retentionTimes = reader.RetentionTimes;
+            var oneBasedScanNumbers = reader.OneBasedScanNumbers;
+
+            for (int i = 0; i < scans.Length; i++)
+            {
+                Assert.That(scans[i].RetentionTime.Equals(retentionTimes[i]));
+                Assert.That(scans[i].OneBasedScanNumber.Equals(oneBasedScanNumbers[i]));
+            }
+
         }
 
         [Test]
