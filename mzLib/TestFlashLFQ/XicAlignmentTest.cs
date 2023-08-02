@@ -229,26 +229,115 @@ namespace TestFlashLFQ
         }
 
         [Test]
+        public static void TestBSARealData()
+        {
+            //Laptop
+            // Laptop
+
+            SpectraFileInfo bsa1 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\BSA\QuickSearch\JS060623_BSA_TrypLF_1000tBOOH_40CF3_1-calib.mzML",
+                "bsa", 1, 0, 0);
+            SpectraFileInfo bsa2 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\BSA\QuickSearch\JS060623_BSA_TrypLF_1000tBOOH_40CF3_2-calib.mzML",
+                "bsa", 2, 0, 0);
+            SpectraFileInfo bsa3 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\BSA\QuickSearch\JS060623_BSA_TrypLF_1000tBOOH_40CF3_3-calib.mzML",
+                "bsa", 3, 0, 0);
+
+
+            string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData",
+                "XICAlignment", @"BSA_Test_PSMs.psmtsv");
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line) || split[22].Contains('|')) // There's some ambiguous guys in there that breaking parsing
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("_1-"))
+                {
+                    file = bsa1;
+                }
+                else if (split[0].Contains("_2-"))
+                {
+                    file = bsa2;
+                }
+                else if (split[0].Contains("_3-"))
+                {
+                    file = bsa3;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[22]);
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[25].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            string outputFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData",
+                "XICAlignment");
+
+            // TODO: Report ambiguous but don't do multi-run consensus
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: true,
+                requireMsmsIdInCondition: false,
+                quantifyAmbiguousPeptides: true,
+                reportPeptideRetentionTimes: true,
+                normalize: false,
+                maxThreads: 1);
+            var results = engine.Run(out var exceptionList);
+
+            results.WriteResults(null, Path.Combine(outputFolder, "BSA_MRC_Peptides.tsv"), null, null, true);
+
+        }
+
+
+        [Test]
         public static void TestVVRealData()
         {
             // Laptop
 
-            //SpectraFileInfo nist2 = new SpectraFileInfo(
-            //    @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML",
-            //    "nist2", 1, 0, 0);
-            //SpectraFileInfo nist3 = new SpectraFileInfo(
-            //    @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML", "nist3", 1, 0, 0);
-            //SpectraFileInfo nist5 = new SpectraFileInfo(
-            //    @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\\JD020823_TNFa_NIST_Tryp_60s_5-calib.mzML", "nist5", 1, 0, 0);
+            SpectraFileInfo nist2 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML",
+                "nist2", 1, 0, 0);
+            SpectraFileInfo nist3 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML", "nist3", 1, 0, 0);
+            SpectraFileInfo nist5 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\\JD020823_TNFa_NIST_Tryp_60s_5-calib.mzML", "nist5", 1, 0, 0);
 
             // Alecto
 
-            SpectraFileInfo nist2 = new SpectraFileInfo(
-                @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML", "nist2", 1, 0, 0);
-            SpectraFileInfo nist3 = new SpectraFileInfo(
-                @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML", "nist3", 1, 0, 0);
-            SpectraFileInfo nist5 = new SpectraFileInfo(
-                @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_5-calib.mzML", "nist5", 1, 0, 0);
+            //SpectraFileInfo nist2 = new SpectraFileInfo(
+            //    @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML", "nist2", 1, 0, 0);
+            //SpectraFileInfo nist3 = new SpectraFileInfo(
+            //    @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_3-calib.mzML", "nist3", 1, 0, 0);
+            //SpectraFileInfo nist5 = new SpectraFileInfo(
+            //    @"C:\Users\Alex\Documents\Immuto\CalibratedData\JD020823_TNFa_NIST_Tryp_60s_5-calib.mzML", "nist5", 1, 0, 0);
 
             // create IDs
             var pg = new ProteinGroup("MyProtein", "gene", "org");

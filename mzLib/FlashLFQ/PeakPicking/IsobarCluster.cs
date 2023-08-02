@@ -89,6 +89,12 @@ namespace FlashLFQ.PeakPicking
 
             SetTimeRange(rtRange);
 
+            var test = Identifications.Select(id => id.ModifiedSequence).ToList();
+            if (test.Any(seq => seq.Equals("F[CF3:CF3 on F]KDLGEEHFK")))
+            {
+                int placeholder = 0;
+            }
+
             PullXics();
 
             FindConsensusExtrema();
@@ -195,8 +201,37 @@ namespace FlashLFQ.PeakPicking
             {
                 Dictionary<int, DoubleRange> peakRegions = new();
                 int regionNumber = 1;
-                double startTime = RetentionTimeRange.Minimum;
-                bool maxFound = kvp.Value.First().ExtremumType == ExtremumType.Maximum;
+                double startTime = Math.Min(RetentionTimeRange.Minimum, kvp.Value.First().RetentionTime);
+
+                if (kvp.Value.Count <= 1)
+                {
+                    peakRegions.Add(regionNumber, RetentionTimeRange);
+                    Xics[kvp.Key].SetPeakRegions(peakRegions);
+                    continue;
+                }
+
+                //// In noisy data, situations arise where maxima are clearly defined, but minima arent
+                //// If we only find maxima, then we split into regions based on those alone
+                //if (kvp.Value.All(ext => ext.ExtremumType == ExtremumType.Maximum))
+                //{
+                //    for (int i = 0; i < kvp.Value.Count - 1; i++)
+                //    {
+                //        double pseudoMinimaRt = (kvp.Value[i].RetentionTime + kvp.Value[i + 1].RetentionTime) / 2.0;
+                //        peakRegions.Add(regionNumber++, new DoubleRange(startTime, pseudoMinimaRt));
+                //        startTime = pseudoMinimaRt;
+                //    }
+                //    // Add last region spanning from last pseudo-minima to the end of the RT range
+                //    peakRegions.Add(regionNumber, new DoubleRange(startTime, RetentionTimeRange.Maximum));
+                //    Xics[kvp.Key].SetPeakRegions(peakRegions);
+                //    continue;
+                //}
+
+                bool maxFound = false;
+                double lastMaxRt = startTime;
+                if (kvp.Value.First().ExtremumType == ExtremumType.Maximum)
+                {
+                    maxFound = true;
+                }
 
                 // Iterating through each set of extrema to define regions for each file
                 foreach (Extremum extrema in kvp.Value)
@@ -214,11 +249,27 @@ namespace FlashLFQ.PeakPicking
                     }
                     else if (extrema.ExtremumType == ExtremumType.Maximum)
                     {
-                        maxFound = true;
+                        if (!maxFound || extrema == kvp.Value.First()) // Intended reference comparison. If there are two maxima at the start, the extrema check avoids a 0-width region
+                        {
+                            maxFound = true;
+                            lastMaxRt = extrema.RetentionTime;
+                        }
+                        else
+                        {
+                            double pseudoMinimum = (lastMaxRt + extrema.RetentionTime) / 2.0;
+                            peakRegions.Add(regionNumber++, new DoubleRange(startTime, pseudoMinimum));
+                            startTime = pseudoMinimum;
+                            lastMaxRt = extrema.RetentionTime;
+                        }
                     }
                 }
+                // If loop completes on a a maximum, add a final region from last start time - end
+                if (maxFound)
+                {
+                    peakRegions.Add(regionNumber, new DoubleRange(startTime, RetentionTimeRange.Maximum));
+                }
 
-                //Xics[kvp.Key].PeakRegions = peakRegions;
+                if(peakRegions.Count == 0) peakRegions.Add(1, RetentionTimeRange);
                 Xics[kvp.Key].SetPeakRegions(peakRegions);
             }
         }
@@ -371,6 +422,8 @@ namespace FlashLFQ.PeakPicking
                                         isMbrPeak: peak.SpectraFileInfo != id.FileInfo, // TODO: Add an alternate classication system for ambgiuous peaks. MBR isn't totally accurate 
                                         rtApex, 
                                         xic.PeakRegions[bestRegion]);
+
+                                    if (bestPeak == null) continue; //TODO: Figure out why this is happening!
                                     _regionPeakDictionary[bestRegion].Add(bestPeak);
 
                                     //TODO: Clean this up
@@ -484,9 +537,11 @@ namespace FlashLFQ.PeakPicking
 
             // Maximum allowable time difference for two peaks to be grouped into the same cluster
             // This may need to be adjusted to be larger
-            double meanRt = orderedPeaks.Average(peak => peak.ApexRetentionTime);
-            double deltaMax = 1 + meanRt / 10.0;
+            //double meanRt = orderedPeaks.Average(peak => peak.ApexRetentionTime);
+            //double deltaMax = 1 + meanRt / 10.0;
+            double deltaMax = 1.0;
             ClusterPeaks(orderedPeaks, ref peakClusters, deltaMax, minIndex:0, maxIndex: orderedPeaks.Count - 1);
+            MergePeakClusters(ref peakClusters);
             return peakClusters;
         }
 
@@ -544,6 +599,56 @@ namespace FlashLFQ.PeakPicking
             ClusterPeaks(orderedPeaks, ref peakClusters, deltaMax, minIndex, leftIndex);
             // Recurse right
             ClusterPeaks(orderedPeaks, ref peakClusters, deltaMax, rightIndex, maxIndex);
+        }
+
+        internal static void MergePeakClusters(ref List<List<ChromatographicPeak>> peakClusters)
+        {
+            peakClusters = peakClusters
+                .OrderBy(cluster => cluster.Average(peak => peak.ApexRetentionTime))
+                .ToList();
+            List<HashSet<string>> seqHashSets = peakClusters
+                .Select(cluster => cluster
+                    .SelectMany(peak => peak.Identifications)
+                    .SelectMany(id => id.ModifiedSequence.Split('|'))
+                    .ToHashSet())
+                .ToList();
+
+            // This algorithm is O(n^2) but I don't think it can be improved
+            // Go through every peak cluster and associated set of sequences
+            // If there is an overlap (i.e., same peptide id'd in separate clusters)
+            // Then we merge the overlapping clusters + any clusters between them
+            int i = 0;
+            while (i < seqHashSets.Count - 1)
+            {
+                int j = i + 1;
+                while (j < seqHashSets.Count)
+                {
+                    if (seqHashSets[i].Overlaps(seqHashSets[j]))
+                    {
+                        HashSet<string> newSeqSet = new();
+                        List<ChromatographicPeak> newPeakCluster = new();
+                        for (int k = i; k <= j; k++)
+                        {
+                            newSeqSet.UnionWith(seqHashSets[k]);
+                            newPeakCluster.AddRange(peakClusters[k]);
+                        }
+                        // Remove everything between i and j, inclusive
+                        // Then add new element to start of list
+                        // Removal and insertion isn't super efficient for regular lists,
+                        // TODO: Optimize to use stack or LinkedList
+                        seqHashSets.RemoveRange(i, j-i+1);
+                        seqHashSets.Insert(i, newSeqSet);
+                        peakClusters.RemoveRange(i, j-i+1);
+                        peakClusters.Insert(i, newPeakCluster);
+
+                        i--; // decrement one so that when it is incremented in the outer loop, we end up at the same index we started at
+                        break;
+                    }
+
+                    j++;
+                }
+                i++; // i is only incremented in the outer loop. Incrementing when joining elements prevents recursive joining
+            }
         }
 
         public static Regex ModifiedAromaticResidueRegex

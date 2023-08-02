@@ -212,14 +212,21 @@ namespace FlashLFQ
                 foreach(IsobarCluster cluster in IsobarClusters
                     .Where(cluster => cluster.SequenceRegionDictionary.IsNotNullOrEmpty()))
                 {
+                    var sequences = cluster.SequenceRegionDictionary.Keys;
                     foreach(var sequenceRegionsKvp in cluster.SequenceRegionDictionary
                         .Where(kvp => kvp.Value.IsNotNullOrEmpty()))
                     {
+                        if (sequenceRegionsKvp.Key.Equals("Y[CF3:CF3 on Y]LYEIAR") 
+                            || sequenceRegionsKvp.Key.Equals("FKDLGEEHF[CF3:CF3 on K]K")
+                            || sequenceRegionsKvp.Key.Equals("F[CF3:CF3 on F]KDLGEEHFK"))
+                        {
+                            int placeholder = 0;
+                        }
                         // Count the occurences of each region
                         // Select the region with the max number of occurences
                         int bestRegion = sequenceRegionsKvp.Value.GroupBy(i => i).MaxBy(group => group.Count()).Key;
                         
-                        // I don't think it's possible for this siation to arise
+                        // I don't think it's possible for this situation to arise
                         if (!cluster.RegionPeakDictionary[bestRegion].IsNotNullOrEmpty()) continue;
 
                         // Grab all peaks from that region
@@ -228,7 +235,13 @@ namespace FlashLFQ
                             if(PeptideModifiedSequences.TryGetValue(sequenceRegionsKvp.Key, out Peptide peptide))
                             {
                                 peptide.SetIntensity(peak.SpectraFileInfo, peak.Intensity);
-                                peptide.SetDetectionType(peak.SpectraFileInfo, DetectionType.MultiRunConsensus);
+                                DetectionType detectionMethod =
+                                    peak.Identifications.All(id => id.FileInfo.Equals(peak.SpectraFileInfo))
+                                        ? peak.NumIdentificationsByFullSeq == 1
+                                            ? DetectionType.MSMS_MRC
+                                            : DetectionType.MSMS_MRC_Ambiguous
+                                        : DetectionType.MBR_MRC;
+                                peptide.SetDetectionType(peak.SpectraFileInfo, detectionMethod);
                                 if (reportRetentionTimes)
                                     peptide.SetRetentionTime(peak.SpectraFileInfo, peak.ApexRetentionTime);
 

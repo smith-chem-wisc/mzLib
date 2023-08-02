@@ -71,6 +71,15 @@
     <None Update="TestData\XICAlignment\AllPSMs_Slices.psmtsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\XICAlignment\BSA_DAF_PSMs.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\XICAlignment\BSA_Test_PSMs.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\XICAlignment\BSA_YLY_PSMs.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\XICAlignment\JD020823_TNFa_Inflix_Tryp_60s_2-calib.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
