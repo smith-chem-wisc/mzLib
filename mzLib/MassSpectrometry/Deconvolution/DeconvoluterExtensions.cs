@@ -18,7 +18,7 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="deconvoluter">performs deconvolution</param>
         /// <param name="spectrum">spectrum to deconvolute</param>
-        /// <param name="range">mz range of returned peaks</param>
+        /// <param name="range">mz range of returned peaks, if null will deconvolute entire spectrum</param>
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         public static IEnumerable<IsotopicEnvelope> Deconvolute(this Deconvoluter deconvoluter,
