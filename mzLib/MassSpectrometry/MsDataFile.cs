@@ -16,14 +16,10 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Xml.Schema;
-using Chemistry;
-using Easy.Common.Extensions;
 
 namespace MassSpectrometry
 {
@@ -39,8 +35,6 @@ namespace MassSpectrometry
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }
-        public int[] OneBasedScanNumbers { get; set; }
-        public double[] RetentionTimes { get; set; }
         protected MsDataFile(int numSpectra, SourceFile sourceFile)
         {
             Scans = new MsDataScan[numSpectra];
@@ -143,9 +137,9 @@ namespace MassSpectrometry
             {
                 LoadAllStaticData();
             }
-            
-            int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT)+1;
-            
+
+            int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT) + 1;
+
             while (oneBasedSpectrumNumber < NumSpectra + 1)
             {
                 MsDataScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
@@ -159,12 +153,23 @@ namespace MassSpectrometry
                 }
                 else if (rt > lastRT)
                     yield break;
-                
+
                 yield return scan;
                 oneBasedSpectrumNumber++;
             }
         }
 
+        /// <summary>
+        /// Returns index of the scan with the closest retention time to the target retention time.
+        /// If retention time target is out of range, it returns the
+        /// scan with the closest retention time to target. 
+        ///
+        /// For example: 
+        /// if fileRetentionTimeRange = [2,3,4] and targetRetentionTime = 1, returns 0 and
+        /// if fileRetentionTimeRange = [2,3,4] and targetRetentionTime = 5, returns 2. 
+        /// </summary>
+        /// <param name="retentionTime"></param>
+        /// <returns></returns>
         public virtual int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             if (!CheckIfScansLoaded())
@@ -172,20 +177,16 @@ namespace MassSpectrometry
                 LoadAllStaticData();
             }
 
-            if (Scans[0] is not null)
-            {
-                OneBasedScanNumbers = Scans.Select(x => x.OneBasedScanNumber).ToArray();
-                RetentionTimes = Scans.Select(x => x.RetentionTime).ToArray();
-            };
-
-            return ClassExtensions.GetClosestIndex(RetentionTimes, retentionTime);
+            return ClassExtensions.GetClosestIndex(Scans
+                .Select(scan => scan.RetentionTime)
+                .ToArray(), retentionTime);
         }
 
         public virtual IEnumerator<MsDataScan> GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
-        
+
         public virtual int[] GetMsOrderByScanInDynamicConnection()
         {
             throw new NotImplementedException();
@@ -195,7 +196,7 @@ namespace MassSpectrometry
 
         public virtual bool CheckIfScansLoaded()
         {
-            return (Scans != null && Scans.Length > 0); // && RetentionTimes is not null);
+            return (Scans != null && Scans.Length > 0);
         }
     }
 }

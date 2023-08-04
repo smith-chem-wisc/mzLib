@@ -17,19 +17,17 @@
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using Readers;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
+using Readers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Easy.Common.Extensions;
-using pepXML.Generated;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.FileReadingTests
@@ -78,26 +76,6 @@ namespace Test.FileReadingTests
         public static void TearDown()
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
-        }
-
-        [Test]
-        public void TestOneBasedScanNumbersAndRetentionTimesAreInOrder()
-        {
-            string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
-            var reader = MsDataFileReader.GetDataFile(dataFilePath).LoadAllStaticData();
-            var scans = reader.GetMsDataScans();
-
-            var exampleRetentionTimeToSetUpArrays = reader.GetClosestOneBasedSpectrumNumber(scans[0].RetentionTime);
-
-            var retentionTimes = reader.RetentionTimes;
-            var oneBasedScanNumbers = reader.OneBasedScanNumbers;
-
-            for (int i = 0; i < scans.Length; i++)
-            {
-                Assert.That(scans[i].RetentionTime.Equals(retentionTimes[i]));
-                Assert.That(scans[i].OneBasedScanNumber.Equals(oneBasedScanNumbers[i]));
-            }
-
         }
 
         [Test]
@@ -162,8 +140,8 @@ namespace Test.FileReadingTests
                 ok3 += 1;
             Assert.AreEqual(0, ok3);
 
-            MsDataScan theSpectrum2 = new MsDataScan(_mzSpectrumA, 1, 1, 
-                true, Polarity.Positive,0, new MzRange(300, 1000), "fake scan filter",
+            MsDataScan theSpectrum2 = new MsDataScan(_mzSpectrumA, 1, 1,
+                true, Polarity.Positive, 0, new MzRange(300, 1000), "fake scan filter",
                 MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 3, null, "scan=1");
 
             MsDataScan[] theList2 = new MsDataScan[1];
@@ -396,7 +374,7 @@ namespace Test.FileReadingTests
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
             Assert.That(!dataFile.CheckIfScansLoaded());
-            var scanslistInTimeRange = dataFile.GetMsScansInTimeRange(0,100).ToList();
+            var scanslistInTimeRange = dataFile.GetMsScansInTimeRange(0, 100).ToList();
             Assert.That(dataFile.CheckIfScansLoaded());
             Assert.That(scanslistInTimeRange.Count == 142);
 
