@@ -1610,7 +1610,7 @@ namespace FlashLFQ
                         {
                             DoubleRange basePeakRange = basePeak.RetentionTimeRange;
                             var overlap = basePeakRange.GetOverlap(oxRange);
-                            var overlapFraction = overlap.Width / basePeakRange.Width;
+                            var overlapFraction = overlap.Width / oxRange.Width;
                             if (overlapFraction > 0.90)
                             {
                                 // It's in source
