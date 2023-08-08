@@ -23,6 +23,7 @@ using static Nett.TomlObjectFactory;
 using System.Windows.Documents;
 using System.Reflection;
 using NUnit.Framework.Internal;
+using IsotopicEnvelope = FlashLFQ.IsotopicEnvelope;
 
 namespace TestFlashLFQ
 {
@@ -30,6 +31,7 @@ namespace TestFlashLFQ
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal static class XicAlignmentTest
     {
+
         [Test]
         public static void TestSignalAlignment()
         {
@@ -541,6 +543,134 @@ namespace TestFlashLFQ
             // This tests that the MSMS id peak's intensity was changed, and as a result, 
             // that peak was used to define the peptide intensity
             Assert.AreEqual(wModIntensityVariance_AmbigPeptideTest, wModIntensityVariance_Ambig, delta: 0.01);
+        }
+
+        [Test]
+        public static void TestInSourceOxidationDetection()
+        {
+            // One File, Three IDs
+            SpectraFileInfo file = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
+            ProteinGroup pg = new ProteinGroup("MyProtein", "gene", "org");
+            List<ProteinGroup> pgList = new List<ProteinGroup>() { pg };
+
+            string baseSeq = "PEPTIDEK";
+            string oxSeq = "PEPTID[Less Common: Oxidation on D]EK";
+
+            double baseRt = 10.0;
+            double oxRt = 9.5;
+
+            double baseMass = 928.01;
+            double oxMass = baseMass + 15.99;
+
+            Identification basePep = new Identification(file, baseSeq,baseSeq,
+                baseMass, baseRt, 2, pgList);
+            Identification inSourceOxPep = new Identification(file, baseSeq, oxSeq,
+                oxMass, baseRt, 2, pgList);
+            Identification oxPep = new Identification(file, baseSeq, oxSeq,
+                oxMass, baseRt, 2, pgList);
+
+            // Generate Indexed Peaks
+            List<IndexedMassSpectralPeak> baseImsPeaks = new();
+            List<IndexedMassSpectralPeak> oxImsPeaks = new();
+
+            List<IsotopicEnvelope> baseEnvelopes = new();
+            List<IsotopicEnvelope> oxEnvelopes = new();
+
+            double baseMz = baseMass.ToMz(2);
+            double oxMz = oxMass.ToMz(2);
+
+            int oxPeakSplitIndex = 0; // There will be two overlapping ox peaks. It's not obvious where that will be
+
+            // 90 seconds total (60 * 1.5s). 60 second peak width for base and for ox
+            for (int i = 1; i <= 60; i++)
+            {
+                double inSourceIntensity = 0;
+                double baseIntensity = 0;
+                double retentionTime = 9 + i * 0.025;
+
+                // base peaks are offset by 30 seconds and 20 scans
+                if (i >= 20)
+                {
+                    baseIntensity = i <= 40 ? (double)(i - 20) : (double)(60 - i); // Triangle intensity
+                    inSourceIntensity = 1.2 * (baseIntensity - 4); // Little less intense. Peak width is smaller
+
+                    baseImsPeaks.Add(new IndexedMassSpectralPeak(
+                        baseMz,
+                        baseIntensity,
+                        i,
+                        retentionTime));
+                }
+
+                double nonInSourceOxIntensity = i <= 20 ? (double)i : (double)(40 - i);
+                double oxIntensity = inSourceIntensity > 0 ? inSourceIntensity : 0;
+                if (nonInSourceOxIntensity > 0)
+                {
+                    oxIntensity += nonInSourceOxIntensity;
+                }
+
+                if (oxPeakSplitIndex == 0 && i > 21 && oxIntensity > oxImsPeaks[i-2].Intensity)
+                    oxPeakSplitIndex = i - 2;
+
+                oxImsPeaks.Add(new IndexedMassSpectralPeak(
+                    oxMz,
+                    oxIntensity,
+                    i,
+                    retentionTime));
+
+                if (i > 20)
+                    baseEnvelopes.Add(new IsotopicEnvelope(baseImsPeaks[i - 20], 2, baseIntensity * 20));
+
+                oxEnvelopes.Add(new IsotopicEnvelope(oxImsPeaks[i-1], 2, oxIntensity* 20));
+            }
+
+            ChromatographicPeak basePeak = new ChromatographicPeak(basePep, false, file);
+            ChromatographicPeak inSourceOxPeak = new ChromatographicPeak(inSourceOxPep, false, file);
+            ChromatographicPeak oxPeak = new ChromatographicPeak(oxPep, false, file);
+
+            var baseRange = basePeak.RetentionTimeRange;
+            Assert.IsNull(baseRange);
+
+            basePeak.IsotopicEnvelopes = baseEnvelopes;
+            var baseApex = baseEnvelopes.MaxBy(e => e.Intensity);
+            basePeak.SetChromatographicPeakProperties("Apex", baseApex);
+
+            inSourceOxPeak.IsotopicEnvelopes = oxEnvelopes.GetRange(oxPeakSplitIndex, 60 - oxPeakSplitIndex);
+            var inSourceApex = inSourceOxPeak.IsotopicEnvelopes.MaxBy(e => e.Intensity);
+            inSourceOxPeak.SetChromatographicPeakProperties("Apex", inSourceApex);
+
+            oxPeak.IsotopicEnvelopes = oxEnvelopes.GetRange(0, oxPeakSplitIndex);
+            var oxApex = oxPeak.IsotopicEnvelopes.MaxBy(e => e.Intensity);
+            oxPeak.SetChromatographicPeakProperties("Apex", oxApex);
+
+            baseRange = basePeak.RetentionTimeRange;
+            var inSourceRange = inSourceOxPeak.RetentionTimeRange;
+
+            Assert.That(baseRange.IsSuperRange(inSourceRange));
+
+            int placeholder = 0;
+
+            // Desired behaviour
+            var idList = new List<Identification>() { basePep, inSourceOxPep, oxPep };
+
+            FlashLfqResults results = new FlashLfqResults(new List<SpectraFileInfo>() { file }, idList);
+            var peakDictInfo = typeof(FlashLfqResults).GetField("Peaks", BindingFlags.Public | BindingFlags.Instance);
+            peakDictInfo.SetValue(results, new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>()
+            {
+                { file, new List<ChromatographicPeak>() { basePeak, oxPeak, inSourceOxPeak}}
+            });
+
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification>() { basePep, inSourceOxPep, oxPep });
+            var resultsInfo = typeof(FlashLfqEngine).GetField("_results", BindingFlags.NonPublic | BindingFlags.Instance);
+            resultsInfo.SetValue(engine, results);
+
+            engine.DetectInSourceOxidation();
+
+            Assert.That(results.Peaks
+                .SelectMany(kvp => kvp.Value)
+                .Any(peak => peak.Identifications.First().ModifiedSequence.Contains("In-Source")));
+
+
+            // TODO: Write tests that cover MBR situations, MRC situations, etc.
         }
 
         public static void SetChromatographicPeakProperties(this ChromatographicPeak peak, string propName, Object newValue)

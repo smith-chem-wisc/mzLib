@@ -127,6 +127,35 @@ namespace MzLibUtil
         }
 
         /// <summary>
+        /// Finds the overlap between two double ranges
+        /// </summary>
+        /// <param name="other">The other range to compare to</param>
+        /// <returns>A new double range spanning the intersection of the two overlapping ranges, or null if there is no overlap</returns>
+        public DoubleRange GetOverlap(DoubleRange other)
+        {
+            if (this.IsOverlapping(other))
+            {
+                if (this.IsSuperRange(other))
+                    return other;
+                if (this.IsSubRange(other))
+                    return this;
+                if (this.Minimum < other.Minimum)
+                {
+                    // If this.min is less than other.min, then this.max must be less than other.max as well, otherwise it would be a superset
+                    return new DoubleRange(other.Minimum, this.Maximum);
+                }
+                else
+                {
+                    return new DoubleRange(this.Minimum, other.Maximum);
+                }
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Determines if the item is contained within a range of values
         /// </summary>
         /// <param name="item">The item to compare against the range</param>

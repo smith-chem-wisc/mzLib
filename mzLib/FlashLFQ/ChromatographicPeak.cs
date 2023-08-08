@@ -1,10 +1,12 @@
-﻿using Chemistry;
-using FlashLFQ.PeakPicking;
+﻿using FlashLFQ.PeakPicking;
 using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Easy.Common.Extensions;
+using MzLibUtil;
+using ClassExtensions = Chemistry.ClassExtensions;
 
 namespace FlashLFQ
 {
@@ -272,5 +274,11 @@ namespace FlashLFQ
             
             return sb.ToString();
         }
-    }
+
+        public DoubleRange RetentionTimeRange => IsotopicEnvelopes.IsNotNullOrEmpty() 
+            ? new DoubleRange(
+                minimum: IsotopicEnvelopes.Select(e => e.IndexedPeak.RetentionTime).Min(),
+                maximum: IsotopicEnvelopes.Select(e => e.IndexedPeak.RetentionTime).Max())
+            : null;
+        }
 }
