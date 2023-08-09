@@ -166,7 +166,7 @@ namespace MassSpectrometry
         ///
         /// For example: 
         /// if fileRetentionTimeRange = [2,3,4] and targetRetentionTime = 1, returns 0 and
-        /// if fileRetentionTimeRange = [2,3,4] and targetRetentionTime = 5, returns 2. 
+        /// if fileRetentionTimeRange = [2,3,4] and targetRetentionTime = 5, returns 2.
         /// </summary>
         /// <param name="retentionTime"></param>
         /// <returns></returns>
