@@ -209,23 +209,23 @@ namespace FlashLFQ
 
             if(IsobarClusters.IsNotNullOrEmpty())
             {
-                foreach(IsobarCluster cluster in IsobarClusters
-                    .Where(cluster => cluster.SequenceRegionDictionary.IsNotNullOrEmpty()))
+
+                foreach (IsobarCluster cluster in IsobarClusters)
                 {
-                    foreach(var sequenceRegionsKvp in cluster.SequenceRegionDictionary
-                                .Where(kvp => kvp.Value.IsNotNullOrEmpty()))
+                    if (cluster.SequenceRegionDictionary == null)
+                        continue;
+
+                    foreach (var sequenceRegionKvp in cluster.SequenceRegionDictionary)
                     {
-                        // Count the occurences of each region
-                        // Select the region with the max number of occurences
-                        int bestRegion = sequenceRegionsKvp.Value.GroupBy(i => i).MaxBy(group => group.Count()).Key;
-                        
+
                         // I don't think it's possible for this situation to arise
-                        if (!cluster.RegionPeakDictionary[bestRegion].IsNotNullOrEmpty()) continue;
+                        if (!cluster.RegionPeakDictionary[sequenceRegionKvp.Value].IsNotNullOrEmpty()) continue;
 
                         // Grab all peaks from that region
-                        foreach (ChromatographicPeak peak in cluster.RegionPeakDictionary[bestRegion])
+                        foreach (ChromatographicPeak peak in cluster.RegionPeakDictionary[sequenceRegionKvp.Value])
                         {
-                            if(PeptideModifiedSequences.TryGetValue(sequenceRegionsKvp.Key, out Peptide peptide))
+                            // Set the intensity of the peptide with given sequence using the peaks from that region
+                            if (PeptideModifiedSequences.TryGetValue(sequenceRegionKvp.Key, out Peptide peptide))
                             {
                                 peptide.SetIntensity(peak.SpectraFileInfo, peak.Intensity);
                                 DetectionType detectionMethod =
@@ -239,9 +239,7 @@ namespace FlashLFQ
                                     peptide.SetRetentionTime(peak.SpectraFileInfo, peak.ApexRetentionTime);
 
                             }
-                            // This can probably be fine-tuned to add more specific detection types
                         }
-                        // Set the intensity of the peptide with given sequence using the peaks from that region
                     }
                 }
             }

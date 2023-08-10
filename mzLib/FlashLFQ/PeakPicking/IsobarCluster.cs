@@ -45,7 +45,7 @@ namespace FlashLFQ.PeakPicking
         /// <summary>
         /// This dictionary is used to determine what peaks should be used for peptide quantification
         /// </summary>
-        public Dictionary<string, List<int>> SequenceRegionDictionary { get; private set; }
+        public Dictionary<string, int> SequenceRegionDictionary { get; private set; }
 
         private FlashLfqEngine _flashLfqEngine;
         private FlashLfqResults _results;
@@ -145,11 +145,16 @@ namespace FlashLFQ.PeakPicking
                     .ExtractPeaks(PeakFindingMz,
                         startTime: RetentionTimeRange.Minimum - timeBuffer,
                         endTime: RetentionTimeRange.Maximum + timeBuffer);
-                double rtAdjustment = XicProcessing.AlignPeaks(refPeaks, peaks);
                 if (peaks.Count <= 5)
                 {
                     throw new Exception("XIC too short");
                 }
+                double rtAdjustment = XicProcessing.AlignPeaks(refPeaks, peaks);
+                // If the rtAdjustment is some huge number, it probably went wrong
+                // so, set to 0. Proceed from there
+                rtAdjustment = Math.Abs(rtAdjustment) > (RetentionTimeRange.Mean / 10) + 0.1 
+                    ? 0
+                    : rtAdjustment;
                 Xics.Add(file, new Xic(peaks, PeakFindingMz, file, rtAdjustment, referenceXic: false));
             }
         }
@@ -210,22 +215,6 @@ namespace FlashLFQ.PeakPicking
                     continue;
                 }
 
-                //// In noisy data, situations arise where maxima are clearly defined, but minima arent
-                //// If we only find maxima, then we split into regions based on those alone
-                //if (kvp.Value.All(ext => ext.ExtremumType == ExtremumType.Maximum))
-                //{
-                //    for (int i = 0; i < kvp.Value.Count - 1; i++)
-                //    {
-                //        double pseudoMinimaRt = (kvp.Value[i].RetentionTime + kvp.Value[i + 1].RetentionTime) / 2.0;
-                //        peakRegions.Add(regionNumber++, new DoubleRange(startTime, pseudoMinimaRt));
-                //        startTime = pseudoMinimaRt;
-                //    }
-                //    // Add last region spanning from last pseudo-minima to the end of the RT range
-                //    peakRegions.Add(regionNumber, new DoubleRange(startTime, RetentionTimeRange.Maximum));
-                //    Xics[kvp.Key].SetPeakRegions(peakRegions);
-                //    continue;
-                //}
-
                 bool maxFound = false;
                 double lastMaxRt = startTime;
                 if (kvp.Value.First().ExtremumType == ExtremumType.Maximum)
@@ -264,7 +253,7 @@ namespace FlashLFQ.PeakPicking
                     }
                 }
                 // If loop completes on a a maximum, add a final region from last start time - end
-                if (maxFound)
+                if (maxFound && RetentionTimeRange.Maximum - startTime > 0)
                 {
                     peakRegions.Add(regionNumber, new DoubleRange(startTime, RetentionTimeRange.Maximum));
                 }
@@ -277,15 +266,17 @@ namespace FlashLFQ.PeakPicking
 
         public void ReassignPeakIDs()
         {
+            SequenceRegionDictionary = new Dictionary<string, int>();
+
             _regionPeakDictionary = new Dictionary<int, List<ChromatographicPeak>>();
-            SequenceRegionDictionary = new Dictionary<string, List<int>>();
             foreach(int region in Xics[ReferenceFile].PeakRegions.Keys)
                 _regionPeakDictionary.Add(region, new List<ChromatographicPeak>());
 
-            // Link each region to a list of IDs
+            // Populate the _regionPeakDictionary. Each consensus region is linked to peaks
+            // with their retention time apex in that region.
+            // Also sets the region property for each peak
             foreach (ChromatographicPeak peak in Peaks)
             {
-                //TODO: group by spectra file info so we're not pulling the same xic multiple times
                 Xic xicContainingPeak = Xics[peak.SpectraFileInfo];
                 foreach (var region in xicContainingPeak.PeakRegions)
                 {
@@ -293,6 +284,7 @@ namespace FlashLFQ.PeakPicking
                     {
                         if (!_regionPeakDictionary.ContainsKey(region.Key))
                             _regionPeakDictionary.Add(region.Key, new List<ChromatographicPeak>());
+
                         _regionPeakDictionary[region.Key].Add(peak);
                         peak.Region = region.Key;
 
@@ -301,12 +293,10 @@ namespace FlashLFQ.PeakPicking
                 }
             }
 
-            // Something went wrong
             // TODO: Make this throw an exception
             if (_regionPeakDictionary.Count == 0)
                 return;
 
-            #region OnePeptideMultiRegion
 
             Dictionary<string, List<int>> msmsIdFullSeqToRegion = new();
             foreach (var kvp in _regionPeakDictionary)
@@ -331,10 +321,7 @@ namespace FlashLFQ.PeakPicking
             {
                 if (seqToRegionsKvp.Value.Distinct().Count() > 1)
                 {
-                    // This algorithm needs to assign peaks such that ambiguity is minimized
-
-                    // Handle case where consensus is peak ambiguity, e.g. most files have two peptides
-                    // assigned to one peak.
+                    // This algorithm assigns peaks such that ambiguity is minimized
                     List<int> regions = seqToRegionsKvp.Value;
 
                     // For each region (key), contains the number of IDs made in that region
@@ -344,35 +331,54 @@ namespace FlashLFQ.PeakPicking
                             keySelector: group => group.Key,
                             elementSelector: group => group.Count());
 
-                    if (regionCountDictionary.Values.Max() == regionCountDictionary.Values.Min())
+                    int maxNumberOfPeaks = regionCountDictionary.Max(kvp => kvp.Value);
+                    var bestRegionCandidates = regionCountDictionary
+                        .Where(kvp => kvp.Value == maxNumberOfPeaks)
+                        .ToList();
+                    int bestRegion = bestRegionCandidates.First().Key;
+
+                    // if multiple regions have the same number of associated peaks, we select the 
+                    // region with the greatest mean peak intensity
+                    if (bestRegionCandidates.Count() > 1)
                     {
-                        //TODO: Come up with tie-breaking mechanism
-                        continue;
+                        double highestMeanRegionIntensity = 0;
+                        foreach (var kvp in regionCountDictionary
+                                     .Where(kvp => kvp.Value == maxNumberOfPeaks))
+                        {
+                            double meanRegionIntensity =
+                                RegionPeakDictionary[kvp.Key].Average(peak => peak.Intensity);
+
+                            if (meanRegionIntensity > highestMeanRegionIntensity)
+                            {
+                                bestRegion = kvp.Key;
+                                highestMeanRegionIntensity = meanRegionIntensity;
+                            }
+                        }
                     }
 
-                    // TODO: Come up with tie-breaking mechanism here. Like, if two regions each have 3 IDs
-                    int bestRegion = regionCountDictionary.MaxBy(kvp => kvp.Value).Key;
                     foreach (string seq in _regionPeakDictionary[bestRegion]
-                                .SelectMany(peak => peak.Identifications)
-                                .SelectMany(id => id.ModifiedSequence.Split('|')))
+                                 .SelectMany(peak => peak.Identifications)
+                                 .SelectMany(id => id.ModifiedSequence.Split('|'))
+                                 .Distinct())
                     {
-                        //TODO: Need to weight unambiguous identifications higher 
-                        if (!SequenceRegionDictionary.ContainsKey(seq))
-                            SequenceRegionDictionary.Add(seq, new List<int>());
-                        SequenceRegionDictionary[seq].Add(bestRegion);
+                        //TODO: Need to weight unambiguous identifications higher
+                        SequenceRegionDictionary.TryAdd(seq, bestRegion);
                     }
 
                     foreach (int region in seqToRegionsKvp.Value)
                     {
-                        if (region == bestRegion) 
+                        if (region == bestRegion || Math.Abs(region - bestRegion) > 1) 
                         {
-                            continue; // These were accurately assigned already
+                            // If region == bestRegion, these were accurately assigned already
+                            // If region is more than 2 regions away from the best region, then we don't want to merge them
+                            // That check should maybe be based on RT differences instead of region number
+                            continue; 
                         }
+
                         // Peaks are added to the dictionary within the foreach loop, so it's important to stash the 
                         // peaks before entering the loop
                         foreach (var peak in _regionPeakDictionary[region])
                         {
-                            // Remove and reassign the id
                             if (peak.Identifications
                                 .SelectMany(id => id.ModifiedSequence.Split('|'))
                                 .Contains(seqToRegionsKvp.Key))
@@ -380,6 +386,7 @@ namespace FlashLFQ.PeakPicking
                                 int idIndex = peak.Identifications
                                     .FindIndex(id => id.ModifiedSequence == seqToRegionsKvp.Key);
                                 Identification id = null;
+
                                 // If an identification with a modified sequence exactly matching
                                 // the sequence in question (i.e., not ambiguous and separated by '|'),
                                 // Then we remove the id and add it to a different peak
@@ -388,6 +395,7 @@ namespace FlashLFQ.PeakPicking
                                     id = peak.Identifications[idIndex];
                                     peak.RemoveIdentification(id);
                                 }
+
                                 // Otherwise, we borrow an identification, just like in MBR
                                 else
                                 {
@@ -408,18 +416,12 @@ namespace FlashLFQ.PeakPicking
                                     var xic = Xics[peak.SpectraFileInfo];
                                     double rtApex = xic.PeakRegions[bestRegion].Mean;
 
-                                    // Need to find a better way to avoid serializing/deserializing
-                                    // XIC contains all the indexes ms peaks you would need (for a given charge state)
-                                    // Probably just pass that in
-
-                                    // This is faster, but it feels extremely fragile. Side-effects almost guaranteed.
-                                    // There's a refactor a-coming, but not today
                                     _flashLfqEngine.SwapPeakIndexingEngine(peak.SpectraFileInfo);
 
                                     bestPeak = _flashLfqEngine.GetChromatographicPeak(
                                         id, 
                                         peak.SpectraFileInfo, 
-                                        isMbrPeak: peak.SpectraFileInfo != id.FileInfo, // TODO: Add an alternate classication system for ambgiuous peaks. MBR isn't totally accurate 
+                                        isMbrPeak: peak.SpectraFileInfo != id.FileInfo, // TODO: Add an alternate classification system for ambiguous peaks. MBR isn't totally accurate 
                                         rtApex, 
                                         xic.PeakRegions[bestRegion]);
 
@@ -432,47 +434,19 @@ namespace FlashLFQ.PeakPicking
                                 }
                                 bestPeak.AddIdentification(id);
                                 bestPeak.Region = bestRegion;
-                                foreach(string seq in id.ModifiedSequence.Split('|'))
-                                {
-                                    if (!SequenceRegionDictionary.ContainsKey(seq))
-                                        SequenceRegionDictionary.Add(seq, new List<int>());
-                                    SequenceRegionDictionary[seq].Add(bestRegion);
-                                }
+
+                                // I think this is unnecessary and leads to more ambiguous assignments than is accurate
+
+                                //foreach(string seq in id.ModifiedSequence.Split('|'))
+                                //{
+                                //    SequenceRegionDictionary.TryAdd(seq, bestRegion);
+                                //}
                             }
 
-                            //TODO: Do additional MBR stuff here. If there's a file without a peak in the region, create one
                         }
                     }
-                    // Assign every id to a new peak in the best region. 
-
-                    // Differential assignment
-                    // One identification is assigned to different peaks in different files 
-                    // Handle case where one peptide just has multiple peaks (e.g., mod on aromatic)
-
-                    // TODO: MBR for ambiguous peaks, improved mbr
                 }
             }
-
-            #endregion
-
-            #region OneRegionMultiPeptide
-
-            foreach (var kvp in _regionPeakDictionary)
-            {
-                if (kvp.Value
-                        .SelectMany(peak => peak.Identifications)
-                        .Select(id => id.ModifiedSequence)
-                        .Distinct().Count() > 1)
-                {
-                    // Does this happen in the same file? e.g. coeluting isobars both observed in MS2
-                    // Is there disagreement between files? 
-                    // Is this even necessary? Like, this is just co-eluting species
-                    // If none of the peptides are assigned to different regions, can't we just leave well enough alone
-                }
-            }
-
-            #endregion
-
         }
 
         // Clusters things with identical peak finding masses

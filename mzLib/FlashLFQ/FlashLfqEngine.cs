@@ -31,6 +31,7 @@ namespace FlashLFQ
         public readonly double DiscriminationFactorToCutPeak;
         public readonly bool QuantifyAmbiguousPeptides;
         public readonly bool ReportPeptideRetentionTimes;
+        public readonly bool ReportInSourceOxidation;
 
         public readonly double PeakfindingPpmToleranceValue;
         public readonly double PpmToleranceValue;
@@ -95,6 +96,7 @@ namespace FlashLFQ
             bool idSpecificChargeState = false,
             bool quantifyAmbiguousPeptides = false,
             bool reportPeptideRetentionTimes = false,
+            bool reportInSourceOxidation = false,
             bool silent = false,
             int maxThreads = -1,
 
@@ -141,6 +143,7 @@ namespace FlashLFQ
             NumIsotopesRequired = numIsotopesRequired;
             QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
             ReportPeptideRetentionTimes = reportPeptideRetentionTimes;
+            ReportInSourceOxidation = reportInSourceOxidation;
             Silent = silent;
             IdSpecificChargeState = idSpecificChargeState;
             MbrRtWindow = maxMbrWindow;
@@ -240,6 +243,8 @@ namespace FlashLFQ
             }
 
             // InSource Ox Check goes here
+            if (ReportInSourceOxidation)
+                DetectInSourceOxidation();
 
             // Multi-Run Consensus
             if (QuantifyAmbiguousPeptides)

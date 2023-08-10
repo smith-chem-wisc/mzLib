@@ -318,12 +318,10 @@ namespace TestFlashLFQ
 
         }
 
-
         [Test]
         public static void TestVVRealData()
         {
             // Laptop
-
             SpectraFileInfo nist2 = new SpectraFileInfo(
                 @"C:\Users\asolivai\Documents\Immuto\JD020823_TNFa_Tryp_60s_AllSamples\Task1-CalibrateTask\JD020823_TNFa_NIST_Tryp_60s_2-calib.mzML",
                 "nist2", 1, 0, 0);
@@ -422,6 +420,121 @@ namespace TestFlashLFQ
             testCluster.ReassignPeakIDs();
 
             placeholder = 1;
+        }
+
+        [Test]
+        public static void TestEdgeCases()
+        {
+            // Laptop
+            SpectraFileInfo noPlimb1 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_NoPLIMB_Q1.raw",
+                "NoPlimb", 1, 0, 0);
+            SpectraFileInfo noPlimb3 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_NoPLIMB_Q3.raw",
+                "NoPlimb", 2, 0, 0);
+            SpectraFileInfo plimb1 = new SpectraFileInfo(
+                @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_PLIMB20_Q1.raw",
+                "Plimb", 1, 0, 0);
+
+            // create IDs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            string baseSequence = "HLVDEPQNLIK";
+            double modifiedMass = 1372.696250317;
+            double peakFindingMass = 687.3549;
+
+            // Define the modified peptide identifications
+            string hModSeq = "H[CF3:CF3 on H]LVDEPQNLIK";
+            double rt1 = 21.24;
+            double rt2 = 23.46;
+
+            // Double hist peak is observed in all runs.
+            Identification hModId_np1 = new Identification(noPlimb1, baseSequence, hModSeq, modifiedMass,
+                rt1, 2, new List<ProteinGroup> { pg });
+            Identification hModId_np3 = new Identification(noPlimb3, baseSequence, hModSeq, modifiedMass,
+                rt1, 2, new List<ProteinGroup> { pg });
+            Identification hModId_p1 = new Identification(plimb1, baseSequence, hModSeq, modifiedMass,
+                rt1, 2, new List<ProteinGroup> { pg });
+
+            Identification hModId_np1_2 = new Identification(noPlimb1, baseSequence, hModSeq, modifiedMass,
+                rt2, 2, new List<ProteinGroup> { pg });
+            Identification hModId_np3_2 = new Identification(noPlimb3, baseSequence, hModSeq, modifiedMass,
+                rt2, 2, new List<ProteinGroup> { pg });
+            Identification hModId_p1_2 = new Identification(plimb1, baseSequence, hModSeq, modifiedMass,
+                rt2, 2, new List<ProteinGroup> { pg });
+
+            // create IDs
+            string baseSeq_AW = "AWSVAR";
+            double monoisotopicMass2 = 720.3554878;
+            double peakFindingMass2 = 361.1846377;
+
+            // Define the modified peptide identifications
+            string modSeq_AW = "AW[Less Common:Dioxidation on W]SVAR";
+            double awRt1 = 9.5;
+            double awRt2 = 5.0;
+
+            Identification awId_np1 = new Identification(noPlimb1, baseSeq_AW, modSeq_AW, monoisotopicMass2,
+                awRt1, 2, new List<ProteinGroup> { pg });
+            Identification awId_np3 = new Identification(noPlimb3, baseSeq_AW, modSeq_AW, monoisotopicMass2,
+                awRt1, 2, new List<ProteinGroup> { pg });
+            Identification awId_p1 = new Identification(plimb1, baseSeq_AW, modSeq_AW, monoisotopicMass2,
+                awRt1, 2, new List<ProteinGroup> { pg });
+
+            Identification awId_np1_2 = new Identification(noPlimb1, baseSeq_AW, modSeq_AW, monoisotopicMass2,
+                awRt2, 2, new List<ProteinGroup> { pg });
+            Identification awId_np3_2 = new Identification(noPlimb3, baseSeq_AW, modSeq_AW, monoisotopicMass2,
+                awRt2, 2, new List<ProteinGroup> { pg });
+            Identification awId_p1_2 = new Identification(plimb1, baseSeq_AW, modSeq_AW, monoisotopicMass2,
+                awRt2, 2, new List<ProteinGroup> { pg });
+
+
+            // create IDs
+            string baseSeq_KF = "KFWGK";
+            double modMass3 = 748.3519813;
+
+            // Define the modified peptide identifications
+            string modSeq_KF = "KFW[CF3_OH:CF3_OH on W]GK";
+            double kfRt1 = 3.45;
+            double kfRt2 = 12.37;
+
+            Identification kfId_np3 = new Identification(noPlimb3, baseSeq_KF, modSeq_KF, modMass3,
+                kfRt1, 2, new List<ProteinGroup> { pg });
+            Identification kfId_p1 = new Identification(plimb1, baseSeq_KF, modSeq_KF, modMass3,
+                kfRt1, 2, new List<ProteinGroup> { pg });
+
+            Identification kfId_np1_2 = new Identification(noPlimb1, baseSeq_KF, modSeq_KF, modMass3,
+                kfRt2, 2, new List<ProteinGroup> { pg });
+            Identification kfId_np3_2 = new Identification(noPlimb3, baseSeq_KF, modSeq_KF, modMass3,
+                kfRt2, 2, new List<ProteinGroup> { pg });
+            Identification kfId_p1_2 = new Identification(plimb1, baseSeq_KF, modSeq_KF, modMass3,
+                kfRt2, 2, new List<ProteinGroup> { pg });
+
+            List<Identification> allIdentifications = new List<Identification>
+            {
+                hModId_np1, hModId_np3, hModId_p1,
+                hModId_np1_2, hModId_np3_2, hModId_p1_2,
+                awId_np1, awId_np3, awId_p1,
+                awId_np1_2, awId_np3_2, awId_p1_2, 
+                kfId_np3, kfId_p1,
+                kfId_np1_2, kfId_np3_2, kfId_p1_2,
+            };
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(
+                allIdentifications,
+                normalize: false,
+                maxThreads: 1,
+                matchBetweenRuns: true,
+                quantifyAmbiguousPeptides: true,
+                reportPeptideRetentionTimes: true); 
+
+            var results = engine.Run();
+
+            DoubleRange rtRange = new DoubleRange(30.0, 32.0);
+            List<ChromatographicPeak> peaks = results.Peaks.SelectMany(kvp => kvp.Value).ToList();
+            
+            int placeholder = 0;
+
+            //testCluster.ReassignPeakIDs();
         }
 
         [Test]
