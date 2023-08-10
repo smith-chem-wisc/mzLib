@@ -548,6 +548,7 @@ namespace TestFlashLFQ
         [Test]
         public static void TestInSourceOxidationDetection()
         {
+            #region Setup
             // One File, Three IDs
             SpectraFileInfo file = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
             ProteinGroup pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -562,7 +563,7 @@ namespace TestFlashLFQ
             double baseMass = 928.01;
             double oxMass = baseMass + 15.99;
 
-            Identification basePep = new Identification(file, baseSeq,baseSeq,
+            Identification basePep = new Identification(file, baseSeq, baseSeq,
                 baseMass, baseRt, 2, pgList);
             Identification inSourceOxPep = new Identification(file, baseSeq, oxSeq,
                 oxMass, baseRt, 2, pgList);
@@ -608,7 +609,7 @@ namespace TestFlashLFQ
                     oxIntensity += nonInSourceOxIntensity;
                 }
 
-                if (oxPeakSplitIndex == 0 && i > 21 && oxIntensity > oxImsPeaks[i-2].Intensity)
+                if (oxPeakSplitIndex == 0 && i > 21 && oxIntensity > oxImsPeaks[i - 2].Intensity)
                     oxPeakSplitIndex = i - 2;
 
                 oxImsPeaks.Add(new IndexedMassSpectralPeak(
@@ -620,16 +621,21 @@ namespace TestFlashLFQ
                 if (i > 20)
                     baseEnvelopes.Add(new IsotopicEnvelope(baseImsPeaks[i - 20], 2, baseIntensity * 20));
 
-                oxEnvelopes.Add(new IsotopicEnvelope(oxImsPeaks[i-1], 2, oxIntensity* 20));
+                oxEnvelopes.Add(new IsotopicEnvelope(oxImsPeaks[i - 1], 2, oxIntensity * 20));
             }
 
+            #endregion
+
+            // Create peaks
             ChromatographicPeak basePeak = new ChromatographicPeak(basePep, false, file);
             ChromatographicPeak inSourceOxPeak = new ChromatographicPeak(inSourceOxPep, false, file);
             ChromatographicPeak oxPeak = new ChromatographicPeak(oxPep, false, file);
 
+            // Test RetentionTimeRange property
             var baseRange = basePeak.RetentionTimeRange;
             Assert.IsNull(baseRange);
 
+            // Set Envelopes & Apexes 
             basePeak.IsotopicEnvelopes = baseEnvelopes;
             var baseApex = baseEnvelopes.MaxBy(e => e.Intensity);
             basePeak.SetChromatographicPeakProperties("Apex", baseApex);
@@ -642,14 +648,14 @@ namespace TestFlashLFQ
             var oxApex = oxPeak.IsotopicEnvelopes.MaxBy(e => e.Intensity);
             oxPeak.SetChromatographicPeakProperties("Apex", oxApex);
 
+            // Test RetentionTimeRange property
             baseRange = basePeak.RetentionTimeRange;
             var inSourceRange = inSourceOxPeak.RetentionTimeRange;
 
             Assert.That(baseRange.IsSuperRange(inSourceRange));
 
-            int placeholder = 0;
-
-            // Desired behaviour
+            // Build results + engine through reflection
+            #region ReflectionBuilder
             var idList = new List<Identification>() { basePep, inSourceOxPep, oxPep };
 
             FlashLfqResults results = new FlashLfqResults(new List<SpectraFileInfo>() { file }, idList);
@@ -663,14 +669,64 @@ namespace TestFlashLFQ
             var resultsInfo = typeof(FlashLfqEngine).GetField("_results", BindingFlags.NonPublic | BindingFlags.Instance);
             resultsInfo.SetValue(engine, results);
 
+            #endregion
+
             engine.DetectInSourceOxidation();
 
+            // Test base case behaviour
             Assert.That(results.Peaks
                 .SelectMany(kvp => kvp.Value)
                 .Any(peak => peak.Identifications.First().ModifiedSequence.Contains("In-Source")));
 
+            Assert.That(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source Oxidation on D]EK"));
 
-            // TODO: Write tests that cover MBR situations, MRC situations, etc.
+            // Testing situation where the in-source oxidized ID and non-oxidized ID are in separate files
+            #region SeparateFiles
+
+            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "b", 1, 0, 0);
+            Identification basePepFile2 = new Identification(file2, baseSeq, baseSeq,
+                baseMass, baseRt, 2, pgList);
+            ChromatographicPeak basePeakFile2 = new ChromatographicPeak(basePep, false, file2);
+
+            // Set Envelopes & Apexes 
+            basePeakFile2.IsotopicEnvelopes = baseEnvelopes;
+            var baseApexFile2 = baseEnvelopes.MaxBy(e => e.Intensity);
+            basePeakFile2.SetChromatographicPeakProperties("Apex", baseApexFile2);
+
+            // in-source ox peak was modified to contain an insource identification in the first run. We'll reset that now
+            inSourceOxPeak.Identifications.Clear();
+            inSourceOxPeak.AddIdentification(oxPep);
+
+            idList = new List<Identification>() { basePepFile2, inSourceOxPep, oxPep };
+
+            results = new FlashLfqResults(new List<SpectraFileInfo>() { file, file2 }, idList);
+            peakDictInfo = typeof(FlashLfqResults).GetField("Peaks", BindingFlags.Public | BindingFlags.Instance);
+            peakDictInfo.SetValue(results, new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>()
+            {
+                { file, new List<ChromatographicPeak>() { oxPeak, inSourceOxPeak } },
+                { file2, new List<ChromatographicPeak>() { basePeakFile2 } }
+            });
+
+            engine = new FlashLfqEngine(new List<Identification>() { basePepFile2, inSourceOxPep, oxPep });
+            resultsInfo = typeof(FlashLfqEngine).GetField("_results", BindingFlags.NonPublic | BindingFlags.Instance);
+            resultsInfo.SetValue(engine, results);
+
+            // Make sure that results were reset correctly before running DISO
+            Assert.False(results.Peaks
+                .SelectMany(kvp => kvp.Value)
+                .Any(peak => peak.Identifications.First().ModifiedSequence.Contains("In-Source")));
+            Assert.False(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source Oxidation on D]EK"));
+
+            engine.DetectInSourceOxidation();
+
+            // Test base case behaviour
+            Assert.That(results.Peaks
+                .SelectMany(kvp => kvp.Value)
+                .Any(peak => peak.Identifications.First().ModifiedSequence.Contains("In-Source")));
+
+            Assert.That(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source Oxidation on D]EK"));
+
+            #endregion
         }
 
         public static void SetChromatographicPeakProperties(this ChromatographicPeak peak, string propName, Object newValue)

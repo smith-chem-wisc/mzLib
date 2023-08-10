@@ -656,7 +656,7 @@ namespace FlashLFQ.PeakPicking
             get
             {
                 if (_modifiedAromaticResidueRegex == null)
-                    _modifiedAromaticResidueRegex = new Regex(@"[WYF]\[");
+                    _modifiedAromaticResidueRegex = new Regex(@"[WYFH]\[");
                 return _modifiedAromaticResidueRegex;
             }
         }

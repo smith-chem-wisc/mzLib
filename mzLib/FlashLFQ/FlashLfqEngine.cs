@@ -1569,12 +1569,12 @@ namespace FlashLFQ
         public void DetectInSourceOxidation()
         {
             Regex oxidationRegex = new Regex(@"\[.*oxidation.*\]", RegexOptions.IgnoreCase);
+            Regex specificRegex = new Regex(@"(Oxidation|Dioxidation|Trioxidation)");
+
             List<ChromatographicPeak> allPeaks = _results.Peaks.SelectMany(kvp => kvp.Value).ToList();
-            List<ChromatographicPeak> oxidationPeaks = new();
             var oxPeaks = allPeaks.Where(peak =>
                 peak.Identifications.Any(id => 
                     oxidationRegex.IsMatch(id.ModifiedSequence))); // It's unclear how this should interact with ambiguous peaks
-
 
             foreach (var oxPeak in oxPeaks)
             {
@@ -1586,78 +1586,82 @@ namespace FlashLFQ
                     {
                         oxId = id;
                         if (oxidationRegex.Matches(id.ModifiedSequence).Count > 1)
-                            goto End; // break and continue if we have a doubly oxidized species
+                            goto End; // break and continue if we have a doubly oxidized or ambiguous species
                         
                         break;
                     }
                 }
 
-                DoubleRange oxRange = oxPeak.RetentionTimeRange;
-
                 // Foreach ox ID, try and find an ID that is not oxidized at the given residue site, but is otherwise identical
                 var unOxidizedSequence = String.Join("" , oxidationRegex.Split(oxId.ModifiedSequence));
+                DoubleRange oxRtRange = oxPeak.RetentionTimeRange;
 
-                // Peaks must come from the same file
                 if (_results.PeptideModifiedSequences.ContainsKey(unOxidizedSequence))
                 {
+                    // look for basePeaks in the same file
                     var basePeaks = _results.Peaks[oxPeak.SpectraFileInfo].Where(peak => 
                         peak.Identifications.Any(id => 
-                            id.ModifiedSequence.Equals(unOxidizedSequence)));
+                            id.ModifiedSequence.Equals(unOxidizedSequence)))
+                        .ToList();
+
+                    // If there is no non-oxidized peptide peak within the same file, we check every file
+                    // This is a quick and dirty check w/o any retention time alignment. More likely to fail
+                    // This can be adjusted later, when retention time alignment is encapsulated into its own function
+                    if (!basePeaks.Any())
+                    {
+                        basePeaks = allPeaks.Where(peak =>
+                                peak.Identifications.Any(id =>
+                                    id.ModifiedSequence.Equals(unOxidizedSequence)))
+                            .ToList();
+
+                        // If the non-oxidized species isn't observed in any file, move to the next oxPeak
+                        if (!basePeaks.Any())
+                            continue;
+                    }
 
                     foreach (var basePeak in basePeaks)
                     {
-                        if (oxRange.Contains(basePeak.ApexRetentionTime))
+                        if (!oxRtRange.Contains(basePeak.ApexRetentionTime))
+                            continue;
+
+                        DoubleRange basePeakRange = basePeak.RetentionTimeRange;
+                        var overlap = basePeakRange.GetOverlap(oxRtRange);
+                        var overlapFraction = overlap.Width / oxRtRange.Width;
+
+                        if (overlapFraction < 0.9)
+                            continue;
+
+                        // It's in source. Remove the old id and replace it with a new in-source id
+                        oxPeak.RemoveIdentification(oxId);
+                        string inSourceOxModSeq = oxId.ModifiedSequence + "In-Source Oxidation";
+
+                        if (specificRegex.IsMatch(oxId.ModifiedSequence))
                         {
-                            DoubleRange basePeakRange = basePeak.RetentionTimeRange;
-                            var overlap = basePeakRange.GetOverlap(oxRange);
-                            var overlapFraction = overlap.Width / oxRange.Width;
-                            if (overlapFraction > 0.90)
-                            {
-                                // It's in source
-                                oxPeak.RemoveIdentification(oxId);
-                                string insourceOxModSeq = oxId.ModifiedSequence + "In-Source Oxidation";
-
-                                Regex specificRegex = new Regex(@"(Oxidation|Dioxidation|Trioxidation)");
-                                if (specificRegex.IsMatch(oxId.ModifiedSequence))
-                                {
-                                    var index = specificRegex.Match(oxId.ModifiedSequence).Index;
-                                    string firstHalf = oxId.ModifiedSequence.Substring(0, index);
-                                    string secondHalf = oxId.ModifiedSequence.Substring(index);
-                                    insourceOxModSeq = firstHalf + "In-Source " + secondHalf;
-                                }
-                                
-                                Identification inSourceId = new Identification(oxId.FileInfo, oxId.BaseSequence,
-                                    insourceOxModSeq, oxId.MonoisotopicMass, oxId.Ms2RetentionTimeInMinutes,
-                                    oxId.PrecursorChargeState, oxId.ProteinGroups.ToList());
-
-                                oxPeak.AddIdentification(inSourceId);
-                            }
-
+                            var index = specificRegex.Match(oxId.ModifiedSequence).Index;
+                            string firstHalf = oxId.ModifiedSequence.Substring(0, index);
+                            string secondHalf = oxId.ModifiedSequence.Substring(index);
+                            inSourceOxModSeq = firstHalf + "In-Source " + secondHalf;
                         }
+                        
+                        Identification inSourceId = new Identification(oxId.FileInfo, oxId.BaseSequence,
+                            inSourceOxModSeq, oxId.MonoisotopicMass, oxId.Ms2RetentionTimeInMinutes,
+                            oxId.PrecursorChargeState, oxId.ProteinGroups.ToList());
+
+                        oxPeak.AddIdentification(inSourceId);
+
+                        // Add the in-source ox seqs to the _results.PeptideModifiedSequences dict
+                        if (!_results.PeptideModifiedSequences.ContainsKey(inSourceId.ModifiedSequence))
+                        {
+                            _results.PeptideModifiedSequences.Add(inSourceId.ModifiedSequence,
+                                new Peptide(inSourceId.ModifiedSequence, inSourceId.ModifiedSequence,
+                                    useForProteinQuant: false, inSourceId.ProteinGroups));
+                        }
+
+                        break;
                     }
                 }
-
-                // TODO: Handle situations where the base peptide is observed in different files
-
                 End:;
             }
-
-
-            
-
-            // If peaks have > 90% overlap, it is in-source
-            //  Remove the ox id from the ox peak
-            //  Add a new "In-Source Ox" ID to the peak
-            //  Store the In-Source oxidized sequences to a list
-
-
-            // Add the in-source ox seqs to the _results.PeptideModifiedSequences dict
-            //if (!_results.PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
-            //{
-            //    PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.BaseSequence, id.UseForProteinQuant, id.ProteinGroups));
-            //}
-
-            // You're done!
         }
 
     }
