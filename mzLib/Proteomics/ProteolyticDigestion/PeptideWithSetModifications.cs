@@ -929,6 +929,11 @@ namespace Proteomics.ProteolyticDigestion
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
+        public string FullSequenceWithMassShift()
+        {
+            return DetermineFullSequenceWithMassShifts();
+        }
+
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
@@ -1089,6 +1094,51 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             FullSequence = subsequence.ToString();
+        }
+
+        private string DetermineFullSequenceWithMassShifts()
+        {
+            var subsequence = new StringBuilder();
+
+            // modification on peptide N-terminus
+            if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+            {
+                subsequence.Append('[' + mod.MonoisotopicMass.ToString() + ']');
+            }
+
+            for (int r = 0; r < Length; r++)
+            {
+                subsequence.Append(this[r]);
+
+                // modification on this residue
+                if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
+                {
+                    if (mod.MonoisotopicMass > 0)
+                    {
+                        subsequence.Append("[+" + mod.MonoisotopicMass.ToString() + ']');
+                    }
+                    else
+                    {
+                        subsequence.Append("[" + mod.MonoisotopicMass.ToString() + ']');
+                    }
+                    
+                }
+            }
+
+            // modification on peptide C-terminus
+            if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
+            {
+                if (mod.MonoisotopicMass > 0)
+                {
+                    subsequence.Append("[+" + mod.MonoisotopicMass.ToString() + ']');
+                }
+                else
+                {
+                    subsequence.Append("[" + mod.MonoisotopicMass.ToString() + ']');
+                }
+            }
+
+            return subsequence.ToString();
         }
 
         private void UpdateCleavageSpecificity()
