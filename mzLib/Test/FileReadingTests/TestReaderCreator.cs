@@ -19,7 +19,7 @@ public class TestReaderCreator
             "small.raw",
             "tester.mgf",
             "SmallCalibratibleYeast.mzml",
-            "humanInsulin.fasta",
+            "humanInsulin_ms1.feature",
             "fakeFile.sci"
         };
 
@@ -34,7 +34,7 @@ public class TestReaderCreator
                 });
                 continue;
             }
-            else if (path == "humanInsulin.fasta")
+            else if (path == "humanInsulin_ms1.feature")
             {
                 Assert.Throws<MzLibException>(() =>
                 {

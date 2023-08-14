@@ -74,9 +74,16 @@ namespace MassSpectrometry
                             1.1) //if we're past a Th spacing, we're no longer looking at the closest isotope
                         {
                             //get the lower bound charge state
-                            int charge =
-                                (int)Math.Floor(1 /
-                                                deltaMass); //e.g. deltaMass = 0.4 Th, charge is now 2 (but might be 3)
+                            int charge = 0;
+                            if (deconParams.Polarity == Polarity.Negative)
+                            {
+                                charge = (int)Math.Floor(-1 / deltaMass); //e.g. deltaMass = 0.4 Th, charge is now 2 (but might be 3)
+                            }
+                            else
+                            {
+                                charge = (int)Math.Floor(1 / deltaMass); //e.g. deltaMass = 0.4 Th, charge is now 2 (but might be 3)
+                            }
+
                             if (charge >= deconParams.MinAssumedChargeState && charge <= deconParams.MaxAssumedChargeState)
                             {
                                 allPossibleChargeStates.Add(charge);
@@ -102,23 +109,8 @@ namespace MassSpectrometry
                         double testMostIntenseMass = candidateForMostIntensePeakMz.ToMass(chargeState);
 
                         //get the index of the theoretical isotopic envelope for an averagine model that's close in mass
-                        int massIndex = Array.BinarySearch(mostIntenseMasses, testMostIntenseMass);
-                        if (massIndex < 0)
-                        {
-                            massIndex = ~massIndex;
-                        }
-
-                        if (massIndex == mostIntenseMasses.Length)
-                        {
-                            break;
-                        }
-
-                        if (massIndex != 0 && mostIntenseMasses[massIndex] - testMostIntenseMass >
-                            testMostIntenseMass - mostIntenseMasses[massIndex - 1])
-                        {
-                            massIndex--;
-                        }
-
+                        int massIndex = mostIntenseMasses.GetClosestIndex(testMostIntenseMass);
+                        
                         //create a list for each isotopic peak from this envelope. This is used to fine tune the monoisotopic mass and is populated in "FindIsotopicEnvelope"
                         List<double> monoisotopicMassPredictions = new List<double>();
 
@@ -289,25 +281,12 @@ namespace MassSpectrometry
 
         private (int start, int end) ExtractIndices(double minX, double maxX)
         {
-            int ind = Array.BinarySearch(spectrum.XArray, minX);
-            if (ind < 0)
-            {
-                ind = ~ind;
-            }
-            if (ind < spectrum.Size && spectrum.XArray[ind] <= maxX)
-            {
-                int start = ind;
-                while (ind < spectrum.Size && spectrum.XArray[ind] <= maxX)
-                {
-                    ind++;
-                }
-                ind--;
-                return (start, ind);
-            }
-            else
-            {
+            if (spectrum.XArray.Last() < minX || spectrum.XArray.First() > maxX)
                 return (1, 0);
-            }
+
+            return (
+                spectrum.XArray.GetClosestIndex(minX, ArraySearchOption.Next),
+                spectrum.XArray.GetClosestIndex(maxX, ArraySearchOption.Previous));
         }
 
         private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
