@@ -1095,7 +1095,13 @@ namespace Proteomics.ProteolyticDigestion
 
             FullSequence = subsequence.ToString();
         }
-
+        /// <summary>
+        /// This method returns the full sequence with mass shifts INSTEAD OF PTMs in brackets []
+        /// Some external tools cannot parse PTMs, instead requiring a numerical input indicating the mass of a PTM in brackets
+        /// after the position of that modification
+        /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
+        /// </summary>
+        /// <returns></returns>
         private string DetermineFullSequenceWithMassShifts()
         {
             var subsequence = new StringBuilder();
