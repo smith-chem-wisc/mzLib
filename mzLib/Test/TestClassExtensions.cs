@@ -6,7 +6,7 @@ using System.Linq;
 using System;
 using MassSpectrometry;
 using System.Collections.Generic;
-
+using Chemistry;
 
 namespace Test
 {
@@ -14,6 +14,42 @@ namespace Test
     [ExcludeFromCodeCoverage]
     public class TestClassExtensions
     {
+
+        [Test]
+        public static void TestGetClosestIndex()
+        {
+            double[] sortedArray = {1, 2, 3, 4.5, 5 };
+            // First, make sure default binary search works how I think it does
+            Assert.AreEqual(Array.BinarySearch(sortedArray, 3.1), ~3);
+
+            // Then, the new extension
+            Assert.AreEqual(sortedArray.GetClosestIndex(3.1), 2);
+            Assert.AreEqual(sortedArray.GetClosestValue(3.1), 3);
+
+            // What happens when the value is greater than the max
+            Assert.AreEqual(sortedArray.GetClosestIndex(5.06), 4);
+            // Less than the min?
+            Assert.AreEqual(sortedArray.GetClosestIndex(-1), 0);
+
+            // Test different search options
+            Assert.AreEqual(sortedArray.GetClosestIndex(4.75, ArraySearchOption.Next), 4);
+            Assert.AreEqual(sortedArray.GetClosestIndex(4.75, ArraySearchOption.Previous), 3);
+
+            double[] smallerSortedArray = { 1, 2 };
+
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex( -1), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(0), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(1), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(1.9), 1);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(Double.MaxValue), 1);
+
+            double[] smallestSortedArray = { 1 };
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(-1), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(0), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(1), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(Double.MaxValue), 0);
+        }
+
         [Test]
         public static void TestBoxCarSmooth()
         {

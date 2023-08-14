@@ -178,7 +178,9 @@ namespace Test.DatabaseTests
         [Test]
         public static void XmlGzTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml.gz"),
+            string directory = Path.Combine(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests"));
+            
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(directory, @"xml.xml.gz"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             Assert.AreEqual('M', ok[0][0]);
@@ -194,6 +196,20 @@ namespace Test.DatabaseTests
             Assert.AreEqual("HIST1H4A", ok[0].GeneNames.Where(t => t.Item1 == "primary").First().Item2);
             Assert.AreEqual(23, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "Ensembl"));
         }
+
+        [Test]
+        public static void FastaGzTest()
+        {
+            string directory = Path.Combine(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests"));
+
+            var ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(directory, @"isoform.fasta.gz"),
+                true, DecoyType.Reverse, false, out var a,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.AreEqual(20, ok.Count);
+        }
+
 
         [Test]
         public static void XmlFunkySequenceTest()
@@ -309,6 +325,7 @@ namespace Test.DatabaseTests
         public static void CompareOxidationWithAndWithoutCf()
         {
             string aString =
+                //These next lines CANNOT be tabbed over becaue the leading characters mess up the reading.
 @"ID   Methionine (R)-sulfoxide
 AC   PTM-0480
 FT   MOD_RES
