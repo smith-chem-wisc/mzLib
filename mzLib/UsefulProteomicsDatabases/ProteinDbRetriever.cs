@@ -239,7 +239,7 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Columns to select for retrieving results in tab or xls format.
-        /// https://legacy.uniprot.org/help/uniprotkb_column_names
+        /// https://www.uniprot.org/help/return_fields
         /// </summary>
         public enum Columns
         {
