@@ -78,6 +78,9 @@
     <None Update="DatabaseTests\ensembl_prrc2a.fa">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\essentialSequences.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\fake_h4.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
