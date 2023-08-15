@@ -1108,7 +1108,7 @@ namespace Proteomics.ProteolyticDigestion
             // modification on peptide N-terminus
             if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
             {
-                subsequence.Append('[' + mod.MonoisotopicMass.ToString() + ']');
+                subsequence.Append('[' + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
             }
 
             for (int r = 0; r < Length; r++)
@@ -1120,11 +1120,11 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (mod.MonoisotopicMass > 0)
                     {
-                        subsequence.Append("[+" + mod.MonoisotopicMass.ToString() + ']');
+                        subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
                     }
                     else
                     {
-                        subsequence.Append("[" + mod.MonoisotopicMass.ToString() + ']');
+                        subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
                     }
                 }
             }
@@ -1134,11 +1134,11 @@ namespace Proteomics.ProteolyticDigestion
             {
                 if (mod.MonoisotopicMass > 0)
                 {
-                    subsequence.Append("[+" + mod.MonoisotopicMass.ToString() + ']');
+                    subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
                 }
                 else
                 {
-                    subsequence.Append("[" + mod.MonoisotopicMass.ToString() + ']');
+                    subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
                 }
             }
             return subsequence.ToString();
