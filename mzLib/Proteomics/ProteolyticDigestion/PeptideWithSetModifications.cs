@@ -1143,7 +1143,6 @@ namespace Proteomics.ProteolyticDigestion
                     subsequence.Append("[" + mod.MonoisotopicMass.ToString() + ']');
                 }
             }
-
             return subsequence.ToString();
         }
 
