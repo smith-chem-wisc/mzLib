@@ -1573,8 +1573,8 @@ namespace FlashLFQ
         /// </summary>
         public void DetectInSourceOxidation()
         {
-            Regex oxidationRegex = new Regex(@"\[.*oxidation.*\]", RegexOptions.IgnoreCase);
-            Regex specificRegex = new Regex(@"(Oxidation|Dioxidation|Trioxidation)");
+            Regex oxidationRegex = new Regex(@"\[.*?oxidation.+?\]", RegexOptions.IgnoreCase);
+            Regex specificRegex = new Regex(@"\b(Oxidation|Dioxidation|Trioxidation)");
 
             List<ChromatographicPeak> allPeaks = _results.Peaks.SelectMany(kvp => kvp.Value).ToList();
             var oxPeaks = allPeaks.Where(peak =>
@@ -1583,22 +1583,15 @@ namespace FlashLFQ
 
             foreach (var oxPeak in oxPeaks)
             {
-                Identification oxId = null;
+                string oxSeq = oxPeak.Identifications
+                    .First(id => oxidationRegex.IsMatch(id.ModifiedSequence)).ModifiedSequence;
 
-                foreach (Identification id in oxPeak.Identifications)
-                {
-                    if (oxidationRegex.IsMatch(id.ModifiedSequence))
-                    {
-                        oxId = id;
-                        if (oxidationRegex.Matches(id.ModifiedSequence).Count > 1)
-                            goto End; // break and continue if we have a doubly oxidized or ambiguous species
-                        
-                        break;
-                    }
-                }
-
+                bool ambiguousId = oxSeq.Contains('|');
                 // Foreach ox ID, try and find an ID that is not oxidized at the given residue site, but is otherwise identical
-                var unOxidizedSequence = String.Join("" , oxidationRegex.Split(oxId.ModifiedSequence));
+                string modSequence = ambiguousId
+                    ? oxSeq.Split('|').First()
+                    : oxSeq;
+                string unOxidizedSequence = oxidationRegex.Replace(modSequence, ""); 
                 DoubleRange oxRtRange = oxPeak.RetentionTimeRange;
 
                 if (_results.PeptideModifiedSequences.ContainsKey(unOxidizedSequence))
@@ -1636,30 +1629,39 @@ namespace FlashLFQ
                         if (overlapFraction < 0.9)
                             continue;
 
-                        // It's in source. Remove the old id and replace it with a new in-source id
-                        oxPeak.RemoveIdentification(oxId);
-                        string inSourceOxModSeq = oxId.ModifiedSequence + "In-Source Oxidation";
+                        // It's in source. Remove the old ids and replace it with a new in-source id
 
-                        if (specificRegex.IsMatch(oxId.ModifiedSequence))
+                        var oxPeakIds = oxPeak.Identifications
+                            .Where(id => oxidationRegex.IsMatch(id.ModifiedSequence));
+                        List<(Identification, Identification)> idPairs = new();
+                        foreach (var oxId in oxPeakIds)
                         {
-                            var index = specificRegex.Match(oxId.ModifiedSequence).Index;
-                            string firstHalf = oxId.ModifiedSequence.Substring(0, index);
-                            string secondHalf = oxId.ModifiedSequence.Substring(index);
-                            inSourceOxModSeq = firstHalf + "In-Source " + secondHalf;
+                            string inSourceOxModSeq = oxId.ModifiedSequence + "[In-Source-Oxidation]";
+                            if (specificRegex.IsMatch(oxId.ModifiedSequence))
+                            {
+                                inSourceOxModSeq = specificRegex.Replace(oxId.ModifiedSequence, @"In-Source-$&");
+                            }
+
+                            Identification inSourceId = new Identification(oxId.FileInfo, oxId.BaseSequence,
+                                inSourceOxModSeq, oxId.MonoisotopicMass, oxId.Ms2RetentionTimeInMinutes,
+                                oxId.PrecursorChargeState, oxId.ProteinGroups.ToList());
+
+                            idPairs.Add((oxId, inSourceId));
                         }
-                        
-                        Identification inSourceId = new Identification(oxId.FileInfo, oxId.BaseSequence,
-                            inSourceOxModSeq, oxId.MonoisotopicMass, oxId.Ms2RetentionTimeInMinutes,
-                            oxId.PrecursorChargeState, oxId.ProteinGroups.ToList());
 
-                        oxPeak.AddIdentification(inSourceId);
-
-                        // Add the in-source ox seqs to the _results.PeptideModifiedSequences dict
-                        if (!_results.PeptideModifiedSequences.ContainsKey(inSourceId.ModifiedSequence))
+                        foreach (var idTuple in idPairs)
                         {
-                            _results.PeptideModifiedSequences.Add(inSourceId.ModifiedSequence,
-                                new Peptide(inSourceId.ModifiedSequence, inSourceId.ModifiedSequence,
-                                    useForProteinQuant: false, inSourceId.ProteinGroups));
+
+                            oxPeak.RemoveIdentification(idTuple.Item1);
+                            oxPeak.AddIdentification(idTuple.Item2);
+                            
+                            // Add the in-source ox seqs to the _results.PeptideModifiedSequences dict
+                            if (!_results.PeptideModifiedSequences.ContainsKey(idTuple.Item2.ModifiedSequence))
+                            {
+                                _results.PeptideModifiedSequences.Add(idTuple.Item2.ModifiedSequence,
+                                    new Peptide(idTuple.Item2.ModifiedSequence, idTuple.Item2.BaseSequence,
+                                        useForProteinQuant: false, idTuple.Item2.ProteinGroups));
+                            }
                         }
 
                         break;

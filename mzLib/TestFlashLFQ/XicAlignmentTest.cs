@@ -18,12 +18,10 @@ using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using MathNet.Numerics.Interpolation;
-using SharpLearning.Containers.Extensions;
 using static Nett.TomlObjectFactory;
-using System.Windows.Documents;
 using System.Reflection;
-using NUnit.Framework.Internal;
 using IsotopicEnvelope = FlashLFQ.IsotopicEnvelope;
+
 
 namespace TestFlashLFQ
 {
@@ -228,6 +226,65 @@ namespace TestFlashLFQ
                 .Select(col => matrix[1, col])
                 .ToArray();
             CollectionAssert.AreEqual(secondRow, expArray);
+
+
+            // Need to test alternating max and min
+        }
+
+        [Test]
+        public static void TestPeakRegions()
+        {
+            SpectraFileInfo inflix = new SpectraFileInfo(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "XICAlignment", @"JD020823_TNFa_Inflix_Tryp_60s_3-calib.mzML"),
+                "inflix", 0, 0, 0);
+
+            //
+            // create new uninitialized object of type matching a given instance via undocumented AllocateUninitializedClone
+            //
+            IsobarCluster emptyCluster = new IsobarCluster();
+            var allProperties = emptyCluster.GetType().GetProperties();
+
+            var extremaInfo = typeof(IsobarCluster).GetProperty("ConsensusExtrema", BindingFlags.Public | BindingFlags.Instance);
+            extremaInfo.SetValue(emptyCluster, new Dictionary<SpectraFileInfo, List<Extremum>>());
+
+            Xic emptyXic = new Xic();
+            var xicInfo = typeof(IsobarCluster).GetProperty("Xics", BindingFlags.Public | BindingFlags.Instance);
+            xicInfo.SetValue(emptyCluster, new Dictionary<SpectraFileInfo, Xic>() { {inflix, emptyXic}});
+
+            DoubleRange rtRange = new DoubleRange(0.0, 6.0);
+            var rtRangeInfo = typeof(IsobarCluster).GetProperty("RetentionTimeRange", BindingFlags.Public | BindingFlags.Instance);
+            rtRangeInfo.SetValue(emptyCluster, rtRange);
+
+            var ex1 = new Extremum(1, 0, ExtremumType.Maximum);
+            var ex2 = new Extremum(2, 0, ExtremumType.Maximum);
+            var ex3 = new Extremum(3, 0, ExtremumType.Maximum);
+            var ex4 = new Extremum(4, 0, ExtremumType.Maximum);
+            var ex5 = new Extremum(5, 0, ExtremumType.Maximum);
+            emptyCluster.ConsensusExtrema.Add(inflix, new List<Extremum> { ex1, ex2, ex3, ex4, ex5});
+
+            emptyCluster.DefinePeakRegions();
+
+            CollectionAssert.AreEqual(new List<double>
+                { 1.5, 2.5, 3.5, 4.5, 6 },
+                emptyCluster.Xics[inflix].PeakRegions.Values
+                    .OrderBy(range => range.Maximum)
+                    .Select(range => range.Maximum)
+                    .ToList()
+            );
+
+            // Test when region is less than the last maxima (happens sometimes, generally due to errors in alignment)
+            rtRangeInfo.SetValue(emptyCluster, new DoubleRange(0, 4));
+            emptyCluster.DefinePeakRegions();
+
+            CollectionAssert.AreEqual(new List<double>
+                    { 1.5, 2.5, 3.5, 4.5, 5.1 },
+                emptyCluster.Xics[inflix].PeakRegions.Values
+                    .OrderBy(range => range.Maximum)
+                    .Select(range => range.Maximum)
+                    .ToList()
+            );
+
+            int placeholder = 0;
         }
 
         [Test]
@@ -513,7 +570,7 @@ namespace TestFlashLFQ
                 hModId_np1, hModId_np3, hModId_p1,
                 hModId_np1_2, hModId_np3_2, hModId_p1_2,
                 awId_np1, awId_np3, awId_p1,
-                awId_np1_2, awId_np3_2, awId_p1_2, 
+                awId_np1_2, awId_np3_2, awId_p1_2,
                 kfId_np3, kfId_p1,
                 kfId_np1_2, kfId_np3_2, kfId_p1_2,
             };
@@ -791,7 +848,7 @@ namespace TestFlashLFQ
                 .SelectMany(kvp => kvp.Value)
                 .Any(peak => peak.Identifications.First().ModifiedSequence.Contains("In-Source")));
 
-            Assert.That(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source Oxidation on D]EK"));
+            Assert.That(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source-Oxidation on D]EK"));
 
             // Testing situation where the in-source oxidized ID and non-oxidized ID are in separate files
             #region SeparateFiles
@@ -828,7 +885,7 @@ namespace TestFlashLFQ
             Assert.False(results.Peaks
                 .SelectMany(kvp => kvp.Value)
                 .Any(peak => peak.Identifications.First().ModifiedSequence.Contains("In-Source")));
-            Assert.False(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source Oxidation on D]EK"));
+            Assert.False(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source-Oxidation on D]EK"));
 
             engine.DetectInSourceOxidation();
 
@@ -837,7 +894,72 @@ namespace TestFlashLFQ
                 .SelectMany(kvp => kvp.Value)
                 .Any(peak => peak.Identifications.First().ModifiedSequence.Contains("In-Source")));
 
-            Assert.That(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source Oxidation on D]EK"));
+            Assert.That(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source-Oxidation on D]EK"));
+
+            #endregion
+
+            #region AmbiguousInSource
+
+            // Test situation where the in-source ID is ambiguous
+            Identification ambigInSourceOxPep = new Identification(file, baseSeq, oxSeq + "|PEPTI[Less Common: Oxidation on I]DEK",
+                oxMass, baseRt, 2, pgList);
+
+            idList = new List<Identification>() { basePep, ambigInSourceOxPep, oxPep };
+            results = new FlashLfqResults(new List<SpectraFileInfo>() { file }, idList);
+
+            var idListInfo =
+                typeof(ChromatographicPeak).GetProperty("Identifications", BindingFlags.Public | BindingFlags.Instance);
+            idListInfo.SetValue(inSourceOxPeak, new List<Identification> { ambigInSourceOxPep });
+
+            peakDictInfo = typeof(FlashLfqResults).GetField("Peaks", BindingFlags.Public | BindingFlags.Instance);
+            peakDictInfo.SetValue(results, new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>()
+            {
+                { file, new List<ChromatographicPeak>() { basePeak, oxPeak, inSourceOxPeak } },
+            });
+
+            engine = new FlashLfqEngine(new List<Identification>() { basePep, ambigInSourceOxPep, oxPep });
+            resultsInfo = typeof(FlashLfqEngine).GetField("_results", BindingFlags.NonPublic | BindingFlags.Instance);
+            resultsInfo.SetValue(engine, results);
+
+            engine.DetectInSourceOxidation();
+
+            // Test base case behaviour
+            Assert.That(results.Peaks
+                .SelectMany(kvp => kvp.Value)
+                .Any(peak => peak.Identifications.First().ModifiedSequence.Contains("In-Source-Oxidation on I")));
+
+            Assert.That(results.PeptideModifiedSequences.ContainsKey("PEPTID[Less Common: In-Source-Oxidation on D]EK|PEPTI[Less Common: In-Source-Oxidation on I]DEK"));
+            #endregion
+
+            #region DoubleIDs
+            // Test situation where the in-source ID is ambiguous
+            Identification doubleInSourceOxPep = new Identification(file, baseSeq, "PEPTI[Less Common: Oxidation on I]D[Less Common: Oxidation on D]EK",
+                oxMass, baseRt, 2, pgList);
+
+            Identification diInSourceOxPep = new Identification(file, baseSeq, "PEPTI[Less Common: Dioxidation on I]DEK",
+                oxMass, baseRt, 2, pgList);
+
+            idList = new List<Identification>() { basePep, doubleInSourceOxPep, diInSourceOxPep, oxPep };
+            results = new FlashLfqResults(new List<SpectraFileInfo>() { file }, idList);
+
+            idListInfo.SetValue(inSourceOxPeak, new List<Identification> { doubleInSourceOxPep, diInSourceOxPep });
+
+            peakDictInfo = typeof(FlashLfqResults).GetField("Peaks", BindingFlags.Public | BindingFlags.Instance);
+            peakDictInfo.SetValue(results, new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>()
+            {
+                { file, new List<ChromatographicPeak>() { basePeak, oxPeak, inSourceOxPeak } },
+            });
+
+            engine = new FlashLfqEngine(new List<Identification>() { basePep, doubleInSourceOxPep, diInSourceOxPep, oxPep });
+            resultsInfo = typeof(FlashLfqEngine).GetField("_results", BindingFlags.NonPublic | BindingFlags.Instance);
+            resultsInfo.SetValue(engine, results);
+
+            engine.DetectInSourceOxidation();
+
+            // Test base case behaviour
+            Assert.That(results.Peaks
+                .SelectMany(kvp => kvp.Value)
+                .Any(peak => peak.Identifications.Any(id => id.ModifiedSequence.Contains("In-Source-Dioxidation on I"))));
 
             #endregion
         }

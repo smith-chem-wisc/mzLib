@@ -45,13 +45,15 @@ namespace FlashLFQ.PeakPicking
             SpectraFile = spectraFile;
             RetentionTimeAdjustment = retentionTimeAdjustment;
             ReferenceXic = referenceXic;
-            //Spline = spline ?? CubicSpline.InterpolateAkimaSorted(
-            //    imsPeaks.Select(p => p.RetentionTime+retentionTimeAdjustment).ToArray(),
-            //    imsPeaks.Select(p => p.Intensity).ToArray());
             Spline = SmoothSpline();
             FindExtrema();
         }
 
+        internal Xic()
+        {
+            // For testing only
+            RetentionTimeAdjustment = 0;
+        }
         public CubicSpline SmoothSpline()
         {
             double[] retentionTimes = ImsPeaks.Select(p => p.RetentionTime + RetentionTimeAdjustment).ToArray();

@@ -102,6 +102,11 @@ namespace FlashLFQ.PeakPicking
             DefinePeakRegions();
         }
 
+        internal IsobarCluster()
+        {
+            // For testing only
+
+        }
         private void SetTimeRange(DoubleRange rtRange)
         {
             double firstPeakStart = Peaks.Min(peak => peak.IsotopicEnvelopes.Min(e => e.IndexedPeak.RetentionTime));
@@ -150,9 +155,9 @@ namespace FlashLFQ.PeakPicking
                     throw new Exception("XIC too short");
                 }
                 double rtAdjustment = XicProcessing.AlignPeaks(refPeaks, peaks);
-                // If the rtAdjustment is some huge number, it probably went wrong
-                // so, set to 0. Proceed from there
-                rtAdjustment = Math.Abs(rtAdjustment) > (RetentionTimeRange.Mean / 10) + 0.1 
+                // If the rtAdjustment is improbably large, it probably went wrong. So, we set it to 0
+                // Every 10 minutes gains an additional 15 seconds of leeway on retention time adjustment
+                rtAdjustment = Math.Abs(rtAdjustment) > (RetentionTimeRange.Mean / 40) + 0.1 
                     ? 0
                     : rtAdjustment;
                 Xics.Add(file, new Xic(peaks, PeakFindingMz, file, rtAdjustment, referenceXic: false));
@@ -182,6 +187,8 @@ namespace FlashLFQ.PeakPicking
 
             foreach (int row in Enumerable.Range(1, extrema2dArray.GetLength(0)-1) )
             {
+                // The rows corresponding to the other/experimental XICs are not guaranteed to be ordered by retention time
+                // The order by statement fixes that, but 
                 List<Extremum> extrema = colIndices
                     .Select(col => extrema2dArray[row, col])
                     .Where(e => e != null)
@@ -253,16 +260,15 @@ namespace FlashLFQ.PeakPicking
                     }
                 }
                 // If loop completes on a a maximum, add a final region from last start time - end
-                if (maxFound && RetentionTimeRange.Maximum - startTime > 0)
+                if (maxFound)
                 {
-                    peakRegions.Add(regionNumber, new DoubleRange(startTime, RetentionTimeRange.Maximum));
+                    peakRegions.Add(regionNumber, new DoubleRange(startTime, Math.Max(RetentionTimeRange.Maximum, lastMaxRt+0.1)));
                 }
 
                 if(peakRegions.Count == 0) peakRegions.Add(1, RetentionTimeRange);
                 Xics[kvp.Key].SetPeakRegions(peakRegions);
             }
         }
-
 
         public void ReassignPeakIDs()
         {

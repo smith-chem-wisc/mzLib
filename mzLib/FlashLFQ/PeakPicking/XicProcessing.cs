@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -156,6 +157,7 @@ namespace FlashLFQ
             // and each column maps to a reference extrema
             Extremum[,] extrema2dArray = new Extremum[1 + expExtremaList.Count, refExtrema.Count];
             
+            // Match Maxima to maxima and minima to minima, then write matched extrema to the full 2d array
             for (int i = 0; i < expExtremaList.Count; i++)
             {
                 Extremum[] expMaxima = expExtremaList[i].Where(e => e != null && e.ExtremumType == ExtremumType.Maximum).ToArray();
@@ -178,6 +180,35 @@ namespace FlashLFQ
                         extrema2dArray[i + 1, refMinIndexMap[j]] = matchedExpMinima[j];
                     }
                 }
+
+                // Sometimes, max and min will be swapped (retention times out of order) during the remapping processes. 
+                // If that occurs, the swapped ext are removed
+                double lastRt = double.MinValue;
+                int lastIndex = -1;
+                int lastLastIndex = -1;
+
+                for (int j = 0; j < extrema2dArray.GetLength(1); j++)
+                {
+                    if (extrema2dArray[i + 1, j] == null)
+                        continue;
+
+                    if (extrema2dArray[i + 1, j].RetentionTime < lastRt)
+                    {
+                        extrema2dArray[i + 1, j] = null;
+                        extrema2dArray[i + 1, lastIndex] = null;
+                        if (lastLastIndex > 0)
+                        {
+                            lastRt = extrema2dArray[i + 1, lastLastIndex].RetentionTime;
+                            lastIndex = lastLastIndex;
+                        }
+                        continue;
+                    }
+
+                    lastRt = extrema2dArray[i + 1, j].RetentionTime;
+                    lastLastIndex = lastIndex;
+                    lastIndex = j;
+                }
+
             }
 
             // Fill in the first row with all the refExtrema. Some will be removed in the ResolveExtremaArray method
