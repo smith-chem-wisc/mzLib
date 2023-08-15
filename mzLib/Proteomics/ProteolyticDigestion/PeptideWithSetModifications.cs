@@ -1040,7 +1040,6 @@ namespace Proteomics.ProteolyticDigestion
             {
                 throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + ProteinAccession);
             }
-
             Protein = protein;
         }
 
@@ -1127,7 +1126,6 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         subsequence.Append("[" + mod.MonoisotopicMass.ToString() + ']');
                     }
-                    
                 }
             }
 

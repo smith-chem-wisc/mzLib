@@ -1111,7 +1111,7 @@ namespace Test
             {
                 allSequences.Add(peptide.FullSequenceWithMassShift());
             }
-            File.WriteAllLines(@"E:\junk\fullSequencesWithMassShift.txt", allSequences);
+            //File.WriteAllLines(@"E:\junk\fullSequencesWithMassShift.txt", allSequences);
             var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
             CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
 
