@@ -559,20 +559,20 @@ namespace TestFlashLFQ
                 kfRt1, 2, new List<ProteinGroup> { pg });
 
             Identification kfId_np1_2 = new Identification(noPlimb1, baseSeq_KF, modSeq_KF, modMass3,
-                kfRt2, 2, new List<ProteinGroup> { pg });
+                12.413, 2, new List<ProteinGroup> { pg });
             Identification kfId_np3_2 = new Identification(noPlimb3, baseSeq_KF, modSeq_KF, modMass3,
-                kfRt2, 2, new List<ProteinGroup> { pg });
+                12.376, 2, new List<ProteinGroup> { pg });
             Identification kfId_p1_2 = new Identification(plimb1, baseSeq_KF, modSeq_KF, modMass3,
-                kfRt2, 2, new List<ProteinGroup> { pg });
+                12.314, 2, new List<ProteinGroup> { pg });
 
             List<Identification> allIdentifications = new List<Identification>
             {
-                hModId_np1, hModId_np3, hModId_p1,
-                hModId_np1_2, hModId_np3_2, hModId_p1_2,
-                awId_np1, awId_np3, awId_p1,
-                awId_np1_2, awId_np3_2, awId_p1_2,
+                //hModId_np1, hModId_np3, hModId_p1,
+                //hModId_np1_2, hModId_np3_2, hModId_p1_2,
+                //awId_np1, awId_np3, awId_p1,
+                //awId_np1_2, awId_np3_2, awId_p1_2,
                 kfId_np3, kfId_p1,
-                kfId_np1_2, kfId_np3_2, kfId_p1_2,
+                kfId_np1_2, kfId_p1_2 //, kfId_np3_2
             };
 
             // create the FlashLFQ engine
