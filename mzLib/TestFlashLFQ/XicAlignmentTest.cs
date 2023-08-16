@@ -483,15 +483,28 @@ namespace TestFlashLFQ
         public static void TestEdgeCases()
         {
             // Laptop
+            //SpectraFileInfo noPlimb1 = new SpectraFileInfo(
+            //    @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_NoPLIMB_Q1.raw",
+            //    "NoPlimb", 1, 0, 0);
+            //SpectraFileInfo noPlimb3 = new SpectraFileInfo(
+            //    @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_NoPLIMB_Q3.raw",
+            //    "NoPlimb", 2, 0, 0);
+            //SpectraFileInfo plimb1 = new SpectraFileInfo(
+            //    @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_PLIMB20_Q1.raw",
+            //    "Plimb", 1, 0, 0);
+
+            // Alecto
             SpectraFileInfo noPlimb1 = new SpectraFileInfo(
-                @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_NoPLIMB_Q1.raw",
+                @"C:\Users\Alex\Documents\Immuto\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_NoPLIMB_Q1.raw",
                 "NoPlimb", 1, 0, 0);
             SpectraFileInfo noPlimb3 = new SpectraFileInfo(
-                @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_NoPLIMB_Q3.raw",
+                @"C:\Users\Alex\Documents\Immuto\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_NoPLIMB_Q3.raw",
                 "NoPlimb", 2, 0, 0);
             SpectraFileInfo plimb1 = new SpectraFileInfo(
-                @"C:\Users\asolivai\Documents\Immuto\BSA\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_PLIMB20_Q1.raw",
+                @"C:\Users\Alex\Documents\Immuto\MRC_1_1_Alexis\AJL20230804_PLIMBOpt_TCA_Quench_CF3_PLIMB20_Q1.raw",
                 "Plimb", 1, 0, 0);
+
+            #region Cases1and2
 
             // create IDs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -543,6 +556,7 @@ namespace TestFlashLFQ
             Identification awId_p1_2 = new Identification(plimb1, baseSeq_AW, modSeq_AW, monoisotopicMass2,
                 awRt2, 2, new List<ProteinGroup> { pg });
 
+            #endregion
 
             // create IDs
             string baseSeq_KF = "KFWGK";

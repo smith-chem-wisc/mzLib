@@ -303,7 +303,6 @@ namespace FlashLFQ.PeakPicking
             if (_regionPeakDictionary.Count == 0)
                 return;
 
-
             Dictionary<string, List<int>> msmsIdFullSeqToRegion = new();
             foreach (var kvp in _regionPeakDictionary)
             {
@@ -362,6 +361,12 @@ namespace FlashLFQ.PeakPicking
                         }
                     }
 
+                    Identification bestId = _regionPeakDictionary[bestRegion]
+                        .SelectMany(peak => peak.Identifications)
+                        .Where(id => id.ModifiedSequence.Contains(seqToRegionsKvp.Key))
+                        .OrderBy(id => id.ModifiedSequence.Length)
+                        .FirstOrDefault();
+
                     foreach (string seq in _regionPeakDictionary[bestRegion]
                                  .SelectMany(peak => peak.Identifications)
                                  .SelectMany(id => id.ModifiedSequence.Split('|'))
@@ -386,8 +391,8 @@ namespace FlashLFQ.PeakPicking
                         foreach (var peak in _regionPeakDictionary[region])
                         {
                             if (peak.Identifications
-                                .SelectMany(id => id.ModifiedSequence.Split('|'))
-                                .Contains(seqToRegionsKvp.Key))
+                                    .SelectMany(id => id.ModifiedSequence.Split('|'))
+                                    .Contains(seqToRegionsKvp.Key))
                             {
                                 int idIndex = peak.Identifications
                                     .FindIndex(id => id.ModifiedSequence == seqToRegionsKvp.Key);
@@ -401,17 +406,9 @@ namespace FlashLFQ.PeakPicking
                                     id = peak.Identifications[idIndex];
                                     peak.RemoveIdentification(id);
                                 }
-
-                                // Otherwise, we borrow an identification, just like in MBR
-                                else
+                                else // Otherwise, we borrow an identification, just like in MBR
                                 {
-                                    // If there is an id with an exact sequence match (i.e., non-ambiguous), we use that
-                                    id = _regionPeakDictionary[bestRegion]
-                                            .SelectMany(peak => peak.Identifications)
-                                            .FirstOrDefault(id => id.ModifiedSequence.Equals(seqToRegionsKvp.Key))
-                                         // Otherwise, we use an ambiguous id 
-                                         ?? _regionPeakDictionary[bestRegion].First().Identifications.First();
-                                    
+                                    id = bestId; 
                                 }
                                 
                                 var bestPeak = _regionPeakDictionary[bestRegion]
@@ -427,29 +424,59 @@ namespace FlashLFQ.PeakPicking
                                     bestPeak = _flashLfqEngine.GetChromatographicPeak(
                                         id, 
                                         peak.SpectraFileInfo, 
-                                        isMbrPeak: peak.SpectraFileInfo != id.FileInfo, // TODO: Add an alternate classification system for ambiguous peaks. MBR isn't totally accurate 
+                                        isMbrPeak: peak.SpectraFileInfo != id.FileInfo, 
                                         rtApex, 
                                         xic.PeakRegions[bestRegion]);
 
-                                    if (bestPeak == null) continue; //TODO: Figure out why this is happening!
-                                    _regionPeakDictionary[bestRegion].Add(bestPeak);
+                                    // If GetChromatographicPeak is returning null peaks,
+                                    // It's likely you have a peak region with a negative width
+                                    // Or there's an issue with pseudo-mbr
+                                    if (bestPeak == null) continue; 
 
-                                    //TODO: Clean this up
+                                    _regionPeakDictionary[bestRegion].Add(bestPeak);
                                     if(_results != null)
                                         _results.Peaks[peak.SpectraFileInfo].Add(bestPeak);
                                 }
                                 bestPeak.AddIdentification(id);
                                 bestPeak.Region = bestRegion;
-
-                                // I think this is unnecessary and leads to more ambiguous assignments than is accurate
-
-                                //foreach(string seq in id.ModifiedSequence.Split('|'))
-                                //{
-                                //    SequenceRegionDictionary.TryAdd(seq, bestRegion);
-                                //}
                             }
-
                         }
+                    }
+
+                    // Pseudo Match-Between-Runs
+                    // For any file without a peak in the best region, we create a new peak
+                    // The new peak will be associated with the best ID (the best ID will be from a different file)
+                    var filesWithBestPeak = _regionPeakDictionary[bestRegion]
+                        .Select(peak => peak.SpectraFileInfo)
+                        .Distinct();
+                    var allFiles = Xics.Keys.ToList();
+                    var remainingFiles = allFiles.Except(filesWithBestPeak);
+
+                    if (!remainingFiles.Any())
+                        continue;
+                    foreach (var file in remainingFiles)
+                    {
+                        var xic = Xics[file];
+                        double rtApex = xic.PeakRegions[bestRegion].Mean;
+
+                        _flashLfqEngine.SwapPeakIndexingEngine(file);
+
+                        var bestPeak = _flashLfqEngine.GetChromatographicPeak(
+                            bestId,
+                            file,
+                            isMbrPeak: true,
+                            rtApex,
+                            xic.PeakRegions[bestRegion]);
+
+                        // If GetChromatographicPeak is returning null peaks,
+                        // It's likely you have a peak region with a negative width
+                        if (bestPeak == null) continue;
+
+                        _regionPeakDictionary[bestRegion].Add(bestPeak);
+                        if (_results != null)
+                            _results.Peaks[file].Add(bestPeak);
+
+                        bestPeak.Region = bestRegion;
                     }
                 }
             }

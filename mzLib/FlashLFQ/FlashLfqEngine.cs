@@ -521,7 +521,9 @@ namespace FlashLFQ
                         rtApex ?? identification.Ms2RetentionTimeInMinutes,
                         identification.PeakfindingMass,
                         chargeState,
-                        identification.FileInfo)
+                        fileInfo,
+                        matchBetweenRuns: isMbrPeak,
+                        peakRegion: peakRegion)
                     .OrderBy(p => p.RetentionTime)
                     .ToList();
 
@@ -830,6 +832,8 @@ namespace FlashLFQ
 
                             Normal rtScoringDistribution = new Normal(acceptorFileRtHypothesis, rtRange / 6);
 
+                            #region MBR_PeakFinding
+
                             // get the MS1 scan info for this region so we can look up indexed peaks
                             Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
                             Ms1ScanInfo start = ms1ScanInfos[0];
@@ -885,7 +889,7 @@ namespace FlashLFQ
                                     var acceptorPeak = new ChromatographicPeak(donorIdentification, true, idAcceptorFile);
                                     IsotopicEnvelope seedEnv = chargeEnvelopes.First();
 
-                                    var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorIdentification.PeakfindingMass, z, idAcceptorFile, mbrTol);
+                                    var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorIdentification.PeakfindingMass, z, idAcceptorFile, tolerance: mbrTol);
                                     List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorIdentification, z);
                                     acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
                                     acceptorPeak.CalculateIntensityForThisFeature(Integrate);
@@ -966,6 +970,8 @@ namespace FlashLFQ
                                 }
                             }
                         }
+
+                        #endregion
 
                         // merge results from different threads
                         lock (matchBetweenRunsIdentifiedPeaks)
@@ -1378,15 +1384,50 @@ namespace FlashLFQ
             double idRetentionTime, 
             double mass, 
             int charge, 
-            SpectraFileInfo spectraFileInfo, 
+            SpectraFileInfo spectraFileInfo,
+            bool matchBetweenRuns = false,
+            DoubleRange peakRegion = null,
             Tolerance tolerance = null)
         {
             var xic = new List<IndexedMassSpectralPeak>();
-
+            Ms1ScanInfo[] ms1Scans = _ms1Scans[spectraFileInfo];
             Tolerance peakfindingTolerance = tolerance ?? PeakfindingPpmTolerance;
 
+            if (matchBetweenRuns && peakRegion != null)
+            {
+                Ms1ScanInfo start = ms1Scans[0];
+                Ms1ScanInfo end = ms1Scans[ms1Scans.Length - 1];
+                for (int j = 0; j < ms1Scans.Length; j++)
+                {
+                    Ms1ScanInfo scan = ms1Scans[j];
+                    if (scan.RetentionTime <= peakRegion.Minimum)
+                    {
+                        start = scan;
+                    }
+
+                    if (scan.RetentionTime >= peakRegion.Maximum)
+                    {
+                        end = scan;
+                        break;
+                    }
+                }
+
+                peakfindingTolerance = MbrPpmTolerance ?? peakfindingTolerance;
+
+                for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
+                {
+                    IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(mass, j, peakfindingTolerance, charge);
+
+                    if (peak != null)
+                    {
+                        xic.Add(peak);
+                    }
+                }
+
+                return xic;
+            }
+
             // get precursor scan to start at
-            Ms1ScanInfo[] ms1Scans = _ms1Scans[spectraFileInfo];
             int precursorScanIndex = -1;
             foreach (Ms1ScanInfo ms1Scan in ms1Scans)
             {
