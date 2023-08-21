@@ -18,12 +18,28 @@
 
 using MzLibUtil;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace MassSpectrometry
 {
-    public class MsDataScan
+    public class MsDataScanComparer : IComparer
+    {
+        public int Compare(object x, object y)
+        {
+            if (ReferenceEquals(x, y)) return 0;
+            if (x is null) return -1;
+            if (y is null) return 1;
+
+            var xScan = (MsDataScan)x;
+            var yInt = (int)y;
+
+            return xScan.OneBasedScanNumber == yInt ? 0 :
+                xScan.OneBasedScanNumber > yInt ? 1 : -1;
+        }
+    }
+    public class MsDataScan : IComparable<MsDataScan>
     {
         public MsDataScan(MzSpectrum massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer,
             double totalIonCurrent, double? injectionTime, double[,] noiseData, string nativeId, double? selectedIonMz = null, int? selectedIonChargeStateGuess = null, double? selectedIonIntensity = null, double? isolationMZ = null,
@@ -100,6 +116,14 @@ namespace MassSpectrometry
                 }
                 return isolationRange;
             }
+        }
+
+        public int CompareTo(MsDataScan other)
+        {
+            if (ReferenceEquals(this, other)) return 0;
+            if (other is null) return 1;
+            return OneBasedScanNumber == other.OneBasedScanNumber ? 0 :
+                OneBasedScanNumber > other.OneBasedScanNumber ? 1 : -1;
         }
 
         public override string ToString()
