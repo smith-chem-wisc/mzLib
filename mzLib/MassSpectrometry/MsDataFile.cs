@@ -17,15 +17,12 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using MathNet.Numerics.RootFinding;
 using MzLibUtil;
 using System;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MathNet.Numerics;
 
 namespace MassSpectrometry
 {
@@ -100,7 +97,7 @@ namespace MassSpectrometry
             for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
-                if (scan?.MsnOrder == 1)
+                if (scan.MsnOrder == 1)
                 {
                     yield return scan;
                 }
