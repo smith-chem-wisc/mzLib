@@ -34,6 +34,20 @@ namespace Test
             // Test different search options
             Assert.AreEqual(sortedArray.GetClosestIndex(4.75, ArraySearchOption.Next), 4);
             Assert.AreEqual(sortedArray.GetClosestIndex(4.75, ArraySearchOption.Previous), 3);
+
+            double[] smallerSortedArray = { 1, 2 };
+
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex( -1), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(0), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(1), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(1.9), 1);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(Double.MaxValue), 1);
+
+            double[] smallestSortedArray = { 1 };
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(-1), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(0), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(1), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(Double.MaxValue), 0);
         }
 
         [Test]
