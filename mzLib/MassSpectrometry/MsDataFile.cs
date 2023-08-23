@@ -35,7 +35,6 @@ namespace MassSpectrometry
     public abstract class MsDataFile : IEnumerable<MsDataScan>
     {
         public MsDataScan[] Scans { get; protected set; }
-
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }

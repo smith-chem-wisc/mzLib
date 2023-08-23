@@ -66,6 +66,7 @@ namespace Readers
 
             // ensures that if a scan (OneBasedScanNumber) does not exist,
             // the final scans array will contain a null value  
+            // this unique case is due to the nature of loading MGF files
             var orderedScans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
             var indexedScans = new MsDataScan[orderedScans[^1].OneBasedScanNumber];
             foreach (var scan in orderedScans)
