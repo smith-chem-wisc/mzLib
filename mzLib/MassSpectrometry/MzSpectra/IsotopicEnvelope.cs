@@ -2,10 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Chemistry;
 
 namespace MassSpectrometry
 {
-    public class IsotopicEnvelope
+    public class IsotopicEnvelope : IHasMass
     {
         public readonly List<(double mz, double intensity)> Peaks;
         public double MonoisotopicMass { get; private set; }
@@ -35,7 +36,7 @@ namespace MassSpectrometry
 
         public double GetMostAbundantObservedIsotopicMass(List<(double mz, double intensity)> peaks, int charge)
         {
-            return peaks.MaxBy(p => p.intensity).mz * charge;
+            return peaks.MaxBy(p => p.intensity).mz * Math.Abs(charge);
         }
 
         public override string ToString()
@@ -46,7 +47,7 @@ namespace MassSpectrometry
         private double ScoreIsotopeEnvelope() //likely created by Stefan Solntsev using peptide data
         {
             return Peaks.Count >= 2 ?
-                TotalIntensity / Math.Pow(StDev, 0.13) * Math.Pow(Peaks.Count, 0.4) / Math.Pow(Charge, 0.06) :
+                TotalIntensity / Math.Pow(StDev, 0.13) * Math.Pow(Peaks.Count, 0.4) / Math.Pow(Math.Abs(Charge), 0.06) :
                 0;
         }
 

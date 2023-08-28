@@ -1,4 +1,5 @@
-﻿using Proteomics;
+﻿using Easy.Common.Extensions;
+using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
@@ -70,13 +71,22 @@ namespace UsefulProteomicsDatabases
             }
             List<Protein> targets = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
+
+            string newProteinDbLocation = proteinDbLocation;
+
+            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
+            if (proteinDbLocation.EndsWith(".gz"))
+            {
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
+                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using FileStream outputFileStream = File.Create(newProteinDbLocation);
+                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
+                decompressor.CopyTo(outputFileStream);
+            }
+
+            using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
-
-                Stream uniprotXmlFileStream = proteinDbLocation.EndsWith("gz") ? // allow for .bgz and .tgz, which are (rarely) used
-                    (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
-                    stream;
 
                 ProteinXmlEntry block = new ProteinXmlEntry();
 
@@ -101,7 +111,14 @@ namespace UsefulProteomicsDatabases
                             }
                         }
                     }
+                    
                 }
+
+            }
+
+            if (newProteinDbLocation != proteinDbLocation)
+            {
+                File.Delete(newProteinDbLocation);
             }
 
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
@@ -179,12 +196,20 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> targets = new List<Protein>();
 
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                Stream fastaFileStream = proteinDbLocation.EndsWith("gz") ? // allow for .bgz and .tgz, which are (rarely) used
-                    (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
-                    stream;
+            string newProteinDbLocation = proteinDbLocation;
 
+            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
+            if (proteinDbLocation.EndsWith(".gz"))
+            {
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.fasta");
+                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using FileStream outputFileStream = File.Create(newProteinDbLocation);
+                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
+                decompressor.CopyTo(outputFileStream);
+            }
+
+            using (var fastaFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
                 StringBuilder sb = null;
                 StreamReader fasta = new StreamReader(fastaFileStream);
 
@@ -297,6 +322,12 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
+
+            if (newProteinDbLocation != proteinDbLocation)
+            {
+                File.Delete(newProteinDbLocation);
+            }
+
             if (!targets.Any())
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);

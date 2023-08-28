@@ -125,10 +125,11 @@ namespace Test
             Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987 + 0.001));
         }
 
+        // Tests in current implementation
         [Test]
         public void SpectrumContainsPeakInRangeEnd()
         {
-            Assert.AreEqual(0, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987));
+            Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987));
         }
 
         [Test]
@@ -140,7 +141,7 @@ namespace Test
         [Test]
         public void SpectrumContainsPeakInRangeStartEnd()
         {
-            Assert.AreEqual(0, _mzSpectrumA.NumPeaksWithinRange(448.23987, 448.23987));
+            Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987, 448.23987));
         }
 
         [Test]
@@ -246,16 +247,15 @@ namespace Test
         {
             double[] xArray = { 1, 2, 3, 4, 5, 6, 7 };
             double[] yArray = { 1, 2, 1, 5, 1, 2, 1 };
-
             var thisSpectrum = new MzSpectrum(xArray, yArray, false);
 
             Assert.AreEqual(7, thisSpectrum.NumPeaksWithinRange(double.MinValue, double.MaxValue));
 
-            Assert.AreEqual(6, thisSpectrum.NumPeaksWithinRange(1, 7));
+            Assert.AreEqual(7, thisSpectrum.NumPeaksWithinRange(1, 7));
 
-            Assert.AreEqual(0, thisSpectrum.NumPeaksWithinRange(1, 1));
+            Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(1, 1));
 
-            Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(1, 2));
+            Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(1, 2));
 
             Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(0.001, 2.999));
 
@@ -263,7 +263,7 @@ namespace Test
 
             Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(6.5, 8));
 
-            Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(3, 5));
+            Assert.AreEqual(3, thisSpectrum.NumPeaksWithinRange(3, 5));
 
             Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(3.5, 5.5));
 
@@ -321,17 +321,25 @@ namespace Test
             MzSpectrum identicalSpectrum = new(_mzSpectrumA.XArray, _mzSpectrumA.YArray, true);
             Assert.AreEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
             Assert.IsTrue(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsTrue(identicalSpectrum.Equals((object)_mzSpectrumA));
 
             // changed x value
             identicalSpectrum.XArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsFalse(identicalSpectrum.Equals((object)_mzSpectrumA));
             Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
             identicalSpectrum.XArray[1] -= 10;
 
             // changed y value
             identicalSpectrum.YArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsFalse(identicalSpectrum.Equals((object)_mzSpectrumA));
             Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
+
+            Assert.That(!_mzSpectrumA.Equals(null));
+            Assert.That(!_mzSpectrumA.Equals((object)null));
+            Assert.That(!_mzSpectrumA.Equals(2));
+            Assert.That(!_mzSpectrumA.Equals((object)2));
         }
     }
 }

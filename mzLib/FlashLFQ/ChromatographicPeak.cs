@@ -132,18 +132,30 @@ namespace FlashLFQ
             }
         }
 
+        /// <summary>
+        /// Merges ChromatographicPeaks by combining Identifications and IsotopicEnvelopes,
+        /// then recalculates feature intensity.
+        /// </summary>
+        /// <param name="otherFeature"> Peak to be merged in. This peak is not modified</param>
         public void MergeFeatureWith(ChromatographicPeak otherFeature, bool integrate)
         {
             if (otherFeature != this)
             {
                 var thisFeaturesPeaks = new HashSet<IndexedMassSpectralPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
-                this.Identifications = this.Identifications.Union(otherFeature.Identifications).Distinct().OrderBy(p => p.PosteriorErrorProbability).ToList();
+                this.Identifications = this.Identifications
+                    .Union(otherFeature.Identifications)
+                    .Distinct()
+                    .OrderBy(p => p.PosteriorErrorProbability).ToList();
                 ResolveIdentifications();
-                this.IsotopicEnvelopes.AddRange(otherFeature.IsotopicEnvelopes.Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
+                this.IsotopicEnvelopes.AddRange(otherFeature.IsotopicEnvelopes
+                    .Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
                 this.CalculateIntensityForThisFeature(integrate);
             }
         }
 
+        /// <summary>
+        /// Sets two ChromatographicPeak properties: NumIdentificationsByBaseSeq and NumIdentificationsByFullSeq
+        /// </summary>
         public void ResolveIdentifications()
         {
             this.NumIdentificationsByBaseSeq = Identifications.Select(v => v.BaseSequence).Distinct().Count();
