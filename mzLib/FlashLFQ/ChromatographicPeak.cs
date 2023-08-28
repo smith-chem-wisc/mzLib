@@ -178,9 +178,7 @@ namespace FlashLFQ
             //    Now imagine another scenario where you have some other peptides(that are not in either P00001 or P00002) that give you a second group, like the one above.Let’s call it P00003 | P00004.
             // Everything is still fine her.
 
-
             //    Now you have two protein groups each with two proteins. 
-
 
             //    Here is where the semi - colon comes in.
             //Imagine you now find a new peptide(totally different from any of the peptides used to create the two original protein groups) that is shared across all four proteins.The original peptides
