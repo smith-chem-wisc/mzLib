@@ -18,6 +18,7 @@
 
 using Chemistry;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -31,7 +32,7 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class MsDataFile : IEnumerable<MsDataScan>
     {
-        public MsDataScan[] Scans { get; protected set; }
+        public MsDataScan[] Scans { get; set; }
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }
@@ -73,28 +74,33 @@ namespace MassSpectrometry
         public virtual MsDataScan[] GetMsDataScans()
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
-                
+            }
             return Scans;
         }
 
         public virtual List<MsDataScan> GetAllScansList()
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
-            
+            }
+
             return Scans.ToList();
         }
 
         public virtual IEnumerable<MsDataScan> GetMS1Scans()
         {
             if (!CheckIfScansLoaded())
-              LoadAllStaticData();
-            
+            {
+                LoadAllStaticData();
+            }
+
             for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
-                if (scan.MsnOrder == 1)
+                if (scan != null && scan.MsnOrder == 1)
                 {
                     yield return scan;
                 }
@@ -104,26 +110,35 @@ namespace MassSpectrometry
         public virtual MsDataScan GetOneBasedScan(int scanNumber)
         {
             if (!CheckIfScansLoaded())
-              LoadAllStaticData();
-           
+            {
+                LoadAllStaticData();
+            }
+
             return Scans.SingleOrDefault(i => i.OneBasedScanNumber == scanNumber);
         }
 
         public virtual IEnumerable<MsDataScan> GetMsScansInIndexRange(int firstSpectrumNumber, int lastSpectrumNumber)
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
-                
+            }
+
             for (int oneBasedSpectrumNumber = firstSpectrumNumber;
-                 oneBasedSpectrumNumber <= lastSpectrumNumber; oneBasedSpectrumNumber++)
+                 oneBasedSpectrumNumber <= lastSpectrumNumber;
+                 oneBasedSpectrumNumber++)
+            {
                 yield return GetOneBasedScan(oneBasedSpectrumNumber);
+            }
         }
 
         public virtual IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
-                
+            }
+
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT) + 1;
 
             while (oneBasedSpectrumNumber < NumSpectra + 1)
@@ -159,11 +174,18 @@ namespace MassSpectrometry
         public virtual int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             if (!CheckIfScansLoaded())
+            {
                 LoadAllStaticData();
+            }
 
             return ClassExtensions.GetClosestIndex(Scans
                 .Select(scan => scan.RetentionTime)
                 .ToArray(), retentionTime);
+        }
+
+        public virtual IEnumerator<MsDataScan> GetEnumerator()
+        {
+            return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
         public virtual int[] GetMsOrderByScanInDynamicConnection()
@@ -178,16 +200,9 @@ namespace MassSpectrometry
             return (Scans != null && Scans.Length > 0);
         }
 
-        public IEnumerator<MsDataScan> GetEnumerator()
-        {
-            return Scans.Where(scan => scan is not null).GetEnumerator();
-        }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
         }
     }
-
-    
 }
