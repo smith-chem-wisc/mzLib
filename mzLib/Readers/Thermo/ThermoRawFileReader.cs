@@ -71,20 +71,23 @@ namespace Readers
                 rawFileAccessor.SelectInstrument(Device.MS, 1);
                 var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
 
-                Parallel.ForEach(Partitioner.Create(0, msDataScans.Length),
-                    new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
-                    {
-                        using (var myThreadDataReader = threadManager.CreateThreadAccessor())
+                lock (msDataScans)
+                {
+                    Parallel.ForEach(Partitioner.Create(0, msDataScans.Length),
+                        new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
                         {
-                            myThreadDataReader.SelectInstrument(Device.MS, 1);
-
-                            for (int s = fff.Item1; s < fff.Item2; s++)
+                            using (var myThreadDataReader = threadManager.CreateThreadAccessor())
                             {
+                                myThreadDataReader.SelectInstrument(Device.MS, 1);
+
+                                for (int s = fff.Item1; s < fff.Item2; s++)
+                                {
                                     var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
                                     msDataScans[s] = scan;
+                                }
                             }
-                        }
-                    });
+                        });
+                }
 
                 rawFileAccessor.Dispose();
                 Scans = msDataScans;
