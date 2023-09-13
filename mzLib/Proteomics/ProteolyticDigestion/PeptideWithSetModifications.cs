@@ -929,6 +929,11 @@ namespace Proteomics.ProteolyticDigestion
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
+        public string FullSequenceWithMassShift()
+        {
+            return DetermineFullSequenceWithMassShifts();
+        }
+
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
@@ -1035,7 +1040,6 @@ namespace Proteomics.ProteolyticDigestion
             {
                 throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + ProteinAccession);
             }
-
             Protein = protein;
         }
 
@@ -1089,6 +1093,55 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             FullSequence = subsequence.ToString();
+        }
+        /// <summary>
+        /// This method returns the full sequence with mass shifts INSTEAD OF PTMs in brackets []
+        /// Some external tools cannot parse PTMs, instead requiring a numerical input indicating the mass of a PTM in brackets
+        /// after the position of that modification
+        /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
+        /// </summary>
+        /// <returns></returns>
+        private string DetermineFullSequenceWithMassShifts()
+        {
+            var subsequence = new StringBuilder();
+
+            // modification on peptide N-terminus
+            if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+            {
+                subsequence.Append('[' + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+            }
+
+            for (int r = 0; r < Length; r++)
+            {
+                subsequence.Append(this[r]);
+
+                // modification on this residue
+                if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
+                {
+                    if (mod.MonoisotopicMass > 0)
+                    {
+                        subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+                    }
+                    else
+                    {
+                        subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+                    }
+                }
+            }
+
+            // modification on peptide C-terminus
+            if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
+            {
+                if (mod.MonoisotopicMass > 0)
+                {
+                    subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+                }
+                else
+                {
+                    subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+                }
+            }
+            return subsequence.ToString();
         }
 
         private void UpdateCleavageSpecificity()
