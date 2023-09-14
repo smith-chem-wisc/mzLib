@@ -1109,10 +1109,6 @@ namespace Test
 
             var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "essentialSequences.txt"));
 
-
-            //File.WriteAllLines(@"E:\junk\allSequences.txt", allSequences);
-            //File.WriteAllLines(@"E:\junk\expectedSequences.txt", expectedFullStrings);
-
             CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
         }
         [Test]
@@ -1133,14 +1129,6 @@ namespace Test
             }
 
             var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequences.txt"));
-
-
-
-
-            //File.WriteAllLines(@"E:\junk\expectedSequences.txt", expectedFullStrings);
-
-
-
             CollectionAssert.AreEquivalent(expectedFullStrings,allSequences.ToArray());
 
             allSequences.Clear();
@@ -1148,8 +1136,6 @@ namespace Test
             {
                 allSequences.Add(peptide.FullSequenceWithMassShift());
             }
-
-            File.WriteAllLines(@"E:\junk\fullSequences.txt", allSequences);
 
             var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
             CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
