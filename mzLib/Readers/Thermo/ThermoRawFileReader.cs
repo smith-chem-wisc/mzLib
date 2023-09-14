@@ -77,7 +77,7 @@ namespace Readers
                         using (var myThreadDataReader = threadManager.CreateThreadAccessor())
                         {
                             myThreadDataReader.SelectInstrument(Device.MS, 1);
-                            
+
                             for (int s = fff.Item1; s < fff.Item2; s++)
                             {
                                 var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
@@ -85,7 +85,8 @@ namespace Readers
                             }
                         }
                     });
-                        
+
+
                 rawFileAccessor.Dispose();
                 Scans = msDataScans;
                 SourceFile = GetSourceFile();
@@ -537,8 +538,6 @@ namespace Readers
                 var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
 
                 int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
-
-                //dynamicConnection = null;
 
                 MsOrdersByScan = msorders;
 

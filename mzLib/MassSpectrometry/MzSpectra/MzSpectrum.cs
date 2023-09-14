@@ -489,10 +489,8 @@ namespace MassSpectrometry
                 }
                 mem.Position = 0;
                 var memory = mem.ToArray();
-                mem.Dispose();
                 return memory;
             }
-            //var mem = new MemoryStream();
         }
 
         public byte[] Get64BitYarray()
