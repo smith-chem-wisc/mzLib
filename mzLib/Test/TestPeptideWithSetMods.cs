@@ -1110,8 +1110,8 @@ namespace Test
             var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "essentialSequences.txt"));
 
 
-            File.WriteAllLines(@"E:\junk\allSequences.txt", allSequences);
-            File.WriteAllLines(@"E:\junk\expectedSequences.txt", expectedFullStrings);
+            //File.WriteAllLines(@"E:\junk\allSequences.txt", allSequences);
+            //File.WriteAllLines(@"E:\junk\expectedSequences.txt", expectedFullStrings);
 
             CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
         }
