@@ -81,9 +81,9 @@ namespace Readers
 			// close the file connection. At this point, you don't need to be connected to the sqlite database anymore. You have all the data 
 			// you need. 
 			CloseFileConnection();
-			Scans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
+            Scans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
 			SourceFile = GetSourceFile();
-			return this; 
+            return this; 
 		}
 
 		private const string nativeIdFormat = "scan number only nativeID format";
@@ -450,7 +450,7 @@ namespace Readers
 			_connection = new SQLiteConnection();
 			_connection.ConnectionString = "DataSource=" + sqlite_fn; 
 			_connection.Open();
-		}
+        }
 		private void CloseFileConnection()
 		{
 			baf2sql_array_close_storage(_handle!.Value);
