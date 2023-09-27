@@ -5,7 +5,8 @@ using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+ using System.Reflection;
+ using System.Text;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -74,6 +75,15 @@ namespace Proteomics.ProteolyticDigestion
             {
                 ProteinAccession = p.Accession;
             }
+        }
+
+        public void ReplaceAllModsOneIsNterminus(Dictionary<int, Modification> allModsOneIsNterminus)
+        {
+            _allModsOneIsNterminus = allModsOneIsNterminus;
+            _monoisotopicMass = null;
+            _mostAbundantMonoisotopicMass = null;
+            _hasChemicalFormulas = null;
+
         }
 
         public DigestionParams DigestionParams

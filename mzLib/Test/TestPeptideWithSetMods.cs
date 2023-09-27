@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using Easy.Common.Extensions;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.Fragmentation;
@@ -1084,6 +1085,37 @@ namespace Test
             PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 42, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             double large_pep_most_abundant_mass_prospector = 4709.12020 - 1.0079;
             Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
+        }
+
+        [Test]
+        public static void TestReplaceAllModsOneIsNterminus()
+        {
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications(new Protein("PEPTIDES", "ACCESSION"),
+                new DigestionParams(protease: "trypsin"), 1, 8,
+                CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+
+            Assert.That(peptide.AllModsOneIsNterminus.Count == 0);
+            Assert.That(peptide.MonoisotopicMass, Is.EqualTo(peptide.MonoisotopicMass).Within(0.01));
+            Assert.That(peptide.MostAbundantMonoisotopicMass, Is.EqualTo(peptide.MonoisotopicMass).Within(0.01));
+            Assert.That(peptide.NumMods == 0);
+            Assert.That(peptide.NumVariableMods == 0);
+            Assert.That(peptide.SequenceWithChemicalFormulas == "PEPTIDES");
+
+            var noModPeptideMonoisotopicMass = peptide.MonoisotopicMass;
+            var noModPeptideMostAbundantMonoisotopicMass = peptide.MostAbundantMonoisotopicMass;
+
+            //Makes phospho mod and a dictionary that contains the mod in the last residue
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            var phosphoDict = new Dictionary<int, Modification>();
+            phosphoDict.Add(8, phosphorylation);
+            peptide.ReplaceAllModsOneIsNterminus(phosphoDict);
+
+            Assert.That(peptide.AllModsOneIsNterminus.Count != 0);
+            Assert.That(peptide.MonoisotopicMass, Is.EqualTo(noModPeptideMonoisotopicMass + phosphorylation.MonoisotopicMass).Within(0.01));
+            Assert.That(peptide.MostAbundantMonoisotopicMass, Is.EqualTo(noModPeptideMostAbundantMonoisotopicMass + phosphorylation.MonoisotopicMass).Within(0.01));
+            Assert.That(peptide.NumMods == 1);
+            Assert.That(peptide.NumVariableMods == 1);
+            Assert.That(peptide.SequenceWithChemicalFormulas == "PEPTIDE[HO3P]S");
         }
     }
 }
