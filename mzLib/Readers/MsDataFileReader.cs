@@ -11,6 +11,7 @@ namespace Readers
 {
     public static class MsDataFileReader 
     {
+
         public static MsDataFile GetDataFile(string filePath)
         {
             return filePath.ParseFileType() switch
