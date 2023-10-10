@@ -1,4 +1,4 @@
-﻿using MassSpectrometry;
+using MassSpectrometry;
 using NUnit.Framework;
 using Readers;
 using System;
@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using IO.ThermoRawFileReader;
 using MzLibUtil;
+using NUnit.Framework.Interfaces;
 
 namespace Test.FileReadingTests
 {
@@ -92,7 +93,7 @@ namespace Test.FileReadingTests
                     dataFile = new IO.MzML.Mzml(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
-
+                
                 case ".mgf":
                     dataFile = new IO.Mgf.Mgf(filePath);
                     scans = dataFile.GetAllScansList();

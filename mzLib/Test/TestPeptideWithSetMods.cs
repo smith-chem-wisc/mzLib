@@ -1085,5 +1085,60 @@ namespace Test
             double large_pep_most_abundant_mass_prospector = 4709.12020 - 1.0079;
             Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
         }
+
+        [Test]
+        public static void TestPeptideWithSetModsEssentialSequence()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            Dictionary<string, int> modsToWrite = new Dictionary<string, int>();
+            modsToWrite.Add("UniProt",0);
+
+            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
+            var gapdh = proteinXml[0];
+
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
+
+            List<string> allSequences = new List<string>();
+            foreach (var peptide in gapdhPeptides)
+            {
+                allSequences.Add(peptide.EssentialSequence(modsToWrite));
+            }
+
+            var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "essentialSequences.txt"));
+
+            CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
+        }
+        [Test]
+        public static void TestPeptideWithSetModsFullSequence()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList(); 
+            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
+            var gapdh = proteinXml[0];
+
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages:0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
+            
+            List<string> allSequences = new List<string>();
+            foreach (var peptide in gapdhPeptides)
+            {
+                allSequences.Add(peptide.FullSequence);
+            }
+
+            var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequences.txt"));
+            CollectionAssert.AreEquivalent(expectedFullStrings,allSequences.ToArray());
+
+            allSequences.Clear();
+            foreach (var peptide in gapdhPeptides)
+            {
+                allSequences.Add(peptide.FullSequenceWithMassShift());
+            }
+
+            var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
+            CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
+        }
     }
 }
