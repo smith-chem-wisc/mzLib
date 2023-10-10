@@ -22,7 +22,7 @@ namespace Proteomics.ProteolyticDigestion
         /// Dictionary of modifications on the peptide. The N terminus is index 1.
         /// The key indicates which residue modification is on (with 1 being N terminus).
         /// </summary>
-        [NonSerialized] private Dictionary<int, Modification> _allModsOneIsNterminus; //we currently only allow one mod per position
+        [NonSerialized] protected Dictionary<int, Modification> _allModsOneIsNterminus; //we currently only allow one mod per position
         [NonSerialized] protected bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] protected double? _monoisotopicMass;
