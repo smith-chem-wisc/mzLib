@@ -8,6 +8,7 @@ namespace Development.Deconvolution
 
 {
     [TestFixture]
+    [Ignore("Only needed when developing deconvolution methods")]
     [ExcludeFromCodeCoverage]
     public static class TestDevelopmentTestCases
     {

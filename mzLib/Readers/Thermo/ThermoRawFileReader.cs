@@ -1,12 +1,9 @@
-﻿using MassSpectrometry;
+﻿using Easy.Common.Extensions;
+using MassSpectrometry;
 using MzLibUtil;
-using System;
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
-using System.Threading.Tasks;
 using ThermoFisher.CommonCore.Data.Business;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 using ThermoFisher.CommonCore.Data.Interfaces;
@@ -27,8 +24,6 @@ namespace IO.ThermoRawFileReader
     }
 }
 
-
-
 // This .cs file uses:
 // RawFileReader reading tool. Copyright © 2016 by Thermo Fisher Scientific, Inc. All rights reserved.
 // See the full Software Licence Agreement for detailed requirements for use.
@@ -38,6 +33,8 @@ namespace Readers
     // but the actual implementation details should be completely hidden. 
     public class ThermoRawFileReader : MsDataFile
     {
+        private IRawDataPlus? dynamicConnection;
+        private int[] MsOrdersByScan;
         public ThermoRawFileReader(string path) : base(path) { }
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
@@ -52,49 +49,51 @@ namespace Readers
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
 
-            var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath);
-            var rawFileAccessor = threadManager.CreateThreadAccessor();
-
-            if (!rawFileAccessor.IsOpen)
+            using (var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath))
             {
-                throw new MzLibException("Unable to access RAW file!");
-            }
+                var rawFileAccessor = threadManager.CreateThreadAccessor();
 
-            if (rawFileAccessor.IsError)
-            {
-                throw new MzLibException("Error opening RAW file!");
-            }
-
-            if (rawFileAccessor.InAcquisition)
-            {
-                throw new MzLibException("RAW file still being acquired!");
-            }
-
-            rawFileAccessor.SelectInstrument(Device.MS, 1);
-            var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
-
-            Parallel.ForEach(Partitioner.Create(0, msDataScans.Length), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
-            {
-                IRawDataPlus myThreadDataReader = threadManager.CreateThreadAccessor();
-                myThreadDataReader.SelectInstrument(Device.MS, 1);
-
-                for (int s = fff.Item1; s < fff.Item2; s++)
+                if (rawFileAccessor.IsError)
                 {
-                    try
-                    {
-                        var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
-                        msDataScans[s] = scan;
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
-                    }
+                    throw new MzLibException("Error opening RAW file!");
                 }
-            });
 
-            rawFileAccessor.Dispose();
-            Scans = msDataScans;
-            SourceFile = GetSourceFile();
+                if (!rawFileAccessor.IsOpen)
+                {
+                    throw new MzLibException("Unable to access RAW file!");
+                }
+
+                if (rawFileAccessor.InAcquisition)
+                {
+                    throw new MzLibException("RAW file still being acquired!");
+                }
+
+                rawFileAccessor.SelectInstrument(Device.MS, 1);
+                var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
+
+                Parallel.ForEach(Partitioner.Create(0, msDataScans.Length),
+                    new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
+                    {
+                        using (var myThreadDataReader = threadManager.CreateThreadAccessor())
+                        {
+                            myThreadDataReader.SelectInstrument(Device.MS, 1);
+
+                            for (int s = fff.Item1; s < fff.Item2; s++)
+                            {
+                                var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
+                                msDataScans[s] = scan;
+                            }
+                        }
+                    });
+
+
+                rawFileAccessor.Dispose();
+                Scans = msDataScans;
+                SourceFile = GetSourceFile();
+            }
+            
+            temp.Dispose();
+
             return this;
         }
 
@@ -116,6 +115,7 @@ namespace Readers
                 @"SHA-1",
                 FilePath,
                 Path.GetFileNameWithoutExtension(FilePath));
+
             return sourceFile;
         }
 
@@ -156,6 +156,7 @@ namespace Readers
             }
 
             dynamicConnection.SelectInstrument(Device.MS, 1);
+
             GetMsOrdersByScanInDynamicConnection();
         }
 
@@ -165,12 +166,16 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
+            dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
+            dynamicConnection.SelectInstrument(Device.MS, 1);
+
             if (dynamicConnection == null)
             {
                 throw new MzLibException("The dynamic connection has not been created yet!");
             }
 
-            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum ||
+                oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
             {
                 return null;
             }
@@ -191,8 +196,10 @@ namespace Readers
 
         public override int[] GetMsOrderByScanInDynamicConnection()
         {
+
             if (dynamicConnection != null)
             {
+
                 int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
                 var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
 
@@ -212,13 +219,18 @@ namespace Readers
         /// <param name="maxThreads"></param>
         /// <returns></returns>
         public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
-            int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
+            int maxThreads = 1)
+        {
+            return MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
+        }
 
-        private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
+        private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams,
+            int scanNumber)
         {
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
 
             string scanFilterString = filter.ToString();
+
             int msOrder = (int)filter.MSOrder;
             if (msOrder < 1 || msOrder > 10)
             {
@@ -267,18 +279,21 @@ namespace Readers
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
                 }
+
                 if (labels[i].StartsWith("Monoisotopic M/Z", StringComparison.Ordinal))
                 {
                     precursorSelectedMonoisotopicIonMz = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
                 }
+
                 if (labels[i].StartsWith("Charge State", StringComparison.Ordinal))
                 {
                     selectedIonChargeState = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
+
                 if (labels[i].StartsWith("Master Scan Number", StringComparison.Ordinal)
                     || labels[i].StartsWith("Master Index", StringComparison.Ordinal))
                 {
@@ -286,6 +301,7 @@ namespace Readers
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
+
                 if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal))
                 {
                     HcdEnergy = values[i];
@@ -384,7 +400,8 @@ namespace Readers
                 hcdEnergy: HcdEnergy);
         }
 
-        private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams, int scanNumber, string scanFilter, int scanOrder)
+        private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams,
+            int scanNumber, string scanFilter, int scanOrder)
         {
             MzSpectrum spectrum;
             double[] xArray;
@@ -401,6 +418,7 @@ namespace Readers
             if (centroidStream.Masses == null || centroidStream.Intensities == null)
             {
                 var scan = Scan.FromFile(rawFile, scanNumber);
+
                 var mzs = scan.PreferredMasses;
                 xArray = scan.PreferredMasses;
                 yArray = scan.PreferredIntensities;
@@ -447,7 +465,7 @@ namespace Readers
                 double scanRangeLow = scanStats.LowMass;
 
                 WindowModeHelper.Run(ref intensityArray, ref mzArray, filterParams,
-                    scanRangeLow, scanRangeHigh);
+                     scanRangeLow, scanRangeHigh);
 
                 Array.Sort(mzArray, intensityArray);
                 spectrum = new MzSpectrum(mzArray, intensityArray, false);
@@ -502,8 +520,6 @@ namespace Readers
         }
 
 
-        private IRawDataPlus dynamicConnection;
-        private int[] MsOrdersByScan;
 
         /// <summary>
         /// Gets all the MS orders of all scans in a dynamic connection. This is useful if you want to open all MS1 scans
@@ -511,12 +527,19 @@ namespace Readers
         /// </summary>
         private int[] GetMsOrdersByScanInDynamicConnection()
         {
+            if (MsOrdersByScan.IsNotNullOrEmpty())
+            {
+                return MsOrdersByScan;
+            }
+
             if (dynamicConnection != null)
             {
                 int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
                 var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
 
                 int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
+
+                MsOrdersByScan = msorders;
 
                 return msorders;
             }

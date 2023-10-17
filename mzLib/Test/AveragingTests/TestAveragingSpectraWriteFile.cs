@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
 using SpectralAveraging;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
 
 namespace Test.AveragingTests
 {
@@ -131,7 +131,7 @@ namespace Test.AveragingTests
             files = Directory.GetFiles(customDestinationDirectory);
             Assert.That(files.Length == 2);
             Assert.That(files.Contains(Path.Combine(customDestinationDirectory, customName + ".mzML")));
-            
+
             // custom destination, custom name : directory not created before run
             AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath,
                 customDestinationDirectory2, customName);
@@ -148,7 +148,7 @@ namespace Test.AveragingTests
             Directory.Delete(customDestinationDirectory2, true);
         }
 
-       
+
 
     }
 }

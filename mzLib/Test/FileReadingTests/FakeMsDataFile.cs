@@ -28,7 +28,6 @@ namespace Test.FileReadingTests
     {
         public FakeMsDataFile(MsDataScan[] FakeScans) : base(FakeScans, new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
         {
-            this.Scans = FakeScans;
         }
 
         public int GetClosestOneBasedSpectrumNumber(double retentionTime)

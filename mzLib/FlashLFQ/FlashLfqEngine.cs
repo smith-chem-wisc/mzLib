@@ -3,6 +3,7 @@ using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -294,15 +295,15 @@ namespace FlashLFQ
 
                 var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundance)>();
 
-                if (formula == null)
+                if(formula is null)
                 {
-                    double massDiff = id.MonoisotopicMass;
-                    if (!String.IsNullOrEmpty(id.BaseSequence))
+                    formula = new ChemicalFormula();
+                    if (id.BaseSequence.AllSequenceResiduesAreValid())
                     {
-                        Proteomics.AminoAcidPolymer.Peptide baseSequence = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
-                        formula = baseSequence.GetChemicalFormula();
-                        // add averagine for any unknown mass difference (i.e., a modification)
-                        massDiff -= baseSequence.MonoisotopicMass;
+                        // there are sometimes non-parsable sequences in the base sequence input
+                        formula = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
+                        double massDiff = id.MonoisotopicMass;
+                        massDiff -= formula.MonoisotopicMass;
 
                         if (Math.Abs(massDiff) > 20)
                         {
@@ -317,14 +318,13 @@ namespace FlashLFQ
                     }
                     else
                     {
-                        double averagines = massDiff / averagineMass;
-                        string averagineFormulaString = 
-                            "C" + (int)Math.Round(averagines * averageC, 0) +
-                            "H" + (int)Math.Round(averagines * averageH, 0) +
-                            "O" + (int)Math.Round(averagines * averageO, 0) +
-                            "N" + (int)Math.Round(averagines * averageN, 0) +
-                            "S" + (int)Math.Round(averagines * averageS, 0);
-                        formula = ChemicalFormula.ParseFormula(averagineFormulaString);
+                        double averagines = id.MonoisotopicMass / averagineMass;
+
+                        formula.Add("C", (int)Math.Round(averagines * averageC, 0));
+                        formula.Add("H", (int)Math.Round(averagines * averageH, 0));
+                        formula.Add("O", (int)Math.Round(averagines * averageO, 0));
+                        formula.Add("N", (int)Math.Round(averagines * averageN, 0));
+                        formula.Add("S", (int)Math.Round(averagines * averageS, 0));
                     }
                 }
 

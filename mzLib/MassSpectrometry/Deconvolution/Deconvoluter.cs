@@ -11,7 +11,7 @@ namespace MassSpectrometry
     public enum DeconvolutionType
     {
         ClassicDeconvolution,
-        AlexDeconvolution,
+        ExampleNewDeconvolutionTemplate,
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ namespace MassSpectrometry
                 case DeconvolutionType.ClassicDeconvolution:
                     break;
 
-                case DeconvolutionType.AlexDeconvolution:
+                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
                     break;
             }
 
@@ -69,8 +69,8 @@ namespace MassSpectrometry
                     DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
                     break;
 
-                case DeconvolutionType.AlexDeconvolution:
-                    DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithm(deconParameters);
+                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
+                    DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconParameters);
                     break;
 
                 default: throw new MzLibException("DeconvolutionType not yet supported");

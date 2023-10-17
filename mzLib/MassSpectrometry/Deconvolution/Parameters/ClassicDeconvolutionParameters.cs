@@ -12,8 +12,6 @@ namespace MassSpectrometry
     /// </summary>
     public class ClassicDeconvolutionParameters : DeconvolutionParameters
     {
-        public int MinAssumedChargeState { get; set; }
-        public int MaxAssumedChargeState { get; set; }
         public double DeconvolutionTolerancePpm { get; set; }
         public double IntensityRatioLimit { get; set; }
 
@@ -25,12 +23,11 @@ namespace MassSpectrometry
         /// <param name="deconPpm"></param>
         /// <param name="intensityRatio"></param>
         /// <param name="range">Isolation range of the scan to be deconvoluted</param>
-        public ClassicDeconvolutionParameters(int minCharge, int maxCharge, double deconPpm, double intensityRatio) : base()
+        public ClassicDeconvolutionParameters(int minCharge, int maxCharge, double deconPpm, double intensityRatio, Polarity polarity = Polarity.Positive)
+            : base(minCharge, maxCharge, polarity)
         {
             IntensityRatioLimit = intensityRatio;
             DeconvolutionTolerancePpm = deconPpm;
-            MinAssumedChargeState = minCharge;
-            MaxAssumedChargeState = maxCharge;
         }
     }
 }
