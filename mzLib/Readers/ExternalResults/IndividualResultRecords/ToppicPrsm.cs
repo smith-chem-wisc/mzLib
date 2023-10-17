@@ -4,8 +4,18 @@ using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 using MassSpectrometry;
 
-namespace Readers.ExternalResults.IndividualResultRecords;
+namespace Readers;
 
+/// <summary>
+/// Class Representing a TopPIC prsm or proteoform
+/// For supported versions and software this file type can come from see
+///     Readers.ExternalResources.SupportedVersions.txt
+/// </summary>
+/// <remarks>
+/// Things that could be done to improve compatibility:
+/// Convert Variable Modifications to a list of Modification objects
+/// Convert NTerminalForm to a Modification object
+/// </remarks>
 public class ToppicPrsm
 {
     [Ignore]
@@ -143,6 +153,9 @@ public class ToppicPrsm
     public List<AlternativeToppicId> AlternativeIdentifications { get; set; }
 }
 
+/// <summary>
+/// Class representing an alternative Identification from the tsv file. 
+/// </summary>
 public class AlternativeToppicId
 {
     public int PrsmId { get; set; }

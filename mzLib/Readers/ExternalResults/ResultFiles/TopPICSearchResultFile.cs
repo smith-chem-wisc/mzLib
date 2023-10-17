@@ -1,22 +1,19 @@
 ﻿using CsvHelper.Configuration;
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
 using System.Text;
-using System.Threading.Tasks;
 using Easy.Common.Extensions;
 using MassSpectrometry;
-using ThermoFisher.CommonCore.Data;
 using CsvHelper;
 using CsvHelper.TypeConversion;
-using Microsoft.SqlServer.Server;
 using MzLibUtil;
-using Readers.ExternalResults.IndividualResultRecords;
 
 namespace Readers
 {
+    /// <summary>
+    /// Concrete Product for reading and representing a proteoform or psm search results file from TopPIC
+    /// For supported versions and software this file type can come from see
+    ///     Readers.ExternalResources.SupportedVersions.txt
+    /// </summary>
     public class ToppicSearchResultFile : ResultFile<ToppicPrsm>
     {
         private SupportedFileType _fileType;
@@ -41,7 +38,7 @@ namespace Readers
         }
         public override Software Software { get; set; }
 
-        #region Search Summary Properties
+        #region Search Summary Parameters
 
         public string ProteinDatabasePath { get; private set; }
         public string SpectrumFilePath { get; private set; }
@@ -119,7 +116,7 @@ namespace Readers
                     // everything below will be the actual Toppic results
                     // read them in with CsvHelper
                     var alternativeIDs = new List<string>();
-                    bool isAlternativeID = false;
+                    bool isAlternativeId = false;
                     var toppicDefaultConfig = ToppicPrsm.CsvConfiguration;
                     var csvConfig = new CsvConfiguration(CultureInfo.InvariantCulture)
                     {
@@ -130,7 +127,7 @@ namespace Readers
                         {
                             if (context.Exception is not TypeConverterException) throw new IOException("Error reading Toppic results file", context.Exception);
 
-                            isAlternativeID = true;
+                            isAlternativeId = true;
                             alternativeIDs.Add(context.Exception.Context.Parser.RawRecord);
                             return false;
                         },
@@ -144,7 +141,7 @@ namespace Readers
                     while (csv.Read())
                     {
                         var record = csv.GetRecord<ToppicPrsm>();
-                        if (isAlternativeID)
+                        if (isAlternativeId)
                         {
                             results.Last().AlternativeIdentifications.AddRange(alternativeIDs
                                 .Select(p => p.Split('\t')
@@ -152,12 +149,13 @@ namespace Readers
                                     .ToArray())
                                 .Select(p => new AlternativeToppicId(int.Parse(p[1]), p[2], p[3], int.Parse(p[4]), int.Parse(p[5])))
                                 .ToList());
-                            isAlternativeID = false;
+                            isAlternativeId = false;
                             alternativeIDs.Clear();
                         }
                         else
                         {
-                            results.Add(record);
+                            if (record != null)
+                                results.Add(record);
                         }
                     }
 
@@ -349,7 +347,5 @@ namespace Readers
                 }
             }
         }
-
-    
     }
 }
