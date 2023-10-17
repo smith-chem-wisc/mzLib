@@ -18,9 +18,7 @@ public class ToppicPrsm
 
     public ToppicPrsm()
     {
-        AlternativeIdentifications =
-            new List<(int ScanNum, string Accession, string ProteinDescription, int FirstResidue, int LastResidue
-                )>();
+        AlternativeIdentifications = new List<AlternativeToppicId>();
     }
 
     private string _fileNameWithoutExtension;
@@ -61,6 +59,7 @@ public class ToppicPrsm
     public double ProteoformId { get; set; }
 
     [Name("Feature intensity")]
+    [Format("#.00#E+00")]
     public double FeatureIntensity { get; set; }
 
     [Name("Feature score")]
@@ -129,6 +128,7 @@ public class ToppicPrsm
     public int MatchedFragmentIonsCount { get; set; }
 
     [Name("E-value")]
+    [Format("0.00E+00")]
     public double EValue { get; set; }
 
     [Name("Spectrum-level Q-value")]
@@ -140,5 +140,29 @@ public class ToppicPrsm
     public double? QValueProteoformLevel { get; set; }
 
     [Ignore]
-    public List<(int PrsmId, string Accession, string ProteinDescription, int FirstResidue, int LastResidue)> AlternativeIdentifications { get; set; }
+    public List<AlternativeToppicId> AlternativeIdentifications { get; set; }
+}
+
+public class AlternativeToppicId
+{
+    public int PrsmId { get; set; }
+    public string Accession { get; set; }
+    public string ProteinDescription { get; set; }
+    public int FirstResidue { get; set; }
+    public int LastResidue { get; set; }
+
+    public AlternativeToppicId(int prsmId, string accession, string proteinDescription, int firstResidue,
+        int lastResidue)
+    {
+        PrsmId = prsmId;
+        Accession = accession;
+        ProteinDescription = proteinDescription;
+        FirstResidue = firstResidue;
+        LastResidue = lastResidue;
+    }
+
+    public override string ToString()
+    {
+        return $"{PrsmId}\t\t\t\t\t\t\t\t\t\t\t\t\t\t{Accession}\t{ProteinDescription}\t{FirstResidue}\t{LastResidue}\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
+    }
 }

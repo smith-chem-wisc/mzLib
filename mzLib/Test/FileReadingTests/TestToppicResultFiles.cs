@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Entity.Core.Objects;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MassSpectrometry;
+using Newtonsoft.Json;
 using NUnit.Framework;
 using pepXML.Generated;
 using Readers;
@@ -95,6 +97,10 @@ namespace Test.FileReadingTests
         {
             string filePath = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ToppicSearchResultFile file = new ToppicSearchResultFile(filePath);
+            Assert.That(file.FileType,
+                path.Contains("single")
+                    ? Is.EqualTo(SupportedFileType.ToppicProteoformSingle)
+                    : Is.EqualTo(SupportedFileType.ToppicProteoform));
             file.LoadResults();
 
             var first = file.First();
@@ -141,6 +147,7 @@ namespace Test.FileReadingTests
             string path = @"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv";
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ToppicSearchResultFile file = new ToppicSearchResultFile(filePath);
+            Assert.That(file.FileType, Is.EqualTo(SupportedFileType.ToppicProteoform));
             file.LoadResults();
 
             var containsAlternatives = file.First(p => p.PrsmID == 37);
@@ -171,7 +178,6 @@ namespace Test.FileReadingTests
             Assert.That(alternative.LastResidue, Is.EqualTo(1178));
         }
 
-
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv")]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv")]
@@ -179,6 +185,11 @@ namespace Test.FileReadingTests
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ToppicSearchResultFile file = new ToppicSearchResultFile(filePath);
+            Assert.That(file.FileType,
+                path.Contains("single")
+                    ? Is.EqualTo(SupportedFileType.ToppicPrsmSingle)
+                    : Is.EqualTo(SupportedFileType.ToppicPrsm));
+
             file.LoadResults();
 
             var first = file.First();
@@ -225,6 +236,7 @@ namespace Test.FileReadingTests
             string path = @"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv";
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ToppicSearchResultFile file = new ToppicSearchResultFile(filePath);
+            Assert.That(file.FileType, Is.EqualTo(SupportedFileType.ToppicPrsm));
             file.LoadResults();
 
             var containsAlternatives = file.First(p => p.PrsmID == 1);
@@ -261,6 +273,96 @@ namespace Test.FileReadingTests
                 Is.EqualTo("Hemicentin-1 OS=Homo sapiens OX=9606 GN=HMCN1 PE=1 SV=2"));
             Assert.That(alternative.FirstResidue, Is.EqualTo(179));
             Assert.That(alternative.LastResidue, Is.EqualTo(183));
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv")]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv")]
+        public static void TestTopicProteoformsReadWrite(string path)
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            var testOutputPath = path.Contains("single")
+                ? Path.Combine(directoryPath, "toppic_proteoform_single.tsv")
+                : Path.Combine(directoryPath, "toppic_proteoform.tsv");
+
+            ToppicSearchResultFile file = new ToppicSearchResultFile(filepath);
+            file.LoadResults();
+            file.WriteResults(testOutputPath);
+            var writtenFile = FileReader.ReadFile<ToppicSearchResultFile>(testOutputPath);
+            writtenFile.LoadResults();
+            Assert.That(File.Exists(testOutputPath));
+
+            // check are equivalent
+            for (int i = 0; i < file.Results.Count; i++)
+            {
+                var original = JsonConvert.SerializeObject(file.Results[i]);
+                var written = JsonConvert.SerializeObject(writtenFile.Results[i]);
+                Assert.That(original, Is.EqualTo(written));
+            }
+
+            var originalLines = File.ReadAllLines(filepath);
+            var writtenLines = File.ReadAllLines(testOutputPath);
+            Assert.That(writtenLines.Length, Is.EqualTo(originalLines.Length));
+            int paramCount = 0;
+            for (int i = 0; i < originalLines.Length; i++)
+            {
+                if (originalLines[i].Contains("********"))
+                    paramCount++;
+                if (paramCount >= 2)
+                    break;
+                Assert.That(writtenLines[i], Is.EqualTo(originalLines[i]));
+            }
+
+            // test writer still works without specifying extensions
+            File.Delete(testOutputPath);
+            var testOutputPathWithoutExtension = Path.Combine(directoryPath, "toppic");
+            file.WriteResults(testOutputPathWithoutExtension);
+            Assert.That(File.Exists(testOutputPath));
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv")]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv")]
+        public static void TestToppicPrsmReadWrite(string path)
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            var testOutputPath = path.Contains("single")
+                ? Path.Combine(directoryPath, "toppic_prsm_single.tsv")
+                : Path.Combine(directoryPath, "toppic_prsm.tsv");
+
+            ToppicSearchResultFile file = new ToppicSearchResultFile(filepath);
+            file.LoadResults();
+            file.WriteResults(testOutputPath);
+            var writtenFile = FileReader.ReadFile<ToppicSearchResultFile>(testOutputPath);
+            writtenFile.LoadResults();
+            Assert.That(File.Exists(testOutputPath));
+
+            // check are equivalent
+            for (int i = 0; i < file.Results.Count; i++)
+            {
+                var original = JsonConvert.SerializeObject(file.Results[i]);
+                var written = JsonConvert.SerializeObject(writtenFile.Results[i]);
+                Assert.That(original, Is.EqualTo(written));
+            }
+
+            var originalLines = File.ReadAllLines(filepath);
+            var writtenLines = File.ReadAllLines(testOutputPath);
+            Assert.That(writtenLines.Length, Is.EqualTo(originalLines.Length));
+            int paramCount = 0;
+            for (int i = 0; i < originalLines.Length; i++)
+            {
+                if (originalLines[i].Contains("********"))
+                    paramCount++;
+                if (paramCount >= 2)
+                    break;
+                Assert.That(writtenLines[i], Is.EqualTo(originalLines[i]));
+            }
+
+            // test writer still works without specifying extensions
+            File.Delete(testOutputPath);
+            var testOutputPathWithoutExtension = Path.Combine(directoryPath, "toppic");
+            file.WriteResults(testOutputPathWithoutExtension);
+            Assert.That(File.Exists(testOutputPath));
         }
     }
 }

@@ -12,25 +12,31 @@ using ThermoFisher.CommonCore.Data;
 using CsvHelper;
 using CsvHelper.TypeConversion;
 using Microsoft.SqlServer.Server;
+using MzLibUtil;
 using Readers.ExternalResults.IndividualResultRecords;
 
 namespace Readers
 {
     public class ToppicSearchResultFile : ResultFile<ToppicPrsm>
     {
+        private SupportedFileType _fileType;
         public override SupportedFileType FileType
         {
             get
             {
+                if (!_fileType.IsDefault()) return _fileType;
+
                 if (FilePath.EndsWith(SupportedFileType.ToppicProteoform.GetFileExtension()))
-                    return SupportedFileType.ToppicProteoform;
-                if (FilePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension()))
-                    return SupportedFileType.ToppicPrsm;
-                if (FilePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension()))
-                    return SupportedFileType.ToppicProteoformSingle;
-                if (FilePath.EndsWith(SupportedFileType.ToppicPrsmSingle.GetFileExtension()))
-                    return SupportedFileType.ToppicPrsmSingle;
-                throw new FileLoadException("File type not supported");
+                    _fileType = SupportedFileType.ToppicProteoform;
+                else if (FilePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension()))
+                    _fileType = SupportedFileType.ToppicPrsm;
+                else if (FilePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension()))
+                    _fileType = SupportedFileType.ToppicProteoformSingle;
+                else if (FilePath.EndsWith(SupportedFileType.ToppicPrsmSingle.GetFileExtension()))
+                    _fileType = SupportedFileType.ToppicPrsmSingle;
+                else throw new MzLibException("Cannot parse result file type from file path");
+
+                return _fileType;
             }
         }
         public override Software Software { get; set; }
@@ -144,7 +150,7 @@ namespace Readers
                                 .Select(p => p.Split('\t')
                                     .Where(str => !string.IsNullOrEmpty(str))
                                     .ToArray())
-                                .Select(p => (int.Parse(p[1]), p[2], p[3], int.Parse(p[4]), int.Parse(p[5])))
+                                .Select(p => new AlternativeToppicId(int.Parse(p[1]), p[2], p[3], int.Parse(p[4]), int.Parse(p[5])))
                                 .ToList());
                             isAlternativeID = false;
                             alternativeIDs.Clear();
@@ -293,13 +299,54 @@ namespace Readers
             if (!CanRead(outputPath))
                 outputPath += FileType.GetFileExtension();
 
-            using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), ToppicPrsm.CsvConfiguration);
+            using var sw = new StreamWriter(File.Create(outputPath));
+            using var csv = new CsvWriter(sw, ToppicPrsm.CsvConfiguration);
+
+            // write header
+            sw.WriteLine("********************** Parameters **********************");
+            sw.WriteLine($"{"Protein database file:",-46}\t{ProteinDatabasePath}");
+            sw.WriteLine($"{"Spectrum file:",-46}\t{SpectrumFilePath}");
+            sw.WriteLine($"{"Number of combined spectra:",-46}\t{NumberOfCombinedSpectra}");
+            sw.WriteLine($"{"Fragmentation method:",-46}\t{FragmentationMethod}");
+            sw.WriteLine($"{"Search type:",-46}\t{SearchType}");
+            sw.WriteLine($"{"Fixed modifications BEGIN",-46}");
+            foreach (var fixedMod in FixedModifications)
+            {
+                var splits = fixedMod.Split(' ');
+                sw.WriteLine($"{splits[0],-46}\t{splits[1]}\t{splits[2]}");
+            }
+            sw.WriteLine($"{"Fixed modifications END",-46}");
+            sw.WriteLine($"{"Allowed N-terminal forms:",-46}\t{string.Join(",", AllowedNTerminalForms)}");
+            sw.WriteLine($"{"Maximum number of unexpected modifications:",-46}\t{NumberOfMaxUnexpectedModifications}");
+            sw.WriteLine($"{"Maximum mass shift of modifications:",-46}\t{MaximumMassShift} Da");
+            sw.WriteLine($"{"Minimum mass shift of modifications:",-46}\t{MinimumMassShift} Da");
+            sw.WriteLine($"{"Spectrum-level cutoff type:",-46}\t{SpectrumLevelCutOffType}");
+            sw.WriteLine($"{"Spectrum-level cutoff value:",-46}\t{SpectrumLevelCutOffValue}");
+            sw.WriteLine($"{"Proteoform-level cutoff type:",-46}\t{ProteoformLevelCutOffType}");
+            sw.WriteLine($"{"Proteoform-level cutoff value:",-46}\t{ProteoformLevelCutOffValue}");
+            sw.WriteLine($"{"Error tolerance for matching masses:",-46}\t{PrecursorErrorTolerance} ppm");
+            sw.WriteLine($"{"Error tolerance for identifying PrSM clusters:",-46}\t{PrsmClusterErrorTolerance} Da");
+            sw.WriteLine($"{"Use TopFD feature file:",-46}\t{UseToppicFeatureFile}");
+            sw.WriteLine($"{"E-value computation:",-46}\t{EValueComputation}");
+            sw.WriteLine($"{"Localization with MIScore:",-46}\t{LocalizationWithMIScore}");
+            sw.WriteLine($"{"Thread number:",-46}\t{ThreadNumber}");
+            sw.WriteLine($"{"Executable file directory:",-46}\t{ExecutableFileDirectory}");
+            sw.WriteLine($"{"Start time:",-46}\t{StartTime:ddd MMM dd HH:mm:ss yyyy}");
+            sw.WriteLine($"{"End time:",-46}\t{EndTime:ddd MMM dd HH:mm:ss yyyy}");
+            sw.WriteLine($"{"Version:",-46}\t{Version}");
+            sw.WriteLine("********************** Parameters **********************");
+            sw.WriteLine("");
 
             csv.WriteHeader<ToppicPrsm>();
             foreach (var result in Results)
             {
                 csv.NextRecord();
                 csv.WriteRecord(result);
+                foreach (var alternativeId in result.AlternativeIdentifications)
+                {
+                    csv.NextRecord();
+                    sw.Write($"{result.FilePath}\t{alternativeId}");
+                }
             }
         }
 
