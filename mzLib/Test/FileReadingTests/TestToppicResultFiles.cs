@@ -1,19 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.Entity.Core.Objects;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MassSpectrometry;
 using Newtonsoft.Json;
 using NUnit.Framework;
-using pepXML.Generated;
 using Readers;
 
 namespace Test.FileReadingTests
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class TestToppicResultFiles
     {
         private static string directoryPath;
