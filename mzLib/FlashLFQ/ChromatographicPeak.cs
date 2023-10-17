@@ -169,6 +169,25 @@ namespace FlashLFQ
             sb.Append(string.Join("|", Identifications.Select(p => p.BaseSequence).Distinct()) + '\t');
             sb.Append(string.Join("|", Identifications.Select(p => p.ModifiedSequence).Distinct()) + '\t');
 
+            //The semi-colon here splitting the protein groups requires some explanation
+            //During protein parsimony, you can get situations where all peptides are shared between two or more proteins. In other words, there is no unique peptide that could resolve the parsimony.
+            //In this case you would see something like P00001 | P00002.
+
+            //That’s the easy part and you already understand that.
+
+            //    Now imagine another scenario where you have some other peptides(that are not in either P00001 or P00002) that give you a second group, like the one above.Let’s call it P00003 | P00004.
+            // Everything is still fine her.
+
+            //    Now you have two protein groups each with two proteins. 
+
+            //    Here is where the semi - colon comes in.
+            //Imagine you now find a new peptide(totally different from any of the peptides used to create the two original protein groups) that is shared across all four proteins.The original peptides
+            //require that two different protein groups exist, but this new peptide could come from either or both.We don’t know. So, the quantification of that peptide must be allowed to be
+            //either/ both groups. For this peptide, the protein accession in the output will be P00001 | P00002; P00003 | P00004.
+
+            //    You could see an output that looks like P0000A; P0000B.Here there is only one protein in each protein group(as decided by parsimony).And you have a peptide that is shared.This would
+            // not ever be reported as P0000A | P0000B because each protein has a unique peptide that confirms its existence.
+
             var t = Identifications.SelectMany(p => p.ProteinGroups.Select(v => v.ProteinGroupName)).Distinct().OrderBy(p => p);
             if (t.Any())
             {

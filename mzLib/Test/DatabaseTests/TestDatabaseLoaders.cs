@@ -15,15 +15,15 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -51,8 +51,8 @@ namespace Test.DatabaseTests
         [Test]
         public static void LoadIsoforms()
         {
-            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, 
-                false, out var errors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, 
+            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None,
+                false, out var errors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
             Assert.AreEqual("Q13409", protein[0].Accession);
             Assert.AreEqual("Q13409-2", protein[1].Accession);
@@ -144,7 +144,7 @@ namespace Test.DatabaseTests
 
                 string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
                 Assert.AreEqual(expected, sw.ToString());
-                sw.Close ();
+                sw.Close();
             }
 
             //create and empty obo that will be seen as different from the downloaded file and then be updated.
@@ -220,18 +220,18 @@ namespace Test.DatabaseTests
 
             // N6,N6,N6-trimethyllysine
             var trimethylLysine = psiMods.First(b => b.Id.Equals("MOD:00083"));
-            Assert.AreEqual("1+", 
+            Assert.AreEqual("1+",
                 trimethylLysine.ValuePairs
                     .First(b => b.Value.Contains("FormalCharge")).GetFormalChargeString());
 
             // Phosphoserine
             bool resultBool = psiMods.First(b => b.Id.Equals("MOD:00046"))
-                .ValuePairs.Any(i => i.Value.Contains("FormalCharge")); 
+                .ValuePairs.Any(i => i.Value.Contains("FormalCharge"));
             Assert.IsFalse(resultBool);
 
             // ensure that there are negative numbers in the formal charges
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiMods);
-            bool anyNegativeValue = formalChargesDictionary.Values.Any(i => i < 0); 
+            bool anyNegativeValue = formalChargesDictionary.Values.Any(i => i < 0);
             Assert.IsTrue(anyNegativeValue);
         }
 
@@ -744,7 +744,7 @@ namespace Test.DatabaseTests
             Assert.That(targetProtein.FullName == "Apoptosis-inducing factor 1, mitochondrial");
             Assert.That(targetProtein.Name == "AIFM1_MOUSE");
             Assert.That(targetProtein.Organism == "Mus musculus");
-                
+
             // gencode database
             fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "gencode_mmp20.fa");
             proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out errors);
