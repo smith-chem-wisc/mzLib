@@ -42,13 +42,13 @@ public class ToppicPrsm
     public int PrsmID { get; set; }
 
     [Name("Spectrum ID")]
-    public int ScanNum { get; set; }
+    public int SpectrumId { get; set; }
 
     [Name("Fragmentation")]
     public DissociationType DissociationType { get; set; }
 
     [Name("Scan(s)")]
-    public int Scans { get; set; }
+    public int OneBasedScanNumber { get; set; }
 
     [Name("Retention time")]
     public double RetentionTime { get; set; }

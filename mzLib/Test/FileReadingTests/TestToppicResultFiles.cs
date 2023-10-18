@@ -104,9 +104,9 @@ namespace Test.FileReadingTests
             var first = file.First();
             Assert.That(first.FilePath, Is.EqualTo("B:/Users/Nic/SharedWithMe/targetBias/Centroided/05-26-17_B7A_yeast_td_fract5_rep1_ms2.msalign"));
             Assert.That(first.PrsmID, Is.EqualTo(2));
-            Assert.That(first.ScanNum, Is.EqualTo(10));
+            Assert.That(first.SpectrumId, Is.EqualTo(10));
             Assert.That(first.DissociationType, Is.EqualTo(DissociationType.HCD));
-            Assert.That(first.Scans, Is.EqualTo(354));
+            Assert.That(first.OneBasedScanNumber, Is.EqualTo(354));
             Assert.That(first.RetentionTime, Is.EqualTo(465.09));
             Assert.That(first.PeakCount, Is.EqualTo(16));
             Assert.That(first.PrecursorCharge, Is.EqualTo(1));
@@ -193,9 +193,9 @@ namespace Test.FileReadingTests
             var first = file.First();
             Assert.That(first.FilePath, Is.EqualTo("B:/Users/Nic/SharedWithMe/targetBias/Centroided/05-26-17_B7A_yeast_td_fract5_rep1_ms2.msalign"));
             Assert.That(first.PrsmID, Is.EqualTo(0));
-            Assert.That(first.ScanNum, Is.EqualTo(7));
+            Assert.That(first.SpectrumId, Is.EqualTo(7));
             Assert.That(first.DissociationType, Is.EqualTo(DissociationType.HCD));
-            Assert.That(first.Scans, Is.EqualTo(259));
+            Assert.That(first.OneBasedScanNumber, Is.EqualTo(259));
             Assert.That(first.RetentionTime, Is.EqualTo(340.12));
             Assert.That(first.PeakCount, Is.EqualTo(14));
             Assert.That(first.PrecursorCharge, Is.EqualTo(1));
