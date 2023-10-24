@@ -217,7 +217,9 @@ namespace Readers
                         NumberOfCombinedSpectra = int.Parse(parameter.Value);
                         break;
                     case "Fragmentation method":
-                        FragmentationMethod = Enum.Parse<DissociationType>(parameter.Value);
+                        FragmentationMethod = parameter.Value.Equals("FILE", StringComparison.InvariantCultureIgnoreCase)
+                            ? DissociationType.Autodetect
+                            : Enum.Parse<DissociationType>(parameter.Value);
                         break;
                     case "Search type":
                         SearchType = parameter.Value;
@@ -286,8 +288,6 @@ namespace Readers
                     case "Version":
                         Version = parameter.Value;
                         break;
-                    default:
-                        throw new NotImplementedException();
                 }
             }
         }
