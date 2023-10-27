@@ -18,6 +18,7 @@
 
 using MzLibUtil;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -141,7 +142,7 @@ namespace MassSpectrometry
         /// <param name="type">deconvolution type to be performed</param>
         /// <param name="deconParameters">deconvolution parameters</param>
         /// <returns></returns>
-        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(DeconvolutionTypes type,
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(DeconvolutionType type,
             DeconvolutionParameters deconParameters)
         {
             Deconvoluter deconvoluter = new Deconvoluter(type, deconParameters);

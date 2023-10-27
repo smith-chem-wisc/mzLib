@@ -16,9 +16,12 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using Easy.Common.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace Proteomics.AminoAcidPolymer
 {
@@ -69,6 +72,24 @@ namespace Proteomics.AminoAcidPolymer
                 }
             }
             return bits;
+        }
+
+        /// <summary>
+        /// Checks whether a given string represents a valid peptide sequence without modifications. 
+        /// Valid sequences contain only residues in the ResidueDictionary.
+        /// Note: the residue dictionary can be externally modified. Unusual amino acid letters can and do appear in peptide sequences.
+        /// </summary>
+        /// <param name="baseSequence"> Sequence to be checked </param>
+        /// <returns> True if the sequence is valid. False otherwise. </returns>
+        public static bool AllSequenceResiduesAreValid(this string baseSequence)
+        {
+            if (baseSequence.IsNullOrEmpty()) return false;
+
+            return !baseSequence.ToCharArray() //the input is the base sequence.
+                .Distinct() //this line eliminates any duplicated amino acids to save search time.
+                .Except(Residue.ResiduesDictionary.Values.Select(l => l.Letter)) //This line removes from the base sequence array any residues that are known in the dictionary
+                .Any(); //If there are any leftovers, then that means that there are base sequence characters not in the dictionary. therefore the sequence is not valide.
+                // please note the "!" at the start of the whole linq statement.
         }
     }
 }

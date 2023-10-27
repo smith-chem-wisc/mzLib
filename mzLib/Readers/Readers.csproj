@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<Platforms>x64</Platforms>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CsvHelper" Version="30.0.1" />
+		<PackageReference Include="OpenMcdf" Version="2.2.1.12" />
+		<PackageReference Include="OpenMcdf.Extensions" Version="2.2.1.4" />
+		<PackageReference Include="System.Data.SQLite" Version="1.0.117" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+		<ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+		<ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	
+		<Reference Include="ThermoFisher.CommonCore.BackgroundSubtraction">
+			<HintPath>Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
+		</Reference>
+		<Reference Include="ThermoFisher.CommonCore.Data">
+			<HintPath>Thermo\ThermoFisher.CommonCore.Data.dll</HintPath>
+		</Reference>
+		<Reference Include="ThermoFisher.CommonCore.MassPrecisionEstimator">
+			<HintPath>Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll</HintPath>
+		</Reference>
+		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
+			<HintPath>Thermo\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+			<_Parameter1>Test</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="Bruker\baf2sql_c.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\baf2sql_c.lib">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\msvcp110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\msvcr110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcomp110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Thermo\ThermoFisher.CommonCore.Data.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Thermo\ThermoFisher.CommonCore.RawFileReader.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+</Project>

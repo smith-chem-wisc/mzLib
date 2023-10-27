@@ -1,16 +1,16 @@
-﻿using MassSpectrometry;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using MassSpectrometry;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.DatabaseTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
