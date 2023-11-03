@@ -111,7 +111,7 @@ namespace Readers
                         continue; // Skip this line
                     }
                 }
-                if (line.Equals(""))
+                if (line.Trim().Equals(""))
                 {
                     // everything below will be the actual Toppic results
                     // read them in with CsvHelper
@@ -126,6 +126,7 @@ namespace Readers
                         ReadingExceptionOccurred = context =>
                         {
                             if (context.Exception is not TypeConverterException) throw new IOException("Error reading Toppic results file", context.Exception);
+                            if (context.Exception.Context.Parser.RawRecord.Trim().IsNullOrEmpty()) return false;
 
                             isAlternativeId = true;
                             alternativeIDs.Add(context.Exception.Context.Parser.RawRecord);

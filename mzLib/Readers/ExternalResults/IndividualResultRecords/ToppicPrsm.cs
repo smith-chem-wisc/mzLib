@@ -1,8 +1,10 @@
 ﻿using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 using MassSpectrometry;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Readers;
 
@@ -96,8 +98,16 @@ public class ToppicPrsm
     [Name("Special amino acids")]
     public string? SpecialAminoAcids { get; set; }
 
+    [Ignore]
+    private string _baseSequence;
+
+    [Optional]
     [Name("Database protein sequence")]
-    public string BaseSequence { get; set; }
+    public string BaseSequence
+    {
+        get => _baseSequence ?? GetBaseSequenceFromFullSequence();
+        set => _baseSequence = value;
+    }
 
     [Name("Proteoform")]
     public string FullSequence { get; set; }
@@ -108,9 +118,10 @@ public class ToppicPrsm
     [Name("Protein N-terminal form")]
     public string ProteinNTerminalForm { get; set; }
 
+    [Optional]
     [Name("Fixed PTMs")]
     public string? FixedPTMs { get; set; }
-
+    
     [Name("#unexpected modifications")]
     public int UnexpectedModificationsCount { get; set; }
 
@@ -118,12 +129,14 @@ public class ToppicPrsm
     /// The mass shift of the mod and its semi-localization
     /// -47:[10-14] means a mass shift of -47 Da, and the semi-localization is between the 10th and 14th amino acids
     /// </summary>
+    [Optional]
     [Name("unexpected modifications")]
     public string UnexpectedModifications { get; set; }
-
+    
     [Name("#variable PTMs")]
     public int VariableModificationsCount { get; set; }
 
+    [Optional]
     [Name("variable PTMs")]
     public string VariableModifications { get; set; }
 
@@ -151,6 +164,20 @@ public class ToppicPrsm
 
     [Ignore]
     public List<AlternativeToppicId> AlternativeIdentifications { get; set; }
+
+    public string GetBaseSequenceFromFullSequence()
+    {
+        // Remove text within square brackets
+        var text = Regex.Replace(FullSequence, @"\[[^\]]*\]", "");
+
+        // Remove parentheses
+        text = Regex.Replace(text, @"[()]", "");
+
+        // Remove periods
+        text = Regex.Replace(text, @"(^[^.]+)|(\.[^.]+$)", "")
+            .Replace(".","");
+        return text;
+    }
 }
 
 /// <summary>

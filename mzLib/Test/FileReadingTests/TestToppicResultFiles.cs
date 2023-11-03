@@ -30,11 +30,57 @@ namespace Test.FileReadingTests
             Directory.Delete(directoryPath, true);
         }
 
+        
+        [Test]
+        public static void TestFullToBaseSequence()
+        {
+            // test output where the base sequence and full sequence are present
+
+            var path = @"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv";
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            var file = new ToppicSearchResultFile(filePath);
+            file.LoadResults();
+            var results = file.Results;
+
+            foreach (var result in results)
+            {
+                string baseSeq = result.BaseSequence;
+                var convertedSequence = result.GetBaseSequenceFromFullSequence();
+                Assert.That(result.BaseSequence, Is.EqualTo(convertedSequence));
+            }
+
+            // test output where the base sequence is not present
+            path = @"FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv";
+            filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            file = new ToppicSearchResultFile(filePath);
+            file.LoadResults();
+            results = file.Results;
+
+            string[] expectedBaseSequences = new[]
+            {
+                "VIKAVDKKAAGAGKVTKSAQKAQKAK",
+                "GVIKAVDKKAAGAGKVTKSAQKAQKAK",
+                "KIEEEQNKSKKKAQQAAADTGNNSQVSQNY",
+                "VGVIKAVDKKAAGAGKVTKSAQKAQKAK",
+                "VGVIKAVDKKAAGAGKVTKSAQKAQKAK",
+                "PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK",
+                "AVGVIKAVDKKAAGAGKVTKSAQKAQKAK",
+            };
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                Assert.That(results[i].GetBaseSequenceFromFullSequence(), Is.EqualTo(expectedBaseSequences[i]));
+                Assert.That(results[i].BaseSequence, Is.EqualTo(expectedBaseSequences[i]));
+            }
+        }
+
+
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv", 4)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv", 37)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv", 7)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv", 10)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv", 7)]
         public void TestToppicProteoformAndPrsmLoadAndCountCorrect(string path, int count)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
