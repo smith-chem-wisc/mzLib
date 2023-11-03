@@ -131,6 +131,7 @@ namespace Readers
                             alternativeIDs.Add(context.Exception.Context.Parser.RawRecord);
                             return false;
                         },
+                        MissingFieldFound = null,
                     };
 
                     var results = new List<ToppicPrsm>();
