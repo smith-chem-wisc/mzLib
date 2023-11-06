@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using NUnit.Framework;
+using NUnit.Framework.Interfaces;
 using Proteomics;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
@@ -1111,6 +1112,38 @@ namespace Test
 
             CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
         }
+
+
+        [Test]
+
+        public static void Bubba()
+        {
+            List<string> acceList = new List<string>() { "P10636", "Q15019", "P06733", "Q16555", "P04406", "P23246", "P68871", "P38646", "P14618", "P13929", "P02042", "P09104", "Q9GZV7", "P04350", "P07437", "P68371", "Q13885", "Q9BVA1", "P53004", "P30038", "Q13936", "P46926", "Q9UQP3", "P0DMV8", "P0DMV9", "P13611", "O15554", "Q86UN3", "Q13572", "P30613", "P06576", "O76009", "Q8NCS4", "Q71U36", "Q9BQE3", "P52789", "P52790", "P99999", "Q14117", "P12277", "P02768", "P25788", "P0CG47", "P0CG48" };
+            List<string> list = File.ReadAllLines(@"E:\Projects\PXD020517\2023-10-25-07-57-47\Task1-SearchTask\AllPSMs.psmtsv").ToList();
+            List<string> gsh = new List<string>();
+            gsh.Add(list[0]);
+
+            foreach (var acc in acceList)
+            {
+
+                var selected = list.Where(l => l.Contains(acc)).ToList();
+                list = list.Except(selected).ToList();
+                gsh.AddRange(selected);
+
+
+
+                //gsh.AddRange(list.Where(l => l.Contains(acc)).ToList());
+            }
+
+
+            File.WriteAllLines(@"E:\Projects\PXD020517\2023-10-25-07-57-47\Task1-SearchTask\AllPSMs_filteredByAccession.psmtsv", gsh);
+
+
+            Assert.IsTrue(false);
+
+        }
+
+
         [Test]
         public static void TestPeptideWithSetModsFullSequence()
         {
@@ -1120,7 +1153,7 @@ namespace Test
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages:0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages:0, minPeptideLength:1, maxModsForPeptides:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
             
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)
@@ -1139,6 +1172,35 @@ namespace Test
 
             var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
             CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
+        }
+
+        [Test]
+        public static void TestCreateChronologerTensor()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            
+            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDHtruncated.xml"), true, DecoyType.None, new List<Modification>(), false, null, out var unknownMod);
+            var gapdh = proteinXml[0];
+            var xmlPtms = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests",
+                "humanGAPDHtruncated.xml"));
+
+
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), new List<Modification>(), xmlPtms);
+
+            List<string> allTensors = new List<string>();
+            foreach (var peptide in gapdhPeptides)
+            {
+                allTensors.Add(String.Join(',', peptide.ChronologerTensor()));
+            }
+
+            File.WriteAllLines(@"C:\Users\Michael Shortreed\Downloads\tensors.txt", allTensors);
+
+
+            var expectedTensors = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
+            CollectionAssert.AreEquivalent(expectedTensors.ToArray(), allTensors.ToArray());
+
+            Assert.IsTrue(false);
         }
     }
 }
