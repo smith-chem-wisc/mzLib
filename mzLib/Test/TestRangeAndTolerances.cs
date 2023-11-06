@@ -19,6 +19,9 @@
 using MzLibUtil;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -248,6 +251,27 @@ namespace Test
             var range1 = new AbsoluteTolerance(4).GetRange(10);
 
             Assert.AreEqual(6, range1.Minimum);
+        }
+
+        [Test]
+        public static void Bubba()
+        {
+            List<string> lines = File.ReadAllLines(@"E:\Projects\PXD020517\2023-11-01-16-16-42\Task1-SearchTask\AllPeptides.psmtsv").ToList();
+
+            List<string> myout = new List<string>();
+
+            myout.Add(lines[0]);
+            foreach (var line in lines)
+            {
+                if(line.Contains("GSH on ") || line.Contains("P10636") || line.Contains("Q14194"))
+                {
+                    myout.Add(line);
+                }
+            }
+
+            File.WriteAllLines(@"E:\Projects\PXD020517\2023-11-01-16-16-42\Task1-SearchTask\filteredAllPeptides.psmtsv",myout);
+
+            Assert.IsTrue(false);
         }
 
         [Test]

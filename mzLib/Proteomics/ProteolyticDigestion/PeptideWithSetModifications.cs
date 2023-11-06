@@ -934,6 +934,12 @@ namespace Proteomics.ProteolyticDigestion
             return DetermineFullSequenceWithMassShifts();
         }
 
+        public int[] ChronologerTensor()
+        {
+           
+            return CreateChronologerTensor();
+        }
+
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
@@ -1144,6 +1150,30 @@ namespace Proteomics.ProteolyticDigestion
             return subsequence.ToString();
         }
 
+        private int[] CreateChronologerTensor()
+        {
+            ChronologerTensorResidueDictionary ctd = new ChronologerTensorResidueDictionary();
+            List<int> tensorList = new List<int>();
+            tensorList.Add(38);//N-terminus
+
+            char[] bases = this.BaseSequence.ToCharArray();
+
+            for (int i = 0; i < bases.Length; i++)
+            {
+                string modification = "";
+                if (AllModsOneIsNterminus.ContainsKey(i + 2))
+                {
+                    modification = AllModsOneIsNterminus[i + 2].IdWithMotif;
+                }
+                tensorList.Add(ctd.TensorInt((bases[i],modification)));
+            }
+            tensorList.Add(44);//C-terminus
+            while (tensorList.Count < 52)
+            {
+                tensorList.Add(0);
+            }
+            return tensorList.ToArray();
+        }
         private void UpdateCleavageSpecificity()
         {
             if (CleavageSpecificityForFdrCategory == CleavageSpecificity.Unknown)

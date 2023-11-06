@@ -1,0 +1,105 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mzLibProteinDb>
+	<modification>
+ID   Phosphotyrosine on Y
+AC   PTM-0255
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   HO3P
+MM   79.966331
+DR   PSI-MOD; MOD:00048
+DR   RESID; AA0039
+TR   Archaea; taxId:2287 (Sulfolobus solfataricus)
+TR   Bacteria; taxId:1224 (Proteobacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+TR   Viruses; taxId:10239 (Viruses)
+KW   Phosphoprotein
+
+//
+	</modification>
+	<modification>
+ID   N6-acetyllysine on K
+AC   PTM-0190
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00064
+DR   RESID; AA0055
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//
+	</modification>
+	<entry dataset="Swiss-Prot" created="1986-07-21" modified="2023-06-28" version="267">
+		<accession>P04406</accession>
+		<accession>E7EUT4</accession>
+		<accession>P00354</accession>
+		<accession>Q53X65</accession>
+		<name>G3P_HUMAN</name>
+		<protein>
+			<recommendedName>
+				<fullName evidence="29">Glyceraldehyde-3-phosphate dehydrogenase</fullName>
+				<shortName evidence="28">GAPDH</shortName>
+				<ecNumber evidence="25">1.2.1.12</ecNumber>
+			</recommendedName>
+			<alternativeName>
+				<fullName evidence="30">Peptidyl-cysteine S-nitrosylase GAPDH</fullName>
+				<ecNumber evidence="1">2.6.99.-</ecNumber>
+			</alternativeName>
+		</protein>
+		<gene>
+			<name evidence="28 36" type="primary">GAPDH</name>
+			<name evidence="29" type="synonym">GAPD</name>
+			<name type="ORF">CDABP0047</name>
+			<name type="ORF">OK/SW-cl.12</name>
+		</gene>
+		<organism>
+			<name type="scientific">Homo sapiens</name>
+			<name type="common">Human</name>
+			<dbReference type="NCBI Taxonomy" id="9606"/>
+			<lineage>
+				<taxon>Eukaryota</taxon>
+				<taxon>Metazoa</taxon>
+				<taxon>Chordata</taxon>
+				<taxon>Craniata</taxon>
+				<taxon>Vertebrata</taxon>
+				<taxon>Euteleostomi</taxon>
+				<taxon>Mammalia</taxon>
+				<taxon>Eutheria</taxon>
+				<taxon>Euarchontoglires</taxon>
+				<taxon>Primates</taxon>
+				<taxon>Haplorrhini</taxon>
+				<taxon>Catarrhini</taxon>
+				<taxon>Hominidae</taxon>
+				<taxon>Homo</taxon>
+			</lineage>
+		</organism>
+		<feature type="modified residue" description="Phosphotyrosine" evidence="37">
+			<location>
+				<position position="42"/>
+			</location>
+		</feature>
+		<feature type="modified residue" description="N6-acetyllysine" evidence="40">
+			<location>
+				<position position="61"/>
+			</location>
+		</feature>
+		<sequence length="80" mass="8000" checksum="C9C135E8AE3E8744" modified="2007-01-23" version="3">
+			MGKVKVGVNG
+			FGRIGRLVTR
+			AAFNSGKVDI
+			VAINDPFIDL
+			NYMVYMFQYD
+			STHGKFHGTV
+			KAENGKLVIN
+			GNPITIFQER
+		</sequence>
+	</entry>
+</mzLibProteinDb>
