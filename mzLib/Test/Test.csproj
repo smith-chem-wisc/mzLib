@@ -411,6 +411,9 @@
     <None Update="TestData\ExcelEditedPeptide.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\nglyco_f5.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\oglyco.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -421,6 +424,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="TestData\TDGPTMDSearchResults.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TestData\VariantCrossTest.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
 	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">

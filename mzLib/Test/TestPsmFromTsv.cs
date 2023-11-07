@@ -1,10 +1,13 @@
 ﻿using NUnit.Framework;
 using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using Proteomics.PSM;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Proteomics;
 
 namespace Test
 {
@@ -21,11 +24,37 @@ namespace Test
         }
 
         [Test]
-        public static void ReadOGlycoPsms()
+        public static void ReadNGlycoPsms()
+        {
+            string psmFile = @"TestData\nglyco_f5.psmtsv";
+            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
+            Assert.AreEqual(5, parsedPsms.Count);
+        }
+
+        [Test]
+        public static void ReadVariantPsms()
+        {
+            string psmFile = @"TestData\VariantCrossTest.psmtsv";
+            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
+            Assert.AreEqual(5, parsedPsms.Count);
+        }
+
+        [Test]
+        public static void ReadOGlycoPsmsLocalizedGlycans()
         {
             string psmFile = @"TestData\oglyco.psmtsv";
             List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
             Assert.AreEqual(9, parsedPsms.Count);
+
+            // read glycans if applicable
+            List<Tuple<int, string, double>> localGlycans = null;
+            if (parsedPsms[0].GlycanLocalizationLevel != null)
+            {
+                localGlycans = PsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycan);
+            }
+
+            Assert.AreEqual(1,localGlycans.Count);
+
         }
 
         [Test]
@@ -185,6 +214,14 @@ namespace Test
             Assert.That(psms[0].FullSequence.Equals(psms[0].ToString()));
             Assert.That(psms[1].FullSequence.Equals(psms[1].ToString()));
             Assert.That(psms[2].FullSequence.Equals(psms[2].ToString()));
+        }
+
+        [Test]
+        public static void TestParenthesesRemovalForSilac()
+        {
+            string baseSequence = "ASDF(+8.01)ASDF";
+            string cleanedSequence = PsmFromTsv.RemoveParentheses(baseSequence);
+            Assert.IsTrue(cleanedSequence.Equals("ASDFASDF"));
         }
 
         [Test]
