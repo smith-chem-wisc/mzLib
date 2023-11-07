@@ -40,6 +40,16 @@ namespace Test
         }
 
         [Test]
+        public static void ReadInternalIonsPsms()
+        {
+            string psmFile = @"TestData\internalIons.psmtsv";
+            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
+            Assert.AreEqual(10, parsedPsms.Count);
+            var internalIons = parsedPsms[0].MatchedIons.Where(i=>i.Annotation.Contains("yIb")).ToList();
+            Assert.AreEqual(97,internalIons.Count);
+        }
+
+        [Test]
         public static void ReadOGlycoPsmsLocalizedGlycans()
         {
             string psmFile = @"TestData\oglyco.psmtsv";

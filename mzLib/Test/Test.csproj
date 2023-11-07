@@ -411,6 +411,9 @@
     <None Update="TestData\ExcelEditedPeptide.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\internalIons.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\nglyco_f5.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
