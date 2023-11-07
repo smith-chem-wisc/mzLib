@@ -34,8 +34,7 @@ namespace Test
             string librarySpectrumOverrideToString = "Name: library/0\nMW: 0\nComment: Parent=0 RT=0\nNum peaks: 4\n1\t0.25\t\"b1^1/0ppm\"\n2\t0.5\t\"b2^1/0ppm\"\n3\t0.75\t\"b3^1/0ppm\"\n4\t1\t\"b4^1/0ppm\"";
             Assert.AreEqual(librarySpectrumOverrideToString, librarySpectrum.ToString());
 
-            string bubba = librarySpectrum.CalculateSpectralAngleOnTheFly(peaks);
-            string spectralAngleOnTheFly = "";
+            string spectralAngleOnTheFly = "N/A";
             Assert.AreEqual(spectralAngleOnTheFly,librarySpectrum.CalculateSpectralAngleOnTheFly(peaks));
         }
     }
