@@ -158,7 +158,7 @@ namespace Proteomics.PSM
             RetentionTime = (parsedHeader[PsmTsvHeader.Ms2ScanRetentionTime] < 0) ? null : (double?)double.Parse(spl[parsedHeader[PsmTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture);
             PEP = double.Parse(spl[parsedHeader[PsmTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
             PEP_QValue = double.Parse(spl[parsedHeader[PsmTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
-            VariantCrossingIons = findVariantCrossingIons();
+            VariantCrossingIons = FindVariantCrossingIons();
             SpectralAngle = (parsedHeader[PsmTsvHeader.SpectralAngle] < 0) ? null : (double?)double.Parse(spl[parsedHeader[PsmTsvHeader.SpectralAngle]].Trim(), CultureInfo.InvariantCulture);
 
             //For crosslinks
@@ -546,7 +546,7 @@ namespace Proteomics.PSM
 
         // finds the ions that contain variant residues using the position in IdentifiedSequenceVariations. When the variation spans 
         // multiple residues, if any part is contained in an ion, the ion is marked as variant crossing.
-        private List<MatchedFragmentIon> findVariantCrossingIons()
+        private List<MatchedFragmentIon> FindVariantCrossingIons()
         {
             List<MatchedFragmentIon> variantCrossingIons = new List<MatchedFragmentIon>();
 

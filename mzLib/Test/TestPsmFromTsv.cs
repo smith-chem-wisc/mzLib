@@ -36,7 +36,7 @@ namespace Test
         {
             string psmFile = @"TestData\VariantCrossTest.psmtsv";
             List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
-            Assert.AreEqual(5, parsedPsms.Count);
+            Assert.AreEqual(15, parsedPsms.Count);
         }
 
         [Test]
