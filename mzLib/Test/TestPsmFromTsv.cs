@@ -113,7 +113,9 @@ namespace Test
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
             List<PsmFromTsv> psms = PsmTsvReader.ReadTsv(psmTsvPath, out warnings).Take(20).ToList();
-            Assert.That(warnings.Count == 0);
+            Assert.That(warnings.Count == 2);
+            Assert.AreEqual("Could not read line: 2", warnings[0]);
+            Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
             // psm with single modificaiton
             PsmFromTsv singleMod = psms[0];
@@ -176,36 +178,40 @@ namespace Test
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
             List<PsmFromTsv> psms = PsmTsvReader.ReadTsv(psmTsvPath, out warnings).Take(3).ToList();
-            Assert.That(warnings.Count == 0);
+            Assert.That(warnings.Count == 2);
+            Assert.AreEqual("Could not read line: 2", warnings[0]);
+            Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
             Assert.That(psms[0].FullSequence.Equals(psms[0].ToString()));
             Assert.That(psms[1].FullSequence.Equals(psms[1].ToString()));
             Assert.That(psms[2].FullSequence.Equals(psms[2].ToString()));
         }
 
-        //[Test]
-        //public static void TestSimpleToLibrarySpectrum()
-        //{
-        //    string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TopDownTestData\TDGPTMDSearchResults.psmtsv");
-        //    List<string> warnings = new();
-        //    List<PsmFromTsv> psms = PsmTsvReader.ReadTsv(psmTsvPath, out warnings).Take(3).ToList();
-        //    Assert.That(warnings.Count == 0);
+        [Test]
+        public static void TestSimpleToLibrarySpectrum()
+        {
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\TDGPTMDSearchResults.psmtsv");
+            List<string> warnings = new();
+            List<PsmFromTsv> psms = PsmTsvReader.ReadTsv(psmTsvPath, out warnings).Take(3).ToList();
+            Assert.That(warnings.Count == 2);
+            Assert.AreEqual("Could not read line: 2", warnings[0]);
+            Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
-        //    string librarySpectrum = psms[0].ToLibrarySpectrum().ToString();
+            string librarySpectrum = psms[0].ToLibrarySpectrum().ToString();
 
-        //    string expectedLibrarySpectrum = File.ReadAllText(Path.Combine(TestContext.CurrentContext.TestDirectory, @"TopDownTestData\simple.msp"));
+            string expectedLibrarySpectrum = File.ReadAllText(Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\simple.msp"));
 
-        //    //not a great way to test equality but we are experiencing a great deal of 10th digit rounding differences
-        //    Assert.AreEqual(Regex.Matches(expectedLibrarySpectrum, "ppm").Count, Regex.Matches(librarySpectrum, "ppm").Count);
+            //not a great way to test equality but we are experiencing a great deal of 10th digit rounding differences
+            Assert.AreEqual(Regex.Matches(expectedLibrarySpectrum, "ppm").Count, Regex.Matches(librarySpectrum, "ppm").Count);
 
 
-        //    //the code below tests the addition and correct output for neutral loss fragments
-        //    Product p = new Product(ProductType.bWaterLoss, FragmentationTerminus.N, 1, 1, 1, 18);
-        //    MatchedFragmentIon matchedIon = new(ref p, 1, 1, 1);
-        //    psms[0].MatchedIons.Add(matchedIon);
-        //    string librarySpectrumWithNeutralLoss = psms[0].ToLibrarySpectrum().ToString();
+            //the code below tests the addition and correct output for neutral loss fragments
+            Product p = new Product(ProductType.bWaterLoss, FragmentationTerminus.N, 1, 1, 1, 18);
+            MatchedFragmentIon matchedIon = new(ref p, 1, 1, 1);
+            psms[0].MatchedIons.Add(matchedIon);
+            string librarySpectrumWithNeutralLoss = psms[0].ToLibrarySpectrum().ToString();
 
-        //    Assert.That(librarySpectrumWithNeutralLoss.Contains("WaterLoss"));
-        //}
+            Assert.That(librarySpectrumWithNeutralLoss.Contains("WaterLoss"));
+        }
     }
 }

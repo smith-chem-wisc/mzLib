@@ -417,6 +417,9 @@
     <None Update="TestData\oglycoSinglePsms.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\simple.msp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\TDGPTMDSearchResults.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
