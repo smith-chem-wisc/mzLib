@@ -27,10 +27,16 @@ namespace Test
             MatchedFragmentIon dd = new MatchedFragmentIon(ref d, 4, 4, 1);
             var peaks = new List<MatchedFragmentIon> { aa, bb, cc, dd };
             var librarySpectrum = new LibrarySpectrum("library", 0, 0, peaks, 0);
-            //Assert.That(librarySpectrum. .NeutralTheoreticalProduct.ProductType == ProductType.b && decoySpectum[0].NeutralTheoreticalProduct.FragmentNumber == 1 && decoySpectum[0].Intensity == 1);
-            //Assert.That(decoySpectum[1].NeutralTheoreticalProduct.ProductType == ProductType.b && decoySpectum[1].NeutralTheoreticalProduct.FragmentNumber == 2 && decoySpectum[1].Intensity == 2);
-            //Assert.That(decoySpectum[2].NeutralTheoreticalProduct.ProductType == ProductType.b && decoySpectum[2].NeutralTheoreticalProduct.FragmentNumber == 3 && decoySpectum[2].Intensity == 3);
-            //Assert.That(decoySpectum[3].NeutralTheoreticalProduct.ProductType == ProductType.b && decoySpectum[3].NeutralTheoreticalProduct.FragmentNumber == 4 && decoySpectum[3].Intensity == 4);
+            
+            string name = "library/0";
+            Assert.AreEqual(name,librarySpectrum.Name);
+
+            string librarySpectrumOverrideToString = "Name: library/0\nMW: 0\nComment: Parent=0 RT=0\nNum peaks: 4\n1\t0.25\t\"b1^1/0ppm\"\n2\t0.5\t\"b2^1/0ppm\"\n3\t0.75\t\"b3^1/0ppm\"\n4\t1\t\"b4^1/0ppm\"";
+            Assert.AreEqual(librarySpectrumOverrideToString, librarySpectrum.ToString());
+
+            string bubba = librarySpectrum.CalculateSpectralAngleOnTheFly(peaks);
+            string spectralAngleOnTheFly = "";
+            Assert.AreEqual(spectralAngleOnTheFly,librarySpectrum.CalculateSpectralAngleOnTheFly(peaks));
         }
     }
 }
