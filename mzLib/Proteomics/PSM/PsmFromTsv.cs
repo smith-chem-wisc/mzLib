@@ -98,13 +98,16 @@ namespace Proteomics.PSM
 
             // remove file format, e.g., .raw, .mzML, .mgf
             // this is more robust but slower than Path.GetFileNameWithoutExtension
-            //if (FileNameWithoutExtension.Contains('.'))
-            //{
-            //    foreach (var knownSpectraFileExtension in GlobalVariables.AcceptedSpectraFormats)
-            //    {
-            //        FileNameWithoutExtension = Path.GetFileName(FileNameWithoutExtension.Replace(knownSpectraFileExtension, string.Empty, StringComparison.InvariantCultureIgnoreCase));
-            //    }
-            //}
+
+            List<string> acceptableFileExtension = new List<string>() { ".raw", ".mzML", ".mgf" };
+
+            if (FileNameWithoutExtension.Contains('.'))
+            {
+                foreach (var knownSpectraFileExtension in acceptableFileExtension)
+                {
+                    FileNameWithoutExtension = Path.GetFileName(FileNameWithoutExtension.Replace(knownSpectraFileExtension, string.Empty, StringComparison.InvariantCultureIgnoreCase));
+                }
+            }
 
             Ms2ScanNumber = int.Parse(spl[parsedHeader[PsmTsvHeader.Ms2ScanNumber]]);
 
