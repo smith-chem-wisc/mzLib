@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-
-namespace Proteomics.Fragmentation
+namespace Omics.Fragmentation
 {
     public enum ProductType
     {

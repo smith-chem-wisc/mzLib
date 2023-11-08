@@ -23,12 +23,11 @@ using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
+using Omics.Fragmentation;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test

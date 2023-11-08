@@ -1,4 +1,4 @@
-﻿namespace Proteomics.Fragmentation
+﻿namespace Omics.Fragmentation
 {
     public enum FragmentationTerminus
     {
