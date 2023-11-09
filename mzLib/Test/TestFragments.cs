@@ -21,6 +21,7 @@ using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Omics.Fragmentation;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.Fragmentation;

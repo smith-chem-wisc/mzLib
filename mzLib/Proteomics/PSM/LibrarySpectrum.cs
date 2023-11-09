@@ -1,6 +1,6 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry.MzSpectra;
-using Proteomics.Fragmentation;
+using Omics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;

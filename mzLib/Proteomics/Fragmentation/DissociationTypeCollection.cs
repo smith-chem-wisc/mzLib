@@ -3,6 +3,7 @@ using Easy.Common.Extensions;
 using MassSpectrometry;
 using System.Collections.Generic;
 using System.Linq;
+using Omics.Fragmentation;
 
 namespace Proteomics.Fragmentation
 {

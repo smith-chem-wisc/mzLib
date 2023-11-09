@@ -14,6 +14,7 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+    <ProjectReference Include="..\Omics\Omics.csproj" />
     <ProjectReference Include="..\PepXML\PepXML.csproj" />
   </ItemGroup>
 
