@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
 
 namespace Omics.Fragmentation
@@ -15,6 +14,7 @@ namespace Omics.Fragmentation
         FragmentationTerminus Terminus { get; }
         int FragmentNumber { get; }
         int ResiduePosition { get; }
+        int AminoAcidPosition => ResiduePosition;
         ProductType? SecondaryProductType { get; } //used for internal fragments
         int SecondaryFragmentNumber { get; } //used for internal fragment ions
         string Annotation => GetAnnotation();

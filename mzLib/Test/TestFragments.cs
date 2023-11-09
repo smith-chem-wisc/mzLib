@@ -863,7 +863,7 @@ namespace Test
         public static void Test_MatchedFragmentIonToString()
         {
             Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            MatchedFragmentIon m = new MatchedFragmentIon(ref P, 1, 1, 1);
+            MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
             Assert.AreEqual("b1+1\t;1", m.ToString());
         }
 
@@ -1058,13 +1058,13 @@ namespace Test
         public static void TestFragmentAnnotations()
         {
             Product p = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f = new MatchedFragmentIon(ref p, 400.0, 1000.0, 3);
+            MatchedFragmentIon f = new MatchedFragmentIon(p, 400.0, 1000.0, 3);
 
             Assert.That(p.Annotation == "b2-30.30");
             Assert.That(f.Annotation == "(b2-30.30)+3");
 
             p = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 0);
-            f = new MatchedFragmentIon(ref p, 400.0, 1000.0, 3);
+            f = new MatchedFragmentIon(p, 400.0, 1000.0, 3);
 
             Assert.That(p.Annotation == "b2");
             Assert.That(f.Annotation == "b2+3");
@@ -1073,8 +1073,8 @@ namespace Test
         [Test]
         public static void TestFragmentErrors()
         {
-            Product p = new Product(ProductType.b, FragmentationTerminus.N, 475.205, 2, 3, 30.3);
-            MatchedFragmentIon f = new MatchedFragmentIon(ref p, 159.5, 1000.0, 3);
+            IProduct p = new Product(ProductType.b, FragmentationTerminus.N, 475.205, 2, 3, 30.3);
+            MatchedFragmentIon f = new MatchedFragmentIon(p, 159.5, 1000.0, 3);
 
             double experMass = f.Mz.ToMass(f.Charge);
             double theorMass = p.NeutralMass;
@@ -1088,10 +1088,10 @@ namespace Test
         public static void TestFragmentEquality()
         {
             Product p1 = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f1 = new MatchedFragmentIon(ref p1, 400.0, 1000.0, 3);
+            MatchedFragmentIon f1 = new MatchedFragmentIon(p1, 400.0, 1000.0, 3);
 
             Product p2 = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f2 = new MatchedFragmentIon(ref p2, 400.0, 1000.0, 3);
+            MatchedFragmentIon f2 = new MatchedFragmentIon(p2, 400.0, 1000.0, 3);
 
             Assert.AreEqual(p1, p2);
             Assert.AreEqual(f1, f2);

@@ -20,7 +20,16 @@ namespace Omics.Fragmentation
             Intensity = experIntensity;
             Charge = charge;
         }
-
+        /// <summary>
+        /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
+        /// </summary>
+        public MatchedFragmentIon(IProduct neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
+        {
+            NeutralTheoreticalProduct = neutralTheoreticalProduct;
+            Mz = experMz;
+            Intensity = experIntensity;
+            Charge = charge;
+        }
         public double MassErrorDa
         {
             get
