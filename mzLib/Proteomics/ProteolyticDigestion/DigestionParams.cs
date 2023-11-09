@@ -1,5 +1,5 @@
-﻿using System;
-using Omics.Fragmentation;
+﻿using Proteomics.Fragmentation;
+using System;
 
 namespace Proteomics.ProteolyticDigestion
 {

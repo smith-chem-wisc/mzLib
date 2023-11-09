@@ -1,4 +1,8 @@
-﻿namespace Omics.Fragmentation
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace Proteomics.Fragmentation
 {
     public class TerminusSpecificProductTypes
     {

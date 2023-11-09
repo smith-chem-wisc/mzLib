@@ -1,7 +1,7 @@
-﻿using System.Text;
-using Chemistry;
+﻿using Chemistry;
+using System.Text;
 
-namespace Omics.Fragmentation
+namespace Proteomics.Fragmentation
 {
     public class MatchedFragmentIon
     {

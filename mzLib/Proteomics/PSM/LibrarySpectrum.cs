@@ -1,9 +1,12 @@
-﻿using System.Text;
-using Easy.Common.Extensions;
+﻿using Easy.Common.Extensions;
 using MassSpectrometry.MzSpectra;
-using Omics.Fragmentation;
+using Proteomics.Fragmentation;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
-namespace Omics
+namespace Proteomics.PSM
 {
     public class LibrarySpectrum
     {

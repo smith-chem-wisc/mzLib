@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using MzLibUtil;
+using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {

@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using Proteomics.PSM;
 using System;
@@ -6,7 +7,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Omics.Fragmentation;
 using Proteomics;
 
 namespace Test

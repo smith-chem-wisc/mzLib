@@ -1,6 +1,7 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 
-namespace Omics.Fragmentation
+namespace Proteomics.Fragmentation
 {
     public struct Product
     {
