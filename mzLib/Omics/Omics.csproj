@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
   </ItemGroup>
 
 </Project>
