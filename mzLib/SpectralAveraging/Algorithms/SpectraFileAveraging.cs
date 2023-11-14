@@ -81,7 +81,11 @@ public static class SpectraFileAveraging
                 scansToProcess = scans.GetRange(i, parameters.NumberOfScansToAverage);
 
             // average scans
-            var representativeScan = scansToProcess.First();
+            int middleIndex = scansToProcess.Count / 2;
+            MsDataScan representativeScan = scansToProcess.Count % 2 == 0 ?
+                scansToProcess[middleIndex - 1] :
+                scansToProcess[middleIndex];
+
             var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
             MsDataScan averagedScan = new(averagedSpectrum, scanNumberIndex, 1,
                 representativeScan.IsCentroid, representativeScan.Polarity,
@@ -107,7 +111,8 @@ public static class SpectraFileAveraging
         List<MsDataScan> scansToProcess = new();
 
         var scanNumberIndex = 1;
-        for (var i = 0; i < ms1Scans.Count; i += parameters.NumberOfScansToAverage - parameters.ScanOverlap)
+        int indexer = parameters.NumberOfScansToAverage - parameters.ScanOverlap;
+        for (var i = 0; i < ms1Scans.Count; i += indexer)
         {
             // get the scans to be averaged
             scansToProcess.Clear();
@@ -117,23 +122,27 @@ public static class SpectraFileAveraging
 
             scansToProcess = ms1Scans.GetRange(i, parameters.NumberOfScansToAverage);
             // if next iteration breaks the loop (end of file), then add the rest of the MS2's
-            if (i + parameters.NumberOfScansToAverage - parameters.ScanOverlap + parameters.NumberOfScansToAverage >
+            if (i + indexer + parameters.NumberOfScansToAverage >
                 ms1Scans.Count)
                 ms2ScansFromAveragedScans = ms2Scans.Where(p =>
                     scansToProcess.Any(m => m.OneBasedScanNumber == p.OneBasedPrecursorScanNumber));
             // if not, add MS2 scans from MS1's that will not be averaged in the next iteration
             else
                 ms2ScansFromAveragedScans = ms2Scans.Where(p =>
-                    scansToProcess.GetRange(0, parameters.NumberOfScansToAverage - parameters.ScanOverlap)
+                    scansToProcess.GetRange(0, indexer)
                         .Any(m => m.OneBasedScanNumber == p.OneBasedPrecursorScanNumber));
 
             // average scans and add to averaged list
-            var representativeScan = scansToProcess.First();
+            int middleIndex = scansToProcess.Count / 2;
+            MsDataScan representativeScan = scansToProcess.Count % 2 == 0 ? 
+                scansToProcess[middleIndex - 1] : 
+                scansToProcess[middleIndex];
+
             var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
             MsDataScan averagedScan = new(averagedSpectrum, scanNumberIndex, 1,
                 representativeScan.IsCentroid, representativeScan.Polarity, representativeScan.RetentionTime,
                 averagedSpectrum.Range, null, representativeScan.MzAnalyzer,
-                scansToProcess.Select(p => p.TotalIonCurrent).Average(),
+                averagedSpectrum.SumOfAllY,
                 scansToProcess.Select(p => p.InjectionTime).Average(), representativeScan.NoiseData,
                 representativeScan.NativeId, representativeScan.SelectedIonMZ,
                 representativeScan.SelectedIonChargeStateGuess,
