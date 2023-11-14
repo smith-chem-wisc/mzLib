@@ -267,6 +267,40 @@ namespace Test.AveragingTests
         }
 
 
+
+        [Test]
+        public static void DummyTest()
+        {
+            string filePath = @"B:\Users\Nic\SharedWithMe\tiltedAverageBroke\JD071923_BoNT_Elastase_5.raw";
+            var scanList = MsDataFileReader.GetDataFile(filePath).GetAllScansList();
+            SpectralAveragingParameters parameters = new SpectralAveragingParameters()
+            {
+                OutlierRejectionType = OutlierRejectionType.SigmaClipping,
+                SpectralWeightingType = SpectraWeightingType.WeightEvenly,
+                NormalizationType = NormalizationType.RelativeToTics,
+                BinSize = 0.01,
+                MinSigmaValue = 0.5,
+                MaxSigmaValue = 3,
+                NumberOfScansToAverage = 5,
+                ScanOverlap = 4,
+                MaxThreadsToUsePerFile = 1,
+                OutputType = OutputType.MzML,
+                SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScansWithOverlap,
+                SpectralAveragingType = SpectralAveragingType.MzBinning
+            };
+
+            var averagedScans = SpectraFileAveraging.AverageSpectraFile(scanList, parameters);
+
+            var duplicates = averagedScans
+                .GroupBy(x => (x.OneBasedScanNumber, x.OneBasedPrecursorScanNumber))
+                .Where(group => group.Count() > 1)
+                .ToDictionary(p => p.Key, p => p.ToList());
+
+        }
+
+
+
+
         [Test]
         public static void TestAverageAll()
         {
