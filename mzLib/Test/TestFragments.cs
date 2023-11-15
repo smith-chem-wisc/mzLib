@@ -1073,7 +1073,7 @@ namespace Test
         [Test]
         public static void TestFragmentErrors()
         {
-            IProduct p = new Product(ProductType.b, FragmentationTerminus.N, 475.205, 2, 3, 30.3);
+            Product p = new Product(ProductType.b, FragmentationTerminus.N, 475.205, 2, 3, 30.3);
             MatchedFragmentIon f = new MatchedFragmentIon(p, 159.5, 1000.0, 3);
 
             double experMass = f.Mz.ToMass(f.Charge);

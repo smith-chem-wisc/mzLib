@@ -8,53 +8,65 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Omics.Fragmentation;
+using Omics.SpectrumMatch;
 using Proteomics;
+using Readers;
 
-namespace Test
+namespace Test.FileReadingTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class TestPsmFromTsv
     {
-        [Test]
-        public static void ReadOGlycoSinglePsms()
-        {
-            string psmFile = @"TestData\oglycoSinglePsms.psmtsv";
-            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
-            Assert.AreEqual(2, parsedPsms.Count);
-        }
 
         [Test]
-        public static void ReadNGlycoPsms()
+        [TestCase("oglycoSinglePsms.psmtsv", 2)] // oglyco
+        [TestCase("nglyco_f5.psmtsv", 5)] // nglyco
+        [TestCase("VariantCrossTest.psmtsv", 15)] // variant crossing
+        public static void TestPsmReaderWithMultipleEntryPoints(string path, int expected)
         {
-            string psmFile = @"TestData\nglyco_f5.psmtsv";
-            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
-            Assert.AreEqual(5, parsedPsms.Count);
-        }
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults",
+                path);
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out var warnings);
+            Assert.That(warnings.Count, Is.EqualTo(0));
+            Assert.That(parsedPsms.Count, Is.EqualTo(expected));
 
-        [Test]
-        public static void ReadVariantPsms()
-        {
-            string psmFile = @"TestData\VariantCrossTest.psmtsv";
-            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
-            Assert.AreEqual(15, parsedPsms.Count);
+            PsmFromTsvFile psmFile = FileReader.ReadFile<PsmFromTsvFile>(psmFilePath);
+            List<PsmFromTsv> psmFilePsms = psmFile.Results;
+            Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
+            for (int i = 0; i < parsedPsms.Count; i++)
+            {
+                Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(psmFilePsms[i].FullSequence));
+            }
+
+
+            SpectrumMatchFromTsvFile spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile>(psmFilePath);
+            List<SpectrumMatchFromTsv> spectralMatchFilePsms = spectralMatchFile.Results;
+            Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
+            for (int i = 0; i < parsedPsms.Count; i++)
+            {
+                PsmFromTsv casted = spectralMatchFilePsms[i] as PsmFromTsv;
+                if (casted == null) Assert.Fail();
+
+                Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(spectralMatchFilePsms[i].FullSequence));
+            }
         }
 
         [Test]
         public static void ReadInternalIonsPsms()
         {
-            string psmFile = @"TestData\internalIons.psmtsv";
-            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
+            string psmFile = @"FileReadingTests\SearchResults\internalIons.psmtsv";
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(10, parsedPsms.Count);
-            var internalIons = parsedPsms[0].MatchedIons.Where(i=>i.Annotation.Contains("yIb")).ToList();
-            Assert.AreEqual(97,internalIons.Count);
+            var internalIons = parsedPsms[0].MatchedIons.Where(i => i.Annotation.Contains("yIb")).ToList();
+            Assert.AreEqual(97, internalIons.Count);
         }
 
         [Test]
         public static void ReadOGlycoPsmsLocalizedGlycans()
         {
-            string psmFile = @"TestData\oglyco.psmtsv";
-            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
+            string psmFile = @"FileReadingTests\SearchResults\oglyco.psmtsv";
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(9, parsedPsms.Count);
 
             // read glycans if applicable
@@ -64,15 +76,15 @@ namespace Test
                 localGlycans = PsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycan);
             }
 
-            Assert.AreEqual(1,localGlycans.Count);
+            Assert.AreEqual(1, localGlycans.Count);
 
         }
 
         [Test]
         public static void ReadExcelEditedPsms()
         {
-            string psmFile = @"TestData\ExcelEditedPeptide.psmtsv";
-            List<PsmFromTsv> parsedPsms = PsmTsvReader.ReadTsv(psmFile, out var warnings);
+            string psmFile = @"FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv";
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(1, parsedPsms.Count);
             IEnumerable<string> expectedIons = new string[] { "y3+1", "y4+1", "b4+1", "b5+1", "b6+1", "b8+1" };
             Assert.That(6 == parsedPsms[0].MatchedIons.Select(p => p.Annotation).Intersect(expectedIons).Count());
@@ -82,9 +94,9 @@ namespace Test
         public static void TestPsmFromTsvDisambiguatingConstructor()
         {
             // initialize values
-            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\TDGPTMDSearchResults.psmtsv");
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
-            List<PsmFromTsv> psms = PsmTsvReader.ReadTsv(psmTsvPath, out warnings);
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings);
             PsmFromTsv psm = psms.First();
 
             // non ambiguous construction should not be successful
@@ -150,23 +162,23 @@ namespace Test
         [Test]
         public static void TestParseModification()
         {
-            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\TDGPTMDSearchResults.psmtsv");
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
-            List<PsmFromTsv> psms = PsmTsvReader.ReadTsv(psmTsvPath, out warnings).Take(20).ToList();
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).Take(20).ToList();
             Assert.That(warnings.Count == 2);
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
             // psm with single modificaiton
             PsmFromTsv singleMod = psms[0];
-            var modDict = PsmFromTsv.ParseModifications(singleMod.FullSequence);
+            var modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(singleMod.FullSequence);
             Assert.That(modDict.Count == 1);
             Assert.That(modDict.ContainsKey(37));
             Assert.That(modDict.Values.First().Contains("Common Fixed:Carbamidomethyl on C"));
 
             // psm with two modifications
             PsmFromTsv twoMods = psms[15];
-            modDict = PsmFromTsv.ParseModifications(twoMods.FullSequence);
+            modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(twoMods.FullSequence);
             Assert.That(modDict.Count == 2);
             Assert.That(modDict.ContainsKey(0) && modDict.ContainsKey(104));
             Assert.That(modDict[0].Count == 1);
@@ -177,7 +189,7 @@ namespace Test
 
             // psm with two mods on the same amino acid
             string fullSeq = "[Common Fixed:Carbamidomethyl on C]|[UniProt:N-acetylserine on S]KPRKIEEIKDFLLTARRKDAKSVKIKKNKDNVKFK";
-            modDict = PsmFromTsv.ParseModifications(fullSeq);
+            modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(fullSeq);
             Assert.That(modDict.Count == 1);
             Assert.That(modDict.ContainsKey(0));
             Assert.That(modDict[0].Count == 2);
@@ -191,23 +203,23 @@ namespace Test
             // successful removal of the default character
             string toRemove = "ANDVHAO|CNVASDF|ABVCUAE";
             int length = toRemove.Length;
-            PsmFromTsv.RemoveSpecialCharacters(ref toRemove);
+            Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove);
             Assert.That(toRemove.Length == length - 2);
             Assert.That(toRemove.Equals("ANDVHAOCNVASDFABVCUAE"));
 
             // does not remove default character when prompted otherwise
             toRemove = "ANDVHAO|CNVASDF|ABVCUAE";
-            PsmFromTsv.RemoveSpecialCharacters(ref toRemove, specialCharacter: @"\[");
+            Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, specialCharacter: @"\[");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO|CNVASDF|ABVCUAE"));
 
             // replaces default symbol when prompted
-            PsmFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"%");
+            Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"%");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO%CNVASDF%ABVCUAE"));
 
             // replaces inputted symbol with non-default symbol
-            PsmFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"=", specialCharacter: @"%");
+            Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"=", specialCharacter: @"%");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO=CNVASDF=ABVCUAE"));
         }
@@ -215,9 +227,9 @@ namespace Test
         [Test]
         public static void TestToString()
         {
-            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\TDGPTMDSearchResults.psmtsv");
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
-            List<PsmFromTsv> psms = PsmTsvReader.ReadTsv(psmTsvPath, out warnings).Take(3).ToList();
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).Take(3).ToList();
             Assert.That(warnings.Count == 2);
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
@@ -231,23 +243,23 @@ namespace Test
         public static void TestParenthesesRemovalForSilac()
         {
             string baseSequence = "ASDF(+8.01)ASDF";
-            string cleanedSequence = PsmFromTsv.RemoveParentheses(baseSequence);
+            string cleanedSequence = Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveParentheses(baseSequence);
             Assert.IsTrue(cleanedSequence.Equals("ASDFASDF"));
         }
 
         [Test]
         public static void TestSimpleToLibrarySpectrum()
         {
-            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\TDGPTMDSearchResults.psmtsv");
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
-            List<PsmFromTsv> psms = PsmTsvReader.ReadTsv(psmTsvPath, out warnings).Take(3).ToList();
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).Take(3).ToList();
             Assert.That(warnings.Count == 2);
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
             string librarySpectrum = psms[0].ToLibrarySpectrum().ToString();
 
-            string expectedLibrarySpectrum = File.ReadAllText(Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\simple.msp"));
+            string expectedLibrarySpectrum = File.ReadAllText(Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\simple.msp"));
 
             //not a great way to test equality but we are experiencing a great deal of 10th digit rounding differences
             Assert.AreEqual(Regex.Matches(expectedLibrarySpectrum, "ppm").Count, Regex.Matches(librarySpectrum, "ppm").Count);

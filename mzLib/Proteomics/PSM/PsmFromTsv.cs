@@ -16,19 +16,15 @@ namespace Proteomics.PSM
 {
     public class PsmFromTsv : SpectrumMatchFromTsv
     {
+
         public string ProteinAccession => Accession;
-
         public string ProteinName => Name;
-
         public string PeptideMonoMass => MonoisotopicMass;
-
         public string PeptideDescription => Description;
-
         public string PreviousAminoAcid => PreviousResidue;
-
         public string NextAminoAcid => NextResidue;
-
         public int PsmCount => SpectrumMatchCount;
+        public string StartAndEndResiduesInProtein => StartAndEndResiduesInParentSequence;
 
         //For crosslink
         public string CrossType { get; }
@@ -92,7 +88,7 @@ namespace Proteomics.PSM
             PrecursorMass = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMass]].Trim(), CultureInfo.InvariantCulture);
             BaseSeq = RemoveParentheses(spl[parsedHeader[SpectrumMatchFromTsvHeader.BaseSequence]].Trim());
             FullSequence = spl[parsedHeader[SpectrumMatchFromTsvHeader.FullSequence]];
-            PeptideMonoMass = spl[parsedHeader[SpectrumMatchFromTsvHeader.PeptideMonoMass]].Trim();
+            MonoisotopicMass = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
             Score = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Score]].Trim(), CultureInfo.InvariantCulture);
             DecoyContamTarget = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
             QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValue]].Trim(), CultureInfo.InvariantCulture);
@@ -112,17 +108,17 @@ namespace Proteomics.PSM
             MissedCleavage = (parsedHeader[SpectrumMatchFromTsvHeader.MissedCleavages] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MissedCleavages]].Trim();
             MassDiffDa = (parsedHeader[SpectrumMatchFromTsvHeader.MassDiffDa] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MassDiffDa]].Trim();
             MassDiffPpm = (parsedHeader[SpectrumMatchFromTsvHeader.MassDiffPpm] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MassDiffPpm]].Trim();
-            ProteinAccession = (parsedHeader[SpectrumMatchFromTsvHeader.ProteinAccession] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.ProteinAccession]].Trim();
-            ProteinName = (parsedHeader[SpectrumMatchFromTsvHeader.ProteinName] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.ProteinName]].Trim();
+            Accession = (parsedHeader[SpectrumMatchFromTsvHeader.Accession] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Accession]].Trim();
+            Name = (parsedHeader[SpectrumMatchFromTsvHeader.Name] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Name]].Trim();
             GeneName = (parsedHeader[SpectrumMatchFromTsvHeader.GeneName] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GeneName]].Trim();
             OrganismName = (parsedHeader[SpectrumMatchFromTsvHeader.OrganismName] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.OrganismName]].Trim();
             IntersectingSequenceVariations = (parsedHeader[SpectrumMatchFromTsvHeader.IntersectingSequenceVariations] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.IntersectingSequenceVariations]].Trim();
             IdentifiedSequenceVariations = (parsedHeader[SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations]].Trim();
             SpliceSites = (parsedHeader[SpectrumMatchFromTsvHeader.SpliceSites] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.SpliceSites]].Trim();
-            PeptideDescription = (parsedHeader[SpectrumMatchFromTsvHeader.PeptideDesicription] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.PeptideDesicription]].Trim();
-            StartAndEndResiduesInProtein = (parsedHeader[SpectrumMatchFromTsvHeader.StartAndEndResiduesInProtein] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.StartAndEndResiduesInProtein]].Trim();
-            PreviousAminoAcid = (parsedHeader[SpectrumMatchFromTsvHeader.PreviousAminoAcid] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousAminoAcid]].Trim();
-            NextAminoAcid = (parsedHeader[SpectrumMatchFromTsvHeader.NextAminoAcid] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NextAminoAcid]].Trim();
+            Description = (parsedHeader[SpectrumMatchFromTsvHeader.Description] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Description]].Trim();
+            StartAndEndResiduesInParentSequence = (parsedHeader[SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence]].Trim();
+            PreviousResidue = (parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]].Trim();
+            NextResidue = (parsedHeader[SpectrumMatchFromTsvHeader.NextResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]].Trim();
             QValueNotch = (parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch]].Trim(), CultureInfo.InvariantCulture);
             RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture);
             PEP = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
@@ -163,10 +159,10 @@ namespace Proteomics.PSM
             }
 
             //For Glyco            
-            GlycanMass = (parsedHeader[SpectrumMatchFromTsvHeader_Glyco.GlycanMass] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader_Glyco.GlycanMass]], CultureInfo.InvariantCulture);
-            GlycanComposition = (parsedHeader[SpectrumMatchFromTsvHeader_Glyco.GlycanComposition] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader_Glyco.GlycanComposition]];
-            GlycanStructure = (parsedHeader[SpectrumMatchFromTsvHeader_Glyco.GlycanStructure] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader_Glyco.GlycanStructure]];
-            var localizationLevel = (parsedHeader[SpectrumMatchFromTsvHeader_Glyco.GlycanLocalizationLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader_Glyco.GlycanLocalizationLevel]];
+            GlycanMass = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass]], CultureInfo.InvariantCulture);
+            GlycanComposition = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanComposition] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanComposition]];
+            GlycanStructure = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanStructure] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanStructure]];
+            var localizationLevel = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel]];
             if (localizationLevel != null)
             {
                 if (localizationLevel.Equals("NA"))
@@ -174,7 +170,7 @@ namespace Proteomics.PSM
                 else
                     GlycanLocalizationLevel = (LocalizationLevel)Enum.Parse(typeof(LocalizationLevel), localizationLevel);
             }
-            LocalizedGlycan = (parsedHeader[SpectrumMatchFromTsvHeader_Glyco.LocalizedGlycan] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader_Glyco.LocalizedGlycan]];
+            LocalizedGlycan = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycan] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycan]];
         }
 
         /// <summary>
@@ -190,11 +186,11 @@ namespace Proteomics.PSM
                 FullSequence = fullSequence;
                 EssentialSeq = psm.EssentialSeq;
                 BaseSeq = baseSequence == "" ? psm.BaseSeq : baseSequence;
-                StartAndEndResiduesInProtein = psm.StartAndEndResiduesInProtein;
-                ProteinAccession = psm.ProteinAccession;
-                ProteinName = psm.ProteinName;
+                StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInProtein;
+                Accession = psm.ProteinAccession;
+                Name = psm.ProteinName;
                 GeneName = psm.GeneName;
-                PeptideMonoMass = psm.PeptideMonoMass;
+                MonoisotopicMass = psm.PeptideMonoMass;
                 MassDiffDa = psm.MassDiffDa;
                 MassDiffPpm = psm.MassDiffPpm;
             }
@@ -204,20 +200,20 @@ namespace Proteomics.PSM
                 FullSequence = fullSequence;
                 EssentialSeq = psm.EssentialSeq.Split("|")[index];
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
-                StartAndEndResiduesInProtein = psm.StartAndEndResiduesInProtein.Split("|")[index];
-                ProteinAccession = psm.ProteinAccession.Split("|")[index];
-                ProteinName = psm.ProteinName.Split("|")[index];
+                StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInProtein.Split("|")[index];
+                Accession = psm.ProteinAccession.Split("|")[index];
+                Name = psm.ProteinName.Split("|")[index];
                 GeneName = psm.GeneName.Split("|")[index];
 
                 if (psm.PeptideMonoMass.Split("|").Count() == 1)
                 {
-                    PeptideMonoMass = psm.PeptideMonoMass.Split("|")[0];
+                    MonoisotopicMass = psm.PeptideMonoMass.Split("|")[0];
                     MassDiffDa = psm.MassDiffDa.Split("|")[0];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[0];
                 }
                 else
                 {
-                    PeptideMonoMass = psm.PeptideMonoMass.Split("|")[index];
+                    MonoisotopicMass = psm.PeptideMonoMass.Split("|")[index];
                     MassDiffDa = psm.MassDiffDa.Split("|")[index];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[index];
                 }
@@ -241,9 +237,9 @@ namespace Proteomics.PSM
             OrganismName = psm.OrganismName;
             IntersectingSequenceVariations = psm.IntersectingSequenceVariations;
             SpliceSites = psm.SpliceSites;
-            PeptideDescription = psm.PeptideDescription;
-            PreviousAminoAcid = psm.PreviousAminoAcid;
-            NextAminoAcid = psm.NextAminoAcid;
+            Description = psm.PeptideDescription;
+            PreviousResidue = psm.PreviousAminoAcid;
+            NextResidue = psm.NextAminoAcid;
             DecoyContamTarget = psm.DecoyContamTarget;
             QValueNotch = psm.QValueNotch;
             VariantCrossingIons = psm.VariantCrossingIons?.ToList();
