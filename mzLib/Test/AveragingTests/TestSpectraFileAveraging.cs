@@ -385,6 +385,45 @@ namespace Test.AveragingTests
             Assert.That(averagedScans.Count(p => p.MsnOrder == 2), Is.EqualTo(ms2Count));
             CollectionAssert.AreEquivalent(precursorScanNumbers, averagedScans.Select(p => p.OneBasedPrecursorScanNumber));
             CollectionAssert.AreEquivalent(scanNumbers, averagedScans.Select(p => p.OneBasedScanNumber));
+
+            // ensure no duplicates in scan numbers and precursor scan numbers
+            CollectionAssert.AllItemsAreUnique(averagedScans.Select(p => p.OneBasedScanNumber));
+            CollectionAssert.AllItemsAreUnique(averagedScans.Select(p => (p.OneBasedScanNumber, p.OneBasedPrecursorScanNumber)));
+        }
+
+        [Test]
+        public static void TestOnRealData()
+        {
+            string datapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "SmallCalibratibleYeast.mzml");
+            var scansToAverage = MsDataFileReader.GetDataFile(datapath).GetAllScansList();
+            SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScans;
+            SpectralAveragingParameters.NumberOfScansToAverage = 5;
+
+            int ms1Count = scansToAverage.Count(p => p.MsnOrder == 1);
+            int ms2Count = scansToAverage.Count(p => p.MsnOrder == 2);
+            int?[] precursorScanNumbers = scansToAverage.Select(p => p.OneBasedPrecursorScanNumber).ToArray();
+            int[] scanNumbers = scansToAverage.Select(p => p.OneBasedScanNumber).ToArray();
+
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(scansToAverage, SpectralAveragingParameters);
+
+            // Assert that there are the same number of ms1 and ms2 scans, and that they are in the same order
+            Assert.That(averagedScans.Count(p => p.MsnOrder == 1), Is.EqualTo(ms1Count));
+            Assert.That(averagedScans.Count(p => p.MsnOrder == 2), Is.EqualTo(ms2Count));
+            CollectionAssert.AreEquivalent(precursorScanNumbers, averagedScans.Select(p => p.OneBasedPrecursorScanNumber));
+            CollectionAssert.AreEquivalent(scanNumbers, averagedScans.Select(p => p.OneBasedScanNumber));
+
+            // ensure no duplicates in scan numbers and precursor scan numbers
+            CollectionAssert.AllItemsAreUnique(averagedScans.Select(p => p.OneBasedScanNumber));
+            CollectionAssert.AllItemsAreUnique(averagedScans.Select(p =>(p.OneBasedScanNumber, p.OneBasedPrecursorScanNumber)));
+
+            // ensure retention times are sequentially increasing
+            double previousRt = 0;
+            foreach (var rt in averagedScans.Select(p => p.RetentionTime))
+            {
+                Assert.That(rt > previousRt);
+                previousRt = rt;
+            }
         }
     }
 }
