@@ -358,7 +358,6 @@ namespace Test.AveragingTests
             Assert.That(averagedScans.First().MassSpectrum.YArray.SequenceEqual(expected));
         }
 
-
         [Test]
         [TestCase(5, nameof(DummyDDAScansOutOfOrder))]
         [TestCase(4, nameof(DummyDDAScansOutOfOrder))]

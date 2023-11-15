@@ -36,10 +36,6 @@ public static class SpectraFileAveraging
                 return AverageEverynScans(scans, parameters);
 
             case SpectraFileAveragingType.AverageDdaScans:
-                parameters.ScanOverlap = 0;
-                return AverageDdaScans(scans, parameters);
-
-            case SpectraFileAveragingType.AverageDdaScansWithOverlap:
                 return AverageDdaScans(scans, parameters);
 
             default: throw new MzLibException("Averaging spectra file processing type not yet implemented");
@@ -90,7 +86,6 @@ public static class SpectraFileAveraging
             var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
             MsDataScan averagedScan = GetAveragedDataScanFromAveragedSpectrum(averagedSpectrum, representativeScan);
             averagedScans.Add(averagedScan);
-           
         }
 
         return averagedScans.ToArray();
@@ -119,17 +114,12 @@ public static class SpectraFileAveraging
             scansToProcess.RemoveAt(0);
         }
         
-        // add MS1 scans from start and end of file that did not get averaged
+        // add all scans that did not get averaged
+        // this includes the MS1 scans from start and end of file and all MS2+ scans
         foreach (var unaveragedScan in scans.Where(original =>
-                     original.MsnOrder == 1 
-                     && !averagedScans.Select(avg => avg.OneBasedScanNumber)
-                         .Contains(original.OneBasedScanNumber)))
-        {
+                     !averagedScans.Select(avg => avg.OneBasedScanNumber).Contains(original.OneBasedScanNumber)))
             averagedScans.Add(unaveragedScan);
-        }
         
-        // add all scans that are not MS1 scans
-        averagedScans.AddRange(scans.Where(p => p.MsnOrder != 1));
         return averagedScans.OrderBy(p => p.OneBasedScanNumber).ToArray();
     }
 
