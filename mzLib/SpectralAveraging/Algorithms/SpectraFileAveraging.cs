@@ -70,7 +70,6 @@ public static class SpectraFileAveraging
     private static MsDataScan[] AverageEverynScans(List<MsDataScan> scans, SpectralAveragingParameters parameters)
     {
         List<MsDataScan> averagedScans = new();
-        var scanNumberIndex = 1;
         for (var i = 0; i < scans.Count; i += parameters.NumberOfScansToAverage - parameters.ScanOverlap)
         {
             // get the scans to be averaged
@@ -89,17 +88,9 @@ public static class SpectraFileAveraging
                 scansToProcess[middleIndex];
 
             var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
-            MsDataScan averagedScan = new(averagedSpectrum, scanNumberIndex, 1,
-                representativeScan.IsCentroid, representativeScan.Polarity,
-                scansToProcess.Select(p => p.RetentionTime).Minimum(),
-                averagedSpectrum.Range, null, representativeScan.MzAnalyzer,
-                scansToProcess.Select(p => p.TotalIonCurrent).Average(),
-                scansToProcess.Select(p => p.InjectionTime).Average(), null, representativeScan.NativeId);
-            var newNativeId =
-                averagedScan.NativeId.Replace(averagedScan.NativeId.Split("=").Last(), scanNumberIndex.ToString());
-            averagedScan.SetNativeID(newNativeId);
+            MsDataScan averagedScan = GetAveragedDataScanFromAveragedSpectrum(averagedSpectrum, representativeScan);
             averagedScans.Add(averagedScan);
-            scanNumberIndex++;
+           
         }
 
         return averagedScans.ToArray();
@@ -117,27 +108,28 @@ public static class SpectraFileAveraging
         foreach (var scan in scans.Where(p => p.MsnOrder == 1))
         {
             scansToProcess.Add(scan);
+            // average with new scan from iteration, then remove first scan from list
+            if (scansToProcess.Count != parameters.NumberOfScansToAverage) continue;
 
-            // middle of the file, average with new scan from iteration, then remove first scan from list
-            if (scansToProcess.Count == parameters.NumberOfScansToAverage) 
-            {
-                MsDataScan centralScan = scansToProcess[representativeScanMs1Index];
-                var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
-                var averagedScan = GetAveragedDataScanFromAveragedSpectrum(averagedSpectrum, centralScan);
+            MsDataScan centralScan = scansToProcess[representativeScanMs1Index];
+            var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
+            var averagedScan = GetAveragedDataScanFromAveragedSpectrum(averagedSpectrum, centralScan);
 
-                averagedScans.Add(averagedScan);
-                scansToProcess.RemoveAt(0);
-            }
-            // start of the file, not enough scans to average, just add the scans to final output
-            else if (scansToProcess.Count <= representativeScanMs1Index)
-                averagedScans.Add(scan);
+            averagedScans.Add(averagedScan);
+            scansToProcess.RemoveAt(0);
         }
         
-        // add MS1 scans from end of file that did not get averaged
-        averagedScans.AddRange(scans.Where(p => p.MsnOrder == 1).TakeLast(representativeScanMs1Index));
+        // add MS1 scans from start and end of file that did not get averaged
+        foreach (var unaveragedScan in scans.Where(original =>
+                     original.MsnOrder == 1 
+                     && !averagedScans.Select(avg => avg.OneBasedScanNumber)
+                         .Contains(original.OneBasedScanNumber)))
+        {
+            averagedScans.Add(unaveragedScan);
+        }
+        
         // add all scans that are not MS1 scans
         averagedScans.AddRange(scans.Where(p => p.MsnOrder != 1));
-
         return averagedScans.OrderBy(p => p.OneBasedScanNumber).ToArray();
     }
 
