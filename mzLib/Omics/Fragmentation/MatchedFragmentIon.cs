@@ -5,7 +5,7 @@ namespace Omics.Fragmentation
 {
     public class MatchedFragmentIon
     {
-        public readonly IProduct NeutralTheoreticalProduct;
+        public readonly Product NeutralTheoreticalProduct;
         public readonly double Mz;
         public readonly double Intensity;
         public readonly int Charge;
@@ -13,7 +13,7 @@ namespace Omics.Fragmentation
         /// <summary>
         /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
         /// </summary>
-        public MatchedFragmentIon(ref IProduct neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
+        public MatchedFragmentIon(ref Product neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
         {
             NeutralTheoreticalProduct = neutralTheoreticalProduct;
             Mz = experMz;
@@ -23,7 +23,7 @@ namespace Omics.Fragmentation
         /// <summary>
         /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
         /// </summary>
-        public MatchedFragmentIon(IProduct neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
+        public MatchedFragmentIon(Product neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
         {
             NeutralTheoreticalProduct = neutralTheoreticalProduct;
             Mz = experMz;

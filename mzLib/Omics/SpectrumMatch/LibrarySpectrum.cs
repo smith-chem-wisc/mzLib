@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Easy.Common.Extensions;
+using MassSpectrometry.MzSpectra;
 using Omics.Fragmentation;
 
 namespace Omics.SpectrumMatch

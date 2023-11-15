@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Omics.Fragmentation;
-
-namespace Proteomics.Fragmentation
+﻿namespace Omics.Fragmentation
 {
     public class TerminusSpecificProductTypes
     {

@@ -1,74 +1,119 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO.Enumeration;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Omics.SpectrumMatch
 {
-    public interface SpectrumMatchFromTsvHeader
+    //for glcyo
+    public enum LocalizationLevel
+    {
+        Level1,
+        Level1b,
+        Level2,
+        Level3
+    }
+    public class SpectrumMatchFromTsvHeader
     {
         // File and scan information
-        const string FileName = "File Name";
-        const string Ms2ScanNumber = "Scan Number";
-        const string Ms2ScanRetentionTime = "Scan Retention Time";
-        const string NumExperimentalPeaks = "Num Experimental Peaks";
-        const string TotalIonCurrent = "Total Ion Current";
-        const string PrecursorScanNum = "Precursor Scan Number";
-        const string PrecursorCharge = "Precursor Charge";
-        const string PrecursorMz = "Precursor MZ";
-        const string PrecursorMass = "Precursor Mass";
-        const string Score = "Score";
-        const string DeltaScore = "Delta Score";
-        const string Notch = "Notch";
+        public const string FileName = "File Name";
+        public const string Ms2ScanNumber = "Scan Number";
+        public const string Ms2ScanRetentionTime = "Scan Retention Time";
+        public const string NumExperimentalPeaks = "Num Experimental Peaks";
+        public const string TotalIonCurrent = "Total Ion Current";
+        public const string PrecursorScanNum = "Precursor Scan Number";
+        public const string PrecursorCharge = "Precursor Charge";
+        public const string PrecursorMz = "Precursor MZ";
+        public const string PrecursorMass = "Precursor Mass";
+        public const string Score = "Score";
+        public const string DeltaScore = "Delta Score";
+        public const string Notch = "Notch";
 
         // Sequence information
-        const string BaseSequence = "Base Sequence";
-        const string FullSequence = "Full Sequence";
-        const string EssentialSequence = "Essential Sequence";
-        const string AmbiguityLevel = "Ambiguity Level";
-        const string SpectrumMatchCount = "SM Count (unambiguous, <0.01 q-value)";
-        const string Mods = "Mods";
-        const string ModsChemicalFormulas = "Mods Chemical Formulas";
-        const string ModsCombinedChemicalFormula = "Mods Combined Chemical Formula";
-        const string NumVariableMods = "Num Variable Mods";
-        const string MissedCleavages = "Missed Cleavages";
-        const string MonoisotopicMass = "Monoisotopic Mass";
-        const string MassDiffDa = "Mass Diff (Da)";
-        const string MassDiffPpm = "Mass Diff (ppm)";
-        const string Accession = "Accession";
-        const string Name = "Name";
-        const string GeneName = "Gene Name";
-        const string OrganismName = "Organism Name";
-        const string IntersectingSequenceVariations = "Intersecting Sequence Variations";
-        const string IdentifiedSequenceVariations = "Identified Sequence Variations";
-        const string SpliceSites = "Splice Sites";
-        const string Contaminant = "Contaminant";
-        const string Decoy = "Decoy";
-        const string Description = "Description";
-        const string StartAndEndResiduesInFullSequence = "Start and End Residues In Protein";
-        const string PreviousMonomer = "Previous Monomer";
-        const string NextMonomer = "Next Monomer";
-        const string TheoreticalsSearched = "Theoreticals Searched";
-        const string DecoyContaminantTarget = "Decoy/Contaminant/Target";
-        const string MatchedIonSeries = "Matched Ion Series";
-        const string MatchedIonMzRatios = "Matched Ion Mass-To-Charge Ratios";
-        const string MatchedIonMassDiffDa = "Matched Ion Mass Diff (Da)";
-        const string MatchedIonMassDiffPpm = "Matched Ion Mass Diff (Ppm)";
-        const string MatchedIonIntensities = "Matched Ion Intensities";
-        const string MatchedIonCounts = "Matched Ion Counts";
+        public const string BaseSequence = "Base Sequence";
+        public const string FullSequence = "Full Sequence";
+        public const string EssentialSequence = "Essential Sequence";
+        public const string AmbiguityLevel = "Ambiguity Level";
+        public const string SpectrumMatchCount = "Spectrum Match Count";
+        public const string Mods = "Mods";
+        public const string ModsChemicalFormulas = "Mods Chemical Formulas";
+        public const string ModsCombinedChemicalFormula = "Mods Combined Chemical Formula";
+        public const string NumVariableMods = "Num Variable Mods";
+        public const string MissedCleavages = "Missed Cleavages";
+        public const string MonoisotopicMass = "Monoisotopic Mass";
+        public const string MassDiffDa = "Mass Diff (Da)";
+        public const string MassDiffPpm = "Mass Diff (ppm)";
+        public const string Accession = "Accession";
+
+        public const string Name = "Name";
+        public const string GeneName = "Gene Name";
+        public const string OrganismName = "Organism Name";
+        public const string IntersectingSequenceVariations = "Intersecting Sequence Variations";
+        public const string IdentifiedSequenceVariations = "Identified Sequence Variations";
+        public const string SpliceSites = "Splice Sites";
+        public const string Contaminant = "Contaminant";
+        public const string Decoy = "Decoy";
+        public const string Description = "Description";
+        public const string StartAndEndResiduesInFullSequence = "Start and End Residues In Protein";
+        public const string PreviousResidue = "Previous Residue";
+        public const string NextResidue = "Next Residue";
+        public const string TheoreticalsSearched = "Theoreticals Searched";
+        public const string DecoyContaminantTarget = "Decoy/Contaminant/Target";
+        public const string MatchedIonSeries = "Matched Ion Series";
+        public const string MatchedIonMzRatios = "Matched Ion Mass-To-Charge Ratios";
+        public const string MatchedIonMassDiffDa = "Matched Ion Mass Diff (Da)";
+        public const string MatchedIonMassDiffPpm = "Matched Ion Mass Diff (Ppm)";
+        public const string MatchedIonIntensities = "Matched Ion Intensities";
+        public const string MatchedIonCounts = "Matched Ion Counts";
 
         // Scoring
-        const string LocalizedScores = "Localized Scores";
-        const string ImprovementPossible = "Improvement Possible";
-        const string CumulativeTarget = "Cumulative Target";
-        const string CumulativeDecoy = "Cumulative Decoy";
-        const string CumulativeTargetNotch = "Cumulative Target Notch";
-        const string CumulativeDecoyNotch = "Cumulative Decoy Notch";
-        const string QValue = "QValue";
-        const string QValueNotch = "QValue Notch";
-        const string PEP = "PEP";
-        const string PEP_QValue = "PEP_QValue";
-        const string SpectralAngle = "Normalized Spectral Angle";
+        public const string LocalizedScores = "Localized Scores";
+        public const string ImprovementPossible = "Improvement Possible";
+        public const string CumulativeTarget = "Cumulative Target";
+        public const string CumulativeDecoy = "Cumulative Decoy";
+        public const string CumulativeTargetNotch = "Cumulative Target Notch";
+        public const string CumulativeDecoyNotch = "Cumulative Decoy Notch";
+        public const string QValue = "QValue";
+        public const string QValueNotch = "QValue Notch";
+        public const string PEP = "PEP";
+        public const string PEP_QValue = "PEP_QValue";
+        public const string SpectralAngle = "Normalized Spectral Angle";
+
+        //Legacy Terminology for backwards compatibility DO NOT USE IN NEW CODE
+        public const string PsmCount = "PSM Count (unambiguous, <0.01 q-value)";
+        public const string PeptideMonoMass = "Peptide Monoisotopic Mass";
+        public const string ProteinAccession = "Protein Accession";
+        public const string ProteinName = "Protein Name";
+        public const string PeptideDescription = "Peptide Description";
+        public const string StartAndEndResiduesInProtein = "Start and End Residues In Protein";
+        public const string PreviousAminoAcid = "Previous Amino Acid";
+        public const string NextAminoAcid = "Next Amino Acid";
+
+        // Crosslinks
+        public const string CrossTypeLabel = "Cross Type";
+        public const string LinkResiduesLabel = "Link Residues";
+        public const string ProteinLinkSiteLabel = "Protein Link Site";
+        public const string RankLabel = "Rank";
+        public const string BetaPeptideProteinAccessionLabel = "Beta Peptide Protein Accession";
+        public const string BetaPeptideProteinLinkSiteLabel = "Beta Peptide Protein LinkSite";
+        public const string BetaPeptideBaseSequenceLabel = "Beta Peptide Base Sequence";
+        public const string BetaPeptideFullSequenceLabel = "Beta Peptide Full Sequence";
+        public const string BetaPeptideTheoreticalMassLabel = "Beta Peptide Theoretical Mass";
+        public const string BetaPeptideScoreLabel = "Beta Peptide Score";
+        public const string BetaPeptideRankLabel = "Beta Peptide Rank";
+        public const string BetaPeptideMatchedIonsLabel = "Beta Peptide Matched Ion Mass-To-Charge Ratios";
+        public const string BetaPeptideMatchedIonIntensitiesLabel = "Beta Peptide Matched Ion Intensities";
+        public const string XLTotalScoreLabel = "XL Total Score";
+        public const string ParentIonsLabel = "Parent Ions";
+
+        //glyco
+        public const string GlycanMass = "GlycanMass";
+        public const string GlycanComposition = "Plausible GlycanComposition";
+        public const string GlycanStructure = "Plausible GlycanStructure";
+        public const string GlycanLocalizationLevel = "GlycanLocalizationLevel";
+        public const string LocalizedGlycan = "Localized Glycans with Peptide Site Specific Probability";
+
     }
 }
