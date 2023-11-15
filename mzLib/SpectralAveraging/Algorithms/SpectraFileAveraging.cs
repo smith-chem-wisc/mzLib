@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using Easy.Common.Interfaces;
 using MassSpectrometry;
-using MathNet.Numerics.Statistics;
 using MzLibUtil;
 
 namespace SpectralAveraging;
