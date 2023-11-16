@@ -273,5 +273,56 @@ namespace Test.FileReadingTests
 
             Assert.That(librarySpectrumWithNeutralLoss.Contains("WaterLoss"));
         }
+
+        [Test]
+        [TestCase("FileReader - PsmFromTsv")]
+        [TestCase("FileReader - SpectrumMatchFromTsv")]
+        [TestCase("File Construction - PsmFromTsv")]
+        [TestCase("File Construction - SpectrumMatchFromTsv")]
+        public static void TestPsmFiles(string fileLoadingType)
+        {
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out var warnings);
+            Assert.That(warnings.Count == 2);
+
+            IResultFile loadedFile = null;
+            switch (fileLoadingType)
+            {
+                case "FileReader - PsmFromTsv":
+                    var file = FileReader.ReadFile<PsmFromTsvFile>(psmTsvPath);
+                    file.LoadResults();
+                    Assert.That(file.Results.Count == psms.Count);
+                    loadedFile = file;
+                    break;
+
+                case "FileReader - SpectrumMatchFromTsv":
+                    var file2 = FileReader.ReadFile<SpectrumMatchFromTsvFile>(psmTsvPath);
+                    file2.LoadResults();
+                    Assert.That(file2.Results.Count == psms.Count);
+                    loadedFile = file2;
+                    break;
+
+                case "File Construction - PsmFromTsv":
+                    var file3 = new PsmFromTsvFile(psmTsvPath);
+                    file3.LoadResults();
+                    Assert.That(file3.Results.Count == psms.Count);
+                    loadedFile = file3;
+                    break;
+
+                case "File Construction - SpectrumMatchFromTsv":
+                    var file4 = new SpectrumMatchFromTsvFile(psmTsvPath);
+                    file4.LoadResults();
+                    Assert.That(file4.Results.Count == psms.Count);
+                    loadedFile = file4;
+                    break;
+
+                default:
+                    Assert.Fail();
+                    break;
+            }
+
+            Assert.That(loadedFile.FileType == SupportedFileType.psmtsv);
+            Assert.Throws<NotImplementedException>(() => { loadedFile.WriteResults(""); });
+        }
     }
 }

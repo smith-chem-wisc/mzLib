@@ -4,7 +4,7 @@ namespace Readers;
 
 public class PsmFromTsvFile : ResultFile<PsmFromTsv>, IResultFile
 {
-    public override SupportedFileType FileType { get; }
+    public override SupportedFileType FileType => SupportedFileType.psmtsv;
     public override Software Software { get; set; }
 
     /// <summary>
@@ -12,10 +12,7 @@ public class PsmFromTsvFile : ResultFile<PsmFromTsv>, IResultFile
     /// </summary>
     public PsmFromTsvFile() : base() { }
 
-    public PsmFromTsvFile(string filePath) : base(filePath, Software.MetaMorpheus)
-    {
-
-    }
+    public PsmFromTsvFile(string filePath) : base(filePath, Software.MetaMorpheus) { }
 
     public override void LoadResults()
     {

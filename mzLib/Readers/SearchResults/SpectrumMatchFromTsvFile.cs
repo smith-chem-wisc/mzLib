@@ -4,7 +4,7 @@ namespace Readers;
 
 public class SpectrumMatchFromTsvFile : ResultFile<SpectrumMatchFromTsv>, IResultFile
 {
-    public override SupportedFileType FileType { get; }
+    public override SupportedFileType FileType => FilePath.ParseFileType();
     public override Software Software { get; set; }
 
     /// <summary>
@@ -12,10 +12,7 @@ public class SpectrumMatchFromTsvFile : ResultFile<SpectrumMatchFromTsv>, IResul
     /// </summary>
     public SpectrumMatchFromTsvFile() : base() { }
 
-    public SpectrumMatchFromTsvFile(string filePath) : base(filePath, Software.MetaMorpheus)
-    {
-        
-    }
+    public SpectrumMatchFromTsvFile(string filePath) : base(filePath, Software.MetaMorpheus) { }
 
     public override void LoadResults()
     {
