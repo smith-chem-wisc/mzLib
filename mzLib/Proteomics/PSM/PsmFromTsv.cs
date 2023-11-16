@@ -42,7 +42,6 @@ namespace Proteomics.PSM
         public Dictionary<int, List<MatchedFragmentIon>> BetaPeptideChildScanMatchedIons { get; }
         public double? XLTotalScore { get; }
         public string ParentIons { get; }
-        public double? RetentionTime { get; }
 
         //For Glyco
         public string GlycanStructure { get; set; }

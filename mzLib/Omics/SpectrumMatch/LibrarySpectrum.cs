@@ -8,7 +8,7 @@ namespace Omics.SpectrumMatch
     public class LibrarySpectrum
     {
         public string Sequence { get; set; }
-        public double RetentionTime { get; set; }
+        public double? RetentionTime { get; set; }
         public double PrecursorMz { get; set; }
         public int ChargeState { get; set; }
         public List<MatchedFragmentIon> MatchedFragmentIons { get; set; }
@@ -21,7 +21,7 @@ namespace Omics.SpectrumMatch
             get { return Sequence + "/" + ChargeState; }
         }
 
-        public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double rt, bool isDecoy = false)
+        public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false)
         {
             Sequence = sequence;
             PrecursorMz = precursorMz;
