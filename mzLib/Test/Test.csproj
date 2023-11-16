@@ -409,28 +409,28 @@
     <None Update="ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	</None>
-    <None Update="TestData\ExcelEditedPeptide.psmtsv">
+    <None Update="FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="TestData\internalIons.psmtsv">
+    <None Update="FileReadingTests\SearchResults\internalIons.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="TestData\nglyco_f5.psmtsv">
+    <None Update="FileReadingTests\SearchResults\nglyco_f5.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="TestData\oglyco.psmtsv">
+    <None Update="FileReadingTests\SearchResults\oglyco.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="TestData\oglycoSinglePsms.psmtsv">
+    <None Update="FileReadingTests\SearchResults\oglycoSinglePsms.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="TestData\simple.msp">
+    <None Update="FileReadingTests\SearchResults\simple.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="TestData\TDGPTMDSearchResults.psmtsv">
+    <None Update="FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="TestData\VariantCrossTest.psmtsv">
+    <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
 	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">
@@ -447,6 +447,10 @@
   <ItemGroup>
     <Compile Remove="TestSummedDataFile.cs" />
     <Compile Remove="TestAbsoluteTolerance.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="TestData\" />
   </ItemGroup>
 
 </Project>
