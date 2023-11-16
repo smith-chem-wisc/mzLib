@@ -1,14 +1,8 @@
-﻿using Chemistry;
-using Easy.Common.Extensions;
-using Proteomics.Fragmentation;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 

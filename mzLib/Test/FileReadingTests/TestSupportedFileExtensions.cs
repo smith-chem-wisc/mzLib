@@ -58,5 +58,16 @@ namespace Test.FileReadingTests
                 _ = value.GetFileExtension();
             }
         }
+        [Test]
+        public static void TestGetFileExtension_Errors()
+        {
+            SupportedFileType sft = new SupportedFileType();
+
+            Exception e = Assert.Throws<MzLibException>(() => SupportedFileTypeExtensions.GetFileExtension(sft));
+            Assert.That(e?.Message,
+                Is.EqualTo($"File type not supported"));
+
+
+        }
     }
 }

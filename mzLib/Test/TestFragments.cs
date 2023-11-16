@@ -866,6 +866,25 @@ namespace Test
             MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
             Assert.AreEqual("b1+1\t;1", m.ToString());
         }
+        [Test]
+        public static void Test_ProductGetHashCode()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Assert.AreEqual(1072693248, P.GetHashCode());
+        }
+        [Test]
+        public static void Test_ProductMonoisotopicMass()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Assert.That(P.MonoisotopicMass.Equals(P.NeutralMass));
+        }
+        [Test]
+        public static void Test_MatchedFragmentGetHashCode()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
+            Assert.AreEqual(1072693248, m.GetHashCode());
+        }
 
         [Test]
         public static void Test_CID_Fragmentation_No_Unmodified_B1_ions()
