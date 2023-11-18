@@ -5,6 +5,7 @@
 		<Platforms>x64</Platforms>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -54,6 +55,12 @@
 		</None>
 		<None Update="Bruker\msvcr110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\TimsTofReader\timsdata.dll">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\TimsTofReader\timsdata.lib">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 		<None Update="Bruker\vcomp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
