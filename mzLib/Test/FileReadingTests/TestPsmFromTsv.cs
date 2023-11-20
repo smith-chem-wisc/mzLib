@@ -324,5 +324,32 @@ namespace Test.FileReadingTests
             Assert.That(loadedFile.FileType == SupportedFileType.psmtsv);
             Assert.Throws<NotImplementedException>(() => { loadedFile.WriteResults(""); });
         }
+
+        [Test]
+        public static void ReadPsmFromTsvWithNewHeaderTerms()
+        {
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\NewHeader.psmtsv");
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out var warnings);
+            Assert.That(warnings.Count == 2);
+
+            IResultFile loadedFile = null;
+            var file = FileReader.ReadFile<PsmFromTsvFile>(psmTsvPath);
+            file.LoadResults();
+            Assert.That(file.Results.Count == psms.Count);
+            loadedFile = file;
+        }
+
+        [Test]
+        public static void ReadXLinkPsmFromTsv()
+        {
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\XLink.psmtsv");
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out var warnings);
+
+            IResultFile loadedFile = null;
+            var file = FileReader.ReadFile<PsmFromTsvFile>(psmTsvPath);
+            file.LoadResults();
+            Assert.That(file.Results.Count == psms.Count);
+            loadedFile = file;
+        }
     }
 }

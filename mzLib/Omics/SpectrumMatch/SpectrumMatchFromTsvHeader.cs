@@ -49,7 +49,7 @@
         public const string Contaminant = "Contaminant";
         public const string Decoy = "Decoy";
         public const string Description = "Description";
-        public const string StartAndEndResiduesInFullSequence = "Start and End Residues In Protein";
+        public const string StartAndEndResiduesInFullSequence = "Start and End Residues In Full Sequence";
         public const string PreviousResidue = "Previous Residue";
         public const string NextResidue = "Next Residue";
         public const string TheoreticalsSearched = "Theoreticals Searched";
