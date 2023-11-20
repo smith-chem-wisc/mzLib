@@ -7,6 +7,7 @@ using Easy.Common.Extensions;
 using MzLibUtil;
 using UsefulProteomicsDatabases;
 using System.Data.Common;
+using Readers.Bruker.TimsTofReader;
 
 namespace Readers.Bruker
 { 
@@ -87,29 +88,45 @@ namespace Readers.Bruker
 
             placeholded2++;
 
-            //var shortPtrs = new IntPtr[95578];
-            
-            // Note, the data is actually stored as UInt32, will need 
-            // to do conversion via type punning after marshalling
+            //int dataLength = 2^12; // Default allocation ~ 16 kB
+            //IntPtr pData = Marshal.AllocHGlobal(dataLength * Marshal.SizeOf<Int32>());
+
+            //var outputLength = tims_read_scans_v2(
+            //    fileHandle,
+            //    ids[1000],
+            //    scan_begin: 0,
+            //    scan_end: (UInt32)numScans[1000],
+            //    buffer: pData,
+            //    length: (UInt32)(dataLength * 4));
+
             //var dataArray = new Int32[95578];
-            //GCHandle hData = GCHandle.Alloc(dataArray, GCHandleType.Pinned);
-            //IntPtr pData = hData.AddrOfPinnedObject();
+            //Marshal.Copy(pData, dataArray, 0, dataLength);
 
-            int dataLength = 2^12; // Default allocation ~ 16 kB
-            IntPtr pData = Marshal.AllocHGlobal(dataLength * Marshal.SizeOf<Int32>());
+            int frameIdIndex = 65365;
+            long frameId = ids[frameIdIndex];
 
-            var outputLength = tims_read_scans_v2(
-                fileHandle,
-                ids[1000],
-                scan_begin: 0,
-                scan_end: (UInt32)numScans[1000],
-                buffer: pData,
-                length: (UInt32)(dataLength * 4));
-
-            var dataArray = new Int32[95578];
-            Marshal.Copy(pData, dataArray, 0, dataLength);
+            var dataArray = GetScanRawData(fileHandle, ids[frameIdIndex], (UInt32)numScans[frameIdIndex]);
+            FrameProxy test = new FrameProxy(dataArray, numScans[frameIdIndex], fileHandle);
 
             var max = dataArray.Max();
+
+            int maxScan = dataArray[0..900].IndexOf(dataArray[0..900].Max());
+            //int maxScan = 237;
+            Range scanMzRange = test.GetXRange(maxScan);
+            
+            var mzSlice = dataArray[scanMzRange];
+            double[] mzDubSlice = new double[mzSlice.Length];
+            for(int j = 0; j < mzSlice.Length; j++)
+            {
+                mzDubSlice[j] = (double)mzSlice[j];
+            }
+
+            placeholded2++;
+
+            var conversionTest = BdalTimsConversionFunctions.DoTransformation(fileHandle,
+                ids[frameIdIndex],
+                mzDubSlice,
+                BdalTimsConversionFunctions.ConversionFunctions.IndexToMz);
 
             placeholded2++;
 

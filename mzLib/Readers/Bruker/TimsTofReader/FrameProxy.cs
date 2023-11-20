@@ -43,7 +43,7 @@ namespace Readers.Bruker.TimsTofReader
         internal Range GetXRange(int zeroIndexedScanNumber)
         {
             ThrowIfInvalidScanNumber(zeroIndexedScanNumber);
-            return GetReadScanRange(zeroIndexedScanNumber, offset: 0);
+            return GetScanRange(zeroIndexedScanNumber, offset: 0);
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace Readers.Bruker.TimsTofReader
         internal Range GetYRange(int zeroIndexedScanNumber)
         {
             ThrowIfInvalidScanNumber(zeroIndexedScanNumber);
-            return GetReadScanRange(zeroIndexedScanNumber, offset: (int)_rawData[zeroIndexedScanNumber]);
+            return GetScanRange(zeroIndexedScanNumber, offset: (int)_rawData[zeroIndexedScanNumber]);
         }
 
         private void ThrowIfInvalidScanNumber(int zeroIndexedScanNumber)
@@ -62,7 +62,7 @@ namespace Readers.Bruker.TimsTofReader
                 throw new ArgumentException("Scan number out of range.");
         }
 
-        private Range GetReadScanRange(int zeroIndexedScanNumber, int offset)
+        private Range GetScanRange(int zeroIndexedScanNumber, int offset)
         {
             int start = NumberOfScans + 2*_scanOffsets[zeroIndexedScanNumber] + offset;
             return new Range(start, start + (int)_rawData[zeroIndexedScanNumber]);
@@ -81,11 +81,13 @@ namespace Readers.Bruker.TimsTofReader
         public static int[] PartialSum(uint[] array, int start, int end)
         {
             int runningTotal = 0;
-            int[] sums = new int[end - start];
+            int[] sums = new int[end - start + 1];
+            sums[0] = 0;
+
             for(int i = 0; i < end; i++)
             {
                 runningTotal += (int)array[i];
-                sums[i] = runningTotal;
+                sums[i+1] = runningTotal;
             }
             return sums;
         }
