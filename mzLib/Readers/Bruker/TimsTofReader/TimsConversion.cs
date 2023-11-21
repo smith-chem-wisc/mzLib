@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Readers.Bruker.TimsTofReader
 {
-    internal static unsafe class BdalTimsConversionFunctions
+    internal static unsafe class TimsConversion
     {
         internal enum ConversionFunctions
         {
@@ -21,6 +21,13 @@ namespace Readers.Bruker.TimsTofReader
             VoltageToScan
         }
 
+        /// <summary>
+        /// Takes an array of raw values and converts them according to the specified conversion function, 
+        /// returning an equal length array containing the transformed values
+        /// </summary>
+        /// <param name="fileHandle"> Unique identifier associated with the open timsTof .d data file </param>
+        /// <param name="frameId"> Frame identified</param>
+        /// <returns> Double array containing the transformed input values </returns>
         internal static unsafe double[] DoTransformation(UInt64 fileHandle, long frameId, double[] input, ConversionFunctions function)
         {
             if(!input.IsNotNullOrEmpty())

@@ -1,32 +1,92 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Readers.Bruker.TimsTofReader
 {
-
-    /// <summary>
-    /// From Bruker documentation:
-    /// Raw data layout: (N = scan_end - scan_begin = number of requested scans)
-    ///   N x uint32_t: number of peaks in each of the N requested scans
-    ///   N x (two uint32_t arrays: first indices, then intensities)
-    /// </summary>
     internal class FrameProxy
     {
-        private int[] _scanOffsets;
+        private int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
         private uint[] _rawData;
-        public UInt64 FileHandle { get; }
+        internal UInt64 FileHandle { get; }
+        internal long FrameId { get; }
         internal int NumberOfScans { get; }
         internal int TotalNumberOfPeaks => _scanOffsets[NumberOfScans - 1];
 
-        internal FrameProxy(uint[] rawData, int numScans, UInt64 fileHandle)
+        internal FrameProxy(UInt64 fileHandle, long frameId, int numScans) 
+            : this (fileHandle, frameId, GetScanRawData(fileHandle, frameId, (UInt32)numScans), numScans) { }
+
+        internal FrameProxy(UInt64 fileHandle, long frameId, uint[] rawData, int numScans)
         {
             NumberOfScans = numScans;
             FileHandle = fileHandle;
+            FrameId = frameId;
             _rawData = rawData;
             _scanOffsets = PartialSum(rawData, 0, numScans);
+        }
+
+        internal double[] GetScanMzs(int zeroIndexedScanNumber)
+        {
+            double[] mzLookupIndices = Array
+                .ConvertAll(_rawData[GetXRange(zeroIndexedScanNumber)], entry => (double)entry);
+
+            return TimsConversion.DoTransformation(FileHandle, FrameId, mzLookupIndices, TimsConversion.ConversionFunctions.IndexToMz);
+        }
+
+        internal int[] GetScanIntensities(int zeroIndexedScanNumber)
+        {
+            return Array.ConvertAll(_rawData[GetYRange(zeroIndexedScanNumber)], entry => (int)entry);
+        }
+
+        /// <summary>
+        /// Read a range of scans from a single frame.
+        ///
+        /// Output layout: (N = scan_end - scan_begin = number of requested scans)
+        ///   N x uint32_t: number of peaks in each of the N requested scans
+        ///   N x (two uint32_t arrays: first indices, then intensities)
+        ///
+        /// Note: different threads must not read scans from the same storage handle
+        /// concurrently.
+        /// </summary> 
+        internal unsafe static uint[] GetScanRawData(UInt64 fileHandle, long frameId, UInt32 numScans)
+        {
+            int dataLength = 4096; // Default allocation ~ 16 kB
+
+            // buffer expansion loop
+            while (true)
+            {
+                IntPtr pData = Marshal.AllocHGlobal(dataLength * Marshal.SizeOf<Int32>());
+
+                var outputLength = tims_read_scans_v2(
+                    fileHandle,
+                    frameId,
+                    scan_begin: 0,
+                    scan_end: numScans,
+                    buffer: pData,
+                    length: (uint)(dataLength * 4));
+
+                if (4 * dataLength > outputLength)
+                {
+                    var dataArray = new uint[dataLength];
+                    CopyToManaged(pData, dataArray, 0, dataLength);
+                    Marshal.FreeHGlobal(pData);
+
+                    return dataArray;
+                }
+
+                if (outputLength > 16777216) // Arbitrary 16 mb frame limit
+                {
+                    throw new Exception("Maximum frame size exceeded");
+                }
+
+                // Increase buffer size if necessary
+                dataLength = ((int)outputLength / 4) + 1;
+
+                Marshal.FreeHGlobal(pData);
+            }
         }
 
         internal int GetNumberOfPeaks(int zeroIndexedScanNumber)
@@ -40,6 +100,7 @@ namespace Readers.Bruker.TimsTofReader
         /// for the segment of the _rawData array corresponding to the m/z lookup values for 
         /// a given scan
         /// </summary>
+        /// <exception cref="ArgumentException"> Throws exception if scan number out of range </exception>
         internal Range GetXRange(int zeroIndexedScanNumber)
         {
             ThrowIfInvalidScanNumber(zeroIndexedScanNumber);
@@ -56,6 +117,7 @@ namespace Readers.Bruker.TimsTofReader
             return GetScanRange(zeroIndexedScanNumber, offset: (int)_rawData[zeroIndexedScanNumber]);
         }
 
+        /// <exception cref="ArgumentException"> Throws exception if scan number out of range </exception>
         private void ThrowIfInvalidScanNumber(int zeroIndexedScanNumber)
         {
             if (zeroIndexedScanNumber < 0 || zeroIndexedScanNumber >= NumberOfScans)
@@ -91,5 +153,53 @@ namespace Readers.Bruker.TimsTofReader
             }
             return sums;
         }
+
+        /// <summary>
+        /// This is reimplementation of the Marshal.Copy method that allows for arbitrary types
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="source"></param>
+        /// <param name="destination"></param>
+        /// <param name="startIndex"></param>
+        /// <param name="length"></param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        private static unsafe void CopyToManaged<T>(IntPtr source, T[] destination, int startIndex, int length)
+        {
+            if (source == IntPtr.Zero) throw new ArgumentNullException(nameof(source));
+            if (destination is null) throw new ArgumentNullException(nameof(destination));
+            if (startIndex < 0) throw new ArgumentOutOfRangeException(nameof(startIndex));
+            if (length < 0) throw new ArgumentOutOfRangeException(nameof(length));
+
+            void* sourcePtr = (void*)source;
+            Span<T> srcSpan = new Span<T>(sourcePtr, length);
+            Span<T> destSpan = new Span<T>(destination, startIndex, length);
+
+            srcSpan.CopyTo(destSpan);
+        }
+
+
+        /// <summary>
+        /// Read a range of scans from a single frame.
+        ///
+        /// Output layout: (N = scan_end - scan_begin = number of requested scans)
+        ///   N x uint32_t: number of peaks in each of the N requested scans
+        ///   N x (two uint32_t arrays: first indices, then intensities)
+        ///
+        /// Note: different threads must not read scans from the same storage handle
+        /// concurrently.
+        /// </summary> 
+        /// <param name="handle"> Unique Handle of .d file ( returned on tims_open() )</param>
+        /// <param name="frame_id"> From .tdf SQLite: Frames.Id </param>
+        /// <param name="scan_begin"> first scan number to read (inclusive) </param>
+        /// <param name="scan_end"> Last scan number (exclusive) </param>
+        /// <param name="buffer"> Destination buffer allocated by user </param>
+        /// <param name="length"> Length of the buffer (in bytes, i.e. 4 * buffer.length) </param>
+        /// <returns> 0 on error, otherwise the number of buffer bytes necessary for the output
+        /// of this call (if this is larger than the provided buffer length, the result is not
+        /// complete). </returns>
+        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        unsafe static extern UInt32 tims_read_scans_v2
+              (UInt64 handle, Int64 frame_id, UInt32 scan_begin, UInt32 scan_end, IntPtr buffer, UInt32 length);
     }
 }
