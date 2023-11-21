@@ -120,6 +120,17 @@ namespace Proteomics.RetentionTimePrediction
             return this.call(input);
         }
 
+        public void Train(string savingPath, torch.Tensor trainingData, double validationFraction = 0.2,
+            int seed = 2447, string device = "cpu", string startModelPath = null, double intialBatchScaler = 1.0)
+        {
+            if (this.training.Equals(false))
+            {
+                this.train(true);
+            }
+            
+            // var datasets, nSources = 
+        }
+
         //All Modules (shortcut modules are for loading the weights only)
         private Embedding seq_embed = torch.nn.Embedding(55, 64, 0);
         private torch.nn.Module<torch.Tensor, torch.Tensor> conv_layer_1 = torch.nn.Conv1d(64, 64, 1, Padding.Same, dilation: 1);
@@ -146,4 +157,6 @@ namespace Proteomics.RetentionTimePrediction
         private torch.nn.Module<torch.Tensor, torch.Tensor> flatten = torch.nn.Flatten(1);
         private torch.nn.Module<torch.Tensor, torch.Tensor> output = torch.nn.Linear(52 * 64, 1);
     }
+
+
 }
