@@ -12,7 +12,9 @@ namespace Readers
         ThermoRaw,
         MzML,
         Mgf,
-        BrukerD
+        BrukerD,
+        psmtsv,
+        //osmtsv
     }
 
     public static class SupportedFileTypeExtensions
@@ -36,6 +38,8 @@ namespace Readers
                 SupportedFileType.MzML => ".mzML",
                 SupportedFileType.Mgf => ".mgf",
                 SupportedFileType.BrukerD => ".d",
+                SupportedFileType.psmtsv => ".psmtsv",
+                //SupportedFileType.osmtsv => ".osmtsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -48,6 +52,8 @@ namespace Readers
                 case ".mzml": return SupportedFileType.MzML;
                 case ".mgf": return SupportedFileType.Mgf;
                 case ".d": return SupportedFileType.BrukerD;
+                case ".psmtsv": return SupportedFileType.psmtsv;
+                //case ".osmtsv": return SupportedFileType.osmtsv;
                 case ".feature":
                     if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;

@@ -107,5 +107,6 @@ namespace Test.FileReadingTests
             Assert.That(scans.Count, Is.EqualTo(expectedScanCount));
             Assert.That(sourceFile.NativeIdFormat, Is.EqualTo(sourceFormat));
         }
+
     }
 }
