@@ -1,5 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Easy.Common.Extensions;
+using Proteomics.PSM;
 using TorchSharp;
 using TorchSharp.Modules;
 
@@ -120,15 +124,48 @@ namespace Proteomics.RetentionTimePrediction
             return this.call(input);
         }
 
-        public void Train(string savingPath, torch.Tensor trainingData, double validationFraction = 0.2,
-            int seed = 2447, string device = "cpu", string startModelPath = null, double intialBatchScaler = 1.0)
+        public void Train(string savingPath, List<PsmFromTsv> trainingData, double validationFraction = 0.2,
+            int seed = 2447, string device = "cpu", string startModelPath = null, 
+            double intialBatchScaler = 1.0, int batchSize = 64, int epochs = 100)
         {
             if (this.training.Equals(false))
             {
                 this.train(true);
             }
             
-            // var datasets, nSources = 
+            var (train , test) = 
+                TrainChronologer.RetentionTimeToTensorDatabase(trainingData, seed, validationFraction);
+
+            var trainDataSet = new CustomDataset(train);
+            var testDataSet = new CustomDataset(test);
+
+            var trainLoader =  torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true);
+            var testLoader = torch.utils.data.DataLoader(testDataSet, batchSize, shuffle: true);
+
+            var lossFunction = new TrainChronologer.LogLLoss(train.Count, 
+                TrainChronologer.ReturnDistribution.Laplace, 0.01);
+
+            var parameters = new List<Parameter>();
+            this.parameters().ForEach(x => parameters.Add(x));
+            lossFunction.parameters().ForEach(x => parameters.Add(x));
+
+            var optimizer = torch.optim.Adam(parameters, 0.001);
+
+            for(int i = 0; i < epochs; i++)
+            {
+                foreach (var batch in trainLoader)
+                {
+                    var input = batch["Encoded Sequence"];
+                    var target = batch["Retention Time on File"];
+
+                    var output = this.forward(input);
+                    var loss = lossFunction.forward(output, target);
+
+                    optimizer.zero_grad();
+                    loss.backward();
+                    optimizer.step();
+                }
+            }
         }
 
         //All Modules (shortcut modules are for loading the weights only)

@@ -1,37 +1,59 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using Proteomics.PSM;
 using TorchSharp;
 using TorchSharp.Modules;
+using TorchSharp.Utils;
 
 namespace Proteomics.RetentionTimePrediction
 {
     public static class TrainChronologer
     {
         //todo: implement this method training_fuctions.py
-        public static (Dictionary<string, torch.utils.data.Dataset>, int) RetentionTimeToTensorDatabase(
-            int[] dataFiles)
+        public static (List<(torch.Tensor, double)>, List<(torch.Tensor, double)>) RetentionTimeToTensorDatabase(
+            List<PsmFromTsv> dataFiles, int seed, double validationFraction)
         {
-            var dbs = new Dictionary<string, List<object>>()
+            var trainTestDb = new Dictionary<string, List<(torch.Tensor, double)>>()
             {
-                {"train", new List<object>()},
-                {"test", new List<object>()}
+                {"train", new List<(torch.Tensor, double)>()},
+                {"test", new List<(torch.Tensor, double)>()}
             };
+
+            var allData = new List<(torch.Tensor, double)>();
 
             var sources = new HashSet<string>();
 
             foreach (var dataFile in dataFiles)
             {
-
+                if (dataFile.DecoyContamTarget.Equals("T"))
+                {
+                    var db =
+                        (dataFile.FileNameWithoutExtension, dataFile.RetentionTime, dataFile.FullSequence);
+                    
+                    allData.Add((torch.zeros(1,2,2), db.RetentionTime.Value));
+                    sources.Add(db.FileNameWithoutExtension);
+                }
             }
-            throw new NotImplementedException();
+
+            var random = new Random(seed);
+            allData = allData.OrderBy(x => allData[random.Next()]).ToList();
+
+            var trainingSet = allData.Take((int) (allData.Count * (1 - validationFraction))).ToList();
+            var testSet = allData.Skip((int) (allData.Count * (1 - validationFraction))).ToList();
+
+            trainTestDb["train"] = trainingSet;
+            trainTestDb["test"] = testSet;
+
+            return (trainTestDb["train"], trainTestDb["test"]);
         }
-            
+        
         /// <summary>
         /// LogLLoss module for Chronologer.
         ///
         /// https://github.com/searlelab/chronologer/blob/main/src/chronologer/training_functions.py
         /// </summary>
-        internal class LogLLoss : torch.nn.Module<torch.Tensor, torch.Tensor>
+        internal class LogLLoss : torch.nn.Module<torch.Tensor, torch.Tensor, torch.Tensor>
         {
             public LogLLoss(int numberOfSources,
                 ReturnDistribution family = ReturnDistribution.Laplace,
@@ -48,10 +70,14 @@ namespace Proteomics.RetentionTimePrediction
                 RegisterComponents();
 
             }
-            public override torch.Tensor forward(torch.Tensor input)
+            public override torch.Tensor forward(torch.Tensor prediction, torch.Tensor target)
             {
-                return torch.nn.functional.log_softmax(input, 1);
+                var scale = _sourceScale.forward(target).clamp(1e-7);
+                var distribution = new Laplace(center: target, scale: scale);
+                var logL_loss = -1 * distribution.LogL(prediction);
+                return logL_loss.mean();//todo: not finished, its a place holder
             }
+
             private int _numberOfSources { get; set; }
             private double _fdr { get; set; }
             private ReturnDistribution _family { get; set; }
@@ -148,7 +174,7 @@ namespace Proteomics.RetentionTimePrediction
             }
             
 
-            private torch.Tensor CDF(torch.Tensor x)
+            public torch.Tensor CDF(torch.Tensor x)
             {
                 if (x.less_equal(_mu).Equals(true))
                 {
@@ -158,7 +184,7 @@ namespace Proteomics.RetentionTimePrediction
                 return 1 - 0.5 * torch.exp((-1 * (x - _mu)) / _b);
             }
 
-            private torch.Tensor PPF(torch.Tensor q)
+            public torch.Tensor PPF(torch.Tensor q)
             {
                 if (q.less_equal(0.5).Equals(true))
                 {
@@ -169,7 +195,7 @@ namespace Proteomics.RetentionTimePrediction
                     return _mu - _b * torch.log(2-2*q);
                 }
             }
-            private torch.Tensor LogL(torch.Tensor x)
+            public torch.Tensor LogL(torch.Tensor x)
             {
                 return -1 * (torch.log(2 * _b) + torch.abs(x - _mu) / _b);
             }
