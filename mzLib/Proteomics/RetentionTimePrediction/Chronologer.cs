@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Easy.Common.Extensions;
@@ -132,6 +133,12 @@ namespace Proteomics.RetentionTimePrediction
             {
                 this.train(true);
             }
+
+            //loads pre-trained weights if startModelPath is not null
+            if (startModelPath != null)
+            {
+                this.load(startModelPath, true);
+            }
             
             var (train , test) = 
                 TrainChronologer.RetentionTimeToTensorDatabase(trainingData, seed, validationFraction);
@@ -151,8 +158,12 @@ namespace Proteomics.RetentionTimePrediction
 
             var optimizer = torch.optim.Adam(parameters, 0.001);
 
-            for(int i = 0; i < epochs; i++)
+            //training loop
+
+            for (int i = 0; i < epochs; i++) 
             {
+                var epochLoss = 0.0;
+                var runningLoss = 0.0;
                 foreach (var batch in trainLoader)
                 {
                     var input = batch["Encoded Sequence"];
@@ -164,8 +175,20 @@ namespace Proteomics.RetentionTimePrediction
                     optimizer.zero_grad();
                     loss.backward();
                     optimizer.step();
+
+                    //statistics per batch
+                    runningLoss += loss.item<double>() * batchSize;
+
                 }
+                //statistics per epoch
+                epochLoss = runningLoss / train.Count;
+                Debug.WriteLine($"Epoch {i + 1} loss: {epochLoss}");
             }
+
+            //saving the model
+            this.eval();
+            this.train(false);
+            this.save(Path.Combine(savingPath,"Chronologer_trained_weights.dat"));
         }
 
         //All Modules (shortcut modules are for loading the weights only)

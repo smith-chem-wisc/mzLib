@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Proteomics.PSM;
 using TorchSharp;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -740,6 +741,17 @@ namespace Test
                 Assert.AreEqual(Math.Round(prediction.item<float>(), 3),
                     Math.Round(float.Parse(hiFromFile), 3));
             }
+        }
+
+        [Test]
+        public void TestTrainMethod()
+        {
+            var model = new Chronologer();
+            List<string> warnings = new List<string>();
+            var psms = Readers.SpectrumMatchTsvReader.ReadPsmTsv(
+                @"F:\Research\Data\Hela\Hela_1\2023-11-13-13-30-17\Task1-SearchTask\AllPeptides.psmtsv", out warnings );
+
+            model.Train("testing", psms);
         }
 
         internal class Mapper

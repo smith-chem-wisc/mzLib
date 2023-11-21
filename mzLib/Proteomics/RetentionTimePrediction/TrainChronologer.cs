@@ -1,15 +1,73 @@
-﻿using System;
+﻿using Proteomics.PSM;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Proteomics.PSM;
 using TorchSharp;
 using TorchSharp.Modules;
-using TorchSharp.Utils;
 
 namespace Proteomics.RetentionTimePrediction
 {
     public static class TrainChronologer
     {
+        public static torch.Tensor Tensorize(PsmFromTsv psm)
+        {
+            if (psm.BaseSeq.Length <= 50)
+            {
+                var dictionary = new Dictionary<(char, string), int>()
+                {
+                    { ('A', ""), 1  }, //'Alanine
+                    { ('C', ""), 2  }, //'Cysteine
+                    { ('D', ""), 3  }, //'Aspartate
+                    { ('E', ""), 4  }, //'Glutamate
+                    { ('F', ""), 5  }, //'Phenylalaline
+                    { ('G', ""), 6  }, //'Glycine
+                    { ('H', ""), 7  }, //'Histidine
+                    { ('I', ""), 8  }, //'Isoleucine
+                    { ('K', ""), 9  }, //'Lysine
+                    { ('L', ""), 10 }, //'Leucine
+                    { ('M', ""), 11 }, //'Methionine
+                    { ('N', ""), 12 }, //'Asparagine
+                    { ('P', ""), 13 }, //'Proline
+                    { ('Q', ""), 14 }, //'Glutamine
+                    { ('R', ""), 15 }, //'Argenine
+                    { ('S', ""), 16 }, //'Serine
+                    { ('T', ""), 17 }, //'Threonine
+                    { ('V', ""), 18 }, //'Valine
+                    { ('W', ""), 19 }, //'Tryptophane
+                    { ('Y', ""), 20 }, //'Tyrosine
+                    //{ ('C', "Carbamidomethyl on C"), 21 }, //'Carbamidomethyl
+                    //{ ('M', "Oxidation on M"), 22 }, //'Oxidized
+                    ////_residueWithModToTensorInt.Add(('C',null),23);//'S - carbamidomethylcysteine
+                    //{ ('E', "Glu to PyroGlu"), 24 }, //'Pyroglutamate
+                    //{ ('S', "Phosphorylation on S"), 25 }, //'Phosphoserine
+                    //{ ('T', "Phosphorylation on T"), 26 }, //'Phosphothreonine
+                    //{ ('Y', "Phosphorylation on Y"), 27 }, //'Phosphotyrosine
+                    //{ ('K', "Accetylation on K"), 28 }, //'Acetylated
+                    //{ ('K', "Succinylation on K"), 29 }, //'Succinylated
+                    //{ ('K', "Ubiquitination on K"), 30 }, //'Ubiquitinated
+                    //{ ('K', "Methylation on K"), 31 }, //'Monomethyl
+                    //{ ('K', "Dimethylation on K"), 32 }, //'Dimethyl
+                    //{ ('K', "Trimethylation on K"), 33 }, //'Trimethyl
+                    //{ ('R', "Methylation on R"), 34 }, //'Monomethyl
+                    //{ ('R', "Dimethylation on R"), 35 }, //'Dimethyl
+                };
+
+                var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
+
+                tensor[0][0] = 38; //C-terminus
+                tensor[0][51] = 44; //N-terminus
+
+                for (int i = 1; i < psm.BaseSeq.Length - 1; i++) //base sequence for the moment
+                {
+                    tensor[0][i] = dictionary[(psm.BaseSeq[i], "")];
+                }
+
+                return tensor;
+            }
+
+            return torch.ones(1, 52, torch.ScalarType.Int64);
+        }
+
         //todo: implement this method training_fuctions.py
         public static (List<(torch.Tensor, double)>, List<(torch.Tensor, double)>) RetentionTimeToTensorDatabase(
             List<PsmFromTsv> dataFiles, int seed, double validationFraction)
@@ -29,25 +87,31 @@ namespace Proteomics.RetentionTimePrediction
                 if (dataFile.DecoyContamTarget.Equals("T"))
                 {
                     var db =
-                        (dataFile.FileNameWithoutExtension, dataFile.RetentionTime, dataFile.FullSequence);
+                        (dataFile.FileNameWithoutExtension, dataFile.RetentionTime, dataFile.BaseSeq); //base seq for the moment
+                    var tensor = Tensorize(dataFile);
                     
-                    allData.Add((torch.zeros(1,2,2), db.RetentionTime.Value));
-                    sources.Add(db.FileNameWithoutExtension);
+                    if(tensor.Equals(torch.ones(1,52,torch.ScalarType.Int64)))
+                        continue;
+
+                    if (tensor[0][0].item<Int64>().Equals((Int64)38))
+                    {
+                        allData.Add((tensor, db.RetentionTime.Value)); //todo: add encoded sequence tensor
+                        sources.Add(db.FileNameWithoutExtension);
+                    }
+
+                    var a = 0;
                 }
             }
 
-            var random = new Random(seed);
-            allData = allData.OrderBy(x => allData[random.Next()]).ToList();
-
-            var trainingSet = allData.Take((int) (allData.Count * (1 - validationFraction))).ToList();
-            var testSet = allData.Skip((int) (allData.Count * (1 - validationFraction))).ToList();
+            var trainingSet = allData.Take((int)(allData.Count * (1 - validationFraction))).ToList();
+            var testSet = allData.Skip((int)(allData.Count * (1 - validationFraction))).ToList();
 
             trainTestDb["train"] = trainingSet;
             trainTestDb["test"] = testSet;
 
             return (trainTestDb["train"], trainTestDb["test"]);
         }
-        
+
         /// <summary>
         /// LogLLoss module for Chronologer.
         ///
@@ -172,7 +236,7 @@ namespace Proteomics.RetentionTimePrediction
                     _b = torch.mean(torch.abs(data - _mu));
                 }
             }
-            
+
 
             public torch.Tensor CDF(torch.Tensor x)
             {
@@ -180,7 +244,7 @@ namespace Proteomics.RetentionTimePrediction
                 {
                     return 0.5 * torch.exp((x - _mu) / _b);
                 }
-                
+
                 return 1 - 0.5 * torch.exp((-1 * (x - _mu)) / _b);
             }
 
@@ -192,7 +256,7 @@ namespace Proteomics.RetentionTimePrediction
                 }
                 else
                 {
-                    return _mu - _b * torch.log(2-2*q);
+                    return _mu - _b * torch.log(2 - 2 * q);
                 }
             }
             public torch.Tensor LogL(torch.Tensor x)
@@ -224,7 +288,7 @@ namespace Proteomics.RetentionTimePrediction
             }
 
             private torch.Tensor _beta { get; set; }
-            private torch.Tensor _mu {get; set; }
+            private torch.Tensor _mu { get; set; }
         }
     }
 }
