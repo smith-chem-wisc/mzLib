@@ -33,7 +33,7 @@ public class ToppicPrsm
         AlternativeIdentifications = new List<AlternativeToppicId>();
     }
 
-    private string _fileNameWithoutExtension;
+    private string? _fileNameWithoutExtension;
     [Ignore]
     public string FileNameWithoutExtension => _fileNameWithoutExtension ??= Path.GetFileNameWithoutExtension(FilePath);
 
@@ -99,13 +99,13 @@ public class ToppicPrsm
     public string? SpecialAminoAcids { get; set; }
 
     [Ignore]
-    private string _baseSequence;
+    private string? _baseSequence;
 
     [Optional]
     [Name("Database protein sequence")]
     public string BaseSequence
     {
-        get => _baseSequence ?? GetBaseSequenceFromFullSequence();
+        get => _baseSequence ??= GetBaseSequenceFromFullSequence();
         set => _baseSequence = value;
     }
 
