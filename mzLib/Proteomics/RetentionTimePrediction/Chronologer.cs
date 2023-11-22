@@ -148,9 +148,9 @@ namespace Proteomics.RetentionTimePrediction
 
             var trainLoader =  torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true);
             var testLoader = torch.utils.data.DataLoader(testDataSet, batchSize, shuffle: true);
-
-            var lossFunction = new TrainChronologer.LogLLoss(train.Count, 
-                TrainChronologer.ReturnDistribution.Laplace, 0.01);
+            var lossFunction = torch.nn.L1Loss();
+            // var lossFunction = new TrainChronologer.LogLLoss(52, 
+            //     TrainChronologer.ReturnDistribution.Laplace, 0.01);
 
             var parameters = new List<Parameter>();
             this.parameters().ForEach(x => parameters.Add(x));
@@ -159,26 +159,37 @@ namespace Proteomics.RetentionTimePrediction
             var optimizer = torch.optim.Adam(parameters, 0.001);
 
             //training loop
-
+            var scores = new List<float>();
             for (int i = 0; i < epochs; i++) 
             {
                 var epochLoss = 0.0;
                 var runningLoss = 0.0;
                 foreach (var batch in trainLoader)
                 {
-                    var input = batch["Encoded Sequence"];
-                    var target = batch["Retention Time on File"];
+                    var batchX = batch["Encoded Sequence"];
+                    var batchY = batch["Retention Time on File"];
+                    for(int j = 0; j < batchX.size(2); j++)
+                    {
+                        var x = batchX[j];
+                        double y = batchY[j].item<double>();
 
-                    var output = this.forward(input);
-                    var loss = lossFunction.forward(output, target);
+                        Debug.WriteLine(x.ToString(TensorStringStyle.Julia));
+                        Debug.WriteLine(y);
+                        // Debug.WriteLine(batchPass.ToString(TensorStringStyle.Julia));
 
-                    optimizer.zero_grad();
-                    loss.backward();
-                    optimizer.step();
+                        var output = this.forward(x);
+                        var loss = lossFunction.forward(output[0],
+                            torch.tensor(new []{(float)y}));
 
-                    //statistics per batch
-                    runningLoss += loss.item<double>() * batchSize;
+                        Debug.WriteLine(loss.item<float>());
+                        optimizer.zero_grad();
+                        loss.backward();
+                        optimizer.step();
 
+                        //statistics per batch
+                        runningLoss += loss.item<float>() * batchSize;
+                        scores.Add(loss.item<float>());
+                    }
                 }
                 //statistics per epoch
                 epochLoss = runningLoss / train.Count;
@@ -186,9 +197,9 @@ namespace Proteomics.RetentionTimePrediction
             }
 
             //saving the model
-            this.eval();
-            this.train(false);
-            this.save(Path.Combine(savingPath,"Chronologer_trained_weights.dat"));
+            // this.eval();
+            // this.train(false);
+            // this.save(Path.Combine(savingPath,"Chronologer_trained_weights.dat"));
         }
 
         //All Modules (shortcut modules are for loading the weights only)

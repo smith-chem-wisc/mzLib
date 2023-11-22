@@ -55,7 +55,7 @@ namespace Proteomics.RetentionTimePrediction
                 var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
 
                 tensor[0][0] = 38; //C-terminus
-                tensor[0][51] = 44; //N-terminus
+                tensor[0][psm.BaseSeq.Length-1] = 44; //N-terminus
 
                 for (int i = 1; i < psm.BaseSeq.Length - 1; i++) //base sequence for the moment
                 {
@@ -136,7 +136,7 @@ namespace Proteomics.RetentionTimePrediction
             }
             public override torch.Tensor forward(torch.Tensor prediction, torch.Tensor target)
             {
-                var scale = _sourceScale.forward(target).clamp(1e-7);
+                var scale = _sourceScale.forward(prediction).clamp(1e-7);
                 var distribution = new Laplace(center: target, scale: scale);
                 var logL_loss = -1 * distribution.LogL(prediction);
                 return logL_loss.mean();//todo: not finished, its a place holder
