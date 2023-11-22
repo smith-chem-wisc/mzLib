@@ -8,13 +8,276 @@ using MzLibUtil;
 using UsefulProteomicsDatabases;
 using System.Data.Common;
 using Readers.Bruker.TimsTofReader;
+using System.Data.SqlClient;
+using System.Data;
 
 namespace Readers.Bruker
 { 
-    public static class TimsTofFileReader
+    public class TimsTofFileReader : MsDataFile
     {
+        // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
+        // over multiple scans with each scan corresponding to the same retention time but different
+        // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
 
-        public const int InitialFrameBufferSize = 128;
+        public TimsTofFileReader(string filePath) : base (filePath) { }
+
+        private UInt64? _fileHandle;
+        private SQLiteConnection? _sqlConnection;
+        public int NumberOfFrames { get; private set; }
+        internal FrameTable? FramesTable { get; private set; }
+
+        // I don't know what the default scan range is, and at this point I'm too afraid to ask...
+        private MzRange? _scanWindow;
+        public MzRange ScanWindow => _scanWindow ??= new MzRange(20, 2000);
+        public const string ScanFilter = "f";
+
+        public Dictionary<long, List<MsDataScan>> FrameToScanDictionary { get; private set; }
+
+        public override void InitiateDynamicConnection()
+        {
+            if (!File.Exists(FilePath + @"\analysis.tdf") | !File.Exists(FilePath + @"\analysis.tdf_bin"))
+            {
+                throw new FileNotFoundException();
+            }
+            OpenSqlConnection();
+            OpenBinaryFileConnection();
+        }
+
+        internal void OpenSqlConnection()
+        {
+            _sqlConnection = new();
+            _sqlConnection.ConnectionString = "DataSource=" + Path.Combine(FilePath, "analysis.tdf");
+            _sqlConnection.Open();
+        }
+
+        internal void OpenBinaryFileConnection()
+        {
+            byte[] binaryFileBytePath = BrukerFileReader.ConvertStringToUTF8ByteArray(FilePath);
+            _fileHandle = tims_open(binaryFileBytePath, 0);
+        }
+
+        public override void CloseDynamicConnection()
+        {
+            _sqlConnection?.Close();
+            if (_fileHandle != null)
+                tims_close((UInt64)_fileHandle);
+        }
+
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        internal void CountFrames()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT COUNT(*) FROM Frames;";
+            using var sqliteReader = command.ExecuteReader();
+            int count = 0;
+            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
+                .Select(sqliteReader.GetName).ToList();
+            while (sqliteReader.Read())
+            {
+                count = sqliteReader.GetInt32(0);
+                break;
+            }
+            NumberOfFrames = count;
+        }
+
+        internal void PopulateFramesTable()
+        {
+            if (_sqlConnection == null) return;
+            FramesTable = new FrameTable(_sqlConnection, NumberOfFrames);
+        }
+
+        public MsDataScan GetMsDataScan()
+        {
+
+            return null;
+        }
+
+        public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
+        {
+            InitiateDynamicConnection();
+            if (_fileHandle == null || _fileHandle == 0)
+                throw new MzLibException("Could not open the analysis.tdf_bin file");
+            CountFrames();
+            PopulateFramesTable();
+            FrameToScanDictionary = new();
+            if (FramesTable == null)
+                throw new MzLibException("Something went wrong while loading the Frames table from the analysis.tdf database.");
+
+            List<MsDataScan> scanList = new();
+
+            for(int i = 0; i < NumberOfFrames; i++)
+            {
+                long oneBasedFrameNumber = FramesTable.OneBasedFrameIndex[i];
+                FrameProxy currentFrame = new FrameProxy((UInt64)_fileHandle, oneBasedFrameNumber, FramesTable.NumScans[i]);
+
+                if (FramesTable.MsMsType[i].ToEnum<TimsTofMsMsType>(out var msMsType))
+                {
+                    FrameToScanDictionary.Add(oneBasedFrameNumber, new List<MsDataScan>());
+                    switch(msMsType)
+                    {
+                        case TimsTofMsMsType.MS:
+                            BuildMS1Scans(scanList, currentFrame, i);
+                            break;
+                        case TimsTofMsMsType.PASEF:
+                            BuildPasefScans(scanList, currentFrame);
+                            break;
+                        default:
+                            throw new NotImplementedException("Only PASEF data is currently supported");
+                    }
+                    
+                }
+            }
+            CloseDynamicConnection();
+
+            return null;
+        }
+
+        internal void BuildMS1Scans(List<MsDataScan> scanList, FrameProxy frame, int frameIndex)
+        {
+            using (var command = new SQLiteCommand(_sqlConnection))
+            {
+                // This command finds all the precursors identified and fragmented in each MS/MS Pasef scan
+                // It is used to take an MS1 frame and create multiple "MsDataScans" by averaging the 
+                // spectra from each scan within a given Ion Mobility (i.e. ScanNum) range
+                command.CommandText =
+                    @"SELECT MIN(m.ScanNumBegin), MAX(m.ScanNumEnd), p.ScanNumber" +
+                    " FROM Precursors p" +
+                    " INNER JOIN PasefFrameMsMsInfo m on m.Precursor = p.Id" +
+                    " WHERE p.Parent = " + frame.FrameId.ToString() +
+                    " GROUP BY p.Id;";
+                using var sqliteReader = command.ExecuteReader();
+                while (sqliteReader.Read())
+                {
+                    var scanStart = sqliteReader.GetInt32(0);
+                    var scanEnd = sqliteReader.GetInt32(1);
+                    var scanMedian = sqliteReader.GetFloat(2);
+
+                    // Now we're gonna try and build some scans!
+                    // Step 1: Pull the m/z + intensity arrays for each scan in range
+                    List<double[]> mzArrays = new();
+                    List<int[]> intensityArrays = new();
+                    for (int scan = scanStart; scan < scanEnd; scan++)
+                    {
+                        mzArrays.Add(frame.GetScanMzs(scan));
+                        intensityArrays.Add(frame.GetScanIntensities(scan));
+                    }
+                    // Step 2: Average those suckers
+                    MzSpectrum averagedSpectrum = AverageScans(mzArrays, intensityArrays);
+                    // Step 3: Make an MsDataScan bby
+                    var dataScan = new TimsDataScan(
+                        massSpectrum: averagedSpectrum,
+                        oneBasedScanNumber: scanList.Count,
+                        msnOrder: 1,
+                        isCentroid: true,
+                        polarity: FramesTable.Polarity[frameIndex] == '+' ? Polarity.Positive : Polarity.Negative,
+                        retentionTime: (double)FramesTable.RetentionTime[frameIndex],
+                        scanWindowRange: ScanWindow,
+                        scanFilter: ScanFilter,
+                        mzAnalyzer: MZAnalyzerType.TOF,
+                        totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
+                        injectionTime: FramesTable.FillTime[frameIndex],
+                        noiseData: null,
+                        nativeId: "frame=" + frame.FrameId.ToString() + ";scans=" + scanStart.ToString() + "-" + scanEnd.ToString(),
+                        scanNumberStart: scanStart,
+                        scanNumberEnd: scanEnd,
+                        medianOneOverK0: frame.GetOneOverK0((double)scanMedian));
+
+                    // Build MsDataScan and add to list
+                    // Add DataScanList to FrameToScanDictionary
+                }
+            }
+        }
+
+        internal void BuildPasefScans(List<MsDataScan> scanList, FrameProxy frame)
+        {
+            using var command = new SQLiteCommand(_sqlConnection);
+            // SQL Command for getting some info from both PasefFrameMsMsInfo table and
+            // Precursors table
+            command.CommandText =
+                @"SELECT m.ScanNumBegin, m.ScanNumEnd, m.IsolationMz, m.IsolationWidth," +
+                " m.CollisionEnergy, p.MonoisotopicMz, p.Charge, p.Intensity" +
+                " FROM PasefFrameMsMsInfo m" +
+                " INNER JOIN Precursors p on p.Id = m.Precursor" +
+                " WHERE m.Frame = " + frame.FrameId.ToString() +
+                ";";
+
+            using var sqliteReader = command.ExecuteReader();
+            while (sqliteReader.Read())
+            {
+                var scanStart = sqliteReader.GetInt32(0);
+                var scanEnd = sqliteReader.GetInt32(1);
+
+                // Now we're gonna try and build some scans!
+                // Step 1: Pull the m/z + intensity arrays for each scan in range
+                List<double[]> mzArrays = new();
+                List<int[]> intensityArrays = new();
+                for (int scan = scanStart; scan < scanEnd; scan++)
+                {
+                    mzArrays.Add(frame.GetScanMzs(scan));
+                    intensityArrays.Add(frame.GetScanIntensities(scan));
+                }
+                // Step 2: Average those suckers
+                MzSpectrum averagedSpectrum = AverageScans(mzArrays, intensityArrays);
+                // Step 3: Make an MsDataScan bby
+                //var dataScan = new MsDataScan(
+                //    massSpectrum: averagedSpectrum, oneBasedScanNumber: scanList.Count,
+                //    msnOrder: 1, );
+
+                // Build MsDataScan and add to list
+            }
+        }
+
+        internal MzSpectrum AverageScans(List<double[]> mzArrays, List<int[]> intensityArrays)
+        {
+            int mostIntenseScanIndex = 0;
+            int maxIntensity = 0;
+            for (int i = 0; i < intensityArrays.Count; i++)
+            {
+                int[] intensityArray = intensityArrays[i];
+                int intensitySum = intensityArray.Sum();
+                if(intensitySum > maxIntensity)
+                {
+                    mostIntenseScanIndex = i;
+                    maxIntensity = intensitySum;
+                }
+            }
+
+            return new MzSpectrum(
+                mz: mzArrays[mostIntenseScanIndex], 
+                intensities: Array.ConvertAll(intensityArrays[mostIntenseScanIndex], entry => (double)entry),
+                shouldCopy: false);
+        }
+
+        public override SourceFile GetSourceFile()
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Loads a datatable from an SQLDatabase into memory
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="table"></param>
+        public void LoadTableIntoMemory(SQLiteConnection connection, string table)
+        {
+            if (connection == null) return;
+            using var command = new SQLiteCommand(connection);
+            command.CommandText = @"SELECT * FROM " + table + ";";
+            using var sqliteReader = command.ExecuteReader();
+            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
+                .Select(sqliteReader.GetName).ToList();
+
+            while (sqliteReader.Read())
+            {
+                var row = new object[columns.Count];
+                sqliteReader.GetValues(row);
+            }
+        }
 
         public unsafe static void ReadData(string pathToDFile)
         {
@@ -30,6 +293,8 @@ namespace Readers.Bruker
             command.CommandText = @"SELECT COUNT(*) FROM Frames;";
             using var sqliteReader = command.ExecuteReader();
             int count = 0;
+            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
+                .Select(sqliteReader.GetName).ToList();
             while (sqliteReader.Read())
             {
                 count = sqliteReader.GetInt32(0);
@@ -44,15 +309,18 @@ namespace Readers.Bruker
             command.CommandText = @"SELECT * FROM Frames;";
             using var sqliteReader2 = command.ExecuteReader();
 
-            var columns = Enumerable.Range(0, sqliteReader2.FieldCount)
+            columns = Enumerable.Range(0, sqliteReader2.FieldCount)
                 .Select(sqliteReader2.GetName).ToList();
 
             int idIndex = sqliteReader2.GetOrdinal("Id");
+            int polarityIndex = sqliteReader2.GetOrdinal("Polarity");
             int scanCountIndex = sqliteReader2.GetOrdinal("NumScans");
             int timeIndex = sqliteReader2.GetOrdinal("Time");
             int scanModeIndex = sqliteReader2.GetOrdinal("ScanMode");
             int msMsTypeIndex = sqliteReader2.GetOrdinal("MsMsType");
             int numPeaksIndex = sqliteReader2.GetOrdinal("NumPeaks");
+            int ticIndex = sqliteReader2.GetOrdinal("SummedIntensities");
+            int fillTimeIndex = sqliteReader2.GetOrdinal("AccumulationTime");
 
             long[] ids = new long[count];
             int[] numScans = new int[count];
@@ -88,25 +356,11 @@ namespace Readers.Bruker
 
             placeholded2++;
 
-            //int dataLength = 2^12; // Default allocation ~ 16 kB
-            //IntPtr pData = Marshal.AllocHGlobal(dataLength * Marshal.SizeOf<Int32>());
-
-            //var outputLength = tims_read_scans_v2(
-            //    fileHandle,
-            //    ids[1000],
-            //    scan_begin: 0,
-            //    scan_end: (UInt32)numScans[1000],
-            //    buffer: pData,
-            //    length: (UInt32)(dataLength * 4));
-
-            //var dataArray = new Int32[95578];
-            //Marshal.Copy(pData, dataArray, 0, dataLength);
-
             int frameIdIndex = 65365;
             long frameId = ids[frameIdIndex];
 
             var dataArray = FrameProxy.GetScanRawData(fileHandle, ids[frameIdIndex], (UInt32)numScans[frameIdIndex]);
-            FrameProxy test = new FrameProxy(dataArray, numScans[frameIdIndex], fileHandle);
+            FrameProxy test = new FrameProxy(fileHandle, frameId, numScans[frameIdIndex]);
 
             var max = dataArray.Max();
 
@@ -132,14 +386,6 @@ namespace Readers.Bruker
 
         }
 
-        
-        
-
-        internal unsafe static void ParseScan(uint[] rawData)
-        {
-
-        }
-
 
         #region Bruker Dll Functions 
 
@@ -153,7 +399,12 @@ namespace Readers.Bruker
         public static extern UInt64 tims_open
               (byte[] analysis_directory_name_utf8, UInt32 use_recalibrated_state);
 
-        
+        /// <summary>
+        /// Closes a file connection to a .tdf binary file
+        /// </summary>
+        [DllImport("Bruker/TimsTofReader/timsdata.dll")]
+        public static extern void tims_close
+              (UInt64 fileHandle);
 
         #endregion Bruker Dll Functions
 

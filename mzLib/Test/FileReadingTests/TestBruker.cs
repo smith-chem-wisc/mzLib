@@ -94,9 +94,7 @@ namespace Test.FileReadingTests
             //MsDataFile brukerData = MsDataFileReader.GetDataFile(@"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.mzML").LoadAllStaticData();
             string filePath = @"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.d";
 
-            //byte[] convertedFilePath = BrukerFileReader.ConvertStringToUTF8ByteArray(filePath);
-
-            //var test = TimsTofFileReader.tims_open(convertedFilePath, 0);
+            var test = new TimsTofFileReader(filePath).LoadAllStaticData();
 
             TimsTofFileReader.ReadData(filePath);
 

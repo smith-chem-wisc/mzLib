@@ -11,6 +11,7 @@ namespace Readers.Bruker.TimsTofReader
     {
         private int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
         private uint[] _rawData;
+        private const int _defaultBufferSize = 4096;
         internal UInt64 FileHandle { get; }
         internal long FrameId { get; }
         internal int NumberOfScans { get; }
@@ -41,6 +42,14 @@ namespace Readers.Bruker.TimsTofReader
             return Array.ConvertAll(_rawData[GetYRange(zeroIndexedScanNumber)], entry => (int)entry);
         }
 
+        internal double GetOneOverK0(double zeroIndexedScanNumberMedian)
+        {
+            ThrowIfInvalidScanNumber((int)zeroIndexedScanNumberMedian);
+            double[] scanNumberArray = new double[] { zeroIndexedScanNumberMedian };
+            return TimsConversion
+                .DoTransformation(FileHandle, FrameId, scanNumberArray, TimsConversion.ConversionFunctions.ScanToOneOverK0)[0];
+        }
+
         /// <summary>
         /// Read a range of scans from a single frame.
         ///
@@ -53,12 +62,11 @@ namespace Readers.Bruker.TimsTofReader
         /// </summary> 
         internal unsafe static uint[] GetScanRawData(UInt64 fileHandle, long frameId, UInt32 numScans)
         {
-            int dataLength = 4096; // Default allocation ~ 16 kB
-
+            int bufferSize = _defaultBufferSize;
             // buffer expansion loop
             while (true)
             {
-                IntPtr pData = Marshal.AllocHGlobal(dataLength * Marshal.SizeOf<Int32>());
+                IntPtr pData = Marshal.AllocHGlobal(bufferSize * Marshal.SizeOf<Int32>());
 
                 var outputLength = tims_read_scans_v2(
                     fileHandle,
@@ -66,12 +74,12 @@ namespace Readers.Bruker.TimsTofReader
                     scan_begin: 0,
                     scan_end: numScans,
                     buffer: pData,
-                    length: (uint)(dataLength * 4));
+                    length: (uint)(bufferSize * 4));
 
-                if (4 * dataLength > outputLength)
+                if (4 * bufferSize > outputLength)
                 {
-                    var dataArray = new uint[dataLength];
-                    CopyToManaged(pData, dataArray, 0, dataLength);
+                    var dataArray = new uint[bufferSize];
+                    CopyToManaged(pData, dataArray, 0, bufferSize);
                     Marshal.FreeHGlobal(pData);
 
                     return dataArray;
@@ -83,7 +91,7 @@ namespace Readers.Bruker.TimsTofReader
                 }
 
                 // Increase buffer size if necessary
-                dataLength = ((int)outputLength / 4) + 1;
+                bufferSize = ((int)outputLength / 4) + 1;
 
                 Marshal.FreeHGlobal(pData);
             }
