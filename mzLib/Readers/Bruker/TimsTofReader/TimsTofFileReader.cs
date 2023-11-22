@@ -19,7 +19,10 @@ namespace Readers.Bruker
         // over multiple scans with each scan corresponding to the same retention time but different
         // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
 
-        public TimsTofFileReader(string filePath) : base (filePath) { }
+        public TimsTofFileReader(string filePath) : base (filePath) 
+        {
+            FrameToScanDictionary = new();
+        }
 
         private UInt64? _fileHandle;
         private SQLiteConnection? _sqlConnection;
@@ -91,12 +94,6 @@ namespace Readers.Bruker
             FramesTable = new FrameTable(_sqlConnection, NumberOfFrames);
         }
 
-        public MsDataScan GetMsDataScan()
-        {
-
-            return null;
-        }
-
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
             InitiateDynamicConnection();
@@ -104,7 +101,6 @@ namespace Readers.Bruker
                 throw new MzLibException("Could not open the analysis.tdf_bin file");
             CountFrames();
             PopulateFramesTable();
-            FrameToScanDictionary = new();
             if (FramesTable == null)
                 throw new MzLibException("Something went wrong while loading the Frames table from the analysis.tdf database.");
 
@@ -259,26 +255,9 @@ namespace Readers.Bruker
         }
 
         /// <summary>
-        /// Loads a datatable from an SQLDatabase into memory
+        /// Playing around to figure stuff out. Probably safe to delete
         /// </summary>
-        /// <param name="connection"></param>
-        /// <param name="table"></param>
-        public void LoadTableIntoMemory(SQLiteConnection connection, string table)
-        {
-            if (connection == null) return;
-            using var command = new SQLiteCommand(connection);
-            command.CommandText = @"SELECT * FROM " + table + ";";
-            using var sqliteReader = command.ExecuteReader();
-            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
-                .Select(sqliteReader.GetName).ToList();
-
-            while (sqliteReader.Read())
-            {
-                var row = new object[columns.Count];
-                sqliteReader.GetValues(row);
-            }
-        }
-
+        /// <param name="pathToDFile"></param>
         public unsafe static void ReadData(string pathToDFile)
         {
             byte[] binBytePath = BrukerFileReader.ConvertStringToUTF8ByteArray(pathToDFile);
