@@ -13,6 +13,7 @@ using System.IO;
 using System.Linq;
 using Proteomics.PSM;
 using TorchSharp;
+using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -750,10 +751,34 @@ namespace Test
             List<string> warnings = new List<string>();
             var psms = Readers.SpectrumMatchTsvReader.ReadPsmTsv(
                 @"F:\Research\Data\Hela\Hela_1\2023-11-13-13-30-17\Task1-SearchTask\AllPeptides.psmtsv", out warnings );
+            var dictionary = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Chronologer);
 
-            model.Train("testing", psms);
+            model.Train("testing", psms, dictionary);
 
             var a = 0;
+        }
+
+        [Test]
+        public void ReTrainChronologerWithUniMods()
+        {
+            var model = new Chronologer();
+            
+            List<string> warnings = new List<string>();
+
+            var psms = Readers.SpectrumMatchTsvReader.ReadPsmTsv(
+                               @"F:\Research\Data\Hela\Hela_1\2023-11-13-13-30-17\Task1-SearchTask\AllPeptides.psmtsv", out warnings);
+
+            var dictionary = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Unimod);
+
+            model.Train("testing_Hela1", psms, dictionary);
+
+            var a = 0;
+        }
+
+        [Test]
+        public void TestDictionaryAllUnimod()
+        {
+            var dict = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Unimod);
         }
 
         internal class Mapper

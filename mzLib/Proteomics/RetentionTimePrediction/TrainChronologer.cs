@@ -1,6 +1,7 @@
 ﻿using Proteomics.PSM;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using TorchSharp;
 using TorchSharp.Modules;
@@ -9,68 +10,88 @@ namespace Proteomics.RetentionTimePrediction
 {
     public static class TrainChronologer
     {
-        public static torch.Tensor Tensorize(PsmFromTsv psm)
+        /// <summary>
+        /// Takes psm and dictionary and returns a tensor representation of the sequence.
+        /// </summary>
+        /// <param name="psm"></param>
+        /// <param name="dictionary"></param>
+        /// <returns></returns>
+        public static torch.Tensor Tensorize(PsmFromTsv psm, Dictionary<(char, string), int> dictionary)
         {
-            if (psm.BaseSeq.Length <= 50)
+            var fullSequence = psm.FullSequence.Split(new[] {'[', ']' })
+                .Where(x => !x.Equals("")).ToArray();
+            
+            //section to remoce type of mod from the sequence
+            //i.e. Common Fixed:Carbamidomethyl and only stay with the target aa after the mod
+            for (int i = 0; i < fullSequence.Length; i++)
             {
-                var dictionary = new Dictionary<(char, string), int>()
+                if (fullSequence[i].Contains(" "))
                 {
-                    { ('A', ""), 1  }, //'Alanine
-                    { ('C', ""), 2  }, //'Cysteine
-                    { ('D', ""), 3  }, //'Aspartate
-                    { ('E', ""), 4  }, //'Glutamate
-                    { ('F', ""), 5  }, //'Phenylalaline
-                    { ('G', ""), 6  }, //'Glycine
-                    { ('H', ""), 7  }, //'Histidine
-                    { ('I', ""), 8  }, //'Isoleucine
-                    { ('K', ""), 9  }, //'Lysine
-                    { ('L', ""), 10 }, //'Leucine
-                    { ('M', ""), 11 }, //'Methionine
-                    { ('N', ""), 12 }, //'Asparagine
-                    { ('P', ""), 13 }, //'Proline
-                    { ('Q', ""), 14 }, //'Glutamine
-                    { ('R', ""), 15 }, //'Argenine
-                    { ('S', ""), 16 }, //'Serine
-                    { ('T', ""), 17 }, //'Threonine
-                    { ('V', ""), 18 }, //'Valine
-                    { ('W', ""), 19 }, //'Tryptophane
-                    { ('Y', ""), 20 }, //'Tyrosine
-                    //{ ('C', "Carbamidomethyl on C"), 21 }, //'Carbamidomethyl
-                    //{ ('M', "Oxidation on M"), 22 }, //'Oxidized
-                    ////_residueWithModToTensorInt.Add(('C',null),23);//'S - carbamidomethylcysteine
-                    //{ ('E', "Glu to PyroGlu"), 24 }, //'Pyroglutamate
-                    //{ ('S', "Phosphorylation on S"), 25 }, //'Phosphoserine
-                    //{ ('T', "Phosphorylation on T"), 26 }, //'Phosphothreonine
-                    //{ ('Y', "Phosphorylation on Y"), 27 }, //'Phosphotyrosine
-                    //{ ('K', "Accetylation on K"), 28 }, //'Acetylated
-                    //{ ('K', "Succinylation on K"), 29 }, //'Succinylated
-                    //{ ('K', "Ubiquitination on K"), 30 }, //'Ubiquitinated
-                    //{ ('K', "Methylation on K"), 31 }, //'Monomethyl
-                    //{ ('K', "Dimethylation on K"), 32 }, //'Dimethyl
-                    //{ ('K', "Trimethylation on K"), 33 }, //'Trimethyl
-                    //{ ('R', "Methylation on R"), 34 }, //'Monomethyl
-                    //{ ('R', "Dimethylation on R"), 35 }, //'Dimethyl
-                };
+                    var tempSeq = fullSequence[i].Split(':');
+                    fullSequence[i] = tempSeq[1];
+                }
+            }
 
+            if (psm.BaseSeq.Length <= 50) //Chronologer only takes sequences of length 50 or less
+            {   
                 var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
 
                 tensor[0][0] = 38; //C-terminus
-                tensor[0][psm.BaseSeq.Length-1] = 44; //N-terminus
-
-                for (int i = 1; i < psm.BaseSeq.Length - 1; i++) //base sequence for the moment
+                var tensorCounter = 1; //skips the first element which is the C-terminus in the tensor
+                char modID = ' '; //takes the target aa from inside the loop to hold it for the next loop
+                bool mod = false; //assumes that the next loop is not a mod todo: handle terminal mods
+                foreach (var subString in fullSequence)
                 {
-                    tensor[0][i] = dictionary[(psm.BaseSeq[i], "")];
+                    //if mod, enter
+                    if (mod)
+                    {
+                        var key = (modID, subString[0].ToString()); 
+                        if (dictionary.ContainsKey(key))
+                        {
+                            tensor[0][tensorCounter] = dictionary[key];
+                            tensorCounter = tensorCounter + 1;
+                        }
+                        mod = false; //next iteration is not a mod
+                        continue;
+                    }
+
+                    if (!subString.Contains(" "))
+                    {
+                        //without mods
+                        for (int i = 0; i < subString.Length; i++)
+                        {
+                            tensor[0][tensorCounter] = dictionary[(subString[i], "")];
+                            tensorCounter = tensorCounter + 1;
+                        }
+
+                        //save target aa for next loop
+                        modID = subString[subString.Length - 1];
+                    }
+                    else
+                    {
+                        for (int i = 0; i < subString.Length; i++)
+                        {
+                            tensor[0][tensorCounter] = dictionary[(subString[i], "")];
+                            tensorCounter = tensorCounter + 1;
+                        }
+                    }
+                    //next loop will be a mod
+                    mod = true;
                 }
 
+                tensor[0][tensorCounter] = 44; //N-terminus
+
+                Debug.WriteLine(tensor.ToString(TensorStringStyle.Julia));
                 return tensor;
             }
 
+            //if sequence is longer than 50, return a tensor of ones, quick way to remove it later from the dataset
             return torch.ones(1, 52, torch.ScalarType.Int64);
         }
 
         //todo: implement this method training_fuctions.py
         public static (List<(torch.Tensor, double)>, List<(torch.Tensor, double)>) RetentionTimeToTensorDatabase(
-            List<PsmFromTsv> dataFiles, int seed, double validationFraction)
+            List<PsmFromTsv> dataFiles, int seed, double validationFraction, Dictionary<(char, string), int> dictionary)
         {
             var trainTestDb = new Dictionary<string, List<(torch.Tensor, double)>>()
             {
@@ -88,7 +109,7 @@ namespace Proteomics.RetentionTimePrediction
                 {
                     var db =
                         (dataFile.FileNameWithoutExtension, dataFile.RetentionTime, dataFile.BaseSeq); //base seq for the moment
-                    var tensor = Tensorize(dataFile);
+                    var tensor = Tensorize(dataFile, dictionary);
                     
                     if(tensor.Equals(torch.ones(1,52,torch.ScalarType.Int64)))
                         continue;

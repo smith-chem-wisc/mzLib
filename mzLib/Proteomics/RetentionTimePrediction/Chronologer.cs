@@ -125,7 +125,8 @@ namespace Proteomics.RetentionTimePrediction
             return this.call(input);
         }
 
-        public void Train(string savingPath, List<PsmFromTsv> trainingData, double validationFraction = 0.2,
+        public void Train(string savingPath, List<PsmFromTsv> trainingData, Dictionary<(char, string),
+                int> dictionary, double validationFraction = 0.2,
             int seed = 2447, string device = "cpu", string startModelPath = null, 
             double intialBatchScaler = 1.0, int batchSize = 64, int epochs = 100)
         {
@@ -141,13 +142,13 @@ namespace Proteomics.RetentionTimePrediction
             }
             
             var (train , test) = 
-                TrainChronologer.RetentionTimeToTensorDatabase(trainingData, seed, validationFraction);
+                TrainChronologer.RetentionTimeToTensorDatabase(trainingData, seed, validationFraction, dictionary);
 
             var trainDataSet = new CustomDataset(train);
             var testDataSet = new CustomDataset(test);
 
-            var trainLoader =  torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true);
-            var testLoader = torch.utils.data.DataLoader(testDataSet, batchSize, shuffle: true);
+            var trainLoader =  torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true, drop_last: true);
+            var testLoader = torch.utils.data.DataLoader(testDataSet, batchSize, shuffle: true, drop_last: true);
             var lossFunction = torch.nn.L1Loss();
             // var lossFunction = new TrainChronologer.LogLLoss(52, 
             //     TrainChronologer.ReturnDistribution.Laplace, 0.01);
@@ -162,26 +163,27 @@ namespace Proteomics.RetentionTimePrediction
             var scores = new List<float>();
             for (int i = 0; i < epochs; i++) 
             {
+                Debug.WriteLine($"Epoch {i + 1} of {epochs}");
                 var epochLoss = 0.0;
                 var runningLoss = 0.0;
                 foreach (var batch in trainLoader)
                 {
                     var batchX = batch["Encoded Sequence"];
                     var batchY = batch["Retention Time on File"];
-                    for(int j = 0; j < batchX.size(2); j++)
+                    for(int j = 0; j < batchX.size(0); j++)
                     {
                         var x = batchX[j];
                         double y = batchY[j].item<double>();
-
-                        Debug.WriteLine(x.ToString(TensorStringStyle.Julia));
-                        Debug.WriteLine(y);
+                        //
+                        // Debug.WriteLine(x.ToString(TensorStringStyle.Julia));
+                        // Debug.WriteLine(y);
                         // Debug.WriteLine(batchPass.ToString(TensorStringStyle.Julia));
 
                         var output = this.forward(x);
                         var loss = lossFunction.forward(output[0],
                             torch.tensor(new []{(float)y}));
 
-                        Debug.WriteLine(loss.item<float>());
+                        // Debug.WriteLine(loss.item<float>());
                         optimizer.zero_grad();
                         loss.backward();
                         optimizer.step();
