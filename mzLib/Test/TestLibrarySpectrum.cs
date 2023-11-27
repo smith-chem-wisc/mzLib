@@ -1,5 +1,4 @@
 ﻿using NUnit.Framework;
-using Proteomics.Fragmentation;
 using Proteomics.PSM;
 using System;
 using System.Collections.Generic;

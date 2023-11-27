@@ -45,6 +45,7 @@
     <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0" />
     <file src="SpectralAveraging\bin\x64\Release\net6.0\SpectralAveraging.dll" target="lib\net6.0" /> 
     <file src="MzLibUtil\bin\x64\Release\net6.0\MzLibUtil.dll" target="lib\net6.0" />
+    <file src="Omics\bin\x64\Release\net6.0\Omics.dll" target="lib\net6.0" /> 
     <file src="PepXML\bin\x64\Release\net6.0\PepXML.dll" target="lib\net6.0" /> 
     <file src="Proteomics\bin\x64\Release\net6.0\Proteomics.dll" target="lib\net6.0" /> 
     <file src="Proteomics\bin\x64\Release\net6.0\ProteolyticDigestion\proteases.tsv" target="lib\net6.0\ProteolyticDigestion" /> 
@@ -64,6 +65,7 @@
     <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0-windows7.0" />
     <file src="SpectralAveraging\bin\x64\Release\net6.0\SpectralAveraging.dll" target="lib\net6.0-windows7.0" />
     <file src="MzLibUtil\bin\x64\Release\net6.0\MzLibUtil.dll" target="lib\net6.0-windows7.0" />
+    <file src="Omics\bin\x64\Release\net6.0\Omics.dll" target="lib\net6.0-windows7.0" /> 
     <file src="PepXML\bin\x64\Release\net6.0\PepXML.dll" target="lib\net6.0-windows7.0" /> 
     <file src="Proteomics\bin\x64\Release\net6.0\Proteomics.dll" target="lib\net6.0-windows7.0" /> 
     <file src="Proteomics\bin\x64\Release\net6.0\ProteolyticDigestion\proteases.tsv" target="lib\net6.0-windows7.0\ProteolyticDigestion" /> 

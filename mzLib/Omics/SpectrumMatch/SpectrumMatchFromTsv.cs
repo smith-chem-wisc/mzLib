@@ -3,6 +3,7 @@ using Omics.Fragmentation;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Chemistry;
+using Omics.Fragmentation.Peptide;
 
 namespace Omics.SpectrumMatch
 {
@@ -227,10 +228,8 @@ namespace Omics.SpectrumMatch
                         }
 
                         //get terminus
-                        if (TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.ContainsKey(productType))
-                        {
-                            terminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
-                        }
+                        if (TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                                out terminus));
 
                         //get amino acid position
                         aminoAcidPosition = terminus == FragmentationTerminus.C ?

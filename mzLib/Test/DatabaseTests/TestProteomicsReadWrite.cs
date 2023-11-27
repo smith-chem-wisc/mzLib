@@ -6,7 +6,6 @@ using MassSpectrometry;
 using NUnit.Framework;
 using Omics.Fragmentation;
 using Proteomics;
-using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;

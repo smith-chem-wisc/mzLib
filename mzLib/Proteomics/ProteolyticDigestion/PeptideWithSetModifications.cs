@@ -1,14 +1,14 @@
-﻿ using Chemistry;
+﻿using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
- using Omics.Fragmentation;
+using Omics.Fragmentation;
+using Omics.Fragmentation.Peptide;
 
- namespace Proteomics.ProteolyticDigestion
+namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
     public class PeptideWithSetModifications : ProteolyticPeptide
