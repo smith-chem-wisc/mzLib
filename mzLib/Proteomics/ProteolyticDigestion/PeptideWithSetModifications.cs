@@ -614,46 +614,7 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         public virtual string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
-        {
-            string essentialSequence = BaseSequence;
-            if (modstoWritePruned != null)
-            {
-                var sbsequence = new StringBuilder();
-
-                // variable modification on peptide N-terminus
-                if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
-                {
-                    if (modstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
-                    {
-                        sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.IdWithMotif + ']');
-                    }
-                }
-                for (int r = 0; r < Length; r++)
-                {
-                    sbsequence.Append(this[r]);
-                    // variable modification on this residue
-                    if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification residue_variable_mod))
-                    {
-                        if (modstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
-                        {
-                            sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.IdWithMotif + ']');
-                        }
-                    }
-                }
-
-                // variable modification on peptide C-terminus
-                if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification pep_c_term_variable_mod))
-                {
-                    if (modstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
-                    {
-                        sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.IdWithMotif + ']');
-                    }
-                }
-
-                essentialSequence = sbsequence.ToString();
-            }
-            return essentialSequence;
-        }
+        => ((IBioPolymerWithSetMods)this).EssentialSequence(modstoWritePruned);
 
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
@@ -1066,35 +1027,8 @@ namespace Proteomics.ProteolyticDigestion
             return sb.ToString();
         }
 
-        private void DetermineFullSequence()
-        {
-            var subsequence = new StringBuilder();
+        private void DetermineFullSequence() => ((IBioPolymerWithSetMods)this).DetermineFullSequence();
 
-            // modification on peptide N-terminus
-            if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
-            {
-                subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-            }
-
-            for (int r = 0; r < Length; r++)
-            {
-                subsequence.Append(this[r]);
-
-                // modification on this residue
-                if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-                {
-                    subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-                }
-            }
-
-            // modification on peptide C-terminus
-            if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
-            {
-                subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-            }
-
-            FullSequence = subsequence.ToString();
-        }
         /// <summary>
         /// This method returns the full sequence with mass shifts INSTEAD OF PTMs in brackets []
         /// Some external tools cannot parse PTMs, instead requiring a numerical input indicating the mass of a PTM in brackets
@@ -1102,48 +1036,7 @@ namespace Proteomics.ProteolyticDigestion
         /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
         /// </summary>
         /// <returns></returns>
-        private string DetermineFullSequenceWithMassShifts()
-        {
-            var subsequence = new StringBuilder();
-
-            // modification on peptide N-terminus
-            if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
-            {
-                subsequence.Append('[' + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-            }
-
-            for (int r = 0; r < Length; r++)
-            {
-                subsequence.Append(this[r]);
-
-                // modification on this residue
-                if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-                {
-                    if (mod.MonoisotopicMass > 0)
-                    {
-                        subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                    }
-                    else
-                    {
-                        subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                    }
-                }
-            }
-
-            // modification on peptide C-terminus
-            if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
-            {
-                if (mod.MonoisotopicMass > 0)
-                {
-                    subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                }
-                else
-                {
-                    subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                }
-            }
-            return subsequence.ToString();
-        }
+        private string DetermineFullSequenceWithMassShifts() => ((IBioPolymerWithSetMods)this).DetermineFullSequenceWithMassShifts();
 
         private void UpdateCleavageSpecificity()
         {
