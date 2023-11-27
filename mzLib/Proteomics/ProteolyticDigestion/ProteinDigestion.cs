@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Omics.Digestion;
 using Omics.Fragmentation;
+using Omics.Modifications;
 
 namespace Proteomics.ProteolyticDigestion
 {

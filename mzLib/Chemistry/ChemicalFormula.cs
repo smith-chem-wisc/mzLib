@@ -31,7 +31,7 @@ namespace Chemistry
     /// Formula can change!!! If isotopes or elements are changed.
     /// </summary>
     [Serializable]
-    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>
+    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>, IHasChemicalFormula
     {
         // Main data stores, the isotopes and elements
 
@@ -59,11 +59,13 @@ namespace Chemistry
             Elements = new Dictionary<Element, int>();
         }
 
-        public ChemicalFormula(ChemicalFormula capFormula)
+        public ChemicalFormula(IHasChemicalFormula capFormula)
         {
-            Isotopes = new Dictionary<Isotope, int>(capFormula.Isotopes);
-            Elements = new Dictionary<Element, int>(capFormula.Elements);
+            Isotopes = new Dictionary<Isotope, int>(capFormula.ThisChemicalFormula.Isotopes);
+            Elements = new Dictionary<Element, int>(capFormula.ThisChemicalFormula.Elements);
         }
+
+        public ChemicalFormula ThisChemicalFormula => this;
 
         /// <summary>
         /// Gets the average mass of this chemical formula
@@ -522,6 +524,39 @@ namespace Chemistry
 
             otherParts.Sort();
             return s + string.Join("", otherParts);
+        }
+
+        public override string ToString()
+        {
+            return $"{ThisChemicalFormula.Formula} : {MonoisotopicMass}";
+        }
+
+        public static ChemicalFormula operator -(ChemicalFormula left, IHasChemicalFormula right)
+        {
+            if (left == null)
+            {
+                if (right == null)
+                    return null;
+                return new ChemicalFormula(right);
+            }
+
+            ChemicalFormula newFormula = new ChemicalFormula(left);
+            newFormula.Remove(right);
+            return newFormula;
+        }
+
+        public static ChemicalFormula operator +(ChemicalFormula left, IHasChemicalFormula right)
+        {
+            if (left == null)
+            {
+                if (right == null)
+                    return null;
+                return new ChemicalFormula(right);
+            }
+
+            ChemicalFormula newFormula = new ChemicalFormula(left);
+            newFormula.Add(right);
+            return newFormula;
         }
     }
 }
