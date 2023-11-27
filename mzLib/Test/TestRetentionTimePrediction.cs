@@ -776,6 +776,31 @@ namespace Test
         }
 
         [Test]
+        public void TestingDatasetSize()
+        {
+            var unimodDictionary = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Unimod);
+            var psms = new List<PsmFromTsv>();
+            var tensors = new List<torch.Tensor>();
+            var psmsPaths = new List<string>() { };
+            List<string> warnings = new List<string>();
+            psmsPaths.Add(@"F:\Research\Data\RT-Prediction-Datasets\Length50FromBisonQlessOrEqual1Percent\AllPeptidesFiles\AllPeptides.psmtsv");
+            foreach (var file in psmsPaths)
+            {
+                psms.AddRange(Readers.SpectrumMatchTsvReader.ReadPsmTsv(file, out warnings));
+            }
+
+            foreach (var psm in psms)
+            {
+                tensors.Add(TrainChronologer.Tensorize(psm, unimodDictionary));
+            }
+
+            var model = new Chronologer(false);
+            model.Train("testing_Length50DataSet_weights_11272023.dat", psms, unimodDictionary);
+
+            var a = 0;
+        }
+
+        [Test]
         public void TestDictionaryAllUnimod()
         {
             var dict = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Unimod);

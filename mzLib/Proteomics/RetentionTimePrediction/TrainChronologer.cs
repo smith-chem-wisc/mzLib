@@ -32,7 +32,7 @@ namespace Proteomics.RetentionTimePrediction
                 }
             }
 
-            if (psm.BaseSeq.Length <= 50) //Chronologer only takes sequences of length 50 or less
+            if (psm.BaseSeq.Length <= 50 && psm.QValue <= 0.01 && psm.AmbiguityLevel == 1.ToString()) //Chronologer only takes sequences of length 50 or less
             {   
                 var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
 
@@ -40,12 +40,19 @@ namespace Proteomics.RetentionTimePrediction
                 var tensorCounter = 1; //skips the first element which is the C-terminus in the tensor
                 char modID = ' '; //takes the target aa from inside the loop to hold it for the next loop
                 bool mod = false; //assumes that the next loop is not a mod todo: handle terminal mods
+
+                if (fullSequence[0].Contains(" "))
+                {
+                    mod = true;
+                    modID = fullSequence[0][fullSequence[0].Length - 1];
+                }
+
                 foreach (var subString in fullSequence)
                 {
                     //if mod, enter
                     if (mod)
                     {
-                        var key = (modID, subString); 
+                        var key = (char.ToUpper(modID), subString); 
                         if (dictionary.ContainsKey(key))
                         {
                             tensor[0][tensorCounter] = dictionary[key];
@@ -58,11 +65,13 @@ namespace Proteomics.RetentionTimePrediction
                     if (!subString.Contains(" "))
                     {
                         //without mods
-                        for (int i = 0; i < subString.Length; i++)
+                        for (int i = 0; i < subString.Length - 1; i++)
                         {
-                            tensor[0][tensorCounter] = dictionary[(subString[i], "")];
+                            tensor[0][tensorCounter] = dictionary[(char.ToUpper(subString[i]), "")];
                             tensorCounter = tensorCounter + 1;
                         }
+                        //next loop will be a mod
+                        mod = true;
 
                         //save target aa for next loop
                         modID = subString[subString.Length - 1];
@@ -71,12 +80,13 @@ namespace Proteomics.RetentionTimePrediction
                     {
                         for (int i = 0; i < subString.Length; i++)
                         {
-                            tensor[0][tensorCounter] = dictionary[(subString[i], "")];
+                            tensor[0][tensorCounter] = dictionary[(char.ToUpper(subString[i]), "")];
                             tensorCounter = tensorCounter + 1;
                         }
+                        //next loop will be a mod
+                        mod = true;
+
                     }
-                    //next loop will be a mod
-                    mod = true;
                 }
 
                 tensor[0][tensorCounter] = 44; //N-terminus

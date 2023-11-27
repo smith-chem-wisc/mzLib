@@ -225,7 +225,7 @@ namespace Proteomics.RetentionTimePrediction
             //saving the model
             this.eval();
             this.train(false);
-            this.save("Chronologer_trained_weights_unimod_SLR_11262023.dat");
+            this.save(savingPath);
         }
 
         //All Modules (shortcut modules are for loading the weights only)
