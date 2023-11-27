@@ -761,12 +761,12 @@ namespace Test
         [Test]
         public void ReTrainChronologerWithUniMods()
         {
-            var model = new Chronologer();
+            var model = new Chronologer(trained: false);
             
             List<string> warnings = new List<string>();
 
             var psms = Readers.SpectrumMatchTsvReader.ReadPsmTsv(
-                               @"F:\Research\Data\Hela\Hela_1\2023-11-13-13-30-17\Task1-SearchTask\AllPeptides.psmtsv", out warnings);
+                               @"F:\Research\Data\Hela\Hela_1\2023-11-13-13-30-17_1\Task1-SearchTask\AllPeptides.psmtsv", out warnings);
 
             var dictionary = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Unimod);
 

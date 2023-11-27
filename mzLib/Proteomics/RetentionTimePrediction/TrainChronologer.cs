@@ -45,7 +45,7 @@ namespace Proteomics.RetentionTimePrediction
                     //if mod, enter
                     if (mod)
                     {
-                        var key = (modID, subString[0].ToString()); 
+                        var key = (modID, subString); 
                         if (dictionary.ContainsKey(key))
                         {
                             tensor[0][tensorCounter] = dictionary[key];

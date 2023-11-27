@@ -30,7 +30,10 @@ namespace Proteomics.RetentionTimePrediction
     {
         public Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
             "RetentionTimePrediction",
-            "Chronologer_20220601193755_TorchSharp.dat")) { }
+            "Chronologer_20220601193755_TorchSharp.dat"))
+        {
+
+        }
 
         /// <summary>
         /// Initializes a new instance of the Chronologer model class with pre-trained weights from the paper
@@ -42,17 +45,23 @@ namespace Proteomics.RetentionTimePrediction
         /// </summary>
         /// <param name="weightsPath"></param>
         /// <param name="evalMode"></param>
-        public Chronologer(string weightsPath, bool evalMode = true) : base(nameof(Chronologer))
+        public Chronologer(string weightsPath = null, bool evalMode = true) : base(nameof(Chronologer))
         {
             RegisterComponents();
-
-            LoadWeights(weightsPath);//loads weights from the file
+            if(weightsPath != null)
+                LoadWeights(weightsPath);//loads weights from the file
 
             if (evalMode)
             {
                 this.eval();
                 this.train(false);
             }
+        }
+
+        //Without pre-trained weights
+        public Chronologer(bool trained = false) : base(nameof(Chronologer))
+        {
+            RegisterComponents();
         }
 
         /// <summary>
@@ -140,7 +149,12 @@ namespace Proteomics.RetentionTimePrediction
             {
                 this.load(startModelPath, true);
             }
-            
+            //Change input embedding layer to the size of the dictionary
+            this.seq_embed = torch.nn.Embedding(dictionary.Count, 64, 0).to(DeviceType.CUDA);
+            RegisterComponents();
+            this.to(DeviceType.CUDA); //moves the model to GPU
+
+
             var (train , test) = 
                 TrainChronologer.RetentionTimeToTensorDatabase(trainingData, seed, validationFraction, dictionary);
 
@@ -158,18 +172,24 @@ namespace Proteomics.RetentionTimePrediction
             lossFunction.parameters().ForEach(x => parameters.Add(x));
 
             var optimizer = torch.optim.Adam(parameters, 0.001);
-
+            var scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 25, 0.1, verbose: true);
             //training loop
             var scores = new List<float>();
+
             for (int i = 0; i < epochs; i++) 
             {
-                Debug.WriteLine($"Epoch {i + 1} of {epochs}");
+                var testLoss = 0.0;
+
+                // Debug.WriteLine($"Epoch {i + 1} of {epochs}");
                 var epochLoss = 0.0;
                 var runningLoss = 0.0;
                 foreach (var batch in trainLoader)
                 {
                     var batchX = batch["Encoded Sequence"];
                     var batchY = batch["Retention Time on File"];
+
+                    batchX = batchX.to(DeviceType.CUDA);
+                    batchY = batchY.to(DeviceType.CUDA);
                     for(int j = 0; j < batchX.size(0); j++)
                     {
                         var x = batchX[j];
@@ -181,7 +201,7 @@ namespace Proteomics.RetentionTimePrediction
 
                         var output = this.forward(x);
                         var loss = lossFunction.forward(output[0],
-                            torch.tensor(new []{(float)y}));
+                            torch.tensor(new []{(float)y}).to(DeviceType.CUDA));
 
                         // Debug.WriteLine(loss.item<float>());
                         optimizer.zero_grad();
@@ -193,15 +213,19 @@ namespace Proteomics.RetentionTimePrediction
                         scores.Add(loss.item<float>());
                     }
                 }
+                scheduler.step();
                 //statistics per epoch
                 epochLoss = runningLoss / train.Count;
                 Debug.WriteLine($"Epoch {i + 1} loss: {epochLoss}");
+
+
+
             }
 
             //saving the model
-            // this.eval();
-            // this.train(false);
-            // this.save(Path.Combine(savingPath,"Chronologer_trained_weights.dat"));
+            this.eval();
+            this.train(false);
+            this.save("Chronologer_trained_weights_unimod_SLR_11262023.dat");
         }
 
         //All Modules (shortcut modules are for loading the weights only)

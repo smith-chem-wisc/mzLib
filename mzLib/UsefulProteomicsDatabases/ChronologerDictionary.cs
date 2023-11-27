@@ -31,6 +31,8 @@ namespace UsefulProteomicsDatabases
                 { ('V', ""), 18 }, //'Valine
                 { ('W', ""), 19 }, //'Tryptophane
                 { ('Y', ""), 20 }, //'Tyrosine
+                {('C', "C-Terminus"), 38},
+                {('N', "N-Terminus"), 44}
             };
 
 
@@ -49,6 +51,13 @@ namespace UsefulProteomicsDatabases
                     foreach (var mod in target)
                     {
                         aaCount = aaCount + 1;
+
+                        //C-Terminus and N-Terminus
+                        if(aaCount == 38 || aaCount == 44)
+                        {
+                            aaCount = aaCount + 1;
+                        }
+
                         if (!dictionary.ContainsKey((Char.Parse(target.Key), mod.IdWithMotif)))
                             dictionary.Add((Char.Parse(target.Key), mod.IdWithMotif), aaCount);
                     }
