@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
@@ -13,10 +14,10 @@ using Omics.Modifications;
 namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
-    public class PeptideWithSetModifications : ProteolyticPeptide
+    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods
     {
         public string FullSequence { get; private set; } //sequence with modifications
-        public readonly int NumFixedMods;
+        public int NumFixedMods { get; }
         // Parameter to store a hash code corresponding to a Decoy or a Target peptide
         // If the peptide in question is a decoy, this pairs it to the target it was generated from
         // If the peptide in question is a target, this pairs it to its corresponding decoy 
@@ -37,14 +38,14 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
-        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
+        public PeptideWithSetModifications(Protein protein, IDigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null, int? pairedTargetDecoyHash = null)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription, baseSequence)
         {
             _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
-            _digestionParams = digestionParams;
+            _digestionParams = digestionParams as DigestionParams;
             DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
@@ -56,7 +57,7 @@ namespace Proteomics.ProteolyticDigestion
         /// Useful for reading in MetaMorpheus search engine output into mzLib objects.
         /// </summary>
         public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
-            DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
+            IDigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
             int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue,
             CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null, int? pairedTargetDecoyHash = null)
             : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
@@ -70,7 +71,7 @@ namespace Proteomics.ProteolyticDigestion
             _baseSequence = GetBaseSequenceFromFullSequence(sequence);
             GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
-            _digestionParams = digestionParams;
+            _digestionParams = digestionParams as DigestionParams;
             PairedTargetDecoyHash = pairedTargetDecoyHash; // Added PairedTargetDecoyHash as a nullable integer
 
             if (p != null)
@@ -79,25 +80,13 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public DigestionParams DigestionParams
-        {
-            get { return _digestionParams; }
-        }
+        public IDigestionParams DigestionParams => _digestionParams;
 
-        public Dictionary<int, Modification> AllModsOneIsNterminus
-        {
-            get { return _allModsOneIsNterminus; }
-        }
+        public Dictionary<int, Modification> AllModsOneIsNterminus => _allModsOneIsNterminus;
 
-        public int NumMods
-        {
-            get { return AllModsOneIsNterminus.Count; }
-        }
+        public int NumMods => AllModsOneIsNterminus.Count;
 
-        public int NumVariableMods
-        {
-            get { return NumMods - NumFixedMods; }
-        }
+        public int NumVariableMods => NumMods - NumFixedMods;
 
         public double MonoisotopicMass
         {
@@ -119,7 +108,8 @@ namespace Proteomics.ProteolyticDigestion
             }
 
         }
-        
+
+        public ChemicalFormula ThisChemicalFormula => FullChemicalFormula;
         public ChemicalFormula FullChemicalFormula
         {
             get
@@ -151,7 +141,9 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     IsotopicDistribution dist = IsotopicDistribution.GetDistribution(this.FullChemicalFormula);
                     double maxIntensity = dist.Intensities.Max();
-                    _mostAbundantMonoisotopicMass = (double)ClassExtensions.RoundedDouble(dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
+                    _mostAbundantMonoisotopicMass =
+                        (double)ClassExtensions.RoundedDouble(
+                            dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
                 }
                 return (double)ClassExtensions.RoundedDouble(_mostAbundantMonoisotopicMass.Value);
             }
@@ -215,6 +207,8 @@ namespace Proteomics.ProteolyticDigestion
                 return _sequenceWithChemicalFormulas;
             }
         }
+
+        public IBioPolymer Parent => Protein;
 
         /// <summary>
         /// Generates theoretical fragments for given dissociation type for this peptide. 
@@ -780,7 +774,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 //need to determine what the cleavage sites are for the protease used (will allow us to determine if new cleavage sites were made by variant)
-                List<DigestionMotif> proteasesCleavageSites = DigestionParams.Protease.DigestionMotifs;
+                List<DigestionMotif> proteasesCleavageSites = DigestionParams.Enzyme.DigestionMotifs;
                 //if the variant ends the AA before the peptide starts then it may have caused c-terminal cleavage
                 //see if the protease used for digestion has C-terminal cleavage sites
                 List<string> cTerminalResidue = proteasesCleavageSites.Where(dm => dm.CutIndex == 1).Select(d => d.InducingCleavage).ToList();
@@ -948,9 +942,9 @@ namespace Proteomics.ProteolyticDigestion
 
             return q != null
                 && q.FullSequence.Equals(this.FullSequence)
-                && q.OneBasedStartResidueInProtein == this.OneBasedStartResidueInProtein
+                && q.OneBasedStartResidue == this.OneBasedStartResidue
                 && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.Protease.Equals(this.DigestionParams.Protease);
+                && q.DigestionParams.Enzyme.Equals(this.DigestionParams.Enzyme);
         }
 
         public override int GetHashCode()
@@ -961,7 +955,7 @@ namespace Proteomics.ProteolyticDigestion
             }
             else
             {
-                return FullSequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
+                return FullSequence.GetHashCode() + DigestionParams.Enzyme.GetHashCode();
             }
         }
 
@@ -974,6 +968,10 @@ namespace Proteomics.ProteolyticDigestion
             GetProteinAfterDeserialization(accessionToProtein);
             _digestionParams = dp;
         }
+
+        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod,
+            Dictionary<string, Protein> accessionToProtein, IDigestionParams dp) => 
+            SetNonSerializedPeptideInfo(idToMod, accessionToProtein, (DigestionParams)dp);
 
         private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
         {
@@ -1151,7 +1149,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             if (CleavageSpecificityForFdrCategory == CleavageSpecificity.Unknown)
             {
-                CleavageSpecificityForFdrCategory = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, DigestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
+                CleavageSpecificityForFdrCategory = _digestionParams.SpecificProtease.GetCleavageSpecificity(Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, _digestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
                 PeptideDescription = CleavageSpecificityForFdrCategory.ToString();
             }
         }
@@ -1215,7 +1213,7 @@ namespace Proteomics.ProteolyticDigestion
             char[] newBase = new char[this.BaseSequence.Length];
             Array.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
-            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            List<DigestionMotif> motifs = this.DigestionParams.Enzyme.DigestionMotifs;
             if (motifs != null && motifs.Count > 0)
             {
                 foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
@@ -1288,7 +1286,7 @@ namespace Proteomics.ProteolyticDigestion
             proteinSequence = aStringBuilder.ToString();
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
-            DigestionParams d = this.DigestionParams;
+            DigestionParams d = _digestionParams;
 
             // Creates a hash code corresponding to the target's sequence
             int targetHash = GetHashCode();
@@ -1335,7 +1333,7 @@ namespace Proteomics.ProteolyticDigestion
             char[] newBase = new char[this.BaseSequence.Length];
             Array.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
-            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            List<DigestionMotif> motifs = this.DigestionParams.Enzyme.DigestionMotifs;
             if (motifs != null && motifs.Count > 0)
             {
                 foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
@@ -1467,7 +1465,7 @@ namespace Proteomics.ProteolyticDigestion
             proteinSequence = aStringBuilder.ToString();
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
-            DigestionParams d = this.DigestionParams;
+            DigestionParams d = _digestionParams;
             // Creates a hash code corresponding to the target's sequence
             int targetHash = GetHashCode();
             PeptideWithSetModifications decoyPeptide;
@@ -1561,7 +1559,7 @@ namespace Proteomics.ProteolyticDigestion
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
 
-            DigestionParams d = this.DigestionParams;
+            DigestionParams d = _digestionParams;
 
             //now fill in the revised amino acid order
             int oldStringPosition = this.BaseSequence.Length - 1;

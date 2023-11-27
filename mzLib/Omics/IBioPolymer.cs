@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Omics.Digestion;
 using Omics.Modifications;
 
 namespace Omics
@@ -21,7 +22,7 @@ namespace Omics
         string Accession { get; }
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
 
-      //  IEnumerable<IBioPolymerWithSetMods> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
-       //     List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false);
+        IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
+            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false);
     }
 }

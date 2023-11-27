@@ -49,8 +49,8 @@ namespace Test
             PeptideWithSetModifications pep2 = myProtein.Digest(digest2, new List<Modification>(), new List<Modification>()).First();
 
             Assert.That(pep1.FullSequence.Equals(pep2.FullSequence));
-            Assert.That(pep1.Protein.Equals(pep2.Protein));
-            Assert.That(!pep1.DigestionParams.Protease.Equals(pep2.DigestionParams.Protease));
+            Assert.That(pep1.Parent.Equals(pep2.Parent));
+            Assert.That(!pep1.DigestionParams.Enzyme.Equals(pep2.DigestionParams.Enzyme));
             Assert.That(!pep1.Equals(pep2));
             Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
         }

@@ -31,10 +31,7 @@ namespace Omics
         CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; }
         char PreviousResidue { get; }
         char NextResidue { get; }
-
-
-
-        //IDigestionParams DigestionParams { get; }
+       // IDigestionParams DigestionParams { get; }
 
 
 
