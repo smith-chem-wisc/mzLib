@@ -20,8 +20,8 @@ namespace Proteomics.ProteolyticDigestion
             Protease = digestionParams.Protease;
             MaximumMissedCleavages = digestionParams.MaxMissedCleavages;
             InitiatorMethionineBehavior = digestionParams.InitiatorMethionineBehavior;
-            MinPeptideLength = digestionParams.MinPeptideLength;
-            MaxPeptideLength = digestionParams.MaxPeptideLength;
+            MinPeptideLength = digestionParams.MinLength;
+            MaxPeptideLength = digestionParams.MaxLength;
             AllKnownFixedModifications = allKnownFixedModifications;
             VariableModifications = variableModifications;
         }
