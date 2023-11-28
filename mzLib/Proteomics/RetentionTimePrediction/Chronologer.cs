@@ -1,10 +1,9 @@
-﻿using System;
+﻿using Easy.Common.Extensions;
+using Proteomics.PSM;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using Easy.Common.Extensions;
-using Proteomics.PSM;
 using TorchSharp;
 using TorchSharp.Modules;
 
@@ -48,7 +47,7 @@ namespace Proteomics.RetentionTimePrediction
         public Chronologer(string weightsPath = null, bool evalMode = true) : base(nameof(Chronologer))
         {
             RegisterComponents();
-            if(weightsPath != null)
+            if (weightsPath != null)
                 LoadWeights(weightsPath);//loads weights from the file
 
             if (evalMode)
@@ -106,11 +105,11 @@ namespace Proteomics.RetentionTimePrediction
             input = term_block.forward(input);
             input = residual + input;
             input = relu.forward(input);
-            
+
             input = dropout.forward(input);
             input = flatten.forward(input);
             input = output.forward(input);
-            
+
             return input;
         }
 
@@ -136,7 +135,7 @@ namespace Proteomics.RetentionTimePrediction
 
         public void Train(string savingPath, List<PsmFromTsv> trainingData, Dictionary<(char, string),
                 int> dictionary, double validationFraction = 0.2,
-            int seed = 2447, string device = "cpu", string startModelPath = null, 
+            int seed = 2447, string device = "cpu", string startModelPath = null,
             double intialBatchScaler = 1.0, int batchSize = 64, int epochs = 100)
         {
             if (this.training.Equals(false))
@@ -155,13 +154,13 @@ namespace Proteomics.RetentionTimePrediction
             this.to(DeviceType.CUDA); //moves the model to GPU
 
 
-            var (train , test) = 
+            var (train, test) =
                 TrainChronologer.RetentionTimeToTensorDatabase(trainingData, seed, validationFraction, dictionary);
 
             var trainDataSet = new CustomDataset(train);
             var testDataSet = new CustomDataset(test);
 
-            var trainLoader =  torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true, drop_last: true);
+            var trainLoader = torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true, drop_last: true);
             var testLoader = torch.utils.data.DataLoader(testDataSet, batchSize, shuffle: true, drop_last: true);
             var lossFunction = torch.nn.L1Loss();
             // var lossFunction = new TrainChronologer.LogLLoss(52, 
@@ -176,7 +175,7 @@ namespace Proteomics.RetentionTimePrediction
             //training loop
             var scores = new List<float>();
 
-            for (int i = 0; i < epochs; i++) 
+            for (int i = 0; i < epochs; i++)
             {
                 var testLoss = 0.0;
 
@@ -190,7 +189,7 @@ namespace Proteomics.RetentionTimePrediction
 
                     batchX = batchX.to(DeviceType.CUDA);
                     batchY = batchY.to(DeviceType.CUDA);
-                    for(int j = 0; j < batchX.size(0); j++)
+                    for (int j = 0; j < batchX.size(0); j++)
                     {
                         var x = batchX[j];
                         double y = batchY[j].item<double>();
@@ -201,7 +200,7 @@ namespace Proteomics.RetentionTimePrediction
 
                         var output = this.forward(x);
                         var loss = lossFunction.forward(output[0],
-                            torch.tensor(new []{(float)y}).to(DeviceType.CUDA));
+                            torch.tensor(new[] { (float)y }).to(DeviceType.CUDA));
 
                         // Debug.WriteLine(loss.item<float>());
                         optimizer.zero_grad();

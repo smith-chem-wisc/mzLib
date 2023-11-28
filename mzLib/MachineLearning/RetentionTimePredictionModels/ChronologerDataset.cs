@@ -9,8 +9,24 @@ namespace MachineLearning.RetentionTimePredictionModels
         {
         }
 
-        public static (List<(torch.Tensor, double)>, List<(torch.Tensor, double)>) ChronologerRetentionTimeToTensorDatabase(
-            List<PsmFromTsv> dataFiles, int seed, double validationFraction, Dictionary<(char, string), int> dictionary)
+        public override Dictionary<string, torch.Tensor> GetTensor(long index)
+        {
+            return new Dictionary<string, torch.Tensor>()
+            {
+                {"Retention Time on File", Data[(int) index].Item2},
+                {"Encoded Sequence", Data[(int) index].Item1}
+            };
+        }
+
+        /// <summary>
+        /// Converts PsmFromTsv list into tensors and splits the data into training and test sets.
+        /// </summary>
+        /// <param name="dataFiles"></param>
+        /// <param name="validationFraction"></param>
+        /// <param name="dictionary"></param>
+        /// <returns></returns>
+        public static (List<(torch.Tensor, double)>, List<(torch.Tensor, double)>) ChronologerRetentionTimeToTensorDatabaseSplit(
+            List<PsmFromTsv> dataFiles, double validationFraction, Dictionary<(char, string), int> dictionary)
         {
             var trainTestDb = new Dictionary<string, List<(torch.Tensor, double)>>()
             {
@@ -29,7 +45,7 @@ namespace MachineLearning.RetentionTimePredictionModels
                     var db =
                         (dataFile.FileNameWithoutExtension, dataFile.RetentionTime, dataFile.BaseSeq); //base seq for the moment
 
-                    var tensor = DeepTorch.Tensorize(dataFile, dictionary, TensorEncodingSchema.Chronologer);
+                    var tensor = Chronologer.Tensorize(dataFile, dictionary);
 
                     if (tensor.Equals(torch.ones(1, 52, torch.ScalarType.Int64)))
                         continue;

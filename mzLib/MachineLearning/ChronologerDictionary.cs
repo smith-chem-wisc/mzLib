@@ -35,13 +35,13 @@ namespace UsefulProteomicsDatabases
                 {('N', "N-Terminus"), 44}
             };
 
-
+            //todo: change numbers to accession numbers from DB
             if (dict == TypeOfDictionary.Unimod)
             {
                 int aaCount = 20;
 
                 var mods =
-                    UnimodLoader.ReadMods(@"F:\Research\Data\unimod.xml").ToList();
+                    Loaders.LoadUnimod(@"F:\Research\Data\unimod.xml").ToList();
 
                 var groupedModsByOriginalID =
                     mods.GroupBy(x => x.Target.ToString()).ToList();
@@ -66,6 +66,7 @@ namespace UsefulProteomicsDatabases
                 return dictionary;
             }
 
+            //Todo: fix this to the same as python's ChronologerDictionary
             if (dict == TypeOfDictionary.Chronologer)
             {
                 var chronologerModsDict = new Dictionary<(char, string), int>()

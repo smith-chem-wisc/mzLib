@@ -1,4 +1,5 @@
-﻿using Proteomics.PSM;
+﻿using System.Runtime.CompilerServices;
+using Proteomics.PSM;
 using TorchSharp;
 
 namespace MachineLearning
@@ -10,7 +11,8 @@ namespace MachineLearning
     {
         public Verbosity TrainingVerbosity { get; set; } //todo: Figure out a way to manipulate level of verbosity
 
-        public DeepTorch(Verbosity trainingVerbosity, string preTrainedModelPath = null, bool evalMode = true)
+        public DeepTorch(Verbosity trainingVerbosity, string preTrainedModelPath = null, bool evalMode = true,
+            DeviceType device = DeviceType.CPU)
             : base(nameof(DeepTorch))
         {
             RegisterComponents();
@@ -25,10 +27,11 @@ namespace MachineLearning
             else
                 TrainingMode();
 
+            this.to(device);
         }
 
         /// <summary>
-        /// Defines the computation performed at every call.
+        /// Defines the computation performed at every call. Do not use for inferring, use .Predict() instead.
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
@@ -42,7 +45,9 @@ namespace MachineLearning
         /// <summary>
         /// Defines the behavior of the module during training phase.
         /// </summary>
-        public abstract void Train();
+        public abstract void Train(string modelSavingPath, List<PsmFromTsv> trainingData,
+            Dictionary<(char, string), int> dictionary, DeviceType device, float validationFraction,
+            int batchSize, int epochs);
 
         /// <summary>
         /// Defines the behavior of the model when loading pre-trained weights.
@@ -101,26 +106,26 @@ namespace MachineLearning
         /// </summary>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        public static torch.Tensor Tensorize(PsmFromTsv psm, Dictionary<(char, string), int> dictionary,
-            TensorEncodingSchema tensorEncoding, double qValueFiltering = 0.01, string ambiguityLevel = "1")
-        {
-            throw new NotImplementedException();
-        }
-    }
+        //public static torch.Tensor Tensorize(PsmFromTsv psm, Dictionary<(char, string), int> dictionary,
+        //    TensorEncodingSchema tensorEncoding, double qValueFiltering = 0.01, string ambiguityLevel = "1")
+        //{
+        //    throw new NotImplementedException();
+        //}
 
-    public class asdasdas : DeepTorch
-    {
-        public asdasdas(Verbosity trainingVerbosity, string preTrainedModelPath = null, bool evalMode = true)
-            : base(trainingVerbosity, preTrainedModelPath, evalMode) { }
+        //public static torch.Tensor Tensorize(object toTensorize, TensorEncodingSchema tensorEncoding)
+        //{
+        //    throw new NotImplementedException();
+        //}
 
-        public override torch.Tensor forward(torch.Tensor input)
-        {
-            throw new NotImplementedException();
-        }
+        public abstract TorchDataset? TrainingDataset{ get; set; }
+        public abstract TorchDataset? TestingDataset { get; set; }
+        public abstract torch.Tensor Tensorize(object toTensoize);
 
-        public override void Train()
-        {
-            throw new NotImplementedException();
-        }
+        // public abstract Dictionary<string, torch.Tensor> GetTensor(long index);
+
+        // sets nullable filed Dataset to a new instance of a TorchDataset
+        public abstract void CreateDataSet(List<object> data, double validationFraction, int batchSize);
+
+        protected abstract void CreateDataLoader(int batchSize);
     }
 }
