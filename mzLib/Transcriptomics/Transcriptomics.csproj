@@ -12,4 +12,10 @@
     <ProjectReference Include="..\Omics\Omics.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Digestion\rnases.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
