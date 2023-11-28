@@ -103,5 +103,7 @@ namespace Omics.Digestion
             indices.Add(proteinSequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
             return indices.Distinct().OrderBy(i => i).ToList();
         }
+
+       
     }
 }
