@@ -15,4 +15,10 @@
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="RetentionTimePredictionModels\Chronologer_20220601193755_TorchSharp.dat">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

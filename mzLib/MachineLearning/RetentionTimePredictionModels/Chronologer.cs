@@ -37,9 +37,9 @@ namespace MachineLearning.RetentionTimePredictionModels
         public override TorchDataset? TestingDataset { get; set; }
         public Dictionary<(char TargetAA, string ModificationId), int> ModificationDictionary { get; set; }
 
-        public Chronologer(Verbosity trainingVerbosity, Dictionary<(char TargetAA, string ModificationId), int> dictionary,
+        public Chronologer(Dictionary<(char TargetAA, string ModificationId), int> dictionary,
             string preTrainedModelPath = null, bool evalMode = true, TypeOfDictionary dict = TypeOfDictionary.Chronologer)
-            : base(trainingVerbosity, preTrainedModelPath, evalMode)
+            : base(preTrainedModelPath, evalMode)
         {
             ModificationDictionary = GetChronologerDictionary(dict);
         }

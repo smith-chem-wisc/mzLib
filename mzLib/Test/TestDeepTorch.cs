@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Test
 {
-    internal class TestDeepTorch
+    public class TestDeepTorch
     {
 
         [Test]

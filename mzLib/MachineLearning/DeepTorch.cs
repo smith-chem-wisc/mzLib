@@ -1,10 +1,7 @@
-﻿using System.Runtime.CompilerServices;
-using System.Xml.Serialization;
-using MathNet.Numerics.Statistics;
+﻿using MathNet.Numerics.Statistics;
 using Proteomics.PSM;
 using TorchSharp;
 using TorchSharp.Modules;
-using static System.Formats.Asn1.AsnWriter;
 
 namespace MachineLearning
 {
@@ -13,14 +10,11 @@ namespace MachineLearning
     /// </summary>
     public abstract class DeepTorch : torch.nn.Module<torch.Tensor, torch.Tensor>
     {
-        public Verbosity TrainingVerbosity { get; set; } //todo: Figure out a way to manipulate level of verbosity
-        public DeepTorch(Verbosity trainingVerbosity, string preTrainedModelPath = null, bool evalMode = true,
+        public DeepTorch(string preTrainedModelPath = null, bool evalMode = true,
             DeviceType device = DeviceType.CPU)
             : base(nameof(DeepTorch))
         {
             RegisterComponents();
-
-            TrainingVerbosity = trainingVerbosity;
 
             if (preTrainedModelPath != null)
                 LoadPreTrainedModel(preTrainedModelPath);
@@ -78,7 +72,7 @@ namespace MachineLearning
             bestScore = currentBestScore;
             patience = 0;
             return true;
-            
+
         }
 
         /// <summary>
@@ -89,7 +83,7 @@ namespace MachineLearning
 
             Directory.CreateDirectory(checkPointPath);
             Directory.CreateDirectory(checkPointPath + "/Model" + epoch);
-            SaveModel(checkPointPath+"/Model"+epoch+"checkpointModel");
+            SaveModel(checkPointPath + "/Model" + epoch + "checkpointModel");
         }
 
         protected virtual void ModelPerformance(string savingPath, double bestScore, double accuracy,
@@ -108,7 +102,7 @@ namespace MachineLearning
         /// <summary>
         /// Learning Rate Decay.
         /// </summary>
-        protected virtual torch.optim.lr_scheduler.LRScheduler _scheduler => 
+        protected virtual torch.optim.lr_scheduler.LRScheduler _scheduler =>
             torch.optim.lr_scheduler.StepLR(new Adam(this.parameters()), 25, 0.1);
 
         /// <summary>
@@ -146,7 +140,7 @@ namespace MachineLearning
             torch.nn.Module<torch.Tensor, torch.Tensor, torch.Tensor> criterion, DeviceType device);
         protected abstract (double, List<double>, List<double>) Test(DataLoader? testingDataLoader,
                        torch.nn.Module<torch.Tensor, torch.Tensor, torch.Tensor> criterion, DeviceType device);
-        public abstract TorchDataset? TrainingDataset{ get; set; }
+        public abstract TorchDataset? TrainingDataset { get; set; }
         public abstract TorchDataset? TestingDataset { get; set; }
         public abstract TorchDataset? ValidationDataset { get; set; }
         public abstract torch.Tensor Tensorize(object toTensoize);
