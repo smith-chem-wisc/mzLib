@@ -105,7 +105,17 @@ namespace Omics.Fragmentation
 
         public override int GetHashCode()
         {
-            return NeutralMass.GetHashCode();
+            var hashCode = new HashCode();
+            hashCode.Add(NeutralMass);
+            hashCode.Add((int)ProductType);
+            hashCode.Add(NeutralLoss);
+            hashCode.Add((int)Terminus);
+            hashCode.Add(FragmentNumber);
+            hashCode.Add(AminoAcidPosition);
+            hashCode.Add(SecondaryProductType);
+            hashCode.Add(SecondaryFragmentNumber);
+            hashCode.Add(MonoisotopicMass);
+            return hashCode.ToHashCode();
         }
     }
 }
