@@ -573,10 +573,10 @@ namespace Test
             List<PeptideWithSetModifications> pwsmsC = humanInsulin.Digest(speedySemiC, null, null).ToList();
             Assert.IsTrue(pwsmsN.Count == 7);
             Assert.IsTrue(pwsmsC.Count == 9);
-            Assert.IsFalse(pwsmsN.Any(x => x.Length > speedySemiN.MaxPeptideLength));
-            Assert.IsFalse(pwsmsC.Any(x => x.Length > speedySemiC.MaxPeptideLength));
-            Assert.IsFalse(pwsmsN.Any(x => x.Length < speedySemiN.MinPeptideLength));
-            Assert.IsFalse(pwsmsC.Any(x => x.Length < speedySemiC.MinPeptideLength));
+            Assert.IsFalse(pwsmsN.Any(x => x.Length > speedySemiN.MaxLength));
+            Assert.IsFalse(pwsmsC.Any(x => x.Length > speedySemiC.MaxLength));
+            Assert.IsFalse(pwsmsN.Any(x => x.Length < speedySemiN.MinLength));
+            Assert.IsFalse(pwsmsC.Any(x => x.Length < speedySemiC.MinLength));
         }
     }
 }

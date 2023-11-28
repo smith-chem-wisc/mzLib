@@ -46,7 +46,7 @@ namespace Proteomics.ProteolyticDigestion
             _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
-            DetermineFullSequence();
+            FullSequence = this.DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
             PairedTargetDecoyHash = pairedTargetDecoyHash; // Added PairedTargetDecoyHash as a nullable integer
@@ -613,8 +613,6 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned) => (this as IBioPolymerWithSetMods).GetEssentialSequence(modstoWritePruned);
-
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
             var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
@@ -886,8 +884,6 @@ namespace Proteomics.ProteolyticDigestion
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
-        public string FullSequenceWithMassShift() => ((IBioPolymerWithSetMods)this).DetermineFullSequenceWithMassShifts();
-
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
@@ -1000,8 +996,6 @@ namespace Proteomics.ProteolyticDigestion
             }
             Protein = protein;
         }
-
-        private void DetermineFullSequence() => FullSequence = ((IBioPolymerWithSetMods)this).DetermineFullSequence();
 
         private void UpdateCleavageSpecificity()
         {
