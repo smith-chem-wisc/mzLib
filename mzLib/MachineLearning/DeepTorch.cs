@@ -1,6 +1,10 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Xml.Serialization;
+using MathNet.Numerics.Statistics;
 using Proteomics.PSM;
 using TorchSharp;
+using TorchSharp.Modules;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace MachineLearning
 {
@@ -10,7 +14,6 @@ namespace MachineLearning
     public abstract class DeepTorch : torch.nn.Module<torch.Tensor, torch.Tensor>
     {
         public Verbosity TrainingVerbosity { get; set; } //todo: Figure out a way to manipulate level of verbosity
-
         public DeepTorch(Verbosity trainingVerbosity, string preTrainedModelPath = null, bool evalMode = true,
             DeviceType device = DeviceType.CPU)
             : base(nameof(DeepTorch))
@@ -47,7 +50,7 @@ namespace MachineLearning
         /// </summary>
         public abstract void Train(string modelSavingPath, List<PsmFromTsv> trainingData,
             Dictionary<(char, string), int> dictionary, DeviceType device, float validationFraction,
-            int batchSize, int epochs);
+            float testingFraction, int batchSize, int epochs, int patience);
 
         /// <summary>
         /// Defines the behavior of the model when loading pre-trained weights.
@@ -62,31 +65,56 @@ namespace MachineLearning
         /// <summary>
         /// Stipulates an early stop condition to prevent overfitting.
         /// </summary>
-        protected virtual void EarlyStop()
+        protected virtual bool EarlyStop(double score, double currentBestScore, int currentPatience,
+            out double bestScore, out int patience)
         {
+            if (score < currentBestScore && currentPatience > 0)
+            {
+                bestScore = score;
+                patience = currentPatience - 1;
+                return false;
+            }
 
+            bestScore = currentBestScore;
+            patience = 0;
+            return true;
+            
         }
 
         /// <summary>
         /// Generates a checkpoint to save the model at indicated step.
         /// </summary>
-        protected virtual void Checkpoint()
+        protected virtual void Checkpoint(string checkPointPath, int epoch)
         {
 
+            Directory.CreateDirectory(checkPointPath);
+            Directory.CreateDirectory(checkPointPath + "/Model" + epoch);
+            SaveModel(checkPointPath+"/Model"+epoch+"checkpointModel");
         }
 
+        protected virtual void ModelPerformance(string savingPath, double bestScore, double accuracy,
+            List<double> predictions,
+            List<double> labels)
+        {
+            using (var writter = new System.IO.StreamWriter(savingPath + ".txt"))
+            {
+                writter.WriteLine($"Best score: {bestScore}");
+                writter.WriteLine($"Accuracy: {accuracy}");
+                writter.WriteLine($"R^2: " + Correlation.Pearson(predictions, labels));
+                writter.WriteLine($"Predictions: {predictions}");
+                writter.WriteLine($"Labels: {labels}");
+            }
+        }
         /// <summary>
-        /// Learning Rate Decay setter.
+        /// Learning Rate Decay.
         /// </summary>
-        protected virtual void LearningRateScheduler()
-        {
-
-        }
+        protected virtual torch.optim.lr_scheduler.LRScheduler _scheduler => 
+            torch.optim.lr_scheduler.StepLR(new Adam(this.parameters()), 25, 0.1);
 
         /// <summary>
         /// Sets model into training mode.
         /// </summary>
-        public void TrainingMode()
+        public virtual void TrainingMode()
         {
             this.train(true);
         }
@@ -94,37 +122,39 @@ namespace MachineLearning
         /// <summary>
         /// Sets model into evaluation mode.
         /// </summary>
-        public void EvaluationMode()
+        public virtual void EvaluationMode()
         {
             this.eval();
             this.train(false);
         }
 
         /// <summary>
-        /// Tensorizes the data for use in the model. Use the keyword new to hide the base class method and
-        /// implement your own method.
+        /// Saves the trained weights as a .dat file (TorchSharp format).
         /// </summary>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
-        //public static torch.Tensor Tensorize(PsmFromTsv psm, Dictionary<(char, string), int> dictionary,
-        //    TensorEncodingSchema tensorEncoding, double qValueFiltering = 0.01, string ambiguityLevel = "1")
-        //{
-        //    throw new NotImplementedException();
-        //}
+        /// <param name="modelSavingPath"></param>
+        public virtual void SaveModel(string modelSavingPath)
+        {
+            EvaluationMode();
 
-        //public static torch.Tensor Tensorize(object toTensorize, TensorEncodingSchema tensorEncoding)
-        //{
-        //    throw new NotImplementedException();
-        //}
+            if (modelSavingPath.EndsWith(".dat"))
+                this.save(modelSavingPath);
+            else
+                this.save(modelSavingPath + ".dat");
+        }
 
+        protected abstract double Validate(DataLoader? validationDataLoader,
+            torch.nn.Module<torch.Tensor, torch.Tensor, torch.Tensor> criterion, DeviceType device);
+        protected abstract (double, List<double>, List<double>) Test(DataLoader? testingDataLoader,
+                       torch.nn.Module<torch.Tensor, torch.Tensor, torch.Tensor> criterion, DeviceType device);
         public abstract TorchDataset? TrainingDataset{ get; set; }
         public abstract TorchDataset? TestingDataset { get; set; }
+        public abstract TorchDataset? ValidationDataset { get; set; }
         public abstract torch.Tensor Tensorize(object toTensoize);
 
         // public abstract Dictionary<string, torch.Tensor> GetTensor(long index);
 
         // sets nullable filed Dataset to a new instance of a TorchDataset
-        public abstract void CreateDataSet(List<object> data, double validationFraction, int batchSize);
+        public abstract void CreateDataSet(List<object> data, float validationFraction, float testingFraction, int batchSize);
 
         protected abstract void CreateDataLoader(int batchSize);
     }

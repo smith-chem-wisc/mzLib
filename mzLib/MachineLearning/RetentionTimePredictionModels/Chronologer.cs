@@ -1,12 +1,13 @@
-﻿using System.Data;
-using Easy.Common.Extensions;
+﻿using Easy.Common.Extensions;
 using Proteomics.PSM;
-using Proteomics.RetentionTimePrediction;
+using System.Data;
 using System.Diagnostics;
+using MathNet.Numerics.Statistics;
+using SkiaSharp;
 using TorchSharp;
 using TorchSharp.Modules;
+using TorchSharp.Utils;
 using static UsefulProteomicsDatabases.ChronologerDictionary;
-using System.Collections.Generic;
 
 namespace MachineLearning.RetentionTimePredictionModels
 {
@@ -29,24 +30,28 @@ namespace MachineLearning.RetentionTimePredictionModels
     public class Chronologer : DeepTorch
     {
         public DataLoader? TrainDataLoader { get; set; }
+        public DataLoader? ValidationDataLoader { get; set; }
         public DataLoader? TestDataLoader { get; set; }
         public override TorchDataset? TrainingDataset { get; set; }
+        public override TorchDataset? ValidationDataset { get; set; }
         public override TorchDataset? TestingDataset { get; set; }
         public Dictionary<(char TargetAA, string ModificationId), int> ModificationDictionary { get; set; }
 
-        public Chronologer(Verbosity trainingVerbosity, Dictionary<(char TargetAA, string ModificationId), int> dictionary, string preTrainedModelPath = null,
-            bool evalMode = true, TypeOfDictionary dict = TypeOfDictionary.Chronologer) : base(trainingVerbosity, preTrainedModelPath, evalMode)
+        public Chronologer(Verbosity trainingVerbosity, Dictionary<(char TargetAA, string ModificationId), int> dictionary,
+            string preTrainedModelPath = null, bool evalMode = true, TypeOfDictionary dict = TypeOfDictionary.Chronologer)
+            : base(trainingVerbosity, preTrainedModelPath, evalMode)
         {
-           ModificationDictionary = GetChronologerDictionary(dict);
+            ModificationDictionary = GetChronologerDictionary(dict);
         }
 
-        public override void CreateDataSet(List<object> data, double validationFraction, int batchSize)
+        public override void CreateDataSet(List<object> data, float validationFraction, float testingFraction, int batchSize)
         {
             if (data.Select(x => x) is List<PsmFromTsv> psmList)
             {
                 var trainTestDb = new Dictionary<string, List<(torch.Tensor, double)>>()
                 {
                     { "train", new List<(torch.Tensor, double)>() },
+                    {"validation", new List<(torch.Tensor, double)>()},
                     { "test", new List<(torch.Tensor, double)>() }
                 };
 
@@ -75,16 +80,23 @@ namespace MachineLearning.RetentionTimePredictionModels
                     }
                 }
 
+                
+                allData = (List<(torch.Tensor, double)>)allData.Randomize();
+
                 var trainingSet = allData.Take((int)(allData.Count * (1 - validationFraction))).ToList();
+
+                var validationSet = allData.Skip((int)(allData.Count * (1 - validationFraction)))
+                    .Take((int)(allData.Count * (1 - testingFraction))).ToList();
+
                 var testSet = allData.Skip((int)(allData.Count * (1 - validationFraction))).ToList();
 
                 trainTestDb["train"] = trainingSet;
+                trainTestDb["validation"] = validationSet;
                 trainTestDb["test"] = testSet;
 
                 TrainingDataset = new TorchDataset(trainTestDb["train"], "Encoded Sequence", "Retention Time on File");
+                ValidationDataset = new TorchDataset(trainTestDb["validation"], "Encoded Sequence", "Retention Time on File");
                 TestingDataset = new TorchDataset(trainTestDb["test"], "Encoded Sequence", "Retention Time on File");
-
-                // (_trainingData, _testData) = (trainTestDb["train"], trainTestDb["test"]);
 
                 CreateDataLoader(batchSize);
             }
@@ -97,30 +109,32 @@ namespace MachineLearning.RetentionTimePredictionModels
         protected override void CreateDataLoader(int batchSize)
         {
             TrainDataLoader = new DataLoader(TrainingDataset, batchSize, shuffle: true, drop_last: true);
+            ValidationDataLoader = new DataLoader(ValidationDataset, batchSize, shuffle: true, drop_last: true);
             TestDataLoader = new DataLoader(TestingDataset, batchSize, shuffle: true, drop_last: true);
         }
 
         public override void Train(string modelSavingPath, List<PsmFromTsv> trainingData,
-            Dictionary<(char, string), int> dictionary, DeviceType device, float validationFraction, int batchSize, int epochs)
+            Dictionary<(char, string), int> dictionary, DeviceType device, float validationFraction = 0.1f, float testingFraction = 0.1f,
+            int batchSize = 64, int epochs = 50, int patience = 5)
         {
+            double bestScore = double.MaxValue;
             if (this.training.Equals(false))
             {
                 this.train(true);
             }
 
             //Change input embedding layer to the size of the dictionary
-            this.seq_embed = torch.nn.Embedding(dictionary.Count, 64, 0).to(device);
+            this.seq_embed = torch.nn.Embedding(55, 64, 0).to(device);
             RegisterComponents();
             this.to(device); //moves the model to GPU
 
-            var (train, test) =
-                ChronologerDataset.ChronologerRetentionTimeToTensorDatabaseSplit(trainingData, validationFraction, dictionary);
 
-            var trainDataSet = new CustomDataset(train);
-            var testDataSet = new CustomDataset(test);
-
-            var trainLoader = torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true, drop_last: true);
-            var testLoader = torch.utils.data.DataLoader(testDataSet, batchSize, shuffle: true, drop_last: true);
+            //training DataLoader
+            var trainLoader = TrainDataLoader;
+            //Validation DataLoader todo: add validation set
+            var validationLoader = ValidationDataLoader;
+            //Testing DataLoader
+            var testLoader = TestDataLoader;
 
             var lossFunction = torch.nn.L1Loss();
 
@@ -128,18 +142,23 @@ namespace MachineLearning.RetentionTimePredictionModels
             this.parameters().ForEach(x => parameters.Add(x));
             lossFunction.parameters().ForEach(x => parameters.Add(x));
 
+            //Optimizer
             var optimizer = torch.optim.Adam(parameters, 0.001);
-            var scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 25, 0.1, verbose: true);
-            //training loop
-            var scores = new List<float>();
 
+            var scores = new List<float>();
+            
+            //training loop
             for (int i = 0; i < epochs; i++)
             {
+                TrainingMode();
+
                 var testLoss = 0.0;
 
                 // Debug.WriteLine($"Epoch {i + 1} of {epochs}");
                 var epochLoss = 0.0;
                 var runningLoss = 0.0;
+
+                //Tranining
                 foreach (var batch in trainLoader)
                 {
                     var batchX = batch["Encoded Sequence"];
@@ -151,16 +170,11 @@ namespace MachineLearning.RetentionTimePredictionModels
                     {
                         var x = batchX[j];
                         double y = batchY[j].item<double>();
-                        //
-                        // Debug.WriteLine(x.ToString(TensorStringStyle.Julia));
-                        // Debug.WriteLine(y);
-                        // Debug.WriteLine(batchPass.ToString(TensorStringStyle.Julia));
 
                         var output = this.forward(x);
                         var loss = lossFunction.forward(output[0],
                             torch.tensor(new[] { (float)y }).to(device));
 
-                        // Debug.WriteLine(loss.item<float>());
                         optimizer.zero_grad();
                         loss.backward();
                         optimizer.step();
@@ -170,73 +184,87 @@ namespace MachineLearning.RetentionTimePredictionModels
                         scores.Add(loss.item<float>());
                     }
                 }
-                scheduler.step();
+
+                //Validation
+                var validationScore = Validate(validationLoader, lossFunction, device);
+
+                //check for ealy stopping
+                if (EarlyStop(validationScore, bestScore, patience, out bestScore, out patience))
+                    break;
+
+                //Scheduler step
+                _scheduler.step();
+
                 //statistics per epoch
-                epochLoss = runningLoss / train.Count;
+                epochLoss = runningLoss / TrainingDataset.Count;
                 Debug.WriteLine($"Epoch {i + 1} loss: {epochLoss}");
             }
 
+            //Evaluate model performance
+            var (accuracy, predictions, labels) = Test(TestDataLoader, lossFunction, device);
+
             //saving the model
-            this.eval();
-            this.train(false);
-            this.save(modelSavingPath);
+            SaveModel(modelSavingPath);
+
+            ModelPerformance(modelSavingPath, bestScore, accuracy, predictions, labels);
         }
 
-        public override torch.Tensor forward(torch.Tensor input)
+        protected override double Validate(DataLoader? validationDataLoader, torch.nn.Module<torch.Tensor, torch.Tensor, torch.Tensor> criterion,
+            DeviceType device)
         {
-            input = seq_embed.forward(input).transpose(1, -1);
+            EvaluationMode();
+            double totalLoss = 0.0;
+            using (torch.no_grad())
+            {
+                foreach (var batch in validationDataLoader)
+                {
+                    var batchX = batch["Encoded Sequence"];
+                    var batchY = batch["Retention Time on File"];
 
-            var residual = input.clone();
-            input = conv_layer_1.forward(input); //renet_block
-            input = norm_layer_1.forward(input);
-            input = relu.forward(input);
-            input = conv_layer_2.forward(input);
-            input = norm_layer_2.forward(input);
-            input = relu.forward(input);
-            input = term_block.forward(input);
-            input = residual + input;
-            input = relu.forward(input);
+                    batchX = batchX.to(device);
+                    batchY = batchY.to(device);
 
-            residual = input.clone();
-            input = conv_layer_4.forward(input);//renet_block
-            input = norm_layer_4.forward(input);
-            input = relu.forward(input);
-            input = conv_layer_5.forward(input);
-            input = norm_layer_5.forward(input);
-            input = relu.forward(input);
-            input = term_block.forward(input);
-            input = residual + input;
-            input = relu.forward(input);
+                    var output = this.Predict(batchX);
+                    var loss = criterion.forward(output[0], batchY);
 
-            residual = input.clone();
-            input = conv_layer_7.forward(input);//renet_block
-            input = norm_layer_7.forward(input);
-            input = term_block.forward(input);
-            input = relu.forward(input);
-            input = conv_layer_8.forward(input);
-            input = norm_layer_8.forward(input);
-            input = relu.forward(input);
-            input = term_block.forward(input);
-            input = residual + input;
-            input = relu.forward(input);
+                    totalLoss += loss.item<double>() * batchX.size(0);
+                }
+            }
+            var averageLoss = totalLoss / validationDataLoader.Count;
 
-            input = dropout.forward(input);
-            input = flatten.forward(input);
-            input = output.forward(input);
-
-            return input;
+            return averageLoss;
         }
 
-        protected override void EarlyStop()
+        protected override (double, List<double>, List<double>) Test(DataLoader? testingDataLoader,
+            torch.nn.Module<torch.Tensor, torch.Tensor, torch.Tensor> criterion,
+            DeviceType device)
         {
-            throw new NotImplementedException();
-        }
+            EvaluationMode();
+            double totalLoss = 0.0;
+            List<double> predictions = new List<double>();
+            List<double> labels = new List<double>();
+            using (torch.no_grad())
+            {
+                foreach (var batch in testingDataLoader)
+                {
+                    var batchX = batch["Encoded Sequence"];
+                    var batchY = batch["Retention Time on File"];
 
-        protected override void RegisterComponents()
-        {
-            throw new NotImplementedException();
-        }
+                    batchX = batchX.to(device);
+                    batchY = batchY.to(device);
 
+                    var output = this.Predict(batchX);
+                    var loss = criterion.forward(output[0], batchY);
+
+                    predictions.Add(output.item<double>());
+                    labels.Add(batchY.item<double>());
+                    totalLoss += loss.item<double>() * batchX.size(0);
+                }
+            }
+            var averageLoss = totalLoss / testingDataLoader.Count;
+
+            return (averageLoss, predictions, labels);
+        }
 
         public override torch.Tensor Tensorize(object toTensoize)
         {
@@ -246,13 +274,18 @@ namespace MachineLearning.RetentionTimePredictionModels
             }
             else
             {
-                throw new System.ArgumentException("Object is not of type PsmFromTsv", nameof(toTensoize));
+                throw new System.ArgumentException("Object is not supported ", nameof(toTensoize));
             }
         }
 
-        
-
-
+        /// <summary>
+        /// Tensorizes PsmFromTsv objects for use in the Chronologer model.
+        /// </summary>
+        /// <param name="psm"></param>
+        /// <param name="dictionary"></param>
+        /// <param name="qValueFiltering"></param>
+        /// <param name="ambiguityLevel"></param>
+        /// <returns></returns>
         public static torch.Tensor Tensorize(PsmFromTsv psm, Dictionary<(char, string), int> dictionary,
             double qValueFiltering = 0.01, string ambiguityLevel = "1")
         {
@@ -338,7 +371,50 @@ namespace MachineLearning.RetentionTimePredictionModels
             //if sequence is longer than 50, return a tensor of ones, quick way to remove it later from the dataset
             return torch.ones(1, 52, torch.ScalarType.Int64);
         }
+        public override torch.Tensor forward(torch.Tensor input)
+        {
+            input = seq_embed.forward(input).transpose(1, -1);
 
+            var residual = input.clone();
+            input = conv_layer_1.forward(input); //renet_block
+            input = norm_layer_1.forward(input);
+            input = relu.forward(input);
+            input = conv_layer_2.forward(input);
+            input = norm_layer_2.forward(input);
+            input = relu.forward(input);
+            input = term_block.forward(input);
+            input = residual + input;
+            input = relu.forward(input);
+
+            residual = input.clone();
+            input = conv_layer_4.forward(input);//renet_block
+            input = norm_layer_4.forward(input);
+            input = relu.forward(input);
+            input = conv_layer_5.forward(input);
+            input = norm_layer_5.forward(input);
+            input = relu.forward(input);
+            input = term_block.forward(input);
+            input = residual + input;
+            input = relu.forward(input);
+
+            residual = input.clone();
+            input = conv_layer_7.forward(input);//renet_block
+            input = norm_layer_7.forward(input);
+            input = term_block.forward(input);
+            input = relu.forward(input);
+            input = conv_layer_8.forward(input);
+            input = norm_layer_8.forward(input);
+            input = relu.forward(input);
+            input = term_block.forward(input);
+            input = residual + input;
+            input = relu.forward(input);
+
+            input = dropout.forward(input);
+            input = flatten.forward(input);
+            input = output.forward(input);
+
+            return input;
+        }
         //All Modules (shortcut modules are for loading the weights only)
         private Embedding seq_embed = torch.nn.Embedding(55, 64, 0);
         private torch.nn.Module<torch.Tensor, torch.Tensor> conv_layer_1 = torch.nn.Conv1d(64, 64, 1, Padding.Same, dilation: 1);

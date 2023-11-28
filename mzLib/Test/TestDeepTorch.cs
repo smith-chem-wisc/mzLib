@@ -14,7 +14,7 @@ namespace Test
             Assert.Throws<NotImplementedException>(() =>
             {
                 // code that throws error
-                DeepTorch model = new DeepTorch(Verbosity.None);
+                // DeepTorch model = new DeepTorch(Verbosity.None);
             });
         }
     }

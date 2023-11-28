@@ -66,14 +66,13 @@ namespace UsefulProteomicsDatabases
                 return dictionary;
             }
 
-            //Todo: fix this to the same as python's ChronologerDictionary
             if (dict == TypeOfDictionary.Chronologer)
             {
                 var chronologerModsDict = new Dictionary<(char, string), int>()
                 {
                     { ('C', "Carbamidomethyl on C"), 21 }, //'Carbamidomethyl
                     { ('M', "Oxidation on M"), 22 }, //'Oxidized
-                    //_residueWithModToTensorInt.Add(('C',null),23);//'S - carbamidomethylcysteine
+                    { ('C', "Pyro-carbamidomethyl on C"), 23 },//'S - carbamidomethylcysteine
                     { ('E', "Glu to PyroGlu"), 24 }, //'Pyroglutamate
                     { ('S', "Phosphorylation on S"), 25 }, //'Phosphoserine
                     { ('T', "Phosphorylation on T"), 26 }, //'Phosphothreonine
@@ -86,6 +85,9 @@ namespace UsefulProteomicsDatabases
                     { ('K', "Trimethylation on K"), 33 }, //'Trimethyl
                     { ('R', "Methylation on R"), 34 }, //'Monomethyl
                     { ('R', "Dimethylation on R"), 35 }, //'Dimethyl
+                    { ('K', "TMT on K"), 36 }, //TMT0-modified lysisne
+                    { ('K', "TMT6plex on K"), 37 }, //tmt10-modified lysine
+
                 };
 
                 foreach (var item in chronologerModsDict)
