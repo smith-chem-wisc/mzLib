@@ -18,6 +18,7 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
+    <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
   </ItemGroup>
 
   <ItemGroup>

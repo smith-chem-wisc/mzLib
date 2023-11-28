@@ -192,7 +192,7 @@ namespace Test.Transcriptomics
         {
             Product product1 = new Product(ProductType.d, FragmentationTerminus.FivePrime, 200, 4, 4, 0.0);
             Product product2 = new Product(ProductType.d, FragmentationTerminus.FivePrime, 200, 4, 4, 0.0);
-            Product uniqueProduct = new Product(ProductType.a, FragmentationTerminus.FivePrime, 200, 4, 4, 0.0);
+            Product uniqueProduct = new Product(ProductType.a, FragmentationTerminus.FivePrime, 201, 4, 4, 0.0);
 
             Assert.That(product1.Equals(product1));
             Assert.That(product1.Equals(product2));

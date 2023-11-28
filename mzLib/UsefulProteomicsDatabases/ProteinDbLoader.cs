@@ -402,7 +402,7 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
+        internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
         {
             string result = null;
             if (regex != null)

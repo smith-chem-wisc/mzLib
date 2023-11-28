@@ -14,8 +14,11 @@
 
   <ItemGroup>
     <Compile Remove="TestData\**" />
+    <Compile Remove="Transcriptomics\TestData - Copy\**" />
     <EmbeddedResource Remove="TestData\**" />
+    <EmbeddedResource Remove="Transcriptomics\TestData - Copy\**" />
     <None Remove="TestData\**" />
+    <None Remove="Transcriptomics\TestData - Copy\**" />
   </ItemGroup>
   
   <ItemGroup>
@@ -490,10 +493,6 @@
   <ItemGroup>
     <Compile Remove="TestSummedDataFile.cs" />
     <Compile Remove="TestAbsoluteTolerance.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Transcriptomics\TestData - Copy\" />
   </ItemGroup>
 
 </Project>
