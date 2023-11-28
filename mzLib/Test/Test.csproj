@@ -467,6 +467,15 @@
     <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Transcriptomics\TestData\GRCh38_TrimmedExample_rna.fna">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\modomicsmods%281%29.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\ModomicsUnmodifiedTrimmed.fasta">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
 	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	</None>
@@ -481,6 +490,10 @@
   <ItemGroup>
     <Compile Remove="TestSummedDataFile.cs" />
     <Compile Remove="TestAbsoluteTolerance.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Transcriptomics\TestData - Copy\" />
   </ItemGroup>
 
 </Project>
