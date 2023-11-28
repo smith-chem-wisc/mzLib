@@ -1,16 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Chemistry;
+﻿using Chemistry;
 using Easy.Common.Extensions;
 using MassSpectrometry;
 using MathNet.Numerics;
+using Omics;
+using Omics.Digestion;
+using Omics.Fragmentation;
+using Omics.Fragmentation.Oligo;
+using Omics.Modifications;
 
 namespace Transcriptomics
 {
-    public class OligoWithSetMods : NucleolyticOligo, IPrecursor, INucleicAcid
+    public class OligoWithSetMods : NucleolyticOligo, IBioPolymerWithSetMods, INucleicAcid
     {
         public OligoWithSetMods(NucleicAcid nucleicAcid, RnaDigestionParams digestionParams, int oneBaseStartResidue,
             int oneBasedEndResidue, int missedCleavages, CleavageSpecificity cleavageSpecificity,
@@ -22,7 +22,7 @@ namespace Transcriptomics
             _digestionParams = digestionParams;
             _allModsOneIsNterminus = allModsOneIsNTerminus;
             NumFixedMods = numFixedMods;
-            FullSequence = (this as IPrecursor).DetermineFullSequence();
+            FullSequence = this.DetermineFullSequence();
         }
 
         private RnaDigestionParams _digestionParams;
@@ -126,7 +126,7 @@ namespace Transcriptomics
         /// The "products" parameter is filled with these fragments.
         /// </summary>
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<IProduct> products)
+            List<Product> products)
         {
             products.Clear();
 
@@ -161,7 +161,7 @@ namespace Transcriptomics
         /// The "minLengthOfFragments" parameter is the minimum number of nucleic acids for an internal fragment to be included
         /// </summary>
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<IProduct> products)
+            List<Product> products)
         {
             throw new NotImplementedException();
         }
@@ -172,13 +172,13 @@ namespace Transcriptomics
         /// <param name="type">product type to get neutral fragments from</param>
         /// <param name="sequence">Sequence to generate fragments from, will be calculated from the parent if left null</param>
         /// <returns></returns>
-        public IEnumerable<IProduct> GetNeutralFragments(ProductType type, Nucleotide[]? sequence = null)
+        public IEnumerable<Product> GetNeutralFragments(ProductType type, Nucleotide[]? sequence = null)
         {
             sequence ??= (Parent as NucleicAcid)!.NucleicAcidArray[(OneBasedStartResidue - 1)..OneBasedEndResidue];
 
             if (type is ProductType.M)
             {
-                yield return new RnaProduct(type, FragmentationTerminus.None, MonoisotopicMass, 0, 0, 0);
+                yield return new Product(type, FragmentationTerminus.None, MonoisotopicMass, 0, 0, 0);
                 yield break;
             }
 
@@ -219,7 +219,7 @@ namespace Transcriptomics
                     neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
                 }
 
-                yield return new RnaProduct(type,
+                yield return new Product(type,
                     isThreePrimeTerminal ? FragmentationTerminus.ThreePrime : FragmentationTerminus.FivePrime,
                     monoMass - neutralLoss, i,
                     isThreePrimeTerminal ? BaseSequence.Length - i : i, 0, null, 0);

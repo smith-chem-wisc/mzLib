@@ -1,13 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 using Chemistry;
-using Easy.Common.Extensions;
-using Easy.Common.Interfaces;
-using MassSpectrometry;
-using MathNet.Numerics;
 using Omics;
 using Omics.Digestion;
 using Omics.Modifications;
@@ -17,7 +9,7 @@ namespace Transcriptomics
     /// <summary>
     /// A linear polymer of Nucleic acids
     /// </summary>
-    public abstract class NucleicAcid :  INucleicAcid, IEquatable<NucleicAcid>
+    public abstract class NucleicAcid :  INucleicAcid, IBioPolymer, IEquatable<NucleicAcid>
     {
 
         #region Static Properties

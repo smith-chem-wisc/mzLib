@@ -20,32 +20,11 @@ namespace Transcriptomics
             CleavageSpecificity = cleaveSpecificity;
             DigestionMotifs = motifList;
         }
-
-        public bool Equals(Rnase? other)
-        {
-            if (ReferenceEquals(null, other)) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return Name == other.Name;
-        }
-
-        public override bool Equals(object? obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((Rnase)obj);
-        }
-
-        public override int GetHashCode()
-        {
-            return Name.GetHashCode();
-        }
-
         public List<NucleolyticOligo> GetUnmodifiedOligos(NucleicAcid nucleicAcid, int maxMissedCleavages, int minLength,
             int maxLength)
         {
             var oligos = new List<NucleolyticOligo>();
-           
+
             // top down
             if (CleavageSpecificity == CleavageSpecificity.None)
             {
@@ -93,5 +72,27 @@ namespace Transcriptomics
                 }
             }
         }
+
+        public bool Equals(Rnase? other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Name == other.Name;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((Rnase)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return Name.GetHashCode();
+        }
+
+        
     }
 }

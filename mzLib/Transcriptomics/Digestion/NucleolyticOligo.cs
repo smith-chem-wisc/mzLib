@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Text;
-using System.Threading.Tasks;
-using Chemistry;
-using MassSpectrometry;
+﻿using Chemistry;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -16,30 +9,26 @@ namespace Transcriptomics
     /// </summary>
     public class NucleolyticOligo : LysisProduct
     {
+        protected IHasChemicalFormula _fivePrimeTerminus;
+        protected IHasChemicalFormula _threePrimeTerminus;
+
         internal NucleolyticOligo(NucleicAcid nucleicAcid, int oneBaseStartResidue,
             int oneBasedEndResidue, int missedCleavages, CleavageSpecificity cleavageSpecificity,
-            IHasChemicalFormula? fivePrimeTerminus, IHasChemicalFormula? threePrimeTerminus)
+            IHasChemicalFormula? fivePrimeTerminus, IHasChemicalFormula? threePrimeTerminus) 
+        :base(nucleicAcid, oneBaseStartResidue, oneBasedEndResidue, missedCleavages, cleavageSpecificity)
         {
-            NucleicAcid = nucleicAcid;
-         
-            CleavageSpecificityForFdrCategory = cleavageSpecificity;
             _fivePrimeTerminus = fivePrimeTerminus ?? NucleicAcid.DefaultFivePrimeTerminus;
             _threePrimeTerminus = threePrimeTerminus ?? NucleicAcid.DefaultThreePrimeTerminus;
         }
 
-        protected IHasChemicalFormula _fivePrimeTerminus;
-        protected IHasChemicalFormula _threePrimeTerminus;
-
-        [NonSerialized] private NucleicAcid _nucleicAcid;
         /// <summary>
         /// Nucleic acid this oligo was digested from
         /// </summary>
         public NucleicAcid NucleicAcid
         {
-            get => _nucleicAcid;
-            protected set => _nucleicAcid = value;
+            get => Parent as NucleicAcid;
+            protected set => Parent = value;
         }
-
 
         public override string ToString()
         {
@@ -70,8 +59,8 @@ namespace Transcriptomics
 
                 for (int r = 0; r < oligoLength; r++)
                 {
-                    if (variableModification.LocationRestriction == "Anywhere." && 
-                        ModFits(variableModification, NucleicAcid.BaseSequence, r + 1, oligoLength, OneBasedStartResidue + r)
+                    if (variableModification.LocationRestriction == "Anywhere." &&
+                        ModificationLocalization.ModFits(variableModification, NucleicAcid.BaseSequence, r + 1, oligoLength, OneBasedStartResidue + r)
                          /*&& !ModificationLocalization.UniprotModExists(NucleicAcid, r + 1, variableModification)*/)
                     {
                         if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<Modification> residueVariableMods))
@@ -115,8 +104,8 @@ namespace Transcriptomics
                         int r = locInPeptide - 1;
                         if (r >= 0 && r < oligoLength
                             && (NucleicAcid.IsDecoy ||
-                            (ModFits(variableModification, NucleicAcid.BaseSequence, r + 1, oligoLength, OneBasedStartResidue + r)
-                                && variableModification.LocationRestriction == "Anywhere.")))
+                            (ModificationLocalization.ModFits(variableModification, NucleicAcid.BaseSequence, r + 1, oligoLength, OneBasedStartResidue + r)
+                             && variableModification.LocationRestriction == "Anywhere.")))
                         {
                             if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<Modification> residueVariableMods))
                             {
@@ -143,7 +132,7 @@ namespace Transcriptomics
             foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength))
             {
                 int numFixedMods = 0;
-                foreach (var ok in GetFixedModsOneIsFivePrime(oligoLength, allKnownFixedMods))
+                foreach (var ok in GetFixedModsOneIsNterminusOrFivePrime(oligoLength, allKnownFixedMods))
                 {
                     if (!kvp.ContainsKey(ok.Key))
                     {
@@ -168,43 +157,43 @@ namespace Transcriptomics
 
         #region Digestion
 
-        internal static bool ModFits(Modification attemptToLocalize, string nucleicAcidSequence, int oligoOneBasedIndex,
-            int oligoLength, int nucleicAcidOneBasedIndex)
-        {
-            // First find the capital letter...
-            var motif = attemptToLocalize.Target;
-            var motifStartLocation = motif.ToString().IndexOf(motif.ToString().First(b => char.IsUpper(b)));
+        //internal static bool ModFits(Modification attemptToLocalize, string nucleicAcidSequence, int oligoOneBasedIndex,
+        //    int oligoLength, int nucleicAcidOneBasedIndex)
+        //{
+        //    // First find the capital letter...
+        //    var motif = attemptToLocalize.Target;
+        //    var motifStartLocation = motif.ToString().IndexOf(motif.ToString().First(b => char.IsUpper(b)));
 
-            // Look up starting at and including the capital letter
-            var proteinToMotifOffset = nucleicAcidOneBasedIndex - motifStartLocation - 1;
-            var indexUp = 0;
-            while (indexUp < motif.ToString().Length)
-            {
-                if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= nucleicAcidSequence.Length
-                                                       || !MotifMatches(motif.ToString()[indexUp], nucleicAcidSequence[indexUp + proteinToMotifOffset]))
-                {
-                    return false;
-                }
-                indexUp++;
-            }
+        //    // Look up starting at and including the capital letter
+        //    var proteinToMotifOffset = nucleicAcidOneBasedIndex - motifStartLocation - 1;
+        //    var indexUp = 0;
+        //    while (indexUp < motif.ToString().Length)
+        //    {
+        //        if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= nucleicAcidSequence.Length
+        //                                               || !MotifMatches(motif.ToString()[indexUp], nucleicAcidSequence[indexUp + proteinToMotifOffset]))
+        //        {
+        //            return false;
+        //        }
+        //        indexUp++;
+        //    }
 
-            switch (attemptToLocalize.LocationRestriction)
-            {
-                case "5'-terminal." when nucleicAcidOneBasedIndex > 2:
-                    // first residue in oligo but not first in nucleic acid
-                case "Oligo 5'-terminal." when oligoOneBasedIndex > 1
-                                               || nucleicAcidOneBasedIndex == 1:
-                case "3'-terminal." when nucleicAcidOneBasedIndex < nucleicAcidSequence.Length:
-                    // not the last residue in oligo but not in nucleic acid
-                case "Oligo 3'-terminal." when oligoOneBasedIndex < oligoLength
-                                               || nucleicAcidOneBasedIndex == nucleicAcidSequence.Length:
-                    return false;
-                default:
-                    // I guess Anywhere. and Unassigned. are true since how do you localize anywhere or unassigned.
+        //    switch (attemptToLocalize.LocationRestriction)
+        //    {
+        //        case "5'-terminal." when nucleicAcidOneBasedIndex > 2:
+        //            // first residue in oligo but not first in nucleic acid
+        //        case "Oligo 5'-terminal." when oligoOneBasedIndex > 1
+        //                                       || nucleicAcidOneBasedIndex == 1:
+        //        case "3'-terminal." when nucleicAcidOneBasedIndex < nucleicAcidSequence.Length:
+        //            // not the last residue in oligo but not in nucleic acid
+        //        case "Oligo 3'-terminal." when oligoOneBasedIndex < oligoLength
+        //                                       || nucleicAcidOneBasedIndex == nucleicAcidSequence.Length:
+        //            return false;
+        //        default:
+        //            // I guess Anywhere. and Unassigned. are true since how do you localize anywhere or unassigned.
 
-                    return true;
-            }
-        }
+        //            return true;
+        //    }
+        //}
 
         private static bool MotifMatches(char motifChar, char sequenceChar)
         {
@@ -216,74 +205,74 @@ namespace Transcriptomics
         private bool CanBeFivePrime(Modification variableModification, int peptideLength)
         {
             return (variableModification.LocationRestriction == "5'-terminal." || variableModification.LocationRestriction == "Oligo 5'-terminal.")
-                && ModFits(variableModification, NucleicAcid.BaseSequence, 1, peptideLength, OneBasedStartResidue);
+                && ModificationLocalization.ModFits(variableModification, NucleicAcid.BaseSequence, 1, peptideLength, OneBasedStartResidue);
         }
 
         private bool CanBeThreePrime(Modification variableModification, int peptideLength)
         {
             return (variableModification.LocationRestriction == "3'-terminal." || variableModification.LocationRestriction == "Oligo 3'-terminal.")
-                && ModFits(variableModification, NucleicAcid.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1);
+                && ModificationLocalization.ModFits(variableModification, NucleicAcid.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1);
         }
 
-        private Dictionary<int, Modification> GetFixedModsOneIsFivePrime(int oligoLength,
-           IEnumerable<Modification> allKnownFixedModifications)
-        {
-            var fixedModsOneIsNterminus = new Dictionary<int, Modification>(oligoLength + 3);
-            foreach (Modification mod in allKnownFixedModifications)
-            {
-                switch (mod.LocationRestriction)
-                {
-                    case "5'-terminal.":
-                    case "Oligo 5'-terminal.":
-                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
-                        if (mod.ModificationType == "Protease" && ModFits(mod, NucleicAcid.BaseSequence, 1, oligoLength, OneBasedStartResidue))
-                        {
-                            if (OneBasedStartResidue != 1)
-                            {
-                                fixedModsOneIsNterminus[2] = mod;
-                            }
-                        }
-                        //Normal N-terminal peptide modification
-                        else if (ModFits(mod, NucleicAcid.BaseSequence, 1, oligoLength, OneBasedStartResidue))
-                        {
-                            fixedModsOneIsNterminus[1] = mod;
-                        }
-                        break;
+        //private Dictionary<int, Modification> GetFixedModsOneIsFivePrime(int oligoLength,
+        //   IEnumerable<Modification> allKnownFixedModifications)
+        //{
+        //    var fixedModsOneIsNterminus = new Dictionary<int, Modification>(oligoLength + 3);
+        //    foreach (Modification mod in allKnownFixedModifications)
+        //    {
+        //        switch (mod.LocationRestriction)
+        //        {
+        //            case "5'-terminal.":
+        //            case "Oligo 5'-terminal.":
+        //                //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
+        //                if (mod.ModificationType == "Protease" && ModFits(mod, NucleicAcid.BaseSequence, 1, oligoLength, OneBasedStartResidue))
+        //                {
+        //                    if (OneBasedStartResidue != 1)
+        //                    {
+        //                        fixedModsOneIsNterminus[2] = mod;
+        //                    }
+        //                }
+        //                //Normal N-terminal peptide modification
+        //                else if (ModFits(mod, NucleicAcid.BaseSequence, 1, oligoLength, OneBasedStartResidue))
+        //                {
+        //                    fixedModsOneIsNterminus[1] = mod;
+        //                }
+        //                break;
 
-                    case "Anywhere.":
-                        for (int i = 2; i <= oligoLength + 1; i++)
-                        {
-                            if (ModFits(mod, NucleicAcid.BaseSequence, i - 1, oligoLength, OneBasedStartResidue + i - 2))
-                            {
-                                fixedModsOneIsNterminus[i] = mod;
-                            }
-                        }
-                        break;
+        //            case "Anywhere.":
+        //                for (int i = 2; i <= oligoLength + 1; i++)
+        //                {
+        //                    if (ModFits(mod, NucleicAcid.BaseSequence, i - 1, oligoLength, OneBasedStartResidue + i - 2))
+        //                    {
+        //                        fixedModsOneIsNterminus[i] = mod;
+        //                    }
+        //                }
+        //                break;
 
-                    case "3'-terminal.":
-                    case "Oligo 3'-terminal.":
-                        //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
-                        if (mod.ModificationType == "Protease" && ModFits(mod, NucleicAcid.BaseSequence, oligoLength, oligoLength, OneBasedStartResidue + oligoLength - 1))
-                        {
-                            if (OneBasedEndResidue != NucleicAcid.Length)
-                            {
-                                fixedModsOneIsNterminus[oligoLength + 1] = mod;
-                            }
+        //            case "3'-terminal.":
+        //            case "Oligo 3'-terminal.":
+        //                //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
+        //                if (mod.ModificationType == "Protease" && ModFits(mod, NucleicAcid.BaseSequence, oligoLength, oligoLength, OneBasedStartResidue + oligoLength - 1))
+        //                {
+        //                    if (OneBasedEndResidue != NucleicAcid.Length)
+        //                    {
+        //                        fixedModsOneIsNterminus[oligoLength + 1] = mod;
+        //                    }
 
-                        }
-                        //Normal C-terminal peptide modification 
-                        else if (ModFits(mod, NucleicAcid.BaseSequence, oligoLength, oligoLength, OneBasedStartResidue + oligoLength - 1))
-                        {
-                            fixedModsOneIsNterminus[oligoLength + 2] = mod;
-                        }
-                        break;
+        //                }
+        //                //Normal C-terminal peptide modification 
+        //                else if (ModFits(mod, NucleicAcid.BaseSequence, oligoLength, oligoLength, OneBasedStartResidue + oligoLength - 1))
+        //                {
+        //                    fixedModsOneIsNterminus[oligoLength + 2] = mod;
+        //                }
+        //                break;
 
-                    default:
-                        throw new NotSupportedException("This terminus localization is not supported.");
-                }
-            }
-            return fixedModsOneIsNterminus;
-        }
+        //            default:
+        //                throw new NotSupportedException("This terminus localization is not supported.");
+        //        }
+        //    }
+        //    return fixedModsOneIsNterminus;
+        //}
 
         #endregion
 
