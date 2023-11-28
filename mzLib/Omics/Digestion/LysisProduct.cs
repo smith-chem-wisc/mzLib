@@ -9,6 +9,35 @@ namespace Omics.Digestion
 {
     public class LysisProduct
     {
+        protected string _baseSequence;
+
+        public LysisProduct(IBioPolymer parent, int oneBasedStartResidue, int oneBasedEndResidue, int missedCleavages, 
+            CleavageSpecificity cleavageSpecificityForFdrCategory, string? description = null, string? baseSequence = null)
+        {
+            Parent = parent;
+            OneBasedStartResidue = oneBasedStartResidue;
+            OneBasedEndResidue = oneBasedEndResidue;
+            MissedCleavages = missedCleavages;
+            CleavageSpecificityForFdrCategory = cleavageSpecificityForFdrCategory;
+            Description = description;
+            _baseSequence = baseSequence;
+        }
+
+        [field: NonSerialized] public IBioPolymer Parent { get; protected set; } // BioPolymer that this lysis product is a digestion product of
+        public string Description { get; protected set; } //unstructured explanation of source
+        public int OneBasedStartResidue { get; }// the residue number at which the peptide begins (the first residue in a protein is 1)
+        public int OneBasedEndResidue { get; }// the residue number at which the peptide ends
+        public int MissedCleavages { get; } // the number of missed cleavages this peptide has with respect to the digesting protease
+        public virtual char PreviousResidue => OneBasedStartResidue > 1 ? Parent[OneBasedStartResidue - 2] : '-';
+
+        public virtual char NextResidue => OneBasedEndResidue < Parent.Length ? Parent[OneBasedEndResidue] : '-';
+        public string BaseSequence =>
+            _baseSequence ??= Parent.BaseSequence.Substring(OneBasedStartResidue - 1,
+                OneBasedEndResidue - OneBasedStartResidue + 1);
+        public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } //structured explanation of source
+        public int Length => BaseSequence.Length; //how many residues long the peptide is
+        public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
+
         protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, List<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
         {
             if (possibleVariableModifications.Count == 0)
@@ -31,6 +60,71 @@ namespace Omics.Digestion
                 }
             }
         }
+
+        protected Dictionary<int, Modification> GetFixedModsOneIsNterminusOrFivePrime(int peptideLength,
+            IEnumerable<Modification> allKnownFixedModifications)
+        {
+            var fixedModsOneIsNterminus = new Dictionary<int, Modification>(peptideLength + 3);
+            foreach (Modification mod in allKnownFixedModifications)
+            {
+                switch (mod.LocationRestriction)
+                {
+                    case "5'-terminal.":
+                    case "Oligo 5'-terminal.":
+                    case "N-terminal.":
+                    case "Peptide N-terminal.":
+                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
+                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, peptideLength, OneBasedStartResidue))
+                        {
+                            if (OneBasedStartResidue != 1)
+                            {
+                                fixedModsOneIsNterminus[2] = mod;
+                            }
+                        }
+                        //Normal N-terminal peptide modification
+                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, peptideLength, OneBasedStartResidue))
+                        {
+                            fixedModsOneIsNterminus[1] = mod;
+                        }
+                        break;
+
+                    case "Anywhere.":
+                        for (int i = 2; i <= peptideLength + 1; i++)
+                        {
+                            if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, i - 1, peptideLength, OneBasedStartResidue + i - 2))
+                            {
+                                fixedModsOneIsNterminus[i] = mod;
+                            }
+                        }
+                        break;
+
+                    case "3'-terminal.":
+                    case "Oligo 3'-terminal.":
+                    case "C-terminal.":
+                    case "Peptide C-terminal.":
+                        //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
+                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1))
+                        {
+                            if (OneBasedEndResidue != Parent.Length)
+                            {
+                                fixedModsOneIsNterminus[peptideLength + 1] = mod;
+                            }
+
+                        }
+                        //Normal C-terminal peptide modification 
+                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1))
+                        {
+                            fixedModsOneIsNterminus[peptideLength + 2] = mod;
+                        }
+                        break;
+
+                    default:
+                        throw new NotSupportedException("This terminus localization is not supported.");
+                }
+            }
+            return fixedModsOneIsNterminus;
+        }
+
 
         private static IEnumerable<int[]> GetVariableModificationPatterns(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
             int unmodifiedResiduesDesired, int[] variableModificationPattern, int index)
@@ -92,7 +186,6 @@ namespace Omics.Digestion
 
             return modification_pattern;
         }
-
 
 
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -13,42 +14,19 @@ namespace Proteomics.ProteolyticDigestion
     [Serializable]
     public class ProteolyticPeptide : LysisProduct
     {
-        protected string _baseSequence;
-
-        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null, string baseSequence = null)
+        
+        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null, string baseSequence = null) :
+            base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificityForFdrCategory, peptideDescription, baseSequence)
         {
-            _protein = protein;
-            OneBasedStartResidue = oneBasedStartResidueInProtein;
-            OneBasedEndResidue = oneBasedEndResidueInProtein;
-            MissedCleavages = missedCleavages;
-            CleavageSpecificityForFdrCategory = cleavageSpecificityForFdrCategory;
-            PeptideDescription = peptideDescription;
-            _baseSequence = baseSequence;
+
         }
 
-        [NonSerialized] private Protein _protein; // protein that this peptide is a digestion product of
-        public int OneBasedStartResidue { get; }// the residue number at which the peptide begins (the first residue in a protein is 1)
-        public int OneBasedEndResidue { get; }// the residue number at which the peptide ends
-        public int MissedCleavages { get; } // the number of missed cleavages this peptide has with respect to the digesting protease
-        public string PeptideDescription { get; internal set; } //unstructured explanation of source
-        public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } //structured explanation of source
-        public int Length => BaseSequence.Length; //how many residues long the peptide is
-
-        public virtual char PreviousResidue => OneBasedStartResidue > 1 ? Protein[OneBasedStartResidue - 2] : '-';
-
-        public virtual char NextResidue => OneBasedEndResidue < Protein.Length ? Protein[OneBasedEndResidue] : '-';
-
+        
         public Protein Protein
         {
-            get { return _protein; }
-            protected set { _protein = value; }
+            get => Parent as Protein;
+            protected set => Parent = value;
         }
-
-        public string BaseSequence =>
-            _baseSequence ??= Protein.BaseSequence.Substring(OneBasedStartResidue - 1,
-                OneBasedEndResidue - OneBasedStartResidue + 1);
-
-        public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         #region Properties overridden by more generic interface
 
@@ -56,6 +34,12 @@ namespace Proteomics.ProteolyticDigestion
         public int OneBasedStartResidueInProtein => OneBasedStartResidue;
         public virtual char PreviousAminoAcid => PreviousResidue;
         public virtual char NextAminoAcid => NextResidue;
+
+        public string PeptideDescription
+        {
+            get => Description;
+            set => Description = value;
+        }
 
         #endregion
 
@@ -163,7 +147,7 @@ namespace Proteomics.ProteolyticDigestion
             foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
             {
                 int numFixedMods = 0;
-                foreach (var ok in GetFixedModsOneIsNterminus(peptideLength, allKnownFixedModifications))
+                foreach (var ok in GetFixedModsOneIsNterminusOrFivePrime(peptideLength, allKnownFixedModifications))
                 {
                     if (!kvp.ContainsKey(ok.Key))
                     {
@@ -203,67 +187,6 @@ namespace Proteomics.ProteolyticDigestion
         {
             return ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1)
                 && (variableModification.LocationRestriction == "C-terminal." || variableModification.LocationRestriction == "Peptide C-terminal.");
-        }
-
-        
-        private Dictionary<int, Modification> GetFixedModsOneIsNterminus(int peptideLength,
-            IEnumerable<Modification> allKnownFixedModifications)
-        {
-            var fixedModsOneIsNterminus = new Dictionary<int, Modification>(peptideLength + 3);
-            foreach (Modification mod in allKnownFixedModifications)
-            {
-                switch (mod.LocationRestriction)
-                {
-                    case "N-terminal.":
-                    case "Peptide N-terminal.":
-                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
-                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidue))
-                        {
-                            if (OneBasedStartResidue != 1)
-                            {
-                                fixedModsOneIsNterminus[2] = mod;
-                            }
-                        }
-                        //Normal N-terminal peptide modification
-                        else if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidue))
-                        {
-                            fixedModsOneIsNterminus[1] = mod;
-                        }
-                        break;
-
-                    case "Anywhere.":
-                        for (int i = 2; i <= peptideLength + 1; i++)
-                        {
-                            if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, i - 1, peptideLength, OneBasedStartResidue + i - 2))
-                            {
-                                fixedModsOneIsNterminus[i] = mod;
-                            }
-                        }
-                        break;
-
-                    case "C-terminal.":
-                    case "Peptide C-terminal.":
-                        //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
-                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1))
-                        {
-                            if (OneBasedEndResidueInProtein != Protein.Length)
-                            {
-                                fixedModsOneIsNterminus[peptideLength+1] = mod;
-                            }
-                            
-                        }
-                        //Normal C-terminal peptide modification 
-                        else if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1))
-                        {
-                            fixedModsOneIsNterminus[peptideLength + 2] = mod;
-                        }
-                        break;
-
-                    default:
-                        throw new NotSupportedException("This terminus localization is not supported.");
-                }
-            }
-            return fixedModsOneIsNterminus;
         }
     }
 }

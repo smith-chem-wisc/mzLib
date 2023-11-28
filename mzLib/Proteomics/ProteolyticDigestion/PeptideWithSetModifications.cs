@@ -68,7 +68,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             FullSequence = sequence;
-            _baseSequence = GetBaseSequenceFromFullSequence(sequence);
+            _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
             GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
@@ -613,8 +613,7 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public virtual string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
-        => ((IBioPolymerWithSetMods)this).EssentialSequence(modstoWritePruned);
+        public string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned) => (this as IBioPolymerWithSetMods).GetEssentialSequence(modstoWritePruned);
 
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
@@ -887,10 +886,7 @@ namespace Proteomics.ProteolyticDigestion
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
-        public string FullSequenceWithMassShift()
-        {
-            return DetermineFullSequenceWithMassShifts();
-        }
+        public string FullSequenceWithMassShift() => ((IBioPolymerWithSetMods)this).DetermineFullSequenceWithMassShifts();
 
         public override bool Equals(object obj)
         {
@@ -1005,38 +1001,7 @@ namespace Proteomics.ProteolyticDigestion
             Protein = protein;
         }
 
-        public static string GetBaseSequenceFromFullSequence(string fullSequence)
-        {
-            StringBuilder sb = new StringBuilder();
-            int bracketCount = 0;
-            foreach (char c in fullSequence)
-            {
-                if (c == '[')
-                {
-                    bracketCount++;
-                }
-                else if (c == ']')
-                {
-                    bracketCount--;
-                }
-                else if (bracketCount == 0)
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
-        }
-
-        private void DetermineFullSequence() => ((IBioPolymerWithSetMods)this).DetermineFullSequence();
-
-        /// <summary>
-        /// This method returns the full sequence with mass shifts INSTEAD OF PTMs in brackets []
-        /// Some external tools cannot parse PTMs, instead requiring a numerical input indicating the mass of a PTM in brackets
-        /// after the position of that modification
-        /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
-        /// </summary>
-        /// <returns></returns>
-        private string DetermineFullSequenceWithMassShifts() => ((IBioPolymerWithSetMods)this).DetermineFullSequenceWithMassShifts();
+        private void DetermineFullSequence() => FullSequence = ((IBioPolymerWithSetMods)this).DetermineFullSequence();
 
         private void UpdateCleavageSpecificity()
         {

@@ -196,7 +196,6 @@ namespace Proteomics
         public string FullName { get; }
         public bool IsContaminant { get; }
         internal IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
-
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         /// <summary>

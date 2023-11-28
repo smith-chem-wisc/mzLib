@@ -20,7 +20,8 @@ namespace Omics
         bool IsContaminant { get; }
         string Organism { get; }
         string Accession { get; }
-        public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
+        IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
+        char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false);

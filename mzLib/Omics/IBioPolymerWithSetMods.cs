@@ -131,8 +131,7 @@ namespace Omics
             return subsequence.ToString();
         }
 
-
-        public virtual string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
+        public string GetEssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
         {
             string essentialSequence = BaseSequence;
             if (modstoWritePruned != null)
@@ -173,5 +172,29 @@ namespace Omics
             }
             return essentialSequence;
         }
+
+
+        public static string GetBaseSequenceFromFullSequence(string fullSequence)
+        {
+            StringBuilder sb = new StringBuilder();
+            int bracketCount = 0;
+            foreach (char c in fullSequence)
+            {
+                if (c == '[')
+                {
+                    bracketCount++;
+                }
+                else if (c == ']')
+                {
+                    bracketCount--;
+                }
+                else if (bracketCount == 0)
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
+        }
+
     }
 }
