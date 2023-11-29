@@ -84,8 +84,7 @@ namespace Test.Transcriptomics
                 new[] { "G", "UACUG", "CCUCUAG", "UG", "AAG", "CA" });
         }
 
-        public static string rnaseTsvpath =
-            @"C:\Users\Nic\source\repos\mzLib\mzLib\Transcriptomics\Digestion\rnases.tsv";
+        public static string rnaseTsvpath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Digestion\rnases.tsv");
 
         [OneTimeSetUp]
         public void OneTimeSetup()
