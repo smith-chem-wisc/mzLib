@@ -22,6 +22,7 @@ namespace Readers.Bruker
         public TimsTofFileReader(string filePath) : base (filePath) 
         {
             FrameToScanDictionary = new();
+            PrecursorIdToZeroBasedScanIndex = new();
         }
 
         private UInt64? _fileHandle;
@@ -35,6 +36,7 @@ namespace Readers.Bruker
         public const string ScanFilter = "f";
 
         public Dictionary<long, List<MsDataScan>> FrameToScanDictionary { get; private set; }
+        public Dictionary<int, int> PrecursorIdToZeroBasedScanIndex { get; }
 
         public override void InitiateDynamicConnection()
         {
@@ -120,7 +122,7 @@ namespace Readers.Bruker
                             BuildMS1Scans(scanList, currentFrame, i);
                             break;
                         case TimsTofMsMsType.PASEF:
-                            BuildPasefScans(scanList, currentFrame);
+                            BuildPasefScans(scanList, currentFrame, i);
                             break;
                         default:
                             throw new NotImplementedException("Only PASEF data is currently supported");
@@ -130,7 +132,10 @@ namespace Readers.Bruker
             }
             CloseDynamicConnection();
 
-            return null;
+            Scans = scanList.ToArray();
+            SourceFile = GetSourceFile();
+            return this;
+
         }
 
         internal void BuildMS1Scans(List<MsDataScan> scanList, FrameProxy frame, int frameIndex)
@@ -141,7 +146,7 @@ namespace Readers.Bruker
                 // It is used to take an MS1 frame and create multiple "MsDataScans" by averaging the 
                 // spectra from each scan within a given Ion Mobility (i.e. ScanNum) range
                 command.CommandText =
-                    @"SELECT MIN(m.ScanNumBegin), MAX(m.ScanNumEnd), p.ScanNumber" +
+                    @"SELECT MIN(m.ScanNumBegin), MAX(m.ScanNumEnd), p.ScanNumber, p.ID" +
                     " FROM Precursors p" +
                     " INNER JOIN PasefFrameMsMsInfo m on m.Precursor = p.Id" +
                     " WHERE p.Parent = " + frame.FrameId.ToString() +
@@ -152,6 +157,7 @@ namespace Readers.Bruker
                     var scanStart = sqliteReader.GetInt32(0);
                     var scanEnd = sqliteReader.GetInt32(1);
                     var scanMedian = sqliteReader.GetFloat(2);
+                    int precursorId = sqliteReader.GetInt32(3);
 
                     // Now we're gonna try and build some scans!
                     // Step 1: Pull the m/z + intensity arrays for each scan in range
@@ -167,7 +173,7 @@ namespace Readers.Bruker
                     // Step 3: Make an MsDataScan bby
                     var dataScan = new TimsDataScan(
                         massSpectrum: averagedSpectrum,
-                        oneBasedScanNumber: scanList.Count,
+                        oneBasedScanNumber: scanList.Count + 1,
                         msnOrder: 1,
                         isCentroid: true,
                         polarity: FramesTable.Polarity[frameIndex] == '+' ? Polarity.Positive : Polarity.Negative,
@@ -179,24 +185,26 @@ namespace Readers.Bruker
                         injectionTime: FramesTable.FillTime[frameIndex],
                         noiseData: null,
                         nativeId: "frame=" + frame.FrameId.ToString() + ";scans=" + scanStart.ToString() + "-" + scanEnd.ToString(),
+                        frameId: frame.FrameId,
                         scanNumberStart: scanStart,
                         scanNumberEnd: scanEnd,
-                        medianOneOverK0: frame.GetOneOverK0((double)scanMedian));
+                        medianOneOverK0: frame.GetOneOverK0((double)scanMedian),
+                        precursorId: precursorId);
 
-                    // Build MsDataScan and add to list
-                    // Add DataScanList to FrameToScanDictionary
+                    PrecursorIdToZeroBasedScanIndex.TryAdd(precursorId, scanList.Count());
+                    scanList.Add(dataScan);
                 }
             }
         }
 
-        internal void BuildPasefScans(List<MsDataScan> scanList, FrameProxy frame)
+        internal void BuildPasefScans(List<MsDataScan> scanList, FrameProxy frame, int frameIndex)
         {
             using var command = new SQLiteCommand(_sqlConnection);
             // SQL Command for getting some info from both PasefFrameMsMsInfo table and
             // Precursors table
             command.CommandText =
                 @"SELECT m.ScanNumBegin, m.ScanNumEnd, m.IsolationMz, m.IsolationWidth," +
-                " m.CollisionEnergy, p.MonoisotopicMz, p.Charge, p.Intensity" +
+                " m.CollisionEnergy, p.LargestPeakMz, p.MonoisotopicMz, p.Charge, p.Intensity, p.ScanNumber, p.Id" +
                 " FROM PasefFrameMsMsInfo m" +
                 " INNER JOIN Precursors p on p.Id = m.Precursor" +
                 " WHERE m.Frame = " + frame.FrameId.ToString() +
@@ -207,6 +215,15 @@ namespace Readers.Bruker
             {
                 var scanStart = sqliteReader.GetInt32(0);
                 var scanEnd = sqliteReader.GetInt32(1);
+                var isolationMz = sqliteReader.GetFloat(2);
+                var isolationWidth = sqliteReader.GetFloat(3);
+                var collisionEnergy = sqliteReader.GetFloat(4);
+                var mostAbundantPrecursorPeak = sqliteReader.GetFloat(5);
+                var precursorMonoisotopicMz = sqliteReader.GetFloat(6);
+                var charge = sqliteReader.GetInt32(7);
+                var precursorIntensity = sqliteReader.GetFloat(8);
+                var scanMedian = sqliteReader.GetFloat(9);
+                var precursorId = sqliteReader.GetInt32(10);
 
                 // Now we're gonna try and build some scans!
                 // Step 1: Pull the m/z + intensity arrays for each scan in range
@@ -220,11 +237,39 @@ namespace Readers.Bruker
                 // Step 2: Average those suckers
                 MzSpectrum averagedSpectrum = AverageScans(mzArrays, intensityArrays);
                 // Step 3: Make an MsDataScan bby
-                //var dataScan = new MsDataScan(
-                //    massSpectrum: averagedSpectrum, oneBasedScanNumber: scanList.Count,
-                //    msnOrder: 1, );
+                var dataScan = new TimsDataScan(
+                        massSpectrum: averagedSpectrum,
+                        oneBasedScanNumber: scanList.Count + 1,
+                        msnOrder: 2,
+                        isCentroid: true,
+                        polarity: FramesTable.Polarity[frameIndex] == '+' ? Polarity.Positive : Polarity.Negative,
+                        retentionTime: (double)FramesTable.RetentionTime[frameIndex],
+                        scanWindowRange: ScanWindow,
+                        scanFilter: ScanFilter,
+                        mzAnalyzer: MZAnalyzerType.TOF,
+                        totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
+                        injectionTime: FramesTable.FillTime[frameIndex],
+                        noiseData: null,
+                        nativeId: "frame=" + frame.FrameId.ToString() + ";scans=" + scanStart.ToString() + "-" + scanEnd.ToString(),
+                        frameId: frame.FrameId,
+                        scanNumberStart: scanStart,
+                        scanNumberEnd: scanEnd,
+                        medianOneOverK0: frame.GetOneOverK0((double)scanMedian),
+                        precursorId: precursorId,
+                        selectedIonMz: mostAbundantPrecursorPeak,
+                        selectedIonChargeStateGuess: charge,
+                        selectedIonIntensity: precursorIntensity,
+                        isolationMZ: isolationMz,
+                        isolationWidth: isolationWidth,
+                        dissociationType: DissociationType.CID, // I think? Not totally sure about this
+                        // We don't really have one based precursors in timsTOF data, so it's not immediately clear how to handle this field
+                        oneBasedPrecursorScanNumber: PrecursorIdToZeroBasedScanIndex.TryGetValue(precursorId, out int precursorScanIdx) 
+                            ? precursorScanIdx 
+                            : null,
+                        selectedIonMonoisotopicGuessMz: precursorMonoisotopicMz,
+                        hcdEnergy: collisionEnergy.ToString());
 
-                // Build MsDataScan and add to list
+                scanList.Add(dataScan);
             }
         }
 
@@ -249,9 +294,15 @@ namespace Readers.Bruker
                 shouldCopy: false);
         }
 
+        private const string nativeIdFormat = "Frame ID + scan number range format";
+        private const string massSpecFileFormat = ".D format";
         public override SourceFile GetSourceFile()
         {
-            throw new NotImplementedException();
+            // append the analysis.baf because the constructor for SourceFile will look for the 
+            // parent directory. 
+            string fileName = FilePath + @"\analysis.tdf";
+            return new SourceFile(nativeIdFormat, massSpecFileFormat,
+                null, null, id: null, filePath: fileName);
         }
 
         /// <summary>

@@ -12,6 +12,8 @@ namespace MassSpectrometry
         public int ScanNumberStart { get; }
         public int ScanNumberEnd { get; }
         public double OneOverK0 { get; }
+        public int PrecursorId { get; }
+        public long FrameId { get; }
 
 
         // Need to incorporate scan range somehow
@@ -28,9 +30,11 @@ namespace MassSpectrometry
             double? injectionTime,
             double[,] noiseData,
             string nativeId,
+            long frameId,
             int scanNumberStart,
             int scanNumberEnd,
             double medianOneOverK0,
+            int precursorId,
             double? selectedIonMz = null,
             int? selectedIonChargeStateGuess = null,
             double? selectedIonIntensity = null,
@@ -46,9 +50,11 @@ namespace MassSpectrometry
                 selectedIonIntensity, isolationMZ, isolationWidth, dissociationType,
                 oneBasedPrecursorScanNumber, selectedIonMonoisotopicGuessMz, hcdEnergy)
         {
+            FrameId = frameId;
             ScanNumberStart = scanNumberStart;
             ScanNumberEnd = scanNumberEnd;
             OneOverK0 = medianOneOverK0;
+            PrecursorId = precursorId;
         }
     }
 }
