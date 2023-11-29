@@ -1,11 +1,12 @@
 ﻿using System.Text;
 using Easy.Common.Extensions;
+using MassSpectrometry;
 using MassSpectrometry.MzSpectra;
 using Omics.Fragmentation;
 
 namespace Omics.SpectrumMatch
 {
-    public class LibrarySpectrum
+    public class LibrarySpectrum : MzSpectrum
     {
         public string Sequence { get; set; }
         public double? RetentionTime { get; set; }
