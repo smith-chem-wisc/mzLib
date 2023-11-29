@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Chemistry;
-using MassSpectrometry;
+﻿using Chemistry;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -92,7 +85,5 @@ namespace Transcriptomics
         {
             return Name.GetHashCode();
         }
-
-        
     }
 }

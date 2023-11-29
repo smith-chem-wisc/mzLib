@@ -1,10 +1,5 @@
 ﻿using Chemistry;
 using MassSpectrometry;
-using Omics.Modifications;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace Omics.Modifications

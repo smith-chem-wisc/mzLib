@@ -3,7 +3,6 @@ using Omics.Fragmentation;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Chemistry;
-using Omics.Fragmentation.Peptide;
 
 namespace Omics.SpectrumMatch
 {
