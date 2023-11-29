@@ -55,6 +55,8 @@
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net6.0" /> 
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net6.0" /> 
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net6.0" /> 
+    <file src="Transcriptomics\bin\x64\Release\net6.0\Transcriptomics.dll" target="lib\net6.0" /> 
+    <file src="Transcriptomics\bin\x64\Release\net6.0\Digestion\rnases.tsv" target="lib\net6.0" /> 
     <file src="UsefulProteomicsDatabases\bin\x64\Release\net6.0\UsefulProteomicsDatabases.dll" target="lib\net6.0" /> 
     <!--net6.0-windows target with mzPlot-->
     <file src="mzPlot\bin\x64\Release\net6.0-windows\mzPlot.dll" target="lib\net6.0-windows7.0" /> 
@@ -75,6 +77,8 @@
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net6.0-windows7.0" /> 
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net6.0-windows7.0" /> 
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net6.0-windows7.0" /> 
+    <file src="Transcriptomics\bin\x64\Release\net6.0\Transcriptomics.dll" target="lib\net6.0-windows7.0" /> 
+    <file src="Transcriptomics\bin\x64\Release\net6.0\Digestion\rnases.tsv" target="lib\net6.0-windows7.0" /> 
     <file src="UsefulProteomicsDatabases\bin\x64\Release\net6.0\UsefulProteomicsDatabases.dll" target="lib\net6.0-windows7.0" /> 
   </files>
 </package>
