@@ -20,6 +20,7 @@ using MzLibUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace MassSpectrometry
@@ -71,6 +72,7 @@ namespace MassSpectrometry
             SelectedIonChargeStateGuess = selectedIonChargeStateGuess;
             SelectedIonMonoisotopicGuessMz = selectedIonMonoisotopicGuessMz;
             HcdEnergy = hcdEnergy;
+            ScanDescription = scanDescription;
         }
 
         /// <summary>
@@ -103,6 +105,7 @@ namespace MassSpectrometry
         public double? SelectedIonMonoisotopicGuessIntensity { get; private set; } // May be refined
         public double? SelectedIonMonoisotopicGuessMz { get; private set; } // May be refined
         public string HcdEnergy { get; private set; }
+        public string ScanDescription { get; private set; }
 
         private MzRange isolationRange;
 
