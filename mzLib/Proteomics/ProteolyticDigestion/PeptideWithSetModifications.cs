@@ -208,8 +208,6 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public IBioPolymer Parent => Protein;
-
         /// <summary>
         /// Generates theoretical fragments for given dissociation type for this peptide. 
         /// The "products" parameter is filled with these fragments.

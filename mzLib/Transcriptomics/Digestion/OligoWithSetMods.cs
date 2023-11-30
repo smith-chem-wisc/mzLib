@@ -34,7 +34,6 @@ namespace Transcriptomics
 
         public string FullSequence { get; private set; }
         public IDigestionParams DigestionParams => _digestionParams;
-        public IBioPolymer Parent => NucleicAcid;
         public IHasChemicalFormula FivePrimeTerminus
         {
             get => _fivePrimeTerminus;

@@ -337,6 +337,8 @@ namespace Test.Transcriptomics
             RNA rna = new RNA(sequence);
             var digestionProducts = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(),
                 new List<Modification>()).Select(p => (OligoWithSetMods)p).ToList();
+
+            Assert.That(digestionProducts.All(p => p.DigestionParams.Enzyme.Name == "RNase T1"));
             for (var index = 0; index < digestionProducts.Count; index++)
             {
                 var digestionProduct = digestionProducts[index];
@@ -488,6 +490,45 @@ namespace Test.Transcriptomics
             Assert.That(rna.FivePrimeTerminus, Is.EqualTo(oligoWithSetMods.FivePrimeTerminus));
             Assert.That(rna.ThisChemicalFormula, Is.EqualTo(oligoWithSetMods.ThisChemicalFormula));
             Assert.That(rna.Length, Is.EqualTo(oligoWithSetMods.Length));
+        }
+
+        [Test]
+        public static void OligoWithSetMods_CalculatedValues()
+        {
+            var rna = new RNA("GUACUG");
+            var rnaFormula = rna.ThisChemicalFormula;
+
+            string modText = "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//";
+            var sodiumAdduct = PtmListLoader.ReadModsFromString(modText, out List<(Modification, string)> mods).First();
+            var oligoWithSetMods =
+                rna.Digest(new RnaDigestionParams(), new List<Modification>() {sodiumAdduct}, new List<Modification>())
+                    .First() as OligoWithSetMods ?? throw new NullReferenceException();
+
+            Assert.That(oligoWithSetMods.NumMods, Is.EqualTo(1));
+            Assert.That(oligoWithSetMods.NumFixedMods, Is.EqualTo(1));
+            Assert.That(oligoWithSetMods.NumVariableMods, Is.EqualTo(0));
+
+            var formula = oligoWithSetMods.ThisChemicalFormula;
+            Assert.That(formula, Is.EqualTo(rnaFormula + sodiumAdduct.ChemicalFormula));
+
+            var formulaToAdd = ChemicalFormula.ParseFormula("H");
+            var deltaMass = formulaToAdd.MonoisotopicMass;
+            var oldMonoMass = oligoWithSetMods.MonoisotopicMass;
+            var oldMostAbundantMass = oligoWithSetMods.MostAbundantMonoisotopicMass;
+
+            oligoWithSetMods.FivePrimeTerminus = formulaToAdd + oligoWithSetMods.FivePrimeTerminus;
+
+            Assert.That(oligoWithSetMods.MonoisotopicMass, Is.EqualTo(oldMonoMass + deltaMass).Within(0.01));
+            Assert.That(oligoWithSetMods.MostAbundantMonoisotopicMass, Is.EqualTo(oldMostAbundantMass + deltaMass).Within(0.01));
+            Assert.That(oligoWithSetMods.ThisChemicalFormula, Is.EqualTo(formula + formulaToAdd));
+
+            oldMonoMass = oligoWithSetMods.MonoisotopicMass;
+            oldMostAbundantMass = oligoWithSetMods.MostAbundantMonoisotopicMass;
+            oligoWithSetMods.ThreePrimeTerminus = formulaToAdd + oligoWithSetMods.ThreePrimeTerminus;
+
+            Assert.That(oligoWithSetMods.MonoisotopicMass, Is.EqualTo(oldMonoMass + deltaMass).Within(0.01));
+            Assert.That(oligoWithSetMods.MostAbundantMonoisotopicMass, Is.EqualTo(oldMostAbundantMass + deltaMass).Within(0.01));
+            Assert.That(oligoWithSetMods.ThisChemicalFormula, Is.EqualTo(formula + formulaToAdd + formulaToAdd));
         }
 
         #endregion
@@ -691,7 +732,11 @@ namespace Test.Transcriptomics
             Assert.That(precursors.All(p => p.NumFixedMods == 1));
             Assert.That(fullSequences.Contains("GUA[Metal:Potassium on A]CUG"));
             Assert.That(fullSequences.Contains("GUA[Metal:Potassium on A]C[Metal:Sodium on C]UG"));
-
+            
+            var oneOfEach = precursors.First(p => p.FullSequence.Equals("GUA[Metal:Potassium on A]C[Metal:Sodium on C]UG"));
+            Assert.That(oneOfEach.NumFixedMods, Is.EqualTo(1));
+            Assert.That(oneOfEach.NumVariableMods, Is.EqualTo(1));
+            Assert.That(oneOfEach.NumMods, Is.EqualTo(2));
 
             fixedMods = new List<Modification> { potassiumAdducts[2] }; // G
             variableMods = new List<Modification> { sodiumAdducts[1] }; // C
