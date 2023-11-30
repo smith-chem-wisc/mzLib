@@ -15,14 +15,12 @@ namespace Omics.SpectrumMatch
         public List<MatchedFragmentIon> MatchedFragmentIons { get; set; }
         public bool IsDecoy { get; set; }
 
-        public double[] XArray { get; private set; }
-        public double[] YArray { get; private set; }
         public string Name
         {
             get { return Sequence + "/" + ChargeState; }
         }
 
-        public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false)
+        public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false) : base(peaks.Select(p => p.Mz).ToArray(), peaks.Select(p => p.Intensity).ToArray(), false)
         {
             Sequence = sequence;
             PrecursorMz = precursorMz;
@@ -30,8 +28,6 @@ namespace Omics.SpectrumMatch
             ChargeState = chargeState;
             IsDecoy = isDecoy;
             RetentionTime = rt;
-            XArray = peaks.Select(p => p.Mz).ToArray();
-            YArray = peaks.Select(p => p.Intensity).ToArray();
             Array.Sort(XArray, YArray);
         }
 
