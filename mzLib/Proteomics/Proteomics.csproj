@@ -12,7 +12,6 @@
   
   <ItemGroup>
     <PackageReference Include="TorchSharp" Version="0.101.2" />
-    <PackageReference Include="TorchSharp-cuda-windows" Version="0.101.2" />
   </ItemGroup>
 
   <ItemGroup>

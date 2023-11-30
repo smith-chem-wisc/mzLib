@@ -19,7 +19,6 @@
     <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
     <PackageReference Include="TopDownProteomics" Version="0.0.287" />
     <PackageReference Include="TorchSharp" Version="0.101.2" />
-    <PackageReference Include="TorchSharp-cuda-windows" Version="0.101.2" />
   </ItemGroup>
 
   <ItemGroup>
