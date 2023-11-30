@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using MassSpectrometry;
 using NUnit; 
 using NUnit.Framework;
@@ -91,11 +92,12 @@ namespace Test.FileReadingTests
         [Test]
         public void Bruker()
         {
+            Stopwatch watch = Stopwatch.StartNew();
             //MsDataFile brukerData = MsDataFileReader.GetDataFile(@"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.mzML").LoadAllStaticData();
             string filePath = @"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.d";
             var test = new TimsTofFileReader(filePath).LoadAllStaticData();
-
-            TimsTofFileReader.ReadData(filePath);
+            watch.Stop();
+            var elapsedTimeSecond = watch.ElapsedMilliseconds * 1000;
 
             Assert.Pass();
         }
