@@ -44,10 +44,10 @@ namespace MachineLearning.RetentionTimePredictionModels
             ModificationDictionary = GetChronologerDictionary(dict);
         }
 
-        public override void CreateDataSet(List<object> data, float validationFraction, float testingFraction, int batchSize)
+        public override void CreateDataSet(List<PsmFromTsv> data, float validationFraction, float testingFraction, int batchSize)
         {
-            if (data.Select(x => x) is List<PsmFromTsv> psmList)
-            {
+            // if (data.Select(x => x).ToList() is List<PsmFromTsv> psmList)
+            // {
                 var trainTestDb = new Dictionary<string, List<(torch.Tensor, double)>>()
                 {
                     { "train", new List<(torch.Tensor, double)>() },
@@ -59,7 +59,7 @@ namespace MachineLearning.RetentionTimePredictionModels
 
                 var sources = new HashSet<string>();
 
-                foreach (var dataFile in psmList)
+                foreach (var dataFile in data)
                 {
                     if (dataFile.DecoyContamTarget.Equals("T"))
                     {
@@ -80,8 +80,7 @@ namespace MachineLearning.RetentionTimePredictionModels
                     }
                 }
 
-                
-                allData = (List<(torch.Tensor, double)>)allData.Randomize();
+                allData = allData.Randomize().ToList();
 
                 var trainingSet = allData.Take((int)(allData.Count * (1 - validationFraction))).ToList();
 
@@ -100,11 +99,10 @@ namespace MachineLearning.RetentionTimePredictionModels
 
                 CreateDataLoader(batchSize);
             }
-            else
-            {
-                throw new System.ArgumentException("Object is not of type List<PsmFromTsv>", nameof(data));
-            }
-        }
+            // else
+            // {
+            //     throw new System.ArgumentException("Object is not of type List<PsmFromTsv>", nameof(data));
+            // }
 
         protected override void CreateDataLoader(int batchSize)
         {
@@ -140,7 +138,7 @@ namespace MachineLearning.RetentionTimePredictionModels
 
             var parameters = new List<Parameter>();
             this.parameters().ForEach(x => parameters.Add(x));
-            lossFunction.parameters().ForEach(x => parameters.Add(x));
+            // lossFunction.parameters().ForEach(x => parameters.Add(x)); //todo might not be needed
 
             //Optimizer
             var optimizer = torch.optim.Adam(parameters, 0.001);
@@ -206,6 +204,7 @@ namespace MachineLearning.RetentionTimePredictionModels
             //saving the model
             SaveModel(modelSavingPath);
 
+            //Model Stats
             ModelPerformance(modelSavingPath, bestScore, accuracy, predictions, labels);
         }
 
@@ -224,10 +223,13 @@ namespace MachineLearning.RetentionTimePredictionModels
                     batchX = batchX.to(device);
                     batchY = batchY.to(device);
 
-                    var output = this.Predict(batchX);
-                    var loss = criterion.forward(output[0], batchY);
+                    for(int i = 0; i < batchX.size(0); i++)
+                    {
+                        var output = this.Predict(batchX[i]);
+                        var loss = criterion.forward(output[0], batchY[i]);
 
-                    totalLoss += loss.item<double>() * batchX.size(0);
+                        totalLoss += loss.item<double>() * batchX.size(0);
+                    }
                 }
             }
             var averageLoss = totalLoss / validationDataLoader.Count;
@@ -253,12 +255,19 @@ namespace MachineLearning.RetentionTimePredictionModels
                     batchX = batchX.to(device);
                     batchY = batchY.to(device);
 
-                    var output = this.Predict(batchX);
-                    var loss = criterion.forward(output[0], batchY);
+                    for (int i = 0; i < batchX.size(0); i++)
+                    {
+                        var output = this.Predict(batchX[i]);
+                        var loss = criterion.forward(output[0], batchY[i]);
 
-                    predictions.Add(output.item<double>());
-                    labels.Add(batchY.item<double>());
-                    totalLoss += loss.item<double>() * batchX.size(0);
+                        predictions.Add(output.item<float>());
+                        labels.Add(batchY.item<double>());
+                        totalLoss += loss.item<double>() * batchX.size(0);
+
+                        predictions.Add(output.item<float>());
+                        labels.Add(batchY.item<double>());
+                        totalLoss += loss.item<double>() * batchX.size(0);
+                    }
                 }
             }
             var averageLoss = totalLoss / testingDataLoader.Count;
@@ -314,6 +323,8 @@ namespace MachineLearning.RetentionTimePredictionModels
                 char modID = ' '; //takes the target aa from inside the loop to hold it for the next loop
                 bool mod = false; //assumes that the next loop is not a mod 
 
+                //N terminal mods set mod to true
+
                 if (fullSequence[0].Contains(" "))
                 {
                     mod = true;
@@ -348,17 +359,6 @@ namespace MachineLearning.RetentionTimePredictionModels
 
                         //save target aa for next loop
                         modID = subString[subString.Length - 1];
-                    }
-                    else
-                    {
-                        for (int i = 0; i < subString.Length; i++)
-                        {
-                            tensor[0][tensorCounter] = dictionary[(char.ToUpper(subString[i]), "")];
-                            tensorCounter = tensorCounter + 1;
-                        }
-                        //next loop will be a mod
-                        mod = true;
-
                     }
                 }
 

@@ -148,7 +148,7 @@ namespace MachineLearning
         // public abstract Dictionary<string, torch.Tensor> GetTensor(long index);
 
         // sets nullable filed Dataset to a new instance of a TorchDataset
-        public abstract void CreateDataSet(List<object> data, float validationFraction, float testingFraction, int batchSize);
+        public abstract void CreateDataSet(List<PsmFromTsv> data, float validationFraction, float testingFraction, int batchSize);
 
         protected abstract void CreateDataLoader(int batchSize);
     }
