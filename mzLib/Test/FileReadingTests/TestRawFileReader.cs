@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -40,18 +39,6 @@ namespace Test.FileReadingTests
 
         #endregion
 
-
-        [Test]
-        public void TestScanDescription()
-        {
-            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "ScanDescriptionTestData.raw");
-            var scans = MsDataFileReader.GetDataFile(filePath).GetAllScansList();
-            var ms1Scans = scans.Where(x => x.MsnOrder == 1).ToList();
-            var ms2Scans = scans.Where(x => x.MsnOrder == 2).ToList();
-
-            ms1Scans.ForEach(x => Assert.That(x.ScanDescription, Is.EqualTo(null)));
-            ms2Scans.ForEach(x => Assert.That(x.ScanDescription, Is.EqualTo("Testing2")));
-        }
 
         /// <summary>
         /// Tests LoadAllStaticData for ThermoRawFileReader

@@ -9,6 +9,5 @@ namespace Readers
         TopFD,       // files tested were outputted from v1.6.2
         MetaMorpheus,
         MaxQuant,
-        Toppic,
     }
 }
