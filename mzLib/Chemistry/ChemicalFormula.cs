@@ -534,11 +534,10 @@ namespace Chemistry
         public static ChemicalFormula operator -(ChemicalFormula left, IHasChemicalFormula right)
         {
             if (left == null)
-            {
-                if (right == null)
-                    return null;
-                return new ChemicalFormula(right);
-            }
+                return right == null ? null : new ChemicalFormula(right);
+            if (right == null)
+                return new ChemicalFormula(left);
+            
 
             ChemicalFormula newFormula = new ChemicalFormula(left);
             newFormula.Remove(right);
@@ -547,16 +546,16 @@ namespace Chemistry
 
         public static ChemicalFormula operator +(ChemicalFormula left, IHasChemicalFormula right)
         {
+            // if left is null, return right. If right is null, return left. If both are null, return null. If both are not null, add them
             if (left == null)
-            {
-                if (right == null)
-                    return null;
-                return new ChemicalFormula(right);
-            }
+                return right == null ? null : new ChemicalFormula(right);
+            if (right == null)
+                return new ChemicalFormula(left);
 
             ChemicalFormula newFormula = new ChemicalFormula(left);
             newFormula.Add(right);
             return newFormula;
+
         }
     }
 }
