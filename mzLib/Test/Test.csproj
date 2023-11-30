@@ -289,9 +289,27 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\ChronologerTest.tsv">
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\GUACUG_NegativeMode_Sliced.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\ScanDescriptionTestData.raw">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature">
