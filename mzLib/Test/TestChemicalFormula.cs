@@ -1006,6 +1006,52 @@ namespace Test
         }
 
         [Test]
+        public static void TestAddChemicalFormulaOperator()
+        {
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{12}");
+
+            var addedFormula = formulaA + formulaB;
+            formulaB.Add(formulaA);
+
+            Assert.AreEqual("CC{12}", formulaB.Formula);
+            Assert.AreEqual("CC{12}", addedFormula.Formula);
+
+            var leftNull = null + formulaB;
+            Assert.AreEqual(formulaB, leftNull);
+
+            var rightNull = formulaB + null;
+            Assert.AreEqual(formulaB, rightNull);
+
+            ChemicalFormula nullFormula = null;
+            var bothNull = nullFormula + nullFormula;
+            Assert.AreEqual(null, bothNull);
+        }
+
+        [Test]
+        public static void TestSubtractChemicalFormulaOperator()
+        {
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{12}");
+
+            var subtractedFormula = formulaB - formulaA;
+            formulaB.Remove(formulaA);
+
+            Assert.AreEqual("CC{12}-1", formulaB.Formula);
+            Assert.AreEqual("CC{12}-1", subtractedFormula.Formula);
+
+            var leftNull = null - formulaB;
+            Assert.AreEqual(formulaB, leftNull);
+
+            var rightNull = formulaB - null;
+            Assert.AreEqual(formulaB, rightNull);
+
+            ChemicalFormula nullFormula = null;
+            var bothNull = nullFormula - nullFormula;
+            Assert.AreEqual(null, bothNull);
+        }
+
+        [Test]
         public static void NotEqual()
         {
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C15O15H15S15N15");

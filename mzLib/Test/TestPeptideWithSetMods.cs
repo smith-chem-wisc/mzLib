@@ -109,8 +109,8 @@ namespace Test
             List<PeptideWithSetModifications> cPwsms = Q07065.Digest(semiCParams, null, null).ToList();
             Assert.IsFalse(nPwsms.Any(x => x.Length > semiNParams.MaxLength));
             Assert.IsFalse(cPwsms.Any(x => x.Length > semiCParams.MaxLength));
-            Assert.IsTrue(nPwsms.Any(x => x.Length == semiNParams.MaxLength));
-            Assert.IsTrue(cPwsms.Any(x => x.Length == semiCParams.MaxLength));
+            Assert.IsTrue(nPwsms.Any(x => x.Length == semiNParams.MaxPeptideLength));
+            Assert.IsTrue(cPwsms.Any(x => x.Length == semiCParams.MaxPeptideLength));
 
             //Non
             DigestionParams nonNParams = new DigestionParams("Asp-N", 20, 7, 50, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N); //more missed cleavages here so we can test the end
@@ -121,8 +121,8 @@ namespace Test
             Assert.IsFalse(cPwsms.Any(x => x.Length > nonCParams.MaxLength));
             Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MaxLength));
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MaxLength));
-            Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MinLength));
-            Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MinLength));
+            Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MinPeptideLength));
+            Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MinPeptideLength));
         }
 
         [Test]
