@@ -48,7 +48,8 @@ namespace MassSpectrometry
             DissociationType? dissociationType = null, 
             int? oneBasedPrecursorScanNumber = null, 
             double? selectedIonMonoisotopicGuessMz = null, 
-            string hcdEnergy = null)
+            string hcdEnergy = null,
+            string scanDescription = null)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             MsnOrder = msnOrder;
