@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -11,6 +12,7 @@ using UsefulProteomicsDatabases.Transcriptomics;
 namespace Test.Transcriptomics
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     internal class TestDbLoader
     {
         public static string ModomicsUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
