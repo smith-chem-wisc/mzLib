@@ -6,7 +6,7 @@ using Chemistry;
 
 namespace Omics.SpectrumMatch
 {
-    public class SpectrumMatchFromTsv
+    public abstract class SpectrumMatchFromTsv
     {
         protected static readonly Regex PositionParser = new Regex(@"(\d+)\s+to\s+(\d+)");
         protected static readonly Regex VariantParser = new Regex(@"[a-zA-Z]+(\d+)([a-zA-Z]+)");
@@ -61,9 +61,6 @@ namespace Omics.SpectrumMatch
         /// All parsing should take place within the derived class constructurs
         /// TODO: Reconsider this once osmtsv is added
         /// </summary>
-        public SpectrumMatchFromTsv()
-        {
-        }
 
         //Used to remove Silac labels for proper annotation
         public static string RemoveParentheses(string baseSequence)
