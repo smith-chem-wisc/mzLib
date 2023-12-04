@@ -15,7 +15,7 @@
     <TypeIdentifier />
     <Lollipop Position="0.2" />
   </Class>
-  <Class Name="Proteomics.Protein">
+  <Class Name="Proteomics.Protein" Collapsed="true">
     <Position X="23.25" Y="1" Width="3.25" />
     <TypeIdentifier />
     <Lollipop Position="0.2" />
@@ -39,11 +39,11 @@
     <Lollipop Position="0.2" />
   </Class>
   <Class Name="Proteomics.ProteolyticDigestion.ProteolyticPeptide">
-    <Position X="6.75" Y="5.75" Width="1.5" />
+    <Position X="6.75" Y="5.75" Width="2.5" />
     <TypeIdentifier />
   </Class>
   <Class Name="Transcriptomics.NucleolyticOligo">
-    <Position X="10.25" Y="5.75" Width="1.5" />
+    <Position X="10" Y="5.75" Width="1.75" />
     <TypeIdentifier />
   </Class>
   <Class Name="Omics.Digestion.LysisProduct">
@@ -58,7 +58,7 @@
     <Position X="1.25" Y="9.25" Width="2.75" />
     <TypeIdentifier />
   </Class>
-  <Interface Name="Omics.IBioPolymer">
+  <Interface Name="Omics.IBioPolymer" Collapsed="true">
     <Position X="21.5" Y="1" Width="1.5" />
     <TypeIdentifier />
   </Interface>
