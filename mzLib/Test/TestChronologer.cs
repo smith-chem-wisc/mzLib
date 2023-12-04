@@ -1,14 +1,10 @@
-﻿using System;
+﻿using Easy.Common.Extensions;
+using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Easy.Common.Extensions;
-using MachineLearning;
-using MachineLearning.RetentionTimePredictionModels;
-using NUnit.Framework;
-using Proteomics.RetentionTimePrediction;
 using TorchSharp;
-using TorchSharp.Modules;
 using UsefulProteomicsDatabases;
 using Chronologer = MachineLearning.RetentionTimePredictionModels.Chronologer;
 
@@ -24,14 +20,14 @@ namespace Test
             var chronologer = new Chronologer(dictionary, Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "RetentionTimePredictionModels",
                 "Chronologer_20220601193755_TorchSharp.dat"));
-            
+
             //Default is Eval Mode
             Assert.That(chronologer.training == false);
 
             //Test TrainingMode 
             chronologer.TrainingMode();
             Assert.That(chronologer.training == true);
-            
+
             //Test EvaluationMode
             chronologer.EvaluationMode();
             Assert.That(chronologer.training == false);
@@ -86,7 +82,7 @@ namespace Test
             //Test ValidationDataset setter
             chronologer.ValidationDataset = null;
             Assert.That(chronologer.ValidationDataset == null);
-            
+
             //Test TrainDataLoader getter
             Assert.That(chronologer.TrainDataLoader.IsNotNullOrEmpty());
 
@@ -175,7 +171,7 @@ namespace Test
             chronologer.Train("testingTrainingMethod", psms, dictionary, DeviceType.CPU, 0.1f,
                 0.1f, 64, 50, 5);
 
-            File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory,"testingTrainingMethod.dat"));
+            File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "testingTrainingMethod.dat"));
             File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "testingTrainingMethod.txt"));
 
             //Test the case where the path has a .dat extension
