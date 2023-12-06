@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
@@ -24,6 +20,7 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_jurkat_td_rep1_fract2_frac.mzrt.csv", SupportedFileType.Mzrt_TopFd)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Tsv_FlashDeconvjurkat_td_rep1_fract2_ms1.tsv", SupportedFileType.Ms1Tsv_FlashDeconv)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Tsv_FlashDeconvjurkat_td_rep1_fract2.tsv", SupportedFileType.Tsv_FlashDeconv)]
+        [TestCase(@"FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv", SupportedFileType.psmtsv)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv", SupportedFileType.ToppicPrsm)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv", SupportedFileType.ToppicProteoform)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv", SupportedFileType.ToppicProteoformSingle)]
@@ -61,5 +58,6 @@ namespace Test.FileReadingTests
                 _ = value.GetFileExtension();
             }
         }
+
     }
 }
