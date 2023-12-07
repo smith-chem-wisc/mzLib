@@ -61,10 +61,10 @@ namespace Omics.Digestion
             }
         }
 
-        protected Dictionary<int, Modification> GetFixedModsOneIsNterminusOrFivePrime(int peptideLength,
+        protected Dictionary<int, Modification> GetFixedModsOneIsNterminusOrFivePrime(int length,
             IEnumerable<Modification> allKnownFixedModifications)
         {
-            var fixedModsOneIsNterminus = new Dictionary<int, Modification>(peptideLength + 3);
+            var fixedModsOneIsNterminus = new Dictionary<int, Modification>(length + 3);
             foreach (Modification mod in allKnownFixedModifications)
             {
                 switch (mod.LocationRestriction)
@@ -74,7 +74,7 @@ namespace Omics.Digestion
                     case "N-terminal.":
                     case "Peptide N-terminal.":
                         //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
-                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, peptideLength, OneBasedStartResidue))
+                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
                             if (OneBasedStartResidue != 1)
                             {
@@ -82,16 +82,16 @@ namespace Omics.Digestion
                             }
                         }
                         //Normal N-terminal peptide modification
-                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, peptideLength, OneBasedStartResidue))
+                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
                             fixedModsOneIsNterminus[1] = mod;
                         }
                         break;
 
                     case "Anywhere.":
-                        for (int i = 2; i <= peptideLength + 1; i++)
+                        for (int i = 2; i <= length + 1; i++)
                         {
-                            if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, i - 1, peptideLength, OneBasedStartResidue + i - 2))
+                            if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, i - 1, length, OneBasedStartResidue + i - 2))
                             {
                                 fixedModsOneIsNterminus[i] = mod;
                             }
@@ -103,18 +103,17 @@ namespace Omics.Digestion
                     case "C-terminal.":
                     case "Peptide C-terminal.":
                         //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
-                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1))
+                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
                         {
                             if (OneBasedEndResidue != Parent.Length)
                             {
-                                fixedModsOneIsNterminus[peptideLength + 1] = mod;
+                                fixedModsOneIsNterminus[length + 1] = mod;
                             }
-
                         }
                         //Normal C-terminal peptide modification 
-                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1))
+                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
                         {
-                            fixedModsOneIsNterminus[peptideLength + 2] = mod;
+                            fixedModsOneIsNterminus[length + 2] = mod;
                         }
                         break;
 
