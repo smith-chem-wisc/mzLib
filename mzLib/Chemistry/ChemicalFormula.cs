@@ -534,7 +534,14 @@ namespace Chemistry
         public static ChemicalFormula operator -(ChemicalFormula left, IHasChemicalFormula right)
         {
             if (left == null)
-                return right == null ? null : new ChemicalFormula(right);
+                if (right == null)
+                    return null;
+                else
+                {
+                    var formula = new ChemicalFormula();
+                    formula.Remove(right);
+                    return formula;
+                }
             if (right == null)
                 return new ChemicalFormula(left);
             
