@@ -1,11 +1,8 @@
 ﻿using Chemistry;
-using Easy.Common.Extensions;
 using MassSpectrometry;
-using System.Collections.Generic;
-using System.Linq;
 using Omics.Fragmentation;
 
-namespace Proteomics.Fragmentation
+namespace Omics.Fragmentation.Peptide
 {
     public class DissociationTypeCollection
     {
@@ -32,7 +29,7 @@ namespace Proteomics.Fragmentation
                 lock (TerminusSpecificProductTypesFromDissociation)
                 {
                     var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus]
-                        .Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
+                        .Intersect(ProductsFromDissociationType[dissociationType]);
 
                     if (!TerminusSpecificProductTypesFromDissociation.TryGetValue((dissociationType, fragmentationTerminus), out productTypes))
                     {

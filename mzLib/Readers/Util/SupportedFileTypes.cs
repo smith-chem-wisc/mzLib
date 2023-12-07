@@ -15,6 +15,11 @@ namespace Readers
         BrukerD,
         psmtsv,
         //osmtsv
+        ToppicPrsm,
+        ToppicPrsmSingle,
+        ToppicProteoform,
+        ToppicProteoformSingle,
+
     }
 
     public static class SupportedFileTypeExtensions
@@ -40,6 +45,10 @@ namespace Readers
                 SupportedFileType.BrukerD => ".d",
                 SupportedFileType.psmtsv => ".psmtsv",
                 //SupportedFileType.osmtsv => ".osmtsv",
+                SupportedFileType.ToppicPrsm => "_prsm.tsv",
+                SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
+                SupportedFileType.ToppicProteoform => "_proteoform.tsv",
+                SupportedFileType.ToppicProteoformSingle => "_proteoform_single.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -69,6 +78,15 @@ namespace Readers
                 case ".tsv":
                     if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Tsv_FlashDeconv;
+                    if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ToppicPrsm;
+                    if (filePath.EndsWith(SupportedFileType.ToppicProteoform.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ToppicProteoform;
+                    if (filePath.EndsWith(SupportedFileType.ToppicPrsmSingle.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ToppicPrsmSingle;
+                    if (filePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ToppicProteoformSingle;
+
                     // catchall for other tsv types, one one implemented right now
                     if (filePath.EndsWith(SupportedFileType.Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase) &&
                         !filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
