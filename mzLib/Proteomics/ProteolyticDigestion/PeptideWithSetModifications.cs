@@ -732,7 +732,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 //need to determine what the cleavage sites are for the protease used (will allow us to determine if new cleavage sites were made by variant)
-                List<DigestionMotif> proteasesCleavageSites = DigestionParams.Enzyme.DigestionMotifs;
+                List<DigestionMotif> proteasesCleavageSites = DigestionParams.DigestionAgent.DigestionMotifs;
                 //if the variant ends the AA before the peptide starts then it may have caused c-terminal cleavage
                 //see if the protease used for digestion has C-terminal cleavage sites
                 List<string> cTerminalResidue = proteasesCleavageSites.Where(dm => dm.CutIndex == 1).Select(d => d.InducingCleavage).ToList();
@@ -897,7 +897,7 @@ namespace Proteomics.ProteolyticDigestion
                 && q.FullSequence.Equals(this.FullSequence)
                 && q.OneBasedStartResidue == this.OneBasedStartResidue
                 && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.Enzyme.Equals(this.DigestionParams.Enzyme);
+                && q.DigestionParams.DigestionAgent.Equals(this.DigestionParams.DigestionAgent);
         }
 
         public override int GetHashCode()
@@ -908,7 +908,7 @@ namespace Proteomics.ProteolyticDigestion
             }
             else
             {
-                return FullSequence.GetHashCode() + DigestionParams.Enzyme.GetHashCode();
+                return FullSequence.GetHashCode() + DigestionParams.DigestionAgent.GetHashCode();
             }
         }
 
@@ -1065,7 +1065,7 @@ namespace Proteomics.ProteolyticDigestion
             char[] newBase = new char[this.BaseSequence.Length];
             Array.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
-            List<DigestionMotif> motifs = this.DigestionParams.Enzyme.DigestionMotifs;
+            List<DigestionMotif> motifs = this.DigestionParams.DigestionAgent.DigestionMotifs;
             if (motifs != null && motifs.Count > 0)
             {
                 foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
@@ -1185,7 +1185,7 @@ namespace Proteomics.ProteolyticDigestion
             char[] newBase = new char[this.BaseSequence.Length];
             Array.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
-            List<DigestionMotif> motifs = this.DigestionParams.Enzyme.DigestionMotifs;
+            List<DigestionMotif> motifs = this.DigestionParams.DigestionAgent.DigestionMotifs;
             if (motifs != null && motifs.Count > 0)
             {
                 foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown

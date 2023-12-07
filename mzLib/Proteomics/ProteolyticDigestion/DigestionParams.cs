@@ -39,7 +39,7 @@ namespace Proteomics.ProteolyticDigestion
         public int MinLength { get; set; }
         public int MaxLength { get; set; }
         public int MaxMods { get; set; }
-        public DigestionAgent Enzyme => Protease;
+        public DigestionAgent DigestionAgent => Protease;
 
         public CleavageSpecificity SearchModeType { get; private set; } //for fast semi and nonspecific searching of proteases
         public FragmentationTerminus FragmentationTerminus { get; private set; } //for fast semi searching of proteases
