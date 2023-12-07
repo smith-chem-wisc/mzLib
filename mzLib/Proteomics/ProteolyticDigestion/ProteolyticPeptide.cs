@@ -147,7 +147,7 @@ namespace Proteomics.ProteolyticDigestion
             foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
             {
                 int numFixedMods = 0;
-                foreach (var ok in GetFixedModsOneIsNterminusOrFivePrime(peptideLength, allKnownFixedModifications))
+                foreach (var ok in GetFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications))
                 {
                     if (!kvp.ContainsKey(ok.Key))
                     {

@@ -61,7 +61,7 @@ namespace Omics.Digestion
             }
         }
 
-        protected Dictionary<int, Modification> GetFixedModsOneIsNterminusOrFivePrime(int length,
+        protected Dictionary<int, Modification> GetFixedModsOneIsNorFivePrimeTerminus(int length,
             IEnumerable<Modification> allKnownFixedModifications)
         {
             var fixedModsOneIsNterminus = new Dictionary<int, Modification>(length + 3);
