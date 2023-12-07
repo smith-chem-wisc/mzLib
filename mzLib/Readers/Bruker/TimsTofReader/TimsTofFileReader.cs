@@ -50,9 +50,17 @@ namespace Readers.Bruker
 
         internal void OpenSqlConnection()
         {
-            _sqlConnection = new();
-            _sqlConnection.ConnectionString = "DataSource=" + Path.Combine(FilePath, "analysis.tdf");
+            // You really only need to do this if you're doing a static load
+            // If dynamic, this is a worse way to do it
+            _sqlConnection = new SQLiteConnection("Data Source=:memory:;Mode=Memory");
             _sqlConnection.Open();
+
+            SQLiteConnection onDiskDBConnection = new SQLiteConnection("Data Source=" + 
+                Path.Combine(FilePath, "analysis.tdf") +
+                "; Version=3");
+            onDiskDBConnection.Open();
+            onDiskDBConnection.BackupDatabase(_sqlConnection, "main", "main", -1, null, -1);
+            onDiskDBConnection.Close();
         }
 
         internal void OpenBinaryFileConnection()
@@ -152,13 +160,14 @@ namespace Readers.Bruker
                     " WHERE p.Parent = " + frame.FrameId.ToString() +
                     " GROUP BY p.Id;";
                 using var sqliteReader = command.ExecuteReader();
+                List<int> precursorIdsInFrame = new();
                 while (sqliteReader.Read())
                 {
                     var scanStart = sqliteReader.GetInt32(0);
                     var scanEnd = sqliteReader.GetInt32(1);
                     var scanMedian = sqliteReader.GetFloat(2);
                     int precursorId = sqliteReader.GetInt32(3);
-
+                    precursorIdsInFrame.Add(precursorId);
                     // Now we're gonna try and build some scans!
                     // Step 1: Pull the m/z + intensity arrays for each scan in range
                     List<double[]> mzArrays = new();
@@ -169,7 +178,7 @@ namespace Readers.Bruker
                         intensityArrays.Add(frame.GetScanIntensities(scan));
                     }
                     // Step 2: Average those suckers
-                    MzSpectrum averagedSpectrum = AverageScans(mzArrays, intensityArrays);
+                    MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays);
                     // Step 3: Make an MsDataScan bby
                     var dataScan = new TimsDataScan(
                         massSpectrum: averagedSpectrum,
@@ -193,8 +202,78 @@ namespace Readers.Bruker
 
                     PrecursorIdToZeroBasedScanIndex.TryAdd(precursorId, scanList.Count());
                     scanList.Add(dataScan);
+
+                    
                 }
+                // Then, build ONE MS2 scan from every PASEF frame that sampled that precursor
+                BuildPasefScanFromPrecursor(scanList, precursorIdsInFrame.Distinct(), frameIndex);
             }
+        }
+
+        internal void BuildPasefScanFromPrecursor(List<MsDataScan> scanList, IEnumerable<int> precursorIds, int parentFrameIndex)
+        {
+            using var command = new SQLiteCommand(_sqlConnection);
+            string multiplePrecursorString = "(" + 
+                String.Join(',', precursorIds.Select(id => "\'" + id.ToString() + "\'")) +
+                ")";
+            // SQL Command for getting some info from both PasefFrameMsMsInfo table and
+            // Precursors table
+            command.CommandText =
+                                @"SELECT GROUP_CONCAT(m.Frame), m.ScanNumBegin, m.ScanNumEnd, m.IsolationMz, m.IsolationWidth," +
+                " m.CollisionEnergy, p.LargestPeakMz, p.MonoisotopicMz, p.Charge, p.Intensity, p.ScanNumber, p.Id" +
+                " FROM PasefFrameMsMsInfo m" +
+                " INNER JOIN Precursors p on m.Precursor = p.Id" +
+                " WHERE m.Precursor IN " + multiplePrecursorString +
+                " GROUP BY m.Precursor;";
+                //";";
+
+
+            //@"SELECT m.Frame, m.ScanNumBegin, m.ScanNumEnd, m.IsolationMz, m.IsolationWidth," +
+            //    " m.CollisionEnergy, p.LargestPeakMz, p.MonoisotopicMz, p.Charge, p.Intensity, p.ScanNumber, p.Id" +
+            //    " FROM Precursors p" +
+            //    " INNER JOIN PasefFrameMsMsInfo m on m.Precursor = p.Id" +
+            //    " WHERE m.Precursor IN " + multiplePrecursorString +
+            //    //" GROUP BY m.Frame;";
+            //    ";";
+
+            using var sqliteReader = command.ExecuteReader();
+            int runningTotal = 0;
+            List<(long, int)> frameScanStartTuple = new();
+            List<float> collisionEnergies = new();
+            while (sqliteReader.Read())
+            {
+                var frameList = sqliteReader.GetString(0).Split(',').Select(id => Int64.Parse(id));
+                var scanStart = sqliteReader.GetInt32(1);
+                //frameScanStartTuple.Add((frame, scanStart));
+                var scanEnd = sqliteReader.GetInt32(2);
+                var isolationMz = sqliteReader.GetFloat(3);
+                var isolationWidth = sqliteReader.GetFloat(4);
+                var collisionEnergy = sqliteReader.GetFloat(5);
+                collisionEnergies.Add(collisionEnergy);
+                var mostAbundantPrecursorPeak = sqliteReader.GetFloat(6);
+                var precursorMonoisotopicMz = sqliteReader.GetFloat(7);
+                var charge = sqliteReader.GetInt32(8);
+                var precursorIntensity = sqliteReader.GetFloat(9);
+                var scanMedian = sqliteReader.GetFloat(10);
+                var precursorId = sqliteReader.GetInt32(11);
+                runningTotal++;
+
+                // Now we're gonna try and build some scans!
+                // Step 1: Pull the m/z + intensity arrays for each scan in range
+                List<double[]> mzArrays = new();
+                List<int[]> intensityArrays = new();
+                //for (int scan = scanStart; scan < scanEnd; scan++)
+                //{
+                //    mzArrays.Add(frame.GetScanMzs(scan));
+                //    intensityArrays.Add(frame.GetScanIntensities(scan));
+                //}
+                //// Step 2: Average those suckers
+                //MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays);
+            }
+            int placeholder = 4;
+            // For scan 1, we have 8 unique precursors, each of which is sampled 10-11 times
+            // We need a way of iteratively building an mzSpectrum, 
+
         }
 
         internal void BuildPasefScans(List<MsDataScan> scanList, FrameProxy frame, int frameIndex)
@@ -235,7 +314,7 @@ namespace Readers.Bruker
                     intensityArrays.Add(frame.GetScanIntensities(scan));
                 }
                 // Step 2: Average those suckers
-                MzSpectrum averagedSpectrum = AverageScans(mzArrays, intensityArrays);
+                MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays);
                 // Step 3: Make an MsDataScan bby
                 var dataScan = new TimsDataScan(
                         massSpectrum: averagedSpectrum,
@@ -273,7 +352,7 @@ namespace Readers.Bruker
             }
         }
 
-        internal MzSpectrum AverageScans(List<double[]> mzArrays, List<int[]> intensityArrays)
+        internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays)
         {
             int mostIntenseScanIndex = 0;
             int maxIntensity = 0;
