@@ -7,11 +7,11 @@ using Omics.Modifications;
 
 namespace Omics.Digestion
 {
-    public class LysisProduct
+    public abstract class LysisProduct
     {
         protected string _baseSequence;
 
-        public LysisProduct(IBioPolymer parent, int oneBasedStartResidue, int oneBasedEndResidue, int missedCleavages, 
+        protected LysisProduct(IBioPolymer parent, int oneBasedStartResidue, int oneBasedEndResidue, int missedCleavages, 
             CleavageSpecificity cleavageSpecificityForFdrCategory, string? description = null, string? baseSequence = null)
         {
             Parent = parent;
