@@ -10,6 +10,8 @@ using System.Data.Common;
 using Readers.Bruker.TimsTofReader;
 using System.Data.SqlClient;
 using System.Data;
+using ThermoFisher.CommonCore.Data.Business;
+using Polarity = MassSpectrometry.Polarity;
 
 namespace Readers.Bruker
 { 
@@ -225,31 +227,20 @@ namespace Readers.Bruker
                 " INNER JOIN Precursors p on m.Precursor = p.Id" +
                 " WHERE m.Precursor IN " + multiplePrecursorString +
                 " GROUP BY m.Precursor;";
-                //";";
-
-
-            //@"SELECT m.Frame, m.ScanNumBegin, m.ScanNumEnd, m.IsolationMz, m.IsolationWidth," +
-            //    " m.CollisionEnergy, p.LargestPeakMz, p.MonoisotopicMz, p.Charge, p.Intensity, p.ScanNumber, p.Id" +
-            //    " FROM Precursors p" +
-            //    " INNER JOIN PasefFrameMsMsInfo m on m.Precursor = p.Id" +
-            //    " WHERE m.Precursor IN " + multiplePrecursorString +
-            //    //" GROUP BY m.Frame;";
-            //    ";";
 
             using var sqliteReader = command.ExecuteReader();
             int runningTotal = 0;
-            List<(long, int)> frameScanStartTuple = new();
-            List<float> collisionEnergies = new();
+            HashSet<long> allFrames = new();
+            List<MsDataScan> pasefScans = new();
             while (sqliteReader.Read())
             {
                 var frameList = sqliteReader.GetString(0).Split(',').Select(id => Int64.Parse(id));
+                allFrames.Union(frameList);
                 var scanStart = sqliteReader.GetInt32(1);
-                //frameScanStartTuple.Add((frame, scanStart));
                 var scanEnd = sqliteReader.GetInt32(2);
                 var isolationMz = sqliteReader.GetFloat(3);
                 var isolationWidth = sqliteReader.GetFloat(4);
                 var collisionEnergy = sqliteReader.GetFloat(5);
-                collisionEnergies.Add(collisionEnergy);
                 var mostAbundantPrecursorPeak = sqliteReader.GetFloat(6);
                 var precursorMonoisotopicMz = sqliteReader.GetFloat(7);
                 var charge = sqliteReader.GetInt32(8);
@@ -258,22 +249,74 @@ namespace Readers.Bruker
                 var precursorId = sqliteReader.GetInt32(11);
                 runningTotal++;
 
-                // Now we're gonna try and build some scans!
-                // Step 1: Pull the m/z + intensity arrays for each scan in range
-                List<double[]> mzArrays = new();
-                List<int[]> intensityArrays = new();
-                //for (int scan = scanStart; scan < scanEnd; scan++)
-                //{
-                //    mzArrays.Add(frame.GetScanMzs(scan));
-                //    intensityArrays.Add(frame.GetScanIntensities(scan));
-                //}
-                //// Step 2: Average those suckers
-                //MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays);
+                // Now, we build data scans with null MzSpectra. The MassSpectrum will be constructed later.
+                var dataScan = new TimsDataScan(
+                        massSpectrum: null,
+                        oneBasedScanNumber: scanList.Count + 1,
+                        msnOrder: 2,
+                        isCentroid: true,
+                        polarity: FramesTable.Polarity[frameList.First()] == '+' ? Polarity.Positive : Polarity.Negative,
+                        retentionTime: (double)FramesTable.RetentionTime[frameList.First()],
+                        scanWindowRange: ScanWindow,
+                        scanFilter: ScanFilter,
+                        mzAnalyzer: MZAnalyzerType.TOF,
+                        totalIonCurrent: -1, // Will be set later
+                        // This could conceivably break if there are more then 2,147,483,647 frames
+                        injectionTime: FramesTable.FillTime[(int)frameList.First()..(int)frameList.Last()].Sum(),
+                        noiseData: null,
+                        nativeId: "frame=" + frameList.First().ToString() + "-" + frameList.Last().ToString() +
+                            ";scans=" + scanStart.ToString() + "-" + scanEnd.ToString(),
+                        frameId: frameList.First(),
+                        scanNumberStart: scanStart,
+                        scanNumberEnd: scanEnd,
+                        medianOneOverK0: -1, // Needs to be set later
+                        precursorId: precursorId,
+                        selectedIonMz: mostAbundantPrecursorPeak,
+                        selectedIonChargeStateGuess: charge,
+                        selectedIonIntensity: precursorIntensity,
+                        isolationMZ: isolationMz,
+                        isolationWidth: isolationWidth,
+                        dissociationType: DissociationType.CID, // I think? Not totally sure about this
+                                                                // We don't really have one based precursors in timsTOF data, so it's not immediately clear how to handle this field
+                        oneBasedPrecursorScanNumber: PrecursorIdToZeroBasedScanIndex.TryGetValue(precursorId, out int precursorScanIdx)
+                            ? precursorScanIdx
+                            : null,
+                        selectedIonMonoisotopicGuessMz: precursorMonoisotopicMz,
+                        hcdEnergy: collisionEnergy.ToString(),
+                        frames: frameList.ToList());
+                pasefScans.Add(dataScan);
             }
-            int placeholder = 4;
+
             // For scan 1, we have 8 unique precursors, each of which is sampled 10-11 times
             // We need a way of iteratively building an mzSpectrum, 
+            foreach(long frameId in allFrames)
+            {
+                FrameProxy frame = new FrameProxy((ulong)_fileHandle, frameId, FramesTable.NumScans[frameId]);
+                //Iterate through all the datascans created above with this frame
+                foreach(TimsDataScan scan in pasefScans)
+                {
+                    if (scan.FrameIds.Contains(frameId))
+                    {
+                        List<double[]> mzArrays = new();
+                        List<int[]> intensityArrays = new();
+                        for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
+                        {
+                            mzArrays.Add(frame.GetScanMzs(mobilityScanIdx));
+                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx));
+                        }
+                        // Step 2: Average those suckers
+                        MzSpectrum summedSpectrum = SumScans(mzArrays, intensityArrays);
+                        scan.AddComponentSpectrum(summedSpectrum);
+                    }
+                }
+            }
 
+            foreach(TimsDataScan scan in pasefScans)
+            {
+                scan.AverageComponentSpectra();
+            }
+            
+            // Then you still have to add them to the list, link them to the appropriate precursor TimsDataScans
         }
 
         internal void BuildPasefScans(List<MsDataScan> scanList, FrameProxy frame, int frameIndex)
@@ -354,6 +397,8 @@ namespace Readers.Bruker
 
         internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays)
         {
+
+
             int mostIntenseScanIndex = 0;
             int maxIntensity = 0;
             for (int i = 0; i < intensityArrays.Count; i++)
@@ -371,6 +416,75 @@ namespace Readers.Bruker
                 mz: mzArrays[mostIntenseScanIndex], 
                 intensities: Array.ConvertAll(intensityArrays[mostIntenseScanIndex], entry => (double)entry),
                 shouldCopy: false);
+        }
+
+        internal static MzSpectrum MergeSpectra(List<double[]> mzArrays, List<int[]> intensityArrays)
+        {
+            if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
+                return null;
+            List<LinkedListNode<TofPeak>> peakNodes = new();
+            for (int i = 0; i < mzArrays.Count(); i++)
+            {
+                if (mzArrays[i].Length < 1) continue;
+                LinkedList<TofPeak> peakList = new();
+                for(int j = 0; j< mzArrays[i].Length; j++)
+                {
+                    peakList.AddLast(new LinkedListNode<TofPeak>(
+                        new TofPeak(mzArrays[i][j], intensityArrays[i][j])));
+                }
+                peakNodes.Add(peakList.First);
+            }
+            var mergedListHead = MergeSpectraHelper(peakNodes, 0, peakNodes.Count);
+        }
+
+        internal static LinkedListNode<TofPeak> MergeSpectraHelper(
+            List<LinkedListNode<TofPeak>> peakNodes,
+            int nodeListStart,
+            int nodeListEnd)
+        {
+
+        }
+
+        internal static List<double> Merge(IList<double> mz1, IList<double> mz2,
+            IList<int> intensity1, IList<int> intensity2, PpmTolerance tolerance) 
+        {
+            int a1_idx = 0;
+            int a2_idx = 0;
+            List<double> mergedMz = new();
+            List<double> mergedIntensity = new();
+            while(a1_idx < mz1.Count() && a2_idx < mz2.Count())
+            {
+                if(tolerance.Within(mz1[a1_idx],mz2[a2_idx]))
+                {
+                    mergedIntensity.Add(intensity1[a1_idx] + intensity2[a2_idx]);
+                    mergedMz.Add((mz1[a1_idx++] + mz2[a2_idx++]) / 2.0);
+                    
+                }
+                else if (mz1[a1_idx] > mz2[a2_idx])
+                {
+                    mergedIntensity.Add(intensity2[a2_idx]);
+                    mergedMz.Add(mz2[a2_idx++]);
+                }
+                else
+                {
+                    mergedIntensity.Add(intensity1[a1_idx]);
+                    mergedMz.Add(mz1[a1_idx++]);
+                }
+            }
+
+            // add the remainder of the arrays to the list
+            while (a1_idx < mz1.Count())
+            {
+                mergedIntensity.Add(intensity1[a1_idx]);
+                mergedMz.Add(mz1[a1_idx++]);
+            }
+            while (a2_idx < mz2.Count())
+            {
+                mergedIntensity.Add(intensity2[a2_idx]);
+                mergedMz.Add(mz2[a2_idx++]);
+            }
+
+            return mergedMz;
         }
 
         private const string nativeIdFormat = "Frame ID + scan number range format";

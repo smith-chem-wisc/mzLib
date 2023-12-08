@@ -14,6 +14,12 @@ namespace MassSpectrometry
         public double OneOverK0 { get; }
         public int PrecursorId { get; }
         public long FrameId { get; }
+        /// <summary>
+        /// For PASEF Aggregate scans, contains the list of Frames where the same precursor was samples
+        /// This is a list of succesive PASEF scans capturing data on the same ion-mobility scan range and quadrupole isolation window
+        /// </summary>
+        public List<long> FrameIds { get; }
+        internal List<MzSpectrum> ComponentSpectra { get; private set; }
 
 
         // Need to incorporate scan range somehow
@@ -43,7 +49,8 @@ namespace MassSpectrometry
             DissociationType? dissociationType = null,
             int? oneBasedPrecursorScanNumber = null,
             double? selectedIonMonoisotopicGuessMz = null,
-            string hcdEnergy = null) : 
+            string hcdEnergy = null,
+            List<long> frames = null) : 
             base(massSpectrum, oneBasedScanNumber, msnOrder, isCentroid, polarity,
                 retentionTime, scanWindowRange, scanFilter, mzAnalyzer, totalIonCurrent,
                 injectionTime, noiseData, nativeId, selectedIonMz, selectedIonChargeStateGuess,
@@ -51,10 +58,27 @@ namespace MassSpectrometry
                 oneBasedPrecursorScanNumber, selectedIonMonoisotopicGuessMz, hcdEnergy)
         {
             FrameId = frameId;
+            FrameIds = frames;
             ScanNumberStart = scanNumberStart;
             ScanNumberEnd = scanNumberEnd;
             OneOverK0 = medianOneOverK0;
             PrecursorId = precursorId;
+            if(msnOrder > 1)
+            {
+                ComponentSpectra = new();
+            }
         }
+
+        public void AverageComponentSpectra()
+        {
+            // Average all component spectra here
+        }
+
+        public void AddComponentSpectrum(MzSpectrum spectrum)
+        {
+            if (ComponentSpectra == null) return;
+            ComponentSpectra.Add(spectrum);
+        }
+
     }
 }
