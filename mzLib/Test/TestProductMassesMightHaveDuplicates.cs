@@ -9,6 +9,7 @@ using System.Linq;
 using Omics.Fragmentation;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics.Fragmentation.Peptide;
+using Omics.Modifications;
 
 namespace Test
 {

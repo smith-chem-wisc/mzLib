@@ -29,6 +29,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using Omics.Modifications;
 using UsefulProteomicsDatabases.Generated;
 using TopDownProteomics.IO.Obo;
 

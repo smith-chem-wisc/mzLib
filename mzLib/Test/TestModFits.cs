@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using Proteomics;
 using System;
+using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
