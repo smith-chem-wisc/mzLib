@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>mzLib</id>
-    <version>5.0.540</version>
+    <version>5.0.543</version>
     <title>mzLib</title>
     <authors>Stef S.</authors>
     <owners>Stef S.</owners>
@@ -57,6 +57,8 @@
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net6.0" /> 
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net6.0" /> 
     <file src="UsefulProteomicsDatabases\bin\x64\Release\net6.0\UsefulProteomicsDatabases.dll" target="lib\net6.0" /> 
+    <file src="Transcriptomics\bin\x64\Release\net6.0\Transcriptomics.dll" target="lib\net6.0" /> 
+    <file src="Transcriptomics\bin\x64\Release\net6.0\Digestion\rnases.tsv" target="lib\net6.0" /> 
     <!--net6.0-windows target with mzPlot-->
     <file src="mzPlot\bin\x64\Release\net6.0-windows\mzPlot.dll" target="lib\net6.0-windows7.0" /> 
     <file src="BayesianEstimation\bin\x64\Release\net6.0\BayesianEstimation.dll" target="lib\net6.0-windows7.0" />
@@ -78,5 +80,7 @@
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net6.0-windows7.0" /> 
     <file src="Readers\bin\x64\Release\net6.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net6.0-windows7.0" /> 
     <file src="UsefulProteomicsDatabases\bin\x64\Release\net6.0\UsefulProteomicsDatabases.dll" target="lib\net6.0-windows7.0" /> 
+    <file src="Transcriptomics\bin\x64\Release\net6.0\Transcriptomics.dll" target="lib\net6.0-windows7.0" /> 
+    <file src="Transcriptomics\bin\x64\Release\net6.0\Digestion\rnases.tsv" target="lib\net6.0-windows7.0" /> 
   </files>
 </package>
