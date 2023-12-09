@@ -12,6 +12,7 @@ using System.Data.SqlClient;
 using System.Data;
 using ThermoFisher.CommonCore.Data.Business;
 using Polarity = MassSpectrometry.Polarity;
+using System.Security.AccessControl;
 
 namespace Readers.Bruker
 { 
@@ -397,95 +398,28 @@ namespace Readers.Bruker
 
         internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays)
         {
+            return TofSpectraMerger.MergeSpectra(mzArrays, intensityArrays);
 
+            //int mostIntenseScanIndex = 0;
+            //int maxIntensity = 0;
+            //for (int i = 0; i < intensityArrays.Count; i++)
+            //{
+            //    int[] intensityArray = intensityArrays[i];
+            //    int intensitySum = intensityArray.Sum();
+            //    if(intensitySum > maxIntensity)
+            //    {
+            //        mostIntenseScanIndex = i;
+            //        maxIntensity = intensitySum;
+            //    }
+            //}
 
-            int mostIntenseScanIndex = 0;
-            int maxIntensity = 0;
-            for (int i = 0; i < intensityArrays.Count; i++)
-            {
-                int[] intensityArray = intensityArrays[i];
-                int intensitySum = intensityArray.Sum();
-                if(intensitySum > maxIntensity)
-                {
-                    mostIntenseScanIndex = i;
-                    maxIntensity = intensitySum;
-                }
-            }
-
-            return new MzSpectrum(
-                mz: mzArrays[mostIntenseScanIndex], 
-                intensities: Array.ConvertAll(intensityArrays[mostIntenseScanIndex], entry => (double)entry),
-                shouldCopy: false);
+            //return new MzSpectrum(
+            //    mz: mzArrays[mostIntenseScanIndex], 
+            //    intensities: Array.ConvertAll(intensityArrays[mostIntenseScanIndex], entry => (double)entry),
+            //    shouldCopy: false);
         }
 
-        internal static MzSpectrum MergeSpectra(List<double[]> mzArrays, List<int[]> intensityArrays)
-        {
-            if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
-                return null;
-            List<LinkedListNode<TofPeak>> peakNodes = new();
-            for (int i = 0; i < mzArrays.Count(); i++)
-            {
-                if (mzArrays[i].Length < 1) continue;
-                LinkedList<TofPeak> peakList = new();
-                for(int j = 0; j< mzArrays[i].Length; j++)
-                {
-                    peakList.AddLast(new LinkedListNode<TofPeak>(
-                        new TofPeak(mzArrays[i][j], intensityArrays[i][j])));
-                }
-                peakNodes.Add(peakList.First);
-            }
-            var mergedListHead = MergeSpectraHelper(peakNodes, 0, peakNodes.Count);
-        }
-
-        internal static LinkedListNode<TofPeak> MergeSpectraHelper(
-            List<LinkedListNode<TofPeak>> peakNodes,
-            int nodeListStart,
-            int nodeListEnd)
-        {
-
-        }
-
-        internal static List<double> Merge(IList<double> mz1, IList<double> mz2,
-            IList<int> intensity1, IList<int> intensity2, PpmTolerance tolerance) 
-        {
-            int a1_idx = 0;
-            int a2_idx = 0;
-            List<double> mergedMz = new();
-            List<double> mergedIntensity = new();
-            while(a1_idx < mz1.Count() && a2_idx < mz2.Count())
-            {
-                if(tolerance.Within(mz1[a1_idx],mz2[a2_idx]))
-                {
-                    mergedIntensity.Add(intensity1[a1_idx] + intensity2[a2_idx]);
-                    mergedMz.Add((mz1[a1_idx++] + mz2[a2_idx++]) / 2.0);
-                    
-                }
-                else if (mz1[a1_idx] > mz2[a2_idx])
-                {
-                    mergedIntensity.Add(intensity2[a2_idx]);
-                    mergedMz.Add(mz2[a2_idx++]);
-                }
-                else
-                {
-                    mergedIntensity.Add(intensity1[a1_idx]);
-                    mergedMz.Add(mz1[a1_idx++]);
-                }
-            }
-
-            // add the remainder of the arrays to the list
-            while (a1_idx < mz1.Count())
-            {
-                mergedIntensity.Add(intensity1[a1_idx]);
-                mergedMz.Add(mz1[a1_idx++]);
-            }
-            while (a2_idx < mz2.Count())
-            {
-                mergedIntensity.Add(intensity2[a2_idx]);
-                mergedMz.Add(mz2[a2_idx++]);
-            }
-
-            return mergedMz;
-        }
+        
 
         private const string nativeIdFormat = "Frame ID + scan number range format";
         private const string massSpecFileFormat = ".D format";
