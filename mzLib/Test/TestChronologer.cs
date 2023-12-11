@@ -16,7 +16,7 @@ namespace Test
         public void TestChronologerMethods()
         {
             var dictionary =
-                ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Chronologer);
+                DictionaryBuilder.GetChronologerDictionary(DictionaryBuilder.TypeOfDictionary.Chronologer);
             var chronologer = new Chronologer(dictionary, Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "RetentionTimePredictionModels",
                 "Chronologer_20220601193755_TorchSharp.dat"));
@@ -47,7 +47,7 @@ namespace Test
         public void TestDatasets()
         {
             var dictionary =
-                ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Chronologer);
+                DictionaryBuilder.GetChronologerDictionary(DictionaryBuilder.TypeOfDictionary.Chronologer);
 
             var chronologer = new Chronologer(dictionary, Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "RetentionTimePredictionModels",
@@ -115,7 +115,7 @@ namespace Test
         public void TestTensorize()
         {
             var dictionary =
-                ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Chronologer);
+                DictionaryBuilder.GetChronologerDictionary(DictionaryBuilder.TypeOfDictionary.Chronologer);
 
             var chronologer = new Chronologer(dictionary, Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                                "RetentionTimePredictionModels",
@@ -136,7 +136,7 @@ namespace Test
         public void TestForwardPass()
         {
             var dictionary =
-                ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Chronologer);
+                DictionaryBuilder.GetChronologerDictionary(DictionaryBuilder.TypeOfDictionary.Chronologer);
 
             var chronologer = new Chronologer(dictionary, Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "RetentionTimePredictionModels",
@@ -155,7 +155,7 @@ namespace Test
         public void TestTrainMethod()
         {
             var dictionary =
-                ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Chronologer);
+                DictionaryBuilder.GetChronologerDictionary(DictionaryBuilder.TypeOfDictionary.Chronologer);
 
             var chronologer = new Chronologer(dictionary, Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                                "RetentionTimePredictionModels",

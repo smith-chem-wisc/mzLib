@@ -4,7 +4,10 @@ using System.Linq;
 
 namespace UsefulProteomicsDatabases
 {
-    public static class ChronologerDictionary
+    /// <summary>
+    /// This class provides static methods to build dictionaries for different models.
+    /// </summary>
+    public static class DictionaryBuilder
     {
         public static Dictionary<(char, string), int>
             GetChronologerDictionary(TypeOfDictionary dict)

@@ -7,7 +7,7 @@ using SkiaSharp;
 using TorchSharp;
 using TorchSharp.Modules;
 using TorchSharp.Utils;
-using static UsefulProteomicsDatabases.ChronologerDictionary;
+using static UsefulProteomicsDatabases.DictionaryBuilder;
 
 namespace MachineLearning.RetentionTimePredictionModels
 {
