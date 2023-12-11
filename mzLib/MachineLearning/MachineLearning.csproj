@@ -16,6 +16,9 @@
     <None Update="RetentionTimePredictionModels\Chronologer_20220601193755_TorchSharp.dat">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="unimod.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
