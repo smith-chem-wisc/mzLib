@@ -1,9 +1,7 @@
-﻿using MzLibUtil;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
+using MzLibUtil;
 
-namespace Proteomics.ProteolyticDigestion
+namespace Omics.Digestion
 {
     public class DigestionMotif
     {

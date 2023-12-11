@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Text;
+﻿using System.Globalization;
 
-namespace Proteomics
+namespace Omics.Modifications
 {
     /// <summary>
     /// Silac labels used to modify unlabeled proteins

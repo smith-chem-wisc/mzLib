@@ -1,4 +1,4 @@
-﻿namespace Proteomics.ProteolyticDigestion
+﻿namespace Omics.Digestion
 {
     public enum CleavageSpecificity
     {

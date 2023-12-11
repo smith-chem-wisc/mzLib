@@ -5,6 +5,7 @@ using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
 using Omics.Fragmentation;
+using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;

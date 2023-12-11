@@ -19,23 +19,47 @@
         //y°	        y-H2O
         //z             [C]+[M]-NH2
 
+        // Base ions are for Nucleic acids in which the base is cleaved as a neutral loss during fragmentation
+        // schematic for RNA fragmentation modes can be found below
+        // https://www.researchgate.net/figure/The-standard-nomenclature-for-oligonucleotide-fragmentation-during-collisioninduced_fig6_271536997
+        // Base loss ions are for Nucleic acids in which the base is cleaved as a neutral loss during fragmentation
+        //     These base losses have only been explicetly confirmed for 3' fragments (a,b,c,d)
+        //     The base loss ions for 5' fragments (w,x,y,z) are theoretical and have not been confirmed
+
         a,
         aStar,
         aDegree,
+        aWaterLoss,
+        aBaseLoss,
         b,
         bAmmoniaLoss,
         bWaterLoss,
         //BnoB1ions,
+        bBaseLoss,
         c,
+        cWaterLoss,
+        cBaseLoss,
+        d,
+        dWaterLoss,
+        dBaseLoss,
+        w,
+        wWaterLoss,
+        wBaseLoss,
         x,
+        xWaterLoss,
+        xBaseLoss,
         y,
         yAmmoniaLoss,
         yWaterLoss,
-        zPlusOne,//This is zDot plus H
+        yBaseLoss,
+        z,
+        zPlusOne,       //This is zDot plus H
         zDot,
-        M, //this is the molecular ion // [M]
-        D, //this is a diagnostic ion // Modification loss mass
-        Ycore, //Glyco core Y ions // [pep] + Neutral core Glycan mass (such as: [pep] + [N]) //Which already consider the loss of H2O and H-transfer
-        Y //Glyco Y ions // [pep] + other Glycan mass 
+        zWaterLoss,
+        zBaseLoss,
+        M,              //this is the molecular ion // [M]
+        D,              //this is a diagnostic ion // Modification loss mass
+        Ycore,          //Glyco core Y ions // [pep] + Neutral core Glycan mass (such as: [pep] + [N]) //Which already consider the loss of H2O and H-transfer
+        Y               //Glyco Y ions // [pep] + other Glycan mass 
     }
 }
