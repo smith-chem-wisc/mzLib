@@ -1,4 +1,5 @@
-﻿using Proteomics.ProteolyticDigestion;
+﻿using Omics;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,7 +25,7 @@ namespace Proteomics
 
 
             //determine sequence ambiguity
-            string firstBaseSequence = PeptideWithSetModifications.GetBaseSequenceFromFullSequence(sequences[0]).ToUpper(); //get first sequence with modifications removed
+            string firstBaseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequences[0]).ToUpper(); //get first sequence with modifications removed
             bool sequenceIdentified = !SequenceContainsUnknownAminoAcids(firstBaseSequence); //check if there are any ambiguous amino acids (i.e. B, J, X, Z)
             //for every other sequence reported
             if (sequenceIdentified) //if there weren't any unknown amino acids reported.
@@ -32,7 +33,7 @@ namespace Proteomics
                 for (int i = 1; i < sequences.Length; i++)
                 {
                     //if the unmodified sequences don't match, then there's sequence ambiguity
-                    if (!firstBaseSequence.Equals(PeptideWithSetModifications.GetBaseSequenceFromFullSequence(sequences[i]).ToUpper()))
+                    if (!firstBaseSequence.Equals(IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequences[i]).ToUpper()))
                     {
                         sequenceIdentified = false;
                         break;
