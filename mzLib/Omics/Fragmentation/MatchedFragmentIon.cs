@@ -78,8 +78,8 @@ namespace Omics.Fragmentation
 
             return this.NeutralTheoreticalProduct.Equals(other.NeutralTheoreticalProduct)
                 && this.Charge == other.Charge
-                && this.Mz == other.Mz
-                && this.Intensity == other.Intensity;
+                && Math.Abs(Mz - other.Mz) < 0.0001
+                && Math.Abs(Intensity - other.Intensity) < 0.0001;
         }
 
         public override int GetHashCode()

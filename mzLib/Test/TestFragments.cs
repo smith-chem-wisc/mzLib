@@ -888,6 +888,15 @@ namespace Test
         }
 
         [Test]
+        public static void TestMatchedFragmentIonEquals()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            MatchedFragmentIon ion1 = new MatchedFragmentIon(P, experMz: 150, experIntensity: 99.99999, charge: 2);
+            MatchedFragmentIon ion2 = new MatchedFragmentIon(P, experMz: 149.99999, experIntensity: 100, charge: 2);
+            Assert.AreEqual(ion1, ion2);
+        }
+
+        [Test]
         public static void Test_CID_Fragmentation_No_Unmodified_B1_ions()
         {
             //FOR CID B1 ions should always be missing whether or not there is a modification on first amino acid or not.
