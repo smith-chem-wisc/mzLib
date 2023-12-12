@@ -3,7 +3,7 @@ using Chemistry;
 
 namespace Omics.Fragmentation
 {
-    public class Product : IHasMass
+    public class Product : IHasMass, IEquatable<Product>
     {
         public double NeutralMass { get; }
         public ProductType ProductType { get; }
@@ -89,14 +89,18 @@ namespace Omics.Fragmentation
             return obj is Product other && Equals(other);
         }
 
-        public bool Equals(Product product)
+        public bool Equals(Product? product)
         {
-            return this.ProductType.Equals(product.ProductType)
-                   && this.NeutralMass.Equals(product.NeutralMass)
-                   && this.FragmentNumber == product.FragmentNumber
-                   && this.NeutralLoss.Equals(product.NeutralLoss)
-                   && this.SecondaryFragmentNumber == product.SecondaryFragmentNumber
-                   && this.SecondaryProductType == product.SecondaryProductType;
+            return product != null
+                   && NeutralMass.Equals(product.NeutralMass)
+                   && ProductType == product.ProductType
+                   && NeutralLoss.Equals(product.NeutralLoss)
+                   && Terminus == product.Terminus
+                   && FragmentNumber == product.FragmentNumber
+                   && ResiduePosition == product.ResiduePosition
+                   && SecondaryProductType == product.SecondaryProductType
+                   && SecondaryFragmentNumber == product.SecondaryFragmentNumber
+                   && MonoisotopicMass.Equals(product.MonoisotopicMass);
         }
 
         public override int GetHashCode()
