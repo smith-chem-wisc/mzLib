@@ -237,7 +237,7 @@ namespace UsefulProteomicsDatabases
             no
         }
 
-        /// <summary>
+        /// <summary>  
         /// Columns to select for retrieving results in tab or xls format.
         /// https://www.uniprot.org/help/return_fields
         /// </summary>
