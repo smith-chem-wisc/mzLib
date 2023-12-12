@@ -96,5 +96,23 @@ namespace Test
             Assert.That(!differentDouble.AllSame());
             Assert.That(!differentSpectrum.AllSame());
         }
+
+        [Test]
+        [TestCase(1874.28, 373.8487, -5)]
+        [TestCase(1874.28, 467.5627, -4)]
+        [TestCase(1874.28, 623.7527, -3)]
+        [TestCase(1874.28, 936.1327, -2)]
+        [TestCase(1874.28, 1873.273, -1)]
+        [TestCase(1874.28, 375.8633, 5)]
+        [TestCase(1874.28, 469.5773, 4)]
+        [TestCase(1874.28, 625.7673, 3)]
+        [TestCase(1874.28, 938.1473, 2)]
+        [TestCase(1874.28, 1875.287, 1)]
+
+        public static void TestToMzAndMass(double mass, double mz, int charge)
+        {
+            Assert.That(mass, Is.EqualTo(mz.ToMass(charge)).Within(0.01));
+            Assert.That(mz, Is.EqualTo(mass.ToMz(charge)).Within(0.01));
+        }
     }
 }

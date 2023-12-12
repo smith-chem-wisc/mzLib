@@ -74,7 +74,7 @@ namespace FlashLFQ
                 sb.Append("Base Sequences Mapped" + "\t");
                 sb.Append("Full Sequences Mapped" + "\t");
                 sb.Append("Peak Split Valley RT" + "\t");
-                sb.Append("Peak Apex Mass Error (ppm)" + "\t");
+                sb.Append("Peak Apex Mass Error (ppm)");
                 //sb.Append("Timepoints");
                 return sb.ToString();
             }
