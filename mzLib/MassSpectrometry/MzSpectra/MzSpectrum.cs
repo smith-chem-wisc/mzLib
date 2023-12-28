@@ -26,6 +26,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using ClassExtensions = Chemistry.ClassExtensions;
 
 namespace MassSpectrometry
 {
@@ -799,6 +800,45 @@ namespace MassSpectrometry
         private MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
+        }
+
+        public void Yo(List<double> mzArray, List<double> intensityArray, PpmTolerance ppmTolerance)
+        {
+            List<double> newMzArray = new List<double>();
+            List<double> newIntensityArray = new List<double>();
+
+            while (mzArray.Count > 0)
+            {
+                int maxIntensityIndex = intensityArray.IndexOf(intensityArray.Max());
+                double maxIntensityMz = mzArray[maxIntensityIndex];
+                List<double> mzs = new List<double>() { mzArray[maxIntensityIndex] };
+                List<double> intensities = new List<double>(){ intensityArray[maxIntensityIndex] };
+                
+                mzArray.RemoveAt(maxIntensityIndex);
+                intensityArray.RemoveAt(maxIntensityIndex);
+                while (mzArray.Count > 0 && ppmTolerance.Within(maxIntensityMz,ClassExtensions.GetClosestValue(mzArray.ToArray(),maxIntensityMz)))
+                {
+                    int indexOfClosest = ClassExtensions.GetClosestIndex(mzArray.ToArray(), maxIntensityMz);
+                    mzs.Add(mzArray[indexOfClosest]);
+                    mzArray.RemoveAt(indexOfClosest);
+                    intensities.Add(intensityArray[indexOfClosest]);
+                    intensityArray.RemoveAt(indexOfClosest);
+                }
+
+                double weightedMzSum = 0;
+                for (int i = 0; i < mzs.Count; i++)
+                {
+                    weightedMzSum += (mzs[i] * intensities[i]);
+                }
+                newMzArray.Add(weightedMzSum/intensities.Sum());
+                newIntensityArray.Add(intensities.Average());
+            }
+            
+            mzArray = newMzArray;
+            intensityArray = newIntensityArray;
+            Array.Sort(intensityArray.ToArray(),mzArray.ToArray());
+            intensityArray.ToList();
+            mzArray.ToList();
         }
     }
 }
