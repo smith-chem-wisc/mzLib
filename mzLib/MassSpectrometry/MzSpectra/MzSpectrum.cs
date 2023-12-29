@@ -22,6 +22,7 @@ using MzLibUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -802,43 +803,57 @@ namespace MassSpectrometry
             return new MzPeak(XArray[index], YArray[index]);
         }
 
-        public void Yo(List<double> mzArray, List<double> intensityArray, PpmTolerance ppmTolerance)
+        public (double[] mzArray, double[] intensityArray) Yoyo(List<double> mzArray, List<double> intensityArray, PpmTolerance ppmTolerance)
         {
             List<double> newMzArray = new List<double>();
             List<double> newIntensityArray = new List<double>();
 
-            while (mzArray.Count > 0)
+            List<int> indiciesToMerge = new List<int>();
+            for (int i = 0; i < mzArray.Count; i++)
             {
-                int maxIntensityIndex = intensityArray.IndexOf(intensityArray.Max());
-                double maxIntensityMz = mzArray[maxIntensityIndex];
-                List<double> mzs = new List<double>() { mzArray[maxIntensityIndex] };
-                List<double> intensities = new List<double>(){ intensityArray[maxIntensityIndex] };
-                
-                mzArray.RemoveAt(maxIntensityIndex);
-                intensityArray.RemoveAt(maxIntensityIndex);
-                while (mzArray.Count > 0 && ppmTolerance.Within(maxIntensityMz,ClassExtensions.GetClosestValue(mzArray.ToArray(),maxIntensityMz)))
+                if (i < (mzArray.Count - 1) && ppmTolerance.Within(mzArray[i], mzArray[i+1])) // two mzValues are close enough to merge
                 {
-                    int indexOfClosest = ClassExtensions.GetClosestIndex(mzArray.ToArray(), maxIntensityMz);
-                    mzs.Add(mzArray[indexOfClosest]);
-                    mzArray.RemoveAt(indexOfClosest);
-                    intensities.Add(intensityArray[indexOfClosest]);
-                    intensityArray.RemoveAt(indexOfClosest);
+                    indiciesToMerge.Add(i);
+                    indiciesToMerge.Add(i+1);
                 }
-
-                double weightedMzSum = 0;
-                for (int i = 0; i < mzs.Count; i++)
+                else // mzValues are NOT close enough to merge so we merge any that we've collected so far.
                 {
-                    weightedMzSum += (mzs[i] * intensities[i]);
+                    if (indiciesToMerge.Any())
+                    {
+                        newMzArray.Add(GetWeightedMz(indiciesToMerge.DistinctBy(i=>i).ToList(),mzArray,intensityArray));
+                        newIntensityArray.Add(GetIntensityAverage(indiciesToMerge, mzArray, intensityArray));
+                        indiciesToMerge.Clear(); //we clear this array because we have merged a contiguous group and can begin again with the next group
+                    }
+                    else
+                    {
+                        newMzArray.Add(mzArray[i]);
+                        newIntensityArray.Add(intensityArray[i]);
+                    }
                 }
-                newMzArray.Add(weightedMzSum/intensities.Sum());
-                newIntensityArray.Add(intensities.Average());
             }
-            
-            mzArray = newMzArray;
-            intensityArray = newIntensityArray;
-            Array.Sort(intensityArray.ToArray(),mzArray.ToArray());
-            intensityArray.ToList();
-            mzArray.ToList();
+            return (newMzArray.ToArray(), newIntensityArray.ToArray());
+        }
+
+        private double GetIntensityAverage(List<int> indiciesToMerge, List<double> mzArray, List<double> intensityArray)
+        {
+            double intensitySum = 0;
+            foreach (var index in indiciesToMerge)
+            {
+                intensitySum += intensityArray[index];
+            }
+            return (intensitySum / (double)indiciesToMerge.Count);
+        }
+
+        private double GetWeightedMz(List<int> indiciesToMerge, List<double> mzArray, List<double> intensityArray)
+        {
+            double weightedMz = 0;
+            double intensitySum = 0;
+            foreach (var index in indiciesToMerge)
+            {
+                weightedMz += mzArray[index] * intensityArray[index];
+                intensitySum += intensityArray[index];
+            }
+            return (weightedMz / intensitySum);
         }
     }
 }

@@ -22,7 +22,7 @@ namespace Test
             bool shouldCopy = false;
             MzSpectrum s = new MzSpectrum(mzs,intensities,shouldCopy);
 
-            s.Yo(mzs.ToList(), intensities.ToList(), new PpmTolerance(100));
+            (mzs,intensities) = s.Yoyo(mzs.ToList(), intensities.ToList(), new PpmTolerance(100));
             Assert.IsTrue(false);
         }
     }
