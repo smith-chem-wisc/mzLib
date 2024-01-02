@@ -27,6 +27,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MassSpectrometry.MzSpectra;
 using ClassExtensions = Chemistry.ClassExtensions;
 
 namespace MassSpectrometry
@@ -802,58 +803,21 @@ namespace MassSpectrometry
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
-
-        public (double[] mzArray, double[] intensityArray) Yoyo(List<double> mzArray, List<double> intensityArray, PpmTolerance ppmTolerance)
+        /// <summary>
+        /// Method takes a list of mz and intensity values from a spectrum and merges those pairs of mzs and intensities when the difference in the mzs is less than specified tolerance
+        /// </summary>
+        /// <param name="mzArray"></param>
+        /// <param name="intensityArray"></param>
+        /// <param name="ppmTolerance"></param>
+        /// <returns></returns>
+        public void MergeMzAndIntensityValuesForAnyMzsWithinTolerance(PpmTolerance ppmTolerance)
         {
-            List<double> newMzArray = new List<double>();
-            List<double> newIntensityArray = new List<double>();
-
-            List<int> indiciesToMerge = new List<int>();
-            for (int i = 0; i < mzArray.Count; i++)
-            {
-                if (i < (mzArray.Count - 1) && ppmTolerance.Within(mzArray[i], mzArray[i+1])) // two mzValues are close enough to merge
-                {
-                    indiciesToMerge.Add(i);
-                    indiciesToMerge.Add(i+1);
-                }
-                else // mzValues are NOT close enough to merge so we merge any that we've collected so far.
-                {
-                    if (indiciesToMerge.Any())
-                    {
-                        newMzArray.Add(GetWeightedMz(indiciesToMerge.DistinctBy(i=>i).ToList(),mzArray,intensityArray));
-                        newIntensityArray.Add(GetIntensityAverage(indiciesToMerge, mzArray, intensityArray));
-                        indiciesToMerge.Clear(); //we clear this array because we have merged a contiguous group and can begin again with the next group
-                    }
-                    else
-                    {
-                        newMzArray.Add(mzArray[i]);
-                        newIntensityArray.Add(intensityArray[i]);
-                    }
-                }
-            }
-            return (newMzArray.ToArray(), newIntensityArray.ToArray());
+            var mzArray = this.XArray;
+            var intensityArray= this.YArray;
+            ExtensionMethods.MergeMzAndIntensityValuesForAnyMzsWithinTolerance(ref mzArray, ref intensityArray, ppmTolerance);
+            this.XArray = mzArray;
+            this.YArray = intensityArray;
         }
 
-        private double GetIntensityAverage(List<int> indiciesToMerge, List<double> mzArray, List<double> intensityArray)
-        {
-            double intensitySum = 0;
-            foreach (var index in indiciesToMerge)
-            {
-                intensitySum += intensityArray[index];
-            }
-            return (intensitySum / (double)indiciesToMerge.Count);
-        }
-
-        private double GetWeightedMz(List<int> indiciesToMerge, List<double> mzArray, List<double> intensityArray)
-        {
-            double weightedMz = 0;
-            double intensitySum = 0;
-            foreach (var index in indiciesToMerge)
-            {
-                weightedMz += mzArray[index] * intensityArray[index];
-                intensitySum += intensityArray[index];
-            }
-            return (weightedMz / intensitySum);
-        }
     }
 }

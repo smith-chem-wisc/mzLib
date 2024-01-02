@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using TopDownProteomics.IO.MzIdentMl;
 
 namespace Test
 {
@@ -22,8 +18,14 @@ namespace Test
             bool shouldCopy = false;
             MzSpectrum s = new MzSpectrum(mzs,intensities,shouldCopy);
 
-            (mzs,intensities) = s.Yoyo(mzs.ToList(), intensities.ToList(), new PpmTolerance(100));
-            Assert.IsTrue(false);
+            s.MergeMzAndIntensityValuesForAnyMzsWithinTolerance(new PpmTolerance(0.01));
+        }
+
+        [Test]
+        public void Bubba2()
+        {
+            var j = ExtensionMethods.MergeTwoSortedArraysIntoSortedArray(new double[] { 2, 4, 6, }, new double[] { 1, 3, 5, 7, 8, 9, 10, 11, 12 });
+            CollectionAssert.AreEquivalent(new double[]{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, j);
         }
     }
 }
