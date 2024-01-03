@@ -88,7 +88,15 @@ namespace MassSpectrometry
 
         public (T[], U[]) MergeSortedArrays<T, U>(T[][] arraysToBeSorted, U[][] valuesToBePreserved) where T : IComparable
         {
-
+            int[] minPointerArray = new int[arraysToBeSorted.Length];
+            int sumOfAllArrayLengths = 0;
+            for (int i = 0; i < arraysToBeSorted.Length; i++)
+            {
+                sumOfAllArrayLengths += arraysToBeSorted[i].Length;
+            }
+            T[] = new T[sumOfAllArrayLengths];
+            U[] = new U[sumOfAllArrayLengths];
+            Array<T> t = new int()
         }
     }
 }
