@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using MzLibUtil;
 
@@ -83,6 +84,11 @@ namespace MassSpectrometry
                 }
             }
             return mergedSortedArray;
+        }
+
+        public (T[], U[]) MergeSortedArrays<T, U>(T[][] arraysToBeSorted, U[][] valuesToBePreserved) where T : IComparable
+        {
+
         }
     }
 }
