@@ -43,5 +43,13 @@ namespace Test
         {
             PrideRetriever.PrideFtp();
         }
+
+        [Test]
+        public void TestSimpleWebClientDownload()
+        {
+            string uri = "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2023/12/PXD048176/d_atg1_d_atg11_proteome_data_analysis.7z";
+            string fullFilePath = @"E:\junk\PXD048176\d_atg1_d_atg11_proteome_data_analysis.7z";
+            PrideRetriever.SimpleWebClientDownload(uri,fullFilePath);
+        }
     }
 }

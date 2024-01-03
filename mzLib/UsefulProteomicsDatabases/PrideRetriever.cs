@@ -48,16 +48,28 @@ namespace UsefulProteomicsDatabases
             // This example assumes the FTP site uses anonymous logon.
             request.Credentials = new NetworkCredential("anonymous", "anonymous");
 
-            FtpWebResponse response = (FtpWebResponse)request.GetResponse();
+            request.KeepAlive = true;
+            request.UsePassive = true;
+            request.UseBinary = true;
 
-            Stream responseStream = response.GetResponseStream();
-            StreamReader reader = new StreamReader(responseStream);
-            StreamWriter writer = new StreamWriter(responseStream);
+            //// Read the file from the server & write to destination                
+            //using (FtpWebResponse response = (FtpWebResponse)request.GetResponse()) // Error here
+            //using (Stream responseStream = response.GetResponseStream())
+            //using (StreamReader reader = new StreamReader(responseStream))
+            //using (StreamWriter destination = new StreamWriter(destinationFile))
+            //{
+            //    destination.Write(reader.ReadToEnd());
+            //    destination.Flush();
+            //}
 
-            writer.WriteAsync()
+        }
 
-            reader.Close();
-            response.Close();
+        public static void SimpleWebClientDownload(string url, string fullFilePath)
+        {
+            WebClient client = new WebClient();
+            client.Credentials = new NetworkCredential("anonymous", "anonymous");
+            client.DownloadFile(
+                url, fullFilePath);
         }
     }
 }
