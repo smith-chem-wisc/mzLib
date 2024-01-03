@@ -1,0 +1,41 @@
+﻿using NUnit.Framework;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using UsefulProteomicsDatabases;
+using NUnit.Framework;
+
+namespace Test
+{
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public class TestPrideProjectRetriever
+    {
+        [Test]
+        public void TestProjectRetrieve()
+        {
+            string projectAccession = "PXD048176";
+            string outputFullFilePath = @"E:\junk\junk.txt";
+
+            //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
+            string returnedFilePath = PrideRetriever.RetrieveMassSpecProject("", outputFullFilePath);
+
+            Assert.AreEqual(outputFullFilePath, returnedFilePath);
+        }
+        [Test]
+        public void TestRetrieveProjectFileByName()
+        {
+            string projectAccession = "PXD048176";
+            string filename = "d_atg1_d_atg11_proteome_data_analysis.7z";
+            string outputFullFilePath = @"E:\junk\junk.txt";
+
+            //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
+            string returnedFilePath = PrideRetriever.RetrieveProjectFileByFilename(projectAccession,filename, outputFullFilePath);
+
+            Assert.AreEqual(outputFullFilePath, returnedFilePath);
+        }
+    }
+}
