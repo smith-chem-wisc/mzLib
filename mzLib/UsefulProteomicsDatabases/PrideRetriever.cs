@@ -52,13 +52,9 @@ namespace UsefulProteomicsDatabases
 
             Stream responseStream = response.GetResponseStream();
             StreamReader reader = new StreamReader(responseStream);
+            StreamWriter writer = new StreamWriter(responseStream);
 
-            var j = reader.ReadToEnd();
-            var r = response.StatusDescription;
-
-            //Console.WriteLine(reader.ReadToEnd());
-
-            //Console.WriteLine($"Download Complete, status {response.StatusDescription}");
+            writer.WriteAsync()
 
             reader.Close();
             response.Close();
