@@ -30,12 +30,18 @@ namespace Test
         {
             string projectAccession = "PXD048176";
             string filename = "d_atg1_d_atg11_proteome_data_analysis.7z";
-            string outputFullFilePath = @"E:\junk\junk.txt";
+            string outputDirectory = @"E:\junk";
 
             //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
-            string returnedFilePath = PrideRetriever.RetrieveProjectFileByFilename(projectAccession,filename, outputFullFilePath);
+            string returnedFilePath = PrideRetriever.RetrieveProjectFileByFilename(projectAccession,filename, outputDirectory);
 
-            Assert.AreEqual(outputFullFilePath, returnedFilePath);
+            Assert.AreEqual(outputDirectory, returnedFilePath);
+        }
+
+        [Test]
+        public void TestPrideFtp()
+        {
+            PrideRetriever.PrideFtp();
         }
     }
 }
