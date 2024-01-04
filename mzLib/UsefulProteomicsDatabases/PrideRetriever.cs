@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Easy.Common;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -38,7 +39,19 @@ namespace UsefulProteomicsDatabases
 
             return "";
         }
+        public static string RetrieveProjectFileListByProjectAccession(string prideProjectAccession, string outputFileDirectory)
+        {
+            string htmlQueryString =
+                "https://www.ebi.ac.uk/pride/private/ws/archive/v2/" + "projects/" + prideProjectAccession + "/files";
 
+            if (htmlQueryString.Length > 0)
+            {
+                Loaders.DownloadContent(htmlQueryString, Path.Join(outputFileDirectory, prideProjectAccession + ".json"));
+                return outputFileDirectory;
+            }
+
+            return "";
+        }
         public static void PrideFtp()
         {
             // Get the object used to communicate with the server.

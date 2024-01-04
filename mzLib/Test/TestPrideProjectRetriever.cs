@@ -37,7 +37,17 @@ namespace Test
 
             Assert.AreEqual(outputDirectory, returnedFilePath);
         }
+        [Test]
+        public void TestRetrieveProjectFileListByProjectAccession()
+        {
+            string projectAccession = "PXD048176";
+            string outputDirectory = @"E:\junk";
 
+            //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
+            string returnedFilePath = PrideRetriever.RetrieveProjectFileListByProjectAccession(projectAccession,  outputDirectory);
+
+            Assert.AreEqual(outputDirectory, returnedFilePath);
+        }
         [Test]
         public void TestPrideFtp()
         {
@@ -50,6 +60,12 @@ namespace Test
             string uri = "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2023/12/PXD048176/d_atg1_d_atg11_proteome_data_analysis.7z";
             string fullFilePath = @"E:\junk\PXD048176\d_atg1_d_atg11_proteome_data_analysis.7z";
             PrideRetriever.SimpleWebClientDownload(uri,fullFilePath);
+        }
+
+        [Test]
+        public void DownloadUniProtProteomes()
+        {
+            var j = ProteinDbRetriever.DownloadAvailableUniProtProteomes(@"E:\junk");
         }
     }
 }
