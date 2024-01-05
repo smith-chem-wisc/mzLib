@@ -7,6 +7,9 @@ using System.Text;
 using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 using NUnit.Framework;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using FlashLFQ;
 
 namespace Test
 {
@@ -17,25 +20,45 @@ namespace Test
         [Test]
         public void TestProjectRetrieve()
         {
-            string projectAccession = "PXD048176";
-            string outputFullFilePath = @"E:\junk\junk.txt";
-
-            //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
-            string returnedFilePath = PrideRetriever.RetrieveMassSpecProject("", outputFullFilePath);
-
-            Assert.AreEqual(outputFullFilePath, returnedFilePath);
+            var outputFullFileFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData");
+            var outputDir = Path.Combine(outputFullFileFolder, @"PrideRetrieveTest");
+            Directory.CreateDirectory(outputDir);
+            string projectAccession = "PXD047650";
+            PrideRetriever newPride = new PrideRetriever(projectAccession, outputDir);
+            List<PRIDEEntry> pRIDEEntry = newPride.GetPrideEntries();
+            Assert.AreEqual(3, pRIDEEntry.Count);
+            Directory.Delete(outputDir, true);
         }
+
         [Test]
         public void TestRetrieveProjectFileByName()
         {
-            string projectAccession = "PXD048176";
-            string filename = "d_atg1_d_atg11_proteome_data_analysis.7z";
-            string outputDirectory = @"E:\junk";
+            var outputFullFileFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData");
+            var outputDir = Path.Combine(outputFullFileFolder, @"PrideRetrieveTest");
+            Directory.CreateDirectory(outputDir);
+            string projectAccession = "PXD047650";
 
-            //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
-            string returnedFilePath = PrideRetriever.RetrieveProjectFileByFilename(projectAccession,filename, outputDirectory);
+            PrideRetriever newPrideProject = new PrideRetriever(projectAccession, outputDir);
+            string returnedFilePath = newPrideProject.RetrieveProjectFileByFilename(newPrideProject.GetPrideFileNames().Last(), outputDir);
+            String outputDirectory = Path.Combine(outputDir, newPrideProject.GetPrideFileNames().Last());
 
             Assert.AreEqual(outputDirectory, returnedFilePath);
+            Directory.Delete(outputDir, true);
+        }
+
+        [Test]
+        public void TestRetrieveExperimentalInformation()
+        {
+            var outputFullFileFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData");
+            var outputDir = Path.Combine(outputFullFileFolder, @"PrideRetrieveTest");
+            Directory.CreateDirectory(outputDir);
+            string projectAccession = "PXD047650";
+
+            PrideRetriever newPrideProject = new PrideRetriever(projectAccession, outputDir);
+            PrideProject experiment = newPrideProject.GetPrideProjectInformation();
+
+            Assert.AreEqual(projectAccession, experiment.Accession);
+            Directory.Delete(outputDir, true);
         }
 
         [Test]
@@ -47,9 +70,53 @@ namespace Test
         [Test]
         public void TestSimpleWebClientDownload()
         {
-            string uri = "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2023/12/PXD048176/d_atg1_d_atg11_proteome_data_analysis.7z";
-            string fullFilePath = @"E:\junk\PXD048176\d_atg1_d_atg11_proteome_data_analysis.7z";
-            PrideRetriever.SimpleWebClientDownload(uri,fullFilePath);
+            var outputFullFileFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData");
+            var outputDir = Path.Combine(outputFullFileFolder, @"PrideRetrieveTest");
+            Directory.CreateDirectory(outputDir);
+            string projectAccession = "PXD047650";
+
+            PrideRetriever newPrideProject = new PrideRetriever(projectAccession, outputDir);
+            String testFileName = newPrideProject.GetPrideFileNames().Last();
+            String uri = newPrideProject.GetFtpLinkByFileNmae(testFileName);
+
+            string fullFilePath = Path.Combine(outputDir, testFileName);
+            string expectedFile = Path.Combine(outputDir, @"proteinGroups.xlsx");
+            PrideRetriever.SimpleWebClientDownload(uri, fullFilePath);
+            Assert.AreEqual(fullFilePath, expectedFile);
+            Directory.Delete(outputDir, true);
         }
+
+        [Test]
+        public void TestGetAllFilesByAccession()
+        {
+            var outputFullFileFolder = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData");
+            var outputDir = Path.Combine(outputFullFileFolder, @"PrideRetrieveTest");
+            Directory.CreateDirectory(outputDir);
+            string projectAccession = "PXD047650";
+
+            PrideRetriever newPrideProject = new PrideRetriever(projectAccession, outputDir);
+            List<String> testFileName = newPrideProject.GetAllFilesByAccession(projectAccession, outputDir);
+
+            Assert.AreEqual(testFileName.Count, 3);
+            Directory.Delete(outputDir, true);
+        }
+
+
+        [Test]
+        public void TestSearchByKeywordsAndFilters()
+        {
+            var projects = PrideRetriever.SearchByKeywordsAndFilters("human", "", 10, 0, "", "ASC", "submission_date");
+            //string outputFullFilePath = @"D:\junk\KeyWordsTest\files.json";
+            //Loaders.DownloadContent(requestUrl, outputFullFilePath);
+            //string jsonContent = System.IO.File.ReadAllText(outputFullFilePath);
+            //var jsonData = JObject.Parse(jsonContent);
+
+
+            //var x = PrideRetriever.SearchByKeywordsAndFiltersAsync("PXD047650", "", 100, 0, "","ASC","submission_date");
+            string uri = "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2023/12/PXD047650/proteinGroups.xlsx";
+            string fullFilePath = @"D:\junk\PXD047650\proteinGroups.xlsx";
+            PrideRetriever.SimpleWebClientDownload(uri, fullFilePath);
+        }
+
     }
 }
