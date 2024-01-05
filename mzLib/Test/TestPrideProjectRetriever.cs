@@ -105,17 +105,9 @@ namespace Test
         [Test]
         public void TestSearchByKeywordsAndFilters()
         {
-            var projects = PrideRetriever.SearchByKeywordsAndFilters("human", "", 10, 0, "", "ASC", "submission_date");
-            //string outputFullFilePath = @"D:\junk\KeyWordsTest\files.json";
-            //Loaders.DownloadContent(requestUrl, outputFullFilePath);
-            //string jsonContent = System.IO.File.ReadAllText(outputFullFilePath);
-            //var jsonData = JObject.Parse(jsonContent);
-
-
-            //var x = PrideRetriever.SearchByKeywordsAndFiltersAsync("PXD047650", "", 100, 0, "","ASC","submission_date");
-            string uri = "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2023/12/PXD047650/proteinGroups.xlsx";
-            string fullFilePath = @"D:\junk\PXD047650\proteinGroups.xlsx";
-            PrideRetriever.SimpleWebClientDownload(uri, fullFilePath);
+            int pageSize = 10;
+            var accessionList = PrideRetriever.SearchByKeywordsAndFilters("human", "", pageSize, 0, "", "ASC", "submission_date");
+            Assert.AreEqual(accessionList.Count, pageSize);
         }
 
     }
