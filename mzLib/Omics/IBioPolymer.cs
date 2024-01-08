@@ -1,4 +1,10 @@
-﻿using Omics.Digestion;
+﻿using Chemistry;
+using MassSpectrometry;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Omics.Digestion;
 using Omics.Modifications;
 
 namespace Omics

@@ -6,6 +6,13 @@ namespace Omics;
 
 public static class BioPolymerWithSetModsExtensions
 {
+    /// <summary>
+    /// This method returns the full sequence with mass shifts INSTEAD OF PTMs in brackets []
+    /// Some external tools cannot parse PTMs, instead requiring a numerical input indicating the mass of a PTM in brackets
+    /// after the position of that modification
+    /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
+    /// </summary>
+    /// <returns></returns>
     public static string FullSequenceWithMassShift(this IBioPolymerWithSetMods withSetMods)
     {
         var subsequence = new StringBuilder();
@@ -50,11 +57,10 @@ public static class BioPolymerWithSetModsExtensions
     }
 
     /// <summary>
-    /// This method returns the full sequence with mass shifts INSTEAD OF PTMs in brackets []
-    /// Some external tools cannot parse PTMs, instead requiring a numerical input indicating the mass of a PTM in brackets
-    /// after the position of that modification
-    /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
+    /// This method returns the full sequence only with the specified modifications in the modstoWritePruned dictionary
     /// </summary>
+    /// <param name="withSetMods"></param>
+    /// <param name="modstoWritePruned"></param>
     /// <returns></returns>
     public static string EssentialSequence(this IBioPolymerWithSetMods withSetMods,
         IReadOnlyDictionary<string, int> modstoWritePruned)
@@ -99,6 +105,11 @@ public static class BioPolymerWithSetModsExtensions
         return essentialSequence;
     }
 
+    /// <summary>
+    /// Determines the full sequence of a BioPolymerWithSetMods from its base sequence and modifications
+    /// </summary>
+    /// <param name="withSetMods"></param>
+    /// <returns></returns>
     public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods)
     {
         var subSequence = new StringBuilder();

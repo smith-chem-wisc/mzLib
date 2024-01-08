@@ -9,7 +9,7 @@ namespace Omics.Digestion
         int MaxLength { get; set; }
         int MaxModificationIsoforms { get; set; }
         int MaxMods { get; set; }
-        DigestionAgent Enzyme { get; }
+        DigestionAgent DigestionAgent { get; }
         FragmentationTerminus FragmentationTerminus { get; }
     }
 }

@@ -22,6 +22,9 @@
         // Base ions are for Nucleic acids in which the base is cleaved as a neutral loss during fragmentation
         // schematic for RNA fragmentation modes can be found below
         // https://www.researchgate.net/figure/The-standard-nomenclature-for-oligonucleotide-fragmentation-during-collisioninduced_fig6_271536997
+        // Base loss ions are for Nucleic acids in which the base is cleaved as a neutral loss during fragmentation
+        //     These base losses have only been explicetly confirmed for 3' fragments (a,b,c,d)
+        //     The base loss ions for 5' fragments (w,x,y,z) are theoretical and have not been confirmed
 
         a,
         aStar,

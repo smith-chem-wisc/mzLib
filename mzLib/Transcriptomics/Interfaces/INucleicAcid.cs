@@ -1,9 +1,16 @@
-﻿using Chemistry;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Chemistry;
+using MassSpectrometry;
+using Omics;
 using Omics.Modifications;
 
 namespace Transcriptomics
 {
-    public interface INucleicAcid : IHasChemicalFormula
+    public interface INucleicAcid : IHasChemicalFormula, IBioPolymer
     {
         /// <summary>
         /// The amino acid sequence

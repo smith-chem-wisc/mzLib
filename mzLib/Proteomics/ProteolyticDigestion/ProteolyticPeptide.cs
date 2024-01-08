@@ -12,7 +12,7 @@ namespace Proteomics.ProteolyticDigestion
     /// Contains methods for modified peptide combinitorics
     /// </summary>
     [Serializable]
-    public class ProteolyticPeptide : LysisProduct
+    public class ProteolyticPeptide : DigestionProduct
     {
         
         internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null, string baseSequence = null) :
@@ -147,7 +147,7 @@ namespace Proteomics.ProteolyticDigestion
             foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
             {
                 int numFixedMods = 0;
-                foreach (var ok in GetFixedModsOneIsNterminusOrFivePrime(peptideLength, allKnownFixedModifications))
+                foreach (var ok in GetFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications))
                 {
                     if (!kvp.ContainsKey(ok.Key))
                     {
