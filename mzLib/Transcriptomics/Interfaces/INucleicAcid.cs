@@ -10,7 +10,7 @@ using Omics.Modifications;
 
 namespace Transcriptomics
 {
-    public interface INucleicAcid : IHasChemicalFormula, IBioPolymer
+    public interface INucleicAcid : IHasChemicalFormula
     {
         /// <summary>
         /// The amino acid sequence

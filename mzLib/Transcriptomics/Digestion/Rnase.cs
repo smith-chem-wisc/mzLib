@@ -21,7 +21,7 @@ namespace Transcriptomics
             // top down
             if (CleavageSpecificity == CleavageSpecificity.None)
             {
-                if (OkayLength(nucleicAcid.Length, minLength, maxLength))
+                if (ValidLength(nucleicAcid.Length, minLength, maxLength))
                     oligos.Add(new NucleolyticOligo(nucleicAcid, 1, nucleicAcid.Length,
                         0, CleavageSpecificity.Full, nucleicAcid.FivePrimeTerminus, nucleicAcid.ThreePrimeTerminus));
             }
@@ -47,7 +47,7 @@ namespace Transcriptomics
             {
                 for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
                 {
-                    if (OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i],
+                    if (ValidLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i],
                             minLength, maxLength))
                     {
                         int oneBasedStartResidue = oneBasedIndicesToCleaveAfter[i] + 1;

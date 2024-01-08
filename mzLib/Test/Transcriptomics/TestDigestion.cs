@@ -338,7 +338,7 @@ namespace Test.Transcriptomics
             var digestionProducts = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(),
                 new List<Modification>()).Select(p => (OligoWithSetMods)p).ToList();
 
-            Assert.That(digestionProducts.All(p => p.DigestionParams.Enzyme.Name == "RNase T1"));
+            Assert.That(digestionProducts.All(p => p.DigestionParams.DigestionAgent.Name == "RNase T1"));
             for (var index = 0; index < digestionProducts.Count; index++)
             {
                 var digestionProduct = digestionProducts[index];
@@ -543,7 +543,7 @@ namespace Test.Transcriptomics
             var digestionParams = new RnaDigestionParams(testCase.Enzyme, testCase.MissedCleavages, testCase.MinLength,
                 testCase.MaxLength);
 
-            Assert.That(digestionParams.Enzyme, Is.EqualTo(RnaseDictionary.Dictionary[testCase.Enzyme]));
+            Assert.That(digestionParams.DigestionAgent, Is.EqualTo(RnaseDictionary.Dictionary[testCase.Enzyme]));
             Assert.That(digestionParams.MaxMissedCleavages, Is.EqualTo(testCase.MissedCleavages));
             Assert.That(digestionParams.MinLength, Is.EqualTo(testCase.MinLength));
             Assert.That(digestionParams.MaxLength, Is.EqualTo(testCase.MaxLength));
