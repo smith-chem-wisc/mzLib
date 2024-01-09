@@ -24,8 +24,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -261,18 +259,6 @@ namespace UsefulProteomicsDatabases
             {
                 Task.Run(() => httpResponseMessage.Content.CopyToAsync(stream)).Wait();
             }
-        }
-
-        public static async Task<string> DownloadUsi(string apiQuery)
-        {
-            using HttpClient client = new();
-            client.DefaultRequestHeaders.Accept.Clear();
-
-            //await using Stream stream =
-            //    await client.GetStreamAsync("https://api.github.com/orgs/dotnet/repos");
-
-            var json = await client.GetStringAsync(apiQuery);
-            return json;
         }
 
         private static bool FilesAreEqual_Hash(string first, string second)
