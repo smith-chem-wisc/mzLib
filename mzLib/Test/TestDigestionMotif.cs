@@ -589,6 +589,7 @@ namespace Test
             digestionParams.MaxPeptideLength = 2;
             Assert.That(digestionParams.MaxLength, Is.EqualTo(digestionParams.MaxPeptideLength));
 
+
             digestionParams.MaxModsForPeptide = 3;
             Assert.That(digestionParams.MaxMods, Is.EqualTo(digestionParams.MaxModsForPeptide));
         }
