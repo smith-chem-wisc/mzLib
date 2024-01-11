@@ -51,9 +51,24 @@ namespace Proteomics.ProteolyticDigestion
         #region Properties overridden by more generic interface
 
         public Protease Protease { get; private set; }
-        public int MinPeptideLength => MinLength;
-        public int MaxPeptideLength => MaxLength;
-        public int MaxModsForPeptide => MaxMods;
+
+        public int MinPeptideLength
+        {
+            get => MinLength;
+            set => MinLength = value;
+        }
+
+        public int MaxPeptideLength
+        {
+            get => MaxLength;
+            set => MaxLength = value;
+        }
+
+        public int MaxModsForPeptide
+        {
+            get => MaxMods;
+            set => MaxMods = value;
+        }
 
         #endregion
 
