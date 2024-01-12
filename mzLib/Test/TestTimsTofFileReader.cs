@@ -1,10 +1,12 @@
-﻿using MassSpectrometry;
+﻿using IO.ThermoRawFileReader;
+using MassSpectrometry;
 using NUnit.Framework;
 using Readers.Bruker;
 using Readers.Bruker.TimsTofReader;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,11 +22,48 @@ namespace Test.FileReadingTests
         public static void TestReadingRealLocalData()
         {
             Stopwatch watch = Stopwatch.StartNew();
+            var memoryBeforeReading = GC.GetTotalMemory(true) / 1000;
+
             //MsDataFile brukerData = MsDataFileReader.GetDataFile(@"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.mzML").LoadAllStaticData();
             string filePath = @"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.d";
             var test = new TimsTofFileReader(filePath).LoadAllStaticData();
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds * 1000;
+
+            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\runtime.txt");
+            using (output)
+            {
+                output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
+                output.WriteLine(test.Scans.Length + " scans read from file.");
+                output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
+                output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
+            }
+            
+
+            Assert.Pass();
+        }
+
+        [Test]
+        public static void TestReadingRawFile()
+        {
+            Stopwatch watch = Stopwatch.StartNew();
+            var memoryBeforeReading = GC.GetTotalMemory(true) / 1000;
+
+            //MsDataFile brukerData = MsDataFileReader.GetDataFile(@"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.mzML").LoadAllStaticData();
+            string filePath = @"D:\SingleCellDataSets\Organoid\raw_files\HFL1SC_2_Healthy_CH1_I3.raw";
+            var test = new ThermoRawFileReader(filePath).LoadAllStaticData();
+            watch.Stop();
+            var elapsedTimeSecond = watch.ElapsedMilliseconds * 1000;
+
+            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\rawRuntime.txt");
+            using (output)
+            {
+                output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
+                output.WriteLine(test.Scans.Length + " scans read from file.");
+                output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
+                output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
+            }
+
 
             Assert.Pass();
         }

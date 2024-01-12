@@ -101,6 +101,23 @@ namespace Readers.Bruker
             NumberOfFrames = count;
         }
 
+        internal void CountMS1Frames()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT f.Id FROM Frames f WHERE f.MsMsType = 0;";
+            using var sqliteReader = command.ExecuteReader();
+            List<long> ms1FrameIds = new();
+            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
+                .Select(sqliteReader.GetName).ToList();
+            while (sqliteReader.Read())
+            {
+                ms1FrameIds.Add(sqliteReader.GetInt64(0));
+            }
+            int numberOfMs1Frames = ms1FrameIds.Count;
+            int palceholder = 0;
+        }
+
         internal void PopulateFramesTable()
         {
             if (_sqlConnection == null) return;
@@ -113,6 +130,7 @@ namespace Readers.Bruker
             if (_fileHandle == null || _fileHandle == 0)
                 throw new MzLibException("Could not open the analysis.tdf_bin file");
             CountFrames();
+            CountMS1Frames();
             PopulateFramesTable();
             if (FramesTable == null)
                 throw new MzLibException("Something went wrong while loading the Frames table from the analysis.tdf database.");
@@ -126,14 +144,14 @@ namespace Readers.Bruker
 
                 if (FramesTable.MsMsType[i].ToEnum<TimsTofMsMsType>(out var msMsType))
                 {
-                    FrameToScanDictionary.Add(oneBasedFrameNumber, new List<MsDataScan>());
+                    //FrameToScanDictionary.Add(oneBasedFrameNumber, new List<MsDataScan>());
                     switch(msMsType)
                     {
                         case TimsTofMsMsType.MS:
                             BuildMS1Scans(scanList, currentFrame, i);
                             break;
                         case TimsTofMsMsType.PASEF:
-                            BuildPasefScans(scanList, currentFrame, i);
+                            //BuildPasefScans(scanList, currentFrame, i);
                             break;
                         default:
                             throw new NotImplementedException("Only PASEF data is currently supported");
@@ -157,7 +175,7 @@ namespace Readers.Bruker
                 // It is used to take an MS1 frame and create multiple "MsDataScans" by averaging the 
                 // spectra from each scan within a given Ion Mobility (i.e. ScanNum) range
                 command.CommandText =
-                    @"SELECT MIN(m.ScanNumBegin), MAX(m.ScanNumEnd), p.ScanNumber, p.ID" +
+                    @"SELECT MIN(m.ScanNumBegin), MAX(m.ScanNumEnd), p.ScanNumber, p.Id" +
                     " FROM Precursors p" +
                     " INNER JOIN PasefFrameMsMsInfo m on m.Precursor = p.Id" +
                     " WHERE p.Parent = " + frame.FrameId.ToString() +
@@ -206,7 +224,6 @@ namespace Readers.Bruker
                     PrecursorIdToZeroBasedScanIndex.TryAdd(precursorId, scanList.Count());
                     scanList.Add(dataScan);
 
-                    
                 }
                 // Then, build ONE MS2 scan from every PASEF frame that sampled that precursor
                 BuildPasefScanFromPrecursor(scanList, precursorIdsInFrame.Distinct(), frameIndex);
@@ -236,7 +253,7 @@ namespace Readers.Bruker
             while (sqliteReader.Read())
             {
                 var frameList = sqliteReader.GetString(0).Split(',').Select(id => Int64.Parse(id));
-                allFrames.Union(frameList);
+                allFrames.UnionWith(frameList);
                 var scanStart = sqliteReader.GetInt32(1);
                 var scanEnd = sqliteReader.GetInt32(2);
                 var isolationMz = sqliteReader.GetFloat(3);
@@ -253,7 +270,7 @@ namespace Readers.Bruker
                 // Now, we build data scans with null MzSpectra. The MassSpectrum will be constructed later.
                 var dataScan = new TimsDataScan(
                         massSpectrum: null,
-                        oneBasedScanNumber: scanList.Count + 1,
+                        oneBasedScanNumber: scanList.Count + pasefScans.Count + 1,
                         msnOrder: 2,
                         isCentroid: true,
                         polarity: FramesTable.Polarity[frameList.First()] == '+' ? Polarity.Positive : Polarity.Negative,
@@ -292,7 +309,7 @@ namespace Readers.Bruker
             // We need a way of iteratively building an mzSpectrum, 
             foreach(long frameId in allFrames)
             {
-                FrameProxy frame = new FrameProxy((ulong)_fileHandle, frameId, FramesTable.NumScans[frameId]);
+                FrameProxy frame = new FrameProxy((ulong)_fileHandle, frameId, FramesTable.NumScans[frameId-1]);
                 //Iterate through all the datascans created above with this frame
                 foreach(TimsDataScan scan in pasefScans)
                 {
@@ -316,8 +333,8 @@ namespace Readers.Bruker
             {
                 scan.AverageComponentSpectra();
             }
-            
-            // Then you still have to add them to the list, link them to the appropriate precursor TimsDataScans
+
+            scanList.AddRange(pasefScans);
         }
 
         internal void BuildPasefScans(List<MsDataScan> scanList, FrameProxy frame, int frameIndex)
