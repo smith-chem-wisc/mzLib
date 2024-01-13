@@ -1,12 +1,60 @@
-﻿using System;
+﻿using MassSpectrometry;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using ThermoFisher.CommonCore.Data.Interfaces;
 
 namespace Readers.Bruker.TimsTofReader
 {
+    internal class FrameProxyFactory
+    {
+        internal FrameTable FramesTable { get; }
+        internal UInt64 FileHandle { get; }
+        internal Object FileLock { get; }
+        internal TimsConversion Converter { get; }
+
+        internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock)
+        {
+            FramesTable = table;
+            FileHandle = fileHandle;
+            FileLock = fileLock;
+            Converter = new TimsConversion(fileHandle, fileLock);
+        }   
+
+        internal FrameProxy GetFrameProxy(long frameId)
+        {
+            return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
+        }
+
+        internal Polarity GetPolarity(long frameId)
+        {
+            return FramesTable.Polarity[frameId - 1] == '+' ? Polarity.Positive : Polarity.Negative;
+        }
+
+        internal double GetRetentionTime(long frameId)
+        {
+            return (double)FramesTable.RetentionTime[frameId - 1];
+        }
+
+        internal double GetInjectionTime(long frameId)
+        {
+            return FramesTable.FillTime[frameId - 1];
+        }
+
+        internal double GetInjectionTimeSum(long firstFrameId, long lastFrameId)
+        {
+            double injectionTimeSum = 0;
+            for(long i = firstFrameId; i <= lastFrameId; i++)
+            {
+                injectionTimeSum += FramesTable.FillTime[i - 1];
+            }
+            return injectionTimeSum;
+        }
+    }
+
     internal class FrameProxy
     {
         private int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
@@ -16,25 +64,25 @@ namespace Readers.Bruker.TimsTofReader
         internal long FrameId { get; }
         internal int NumberOfScans { get; }
         internal int TotalNumberOfPeaks => _scanOffsets[NumberOfScans - 1];
+        internal TimsConversion Converter { get; }
 
-        internal FrameProxy(UInt64 fileHandle, long frameId, int numScans) 
-            : this (fileHandle, frameId, GetScanRawData(fileHandle, frameId, (UInt32)numScans), numScans) { }
-
-        internal FrameProxy(UInt64 fileHandle, long frameId, uint[] rawData, int numScans)
+        internal FrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter)
         {
             NumberOfScans = numScans;
             FileHandle = fileHandle;
             FrameId = frameId;
-            _rawData = rawData;
-            _scanOffsets = PartialSum(rawData, 0, numScans);
+            Converter = converter;
+            _rawData = GetScanRawData(fileHandle, frameId, (uint)numScans, fileLock);
+            _scanOffsets = PartialSum(_rawData, 0, numScans);
         }
+        
 
         internal double[] GetScanMzs(int zeroIndexedScanNumber)
         {
             double[] mzLookupIndices = Array
                 .ConvertAll(_rawData[GetXRange(zeroIndexedScanNumber)], entry => (double)entry);
 
-            return TimsConversion.DoTransformation(FileHandle, FrameId, mzLookupIndices, TimsConversion.ConversionFunctions.IndexToMz);
+            return Converter.DoTransformation(FileHandle, FrameId, mzLookupIndices, ConversionFunctions.IndexToMz);
         }
 
         internal int[] GetScanIntensities(int zeroIndexedScanNumber)
@@ -46,8 +94,8 @@ namespace Readers.Bruker.TimsTofReader
         {
             ThrowIfInvalidScanNumber((int)zeroIndexedScanNumberMedian);
             double[] scanNumberArray = new double[] { zeroIndexedScanNumberMedian };
-            return TimsConversion
-                .DoTransformation(FileHandle, FrameId, scanNumberArray, TimsConversion.ConversionFunctions.ScanToOneOverK0)[0];
+            return Converter
+                .DoTransformation(FileHandle, FrameId, scanNumberArray, ConversionFunctions.ScanToOneOverK0)[0];
         }
 
         /// <summary>
@@ -60,22 +108,26 @@ namespace Readers.Bruker.TimsTofReader
         /// Note: different threads must not read scans from the same storage handle
         /// concurrently.
         /// </summary> 
-        internal unsafe static uint[] GetScanRawData(UInt64 fileHandle, long frameId, UInt32 numScans)
+        internal unsafe static uint[] GetScanRawData(UInt64 fileHandle, long frameId, UInt32 numScans, Object fileLock)
         {
             int bufferSize = _defaultBufferSize;
             // buffer expansion loop
             while (true)
             {
                 IntPtr pData = Marshal.AllocHGlobal(bufferSize * Marshal.SizeOf<Int32>());
+                uint outputLength;
 
-                var outputLength = tims_read_scans_v2(
+                lock ( fileLock )
+                {
+                    outputLength = tims_read_scans_v2(
                     fileHandle,
                     frameId,
                     scan_begin: 0,
                     scan_end: numScans,
                     buffer: pData,
                     length: (uint)(bufferSize * 4));
-
+                }
+                
                 if (4 * bufferSize > outputLength)
                 {
                     var dataArray = new uint[bufferSize];

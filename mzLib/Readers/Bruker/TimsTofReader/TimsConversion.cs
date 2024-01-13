@@ -9,16 +9,27 @@ using System.Threading.Tasks;
 
 namespace Readers.Bruker.TimsTofReader
 {
-    internal static unsafe class TimsConversion
+
+    internal enum ConversionFunctions
     {
-        internal enum ConversionFunctions
+        IndexToMz,
+        MzToIndex,
+        ScanToOneOverK0,
+        OneOverK0ToScan,
+        ScanToVoltage,
+        VoltageToScan
+    }
+
+    internal unsafe class TimsConversion
+    {
+
+        private UInt64 _fileHandle;
+        private Object _fileLock;
+
+        internal TimsConversion(UInt64 fileHandle, Object fileLock)
         {
-            IndexToMz,
-            MzToIndex,
-            ScanToOneOverK0,
-            OneOverK0ToScan,
-            ScanToVoltage,
-            VoltageToScan
+            _fileHandle = fileHandle;
+            _fileLock = fileLock;
         }
 
         /// <summary>
@@ -28,7 +39,7 @@ namespace Readers.Bruker.TimsTofReader
         /// <param name="fileHandle"> Unique identifier associated with the open timsTof .d data file </param>
         /// <param name="frameId"> Frame identified</param>
         /// <returns> Double array containing the transformed input values </returns>
-        internal static unsafe double[] DoTransformation(UInt64 fileHandle, long frameId, double[] input, ConversionFunctions function)
+        internal unsafe double[] DoTransformation(UInt64 fileHandle, long frameId, double[] input, ConversionFunctions function)
         {
             if(!input.IsNotNullOrEmpty())
             {
@@ -38,29 +49,32 @@ namespace Readers.Bruker.TimsTofReader
             fixed (double* inputPtr = &input[0])
             {
                 IntPtr outPtr = Marshal.AllocHGlobal(input.Length * Marshal.SizeOf<double>());
-                switch (function)
+                lock (_fileLock)
                 {
-                    case ConversionFunctions.IndexToMz:
-                        tims_index_to_mz(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                        break;
-                    case ConversionFunctions.MzToIndex:
-                        tims_mz_to_index(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                        break;
-                    case ConversionFunctions.ScanToOneOverK0:
-                        tims_scannum_to_oneoverk0(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                        break;
-                    case ConversionFunctions.OneOverK0ToScan:
-                        tims_oneoverk0_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                        break;
-                    case ConversionFunctions.ScanToVoltage:
-                        tims_scannum_to_voltage(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                        break;
-                    case ConversionFunctions.VoltageToScan:
-                        tims_voltage_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                        break;
-                    default:
-                        break;
+                    switch (function)
+                    {
+                        case ConversionFunctions.IndexToMz:
+                            tims_index_to_mz(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                            break;
+                        case ConversionFunctions.MzToIndex:
+                            tims_mz_to_index(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                            break;
+                        case ConversionFunctions.ScanToOneOverK0:
+                            tims_scannum_to_oneoverk0(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                            break;
+                        case ConversionFunctions.OneOverK0ToScan:
+                            tims_oneoverk0_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                            break;
+                        case ConversionFunctions.ScanToVoltage:
+                            tims_scannum_to_voltage(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                            break;
+                        case ConversionFunctions.VoltageToScan:
+                            tims_voltage_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                            break;
+                        default:
+                            break;
 
+                    }
                 }
                 Marshal.Copy(outPtr, transformedValues, 0, input.Length);
                 Marshal.FreeHGlobal(outPtr);
