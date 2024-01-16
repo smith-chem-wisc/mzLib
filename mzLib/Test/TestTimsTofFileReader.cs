@@ -26,11 +26,12 @@ namespace Test.FileReadingTests
 
             //MsDataFile brukerData = MsDataFileReader.GetDataFile(@"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.mzML").LoadAllStaticData();
             string filePath = @"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.d";
-            var test = new TimsTofFileReader(filePath).LoadAllStaticData();
+            var test = new TimsTofFileReader(filePath).LoadAllStaticData(maxThreads: 10);
+            //TimsTofFileReader testAsTimmyReader = (TimsTofFileReader)test;
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
-            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\runtime.txt");
+            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\MS1_Parallel10_500_plusMS2_Parallel_SpectraMergeChange.txt");
             using (output)
             {
                 output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
@@ -39,7 +40,6 @@ namespace Test.FileReadingTests
                 output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
             }
             
-
             Assert.Pass();
         }
 
@@ -77,7 +77,7 @@ namespace Test.FileReadingTests
             string filePath = @"D:\SingleCellDataSets\Organoid\raw_files\HFL1SC_2_Healthy_CH1_I3.raw";
             var test = new ThermoRawFileReader(filePath).LoadAllStaticData();
             watch.Stop();
-            var elapsedTimeSecond = watch.ElapsedMilliseconds * 1000;
+            var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
             StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\rawRuntime.txt");
             using (output)

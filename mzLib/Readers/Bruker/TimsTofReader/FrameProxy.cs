@@ -44,6 +44,11 @@ namespace Readers.Bruker.TimsTofReader
             return FramesTable.FillTime[frameId - 1];
         }
 
+        internal int GetScanCount(long frameId)
+        {
+            return FramesTable.NumScans[frameId - 1];
+        }
+
         internal double GetInjectionTimeSum(long firstFrameId, long lastFrameId)
         {
             double injectionTimeSum = 0;

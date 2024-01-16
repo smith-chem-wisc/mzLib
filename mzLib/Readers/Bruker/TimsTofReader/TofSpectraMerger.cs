@@ -8,18 +8,18 @@ namespace Readers.Bruker.TimsTofReader
     // The implementation is based off the code found here: https://leetcode.com/problems/merge-k-sorted-lists/solutions/3286058/image-explanation-5-methods-divide-conquer-priority-queue-complete-intuition/
     public static class TofSpectraMerger
     {
-        public static MzSpectrum MergeSpectra(List<MzSpectrum> spectra, Tolerance tolerance = null)
-        {
-            List<double[]> mzArrays = new();
-            List<double[]> intensityArrays = new();
-            foreach (var spectrum in spectra)
-            {
-                mzArrays.Add(spectrum.XArray);
-                intensityArrays.Add(spectrum.YArray);
-            }
+        //public static MzSpectrum MergeSpectra(List<MzSpectrum> spectra, Tolerance tolerance = null)
+        //{
+        //    List<double[]> mzArrays = new();
+        //    List<double[]> intensityArrays = new();
+        //    foreach (var spectrum in spectra)
+        //    {
+        //        mzArrays.Add(spectrum.XArray);
+        //        intensityArrays.Add(spectrum.YArray);
+        //    }
 
-            return MergeSpectra(mzArrays, intensityArrays, tolerance);
-        }
+        //    return MergeSpectra(mzArrays, intensityArrays, tolerance);
+        //}
 
         public static MzSpectrum MergeSpectra(List<double[]> mzArrays, List<int[]> intensityArrays, 
             Tolerance tolerance = null) 
@@ -62,40 +62,13 @@ namespace Readers.Bruker.TimsTofReader
             return new MzSpectrum(mzs, intensities, shouldCopy: false);
         }
 
-        /// <summary>
-        /// This is gonna coerce all doubles in the intensity arrays to ints and back again. Sorry babes
-        /// </summary>
-        /// <param name="mzArrays"></param>
-        /// <param name="intensityArrays"></param>
-        /// <param name="tolerance"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
-        public static MzSpectrum MergeSpectra(List<double[]> mzArrays, List<double[]> intensityArrays,
-           Tolerance tolerance = null)
+        internal static MzSpectrum MergeSpectra(List<ListNode<TofPeak>> spectrumHeadNodes,
+            List<int> spectrumListLengths, Tolerance tolerance = null)
         {
             tolerance ??= new PpmTolerance(5);
-            if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
-                return null;
 
-            int preMergePeaks = 0;
-            List<ListNode<TofPeak>> peakNodes = new();
-            for (int i = 0; i < mzArrays.Count(); i++)
-            {
-                if (mzArrays[i].Length < 1) continue;
-
-                ListNode<TofPeak> peakNode = new ListNode<TofPeak>(
-                    new TofPeak(mzArrays[i][0], (int)intensityArrays[i][0]));
-                peakNodes.Add(peakNode);
-                preMergePeaks++;
-                for (int j = 1; j < mzArrays[i].Length; j++)
-                {
-                    peakNode.Next = new ListNode<TofPeak>(
-                        new TofPeak(mzArrays[i][j], (int)intensityArrays[i][j]));
-                    peakNode = peakNode.Next;
-                    preMergePeaks++;
-                }
-            }
-            var mergedListHead = MergeSpectraHelper(peakNodes, 0, peakNodes.Count - 1, tolerance, out int mergedPeaksCount);
+            int preMergePeaks = spectrumListLengths.Sum();
+            var mergedListHead = MergeSpectraHelper(spectrumHeadNodes, 0, spectrumHeadNodes.Count - 1, tolerance, out int mergedPeaksCount);
             int finalPeaksCount = preMergePeaks - mergedPeaksCount;
 
             double[] mzs = new double[finalPeaksCount];
@@ -110,6 +83,87 @@ namespace Readers.Bruker.TimsTofReader
 
             return new MzSpectrum(mzs, intensities, shouldCopy: false);
         }
+
+        internal static ListNode<TofPeak> MergeSpectraToLinkedList(List<double[]> mzArrays, List<int[]> intensityArrays, out int listLength,
+           Tolerance tolerance = null)
+        {
+            tolerance ??= new PpmTolerance(5);
+            listLength = 0;
+            if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
+                return null;
+
+            int preMergePeaks = 0;
+            List<ListNode<TofPeak>> peakNodes = new();
+            for (int i = 0; i < mzArrays.Count(); i++)
+            {
+                if (mzArrays[i].Length < 1) continue;
+
+                ListNode<TofPeak> peakNode = new ListNode<TofPeak>(
+                    new TofPeak(mzArrays[i][0], intensityArrays[i][0]));
+                peakNodes.Add(peakNode);
+                preMergePeaks++;
+                for (int j = 1; j < mzArrays[i].Length; j++)
+                {
+                    peakNode.Next = new ListNode<TofPeak>(
+                        new TofPeak(mzArrays[i][j], intensityArrays[i][j]));
+                    peakNode = peakNode.Next;
+                    preMergePeaks++;
+                }
+            }
+            var mergedListHead = MergeSpectraHelper(peakNodes, 0, peakNodes.Count - 1, tolerance, out int mergedPeaksCount);
+            listLength = preMergePeaks - mergedPeaksCount;
+
+            return mergedListHead;
+        }
+
+        /// <summary>
+        /// This is gonna coerce all doubles in the intensity arrays to ints and back again. Sorry babes
+        /// </summary>
+        /// <param name="mzArrays"></param>
+        /// <param name="intensityArrays"></param>
+        /// <param name="tolerance"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        //public static MzSpectrum MergeSpectra(List<double[]> mzArrays, List<double[]> intensityArrays,
+        //   Tolerance tolerance = null)
+        //{
+        //    tolerance ??= new PpmTolerance(5);
+        //    if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
+        //        return null;
+
+        //    int preMergePeaks = 0;
+        //    List<ListNode<TofPeak>> peakNodes = new();
+        //    for (int i = 0; i < mzArrays.Count(); i++)
+        //    {
+        //        if (mzArrays[i].Length < 1) continue;
+
+        //        ListNode<TofPeak> peakNode = new ListNode<TofPeak>(
+        //            new TofPeak(mzArrays[i][0], (int)intensityArrays[i][0]));
+        //        peakNodes.Add(peakNode);
+        //        preMergePeaks++;
+        //        for (int j = 1; j < mzArrays[i].Length; j++)
+        //        {
+        //            peakNode.Next = new ListNode<TofPeak>(
+        //                new TofPeak(mzArrays[i][j], (int)intensityArrays[i][j]));
+        //            peakNode = peakNode.Next;
+        //            preMergePeaks++;
+        //        }
+        //    }
+        //    var mergedListHead = MergeSpectraHelper(peakNodes, 0, peakNodes.Count - 1, tolerance, out int mergedPeaksCount);
+        //    int finalPeaksCount = preMergePeaks - mergedPeaksCount;
+
+        //    double[] mzs = new double[finalPeaksCount];
+        //    double[] intensities = new double[finalPeaksCount];
+        //    for (int i = 0; i < finalPeaksCount; i++)
+        //    {
+        //        if (mergedListHead == null) throw new Exception("Disagreement in peak count after recursive merge");
+        //        mzs[i] = mergedListHead.Value.Mz;
+        //        intensities[i] = mergedListHead.Value.Intensity;
+        //        mergedListHead = mergedListHead.Next;
+        //    }
+
+        //    return new MzSpectrum(mzs, intensities, shouldCopy: false);
+        //}
 
         internal static ListNode<TofPeak> MergeSpectraHelper(
             List<ListNode<TofPeak>> peakNodes,

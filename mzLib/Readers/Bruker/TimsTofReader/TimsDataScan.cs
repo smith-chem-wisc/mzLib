@@ -20,7 +20,9 @@ namespace MassSpectrometry
         /// This is a list of succesive PASEF scans capturing data on the same ion-mobility scan range and quadrupole isolation window
         /// </summary>
         public List<long> FrameIds { get; }
-        internal List<MzSpectrum> ComponentSpectra { get; private set; }
+        //internal List<MzSpectrum> ComponentSpectra { get; private set; }
+        internal List<ListNode<TofPeak>> ComponentSpectraListNodes { get; private set; }
+        internal List<int> ComponentSpectraLinkedListLengths { get; private set; }
 
 
         // Need to incorporate scan range somehow
@@ -64,23 +66,32 @@ namespace MassSpectrometry
             ScanNumberEnd = scanNumberEnd;
             OneOverK0 = medianOneOverK0;
             PrecursorId = precursorId;
-            if(msnOrder > 1)
-            {
-                ComponentSpectra = new();
-            }
         }
 
         public void AverageComponentSpectra()
         {
             // TODO: Probably need to add, like, checks and stuff. But oh well.
-            MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectra);
-            ComponentSpectra.Clear();
+            //MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectra);
+            MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectraListNodes, ComponentSpectraLinkedListLengths);
+            ComponentSpectraListNodes.Clear();
+            ComponentSpectraLinkedListLengths.Clear();
         }
 
-        public void AddComponentSpectrum(MzSpectrum spectrum)
+        //public void AddComponentSpectrum(MzSpectrum spectrum)
+        //{
+        //    if (ComponentSpectra == null) return;
+        //    ComponentSpectra.Add(spectrum);
+        //}
+
+        internal void AddComponentSpectrum(ListNode<TofPeak> spectrumHead, int spectrumLength)
         {
-            if (ComponentSpectra == null) return;
-            ComponentSpectra.Add(spectrum);
+            if (ComponentSpectraListNodes == null)
+            {
+                ComponentSpectraListNodes = new();
+                ComponentSpectraLinkedListLengths = new();
+            }
+            ComponentSpectraListNodes.Add(spectrumHead);
+            ComponentSpectraLinkedListLengths.Add(spectrumLength);
         }
 
     }
