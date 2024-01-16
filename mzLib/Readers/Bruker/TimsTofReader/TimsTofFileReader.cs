@@ -411,8 +411,9 @@ namespace Readers.Bruker
                             intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx));
                         }
                         // Step 2: Average those suckers
-                        ListNode<TofPeak> spectrumHeadNode = SumScansToLinkedList(mzArrays, intensityArrays, out int listLength);
-                        scan.AddComponentSpectrum(spectrumHeadNode, listLength);
+                        scan.AddComponentSpectrum(SumScans(mzArrays, intensityArrays));
+                        //ListNode<TofPeak> spectrumHeadNode = SumScansToLinkedList(mzArrays, intensityArrays, out int listLength);
+                        //scan.AddComponentSpectrum(spectrumHeadNode, listLength);
                     }
                 }); 
             }
