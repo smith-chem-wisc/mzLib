@@ -23,6 +23,7 @@ namespace Omics
         int OneBasedStartResidue { get; }
         int OneBasedEndResidue { get; }
         int MissedCleavages { get; }
+        string Description { get; }
         CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; }
         char PreviousResidue { get; }
         char NextResidue { get; }
@@ -40,6 +41,8 @@ namespace Omics
 
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
             List<Product> products);
+
+        public IBioPolymerWithSetMods Localize(int j, double massToLocalize);
 
         public static string GetBaseSequenceFromFullSequence(string fullSequence)
         {

@@ -11,5 +11,8 @@ namespace Omics.Digestion
         int MaxMods { get; set; }
         DigestionAgent DigestionAgent { get; }
         FragmentationTerminus FragmentationTerminus { get; }
+
+        CleavageSpecificity SearchModeType { get; }
+        IDigestionParams Clone();
     }
 }
