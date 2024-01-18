@@ -18,6 +18,7 @@ namespace Omics
     {
         string BaseSequence { get; }
         string FullSequence { get; }
+        string Description { get; }
         double MostAbundantMonoisotopicMass { get; }
         string SequenceWithChemicalFormulas { get; }
         int OneBasedStartResidue { get; }
@@ -40,6 +41,8 @@ namespace Omics
 
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
             List<Product> products);
+
+        public IBioPolymerWithSetMods Localize(int j, double massToLocalize);
 
         public static string GetBaseSequenceFromFullSequence(string fullSequence)
         {

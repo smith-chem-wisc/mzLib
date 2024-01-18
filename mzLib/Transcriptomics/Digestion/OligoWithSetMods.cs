@@ -224,5 +224,23 @@ namespace Transcriptomics
                     isThreePrimeTerminal ? BaseSequence.Length - i : i, 0, null, 0);
             }
         }
+
+        public IBioPolymerWithSetMods Localize(int j, double massToLocalize)
+        {
+            var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
+            double massOfExistingMod = 0;
+            if (dictWithLocalizedMass.TryGetValue(j + 2, out Modification modToReplace))
+            {
+                massOfExistingMod = (double)modToReplace.MonoisotopicMass;
+                dictWithLocalizedMass.Remove(j + 2);
+            }
+
+            dictWithLocalizedMass.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
+
+            var peptideWithLocalizedMass = new OligoWithSetMods(NucleicAcid, _digestionParams, OneBasedStartResidue, OneBasedEndResidue, MissedCleavages, 
+                CleavageSpecificityForFdrCategory, dictWithLocalizedMass, NumFixedMods, FivePrimeTerminus, ThreePrimeTerminus);
+
+            return peptideWithLocalizedMass;
+        }
     }
 }

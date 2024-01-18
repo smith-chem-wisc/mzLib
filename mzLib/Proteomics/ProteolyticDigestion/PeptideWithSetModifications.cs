@@ -613,7 +613,9 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public PeptideWithSetModifications Localize(int j, double massToLocalize)
+
+        //public IBioPolymerWithSetMods Localize(int i, double massToLocalize) => Localize(j, massToLocalize);
+        public IBioPolymerWithSetMods Localize(int j, double massToLocalize)
         {
             var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
             double massOfExistingMod = 0;

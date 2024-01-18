@@ -47,6 +47,9 @@ namespace Transcriptomics
             ThreePrimeTerminus = threePrimeTerm ??= DefaultThreePrimeTerminus;
             FivePrimeTerminus = fivePrimeTerm ??= DefaultFivePrimeTerminus;
             _oneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
+            GeneNames = new List<Tuple<string, string>>();
+
+
             ParseSequence(sequence);
         }
 
@@ -123,6 +126,7 @@ namespace Transcriptomics
 
         // TODO: These interface members
         public string Name { get; }
+        public string FullName => Name; // TODO: Consider if this needs to be different from the name
         public string DatabaseFilePath { get; }
         public bool IsDecoy { get; }
         public bool IsContaminant { get; }
@@ -130,6 +134,11 @@ namespace Transcriptomics
 
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications => _oneBasedPossibleLocalizedModifications;
         public string Organism { get; }
+
+        /// <summary>
+        /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
+        /// </summary>
+        public IEnumerable<Tuple<string, string>> GeneNames { get; }
         public Dictionary<string, string>? AdditionalDatabaseFields { get; }
 
         /// <summary>

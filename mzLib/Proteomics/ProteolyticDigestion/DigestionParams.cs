@@ -51,9 +51,24 @@ namespace Proteomics.ProteolyticDigestion
         #region Properties overridden by more generic interface
 
         public Protease Protease { get; private set; }
-        public int MinPeptideLength => MinLength;
-        public int MaxPeptideLength => MaxLength;
-        public int MaxModsForPeptide => MaxMods;
+
+        public int MinPeptideLength
+        {
+            get => MinLength;
+            set => MinLength = value;
+        }
+
+        public int MaxPeptideLength
+        {
+            get => MaxLength; 
+            set => MaxLength = value;
+        }
+
+        public int MaxModsForPeptide
+        {
+            get => MaxMods;
+            set => MaxMods = value;
+        }
 
         #endregion
 
@@ -89,6 +104,16 @@ namespace Proteomics.ProteolyticDigestion
                    + MaxModificationIsoforms + "," + MaxMods + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
                    + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide;
         }
+
+        public IDigestionParams Clone()
+        {
+            var clone = new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength, MaxModificationIsoforms,
+                InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus, GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+            if (SpecificProtease != null)
+                clone.RecordSpecificProtease();
+            return clone;
+        }
+            
 
         private void RecordSpecificProtease()
         {

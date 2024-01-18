@@ -5,7 +5,7 @@ namespace Transcriptomics
 {
     public class RnaDigestionParams : IDigestionParams
     {
-        public RnaDigestionParams(string rnase = "top-down", int maxMissedCleavages = 0, int minLength = 1, 
+        public RnaDigestionParams(string rnase = "top-down", int maxMissedCleavages = 0, int minLength = 6, 
             int maxLength = int.MaxValue, int maxModificationIsoforms = 1024, int maxMods = 2,
             FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both) 
         {
@@ -13,7 +13,7 @@ namespace Transcriptomics
             MaxMissedCleavages = maxMissedCleavages;
             MinLength = minLength;
             MaxLength = maxLength;
-            MaxMods = maxModificationIsoforms;
+            MaxMods = maxMods;
             MaxModificationIsoforms = maxModificationIsoforms;
             FragmentationTerminus = fragmentationTerminus;
         }
@@ -26,5 +26,9 @@ namespace Transcriptomics
         public DigestionAgent DigestionAgent => Rnase;
         public Rnase Rnase { get; private set; }
         public FragmentationTerminus FragmentationTerminus { get; set; }
+        public CleavageSpecificity SearchModeType { get; } = CleavageSpecificity.Full;
+
+        public IDigestionParams Clone() => new RnaDigestionParams(Rnase.Name, MaxMissedCleavages, MinLength, MaxLength,
+            MaxModificationIsoforms, MaxMods, FragmentationTerminus);
     }
 }
