@@ -107,14 +107,13 @@ namespace Proteomics.ProteolyticDigestion
 
         public IDigestionParams Clone()
         {
-            var clone = new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength, MaxModificationIsoforms,
-                InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus,
+            if (SearchModeType == CleavageSpecificity.None)
+                return new DigestionParams(SpecificProtease.Name, MaxMissedCleavages, MinLength, MaxLength,
+                    MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus,
+                    GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+            return new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength,
+                MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus,
                 GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
-            if (SpecificProtease != null)
-            {
-                clone.RecordSpecificProtease();
-            }
-            return clone;
         }
             
 
