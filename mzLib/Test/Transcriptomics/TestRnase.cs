@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -11,6 +12,7 @@ using Transcriptomics.Digestion;
 
 namespace Test.Transcriptomics
 {
+    [ExcludeFromCodeCoverage]
     internal class TestRnase
     {
         public static string rnaseTsvpath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Digestion\rnases.tsv");

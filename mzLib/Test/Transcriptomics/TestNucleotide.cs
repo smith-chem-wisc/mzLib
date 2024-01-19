@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using UsefulProteomicsDatabases;
 
 namespace Test.Transcriptomics
 {
+    [ExcludeFromCodeCoverage]
     internal class TestNucleotide
     {
         internal record NucleotideTestCase(Nucleotide Nucleotide, string Name, char OneLetterCode, string Symbol, ChemicalFormula Formula, double Mass,
