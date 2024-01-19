@@ -14,7 +14,6 @@ using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using OxyPlot.Wpf;
 
 namespace Test
 {
