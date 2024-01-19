@@ -84,6 +84,11 @@ namespace Test.Transcriptomics
             }
             else
                 Assert.Fail();
+
+            if (Nucleotide.TryGetResidue('&', out outTide))
+                Assert.Fail();
+            else
+                Assert.Pass();
         }
 
         [Test]
