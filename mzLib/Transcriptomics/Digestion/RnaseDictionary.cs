@@ -2,7 +2,7 @@
 using MzLibUtil;
 using Omics.Digestion;
 
-namespace Transcriptomics
+namespace Transcriptomics.Digestion
 {
     public static class RnaseDictionary
     {
@@ -12,10 +12,12 @@ namespace Transcriptomics
 
 
             var pathToProgramFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            string dataDirectory = !String.IsNullOrWhiteSpace(pathToProgramFiles) && AppDomain.CurrentDomain.BaseDirectory.Contains(pathToProgramFiles)
-                && !AppDomain.CurrentDomain.BaseDirectory.Contains("Jenkins") ?
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MetaMorpheus") :
-                    AppDomain.CurrentDomain.BaseDirectory;
+            string dataDirectory = !String.IsNullOrWhiteSpace(pathToProgramFiles) &&
+                                   AppDomain.CurrentDomain.BaseDirectory.Contains(pathToProgramFiles)
+                                   && !AppDomain.CurrentDomain.BaseDirectory.Contains("Jenkins")
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MetaMorpheus")
+                : AppDomain.CurrentDomain.BaseDirectory;
             string path = Path.Combine(dataDirectory, "Digestion", "rnases.tsv");
             Dictionary = LoadRnaseDictionary(path);
         }

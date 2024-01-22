@@ -1,4 +1,5 @@
 ﻿using Omics.Modifications;
+using Transcriptomics.Digestion;
 
 namespace Transcriptomics
 {

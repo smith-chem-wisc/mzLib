@@ -496,7 +496,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Transcriptomics\" />
     <Folder Include="TestData\" />
   </ItemGroup>
 

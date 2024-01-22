@@ -1,7 +1,7 @@
 ﻿using Omics.Digestion;
 using Omics.Fragmentation;
 
-namespace Transcriptomics
+namespace Transcriptomics.Digestion
 {
     public class RnaDigestionParams : IDigestionParams
     {

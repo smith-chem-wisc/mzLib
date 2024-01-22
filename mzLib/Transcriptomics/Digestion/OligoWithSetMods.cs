@@ -8,7 +8,7 @@ using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
 
-namespace Transcriptomics
+namespace Transcriptomics.Digestion
 {
     public class OligoWithSetMods : NucleolyticOligo, IBioPolymerWithSetMods, INucleicAcid
     {

@@ -1,10 +1,4 @@
-﻿using Chemistry;
-using MassSpectrometry;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Omics.Digestion;
+﻿using Omics.Digestion;
 using Omics.Modifications;
 
 namespace Omics
@@ -20,13 +14,12 @@ namespace Omics
         bool IsContaminant { get; }
         string Organism { get; }
         string Accession { get; }
-        IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
-        char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
-
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
         /// </summary>
-         IEnumerable<Tuple<string, string>> GeneNames { get; }
+        IEnumerable<Tuple<string, string>> GeneNames { get; }
+        IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
+        char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false);

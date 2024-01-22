@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -39,6 +40,8 @@ namespace Test.Transcriptomics
                 "dGua", ChemicalFormula.ParseFormula("C5H4N5O1"), 329.052523, ChemicalFormula.ParseFormula("C10H13N5O4"));
             yield return new NucleotideTestCase(Nucleotide.DeoxyThymineBase, "DeoxyThymine", 'V',
                 "dThy", ChemicalFormula.ParseFormula("C5H5N2O2"), 304.046041, ChemicalFormula.ParseFormula("C10H14N2O5"));
+            yield return new NucleotideTestCase(Nucleotide.PseudoUracilBase, "PseudoUracil", 'Y',
+                "Psu", ChemicalFormula.ParseFormula("C4H3N2O2"), 306.025306, ChemicalFormula.ParseFormula("C9H12N2O6"));
         }
 
         [Test]
@@ -87,6 +90,11 @@ namespace Test.Transcriptomics
             }
             else
                 Assert.Fail();
+
+            if (Nucleotide.TryGetResidue('&', out outTide))
+                Assert.Fail();
+            else
+                Assert.Pass();
         }
 
         [Test]
@@ -127,9 +135,9 @@ namespace Test.Transcriptomics
         public void TestEquality()
         {
             Assert.That(Nucleotide.TryGetResidue('A', out Nucleotide a));
-            Assert.That(Nucleotide.TryGetResidue("Ade", out Nucleotide a2));    
-            Assert.That(Nucleotide.TryGetResidue("U", out Nucleotide u));    
-            Assert.That(Nucleotide.TryGetResidue("Ura", out Nucleotide u2));    
+            Assert.That(Nucleotide.TryGetResidue("Ade", out Nucleotide a2));
+            Assert.That(Nucleotide.TryGetResidue("U", out Nucleotide u));
+            Assert.That(Nucleotide.TryGetResidue("Ura", out Nucleotide u2));
 
             Assert.That(a.Equals(a));
             Assert.That(a.Equals(a2));
@@ -147,7 +155,7 @@ namespace Test.Transcriptomics
             Assert.That(!a.Equals((object)u2));
             Assert.That(!u.Equals((object)a2));
             Assert.That(!u.Equals((object)null));
-            Assert.That(!u.Equals((object) new Action(() => { })));
+            Assert.That(!u.Equals((object)new Action(() => { })));
         }
     }
 }

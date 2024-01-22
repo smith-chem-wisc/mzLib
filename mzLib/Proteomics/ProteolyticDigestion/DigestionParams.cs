@@ -1,7 +1,5 @@
-﻿using System;
-using Omics.Digestion;
+﻿using Omics.Digestion;
 using Omics.Fragmentation;
-using Proteomics.ProteolyticDigestion;
 
 namespace Proteomics.ProteolyticDigestion 
 {
@@ -60,7 +58,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public int MaxPeptideLength
         {
-            get => MaxLength; 
+            get => MaxLength;
             set => MaxLength = value;
         }
 
@@ -107,11 +105,13 @@ namespace Proteomics.ProteolyticDigestion
 
         public IDigestionParams Clone()
         {
-            var clone = new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength, MaxModificationIsoforms,
-                InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus, GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
-            if (SpecificProtease != null)
-                clone.RecordSpecificProtease();
-            return clone;
+            if (SearchModeType == CleavageSpecificity.None)
+                return new DigestionParams(SpecificProtease.Name, MaxMissedCleavages, MinLength, MaxLength,
+                    MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus,
+                    GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+            return new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength,
+                MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus,
+                GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
         }
             
 

@@ -13,6 +13,7 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using Readers;
 using Transcriptomics;
+using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 
 namespace Test.Transcriptomics

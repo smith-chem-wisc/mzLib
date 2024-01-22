@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Chemistry;
-using MassSpectrometry;
+﻿using Chemistry;
 using Omics;
 using Omics.Modifications;
 
@@ -26,6 +20,7 @@ namespace Transcriptomics
         /// Modifications 
         /// </summary>
         IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
+
 
         IHasChemicalFormula FivePrimeTerminus { get; set; }
 

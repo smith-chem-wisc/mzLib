@@ -11,6 +11,7 @@ using Transcriptomics;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
+using Transcriptomics.Digestion;
 
 namespace Test.Transcriptomics
 {

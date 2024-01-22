@@ -2,7 +2,7 @@
 using Omics.Digestion;
 using Omics.Modifications;
 
-namespace Transcriptomics
+namespace Transcriptomics.Digestion
 {
     public class Rnase : DigestionAgent, IEquatable<Rnase>
     {
@@ -65,7 +65,7 @@ namespace Transcriptomics
                 }
             }
         }
-
+        
         public bool Equals(Rnase? other)
         {
             if (ReferenceEquals(null, other)) return false;

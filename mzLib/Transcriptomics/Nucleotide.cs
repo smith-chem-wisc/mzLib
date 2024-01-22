@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using Chemistry;
+using System.Globalization;
 using Chemistry;
 
 namespace Transcriptomics
@@ -43,7 +44,7 @@ namespace Transcriptomics
         /// </summary>
         static Nucleotide()
         {
-         
+
             AllKnownResidues = new Dictionary<string, Nucleotide>(66);
             ResiduesByLetter = new Nucleotide['z' + 1]; //Make it big enough for all the Upper and Lower characters
 
@@ -53,7 +54,7 @@ namespace Transcriptomics
             CytosineBase = AddResidue("Cytosine", 'C', "Cyt", "C4H4N3O1");
             GuanineBase = AddResidue("Guanine", 'G', "Gua", "C5H4N5O1");
             UracilBase = AddResidue("Uracil", 'U', "Ura", "C4H3N2O2");
-            PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", "C4H3N2O2");
+            PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", "C4H3N2O2"); // Y was choosen for pseudouridine due to it commonly being represented by Psi
 
             // DNA bases which have the same mass as the ones above
             // however, naming to deoxy- to distinguish DNA nucleotide mass calculation from RNA
@@ -128,12 +129,12 @@ namespace Transcriptomics
             if (Name.Equals("DeoxyAdenine") || Name.Equals("DeoxyCytosine") || Name.Equals("DeoxyGuanine") || Name.Equals("DeoxyThymine"))
             {
                 // DNA sugar phosphate backbone (one less oxygen than RNA)
-                _sugarAndPhosphate = ChemicalFormula.ParseFormula("C5H8O5P1"); 
+                _sugarAndPhosphate = ChemicalFormula.ParseFormula("C5H8O5P1");
             }
             else
             {
                 // RNA sugar phosphate backbone
-                _sugarAndPhosphate = ChemicalFormula.ParseFormula("C5H8O6P1"); 
+                _sugarAndPhosphate = ChemicalFormula.ParseFormula("C5H8O6P1");
             }
 
             ThisChemicalFormula.Add(_sugarAndPhosphate);
@@ -147,7 +148,7 @@ namespace Transcriptomics
         #endregion
 
         #region Static Methods
-        
+
         /// <summary>
         /// Adds residue to AllKnownResidues Dictionary
         /// </summary>

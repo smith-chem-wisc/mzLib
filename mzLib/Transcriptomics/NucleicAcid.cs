@@ -3,6 +3,7 @@ using Chemistry;
 using Omics;
 using Omics.Digestion;
 using Omics.Modifications;
+using Transcriptomics.Digestion;
 
 namespace Transcriptomics
 {

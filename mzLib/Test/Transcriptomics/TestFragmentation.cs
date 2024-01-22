@@ -11,6 +11,7 @@ using MassSpectrometry;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
+using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 
 namespace Test.Transcriptomics
