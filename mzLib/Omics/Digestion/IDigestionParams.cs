@@ -11,8 +11,13 @@ namespace Omics.Digestion
         int MaxMods { get; set; }
         DigestionAgent DigestionAgent { get; }
         FragmentationTerminus FragmentationTerminus { get; }
-
         CleavageSpecificity SearchModeType { get; }
-        IDigestionParams Clone();
+
+        /// <summary>
+        /// new terminus parameter is for non and semi specific searches
+        /// </summary>
+        /// <param name="newTerminus"></param>
+        /// <returns></returns>
+        IDigestionParams Clone(FragmentationTerminus? newTerminus = null);
     }
 }
