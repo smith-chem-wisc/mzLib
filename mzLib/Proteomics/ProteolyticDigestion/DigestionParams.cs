@@ -103,14 +103,15 @@ namespace Proteomics.ProteolyticDigestion
                    + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide;
         }
 
-        public IDigestionParams Clone()
+        public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
         {
+            var terminus = newTerminus ?? FragmentationTerminus;
             if (SearchModeType == CleavageSpecificity.None)
                 return new DigestionParams(SpecificProtease.Name, MaxMissedCleavages, MinLength, MaxLength,
-                    MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus,
+                    MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
                     GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
             return new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength,
-                MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, FragmentationTerminus,
+                MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
                 GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
         }
             

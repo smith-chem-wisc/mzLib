@@ -27,8 +27,13 @@ namespace Transcriptomics.Digestion
         public Rnase Rnase { get; private set; }
         public FragmentationTerminus FragmentationTerminus { get; set; }
         public CleavageSpecificity SearchModeType { get; } = CleavageSpecificity.Full;
-
-        public IDigestionParams Clone() => new RnaDigestionParams(Rnase.Name, MaxMissedCleavages, MinLength, MaxLength,
-            MaxModificationIsoforms, MaxMods, FragmentationTerminus);
+        public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
+        {
+            return newTerminus.HasValue
+                ? new RnaDigestionParams(Rnase.Name, MaxMissedCleavages, MinLength, MaxLength,
+                    MaxModificationIsoforms, MaxMods, newTerminus.Value)
+                : new RnaDigestionParams(Rnase.Name, MaxMissedCleavages, MinLength, MaxLength,
+                    MaxModificationIsoforms, MaxMods, FragmentationTerminus);
+        }
     }
 }
