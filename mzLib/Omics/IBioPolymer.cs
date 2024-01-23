@@ -15,7 +15,9 @@ namespace Omics
         string Organism { get; }
         string Accession { get; }
         /// <summary>
-        /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
+        /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the nameof the specific molecule.
+        /// There may be many genes and names of a certain type produced when reading an XML protein database.
+        /// For RNA there may be a gene name and a specific transcript name due to splice variants.
         /// </summary>
         IEnumerable<Tuple<string, string>> GeneNames { get; }
         IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
