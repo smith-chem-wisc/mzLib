@@ -19,6 +19,7 @@ namespace Omics.Digestion
 
         /// <summary>
         /// new terminus parameter is for non and semi specific searches
+        /// The Fragmentation terminus will never be null, if a null value is inputted, the fragmentation terminus will be set to the fragmentation terminus of the object being cloned.
         /// </summary>
         /// <param name="newTerminus"></param>
         /// <returns></returns>
