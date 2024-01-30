@@ -20,7 +20,7 @@ namespace MassSpectrometry
         /// This is a list of succesive PASEF scans capturing data on the same ion-mobility scan range and quadrupole isolation window
         /// </summary>
         public List<long> FrameIds { get; }
-        internal List<MzSpectrum> ComponentSpectra { get; private set; }
+        //internal List<MzSpectrum> ComponentSpectra { get; private set; }
         internal List<ListNode<TofPeak>> ComponentSpectraListNodes { get; private set; }
         internal int ComponentSpectraTotalPeaks { get; private set; }
 
@@ -69,34 +69,31 @@ namespace MassSpectrometry
             ComponentSpectraTotalPeaks = 0;
             if(msnOrder > 1)
             {
-                ComponentSpectra = new();
+                ComponentSpectraListNodes = new();
             }
         }
 
-        public void AverageComponentSpectra()
+        public void AverageComponentSpectra(FilteringParams filteringParams = null)
         {
             // TODO: Probably need to add, like, checks and stuff. But oh well.
-            MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectra);
-            ComponentSpectra.Clear();
-            //MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectraListNodes, ComponentSpectraTotalPeaks);
-            //ComponentSpectraListNodes.Clear();
+            //MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectra);
+            //ComponentSpectra.Clear();
+            MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectraListNodes, ComponentSpectraTotalPeaks, filteringParams: filteringParams);
+            ComponentSpectraListNodes.Clear();
         }
 
-        public void AddComponentSpectrum(MzSpectrum spectrum)
-        {
-            if (ComponentSpectra == null) return;
-            ComponentSpectra.Add(spectrum);
-        }
-
-        //internal void AddComponentSpectrum(ListNode<TofPeak> spectrumHead, int spectrumLength)
+        //public void AddComponentSpectrum(MzSpectrum spectrum)
         //{
-        //    if (ComponentSpectraListNodes == null)
-        //    {
-        //        ComponentSpectraListNodes = new();
-        //    }
-        //    ComponentSpectraListNodes.Add(spectrumHead);
-        //    ComponentSpectraTotalPeaks += spectrumLength;
+        //    if (ComponentSpectra == null) return;
+        //    ComponentSpectra.Add(spectrum);
         //}
+
+        internal void AddComponentSpectrum(ListNode<TofPeak> spectrumHead, int spectrumLength)
+        {
+            if (ComponentSpectraListNodes == null) return;
+            ComponentSpectraListNodes.Add(spectrumHead);
+            ComponentSpectraTotalPeaks += spectrumLength;
+        }
 
     }
 }

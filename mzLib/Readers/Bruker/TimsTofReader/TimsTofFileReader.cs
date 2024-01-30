@@ -26,7 +26,7 @@ namespace Readers.Bruker
 
         public TimsTofFileReader(string filePath) : base (filePath) 
         {
-            PrecursorIdToZeroBasedScanIndex = new();
+            PrecursorIdToOneBasedScanIndex = new();
         }
 
         private UInt64? _fileHandle;
@@ -42,7 +42,7 @@ namespace Readers.Bruker
         public MzRange ScanWindow => _scanWindow ??= new MzRange(20, 2000);
         public const string ScanFilter = "f";
 
-        public ConcurrentDictionary<int, int> PrecursorIdToZeroBasedScanIndex { get; }
+        public ConcurrentDictionary<int, int> PrecursorIdToOneBasedScanIndex { get; }
 
         public override void InitiateDynamicConnection()
         {
@@ -167,7 +167,7 @@ namespace Readers.Bruker
                                 //Debugger.Break();
 
                                 //BuildMS1Scans(scansInRange, frameId, newConnection);
-                                BuildMS1Scans(scansInRange, frameId);
+                                //BuildMS1Scans(scansInRange, frameId);
                             }
                             //Debugger.Break();
                             scanListDictionary[range.Item1] = scansInRange;
@@ -188,11 +188,11 @@ namespace Readers.Bruker
             else
             {
                 List<MsDataScan> scanList = new();
-                //for (int i = 0; i < Ms1FrameIds.Count; i++)
-                for (int i = 0; i < 500; i++)
+                for (int i = 0; i < Ms1FrameIds.Count; i++)
+                //for (int i = 0; i < 500; i++)
                 {
                     long frameId = Ms1FrameIds[i];
-                    BuildMS1Scans(scanList, frameId);
+                    BuildMS1Scans(scanList, frameId, filteringParams);
 
                     //if (FramesTable.MsMsType[i].ToEnum<TimsTofMsMsType>(out var msMsType))
                     //{
@@ -233,7 +233,7 @@ namespace Readers.Bruker
             }
         }
 
-        internal void BuildMS1Scans(List<MsDataScan> scanList, long frameId, SQLiteConnection sqLiteConnection = null)
+        internal void BuildMS1Scans(List<MsDataScan> scanList, long frameId, FilteringParams filteringParams, SQLiteConnection sqLiteConnection = null)
         {
             FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
             SQLiteConnection connection = sqLiteConnection ?? _sqlConnection;
@@ -278,7 +278,7 @@ namespace Readers.Bruker
                     intensityArrays.Add(frame.GetScanIntensities(scan));
                 }
                 // Step 2: Average those suckers
-                MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays);
+                MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays, filteringParams);
                 // Step 3: Make an MsDataScan bby
                 var dataScan = new TimsDataScan(
                     massSpectrum: averagedSpectrum,
@@ -309,10 +309,10 @@ namespace Readers.Bruker
             scanList.AddRange(scanBag.OrderBy(scan => scan.PrecursorId));
             
             // Then, build ONE MS2 scan from every PASEF frame that sampled that precursor
-            BuildPasefScanFromPrecursor(scanList, precursorIdsInFrame.Distinct(), frameId);
+            BuildPasefScanFromPrecursor(scanList, precursorIdsInFrame.Distinct(), frameId, filteringParams);
         }
 
-        internal void BuildPasefScanFromPrecursor(List<MsDataScan> scanList, IEnumerable<int> precursorIds, long parentFrameId, SQLiteConnection sqLiteConnection = null)
+        internal void BuildPasefScanFromPrecursor(List<MsDataScan> scanList, IEnumerable<int> precursorIds, long parentFrameId, FilteringParams filteringParams, SQLiteConnection sqLiteConnection = null)
         {
             HashSet<long> allFrames = new();
             List<TimsDataScan> pasefScans = new();
@@ -390,7 +390,8 @@ namespace Readers.Bruker
                     pasefScans.Add(dataScan);
                 }
             }
-            
+            // Error encountered when writing to mzML, duplicate nativeIds "frame=1141;scans=684-709". I'm not sure why thats happening 
+            pasefScans = pasefScans.DistinctBy(scan => scan.NativeId).ToList();
 
             // For scan 1, we have 8 unique precursors, each of which is sampled 10-11 times
             // We need a way of iteratively building an mzSpectrum, 
@@ -411,9 +412,9 @@ namespace Readers.Bruker
                             intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx));
                         }
                         // Step 2: Average those suckers
-                        scan.AddComponentSpectrum(SumScans(mzArrays, intensityArrays));
-                        //ListNode<TofPeak> spectrumHeadNode = SumScansToLinkedList(mzArrays, intensityArrays, out int listLength);
-                        //scan.AddComponentSpectrum(spectrumHeadNode, listLength);
+                        //scan.AddComponentSpectrum(SumScans(mzArrays, intensityArrays));
+                        ListNode<TofPeak> spectrumHeadNode = SumScansToLinkedList(mzArrays, intensityArrays, out int listLength);
+                        scan.AddComponentSpectrum(spectrumHeadNode, listLength);
                     }
                 }); 
             }
@@ -421,7 +422,7 @@ namespace Readers.Bruker
             //foreach (TimsDataScan scan in pasefScans)
             Parallel.ForEach(pasefScans, scan =>
             {
-                scan.AverageComponentSpectra();
+                scan.AverageComponentSpectra(filteringParams);
             });
 
             scanList.AddRange(pasefScans);
@@ -503,9 +504,9 @@ namespace Readers.Bruker
         //    }
         //}
 
-        internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays)
+        internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
         {
-            return TofSpectraMerger.MergeSpectra(mzArrays, intensityArrays);
+            return TofSpectraMerger.MergeSpectra(mzArrays, intensityArrays, filteringParams: filteringParams);
 
             //int mostIntenseScanIndex = 0;
             //int maxIntensity = 0;

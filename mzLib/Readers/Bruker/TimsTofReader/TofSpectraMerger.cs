@@ -8,7 +8,7 @@ namespace Readers.Bruker.TimsTofReader
     // The implementation is based off the code found here: https://leetcode.com/problems/merge-k-sorted-lists/solutions/3286058/image-explanation-5-methods-divide-conquer-priority-queue-complete-intuition/
     public static class TofSpectraMerger
     {
-        public static MzSpectrum MergeSpectra(List<MzSpectrum> spectra, Tolerance tolerance = null)
+        public static MzSpectrum MergeSpectra(List<MzSpectrum> spectra, FilteringParams filteringParams = null, Tolerance tolerance = null)
         {
             List<double[]> mzArrays = new();
             List<double[]> intensityArrays = new();
@@ -21,8 +21,9 @@ namespace Readers.Bruker.TimsTofReader
             return MergeSpectra(mzArrays, intensityArrays, tolerance);
         }
 
-        public static MzSpectrum MergeSpectra(List<double[]> mzArrays, List<int[]> intensityArrays, 
-            Tolerance tolerance = null) 
+        // This isfor ms1
+        public static MzSpectrum MergeSpectra(List<double[]> mzArrays, List<int[]> intensityArrays,
+            FilteringParams filteringParams = null, Tolerance tolerance = null) 
         {
             tolerance ??= new PpmTolerance(5);
             if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
@@ -59,11 +60,20 @@ namespace Readers.Bruker.TimsTofReader
                 mergedListHead = mergedListHead.Next;
             }
 
+            if (filteringParams != null
+                && mzs.Length > 0
+                && filteringParams.ApplyTrimmingToMs1)
+            {
+                WindowModeHelper.Run(ref intensities,
+                    ref mzs, filteringParams,
+                    mzs[0], mzs[^0]);
+            }
             return new MzSpectrum(mzs, intensities, shouldCopy: false);
         }
 
+        // This is for msms
         internal static MzSpectrum MergeSpectra(List<ListNode<TofPeak>> spectrumHeadNodes,
-            int allSpectraPeakCount, Tolerance tolerance = null)
+            int allSpectraPeakCount, FilteringParams filteringParams = null, Tolerance tolerance = null)
         {
             tolerance ??= new PpmTolerance(5);
 
@@ -80,6 +90,14 @@ namespace Readers.Bruker.TimsTofReader
                 mergedListHead = mergedListHead.Next;
             }
 
+            if (filteringParams != null
+                && mzs.Length > 0
+                && filteringParams.ApplyTrimmingToMsMs)
+            {
+                WindowModeHelper.Run(ref intensities,
+                    ref mzs, filteringParams,
+                    mzs[0], mzs[finalPeaksCount-1]); // The unary operator was throwing "index out of range" errors here
+            }
             return new MzSpectrum(mzs, intensities, shouldCopy: false);
         }
 

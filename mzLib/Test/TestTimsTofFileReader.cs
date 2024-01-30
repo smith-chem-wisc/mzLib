@@ -1,6 +1,7 @@
 ﻿using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using NUnit.Framework;
+using Readers;
 using Readers.Bruker;
 using Readers.Bruker.TimsTofReader;
 using System;
@@ -24,23 +25,37 @@ namespace Test.FileReadingTests
             Stopwatch watch = Stopwatch.StartNew();
             var memoryBeforeReading = GC.GetTotalMemory(true) / 1000;
 
+            FilteringParams filter = new FilteringParams(
+                numberOfPeaksToKeepPerWindow: 200,
+                minimumAllowedIntensityRatioToBasePeak: 0.5,
+                windowWidthThomsons: null,
+                numberOfWindows: null,
+                normalizePeaksAcrossAllWindows: false,
+                applyTrimmingToMs1: false,
+                applyTrimmingToMsMs: true);
+
             //MsDataFile brukerData = MsDataFileReader.GetDataFile(@"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.mzML").LoadAllStaticData();
             string filePath = @"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.d";
-            var test = new TimsTofFileReader(filePath).LoadAllStaticData(maxThreads: 10);
+            var test = new TimsTofFileReader(filePath).LoadAllStaticData(filteringParams: filter, maxThreads: 10);
             //TimsTofFileReader testAsTimmyReader = (TimsTofFileReader)test;
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
-            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\MS1_Parallel10_500_plusMS2_Parallel_SpectraMergeChange.txt");
+            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\MS1_Parallel10_fullFile_SpectraMergeChangeplusFiltertoHalf_take2.txt");
             using (output)
             {
                 output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
                 output.WriteLine(test.Scans.Length + " scans read from file.");
                 output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
+                GC.Collect();
                 output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
             }
-            
+
+            // This is failing during write, giving the following error:
+            //  System.ArgumentException : An item with the same key has already been added. Key: frame=1141;scans=684-709
+            test.ExportAsMzML(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\AurEl3_halfFilter_take2.mzML", writeIndexed: true);
             Assert.Pass();
+            
         }
 
         [Test]
@@ -75,7 +90,7 @@ namespace Test.FileReadingTests
 
             //MsDataFile brukerData = MsDataFileReader.GetDataFile(@"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.mzML").LoadAllStaticData();
             string filePath = @"D:\SingleCellDataSets\Organoid\raw_files\HFL1SC_2_Healthy_CH1_I3.raw";
-            var test = new ThermoRawFileReader(filePath).LoadAllStaticData();
+            //var test = new ThermoRawFileReader(filePath).LoadAllStaticData();
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
@@ -83,7 +98,7 @@ namespace Test.FileReadingTests
             using (output)
             {
                 output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
-                output.WriteLine(test.Scans.Length + " scans read from file.");
+                //output.WriteLine(test.Scans.Length + " scans read from file.");
                 output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
                 output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
             }
