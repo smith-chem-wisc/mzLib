@@ -791,121 +791,6 @@ namespace FlashLFQ
             }
 
             RunErrorChecking(idAcceptorFile);
-
-            //MbrDecoySearch();
-        }
-
-        internal void MbrDecoySearch(SpectraFileInfo acceptorFile)
-        {
-            var decoyPeptides = new List<Identification>();
-            ChromatographicPeak donorPeak = null;
-            PpmTolerance mbrTol = new PpmTolerance(10);
-
-            // Should do alignment with like 100 anchor peptides, build a spline, then use that to inform the 
-            // rt hypothesis
-
-            // get the MS1 scan info for this region so we can look up indexed peaks
-            Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[acceptorFile];
-            Ms1ScanInfo start = ms1ScanInfos[0];
-            Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
-            for (int j = 0; j < ms1ScanInfos.Length; j++)
-            {
-                Ms1ScanInfo scan = ms1ScanInfos[j];
-                //if (scan.RetentionTime <= lowerRangeRtHypothesis)
-                    start = scan;
-                //if (scan.RetentionTime >= upperRangeRtHypothesis)
-                //{
-                //    end = scan;
-                //    break;
-                //}
-            }
-
-            // now we've identified the region in the chromatography this analyte should appear.
-            // we need to check for peaks in the region using ppm tolerance and isotope pattern matching
-            var chargesToMatch = donorPeak.Identifications.Select(p => p.PrecursorChargeState).Distinct().ToList();
-            if (!chargesToMatch.Contains(donorPeak.Apex.ChargeState))
-            {
-                chargesToMatch.Add(donorPeak.Apex.ChargeState);
-            }
-
-            Identification donorIdentification = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First();
-
-            // TODO: For decoys, need to increase ppm tolerance until something is found or a maximum is reached
-            // Decoys, just do one charge state
-            foreach (int z in chargesToMatch)
-            {
-                List<IndexedMassSpectralPeak> chargeXic = new List<IndexedMassSpectralPeak>();
-
-                double adjustment = mbrTol.GetRange(donorIdentification.PeakfindingMass).Width;
-
-                //peakfinding loop 
-                // for every loop after first, adjust target such that it sits in the middle of the tolerance range
-                // below or above the previous target range.
-                // e.g., 0, -1, 1, -2, 2
-                
-
-                for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
-                {
-                    IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(donorIdentification.PeakfindingMass, j, mbrTol, z);
-                    if (peak != null)
-                        chargeXic.Add(peak);
-                }
-                if (!chargeXic.Any())
-                    continue; // goto peakfinidng loop
-
-                List<IsotopicEnvelope> chargeEnvelopes = GetIsotopicEnvelopes(chargeXic, donorIdentification, z);
-
-                // treat each isotopic envelope in the valid region as a potential seed for a chromatographic peak.
-                // remove the clustered isotopic envelopes from the list of seeds after each iteration
-            //    while (chargeEnvelopes.Any())
-            //    {
-            //        ChromatographicPeak acceptorPeak = FindAcceptorPeak(idAcceptorFile, apexToAcceptorFilePeak, ppmDistribution, mbrTol, medianAcceptorLogIntensity, intensityDistribution, foldChangeDistribution, rtInfo, acceptorFileRtHypothesis, rtScoringDistribution, donorIdentification, z, chargeEnvelopes);
-            //        if (acceptorPeak == null)
-            //            continue;
-
-            //        // save the peak hypothesis
-            //        // if this peak hypothesis already exists, sum the scores since we've mapped >1 of the same ID onto this peak
-            //        if (matchBetweenRunsIdentifiedPeaksThreadSpecific.TryGetValue(donorIdentification.ModifiedSequence, out var mbrPeaks))
-            //        {
-            //            if (mbrPeaks.TryGetValue(acceptorPeak.Apex, out List<ChromatographicPeak> existing))
-            //            {
-            //                var samePeakSameSequence = existing
-            //                    .FirstOrDefault(p => p.Identifications.First().ModifiedSequence == acceptorPeak.Identifications.First().ModifiedSequence);
-
-            //                if (samePeakSameSequence != null)
-            //                {
-            //                    samePeakSameSequence.MbrScore += acceptorPeak.MbrScore;
-            //                    samePeakSameSequence.Identifications.Add(donorIdentification);
-            //                }
-            //                else
-            //                {
-            //                    existing.Add(acceptorPeak);
-            //                }
-            //            }
-            //            else
-            //            {
-            //                mbrPeaks.Add(acceptorPeak.Apex, new List<ChromatographicPeak> { acceptorPeak });
-            //            }
-            //        }
-            //        else
-            //        {
-            //            matchBetweenRunsIdentifiedPeaksThreadSpecific.Add(donorIdentification.ModifiedSequence, new Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>());
-            //            matchBetweenRunsIdentifiedPeaksThreadSpecific[donorIdentification.ModifiedSequence].Add(acceptorPeak.Apex, new List<ChromatographicPeak> { acceptorPeak });
-            //        }
-            //    }
-            }
-
-
-            //run once for each acceptor file
-            // for each decoy peptide
-            // get rt hypothesis + range
-            // get all MS1 scans in range (i.e., find indices
-            // pick a charge state where decoy would have reasonable mass (350 < m/z < 1600)
-            // peak pick
-            //   loop where tolerance gets progressively larger until something is found
-            //   find isotopic envelopes with reduced requirement for pearson correlation
-            //   do need some maximum tolerance value. 10k ppm?
-            // report + store these peaks
         }
 
         internal void FindAllAcceptorPeaks(
@@ -967,7 +852,7 @@ namespace FlashLFQ
                 // remove the clustered isotopic envelopes from the list of seeds after each iteration
                 while (chargeEnvelopes.Any())
                 {
-                    ChromatographicPeak acceptorPeak = FindAcceptorPeak(idAcceptorFile, scorer, donorPeak, fileSpecificTol, rtInfo, rtScoringDistribution, z, chargeEnvelopes);
+                    ChromatographicPeak acceptorPeak = FindIndividualAcceptorPeak(idAcceptorFile, scorer, donorPeak, fileSpecificTol, rtInfo, rtScoringDistribution, z, chargeEnvelopes);
                     if (acceptorPeak == null)
                         continue;
 
@@ -1015,7 +900,7 @@ namespace FlashLFQ
         /// <param name="z"></param>
         /// <param name="chargeEnvelopes"></param>
         /// <returns> An acceptor chromatographic peak, unless the peak found was already linked to an MS/MS id, in which case it return null. </returns>
-        internal ChromatographicPeak FindAcceptorPeak(
+        internal ChromatographicPeak FindIndividualAcceptorPeak(
             SpectraFileInfo idAcceptorFile,
             MbrScorer scorer,
             ChromatographicPeak donorPeak,
@@ -1055,122 +940,6 @@ namespace FlashLFQ
                 donorPeak);
 
             return acceptorPeak;
-        }
-
-        internal ChromatographicPeak FindDecoyPeak(
-            SpectraFileInfo idAcceptorFile,
-            Dictionary<IndexedMassSpectralPeak, ChromatographicPeak> apexToAcceptorFilePeak,
-            Tolerance mbrTol,
-            (double predictedRt, double range, double? rtSd, double? rtInterquartileRange) rtInfo,
-            Identification donorIdentification)
-        {
-            // this is the RT in the acceptor file to look around to find this analyte
-            double acceptorFileRtHypothesis = rtInfo.predictedRt;
-            double lowerRangeRtHypothesis = acceptorFileRtHypothesis - (rtInfo.range / 2.0);
-            double upperRangeRtHypothesis = acceptorFileRtHypothesis + (rtInfo.range / 2.0);
-
-            // get the MS1 scan info for this region so we can look up indexed peaks
-            Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
-            Ms1ScanInfo start = ms1ScanInfos[0];
-            Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
-            for (int j = 0; j < ms1ScanInfos.Length; j++)
-            {
-                Ms1ScanInfo scan = ms1ScanInfos[j];
-                if (scan.RetentionTime <= lowerRangeRtHypothesis)
-                    start = scan;
-                if (scan.RetentionTime >= upperRangeRtHypothesis)
-                {
-                    end = scan;
-                    break;
-                }
-            }
-
-            // Checking charge states 2 - 4
-            List<ChromatographicPeak> chargeStateAcceptors = new();
-            for(int z = 2; z <= 4; z++)
-            {
-                int searchCount = 0;
-                List<ChromatographicPeak> acceptorPeakCandidates = new();
-                while (acceptorPeakCandidates.Count < 1)
-                {
-                    if (searchCount > 1000) break;
-
-                    // Select the peakFindingMass that will be used for this round of search
-                    int searchRangeCoeff = (searchCount + 2 - 1) / 2; // Integer division that returns ceiling: https://stackoverflow.com/questions/17944/how-to-round-up-the-result-of-integer-division
-                    searchRangeCoeff = searchCount % 2 == 0 ? searchRangeCoeff : -1 * searchRangeCoeff;
-                    double peakFindingMass = donorIdentification.PeakfindingMass
-                        + mbrTol.GetRange(donorIdentification.PeakfindingMass.ToMz(z)).Width * searchRangeCoeff;
-
-                    // Pull every imsPeak in the given time range for the peak finding mass
-                    List<IndexedMassSpectralPeak> fullRangeXic = new List<IndexedMassSpectralPeak>();
-                    for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
-                    {
-                        IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(peakFindingMass, j, mbrTol, z);
-                        if (peak != null)
-                            fullRangeXic.Add(peak);
-                    }
-                    if (!fullRangeXic.Any())
-                    {
-                        searchCount++;
-                        continue;
-                    }
-
-                    // Find peaks in the XIC
-                    List<IsotopicEnvelope> seedEnvelopes = GetIsotopicEnvelopes(fullRangeXic, donorIdentification, z);
-                    if (!seedEnvelopes.Any())
-                    {
-                        searchCount++;
-                        continue;
-                    }
-                    while (seedEnvelopes.Any())
-                    {
-                        IsotopicEnvelope seedEnvelope = seedEnvelopes.First();
-                        // peak has already been identified by MSMS - skip it
-                        if (apexToAcceptorFilePeak.ContainsKey(seedEnvelope.IndexedPeak))
-                        {
-                            seedEnvelopes.Remove(seedEnvelope);
-                            continue;
-                        }
-
-                        var xic = Peakfind(seedEnvelope.IndexedPeak.RetentionTime, peakFindingMass, z, idAcceptorFile, mbrTol);
-                        List<IsotopicEnvelope> localEnvelopes = GetIsotopicEnvelopes(xic, donorIdentification, z);
-                        if (localEnvelopes.Count() < 3)
-                        {
-                            seedEnvelopes.Remove(seedEnvelope);
-                            continue;
-                        }
-                        ChromatographicPeak acceptorPeak = new ChromatographicPeak(donorIdentification, true, idAcceptorFile);
-                        acceptorPeak.IsotopicEnvelopes.AddRange(localEnvelopes);
-                        acceptorPeak.CalculateIntensityForThisFeature(Integrate);
-                        //acceptorPeak.SetRtWindow(acceptorFileRtHypothesis, rtInfo.rtSd, rtInfo.rtInterquartileRange);
-
-                        CutPeak(acceptorPeak, seedEnvelope.IndexedPeak.RetentionTime);
-                        acceptorPeakCandidates.Add(acceptorPeak);
-
-                        var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak));
-                        if (claimedPeaks.Max(p => p.ZeroBasedMs1ScanIndex) < seedEnvelopes.Min(e => e.IndexedPeak.ZeroBasedMs1ScanIndex))
-                            break;
-                        seedEnvelopes.Remove(seedEnvelope);
-                        seedEnvelopes.RemoveAll(p => claimedPeaks.Contains(p.IndexedPeak));
-                    }
-                    searchCount++;
-                }
-
-                if (!acceptorPeakCandidates.Any())
-                    continue;
-
-                // Best peak is selected with a shitty heuristic, summing the isotopic correlation of all envelopes
-                ChromatographicPeak bestPeak = acceptorPeakCandidates.MinBy(peak =>
-                    Math.Abs(peak.Identifications.First().PeakfindingMass - peak.Apex.IndexedPeak.Mz.ToMass(peak.Apex.ChargeState)));
-                chargeStateAcceptors.Add(bestPeak);
-            }
-
-            if (!chargeStateAcceptors.Any()) return null;
-
-            ChromatographicPeak bestOverallPeak = chargeStateAcceptors.MinBy(peak =>
-                Math.Abs(peak.Identifications.First().PeakfindingMass - peak.Apex.IndexedPeak.Mz.ToMass(peak.Apex.ChargeState)));
-            bestOverallPeak.MbrScore = -1;
-            return bestOverallPeak;
         }
 
         /// <summary>
