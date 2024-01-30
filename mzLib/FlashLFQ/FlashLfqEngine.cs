@@ -721,7 +721,9 @@ namespace FlashLFQ
                             {
                                 Ms1ScanInfo scan = ms1ScanInfos[j];
                                 if (scan.RetentionTime <= lowerRangeRtHypothesis)
+                                {
                                     start = scan;
+                                }
                                 if (scan.RetentionTime >= upperRangeRtHypothesis)
                                 {
                                     end = scan;
@@ -739,8 +741,10 @@ namespace FlashLFQ
 
                             Identification donorIdentification = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First();
 
-                            // TODO: For decoys, need to increase ppm tolerance until something is found or a maximum is reached
-                            // Decoys, just do one charge state
+                            // Grab the retention time of a random peptide in the donor file
+                            // If it is not outside of the rtInfo.predictedRT +/- rtInfo.range (twice the width of actual window), redraw
+
+
                             foreach (int z in chargesToMatch)
                             {
                                 List<IndexedMassSpectralPeak> chargeXic = new List<IndexedMassSpectralPeak>();
@@ -760,7 +764,9 @@ namespace FlashLFQ
                                 // remove the clustered isotopic envelopes from the list of seeds after each iteration
                                 while (chargeEnvelopes.Any())
                                 {
-                                    ChromatographicPeak acceptorPeak = FindAcceptorPeak(idAcceptorFile, apexToAcceptorFilePeak, ppmDistribution, mbrTol, medianAcceptorLogIntensity, intensityDistribution, foldChangeDistribution, rtInfo, acceptorFileRtHypothesis, rtScoringDistribution, donorIdentification, z, chargeEnvelopes);
+                                    ChromatographicPeak acceptorPeak = FindAcceptorPeak(idAcceptorFile, apexToAcceptorFilePeak, ppmDistribution,
+                                        mbrTol, medianAcceptorLogIntensity, intensityDistribution, foldChangeDistribution, rtInfo, 
+                                        acceptorFileRtHypothesis, rtScoringDistribution, donorIdentification, z, chargeEnvelopes);
                                     if (acceptorPeak == null) 
                                         continue;
 
@@ -1046,7 +1052,8 @@ namespace FlashLFQ
             Normal rtScoringDistribution,
             Identification donorIdentification,
             int z,
-            List<IsotopicEnvelope> chargeEnvelopes)
+            List<IsotopicEnvelope> chargeEnvelopes,
+            bool isDecoy = false)
         {
             var acceptorPeak = new ChromatographicPeak(donorIdentification, true, idAcceptorFile);
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
@@ -1360,8 +1367,7 @@ namespace FlashLFQ
         public List<IsotopicEnvelope> GetIsotopicEnvelopes(
             List<IndexedMassSpectralPeak> xic,
             Identification identification,
-            int chargeState,
-            bool decoySearch = false)
+            int chargeState)
         {
             var isotopicEnvelopes = new List<IsotopicEnvelope>();
             var isotopeMassShifts = _modifiedSequenceToIsotopicDistribution[identification.ModifiedSequence];
@@ -1450,22 +1456,9 @@ namespace FlashLFQ
                     continue;
                 }
 
-                if (decoySearch)
-                {
-                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum()));
-                }   
                 // Check that the experimental envelope matches the theoretical
-                if (decoySearch | CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance, out var corr))
+                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance, out var corr))
                 {
-                    if(decoySearch)
-                    {
-                        if(corr > 0.3)
-                        {
-                            isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum(), corr));
-                        }
-                        
-                        continue;
-                    }
                     // impute unobserved isotope peak intensities
                     // TODO: Figure out why value imputation is performed. Build a toggle?
                     for (int i = 0; i < experimentalIsotopeIntensities.Length; i++)
