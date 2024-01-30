@@ -41,6 +41,7 @@
     <file src="BayesianEstimation\bin\x64\Release\net6.0\BayesianEstimation.dll" target="lib\net6.0" />
     <file src="Chemistry\bin\x64\Release\net6.0\Chemistry.dll" target="lib\net6.0" />
     <file src="FlashLFQ\bin\x64\Release\net6.0\FlashLFQ.dll" target="lib\net6.0" />
+    <file src="MachineLearning\bin\x64\Release\net6.0\MachineLearning.dll" target="lib\net6.0" /> 
     <file src="MassSpectrometry\bin\x64\Release\net6.0\MassSpectrometry.dll" target="lib\net6.0" />	
     <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0" />
     <file src="SpectralAveraging\bin\x64\Release\net6.0\SpectralAveraging.dll" target="lib\net6.0" /> 
@@ -63,6 +64,7 @@
     <file src="BayesianEstimation\bin\x64\Release\net6.0\BayesianEstimation.dll" target="lib\net6.0-windows7.0" />
     <file src="Chemistry\bin\x64\Release\net6.0\Chemistry.dll" target="lib\net6.0-windows7.0" />
     <file src="FlashLFQ\bin\x64\Release\net6.0\FlashLFQ.dll" target="lib\net6.0-windows7.0" />
+    <file src="MachineLearning\bin\x64\Release\net6.0\MachineLearning.dll" target="lib\net6.0-windows7.0" /> 
     <file src="MassSpectrometry\bin\x64\Release\net6.0\MassSpectrometry.dll" target="lib\net6.0-windows7.0" />
     <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0-windows7.0" />
     <file src="SpectralAveraging\bin\x64\Release\net6.0\SpectralAveraging.dll" target="lib\net6.0-windows7.0" />

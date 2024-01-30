@@ -29,7 +29,7 @@ namespace Test.AveragingTests
             SpectraPath = Path.Combine(OutputDirectory, "TDYeastFractionMS1.mzML");
             Scans = MsDataFileReader.GetDataFile(SpectraPath).GetAllScansList().Take(50).ToList();
 
-            Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScans;
+            Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScansWithOverlap;
             DdaCompositeSpectra = SpectraFileAveraging.AverageSpectraFile(Scans, Parameters);
             Assert.That(DdaCompositeSpectra.Length > 1);
         }

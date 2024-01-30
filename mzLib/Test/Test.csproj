@@ -18,12 +18,15 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
     <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
     <PackageReference Include="TopDownProteomics" Version="0.0.287" />
+    <PackageReference Include="TorchSharp" Version="0.101.2" />
+    <PackageReference Include="TorchSharp-cpu" Version="0.101.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
+    <ProjectReference Include="..\MachineLearning\MachineLearning.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
     <ProjectReference Include="..\Omics\Omics.csproj" />
@@ -286,28 +289,10 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv">
+    <None Update="DataFiles\ChronologerTest.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\GUACUG_NegativeMode_Sliced.mzML">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\ScanDescriptionTestData.raw">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature">
@@ -411,6 +396,9 @@
     </None>
     <None Update="FileReadingTests\SearchResults\XLink.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="MachineLearningTests\AllPeptides.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="ModificationTests\CommonArtifacts.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

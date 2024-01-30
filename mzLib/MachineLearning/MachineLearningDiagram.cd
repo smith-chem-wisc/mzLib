@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="MachineLearning.DeepTorch">
+    <Position X="8" Y="2" Width="4.5" />
+    <TypeIdentifier>
+      <HashCode>AAAgAgAAAACAAgAAAAAxAAAIICgAIAQAAIAACABCAAg=</HashCode>
+      <FileName>DeepTorch.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="MachineLearning.TorchDataset">
+    <Position X="14.25" Y="2.5" Width="3" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAACAAAAAAAAAAAAAAQAAAAAABAAAAAAQAAAAAA=</HashCode>
+      <FileName>TorchDataset.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="MachineLearning.RetentionTimePredictionModels.Chronologer">
+    <Position X="8.75" Y="8" Width="3.25" />
+    <TypeIdentifier>
+      <HashCode>ABIgAgAIAACAAAAAAAAwQAAIOCAAAEAAAIAACAACACg=</HashCode>
+      <FileName>RetentionTimePredictionModels\Chronologer.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="UsefulProteomicsDatabases.DictionaryBuilder">
+    <Position X="13.75" Y="8" Width="4.25" />
+    <Compartments>
+      <Compartment Name="Nested Types" Collapsed="false" />
+    </Compartments>
+    <NestedTypes>
+      <Enum Name="UsefulProteomicsDatabases.DictionaryBuilder.TypeOfDictionary" Collapsed="true">
+        <TypeIdentifier>
+          <NewMemberFileName>DictionaryBuilder.cs</NewMemberFileName>
+        </TypeIdentifier>
+      </Enum>
+    </NestedTypes>
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>DictionaryBuilder.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

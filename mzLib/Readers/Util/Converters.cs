@@ -23,17 +23,4 @@ namespace Readers
             return string.Join(';', list);
         }
     }
-
-    public class DashToNullOrDoubleConverter : DefaultTypeConverter
-    {
-        public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
-        {
-            return text == "-" ? null : double.Parse(text);
-        }
-
-        public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
-        {
-            return value as double? == null ? "-" : value.ToString();
-        }
-    }
 }

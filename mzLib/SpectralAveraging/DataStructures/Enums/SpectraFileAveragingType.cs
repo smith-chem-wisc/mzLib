@@ -6,4 +6,5 @@ public enum SpectraFileAveragingType
     AverageEverynScans,
     AverageEverynScansWithOverlap,
     AverageDdaScans,
+    AverageDdaScansWithOverlap
 }
