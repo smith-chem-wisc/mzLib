@@ -15,6 +15,7 @@ using System.Runtime;
 using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 using System.Runtime.CompilerServices;
+using System.IO;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -656,7 +657,9 @@ namespace FlashLFQ
             }
 
             // this stores the results of MBR
-            var matchBetweenRunsIdentifiedPeaks = new Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>>();
+            Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaks = new();
+            Random randomGenerator = new Random();
+            Dictionary<Identification, (ChromatographicPeak? target, ChromatographicPeak? decoy)> acceptorPeakDecoyPeakDict = new();
 
             // map each donor file onto this file
             foreach (SpectraFileInfo idDonorFile in _spectraFileInfo)
@@ -711,20 +714,35 @@ namespace FlashLFQ
                             RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idDonorFile, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                             if (rtInfo == null) continue;
 
-                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaksThreadSpecific);
+                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaksThreadSpecific, out var bestAcceptor);
+
+                            // Draw a random donor that has an rt sufficiently far enough away
+                            var randomDonor = idDonorPeaks[randomGenerator.Next(idDonorPeaks.Count)];
+                            while(Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < rtInfo.Width*1.25) // multiply for safety, in case the relative rt shifts after alignment
+                            {
+                                randomDonor = idDonorPeaks[randomGenerator.Next(idDonorPeaks.Count)];
+                            }
+                            // Map the random rt onto the new file
+                            RtInfo decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor, idDonorFile, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
+                            // Find a decoy peak using the randomly drawn retention time
+                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaksThreadSpecific, out var bestDecoy, decoyRt:decoyRtInfo.PredictedRt);
+                            acceptorPeakDecoyPeakDict.TryAdd(donorPeak.Identifications.First(), (bestAcceptor, bestDecoy));
                         }
 
+                        // Each isotopic envelope is linked to a list of ChromatographicPeaks
+                        // If multiple chromatographic peaks are linked, each with the same peptide identification, then their mbr scores are summed
+                        // If multiple peaks are associated with the same envelope, and they have different associated peptide identifications, then they're kept separate.
                         lock (matchBetweenRunsIdentifiedPeaks)
                         {
                             foreach (var kvp in matchBetweenRunsIdentifiedPeaksThreadSpecific)
                             {
-                                if (matchBetweenRunsIdentifiedPeaks.TryGetValue(kvp.Key, out var list))
+                                if (matchBetweenRunsIdentifiedPeaks.TryGetValue(kvp.Key, out var envelopePeakListDict))
                                 {
-                                    foreach (var peak in kvp.Value)
+                                    foreach (var envelopePeakListKvp in kvp.Value)
                                     {
-                                        if (list.TryGetValue(peak.Key, out List<ChromatographicPeak> existing))
+                                        if (envelopePeakListDict.TryGetValue(envelopePeakListKvp.Key, out List<ChromatographicPeak> existing))
                                         {
-                                            foreach (var acceptorPeak in peak.Value)
+                                            foreach (var acceptorPeak in envelopePeakListKvp.Value)
                                             {
                                                 var samePeakSameSequence = existing
                                                     .FirstOrDefault(p => p.Identifications.First().ModifiedSequence == acceptorPeak.Identifications.First().ModifiedSequence);
@@ -742,7 +760,7 @@ namespace FlashLFQ
                                         }
                                         else
                                         {
-                                            list.Add(peak.Key, peak.Value);
+                                            envelopePeakListDict.Add(envelopePeakListKvp.Key, envelopePeakListKvp.Value);
                                         }
                                     }
                                 }
@@ -755,6 +773,20 @@ namespace FlashLFQ
                     });
             }
 
+            var test = acceptorPeakDecoyPeakDict.Where(kvp => kvp.Value.decoy != null).ToList();
+            using(StreamWriter writer = new StreamWriter(@"C:\Users\Alex\Desktop\MbrTargetDecoyJan30.tsv"))
+            {
+                writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+                foreach(var pair in test)
+                {
+                    if (pair.Value.target != null)
+                        writer.WriteLine(pair.Value.target.ToString());
+                    else
+                        writer.WriteLine("");
+                    writer.WriteLine(pair.Value.decoy.ToString());
+                }
+            }
+            
             // take the best result (highest scoring) for each peptide after we've matched from all the donor files
             foreach (var mbrIdentifiedPeptide in matchBetweenRunsIdentifiedPeaks.Where(p => !acceptorFileIdentifiedSequences.Contains(p.Key)))
             {
@@ -914,20 +946,25 @@ namespace FlashLFQ
             RtInfo rtInfo,
             Tolerance fileSpecificTol,
             ChromatographicPeak donorPeak,
-            Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaksThreadSpecific)
+            Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaksThreadSpecific,
+            out ChromatographicPeak bestAcceptor,
+            double? decoyRt = null)
         {
             // get the MS1 scan info for this region so we can look up indexed peaks
             Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
             Ms1ScanInfo start = ms1ScanInfos[0];
             Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
+            double rtStartHypothesis = decoyRt == null ? rtInfo.RtStartHypothesis : (double)decoyRt - (rtInfo.Width / 2.0);
+            double rtEndHypothesis = decoyRt == null ? rtInfo.RtEndHypothesis : (double)decoyRt + (rtInfo.Width / 2.0);
+
             for (int j = 0; j < ms1ScanInfos.Length; j++)
             {
                 Ms1ScanInfo scan = ms1ScanInfos[j];
-                if (scan.RetentionTime <= rtInfo.RtStartHypothesis)
+                if (scan.RetentionTime <= rtStartHypothesis)
                 {
                     start = scan;
                 }
-                if (scan.RetentionTime >= rtInfo.RtEndHypothesis)
+                if (scan.RetentionTime >= rtEndHypothesis)
                 {
                     end = scan;
                     break;
@@ -943,10 +980,8 @@ namespace FlashLFQ
             }
 
             Identification donorIdentification = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First();
-            Normal rtScoringDistribution = new Normal(rtInfo.PredictedRt, rtInfo.Width / 6);
-
-            // Grab the retention time of a random peptide in the donor file
-            // If it is not outside of the rtInfo.predictedRT +/- rtInfo.range (twice the width of actual window), redraw
+            Normal rtScoringDistribution = decoyRt == null ? new Normal(rtInfo.PredictedRt, rtInfo.Width / 6) : new Normal((double)decoyRt, rtInfo.Width / 6);
+            bestAcceptor = null;
 
             foreach (int z in chargesToMatch)
             {
@@ -967,9 +1002,14 @@ namespace FlashLFQ
                 // remove the clustered isotopic envelopes from the list of seeds after each iteration
                 while (chargeEnvelopes.Any())
                 {
-                    ChromatographicPeak acceptorPeak = FindAcceptorPeak(idAcceptorFile, scorer, donorPeak, fileSpecificTol, rtInfo, rtScoringDistribution, z, chargeEnvelopes);
+                    ChromatographicPeak acceptorPeak = FindAcceptorPeak(idAcceptorFile, scorer, donorPeak,
+                        fileSpecificTol, rtInfo, rtScoringDistribution, z, chargeEnvelopes, isDecoy: decoyRt != null);
                     if (acceptorPeak == null)
                         continue;
+                    if (bestAcceptor == null || bestAcceptor.MbrScore < acceptorPeak.MbrScore)
+                        bestAcceptor = acceptorPeak;
+                    if (decoyRt != null)
+                        continue; // We don't want to store the decoys in mbrIdentifiedPeaks right now
 
                     // save the peak hypothesis
                     // if this peak hypothesis already exists, sum the scores since we've mapped >1 of the same ID onto this peak
@@ -1023,10 +1063,11 @@ namespace FlashLFQ
             RtInfo rtInfo, 
             Normal rtScoringDistribution,
             int z,
-            List<IsotopicEnvelope> chargeEnvelopes)
+            List<IsotopicEnvelope> chargeEnvelopes,
+            bool isDecoy = false)
         {
             var donorId = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First();
-            var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile);
+            var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile, isDecoy);
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
 
             var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, idAcceptorFile, mbrTol);

@@ -16,7 +16,7 @@ namespace FlashLFQ
         public readonly bool IsMbrPeak;
         public double MbrScore;
 
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
+        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool decoyPeak = false)
         {
             SplitRT = 0;
             NumChargeStatesObserved = 0;
@@ -27,6 +27,7 @@ namespace FlashLFQ
             IsotopicEnvelopes = new List<IsotopicEnvelope>();
             IsMbrPeak = isMbrPeak;
             SpectraFileInfo = fileInfo;
+            DecoyPeak = decoyPeak;
         }
 
         public IsotopicEnvelope Apex { get; private set; }
@@ -47,6 +48,7 @@ namespace FlashLFQ
         /// Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6
         /// </summary>
         public double? RtInterquartileRange { get; private set; }
+        public bool DecoyPeak { get; }
 
         public static string TabSeparatedHeader
         {
@@ -75,6 +77,7 @@ namespace FlashLFQ
                 sb.Append("Full Sequences Mapped" + "\t");
                 sb.Append("Peak Split Valley RT" + "\t");
                 sb.Append("Peak Apex Mass Error (ppm)");
+                sb.Append("\t" + "Decoy Peak");
                 //sb.Append("Timepoints");
                 return sb.ToString();
             }
@@ -249,6 +252,7 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError);
+            sb.Append("\t" + DecoyPeak);
             
             return sb.ToString();
         }
