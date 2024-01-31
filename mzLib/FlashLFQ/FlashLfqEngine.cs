@@ -657,7 +657,7 @@ namespace FlashLFQ
             }
 
             // this stores the results of MBR
-            Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaks = new();
+            ConcurrentDictionary<string, ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaks = new();
             Random randomGenerator = new Random();
             Dictionary<Identification, (ChromatographicPeak? target, ChromatographicPeak? decoy)> acceptorPeakDecoyPeakDict = new();
 
@@ -714,78 +714,72 @@ namespace FlashLFQ
                             RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idDonorFile, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                             if (rtInfo == null) continue;
 
-                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaksThreadSpecific, out var bestAcceptor);
+                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaks, out var bestAcceptor);
 
                             // Draw a random donor that has an rt sufficiently far enough away
                             var randomDonor = idDonorPeaks[randomGenerator.Next(idDonorPeaks.Count)];
-                            while(Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < rtInfo.Width*1.25) // multiply for safety, in case the relative rt shifts after alignment
+                            int randomPeaksSampled = 0;
+                            while(randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
+                                || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < rtInfo.Width*1.25) // multiply for safety, in case the relative rt shifts after alignment
                             {
                                 randomDonor = idDonorPeaks[randomGenerator.Next(idDonorPeaks.Count)];
+                                if (randomPeaksSampled++ > (idDonorPeaks.Count - 1))
+                                {
+                                    randomDonor = null;
+                                    break; // Prevent infinite loops
+                                }
                             }
+                            if (randomDonor == null) continue;
+
                             // Map the random rt onto the new file
                             RtInfo decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor, idDonorFile, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                             // Find a decoy peak using the randomly drawn retention time
-                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaksThreadSpecific, out var bestDecoy, decoyRt:decoyRtInfo.PredictedRt);
+                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaks, out var bestDecoy, decoyRt:decoyRtInfo.PredictedRt);
                             acceptorPeakDecoyPeakDict.TryAdd(donorPeak.Identifications.First(), (bestAcceptor, bestDecoy));
-                        }
-
-                        // Each isotopic envelope is linked to a list of ChromatographicPeaks
-                        // If multiple chromatographic peaks are linked, each with the same peptide identification, then their mbr scores are summed
-                        // If multiple peaks are associated with the same envelope, and they have different associated peptide identifications, then they're kept separate.
-                        lock (matchBetweenRunsIdentifiedPeaks)
-                        {
-                            foreach (var kvp in matchBetweenRunsIdentifiedPeaksThreadSpecific)
-                            {
-                                if (matchBetweenRunsIdentifiedPeaks.TryGetValue(kvp.Key, out var envelopePeakListDict))
-                                {
-                                    foreach (var envelopePeakListKvp in kvp.Value)
-                                    {
-                                        if (envelopePeakListDict.TryGetValue(envelopePeakListKvp.Key, out List<ChromatographicPeak> existing))
-                                        {
-                                            foreach (var acceptorPeak in envelopePeakListKvp.Value)
-                                            {
-                                                var samePeakSameSequence = existing
-                                                    .FirstOrDefault(p => p.Identifications.First().ModifiedSequence == acceptorPeak.Identifications.First().ModifiedSequence);
-
-                                                if (samePeakSameSequence != null)
-                                                {
-                                                    samePeakSameSequence.MbrScore += acceptorPeak.MbrScore;
-                                                    samePeakSameSequence.Identifications.Add(acceptorPeak.Identifications.First());
-                                                }
-                                                else
-                                                {
-                                                    existing.Add(acceptorPeak);
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            envelopePeakListDict.Add(envelopePeakListKvp.Key, envelopePeakListKvp.Value);
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    matchBetweenRunsIdentifiedPeaks.Add(kvp.Key, kvp.Value);
-                                }
-                            }
                         }
                     });
             }
 
-            var test = acceptorPeakDecoyPeakDict.Where(kvp => kvp.Value.decoy != null).ToList();
-            using(StreamWriter writer = new StreamWriter(@"C:\Users\Alex\Desktop\MbrTargetDecoyJan30.tsv"))
+            // If we have multiple identification with the same sequence mapped to the same peak, we want to sum their MBR scores
+            // This is done here
+            foreach(var seqDictionaryKvp in matchBetweenRunsIdentifiedPeaks)
             {
-                writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
-                foreach(var pair in test)
+                // Each isotopic envelope is linked to a list of ChromatographicPeaks
+                // If multiple chromatographic peaks are linked, each with the same peptide identification, then their mbr scores are summed
+                // If multiple peaks are associated with the same envelope, and they have different associated peptide identifications and they're kept separate.
+                foreach (var envelopeListKvp in seqDictionaryKvp.Value)
                 {
-                    if (pair.Value.target != null)
-                        writer.WriteLine(pair.Value.target.ToString());
-                    else
-                        writer.WriteLine("");
-                    writer.WriteLine(pair.Value.decoy.ToString());
+                    List<ChromatographicPeak> collapsedPeaks = new();
+                    foreach(var peakGroup in envelopeListKvp.Value.GroupBy(peak => peak.Identifications.First().ModifiedSequence))
+                    {
+                        var scoreSum = peakGroup.Sum(peak => peak.MbrScore);
+                        var idList = peakGroup.Select(peak => peak.Identifications.First()).Distinct().ToList(); // This is fine, because each mbrPeak only has one identification
+                        var collapsedPeak = peakGroup.First();
+                        collapsedPeak.MbrScore = scoreSum;
+                        // Lmao, these three lines are problematic. Should probably do something about them
+                        collapsedPeak.Identifications.Clear();
+                        collapsedPeak.Identifications.AddRange(idList);
+                        collapsedPeak.ResolveIdentifications();
+                        collapsedPeaks.Add(collapsedPeak);
+                    }
+                    envelopeListKvp.Value.Clear();
+                    envelopeListKvp.Value.AddRange(collapsedPeaks);
                 }
             }
+
+            //var test = acceptorPeakDecoyPeakDict.Where(kvp => kvp.Value.decoy != null).ToList();
+            //using(StreamWriter writer = new StreamWriter(@"C:\Users\Alex\Desktop\MbrTargetDecoyJan30.tsv"))
+            //{
+            //    writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+            //    foreach(var pair in test)
+            //    {
+            //        if (pair.Value.target != null)
+            //            writer.WriteLine(pair.Value.target.ToString());
+            //        else
+            //            writer.WriteLine("");
+            //        writer.WriteLine(pair.Value.decoy.ToString());
+            //    }
+            //}
             
             // take the best result (highest scoring) for each peptide after we've matched from all the donor files
             foreach (var mbrIdentifiedPeptide in matchBetweenRunsIdentifiedPeaks.Where(p => !acceptorFileIdentifiedSequences.Contains(p.Key)))
@@ -946,7 +940,7 @@ namespace FlashLFQ
             RtInfo rtInfo,
             Tolerance fileSpecificTol,
             ChromatographicPeak donorPeak,
-            Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaksThreadSpecific,
+            ConcurrentDictionary<string, ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaks,
             out ChromatographicPeak bestAcceptor,
             double? decoyRt = null)
         {
@@ -1012,34 +1006,63 @@ namespace FlashLFQ
                         continue; // We don't want to store the decoys in mbrIdentifiedPeaks right now
 
                     // save the peak hypothesis
-                    // if this peak hypothesis already exists, sum the scores since we've mapped >1 of the same ID onto this peak
-                    if (matchBetweenRunsIdentifiedPeaksThreadSpecific.TryGetValue(donorIdentification.ModifiedSequence, out var mbrPeaks))
-                    {
-                        if (mbrPeaks.TryGetValue(acceptorPeak.Apex, out List<ChromatographicPeak> existing))
+                    matchBetweenRunsIdentifiedPeaks.AddOrUpdate
+                    (
+                        // new key
+                        key: donorIdentification.ModifiedSequence, 
+                        // if we are adding a value for the first time, we simply create a new dictionatry with one entry
+                        addValueFactory: (sequenceKey) => 
+                        new ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>(
+                            new Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>
+                            {
+                                { acceptorPeak.Apex, new List<ChromatographicPeak> { acceptorPeak } }
+                            }),
+                        // if the key (sequence) already exists, we have to add the new peak to the existing dictionary
+                        updateValueFactory: (sequenceKey, envelopePeakListDict) =>
                         {
-                            var samePeakSameSequence = existing
-                                .FirstOrDefault(p => p.Identifications.First().ModifiedSequence == acceptorPeak.Identifications.First().ModifiedSequence);
+                            envelopePeakListDict.AddOrUpdate(
+                                key: acceptorPeak.Apex,
+                                addValueFactory: (envelopeKey) => new List<ChromatographicPeak> { acceptorPeak }, // if the key (envelope) doesnt exist, just create a new list
+                                updateValueFactory: (envelopeKey, peakList) => { peakList.Add(acceptorPeak); return peakList; }); // if the key (envelope) already exists, add the peak to the associated list
+                            return envelopePeakListDict;
+                        }
+                    );
 
-                            if (samePeakSameSequence != null)
-                            {
-                                samePeakSameSequence.MbrScore += acceptorPeak.MbrScore;
-                                samePeakSameSequence.Identifications.Add(donorIdentification);
-                            }
-                            else
-                            {
-                                existing.Add(acceptorPeak);
-                            }
-                        }
-                        else
-                        {
-                            mbrPeaks.Add(acceptorPeak.Apex, new List<ChromatographicPeak> { acceptorPeak });
-                        }
-                    }
-                    else
-                    {
-                        matchBetweenRunsIdentifiedPeaksThreadSpecific.Add(donorIdentification.ModifiedSequence, new Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>());
-                        matchBetweenRunsIdentifiedPeaksThreadSpecific[donorIdentification.ModifiedSequence].Add(acceptorPeak.Apex, new List<ChromatographicPeak> { acceptorPeak });
-                    }
+                    // save the peak hypothesis
+                    // if this peak hypothesis already exists, sum the scores since we've mapped >1 of the same ID onto this peak
+                    //if (matchBetweenRunsIdentifiedPeaksThreadSpecific.TryGetValue(donorIdentification.ModifiedSequence, out var envelopePeaksKvp))
+                    //{
+                    //    envelopePeaksKvp.AddOrUpdate(acceptorPeak.Apex, new List<ChromatographicPeak> { acceptorPeak },  // just add the new key value pair if it doesnt already exist
+                    //            (key, peakList) => { peakList.Add(acceptorPeak); return peakList; }); // if key already exists, we simply add the acceptorPeak to the list
+                        //if (envelopePeaksKvp.TryGetValue(acceptorPeak.Apex, out List<ChromatographicPeak> existing))
+                        //{
+                        //    var samePeakSameSequence = existing
+                        //        .FirstOrDefault(p => p.Identifications.First().ModifiedSequence == acceptorPeak.Identifications.First().ModifiedSequence);
+
+                        //    if (samePeakSameSequence != null)
+                        //    {
+                        //        samePeakSameSequence.MbrScore += acceptorPeak.MbrScore;
+                        //        samePeakSameSequence.Identifications.Add(donorIdentification);
+                        //    }
+                        //    else
+                        //    {
+                        //        existing.Add(acceptorPeak);
+                        //    }
+                        //}
+                        //else
+                        //{
+                        //    envelopePeaksKvp.AddOrUpdate(acceptorPeak.Apex, new List<ChromatographicPeak> { acceptorPeak },  // just add the new key value pair if it doesnt already exist
+                        //        (key, peakList) => { peakList.Add(acceptorPeak); return peakList; }); // if key already exists, we simply add the acceptorPeak to the list
+                        //}
+                    //}
+                    //else
+                    //{
+                    //    if(!matchBetweenRunsIdentifiedPeaksThreadSpecific.TryAdd(donorIdentification.ModifiedSequence, new ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>()))
+                    //    {
+
+                    //    }
+                    //    matchBetweenRunsIdentifiedPeaksThreadSpecific[donorIdentification.ModifiedSequence].TryAdd(acceptorPeak.Apex, new List<ChromatographicPeak> { acceptorPeak });
+                    //}
                 }
             }
         }
