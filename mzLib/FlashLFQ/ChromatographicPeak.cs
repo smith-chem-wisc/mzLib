@@ -2,6 +2,7 @@
 using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Text;
 
@@ -50,7 +51,7 @@ namespace FlashLFQ
         /// </summary>
         public double? RtInterquartileRange { get; private set; }
         public bool RandomRt { get; }
-        public bool DecoyPeptide { get; }
+        public bool DecoyPeptide => Identifications.First().IsDecoy;
 
         public static string TabSeparatedHeader
         {
@@ -255,7 +256,7 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError);
-            sb.Append("\t" + Identifications.First().IsDecoy);
+            sb.Append("\t" + DecoyPeptide);
             sb.Append("\t" + RandomRt);
             
             return sb.ToString();
