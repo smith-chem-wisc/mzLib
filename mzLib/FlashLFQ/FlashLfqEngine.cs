@@ -707,7 +707,6 @@ namespace FlashLFQ
                     new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                     (range, loopState) =>
                     {
-                        var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>();
                         var matchBetweenRunsIdentifiedPeaksThreadSpecific = new Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>>();
 
                         for (int i = range.Item1; i < range.Item2; i++)
