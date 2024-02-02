@@ -1,17 +1,13 @@
 ﻿using Chemistry;
-using MassSpectrometry;
 using MathNet.Numerics.Distributions;
-using MathNet.Numerics.LinearAlgebra.Factorization;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using Proteomics.AminoAcidPolymer;
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Runtime;
 using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 using System.Runtime.CompilerServices;
@@ -1174,7 +1170,7 @@ namespace FlashLFQ
                 }
 
                 // Check that the experimental envelope matches the theoretical
-                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance, out var corr))
+                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance))
                 {
                     // impute unobserved isotope peak intensities
                     // TODO: Figure out why value imputation is performed. Build a toggle?
