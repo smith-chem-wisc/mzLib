@@ -1186,7 +1186,7 @@ namespace FlashLFQ
                         }
                     }
 
-                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum(), corr));
+                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum()));
                 }
             }
 
@@ -1207,10 +1207,9 @@ namespace FlashLFQ
             Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>> massShiftToIsotopePeaks,
             IndexedMassSpectralPeak peak,
             int chargeState,
-            Tolerance isotopeTolerance, 
-            out double pearsonCorrelation)
+            Tolerance isotopeTolerance)
         {
-            pearsonCorrelation = Correlation.Pearson(
+            double pearsonCorrelation = Correlation.Pearson(
                 massShiftToIsotopePeaks[0].Select(p => p.expIntensity),
                 massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
 
