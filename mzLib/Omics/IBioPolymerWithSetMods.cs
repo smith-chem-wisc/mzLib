@@ -23,6 +23,15 @@ namespace Omics
         int OneBasedStartResidue { get; }
         int OneBasedEndResidue { get; }
         int MissedCleavages { get; }
+        /// <summary>
+        /// Description of where the BioPolymerWithSetMods originated from examples include
+        /// Top-down truncation: full-length proteoform C-terminal digestion truncation
+        /// Top-down truncation: DECOY full-length proteoform N-terminal digestion truncation
+        /// Bottom-up search: full
+        /// Bottom-up search: DECOY full
+        /// Bottom-up search : chain(49-597) start
+        /// </summary>
+        string Description { get; }
         CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; }
         char PreviousResidue { get; }
         char NextResidue { get; }
@@ -40,6 +49,8 @@ namespace Omics
 
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
             List<Product> products);
+
+        public IBioPolymerWithSetMods Localize(int j, double massToLocalize);
 
         public static string GetBaseSequenceFromFullSequence(string fullSequence)
         {

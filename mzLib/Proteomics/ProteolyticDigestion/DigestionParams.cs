@@ -1,7 +1,5 @@
-﻿using System;
-using Omics.Digestion;
+﻿using Omics.Digestion;
 using Omics.Fragmentation;
-using Proteomics.ProteolyticDigestion;
 
 namespace Proteomics.ProteolyticDigestion 
 {
@@ -104,6 +102,19 @@ namespace Proteomics.ProteolyticDigestion
                    + MaxModificationIsoforms + "," + MaxMods + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
                    + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide;
         }
+
+        public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
+        {
+            var terminus = newTerminus ?? FragmentationTerminus;
+            if (SearchModeType == CleavageSpecificity.None)
+                return new DigestionParams(SpecificProtease.Name, MaxMissedCleavages, MinLength, MaxLength,
+                    MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
+                    GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+            return new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength,
+                MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
+                GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+        }
+            
 
         private void RecordSpecificProtease()
         {
