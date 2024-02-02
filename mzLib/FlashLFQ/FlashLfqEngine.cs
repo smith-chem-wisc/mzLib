@@ -659,7 +659,7 @@ namespace FlashLFQ
             // this stores the results of MBR
             ConcurrentDictionary<string, ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaks = new();
             Random randomGenerator = new Random();
-            Dictionary<Identification, (ChromatographicPeak? target, ChromatographicPeak? decoy)> acceptorPeakDecoyPeakDict = new();
+            ConcurrentDictionary<Identification, (ChromatographicPeak? target, ChromatographicPeak? decoy)> acceptorPeakDecoyPeakDict = new();
 
             // map each donor file onto this file
             foreach (SpectraFileInfo idDonorFile in _spectraFileInfo)
@@ -705,7 +705,7 @@ namespace FlashLFQ
                     (range, loopState) =>
                     {
                         var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>();
-                        var matchBetweenRunsIdentifiedPeaksThreadSpecific = new Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>>();
+                        //var matchBetweenRunsIdentifiedPeaksThreadSpecific = new Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>>();
 
                         for (int i = range.Item1; i < range.Item2; i++)
                         {
@@ -767,20 +767,20 @@ namespace FlashLFQ
                 }
             }
 
-            //var test = acceptorPeakDecoyPeakDict.Where(kvp => kvp.Value.decoy != null).ToList();
-            //using(StreamWriter writer = new StreamWriter(@"C:\Users\Alex\Desktop\MbrTargetDecoyJan30.tsv"))
-            //{
-            //    writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
-            //    foreach(var pair in test)
-            //    {
-            //        if (pair.Value.target != null)
-            //            writer.WriteLine(pair.Value.target.ToString());
-            //        else
-            //            writer.WriteLine("");
-            //        writer.WriteLine(pair.Value.decoy.ToString());
-            //    }
-            //}
-            
+            var test = acceptorPeakDecoyPeakDict.Where(kvp => kvp.Value.decoy != null).ToList();
+            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\MbrTargetDecoyFirst.tsv"))
+            {
+                writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+                foreach (var pair in test)
+                {
+                    if (pair.Value.target != null)
+                        writer.WriteLine(pair.Value.target.ToString());
+                    else
+                        writer.WriteLine("");
+                    writer.WriteLine(pair.Value.decoy.ToString());
+                }
+            }
+
             // take the best result (highest scoring) for each peptide after we've matched from all the donor files
             foreach (var mbrIdentifiedPeptide in matchBetweenRunsIdentifiedPeaks.Where(p => !acceptorFileIdentifiedSequences.Contains(p.Key)))
             {
@@ -814,6 +814,16 @@ namespace FlashLFQ
                 }
 
                 _results.Peaks[idAcceptorFile].Add(best);
+
+            }
+
+            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\MbrAllMbrPeaks.tsv"))
+            {
+                writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+                foreach (var peak in _results.Peaks[idAcceptorFile].Where(peak => peak.IsMbrPeak))
+                {
+                    writer.WriteLine(peak.ToString());
+                }
             }
 
             RunErrorChecking(idAcceptorFile);
