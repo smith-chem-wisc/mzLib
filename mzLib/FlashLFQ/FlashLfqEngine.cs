@@ -471,31 +471,35 @@ namespace FlashLFQ
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
         }
 
+        /// <summary>
+        /// Used by MBR. Predicts the retention time of a peak in an acceptor file based on the 
+        /// retention time of the peak in the donor file. This is done with a local alignment
+        /// where all peaks within 30 seconds of the donor peak are matched to peaks with the same associated peptide in the acceptor file,
+        /// if such a peak exists.
+        /// </summary>
+        /// <param name="rtCalibrationCurve">Array of all shared peaks between the donor and the acceptor file</param>
+        /// <returns> RtInfo object containing the predicted retention time of the acceptor peak and the width of the predicted retention time window </returns>
         internal RtInfo PredictRetentionTime(
             RetentionTimeCalibDataPoint[] rtCalibrationCurve,
             ChromatographicPeak donorPeak,
-            SpectraFileInfo acceptorFile, SpectraFileInfo donorFile, 
-            bool acceptorSampleIsFractionated, bool donorSampleIsFractionated)
+            SpectraFileInfo acceptorFile,
+            bool acceptorSampleIsFractionated,
+            bool donorSampleIsFractionated)
         {
 
             var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>();
-            var matchBetweenRunsIdentifiedPeaksThreadSpecific = new Dictionary<string, Dictionary<IsotopicEnvelope, List<ChromatographicPeak>>>();
-
-            nearbyCalibrationPoints.Clear();
 
             // only compare +- 1 fraction
             if (acceptorSampleIsFractionated && donorSampleIsFractionated)
             {
                 int acceptorFractionNumber = acceptorFile.Fraction;
-                int donorFractionNumber = donorFile.Fraction;
+                int donorFractionNumber = donorPeak.SpectraFileInfo.Fraction;
 
                 if (Math.Abs(acceptorFractionNumber - donorFractionNumber) > 1)
                 {
                     return null;
                 }
             }
-
-            Identification donorIdentification = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First();
 
             // binary search for this donor peak in the retention time calibration spline
             RetentionTimeCalibDataPoint testPoint = new RetentionTimeCalibDataPoint(donorPeak, null);
@@ -704,7 +708,7 @@ namespace FlashLFQ
                         {
                             ChromatographicPeak donorPeak = idDonorPeaks[i];
                             // TODO: Add a toggle that set rtRange to be maximum width
-                            RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idDonorFile, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
+                            RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                             if (rtInfo == null) continue;
 
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaksThreadSpecific);
