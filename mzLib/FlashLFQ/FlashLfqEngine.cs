@@ -577,9 +577,15 @@ namespace FlashLFQ
             return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime + median, width: rtRange, rtSd: rtStdDev, rtInterquartileRange: rtInterquartileRange);
         }
 
+        /// <summary>
+        /// Constructs a MbrScorer object that is used to score all MBR peaks for a given acceptor file
+        /// </summary>
+        /// <param name="acceptorFileIdentifiedPeaks"> All MSMS identified peaks in the acceptor file </param>
+        /// <param name="fileSpecificMbrTolerance">A ppm tolerance specific to the given file</param>
+        /// <returns> A MbrScorer object </returns>
         private MbrScorer BuildMbrScorer(List<ChromatographicPeak> acceptorFileIdentifiedPeaks, out Tolerance fileSpecificMbrTolerance)
         {
-            // Ppm distribution
+            // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
             var apexToAcceptorFilePeakDict = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
             List<double> ppmErrors = new List<double>();
             foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null))
@@ -601,15 +607,15 @@ namespace FlashLFQ
             double fileSpecificMbrPpmTolerance = Math.Min(Math.Abs(ppmErrors.Median()) + ppmSpread * 4, MbrPpmTolerance);
             fileSpecificMbrTolerance = new PpmTolerance(fileSpecificMbrPpmTolerance); // match between runs PPM tolerance
 
-            // Intensity Distribution
+            // Construct a distribution of peak log intensities for all MSMS peaks in the acceptor file
             var acceptorFileLogIntensities = acceptorFileIdentifiedPeaks
                 .Where(p => p.Intensity > 0)
                 .Select(p => Math.Log(p.Intensity, 2))
                 .ToList();
             double medianAcceptorLogIntensity = acceptorFileLogIntensities.Median();
-            Normal intensityDistribution = new Normal(acceptorFileLogIntensities.Median(), acceptorFileLogIntensities.InterquartileRange() / 1.36);
+            Normal logIntensityDistribution = new Normal(acceptorFileLogIntensities.Median(), acceptorFileLogIntensities.InterquartileRange() / 1.36);
 
-            return new MbrScorer(apexToAcceptorFilePeakDict, acceptorFileIdentifiedPeaks, ppmDistribution, intensityDistribution);
+            return new MbrScorer(apexToAcceptorFilePeakDict, acceptorFileIdentifiedPeaks, ppmDistribution, logIntensityDistribution);
         }
 
         /// <summary>
@@ -793,6 +799,15 @@ namespace FlashLFQ
             RunErrorChecking(idAcceptorFile);
         }
 
+        /// <summary>
+        /// Finds MBR acceptor peaks by looping  through every possible peak for every possible charge state
+        /// in a given retention time range. Identified peaks are added to the matchBetweenRunsIdentifiedPeaks dictionary.
+        /// </summary>
+        /// <param name="scorer"> The MbrScorer object used to score acceptor peaks</param>
+        /// <param name="rtInfo"> RtInfo object containing the predicted retention time for the acceptor peak and the width of the expected RT window</param>
+        /// <param name="fileSpecificTol"> Ppm Tolerance specific to the acceptor file</param>
+        /// <param name="donorPeak"> The donor peak. Acceptor peaks are presumed to represent the same peptide ast he donor peak</param>
+        /// <param name="matchBetweenRunsIdentifiedPeaksThreadSpecific"> A dictionary containing peptide sequences and their associated mbr peaks </param>
         internal void FindAllAcceptorPeaks(
             SpectraFileInfo idAcceptorFile, 
             MbrScorer scorer,

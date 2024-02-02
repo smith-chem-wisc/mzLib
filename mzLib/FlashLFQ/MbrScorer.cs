@@ -3,8 +3,6 @@ using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FlashLFQ
 {
@@ -41,6 +39,10 @@ namespace FlashLFQ
             _logFcDistributionDictionary = new();
         }
 
+        /// <summary>
+        /// Scores a MBR peak based on it's retention time, ppm error, and intensity
+        /// </summary>
+        /// <returns> The MBR score as a double. Higher scores are better. </returns>
         internal double ScoreMbr(Normal rtDistribution, double retentionTime, double ppmError, double acceptorIntensity, ChromatographicPeak? donorPeak = null)
         {
             double intensityDensity;
