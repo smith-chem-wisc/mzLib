@@ -995,10 +995,8 @@ namespace FlashLFQ
                 return null;
             }
 
-            acceptorPeak.MbrScore = scorer.ScoreMbr(rtScoringDistribution,
-                retentionTime: acceptorPeak.Apex.IndexedPeak.RetentionTime,
-                ppmError: acceptorPeak.MassError,
-                acceptorIntensity: acceptorPeak.Intensity,
+            acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, 
+                rtScoringDistribution,
                 donorPeak);
 
             return acceptorPeak;

@@ -110,7 +110,7 @@ namespace Test
             mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && !peak.DecoyPeptide & !peak.RandomRt).ToList());
 
 
-            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\AllMbrPeaks.tsv"))
+            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\AllMbrPeaks_NewScoringMethod_plusScans.tsv"))
             {
                 writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
                 foreach (var peak in mbrPeaks)

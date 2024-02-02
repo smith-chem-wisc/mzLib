@@ -11,11 +11,17 @@ namespace FlashLFQ
     public class ChromatographicPeak
     {
         public double Intensity;
+        public double ApexRetentionTime => Apex.IndexedPeak.RetentionTime;
         public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
+        public int ScanCount => IsotopicEnvelopes.Count;
         public double SplitRT;
         public readonly bool IsMbrPeak;
         public double MbrScore;
+        public double PpmScore { get; set; }
+        public double IntensityScore { get; set; }
+        public double RtScore { get; set; }
+        public double ScanCountScore { get; set; }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -75,6 +81,10 @@ namespace FlashLFQ
                 sb.Append("Num Charge States Observed" + "\t");
                 sb.Append("Peak Detection Type" + "\t");
                 sb.Append("MBR Score" + "\t");
+                sb.Append("Ppm Score" + "\t");
+                sb.Append("Intensity Score" + "\t");
+                sb.Append("Rt Score" + "\t");
+                sb.Append("Scan Count Score" + "\t");
                 sb.Append("PSMs Mapped" + "\t");
                 sb.Append("Base Sequences Mapped" + "\t");
                 sb.Append("Full Sequences Mapped" + "\t");
@@ -250,6 +260,10 @@ namespace FlashLFQ
             }
 
             sb.Append("" + (IsMbrPeak ? MbrScore.ToString() : "") + "\t");
+            sb.Append("" + (IsMbrPeak ? PpmScore.ToString() : "") + "\t");
+            sb.Append("" + (IsMbrPeak ? IntensityScore.ToString() : "") + "\t");
+            sb.Append("" + (IsMbrPeak ? RtScore.ToString() : "") + "\t");
+            sb.Append("" + (IsMbrPeak ? ScanCountScore.ToString() : "") + "\t");
 
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");
