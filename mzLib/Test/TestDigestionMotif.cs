@@ -578,5 +578,20 @@ namespace Test
             Assert.IsFalse(pwsmsN.Any(x => x.Length < speedySemiN.MinLength));
             Assert.IsFalse(pwsmsC.Any(x => x.Length < speedySemiC.MinLength));
         }
+
+        [Test]
+        public void TestDigestionParamsMaskedProperties()
+        {
+            var digestionParams = new DigestionParams();
+            digestionParams.MinPeptideLength = 1;
+            Assert.That(digestionParams.MinLength, Is.EqualTo(digestionParams.MinPeptideLength));
+
+            digestionParams.MaxPeptideLength = 2;
+            Assert.That(digestionParams.MaxLength, Is.EqualTo(digestionParams.MaxPeptideLength));
+
+
+            digestionParams.MaxModsForPeptide = 3;
+            Assert.That(digestionParams.MaxMods, Is.EqualTo(digestionParams.MaxModsForPeptide));
+        }
     }
 }
