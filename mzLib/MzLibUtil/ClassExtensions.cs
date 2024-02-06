@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace MzLibUtil
 {
@@ -100,6 +101,45 @@ namespace MzLibUtil
 
             return true;
         }
-
+        
+        /// <summary>
+        /// Transcribes a DNA sequence into an RNA sequence
+        /// </summary>
+        /// <param name="dna">The input dna sequence</param>
+        /// <param name="isCodingStrand">True if the input sequence is the coding strand, False if the input sequence is the template strand</param>
+        /// <returns></returns>
+        public static string Transcribe(this string dna, bool isCodingStrand = true)
+        {
+            var sb = new StringBuilder();
+            foreach (var t in dna)
+            {
+                if (isCodingStrand)
+                {
+                    sb.Append(t == 'T' ? 'U' : t);
+                }
+                else
+                {
+                    switch (t)
+                    {
+                        case 'A':
+                            sb.Append('U');
+                            break;
+                        case 'T':
+                            sb.Append('A');
+                            break;
+                        case 'C':
+                            sb.Append('G');
+                            break;
+                        case 'G':
+                            sb.Append('C');
+                            break;
+                        default:
+                            sb.Append(t);
+                            break;
+                    }
+                }
+            }
+            return sb.ToString();
+        }
     }
 }
