@@ -44,7 +44,8 @@ namespace Test
         // This is gonna have a bunch of local file references, just a heads up. Dont make github try and build this one
         public static void TwoFileMbrTest()
         {
-            string psmFile = @"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\subset_psms.psmtsv";
+            //string psmFile = @"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\subset_psms.psmtsv";
+            string psmFile = @"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\AllPSMs_1PercentFdr.psmtsv";
 
             SpectraFileInfo j5 = new SpectraFileInfo(@"D:\SingleCellDataSets\Organoid\raw_files\HFL1SC_Unhealthy_CH2_J5.raw", "a", 0, 0, 0);
             SpectraFileInfo j6 = new SpectraFileInfo(@"D:\SingleCellDataSets\Organoid\raw_files\HFL1SC_Unhealthy_CH2_J6.raw", "a", 1, 0, 0);
@@ -97,6 +98,7 @@ namespace Test
                 ids.Add(id);
             }
 
+            
             var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 5);
             var results = engine.Run();
 
@@ -105,15 +107,25 @@ namespace Test
 
             List<ChromatographicPeak> mbrPeaks = new();
 
-            mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && peak.RandomRt).ToList());
-            mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && peak.DecoyPeptide).ToList());
+            mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && peak.RandomRt && !peak.DecoyPeptide).ToList());
+            mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && peak.DecoyPeptide && !peak.RandomRt).ToList());
+            mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && peak.DecoyPeptide && peak.RandomRt).ToList());
             mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && !peak.DecoyPeptide & !peak.RandomRt).ToList());
 
 
-            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\AllMbrPeaks_NewScoringMethod_plusScans.tsv"))
+            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\MbrResults_minRtDiff.tsv"))
             {
                 writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
                 foreach (var peak in mbrPeaks)
+                {
+                    writer.WriteLine(peak);
+                }
+            }
+
+            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\AllDecoys_minRtDiff.tsv"))
+            {
+                writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+                foreach (var peak in engine.DecoyPeaks)
                 {
                     writer.WriteLine(peak);
                 }

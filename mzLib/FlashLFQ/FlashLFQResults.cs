@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics.Statistics;
+﻿using Easy.Common.Extensions;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,6 +14,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
+        public  IEnumerable<ChromatographicPeak> DecoyPeaks { get; set; }
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)
         {
@@ -539,7 +541,7 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent, string decoyPath = null)
         {
             if (!silent)
             {
@@ -555,6 +557,21 @@ namespace FlashLFQ
                     foreach (var peak in Peaks.SelectMany(p => p.Value)
                         .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
                         .ThenByDescending(p => p.Intensity))
+                    {
+                        output.WriteLine(peak.ToString());
+                    }
+                }
+            }
+
+            if(decoyPath != null & DecoyPeaks.IsNotNullOrEmpty())
+            {
+                using (StreamWriter output = new StreamWriter(decoyPath))
+                {
+                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+
+                    foreach (var peak in DecoyPeaks
+                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
+                        .ThenByDescending(p => p.MbrScore))
                     {
                         output.WriteLine(peak.ToString());
                     }

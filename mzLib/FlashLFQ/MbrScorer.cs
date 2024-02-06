@@ -50,7 +50,7 @@ namespace FlashLFQ
         /// <summary>
         /// Scores a MBR peak based on it's retention time, ppm error, and intensity
         /// </summary>
-        /// <returns> The MBR score as a double. Higher scores are better. </returns>
+        /// <returns> An MBR Score ranging between 0 and 100. Higher scores are better. </returns>
         internal double ScoreMbr(ChromatographicPeak acceptorPeak, Normal rtDistribution, ChromatographicPeak? donorPeak = null)
         {
             acceptorPeak.IntensityScore = CalculateIntensityScore(acceptorPeak.Intensity, donorPeak);
@@ -60,8 +60,9 @@ namespace FlashLFQ
             //acceptorPeak.ScanCountScore = (double)acceptorPeak.ScanCount / _scanCountDistribution.Median;
 
             double donorIdPEP = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First().PosteriorErrorProbability;
-
-            return (acceptorPeak.IntensityScore + acceptorPeak.RtScore + acceptorPeak.PpmScore + acceptorPeak.ScanCountScore) * (1 - donorIdPEP);
+            
+            // Returns 100 times the geometric mean of the four scores
+            return 100 * Math.Pow( acceptorPeak.IntensityScore * acceptorPeak.RtScore * acceptorPeak.PpmScore * acceptorPeak.ScanCountScore, 0.25);
         }
 
         internal double CalculateScore(Normal distribution, double value)

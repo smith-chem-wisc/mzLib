@@ -22,6 +22,7 @@ namespace FlashLFQ
         public double IntensityScore { get; set; }
         public double RtScore { get; set; }
         public double ScanCountScore { get; set; }
+        public string Collision { get; set; }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -92,6 +93,7 @@ namespace FlashLFQ
                 sb.Append("Peak Apex Mass Error (ppm)");
                 sb.Append("\t" + "Decoy Peptide");
                 sb.Append("\t" + "Random Rt");
+                sb.Append("\t" + "Collision");
                 //sb.Append("Timepoints");
                 return sb.ToString();
             }
@@ -272,7 +274,8 @@ namespace FlashLFQ
             sb.Append("" + MassError);
             sb.Append("\t" + DecoyPeptide);
             sb.Append("\t" + RandomRt);
-            
+            sb.Append("\t" + Collision ?? "");
+
             return sb.ToString();
         }
     }
