@@ -111,15 +111,15 @@ namespace MzLibUtil
         public static string Transcribe(this string dna, bool isCodingStrand = true)
         {
             var sb = new StringBuilder();
-            foreach (var t in dna)
+            foreach (var residue in dna)
             {
                 if (isCodingStrand)
                 {
-                    sb.Append(t == 'T' ? 'U' : t);
+                    sb.Append(residue == 'T' ? 'U' : residue);
                 }
                 else
                 {
-                    switch (t)
+                    switch (residue)
                     {
                         case 'A':
                             sb.Append('U');
@@ -134,7 +134,7 @@ namespace MzLibUtil
                             sb.Append('C');
                             break;
                         default:
-                            sb.Append(t);
+                            sb.Append(residue);
                             break;
                     }
                 }
