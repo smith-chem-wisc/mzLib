@@ -13,19 +13,19 @@ namespace MassSpectrometry
     /// </summary>
     public static class DeconvoluterExtensions
     {
-        /// <summary>
-        /// Deconvolutes a MzSpectrum object
-        /// </summary>
-        /// <param name="deconvoluter">performs deconvolution</param>
-        /// <param name="spectrum">spectrum to deconvolute</param>
-        /// <param name="range">mz range of returned peaks, if null will deconvolute entire spectrum</param>
-        /// <returns></returns>
-        /// <exception cref="MzLibException"></exception>
-        public static IEnumerable<IsotopicEnvelope> Deconvolute(this Deconvoluter deconvoluter,
-            MzSpectrum spectrum, MzRange range = null)
-        {
-            range ??= spectrum.Range;
-            return deconvoluter.DeconvolutionAlgorithm.Deconvolute(spectrum, range);
-        }
+        ///// <summary>
+        ///// Deconvolutes a MzSpectrum object
+        ///// </summary>
+        ///// <param name="deconvoluter">performs deconvolution</param>
+        ///// <param name="spectrum">spectrum to deconvolute</param>
+        ///// <param name="range">mz range of returned peaks, if null will deconvolute entire spectrum</param>
+        ///// <returns></returns>
+        ///// <exception cref="MzLibException"></exception>
+        //public static IEnumerable<IsotopicEnvelope> Deconvolute(this Deconvoluter deconvoluter,
+        //    MzSpectrum spectrum, MzRange range = null)
+        //{
+        //    range ??= spectrum.Range;
+        //    return deconvoluter.DeconvolutionAlgorithm.Deconvolute(spectrum, range);
+        //}
     }
 }

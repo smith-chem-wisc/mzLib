@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Easy.Common.Extensions;
+using Easy.Common.Interfaces;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -17,64 +18,48 @@ namespace MassSpectrometry
     /// <summary>
     /// Context class for all deconvolution
     /// </summary>
-    public class Deconvoluter
+    public static class Deconvoluter
     {
-        public DeconvolutionAlgorithm DeconvolutionAlgorithm { get; private set; }
-        public DeconvolutionType DeconvolutionType { get; }
-        public DeconvolutionParameters DeconvolutionParameters { get; }
-
-        public Deconvoluter(DeconvolutionType deconType, DeconvolutionParameters deconParameters)
-        {
-            DeconvolutionParameters = deconParameters;
-            DeconvolutionType = deconType;
-            ConstructDeconvolutionAlgorithm(deconParameters);
-        }
-
         /// <summary>
-        /// Deconvolute a MsDataScan
+        /// Static deconvolution of an MsDataScan that does not require Deconvoluter construction
         /// </summary>
         /// <param name="scan">scan to deconvolute</param>
+        /// <param name="deconvolutionParameters">decon parameters to use, also determines type of deconvolution used</param>
         /// <param name="rangeToGetPeaksFrom">Range of peaks to deconvolute, if null, will deconvolute entire spectra</param>
         /// <returns></returns>
-        public IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan, MzRange rangeToGetPeaksFrom = null)
-        {
-            rangeToGetPeaksFrom ??= scan.MassSpectrum.Range;
+        public static IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan, DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null) =>
+                    Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
 
-            // set deconvolution parameters that are only present in the MsDataScan
-            switch (DeconvolutionType)
-            {
-                case DeconvolutionType.ClassicDeconvolution:
-                    break;
-
-                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
-                    break;
-            }
-
-            return DeconvolutionAlgorithm.Deconvolute(scan.MassSpectrum, rangeToGetPeaksFrom);
-        }
-
- 
 
         /// <summary>
-        /// Constructs the relevant deconvolution algorithm
+        /// Static deconvolution of an MzSpectrum that does not require Deconvoluter construction
         /// </summary>
-        /// <param name="deconParameters"></param>
-        /// <exception cref="MzLibException">if a type of enum is used that is not supported</exception>
-        private void ConstructDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
+        /// <param name="spectrum">spectrum to deconvolute</param>
+        /// <param name="deconvolutionParameters">decon parameters to use, also determines type of deconvolution used</param>
+        /// <param name="rangeToGetPeaksFrom">Range of peaks to deconvolute, if null, will deconvolute entire spectra</param>
+        /// <returns></returns>
+        public static IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum,
+            DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
-            // construct algorithm object
-            switch (DeconvolutionType)
+            rangeToGetPeaksFrom ??= spectrum.Range;
+
+            // set deconvolution algorithm and parameters that are only present in the MsDataScan if applicable
+            DeconvolutionAlgorithm deconAlgorithm;
+            switch (deconvolutionParameters.DeconvolutionType)
             {
                 case DeconvolutionType.ClassicDeconvolution:
-                    DeconvolutionAlgorithm = new ClassicDeconvolutionAlgorithm(deconParameters);
+                    deconAlgorithm = new ClassicDeconvolutionAlgorithm(deconvolutionParameters);
                     break;
 
                 case DeconvolutionType.ExampleNewDeconvolutionTemplate:
-                    DeconvolutionAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconParameters);
+                    deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
                     break;
 
                 default: throw new MzLibException("DeconvolutionType not yet supported");
+
             }
+
+            return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
         }
     }
 }
