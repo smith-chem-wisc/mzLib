@@ -27,8 +27,29 @@ namespace MassSpectrometry
         /// <param name="deconvolutionParameters">decon parameters to use, also determines type of deconvolution used</param>
         /// <param name="rangeToGetPeaksFrom">Range of peaks to deconvolute, if null, will deconvolute entire spectra</param>
         /// <returns></returns>
-        public static IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan, DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null) =>
-                    Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
+        public static IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan,
+            DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
+        {
+            rangeToGetPeaksFrom ??= scan.MassSpectrum.Range;
+
+            // set deconvolution algorithm and any specific deconvolution parameters found in the MsDataScan
+            DeconvolutionAlgorithm deconAlgorithm;
+            switch (deconvolutionParameters.DeconvolutionType)
+            {
+                case DeconvolutionType.ClassicDeconvolution:
+                    deconAlgorithm = new ClassicDeconvolutionAlgorithm(deconvolutionParameters);
+                    break;
+
+                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
+                    deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
+                    break;
+
+                default: throw new MzLibException("DeconvolutionType not yet supported");
+            }
+
+            return deconAlgorithm.Deconvolute(scan.MassSpectrum, rangeToGetPeaksFrom);
+        }
+                    
 
 
         /// <summary>
@@ -43,7 +64,7 @@ namespace MassSpectrometry
         {
             rangeToGetPeaksFrom ??= spectrum.Range;
 
-            // set deconvolution algorithm and parameters that are only present in the MsDataScan if applicable
+            // set deconvolution algorithm 
             DeconvolutionAlgorithm deconAlgorithm;
             switch (deconvolutionParameters.DeconvolutionType)
             {
@@ -56,7 +77,6 @@ namespace MassSpectrometry
                     break;
 
                 default: throw new MzLibException("DeconvolutionType not yet supported");
-
             }
 
             return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
