@@ -11,6 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using MassSpectrometry;
 using Omics.Digestion;
 using Omics.Modifications;
@@ -219,6 +220,27 @@ namespace Test
 
             Assert.That(tolerance.Within(expectedMonoMass, resultsWithPeakOfInterest.MonoisotopicMass));
             Assert.That(expectedCharge, Is.EqualTo(resultsWithPeakOfInterest.Charge));
+        }
+
+        [Test]
+        public static void TestExampleNewDeconvolutionInDeconvoluter()
+        {
+            DeconvolutionParameters deconParams = new ExampleNewDeconvolutionParametersTemplate(1, 60);
+            var dataFile = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "GUACUG_NegativeMode_Sliced.mzML"));
+            dataFile.InitiateDynamicConnection();
+            var scan = dataFile.GetOneBasedScanFromDynamicConnection(726);
+            var spectrum = scan.MassSpectrum;
+            dataFile.CloseDynamicConnection();
+
+            // test switch statements in Deconvoluter
+            Assert.Throws<NotImplementedException>(() => Deconvoluter.Deconvolute(spectrum, deconParams));
+            Assert.Throws<NotImplementedException>(() => Deconvoluter.Deconvolute(scan, deconParams));
+
+            // test default exceptions in deconvoluter
+            var badEnumValue = (DeconvolutionType)Int32.MaxValue;
+            deconParams.GetType().GetProperty("DeconvolutionType")!.SetValue(deconParams, badEnumValue);
+            Assert.Throws<MzLibException>(() => Deconvoluter.Deconvolute(spectrum, deconParams));
+            Assert.Throws<MzLibException>(() => Deconvoluter.Deconvolute(scan, deconParams));
         }
     }
 }

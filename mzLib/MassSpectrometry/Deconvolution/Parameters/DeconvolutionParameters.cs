@@ -12,7 +12,7 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class DeconvolutionParameters
     {
-        public abstract DeconvolutionType DeconvolutionType { get; }
+        public abstract DeconvolutionType DeconvolutionType { get; protected set; }
         public int MinAssumedChargeState { get; set; }
         public int MaxAssumedChargeState { get; set; }
         public Polarity Polarity { get; set; }

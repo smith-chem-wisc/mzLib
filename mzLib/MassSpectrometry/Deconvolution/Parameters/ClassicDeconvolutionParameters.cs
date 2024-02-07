@@ -12,7 +12,7 @@ namespace MassSpectrometry
     /// </summary>
     public class ClassicDeconvolutionParameters : DeconvolutionParameters
     {
-        public override DeconvolutionType DeconvolutionType => DeconvolutionType.ClassicDeconvolution;
+        public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.ClassicDeconvolution;
         public double DeconvolutionTolerancePpm { get; set; }
         public double IntensityRatioLimit { get; set; }
 
