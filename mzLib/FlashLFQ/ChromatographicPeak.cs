@@ -11,7 +11,7 @@ namespace FlashLFQ
     public class ChromatographicPeak
     {
         public double Intensity;
-        public double ApexRetentionTime => Apex.IndexedPeak.RetentionTime;
+        public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
         public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public int ScanCount => IsotopicEnvelopes.Count;

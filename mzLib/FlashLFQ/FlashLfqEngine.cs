@@ -39,6 +39,7 @@ namespace FlashLFQ
 
         public readonly double MbrRtWindow;
         public readonly double MbrPpmTolerance;
+        public readonly double MbrAlignmentWindow = 0.5;
         public readonly bool RequireMsmsIdInCondition;
 
         // settings for the Bayesian protein quantification engine
@@ -67,6 +68,7 @@ namespace FlashLFQ
         private FlashLfqResults _results;
         internal Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
         internal PeakIndexingEngine _peakIndexingEngine;
+        internal Dictionary<SpectraFileInfo, List<string>> DonorFileToModSeqDict { get; private set; }
         internal ConcurrentBag<ChromatographicPeak> DecoyPeaks { get; private set; }
 
         public FlashLfqEngine(
@@ -195,6 +197,7 @@ namespace FlashLFQ
             // do MBR
             if (MatchBetweenRuns)
             {
+                FindPeptideDonorFiles();
                 foreach (var spectraFile in _spectraFileInfo)
                 {
                     if (!Silent)
@@ -627,6 +630,54 @@ namespace FlashLFQ
         }
 
         /// <summary>
+        /// For every MSMS identified peptide, selects one file that will be used as the donor
+        /// by finding files that contain the most peaks in the local neighborhood,
+        /// then writes the restults to the DonorFileToIdsDict
+        /// </summary>
+        private void FindPeptideDonorFiles()
+        {
+            DonorFileToModSeqDict = new Dictionary<SpectraFileInfo, List<string>>();
+
+            // iterate through each unique sequence
+            foreach (string modSeq in _modifiedSequenceToIsotopicDistribution.Keys)
+            {
+                SpectraFileInfo bestDonor = null;
+                int bestDonorNeighborPeakCount = 0;
+                foreach(SpectraFileInfo file in _spectraFileInfo)
+                {
+                    var peaksForPeptide = _results.Peaks[file].Where(peak =>
+                        peak.Identifications.Any(id => id.ModifiedSequence.Equals(modSeq)));
+                    int neighboringPeakCountMax = 0;
+                    foreach(var donorPeak in peaksForPeptide)
+                    {
+                        // Count the number of neighboring peaks with unique peptides
+                        int neighboringPeaksCount = _results.Peaks[file]
+                            .Where(peak => Math.Abs(peak.ApexRetentionTime - donorPeak.ApexRetentionTime) < MbrAlignmentWindow)
+                            .Select(peak => peak.Identifications.First().ModifiedSequence)
+                            .Distinct()
+                            .Count();
+                        if (neighboringPeaksCount > neighboringPeakCountMax)
+                            neighboringPeakCountMax = neighboringPeaksCount;
+                    }
+
+                    if(neighboringPeakCountMax > bestDonorNeighborPeakCount)
+                    {
+                        bestDonor = file;
+                        bestDonorNeighborPeakCount = neighboringPeakCountMax;
+                    }
+                }
+                if(DonorFileToModSeqDict.ContainsKey(bestDonor))
+                {
+                    DonorFileToModSeqDict[bestDonor].Add(modSeq);
+                }
+                else
+                {
+                    DonorFileToModSeqDict.Add(bestDonor, new List<string> { modSeq });
+                }
+            }
+        }
+
+        /// <summary>
         /// This method maps identified peaks from other chromatographic runs ("donors") onto
         /// the defined chromatographic run ("acceptor"). The goal is to reduce the number of missing
         /// intensity measurements. Missing values occur generally either because 1) the analyte is
@@ -635,6 +686,18 @@ namespace FlashLFQ
         /// </summary>
         private void QuantifyMatchBetweenRunsPeaks(SpectraFileInfo idAcceptorFile)
         {
+            // This was just to test the DonorFileToModSeqDict is constructed correctly
+
+            //List < HashSet<string> > seqSets = new();
+            //foreach(var listofSeqs in DonorFileToModSeqDict.Values)
+            //{
+            //    seqSets.Add(new HashSet<string>(listofSeqs));
+            //}
+            //var interesect = seqSets[0].Intersect(seqSets[1]).Intersect(seqSets[2]);
+            //var onetTwo = seqSets[0].Intersect(seqSets[1]);
+            //var twoThre = seqSets[2].Intersect(seqSets[1]);
+            //var oneThree = seqSets[0].Intersect(seqSets[2]);
+
             bool acceptorSampleIsFractionated = _results.SpectraFiles
                 .Where(p => p.Condition == idAcceptorFile.Condition && p.BiologicalReplicate == idAcceptorFile.BiologicalReplicate)
                 .Select(p => p.Fraction)
@@ -653,7 +716,7 @@ namespace FlashLFQ
             if (scorer == null)
                 return;
 
-            mbrTol = new PpmTolerance(50);
+            //mbrTol = new PpmTolerance(50);
 
             // deserialize the file's indexed mass spectral peaks. these were stored and serialized to a file earlier
             _peakIndexingEngine.DeserializeIndex(idAcceptorFile);
@@ -676,10 +739,21 @@ namespace FlashLFQ
             Random randomGenerator = new Random();
             //ConcurrentDictionary<Identification, (ChromatographicPeak? target, ChromatographicPeak? decoy)> acceptorPeakDecoyPeakDict = new();
 
+
+            // New Approach - one donor file per peptide
+
             // map each donor file onto this file
             foreach (SpectraFileInfo idDonorFile in _spectraFileInfo)
             {
                 if (idAcceptorFile.Equals(idDonorFile))
+                {
+                    continue;
+                }
+                if (!DonorFileToModSeqDict.TryGetValue(idDonorFile, out var sequencesInDonor))
+                {
+                    continue;
+                }
+                else if (!sequencesInDonor.Any())
                 {
                     continue;
                 }
@@ -689,6 +763,7 @@ namespace FlashLFQ
                     !p.IsMbrPeak
                     && p.NumIdentificationsByFullSeq == 1
                     && p.IsotopicEnvelopes.Any()
+                    && sequencesInDonor.Contains(p.Identifications.First().ModifiedSequence)
                     && !acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)
                     && (!RequireMsmsIdInCondition || p.Identifications.Any(v => v.ProteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g))))).ToList();
 
