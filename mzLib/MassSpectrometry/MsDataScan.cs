@@ -144,7 +144,8 @@ namespace MassSpectrometry
             return IsolationRange == null
                 ? new List<IsotopicEnvelope>()
                 : Deconvoluter.Deconvolute(precursorSpectrum, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5));
+                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
+                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
         }
 
         /// <summary>
@@ -164,7 +165,8 @@ namespace MassSpectrometry
             return IsolationRange == null
                 ? new List<IsotopicEnvelope>()
                 : Deconvoluter.Deconvolute(precursorScan, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5));
+                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
+                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
         }
         
 
