@@ -1,6 +1,7 @@
 ﻿using MzLibUtil;
 using Omics.SpectrumMatch;
 using Proteomics.PSM;
+using Transcriptomics;
 
 namespace Readers
 {
@@ -57,7 +58,9 @@ namespace Readers
                             psms.Add(new PsmFromTsv(line, Split, parsedHeader));
                             break;
 
-                        // TODO: Create an osmtsv case when transcriptomics is merged
+                        case SupportedFileType.osmtsv:
+                            psms.Add(new OsmFromTsv(line, Split, parsedHeader));
+                            break;
 
                         default:
                             throw new ArgumentOutOfRangeException();
@@ -89,7 +92,14 @@ namespace Readers
         public static List<PsmFromTsv> ReadPsmTsv(string filePath, out List<string> warnings) =>
             ReadTsv(filePath, out warnings).Cast<PsmFromTsv>().ToList();
 
-        //TODO: Add a ReadOsmTsv method when transcriptomics is merged
+        /// <summary>
+        /// Reads a osmtsv file and returns OsmFromTsv objects
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="warnings"></param>
+        /// <returns></returns>
+        public static List<OsmFromTsv> ReadOsmTsv(string filePath, out List<string> warnings) =>
+            ReadTsv(filePath, out warnings).Cast<OsmFromTsv>().ToList();
 
         public static Dictionary<string, int> ParseHeader(string header)
         {

@@ -10,6 +10,8 @@
     }
     public class SpectrumMatchFromTsvHeader
     {
+        public static readonly string[] AcceptedSpectraFormats = { ".raw", ".mzML", ".mgf" };
+
         // File and scan information
         public const string FileName = "File Name";
         public const string Ms2ScanNumber = "Scan Number";

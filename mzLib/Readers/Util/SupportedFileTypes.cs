@@ -14,12 +14,11 @@ namespace Readers
         Mgf,
         BrukerD,
         psmtsv,
-        //osmtsv
+        osmtsv,
         ToppicPrsm,
         ToppicPrsmSingle,
         ToppicProteoform,
         ToppicProteoformSingle,
-
     }
 
     public static class SupportedFileTypeExtensions
@@ -44,7 +43,7 @@ namespace Readers
                 SupportedFileType.Mgf => ".mgf",
                 SupportedFileType.BrukerD => ".d",
                 SupportedFileType.psmtsv => ".psmtsv",
-                //SupportedFileType.osmtsv => ".osmtsv",
+                SupportedFileType.osmtsv => ".osmtsv",
                 SupportedFileType.ToppicPrsm => "_prsm.tsv",
                 SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
                 SupportedFileType.ToppicProteoform => "_proteoform.tsv",
@@ -62,7 +61,7 @@ namespace Readers
                 case ".mgf": return SupportedFileType.Mgf;
                 case ".d": return SupportedFileType.BrukerD;
                 case ".psmtsv": return SupportedFileType.psmtsv;
-                //case ".osmtsv": return SupportedFileType.osmtsv;
+                case ".osmtsv": return SupportedFileType.osmtsv;
                 case ".feature":
                     if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;
