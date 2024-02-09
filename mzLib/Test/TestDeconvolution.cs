@@ -242,5 +242,31 @@ namespace Test
             Assert.Throws<MzLibException>(() => Deconvoluter.Deconvolute(spectrum, deconParams));
             Assert.Throws<MzLibException>(() => Deconvoluter.Deconvolute(scan, deconParams));
         }
+
+
+        [Test]
+        public static void Test_MsDataScan_GetIsolatedMassesAndCharges()
+        {
+            // get scan
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "GUACUG_NegativeMode_Sliced.mzML");
+            var dataFile = MsDataFileReader.GetDataFile(filePath);
+            var precursorScan = dataFile.GetOneBasedScan(1);
+            var fragmentationScan = dataFile.GetOneBasedScan(2);
+
+            // set up deconvolution
+            DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(-10, -1, 20, 3, Polarity.Negative);
+            
+            // get isolated masses and charges on an MS1 scan. This means the isolation window is null.
+            var ms1Result = precursorScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams).ToList();
+            Assert.That(ms1Result.Count, Is.EqualTo(0));
+            ms1Result = precursorScan.GetIsolatedMassesAndCharges(precursorScan, deconParams).ToList();
+            Assert.That(ms1Result.Count, Is.EqualTo(0));
+
+            // get isolated masses and charges on an MS2 scan. This should work correctly
+            var ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams).ToList();
+            Assert.That(ms2Result.Count, Is.EqualTo(1));
+            ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan, deconParams).ToList();
+            Assert.That(ms2Result.Count, Is.EqualTo(1));
+        }
     }
 }
