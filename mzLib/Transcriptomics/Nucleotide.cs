@@ -242,9 +242,5 @@ namespace Transcriptomics
         }
 
         #endregion
-
-
     }
-
-  
 }
