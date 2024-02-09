@@ -18,7 +18,6 @@ namespace Omics
     {
         string BaseSequence { get; }
         string FullSequence { get; }
-        string Description { get; }
         double MostAbundantMonoisotopicMass { get; }
         string SequenceWithChemicalFormulas { get; }
         int OneBasedStartResidue { get; }

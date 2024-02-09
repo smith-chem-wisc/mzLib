@@ -11,14 +11,7 @@ namespace Omics.Digestion
         int MaxMods { get; set; }
         DigestionAgent DigestionAgent { get; }
         FragmentationTerminus FragmentationTerminus { get; }
-        CleavageSpecificity SearchModeType { get; }
 
-        /// <summary>
-        /// new terminus parameter is for non and semi specific searches
-        /// </summary>
-        /// <param name="newTerminus"></param>
-        /// <returns></returns>
-        IDigestionParams Clone(FragmentationTerminus? newTerminus = null);
         /// <summary>
         /// Search mode type refers to the CleavageSpecificity enum and is used for MetaMorpheus to determine if it should perform a non-specific, semi-specific, or fully specific search.
         /// For the initial implementation, RNA will have it hardcoded to a fully specific search.
