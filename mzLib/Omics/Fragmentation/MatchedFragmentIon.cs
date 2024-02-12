@@ -76,7 +76,7 @@ namespace Omics.Fragmentation
         {
             MatchedFragmentIon other = (MatchedFragmentIon)obj;
 
-            return this.NeutralTheoreticalProduct.Equals(other.NeutralTheoreticalProduct)
+            return this.NeutralTheoreticalProduct.Equals(other.NeutralTheoreticalProduct as Product)
                 && this.Charge == other.Charge
                 && this.Mz == other.Mz
                 && this.Intensity == other.Intensity;

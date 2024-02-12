@@ -22,10 +22,13 @@ using MzLibUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MassSpectrometry.MzSpectra;
+using ClassExtensions = Chemistry.ClassExtensions;
 
 namespace MassSpectrometry
 {
@@ -800,5 +803,21 @@ namespace MassSpectrometry
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
+        /// <summary>
+        /// Method takes a list of mz and intensity values from a spectrum and merges those pairs of mzs and intensities when the difference in the mzs is less than specified tolerance
+        /// </summary>
+        /// <param name="mzArray"></param>
+        /// <param name="intensityArray"></param>
+        /// <param name="ppmTolerance"></param>
+        /// <returns></returns>
+        public void MergeMzAndIntensityValuesForAnyMzsWithinTolerance(PpmTolerance ppmTolerance)
+        {
+            var mzArray = this.XArray;
+            var intensityArray= this.YArray;
+            ExtensionMethods.MergeMzAndIntensityValuesForAnyMzsWithinTolerance(ref mzArray, ref intensityArray, ppmTolerance);
+            this.XArray = mzArray;
+            this.YArray = intensityArray;
+        }
+
     }
 }
