@@ -87,7 +87,7 @@ namespace Test
                     }
                     else
                     {
-                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", "Homo Sapiens"));
                         proteinGroups.Add(allProteinGroups[protein]);
                     }
                 }
@@ -113,7 +113,7 @@ namespace Test
             mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && !peak.DecoyPeptide & !peak.RandomRt).ToList());
 
 
-            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\MbrResults_minRtDiff.tsv"))
+            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\MbrResults_orgTest.tsv"))
             {
                 writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
                 foreach (var peak in mbrPeaks)
@@ -122,14 +122,14 @@ namespace Test
                 }
             }
 
-            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\AllDecoys_minRtDiff.tsv"))
-            {
-                writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
-                foreach (var peak in engine.DecoyPeaks)
-                {
-                    writer.WriteLine(peak);
-                }
-            }
+            //using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\AllDecoys_minRtDiff.tsv"))
+            //{
+            //    writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+            //    foreach (var peak in engine.DecoyPeaks)
+            //    {
+            //        writer.WriteLine(peak);
+            //    }
+            //}
 
             var f1r1MbrResults = results
                 .PeptideModifiedSequences

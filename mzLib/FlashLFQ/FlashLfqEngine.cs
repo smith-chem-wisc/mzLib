@@ -653,7 +653,7 @@ namespace FlashLFQ
             if (scorer == null)
                 return;
 
-            mbrTol = new PpmTolerance(50);
+            //mbrTol = new PpmTolerance(50);
 
             // deserialize the file's indexed mass spectral peaks. these were stored and serialized to a file earlier
             _peakIndexingEngine.DeserializeIndex(idAcceptorFile);
