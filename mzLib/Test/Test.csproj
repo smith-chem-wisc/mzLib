@@ -33,6 +33,7 @@
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
+    <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
 
@@ -477,7 +478,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Transcriptomics\" />
     <Folder Include="TestData\" />
   </ItemGroup>
 

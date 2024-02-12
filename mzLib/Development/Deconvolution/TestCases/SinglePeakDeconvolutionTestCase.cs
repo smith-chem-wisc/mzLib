@@ -20,10 +20,10 @@ namespace Development.Deconvolution
         /// <param name="expectedIonChargeState">Expected charge state from deconvolution result</param>
         /// <param name="selectedIonMz">M/z of peak to deconvolute from spectrum</param>
         /// <param name="precursorPpmMassTolerance">Tolerance which deconvolution results must match expected value</param>
-        public SinglePeakDeconvolutionTestCase(Deconvoluter deconvoluter, string sampleInformation, string spectrumPath, int scanNumber,
+        public SinglePeakDeconvolutionTestCase(DeconvolutionParameters deconParameters, string sampleInformation, string spectrumPath, int scanNumber,
             double expectedMostAbundantObservedIsotopicMass, int expectedIonChargeState, double selectedIonMz, double precursorPpmMassTolerance)
         {
-            Deconvoluter = deconvoluter;
+            
             SampleInformation = sampleInformation;
             ExpectedMostAbundantObservedIsotopicMass = expectedMostAbundantObservedIsotopicMass;
             ExpectedIonChargeState = expectedIonChargeState;
@@ -41,7 +41,7 @@ namespace Development.Deconvolution
         /// <summary>
         /// The object which will be performing the deconvolution when tested
         /// </summary>
-        public Deconvoluter Deconvoluter { get; set; }
+        public DeconvolutionParameters DeconvolutionParameters { get; set; }
 
         /// <summary>
         /// Quick information relevant to the sample, will be visible on test failing
@@ -82,7 +82,7 @@ namespace Development.Deconvolution
 
         public override string ToString()
         {
-            return $"{Deconvoluter.DeconvolutionType}: {SampleInformation} Charge: {ExpectedIonChargeState}";
+            return $"{DeconvolutionParameters.DeconvolutionType}: {SampleInformation} Charge: {ExpectedIonChargeState}";
         }
     }
 }
