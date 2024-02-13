@@ -6,6 +6,13 @@ using TorchSharp;
 namespace Proteomics.RetentionTimePrediction.Chronologer;
 public static class ChronologerRetentionTimeEstimator
 {
+    /// <summary>
+    /// Uses the Chronologer model to predict the retention time of a peptide.
+    /// Only modifications present in the Chronologer dictionary are supported.
+    /// </summary>
+    /// <param name="baseSequence"></param>
+    /// <param name="fullPeptideSequence"></param>
+    /// <returns></returns>
     public static double PredictRetentionTime(string baseSequence, string fullPeptideSequence)
     {
         torch.Tensor tensor = Tensorize(baseSequence, fullPeptideSequence);
