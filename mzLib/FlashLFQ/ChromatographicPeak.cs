@@ -69,6 +69,7 @@ namespace FlashLFQ
                 sb.Append("Base Sequence" + "\t");
                 sb.Append("Full Sequence" + "\t");
                 sb.Append("Protein Group" + "\t");
+                sb.Append("Organism" + '\t');
                 sb.Append("Peptide Monoisotopic Mass" + "\t");
                 sb.Append("MS2 Retention Time" + "\t");
                 sb.Append("Precursor Charge" + "\t");
@@ -211,9 +212,11 @@ namespace FlashLFQ
             if (t.Any())
             {
                 sb.Append(string.Join(";", t) + '\t');
+                sb.Append(string.Join(";", Identifications.SelectMany(id => id.ProteinGroups).Select(p => p.Organism).Distinct()) + '\t');
             }
             else
             {
+                sb.Append("" + '\t');
                 sb.Append("" + '\t');
             }
 
