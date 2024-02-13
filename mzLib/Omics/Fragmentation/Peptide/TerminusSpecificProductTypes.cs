@@ -1,9 +1,5 @@
-<<<<<<<< HEAD:mzLib/Omics/Fragmentation/TerminusSpecificProductTypes.cs
-﻿namespace Omics.Fragmentation
-========
-﻿namespace Omics.Fragmentation.Peptide
->>>>>>>> master:mzLib/Omics/Fragmentation/Peptide/TerminusSpecificProductTypes.cs
-{
+
+﻿namespace Omics.Fragmentation.Peptide{
     public class TerminusSpecificProductTypes
     {
         public static Dictionary<FragmentationTerminus, List<ProductType>> ProductIonTypesFromSpecifiedTerminus = new Dictionary<FragmentationTerminus, List<ProductType>>
