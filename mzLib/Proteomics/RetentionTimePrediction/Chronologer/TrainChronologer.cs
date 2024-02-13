@@ -6,7 +6,7 @@ using System.Linq;
 using TorchSharp;
 using TorchSharp.Modules;
 
-namespace Proteomics.RetentionTimePrediction
+namespace Proteomics.RetentionTimePrediction.Chronologer
 {
     public static class TrainChronologer
     {
@@ -18,9 +18,9 @@ namespace Proteomics.RetentionTimePrediction
         /// <returns></returns>
         public static torch.Tensor Tensorize(PsmFromTsv psm, Dictionary<(char, string), int> dictionary)
         {
-            var fullSequence = psm.FullSequence.Split(new[] {'[', ']' })
+            var fullSequence = psm.FullSequence.Split(new[] { '[', ']' })
                 .Where(x => !x.Equals("")).ToArray();
-            
+
             //section to remoce type of mod from the sequence
             //i.e. Common Fixed:Carbamidomethyl and only stay with the target aa after the mod
             for (int i = 0; i < fullSequence.Length; i++)
@@ -33,7 +33,7 @@ namespace Proteomics.RetentionTimePrediction
             }
 
             if (psm.BaseSeq.Length <= 50) //Chronologer only takes sequences of length 50 or less
-            {   
+            {
                 var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
 
                 tensor[0][0] = 38; //C-terminus
@@ -45,7 +45,7 @@ namespace Proteomics.RetentionTimePrediction
                     //if mod, enter
                     if (mod)
                     {
-                        var key = (modID, subString[0].ToString()); 
+                        var key = (modID, subString[0].ToString());
                         if (dictionary.ContainsKey(key))
                         {
                             tensor[0][tensorCounter] = dictionary[key];
@@ -110,11 +110,11 @@ namespace Proteomics.RetentionTimePrediction
                     var db =
                         (dataFile.FileNameWithoutExtension, dataFile.RetentionTime, dataFile.BaseSeq); //base seq for the moment
                     var tensor = Tensorize(dataFile, dictionary);
-                    
-                    if(tensor.Equals(torch.ones(1,52,torch.ScalarType.Int64)))
+
+                    if (tensor.Equals(torch.ones(1, 52, torch.ScalarType.Int64)))
                         continue;
 
-                    if (tensor[0][0].item<Int64>().Equals((Int64)38))
+                    if (tensor[0][0].item<long>().Equals(38))
                     {
                         allData.Add((tensor, db.RetentionTime.Value)); //todo: add encoded sequence tensor
                         sources.Add(db.FileNameWithoutExtension);
@@ -220,7 +220,7 @@ namespace Proteomics.RetentionTimePrediction
 
             public torch.Tensor LogL(torch.Tensor x)
             {
-                return -1 * (torch.log(_sigma * Math.Sqrt(2 * Math.PI)) + 0.5 * torch.pow((x - _mu), 1) / _sigma);
+                return -1 * (torch.log(_sigma * Math.Sqrt(2 * Math.PI)) + 0.5 * torch.pow(x - _mu, 1) / _sigma);
             }
             private torch.Tensor _mu { get; set; }
             private torch.Tensor _sigma { get; set; }
@@ -266,7 +266,7 @@ namespace Proteomics.RetentionTimePrediction
                     return 0.5 * torch.exp((x - _mu) / _b);
                 }
 
-                return 1 - 0.5 * torch.exp((-1 * (x - _mu)) / _b);
+                return 1 - 0.5 * torch.exp(-1 * (x - _mu) / _b);
             }
 
             public torch.Tensor PPF(torch.Tensor q)

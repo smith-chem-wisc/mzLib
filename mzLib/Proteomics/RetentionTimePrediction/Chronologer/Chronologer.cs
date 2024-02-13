@@ -1,14 +1,13 @@
-﻿using System;
+﻿using Easy.Common.Extensions;
+using Proteomics.PSM;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using Easy.Common.Extensions;
-using Proteomics.PSM;
 using TorchSharp;
 using TorchSharp.Modules;
 
-namespace Proteomics.RetentionTimePrediction
+namespace Proteomics.RetentionTimePrediction.Chronologer
 {
     /// <summary>
     /// Chronologer is a deep learning model for highly accurate prediction of peptide C18 retention times (reported in % ACN).
@@ -30,7 +29,8 @@ namespace Proteomics.RetentionTimePrediction
     {
         public Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
             "RetentionTimePrediction",
-            "Chronologer_20220601193755_TorchSharp.dat")) { }
+            "Chronologer_20220601193755_TorchSharp.dat"))
+        { }
 
         /// <summary>
         /// Initializes a new instance of the Chronologer model class with pre-trained weights from the paper
@@ -50,8 +50,8 @@ namespace Proteomics.RetentionTimePrediction
 
             if (evalMode)
             {
-                this.eval();
-                this.train(false);
+                eval();
+                train(false);
             }
         }
 
@@ -97,11 +97,11 @@ namespace Proteomics.RetentionTimePrediction
             input = term_block.forward(input);
             input = residual + input;
             input = relu.forward(input);
-            
+
             input = dropout.forward(input);
             input = flatten.forward(input);
             input = output.forward(input);
-            
+
             return input;
         }
 
@@ -112,7 +112,7 @@ namespace Proteomics.RetentionTimePrediction
         private void LoadWeights(string weightsPath)
         {
             //load weights from the file
-            this.load(weightsPath, true);
+            load(weightsPath, true);
         }
 
         /// <summary>
@@ -122,15 +122,15 @@ namespace Proteomics.RetentionTimePrediction
         /// <returns></returns>
         public torch.Tensor Predict(torch.Tensor input)
         {
-            return this.call(input);
+            return call(input);
         }
 
         public void Train(string savingPath, List<PsmFromTsv> trainingData, Dictionary<(char, string),
                 int> dictionary, double validationFraction = 0.2,
-            int seed = 2447, string device = "cpu", string startModelPath = null, 
+            int seed = 2447, string device = "cpu", string startModelPath = null,
             double intialBatchScaler = 1.0, int batchSize = 64, int epochs = 100)
         {
-            if (this.training.Equals(false))
+            if (training.Equals(false))
             {
                 this.train(true);
             }
@@ -138,16 +138,16 @@ namespace Proteomics.RetentionTimePrediction
             //loads pre-trained weights if startModelPath is not null
             if (startModelPath != null)
             {
-                this.load(startModelPath, true);
+                load(startModelPath, true);
             }
-            
-            var (train , test) = 
+
+            var (train, test) =
                 TrainChronologer.RetentionTimeToTensorDatabase(trainingData, seed, validationFraction, dictionary);
 
             var trainDataSet = new CustomDataset(train);
             var testDataSet = new CustomDataset(test);
 
-            var trainLoader =  torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true, drop_last: true);
+            var trainLoader = torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true, drop_last: true);
             var testLoader = torch.utils.data.DataLoader(testDataSet, batchSize, shuffle: true, drop_last: true);
             var lossFunction = torch.nn.L1Loss();
             // var lossFunction = new TrainChronologer.LogLLoss(52, 
@@ -161,7 +161,7 @@ namespace Proteomics.RetentionTimePrediction
 
             //training loop
             var scores = new List<float>();
-            for (int i = 0; i < epochs; i++) 
+            for (int i = 0; i < epochs; i++)
             {
                 Debug.WriteLine($"Epoch {i + 1} of {epochs}");
                 var epochLoss = 0.0;
@@ -170,7 +170,7 @@ namespace Proteomics.RetentionTimePrediction
                 {
                     var batchX = batch["Encoded Sequence"];
                     var batchY = batch["Retention Time on File"];
-                    for(int j = 0; j < batchX.size(0); j++)
+                    for (int j = 0; j < batchX.size(0); j++)
                     {
                         var x = batchX[j];
                         double y = batchY[j].item<double>();
@@ -179,9 +179,9 @@ namespace Proteomics.RetentionTimePrediction
                         // Debug.WriteLine(y);
                         // Debug.WriteLine(batchPass.ToString(TensorStringStyle.Julia));
 
-                        var output = this.forward(x);
+                        var output = forward(x);
                         var loss = lossFunction.forward(output[0],
-                            torch.tensor(new []{(float)y}));
+                            torch.tensor(new[] { (float)y }));
 
                         // Debug.WriteLine(loss.item<float>());
                         optimizer.zero_grad();
