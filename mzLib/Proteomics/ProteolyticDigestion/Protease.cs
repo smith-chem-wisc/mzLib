@@ -1,27 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Omics.Digestion;
+using Omics.Modifications;
 
 namespace Proteomics.ProteolyticDigestion
 {
-    public class Protease
+    public class Protease : DigestionAgent
     {
-        public Protease(string name, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, List<DigestionMotif> motifList, Modification modDetails = null)
+        public Protease(string name, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, 
+            string psiMSName, List<DigestionMotif> motifList, Modification modDetails = null) 
+            : base(name, cleavageSpecificity, motifList, modDetails)
         {
-            Name = name;
-            CleavageSpecificity = cleavageSpecificity;
             PsiMsAccessionNumber = psiMSAccessionNumber;
             PsiMsName = psiMSName;
-            DigestionMotifs = motifList ?? new List<DigestionMotif>();
-            CleavageMod = modDetails;
         }
 
-        public string Name { get; }
-        public CleavageSpecificity CleavageSpecificity { get; }
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
-        public List<DigestionMotif> DigestionMotifs { get; }
-        public Modification CleavageMod { get; set; }
 
         public override string ToString()
         {
@@ -115,14 +111,14 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     // retain methionine
                     if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M')
-                        && OkayLength(protein.Length, minPeptideLength, maxPeptideLength))
+                        && ValidLength(protein.Length, minPeptideLength, maxPeptideLength))
                     {
                         peptides.Add(new ProteolyticPeptide(protein, 1, protein.Length, 0, CleavageSpecificity.Full, "full"));
                     }
 
                     // cleave methionine
                     if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M')
-                        && OkayLength(protein.Length - 1, minPeptideLength, maxPeptideLength))
+                        && ValidLength(protein.Length - 1, minPeptideLength, maxPeptideLength))
                     {
                         peptides.Add(new ProteolyticPeptide(protein, 2, protein.Length, 0, CleavageSpecificity.Full, "full:M cleaved"));
                     }
@@ -132,7 +128,7 @@ namespace Proteomics.ProteolyticDigestion
                 peptides.AddRange(
                     protein.ProteolysisProducts
                     .Where(proteolysisProduct => proteolysisProduct.OneBasedEndPosition.HasValue && proteolysisProduct.OneBasedBeginPosition.HasValue
-                        && OkayLength(proteolysisProduct.OneBasedEndPosition.Value - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptideLength, maxPeptideLength))
+                        && ValidLength(proteolysisProduct.OneBasedEndPosition.Value - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptideLength, maxPeptideLength))
                     .Select(proteolysisProduct =>
                         new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value, 0, CleavageSpecificity.None, proteolysisProduct.Type)));
             }
@@ -154,49 +150,6 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             return peptides;
-        }
-
-        /// <summary>
-        /// Gets the indices after which this protease will cleave a given protein sequence
-        /// </summary>
-        /// <param name="proteinSequence"></param>
-        /// <returns></returns>
-        internal List<int> GetDigestionSiteIndices(string proteinSequence)
-        {
-            var indices = new List<int>();
-
-            for (int r = 0; r < proteinSequence.Length; r++)
-            {
-                var cutSiteIndex = -1;
-                bool cleavagePrevented = false;
-
-                foreach (DigestionMotif motif in DigestionMotifs)
-                {
-                    var motifResults = motif.Fits(proteinSequence, r);
-                    bool motifFits = motifResults.Item1;
-                    bool motifPreventsCleavage = motifResults.Item2;
-
-                    if (motifFits && r + motif.CutIndex < proteinSequence.Length)
-                    {
-                        cutSiteIndex = Math.Max(r + motif.CutIndex, cutSiteIndex);
-                    }
-
-                    if (motifPreventsCleavage) // if any motif prevents cleave
-                    {
-                        cleavagePrevented = true;
-                    }
-                }
-
-                // if no motif prevents cleave
-                if (!cleavagePrevented && cutSiteIndex != -1)
-                {
-                    indices.Add(cutSiteIndex);
-                }
-            }
-
-            indices.Add(0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
-            indices.Add(proteinSequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
-            return indices.Distinct().OrderBy(i => i).ToList();
         }
 
         /// <summary>
@@ -227,17 +180,6 @@ namespace Proteomics.ProteolyticDigestion
                 && nTerminus == 'M';
         }
 
-        /// <summary>
-        /// Is length of given peptide okay, given minimum and maximum?
-        /// </summary>
-        /// <param name="peptideLength"></param>
-        /// <param name="minPeptideLength"></param>
-        /// <param name="maxPeptideLength"></param>
-        /// <returns></returns>
-        internal static bool OkayLength(int peptideLength, int minPeptideLength, int maxPeptideLength)
-        {
-            return OkayMinLength(peptideLength, minPeptideLength) && OkayMaxLength(peptideLength, maxPeptideLength);
-        }
 
         /// <summary>
         /// Gets protein intervals for digestion by this specific protease.
@@ -259,13 +201,13 @@ namespace Proteomics.ProteolyticDigestion
                 for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
                 {
                     if (Retain(i, initiatorMethionineBehavior, firstResidueInProtein)
-                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i], minPeptideLength, maxPeptideLength))
+                        && ValidLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i], minPeptideLength, maxPeptideLength))
                     {
                         yield return new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
                             missedCleavages, CleavageSpecificity.Full, "full");
                     }
                     if (Cleave(i, initiatorMethionineBehavior, firstResidueInProtein) && oneBasedIndicesToCleaveAfter[1] != 1 //prevent duplicates if that bond is cleaved by the protease
-                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - 1, minPeptideLength, maxPeptideLength))
+                        && ValidLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - 1, minPeptideLength, maxPeptideLength))
                     {
                         yield return new ProteolyticPeptide(protein, 2, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
                             missedCleavages, CleavageSpecificity.Full, "full:M cleaved");
@@ -291,7 +233,7 @@ namespace Proteomics.ProteolyticDigestion
                             && proteolysisProduct.OneBasedBeginPosition.HasValue //and the proteolytic peptide even has a beginning
                             && !oneBasedIndicesToCleaveAfter.Contains(proteolysisProduct.OneBasedBeginPosition.Value - 1) //and we haven't already cleaved here
                             && (proteolysisProduct.OneBasedBeginPosition.Value != 1 || !Cleave(0, initiatorMethionineBehavior, firstResidueInProtein)) //and it's not the initiator methionine
-                            && OkayLength(oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct + missedCleavages] - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptideLength, maxPeptideLength); //and it's the correct size
+                            && ValidLength(oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct + missedCleavages] - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptideLength, maxPeptideLength); //and it's the correct size
                         if (startPeptide)
                         {
                             yield return new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct + missedCleavages],
@@ -308,7 +250,7 @@ namespace Proteomics.ProteolyticDigestion
                             && oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1 >= proteolysisProduct.OneBasedBeginPosition //and it's not before the beginning
                             && proteolysisProduct.OneBasedEndPosition.HasValue //and the proteolytic peptide even has an end
                             && !oneBasedIndicesToCleaveAfter.Contains(proteolysisProduct.OneBasedEndPosition.Value) //and we haven't already cleaved here
-                            && OkayLength(proteolysisProduct.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1 - 1, minPeptideLength, maxPeptideLength); //and it's the correct size
+                            && ValidLength(proteolysisProduct.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1 - 1, minPeptideLength, maxPeptideLength); //and it's the correct size
                         if (endPeptide)
                         {
                             yield return new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1, proteolysisProduct.OneBasedEndPosition.Value,
@@ -341,7 +283,7 @@ namespace Proteomics.ProteolyticDigestion
                         lastCleavage++;
                     }
                     if (lastCleavage - firstCleavage < maximumMissedCleavages && //if there aren't too many missed cleavages
-                        OkayLength(proteolysisProduct.OneBasedEndPosition.Value - proteolysisProduct.OneBasedBeginPosition.Value, minPeptideLength, maxPeptideLength)) //and it's the correct size
+                        ValidLength(proteolysisProduct.OneBasedEndPosition.Value - proteolysisProduct.OneBasedBeginPosition.Value, minPeptideLength, maxPeptideLength)) //and it's the correct size
                     {
                         yield return new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value,
                             lastCleavage - firstCleavage, CleavageSpecificity.Full, proteolysisProduct.Type + " end");
@@ -404,7 +346,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 for (int j = cTerminusProtein; j > nTerminusProtein; j--)//We are hitting the c-terminus here
                 {
-                    if (OkayLength(j - nTerminusProtein, minPeptideLength, maxPeptideLength))
+                    if (ValidLength(j - nTerminusProtein, minPeptideLength, maxPeptideLength))
                     {
                         intervals.Add(localOneBasedIndicesToCleaveAfter.Contains(j) ?
                             new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Full, "full") :
@@ -428,7 +370,7 @@ namespace Proteomics.ProteolyticDigestion
                 int start = nTerminusProtein + 1;//plus one to not doublecount the n terminus (in addition to the M term skip)
                 for (int j = start; j < cTerminusProtein; j++)
                 {
-                    if (OkayLength(cTerminusProtein - j, minPeptideLength, maxPeptideLength)
+                    if (ValidLength(cTerminusProtein - j, minPeptideLength, maxPeptideLength)
                     && !localOneBasedIndicesToCleaveAfter.Contains(j))
                     {
                         intervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein, cTerminusProtein - j, CleavageSpecificity.Semi, "semi"));
@@ -454,7 +396,7 @@ namespace Proteomics.ProteolyticDigestion
                     // Start peptide
                     for (int j = start; j < oneBasedIndicesToCleaveAfter[i]; j++)
                     {
-                        if (OkayLength(j - start + 1, minPeptideLength, maxPeptideLength))
+                        if (ValidLength(j - start + 1, minPeptideLength, maxPeptideLength))
                         {
                             intervals.Add(new ProteolyticPeptide(protein, start, j, j - start, CleavageSpecificity.Full, proteolysisProduct.Type + " start"));
                         }
@@ -479,7 +421,7 @@ namespace Proteomics.ProteolyticDigestion
                     // Fin (End)
                     for (int j = oneBasedIndicesToCleaveAfter[i] + 1; j < end; j++)
                     {
-                        if (OkayLength(end - j + 1, minPeptideLength, maxPeptideLength))
+                        if (ValidLength(end - j + 1, minPeptideLength, maxPeptideLength))
                         {
                             intervals.Add(new ProteolyticPeptide(protein, j, end, end - j, CleavageSpecificity.Full, proteolysisProduct.Type + " end"));
                         }
@@ -504,7 +446,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             bool preventMethionineFromBeingDuplicated = nTerminusProtein == 1 && cleave && retain; //prevents duplicate sequences containing N-terminal methionine
             List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
-            if (!preventMethionineFromBeingDuplicated && OkayLength(cTerminusProtein - nTerminusProtein, minPeptideLength, maxPeptideLength)) //adds the full length maximum cleavages, no semi
+            if (!preventMethionineFromBeingDuplicated && ValidLength(cTerminusProtein - nTerminusProtein, minPeptideLength, maxPeptideLength)) //adds the full length maximum cleavages, no semi
             {
                 intervals.Add(new ProteolyticPeptide(protein, nTerminusProtein + 1, cTerminusProtein,
                     cTerminusProtein - nTerminusProtein, CleavageSpecificity.Full, "full" + (cleave ? ":M cleaved" : ""))); // Maximum sequence length
@@ -516,7 +458,7 @@ namespace Proteomics.ProteolyticDigestion
             List<ProteolyticPeptide> fixedCTermIntervals = new List<ProteolyticPeptide>();
             if (!preventMethionineFromBeingDuplicated)
             {
-                var indexesOfAcceptableLength = internalIndices.Where(j => OkayLength(cTerminusProtein - j, minPeptideLength, maxPeptideLength));
+                var indexesOfAcceptableLength = internalIndices.Where(j => ValidLength(cTerminusProtein - j, minPeptideLength, maxPeptideLength));
                 foreach (var j in indexesOfAcceptableLength)
                 {
                     if (localOneBasedIndicesToCleaveAfter.Contains(j) || (j == 1 && cleave)) //if cleaved on cleavable index or after initiator methionine, record as full
@@ -535,7 +477,7 @@ namespace Proteomics.ProteolyticDigestion
             }
             IEnumerable<ProteolyticPeptide> fixedNTermIntervals =
                 internalIndices
-                .Where(j => OkayLength(j - nTerminusProtein, minPeptideLength, maxPeptideLength))
+                .Where(j => ValidLength(j - nTerminusProtein, minPeptideLength, maxPeptideLength))
                 .Select(j => localOneBasedIndicesToCleaveAfter.Contains(j) ?
                 new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Full, "full" + (cleave ? ":M cleaved" : "")) :
                 new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Semi, "semi" + (cleave ? ":M cleaved" : "")));
@@ -565,7 +507,7 @@ namespace Proteomics.ProteolyticDigestion
                                                                         //This happens when maxPeptideLength == int.MaxValue or something close to it
                 for (; proteinStart <= protein.Length; proteinStart++)
                 {
-                    if (OkayMinLength(protein.Length - proteinStart + 1, minPeptideLength))
+                    if (ValidMinLength(protein.Length - proteinStart + 1, minPeptideLength))
                     {
                         //need Math.Max if max length is int.MaxLength, since +proteinStart will make it negative
                         //if the max length is too big to be an int (ie infinity), just do the protein length.
@@ -651,7 +593,7 @@ namespace Proteomics.ProteolyticDigestion
                 for (int proteinEnd = 1; proteinEnd <= protein.Length; proteinEnd++)
                 {
                     //length of peptide will be at least the start index
-                    if (OkayMinLength(proteinEnd - lengthDifference, minPeptideLength)) //is the maximum possible length longer than the minimum?
+                    if (ValidMinLength(proteinEnd - lengthDifference, minPeptideLength)) //is the maximum possible length longer than the minimum?
                     {
                         //use the start index as the max of the N-terminus or the c-terminus minus the max (+1 because inclusive, otherwise peptides will be one AA too long)
                         peptides.Add(new ProteolyticPeptide(protein, Math.Max(proteinStart, proteinEnd - maxPeptideLength + 1), proteinEnd, 0, CleavageSpecificity.SingleC, "SingleC"));
@@ -712,28 +654,6 @@ namespace Proteomics.ProteolyticDigestion
                 }
             }
             return peptides;
-        }
-
-        /// <summary>
-        /// Is length of given peptide okay, given minimum?
-        /// </summary>
-        /// <param name="peptideLength"></param>
-        /// <param name="minPeptideLength"></param>
-        /// <returns></returns>
-        private static bool OkayMinLength(int peptideLength, int minPeptideLength)
-        {
-            return peptideLength >= minPeptideLength;
-        }
-
-        /// <summary>
-        /// Is length of given peptide okay, given maximum?
-        /// </summary>
-        /// <param name="peptideLength"></param>
-        /// <param name="maxPeptideLength"></param>
-        /// <returns></returns>
-        private static bool OkayMaxLength(int? peptideLength, int maxPeptideLength)
-        {
-            return !peptideLength.HasValue || peptideLength <= maxPeptideLength;
         }
     }
 }

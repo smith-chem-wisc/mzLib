@@ -1,11 +1,8 @@
 ﻿using Chemistry;
-using Easy.Common.Extensions;
 using MassSpectrometry;
-using System.Collections.Generic;
-using System.Linq;
 using Omics.Fragmentation;
 
-namespace Proteomics.Fragmentation
+namespace Omics.Fragmentation.Peptide
 {
     public class DissociationTypeCollection
     {
@@ -103,6 +100,27 @@ namespace Proteomics.Fragmentation
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
             { ProductType.Ycore, null},// neutral Molecular product can be used with neutral loss as fragment
             { ProductType.Y, null},// diagnostic ions are not shifted but added sumarily
+
+            // Rna Specific types are not shifted through this method, but added to not break the code. 
+            // This is due to proteins and rna having shared ions (e.g. b,y) that have different mass shifts
+            // This behavior for rna is handled by DissociationTypeCollection.GetRnaMassShiftFromProductType
+            {ProductType.aWaterLoss , null},
+            {ProductType.aBaseLoss , null},
+            {ProductType.bBaseLoss , null},
+            {ProductType.cWaterLoss , null},
+            {ProductType.cBaseLoss , null},
+            {ProductType.d , null},
+            {ProductType.dWaterLoss , null},
+            {ProductType.dBaseLoss , null},
+            {ProductType.w , null},
+            {ProductType.wWaterLoss , null},
+            {ProductType.wBaseLoss , null},
+            {ProductType.xWaterLoss , null},
+            {ProductType.xBaseLoss , null},
+            {ProductType.yBaseLoss , null},
+            {ProductType.z , null},
+            {ProductType.zWaterLoss , null},
+            {ProductType.zBaseLoss , null},
         };
 
         private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToTerminusMassShift = new Dictionary<DissociationType, (double[], double[])>();
@@ -157,6 +175,29 @@ namespace Proteomics.Fragmentation
                         case ProductType.D: NeutralMassShiftFromProductType[productType] = 0; break;// no change
                         case ProductType.Ycore: NeutralMassShiftFromProductType[productType] = 0; break;// no change
                         case ProductType.Y: NeutralMassShiftFromProductType[productType] = 0; break;// no change
+
+                        // Nucleic Acid Specific Product Types
+                        case ProductType.aWaterLoss:
+                        case ProductType.aBaseLoss:
+                        case ProductType.bBaseLoss:
+                        case ProductType.cWaterLoss:
+                        case ProductType.cBaseLoss:
+                        case ProductType.d:
+                        case ProductType.dWaterLoss:
+                        case ProductType.dBaseLoss:
+                        case ProductType.w:
+                        case ProductType.wWaterLoss:
+                        case ProductType.wBaseLoss:
+                        case ProductType.xWaterLoss:
+                        case ProductType.xBaseLoss:
+                        case ProductType.yBaseLoss:
+                        case ProductType.z:
+                        case ProductType.zWaterLoss:
+                        case ProductType.zBaseLoss:
+                            return 0.0;
+
+                        default:
+                            throw new ArgumentOutOfRangeException(nameof(productType), productType, null);
                     }
                 }
 

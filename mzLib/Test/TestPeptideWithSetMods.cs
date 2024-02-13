@@ -1,13 +1,15 @@
 ﻿using Chemistry;
 using NUnit.Framework;
 using Proteomics;
-using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics;
+using Omics.Digestion;
 using Omics.Fragmentation;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -48,8 +50,8 @@ namespace Test
             PeptideWithSetModifications pep2 = myProtein.Digest(digest2, new List<Modification>(), new List<Modification>()).First();
 
             Assert.That(pep1.FullSequence.Equals(pep2.FullSequence));
-            Assert.That(pep1.Protein.Equals(pep2.Protein));
-            Assert.That(!pep1.DigestionParams.Protease.Equals(pep2.DigestionParams.Protease));
+            Assert.That(pep1.Parent.Equals(pep2.Parent));
+            Assert.That(!pep1.DigestionParams.DigestionAgent.Equals(pep2.DigestionParams.DigestionAgent));
             Assert.That(!pep1.Equals(pep2));
             Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
         }
@@ -105,8 +107,8 @@ namespace Test
             DigestionParams semiCParams = new DigestionParams("Asp-N", 3, 7, 50, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C);
             List<PeptideWithSetModifications> nPwsms = Q07065.Digest(semiNParams, null, null).ToList();
             List<PeptideWithSetModifications> cPwsms = Q07065.Digest(semiCParams, null, null).ToList();
-            Assert.IsFalse(nPwsms.Any(x => x.Length > semiNParams.MaxPeptideLength));
-            Assert.IsFalse(cPwsms.Any(x => x.Length > semiCParams.MaxPeptideLength));
+            Assert.IsFalse(nPwsms.Any(x => x.Length > semiNParams.MaxLength));
+            Assert.IsFalse(cPwsms.Any(x => x.Length > semiCParams.MaxLength));
             Assert.IsTrue(nPwsms.Any(x => x.Length == semiNParams.MaxPeptideLength));
             Assert.IsTrue(cPwsms.Any(x => x.Length == semiCParams.MaxPeptideLength));
 
@@ -115,10 +117,10 @@ namespace Test
             DigestionParams nonCParams = new DigestionParams("Asp-N", 3, 7, 50, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
             nPwsms = Q07065.Digest(nonNParams, null, null).ToList();
             cPwsms = Q07065.Digest(nonCParams, null, null).ToList();
-            Assert.IsFalse(nPwsms.Any(x => x.Length > nonNParams.MaxPeptideLength));
-            Assert.IsFalse(cPwsms.Any(x => x.Length > nonCParams.MaxPeptideLength));
-            Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MaxPeptideLength));
-            Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MaxPeptideLength));
+            Assert.IsFalse(nPwsms.Any(x => x.Length > nonNParams.MaxLength));
+            Assert.IsFalse(cPwsms.Any(x => x.Length > nonCParams.MaxLength));
+            Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MaxLength));
+            Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MaxLength));
             Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MinPeptideLength));
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MinPeptideLength));
         }
@@ -169,7 +171,7 @@ namespace Test
             //Check that, when we digested with semi, we made all possible semi sequences, labeled full and semi correctly, and have no duplicates
             foreach (string s in expectedProductsSemiFiveCleavages) //foreach precursor peptide
             {
-                for (int i = 0; i < s.Length - semiDigestionParams.MinPeptideLength; i++) //cleave it to be semi
+                for (int i = 0; i < s.Length - semiDigestionParams.MinLength; i++) //cleave it to be semi
                 {
                     string sToFind = s.Substring(i); //get a peptide from this precursor (fixed C)
                     var peps = fiveCleavageProductsSemiTrypsin.Where(x => x.BaseSequence.Equals(sToFind)).ToArray(); //find the peptide in the digested list
@@ -190,7 +192,7 @@ namespace Test
                     Assert.IsTrue(pwsmRemake.CleavageSpecificityForFdrCategory == pep.CleavageSpecificityForFdrCategory);
 
                     //Repeat the above going from the other direction (fixed N)
-                    sToFind = s.Substring(0, semiDigestionParams.MinPeptideLength + i); //get a peptide from this precursor (fixed N)
+                    sToFind = s.Substring(0, semiDigestionParams.MinLength + i); //get a peptide from this precursor (fixed N)
                     peps = fiveCleavageProductsSemiTrypsin.Where(x => x.BaseSequence.Equals(sToFind)).ToArray();//find the peptide in the digested list
                     Assert.IsTrue(peps.Length == 1);//There should be exactly one! More than that means there are duplicates, fewer means we didn't generate it!
                     pep = peps[0];//get that single peptide
@@ -507,7 +509,7 @@ namespace Test
             List<PeptideWithSetModifications> nPwsms = P56381.Digest(singleN, null, null).ToList();
             List<PeptideWithSetModifications> cPwsms = P56381.Digest(singleC, null, null).ToList();
             Assert.IsTrue(nPwsms.Count == cPwsms.Count);
-            Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinPeptideLength + 1);
+            Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinLength + 1);
         }
 
         [Test]

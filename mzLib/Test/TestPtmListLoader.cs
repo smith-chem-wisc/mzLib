@@ -4,6 +4,7 @@ using Proteomics;
 using System;
 using System.IO;
 using System.Linq;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 

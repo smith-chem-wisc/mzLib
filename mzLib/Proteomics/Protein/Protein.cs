@@ -1,14 +1,16 @@
-﻿using Proteomics.Fragmentation;
-using Proteomics.ProteolyticDigestion;
+﻿using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Omics;
+using Omics.Digestion;
 using Omics.Fragmentation;
+using Omics.Modifications;
 
 namespace Proteomics
 {
-    public class Protein
+    public class Protein : IBioPolymer
     {
         private List<ProteolysisProduct> _proteolysisProducts;
 
@@ -186,34 +188,15 @@ namespace Proteomics
 
         public double Probability { get; set; } // for protein pep project
 
-        public int Length
-        {
-            get
-            {
-                return BaseSequence.Length;
-            }
-        }
+        public int Length => BaseSequence.Length;
 
-        public string FullDescription
-        {
-            get
-            {
-                return Accession + "|" + Name + "|" + FullName;
-            }
-        }
+        public string FullDescription => Accession + "|" + Name + "|" + FullName;
 
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
         internal IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
-
-        public char this[int zeroBasedIndex]
-        {
-            get
-            {
-                return BaseSequence[zeroBasedIndex];
-            }
-        }
+        public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
@@ -236,32 +219,51 @@ namespace Proteomics
 
         /// <summary>
         /// Gets peptides for digestion of a protein
+        /// Legacy
         /// </summary>
-        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
+        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams,
+            List<Modification> allKnownFixedModifications, List<Modification> variableModifications,
+            List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null,
+            bool topDownTruncationSearch = false) =>
+            Digest((IDigestionParams)digestionParams, allKnownFixedModifications, variableModifications, silacLabels, turnoverLabels, topDownTruncationSearch)
+                .Cast<PeptideWithSetModifications>();
+
+        /// <summary>
+        /// Gets peptides for digestion of a protein
+        /// Implemented with interfaces to allow for use of both Proteomics and Omics classes
+        /// </summary>
+        public IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false)
         {
+
+            if (digestionParams is not DigestionParams digestionParameters)
+                throw new ArgumentException(
+                    "DigestionParameters must be of type DigestionParams for protein digestion");
+
+
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
             // add in any modifications that are caused by protease digestion
-            if (digestionParams.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
+            if (digestionParameters.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParameters.Protease.CleavageMod))
             {
-                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);
+                allKnownFixedModifications.Add(digestionParameters.Protease.CleavageMod);
             }
             variableModifications = variableModifications ?? new List<Modification>();
-            CleavageSpecificity searchModeType = digestionParams.SearchModeType;
+            CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
 
-            ProteinDigestion digestion = new(digestionParams, allKnownFixedModifications, variableModifications);
+            ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
                     digestion.Digestion(this, topDownTruncationSearch);
 
-            if (digestionParams.KeepNGlycopeptide || digestionParams.KeepOGlycopeptide)
+            if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {
-                unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParams.KeepNGlycopeptide, digestionParams.KeepOGlycopeptide);
+                unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParameters.KeepNGlycopeptide, digestionParameters.KeepOGlycopeptide);
             }
 
-            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
+            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => 
+                peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParameters, variableModifications));
 
             //Remove terminal modifications (if needed)
             if (searchModeType == CleavageSpecificity.SingleN ||
@@ -274,7 +276,7 @@ namespace Proteomics
             //add silac labels (if needed)
             if (silacLabels != null)
             {
-                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
+                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParameters.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
             }
 
             return modifiedPeptides;

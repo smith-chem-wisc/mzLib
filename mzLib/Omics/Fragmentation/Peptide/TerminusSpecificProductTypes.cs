@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:mzLib/Omics/Fragmentation/TerminusSpecificProductTypes.cs
 ﻿namespace Omics.Fragmentation
+========
+﻿namespace Omics.Fragmentation.Peptide
+>>>>>>>> master:mzLib/Omics/Fragmentation/Peptide/TerminusSpecificProductTypes.cs
 {
     public class TerminusSpecificProductTypes
     {

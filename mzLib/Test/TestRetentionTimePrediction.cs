@@ -5,6 +5,7 @@ using Proteomics.RetentionTimePrediction;
 using Proteomics.RetentionTimePrediction.Chronologer;
 using System;
 using System.Collections.Generic;
+using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test

@@ -1,20 +1,23 @@
-﻿ using Chemistry;
+﻿using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
- using Omics.Fragmentation;
+using Omics;
+using Omics.Digestion;
+using Omics.Fragmentation;
+using Omics.Fragmentation.Peptide;
+using Omics.Modifications;
 
- namespace Proteomics.ProteolyticDigestion
+namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
-    public class PeptideWithSetModifications : ProteolyticPeptide
+    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods
     {
         public string FullSequence { get; private set; } //sequence with modifications
-        public readonly int NumFixedMods;
+        public int NumFixedMods { get; }
         // Parameter to store a hash code corresponding to a Decoy or a Target peptide
         // If the peptide in question is a decoy, this pairs it to the target it was generated from
         // If the peptide in question is a target, this pairs it to its corresponding decoy 
@@ -35,15 +38,15 @@ using System.Text;
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
-        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
+        public PeptideWithSetModifications(Protein protein, IDigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null, int? pairedTargetDecoyHash = null)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription, baseSequence)
         {
             _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
-            _digestionParams = digestionParams;
-            DetermineFullSequence();
+            _digestionParams = digestionParams as DigestionParams;
+            FullSequence = this.DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
             PairedTargetDecoyHash = pairedTargetDecoyHash; // Added PairedTargetDecoyHash as a nullable integer
@@ -54,7 +57,7 @@ using System.Text;
         /// Useful for reading in MetaMorpheus search engine output into mzLib objects.
         /// </summary>
         public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
-            DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
+            IDigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
             int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue,
             CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null, int? pairedTargetDecoyHash = null)
             : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
@@ -65,10 +68,10 @@ using System.Text;
             }
 
             FullSequence = sequence;
-            _baseSequence = GetBaseSequenceFromFullSequence(sequence);
+            _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
             GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
-            _digestionParams = digestionParams;
+            _digestionParams = digestionParams as DigestionParams;
             PairedTargetDecoyHash = pairedTargetDecoyHash; // Added PairedTargetDecoyHash as a nullable integer
 
             if (p != null)
@@ -77,25 +80,13 @@ using System.Text;
             }
         }
 
-        public DigestionParams DigestionParams
-        {
-            get { return _digestionParams; }
-        }
+        public IDigestionParams DigestionParams => _digestionParams;
 
-        public Dictionary<int, Modification> AllModsOneIsNterminus
-        {
-            get { return _allModsOneIsNterminus; }
-        }
+        public Dictionary<int, Modification> AllModsOneIsNterminus => _allModsOneIsNterminus;
 
-        public int NumMods
-        {
-            get { return AllModsOneIsNterminus.Count; }
-        }
+        public int NumMods => AllModsOneIsNterminus.Count;
 
-        public int NumVariableMods
-        {
-            get { return NumMods - NumFixedMods; }
-        }
+        public int NumVariableMods => NumMods - NumFixedMods;
 
         public double MonoisotopicMass
         {
@@ -117,7 +108,8 @@ using System.Text;
             }
 
         }
-        
+
+        public ChemicalFormula ThisChemicalFormula => FullChemicalFormula;
         public ChemicalFormula FullChemicalFormula
         {
             get
@@ -149,7 +141,9 @@ using System.Text;
                 {
                     IsotopicDistribution dist = IsotopicDistribution.GetDistribution(this.FullChemicalFormula);
                     double maxIntensity = dist.Intensities.Max();
-                    _mostAbundantMonoisotopicMass = (double)ClassExtensions.RoundedDouble(dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
+                    _mostAbundantMonoisotopicMass =
+                        (double)ClassExtensions.RoundedDouble(
+                            dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
                 }
                 return (double)ClassExtensions.RoundedDouble(_mostAbundantMonoisotopicMass.Value);
             }
@@ -213,6 +207,8 @@ using System.Text;
                 return _sequenceWithChemicalFormulas;
             }
         }
+
+        public IBioPolymer Parent => Protein;
 
         /// <summary>
         /// Generates theoretical fragments for given dissociation type for this peptide. 
@@ -617,49 +613,7 @@ using System.Text;
             }
         }
 
-        public virtual string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
-        {
-            string essentialSequence = BaseSequence;
-            if (modstoWritePruned != null)
-            {
-                var sbsequence = new StringBuilder();
-
-                // variable modification on peptide N-terminus
-                if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
-                {
-                    if (modstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
-                    {
-                        sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.IdWithMotif + ']');
-                    }
-                }
-                for (int r = 0; r < Length; r++)
-                {
-                    sbsequence.Append(this[r]);
-                    // variable modification on this residue
-                    if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification residue_variable_mod))
-                    {
-                        if (modstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
-                        {
-                            sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.IdWithMotif + ']');
-                        }
-                    }
-                }
-
-                // variable modification on peptide C-terminus
-                if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification pep_c_term_variable_mod))
-                {
-                    if (modstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
-                    {
-                        sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.IdWithMotif + ']');
-                    }
-                }
-
-                essentialSequence = sbsequence.ToString();
-            }
-            return essentialSequence;
-        }
-
-        public PeptideWithSetModifications Localize(int j, double massToLocalize)
+        public IBioPolymerWithSetMods Localize(int j, double massToLocalize)
         {
             var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
             double massOfExistingMod = 0;
@@ -778,7 +732,7 @@ using System.Text;
                 }
 
                 //need to determine what the cleavage sites are for the protease used (will allow us to determine if new cleavage sites were made by variant)
-                List<DigestionMotif> proteasesCleavageSites = DigestionParams.Protease.DigestionMotifs;
+                List<DigestionMotif> proteasesCleavageSites = DigestionParams.DigestionAgent.DigestionMotifs;
                 //if the variant ends the AA before the peptide starts then it may have caused c-terminal cleavage
                 //see if the protease used for digestion has C-terminal cleavage sites
                 List<string> cTerminalResidue = proteasesCleavageSites.Where(dm => dm.CutIndex == 1).Select(d => d.InducingCleavage).ToList();
@@ -930,11 +884,6 @@ using System.Text;
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
-        public string FullSequenceWithMassShift()
-        {
-            return DetermineFullSequenceWithMassShifts();
-        }
-
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
@@ -946,9 +895,9 @@ using System.Text;
 
             return q != null
                 && q.FullSequence.Equals(this.FullSequence)
-                && q.OneBasedStartResidueInProtein == this.OneBasedStartResidueInProtein
+                && q.OneBasedStartResidue == this.OneBasedStartResidue
                 && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.Protease.Equals(this.DigestionParams.Protease);
+                && q.DigestionParams.DigestionAgent.Equals(this.DigestionParams.DigestionAgent);
         }
 
         public override int GetHashCode()
@@ -959,7 +908,7 @@ using System.Text;
             }
             else
             {
-                return FullSequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
+                return FullSequence.GetHashCode() + DigestionParams.DigestionAgent.GetHashCode();
             }
         }
 
@@ -972,6 +921,10 @@ using System.Text;
             GetProteinAfterDeserialization(accessionToProtein);
             _digestionParams = dp;
         }
+
+        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod,
+            Dictionary<string, Protein> accessionToProtein, IDigestionParams dp) => 
+            SetNonSerializedPeptideInfo(idToMod, accessionToProtein, (DigestionParams)dp);
 
         private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
         {
@@ -1044,112 +997,11 @@ using System.Text;
             Protein = protein;
         }
 
-        public static string GetBaseSequenceFromFullSequence(string fullSequence)
-        {
-            StringBuilder sb = new StringBuilder();
-            int bracketCount = 0;
-            foreach (char c in fullSequence)
-            {
-                if (c == '[')
-                {
-                    bracketCount++;
-                }
-                else if (c == ']')
-                {
-                    bracketCount--;
-                }
-                else if (bracketCount == 0)
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
-        }
-
-        private void DetermineFullSequence()
-        {
-            var subsequence = new StringBuilder();
-
-            // modification on peptide N-terminus
-            if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
-            {
-                subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-            }
-
-            for (int r = 0; r < Length; r++)
-            {
-                subsequence.Append(this[r]);
-
-                // modification on this residue
-                if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-                {
-                    subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-                }
-            }
-
-            // modification on peptide C-terminus
-            if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
-            {
-                subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-            }
-
-            FullSequence = subsequence.ToString();
-        }
-        /// <summary>
-        /// This method returns the full sequence with mass shifts INSTEAD OF PTMs in brackets []
-        /// Some external tools cannot parse PTMs, instead requiring a numerical input indicating the mass of a PTM in brackets
-        /// after the position of that modification
-        /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
-        /// </summary>
-        /// <returns></returns>
-        private string DetermineFullSequenceWithMassShifts()
-        {
-            var subsequence = new StringBuilder();
-
-            // modification on peptide N-terminus
-            if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
-            {
-                subsequence.Append('[' + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-            }
-
-            for (int r = 0; r < Length; r++)
-            {
-                subsequence.Append(this[r]);
-
-                // modification on this residue
-                if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-                {
-                    if (mod.MonoisotopicMass > 0)
-                    {
-                        subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                    }
-                    else
-                    {
-                        subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                    }
-                }
-            }
-
-            // modification on peptide C-terminus
-            if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
-            {
-                if (mod.MonoisotopicMass > 0)
-                {
-                    subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                }
-                else
-                {
-                    subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                }
-            }
-            return subsequence.ToString();
-        }
-
         private void UpdateCleavageSpecificity()
         {
             if (CleavageSpecificityForFdrCategory == CleavageSpecificity.Unknown)
             {
-                CleavageSpecificityForFdrCategory = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, DigestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
+                CleavageSpecificityForFdrCategory = _digestionParams.SpecificProtease.GetCleavageSpecificity(Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, _digestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
                 PeptideDescription = CleavageSpecificityForFdrCategory.ToString();
             }
         }
@@ -1198,7 +1050,7 @@ using System.Text;
         //the returns the mirror image of the original. N-terminal mods are preserved, but other mods are also reversed. 
         //this should yield a unique decoy for each target sequence.
         //This function also adds a hash code to both the original PeptideWithSetModifications and the decoy 
-        //generated by this function pairing the two together by eachother's FullSequence.
+        //generated by this function pairing the two together by each other's FullSequence.
         //The original taget peptide is given a hash code corresponding to the decoy's full sequence,
         //and the decoy is given a hash code corresponding to the original target peptide's sequence.
         //This hash code is stored in the PairedTargetDecoyHash parameter of PeptideWithSetModifications.
@@ -1213,7 +1065,7 @@ using System.Text;
             char[] newBase = new char[this.BaseSequence.Length];
             Array.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
-            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            List<DigestionMotif> motifs = this.DigestionParams.DigestionAgent.DigestionMotifs;
             if (motifs != null && motifs.Count > 0)
             {
                 foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
@@ -1286,7 +1138,7 @@ using System.Text;
             proteinSequence = aStringBuilder.ToString();
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
-            DigestionParams d = this.DigestionParams;
+            DigestionParams d = _digestionParams;
 
             // Creates a hash code corresponding to the target's sequence
             int targetHash = GetHashCode();
@@ -1333,7 +1185,7 @@ using System.Text;
             char[] newBase = new char[this.BaseSequence.Length];
             Array.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
-            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            List<DigestionMotif> motifs = this.DigestionParams.DigestionAgent.DigestionMotifs;
             if (motifs != null && motifs.Count > 0)
             {
                 foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
@@ -1465,7 +1317,7 @@ using System.Text;
             proteinSequence = aStringBuilder.ToString();
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
-            DigestionParams d = this.DigestionParams;
+            DigestionParams d = _digestionParams;
             // Creates a hash code corresponding to the target's sequence
             int targetHash = GetHashCode();
             PeptideWithSetModifications decoyPeptide;
@@ -1559,7 +1411,7 @@ using System.Text;
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
 
-            DigestionParams d = this.DigestionParams;
+            DigestionParams d = _digestionParams;
 
             //now fill in the revised amino acid order
             int oldStringPosition = this.BaseSequence.Length - 1;

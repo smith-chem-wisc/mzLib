@@ -3,10 +3,11 @@ using Omics.Fragmentation;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Chemistry;
+using Omics.Fragmentation.Peptide;
 
 namespace Omics.SpectrumMatch
 {
-    public class SpectrumMatchFromTsv
+    public abstract class SpectrumMatchFromTsv
     {
         protected static readonly Regex PositionParser = new Regex(@"(\d+)\s+to\s+(\d+)");
         protected static readonly Regex VariantParser = new Regex(@"[a-zA-Z]+(\d+)([a-zA-Z]+)");
@@ -61,9 +62,6 @@ namespace Omics.SpectrumMatch
         /// All parsing should take place within the derived class constructurs
         /// TODO: Reconsider this once osmtsv is added
         /// </summary>
-        public SpectrumMatchFromTsv()
-        {
-        }
 
         //Used to remove Silac labels for proper annotation
         public static string RemoveParentheses(string baseSequence)
@@ -227,10 +225,8 @@ namespace Omics.SpectrumMatch
                         }
 
                         //get terminus
-                        if (TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.ContainsKey(productType))
-                        {
-                            terminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
-                        }
+                        if (TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                                out terminus));
 
                         //get amino acid position
                         aminoAcidPosition = terminus == FragmentationTerminus.C ?
