@@ -1,8 +1,4 @@
-﻿using Easy.Common.Extensions;
-using Proteomics.PSM;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System;
 using System.IO;
 using TorchSharp;
 using TorchSharp.Modules;
@@ -25,11 +21,11 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
     /// Licensed under Apache License 2.0
     /// 
     /// </summary>
-    public class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>
+    internal class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>
     {
         public Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
             "RetentionTimePrediction",
-            "Chronologer_20220601193755_TorchSharp.dat"))
+            "Chronologer", "Chronologer_20220601193755_TorchSharp.dat"))
         { }
 
         /// <summary>
@@ -125,86 +121,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
             return call(input);
         }
 
-        public void Train(string savingPath, List<PsmFromTsv> trainingData, Dictionary<(char, string),
-                int> dictionary, double validationFraction = 0.2,
-            int seed = 2447, string device = "cpu", string startModelPath = null,
-            double intialBatchScaler = 1.0, int batchSize = 64, int epochs = 100)
-        {
-            if (training.Equals(false))
-            {
-                this.train(true);
-            }
-
-            //loads pre-trained weights if startModelPath is not null
-            if (startModelPath != null)
-            {
-                load(startModelPath, true);
-            }
-
-            var (train, test) =
-                TrainChronologer.RetentionTimeToTensorDatabase(trainingData, seed, validationFraction, dictionary);
-
-            var trainDataSet = new CustomDataset(train);
-            var testDataSet = new CustomDataset(test);
-
-            var trainLoader = torch.utils.data.DataLoader(trainDataSet, batchSize, shuffle: true, drop_last: true);
-            var testLoader = torch.utils.data.DataLoader(testDataSet, batchSize, shuffle: true, drop_last: true);
-            var lossFunction = torch.nn.L1Loss();
-            // var lossFunction = new TrainChronologer.LogLLoss(52, 
-            //     TrainChronologer.ReturnDistribution.Laplace, 0.01);
-
-            var parameters = new List<Parameter>();
-            this.parameters().ForEach(x => parameters.Add(x));
-            lossFunction.parameters().ForEach(x => parameters.Add(x));
-
-            var optimizer = torch.optim.Adam(parameters, 0.001);
-
-            //training loop
-            var scores = new List<float>();
-            for (int i = 0; i < epochs; i++)
-            {
-                Debug.WriteLine($"Epoch {i + 1} of {epochs}");
-                var epochLoss = 0.0;
-                var runningLoss = 0.0;
-                foreach (var batch in trainLoader)
-                {
-                    var batchX = batch["Encoded Sequence"];
-                    var batchY = batch["Retention Time on File"];
-                    for (int j = 0; j < batchX.size(0); j++)
-                    {
-                        var x = batchX[j];
-                        double y = batchY[j].item<double>();
-                        //
-                        // Debug.WriteLine(x.ToString(TensorStringStyle.Julia));
-                        // Debug.WriteLine(y);
-                        // Debug.WriteLine(batchPass.ToString(TensorStringStyle.Julia));
-
-                        var output = forward(x);
-                        var loss = lossFunction.forward(output[0],
-                            torch.tensor(new[] { (float)y }));
-
-                        // Debug.WriteLine(loss.item<float>());
-                        optimizer.zero_grad();
-                        loss.backward();
-                        optimizer.step();
-
-                        //statistics per batch
-                        runningLoss += loss.item<float>() * batchSize;
-                        scores.Add(loss.item<float>());
-                    }
-                }
-                //statistics per epoch
-                epochLoss = runningLoss / train.Count;
-                Debug.WriteLine($"Epoch {i + 1} loss: {epochLoss}");
-            }
-
-            //saving the model
-            // this.eval();
-            // this.train(false);
-            // this.save(Path.Combine(savingPath,"Chronologer_trained_weights.dat"));
-        }
-
-        //All Modules (shortcut modules are for loading the weights only)
+        //All Modules (shortcut modules are for loading the weights only, not used but required for the weights)
         private Embedding seq_embed = torch.nn.Embedding(55, 64, 0);
         private torch.nn.Module<torch.Tensor, torch.Tensor> conv_layer_1 = torch.nn.Conv1d(64, 64, 1, Padding.Same, dilation: 1);
         private torch.nn.Module<torch.Tensor, torch.Tensor> conv_layer_2 = torch.nn.Conv1d(64, 64, 7, Padding.Same, dilation: 1);
@@ -230,6 +147,4 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         private torch.nn.Module<torch.Tensor, torch.Tensor> flatten = torch.nn.Flatten(1);
         private torch.nn.Module<torch.Tensor, torch.Tensor> output = torch.nn.Linear(52 * 64, 1);
     }
-
-
 }

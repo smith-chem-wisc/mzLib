@@ -1,20 +1,10 @@
-﻿using CsvHelper;
-using CsvHelper.Configuration;
-using CsvHelper.Configuration.Attributes;
-using CsvHelper.TypeConversion;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Proteomics.RetentionTimePrediction;
+using Proteomics.RetentionTimePrediction.Chronologer;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using Proteomics.PSM;
-using Proteomics.RetentionTimePrediction.Chronologer;
-using TorchSharp;
-using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -727,149 +717,37 @@ namespace Test
 
         //Chronologer Tests
         [Test]
-        public void TestChronologerConstructorAndPredictions()
+        public void TestChronologerPredictions()
         {
-            var model = new Chronologer();
-
-            var data = Mapper.Read(Path.Combine(Directory.GetCurrentDirectory(),
-                "DataFiles", "ChronologerTest.tsv"));
-
-            foreach (var datum in data)
+            var testingData = new List<(string, string)>()
             {
-                var prediction = model.Predict(datum.tensor);
-                
-                var hiFromFile = datum.Pred_HI;
-
-                Assert.AreEqual(Math.Round(prediction.item<float>(), 3),
-                    Math.Round(float.Parse(hiFromFile), 3));
-            }
-        }
-
-        [Test]
-        public void TestTrainMethod()
-        {
-            var model = new Chronologer();
-            List<string> warnings = new List<string>();
-            var psms = Readers.SpectrumMatchTsvReader.ReadPsmTsv(
-                @"F:\Research\Data\Hela\Hela_1\2023-11-13-13-30-17\Task1-SearchTask\AllPeptides.psmtsv", out warnings );
-            var dictionary = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Chronologer);
-
-            model.Train("testing", psms, dictionary);
-
-            var a = 0;
-        }
-
-        [Test]
-        public void ReTrainChronologerWithUniMods()
-        {
-            var model = new Chronologer();
-            
-            List<string> warnings = new List<string>();
-
-            var psms = Readers.SpectrumMatchTsvReader.ReadPsmTsv(
-                               @"F:\Research\Data\Hela\Hela_1\2023-11-13-13-30-17\Task1-SearchTask\AllPeptides.psmtsv", out warnings);
-
-            var dictionary = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Unimod);
-
-            model.Train("testing_Hela1", psms, dictionary);
-
-            var a = 0;
-        }
-
-        [Test]
-        public void TestDictionaryAllUnimod()
-        {
-            var dict = ChronologerDictionary.GetChronologerDictionary(ChronologerDictionary.TypeOfDictionary.Unimod);
-        }
-
-        internal class Mapper
-        {
-            internal static CsvConfiguration MapperConfig => new CsvConfiguration(CultureInfo.InvariantCulture)
-            {
-                HasHeaderRecord = true,
-                Delimiter = "\t",
-                HeaderValidated = null,
+                { ("GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK", "GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK") },
+                { ("FASDDEHDEHDENGATGPVK", "FAS[Common Biological:Phosphorylation on S]DDEHDEHDENGATGPVK") },
+                {
+                    ("AETLSGLGDSGAAGAAALSSASSETGTR", "[Common Biological:Acetylation on X]AETLSGLGDSGAAGAAALSSASSETGTR")
+                },
+                {
+                    ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+                },
             };
 
-            [Name("Scan Retention Time")] public string ScanRetentionTime { get; set; }
-            public string PeptideModSeq { get; set; }
-            public string Length { get; set; }
-            public string CodedPeptideSeq { get; set; }
-            public string PeptideLength { get; set; }
-            public string Pred_HI { get; set; }
+            var noMods =
+                ChronologerRetentionTimeEstimator.PredictRetentionTime(testingData[0].Item1, testingData[0].Item2);
 
-            [TypeConverter(typeof(TensorConverter))]
-            public torch.Tensor tensor { get; set; }
+            Assert.AreEqual(noMods.GetType(), typeof(double));
 
-            internal static void Write(IEnumerable<Mapper> toWrite, string filepath)
-            {
-                using var csv = new CsvWriter(new StreamWriter(filepath), MapperConfig);
-                csv.WriteHeader<Mapper>();
-                csv.NextRecord();
-                csv.WriteRecords(toWrite);
-                csv.Dispose();
-            }
+            var withMiddleMods =
+                ChronologerRetentionTimeEstimator.PredictRetentionTime(testingData[1].Item1, testingData[1].Item2);
+            Assert.AreEqual(withMiddleMods.GetType(), typeof(double));
 
-            internal static List<Mapper> Read(string path)
-            {
-                return new CsvReader(new StreamReader(path), MapperConfig).GetRecords<Mapper>().ToList();
-            }
+            var withBegginingMods =
+                ChronologerRetentionTimeEstimator.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
+            Assert.AreEqual(withBegginingMods.GetType(), typeof(double));
 
-            internal class TensorConverter : DefaultTypeConverter
-            {
-                public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
-                {
-                    var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
-                    text = text.Replace("\n", "").Replace(")", "");
-                    var values = text.Split(',').Select(x => int.Parse(x)).ToArray();
-                    tensor[0] = values;
-                    return tensor;
-                }
+            Assert.Throws<Exception>(() =>
+                ChronologerRetentionTimeEstimator.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2));
 
-                public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
-                {
-                    var tensor = value as torch.Tensor ?? throw new ArgumentException("Value is not a tensor");
-                    var temp2 = tensor.ToString(TensorStringStyle.Julia);
-                    temp2 = temp2.TrimStart().TrimEnd().Replace("\n", "").Replace(")", "").Replace("\r", "")
-                        .Replace("[[", "").Replace("]]", "");
-                    var temp3 = tensor.data<long>().ToArray();
-                    return string.Join(',', temp3);
-                }
-            }
-
-            //[Test]
-            //public void CompareNoMods()
-            //{
-            //    var data = Mapper.Read(@"F:\Research\Data\Hela\predictedExample - Copy2.tsv");
-
-            //    var model = new nnModules.RawChronologer();
-            //    model.load(@"C:\Users\Edwin\Documents\GitHub\RT-DP\model_weights_Chronologer_new_module_names.dat");
-            //    model.eval();
-            //    model.train(false);
-
-            //    var chronologerPredictions = new List<float>();
-            //    var ssRCalcPredictions = new List<double>();
-            //    var realRT = new List<double>();
-
-            //    foreach (var datum in data)
-            //    {
-            //        //chronologer
-            //        var prediction = model.call(datum.tensor);
-            //        chronologerPredictions.Add(prediction.data<float>().ToArray()[0]);
-
-            //        //ssrcalc
-            //        SSRCalc3 ssrCalc3 = new SSRCalc3("SSRCalc 3.0 (300A)", SSRCalc3.Column.A300);
-
-            //        var peptide =
-            //            new PeptideWithSetModifications(datum.PeptideModSeq, new Dictionary<string, Modification>());
-            //        var ssrcalcOutput = ssrCalc3.ScoreSequence(peptide);
-            //        ssRCalcPredictions.Add(ssrcalcOutput);
-
-            //        //Read RT
-            //        realRT.Add(double.Parse(datum.ScanRetentionTime));
-
-            //    }
-            //}
         }
     }
 }
