@@ -1143,5 +1143,15 @@ namespace Test
             var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
             CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
         }
+
+        [Test]
+        public static void TestPeptideWithSetModsNoParentProtein()
+        {
+            DigestionParams dParams = new DigestionParams();
+            var pwsm = new PeptideWithSetModifications("P", null,
+                digestionParams: dParams, p: null);
+            Assert.AreEqual('-', pwsm.PreviousAminoAcid);
+            Assert.AreEqual('-', pwsm.NextAminoAcid);
+        }
     }
 }
