@@ -20,13 +20,13 @@ namespace Development.Deconvolution
         /// <param name="expectedMostAbundantObservedIsotopicMasses">Expected masses from deconvolution result</param>
         /// <param name="expectedIonChargeStates">Expected charge states from deconvolution result</param>
         /// <param name="selectedIonMzs">M/z of peaks to deconvolute from spectrum</param>
-        public WholeSpectrumDeconvolutionTestCase(Deconvoluter deconvoluter, string sampleInformation, string spectrumPath, int scanNumber,
+        public WholeSpectrumDeconvolutionTestCase(DeconvolutionParameters deconvolutionParameters, string sampleInformation, string spectrumPath, int scanNumber,
             double precursorPpmMassTolerance, double[] expectedMostAbundantObservedIsotopicMasses, int[] expectedIonChargeStates, double[] selectedIonMzs)
         {
             if (!new[] { expectedMostAbundantObservedIsotopicMasses.Length, expectedIonChargeStates.Length, selectedIonMzs.Length }.AllSame())
                 throw new MzLibException("Must have same number of masses, charges, and mzs");
 
-            Deconvoluter = deconvoluter;
+            DeconvolutionParameters = deconvolutionParameters;
             SampleInformation = sampleInformation;
             ExpectedMostAbundantObservedIsotopicMasses = expectedMostAbundantObservedIsotopicMasses;
             ExpectedIonChargeStates = expectedIonChargeStates;
@@ -42,7 +42,7 @@ namespace Development.Deconvolution
         /// <summary>
         /// The object which will be performing the deconvolution when tested
         /// </summary>
-        public Deconvoluter Deconvoluter { get; set; }
+        public DeconvolutionParameters DeconvolutionParameters { get; set; }
 
         /// <summary>
         /// Quick information relevant to the sample, will be visible on test failing
@@ -82,7 +82,7 @@ namespace Development.Deconvolution
 
         public override string ToString()
         {
-            return $"{Deconvoluter.DeconvolutionType}: {SampleInformation}";
+            return $"{DeconvolutionParameters.DeconvolutionType}: {SampleInformation}";
         }
     }
 }

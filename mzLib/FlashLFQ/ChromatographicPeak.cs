@@ -75,6 +75,7 @@ namespace FlashLFQ
                 sb.Append("Full Sequences Mapped" + "\t");
                 sb.Append("Peak Split Valley RT" + "\t");
                 sb.Append("Peak Apex Mass Error (ppm)");
+                sb.Append("\tMBR Predicted RT");
                 //sb.Append("Timepoints");
                 return sb.ToString();
             }
@@ -249,7 +250,8 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError);
-            
+            sb.Append("\t" + (IsMbrPeak ? RtHypothesis.ToString() : ""));
+
             return sb.ToString();
         }
     }
