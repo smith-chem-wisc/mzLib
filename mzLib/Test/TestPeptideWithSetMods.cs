@@ -433,6 +433,16 @@ namespace Test
         }
 
         [Test]
+        public static void TestPeptideWithSetModsNoParentProtein()
+        {
+            DigestionParams dParams = new DigestionParams();
+            var pwsm = new PeptideWithSetModifications("P", null,
+                digestionParams: dParams, p: null);
+            Assert.AreEqual("-",pwsm.PreviousAminoAcid);
+            Assert.AreEqual("-", pwsm.NextAminoAcid);
+        }
+
+        [Test]
         public static void TestPeptideWithSetMod_GetHashCode()
         {
             PeptideWithSetModifications pep1 = new PeptideWithSetModifications("SEQUENCEK", new Dictionary<string, Modification>());
