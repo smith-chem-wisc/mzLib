@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -29,9 +30,9 @@ namespace Omics.Digestion
         public int OneBasedEndResidue { get; }// the residue number at which the peptide ends
         public int MissedCleavages { get; } // the number of missed cleavages this peptide has with respect to the digesting protease
 
-        public virtual char PreviousResidue => OneBasedStartResidue > 1 ? Parent?[OneBasedStartResidue - 2] ?? '-' : '-';
+        public virtual char PreviousResidue => Parent is null ? '-' : OneBasedStartResidue > 1 ? Parent[OneBasedStartResidue - 2] : '-';
 
-        public virtual char NextResidue => OneBasedEndResidue < Parent?.Length ? Parent?[OneBasedEndResidue] ?? '-' : '-';
+        public virtual char NextResidue => Parent is null ? '-' : OneBasedEndResidue < Parent.Length ? Parent[OneBasedEndResidue] : '-';
 
         public string BaseSequence =>
             _baseSequence ??= Parent.BaseSequence.Substring(OneBasedStartResidue - 1,
