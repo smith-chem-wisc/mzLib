@@ -11,6 +11,9 @@ using Easy.Common;
 using System.Text.RegularExpressions;
 using Chemistry;
 using Easy.Common.Extensions;
+using Omics.Modifications;
+using Proteomics;
+using System.Xml;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -173,6 +176,75 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             }
 
             return fields;
+        }
+
+
+        public static Dictionary<string, IList<Modification>> IdToPossibleMods = new Dictionary<string, IList<Modification>>();
+        public static Dictionary<string, Modification> IdWithMotifToMod = new Dictionary<string, Modification>();
+
+        public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
+            bool isContaminant, IEnumerable<Modification> allKnownModifications,
+            IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, 
+            int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
+        {
+            var prespecified = ProteinDbLoader.GetPtmListFromProteinXml(rnaDbLocation);
+            allKnownModifications = allKnownModifications ?? new List<Modification>();
+            modTypesToExclude = modTypesToExclude ?? new List<string>();
+
+            if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
+            {
+                //modsDictionary = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
+                IdToPossibleMods = ProteinDbLoader.GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
+                IdWithMotifToMod = ProteinDbLoader.GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
+            }
+            List<RNA> targets = new List<RNA>();
+            unknownModifications = new Dictionary<string, Modification>();
+
+            string newProteinDbLocation = rnaDbLocation;
+
+            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
+            if (rnaDbLocation.EndsWith(".gz"))
+            {
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(rnaDbLocation), "temp.xml");
+                using var stream = new FileStream(rnaDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using FileStream outputFileStream = File.Create(newProteinDbLocation);
+                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
+                decompressor.CopyTo(outputFileStream);
+            }
+
+            using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                Regex substituteWhitespace = new Regex(@"\s+");
+
+                ProteinXmlEntry block = new ProteinXmlEntry();
+
+                using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
+                {
+                    while (xml.Read())
+                    {
+                        if (xml.NodeType == XmlNodeType.Element)
+                        {
+                            block.ParseElement(xml.Name, xml);
+                        }
+                        if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
+                        {
+                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation);
+                            if (newProtein != null)
+                            {
+                                targets.Add(newProtein);
+                            }
+                        }
+                    }
+                }
+            }
+            if (newProteinDbLocation != rnaDbLocation)
+            {
+                File.Delete(newProteinDbLocation);
+            }
+
+            List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads);
+            IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
+            return proteinsToExpand.ToList();
         }
     }
 }

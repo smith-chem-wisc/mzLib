@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using UsefulProteomicsDatabases.Transcriptomics;
 
@@ -71,9 +72,36 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        public static void Test__Fna()
+        public static void TestXmlWriter()
         {
+            var rna = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
 
+            var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
+            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+
+            Dictionary<string,HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
+            {
+                new Tuple<int, Modification>(1, methylG),
+                new Tuple<int, Modification>(3, methylG)
+            });
+
+            string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.xml");
+
+            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
+                new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
+
+            Assert.That(unknownMods.Count, Is.EqualTo(0));
+            Assert.That(temp.Count, Is.EqualTo(5));
+            var first = temp.First();
+            var loadedMods    = first.OneBasedPossibleLocalizedModifications;
+            Assert.That(loadedMods.Count, Is.EqualTo(2));
+            Assert.That(loadedMods[1].Count, Is.EqualTo(1));
+            Assert.That(loadedMods[3].Count, Is.EqualTo(1));
+            Assert.That(loadedMods[1].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
         }
     }
 }
