@@ -22,6 +22,7 @@ namespace FlashLFQ
         public double IntensityScore { get; set; }
         public double RtScore { get; set; }
         public double ScanCountScore { get; set; }
+        public List<int> ChargeList { get; set; }
         public string Collision { get; set; }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)

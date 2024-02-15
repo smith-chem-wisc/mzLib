@@ -93,13 +93,14 @@ namespace Test
                 }
 
                 bool isDecoy = split[32] == "Y";
+                double score = double.TryParse(split[9], out var s) ? s : 0;
 
-                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups, decoy: isDecoy);
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups, decoy: isDecoy, psmScore: score);
                 ids.Add(id);
             }
 
             
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 5);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 5, donorCriterion: 'S');
             var results = engine.Run();
 
             var test = results.Peaks.Values.SelectMany(peakList => peakList).ToList();
@@ -113,7 +114,7 @@ namespace Test
             mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && !peak.DecoyPeptide & !peak.RandomRt).ToList());
 
 
-            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\MbrResults_orgTest.tsv"))
+            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\MbrResults_1PepTest.tsv"))
             {
                 writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
                 foreach (var peak in mbrPeaks)
@@ -280,13 +281,14 @@ namespace Test
                 }
 
                 bool isDecoy = split[32] == "Y";
+                double score = double.TryParse(split[9], out var s) ? s : 0;
 
-                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups, decoy: isDecoy);
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups, decoy: isDecoy, psmScore: score);
                 ids.Add(id);
             }
 
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 5);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 5, donorCriterion: 'S');
             var results = engine.Run();
 
             var test = results.Peaks.Values.SelectMany(peakList => peakList).ToList();
@@ -300,7 +302,7 @@ namespace Test
             mbrPeaks.AddRange(test.Where(peak => peak.IsMbrPeak && !peak.DecoyPeptide & !peak.RandomRt).ToList());
 
 
-            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\MbrResults_minRtDiff.tsv"))
+            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\MbrResults_1PeakPerPepScore.tsv"))
             {
                 writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
                 foreach (var peak in mbrPeaks)
@@ -309,14 +311,14 @@ namespace Test
                 }
             }
 
-            using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\AllDecoys_minRtDiff.tsv"))
-            {
-                writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
-                foreach (var peak in engine.DecoyPeaks)
-                {
-                    writer.WriteLine(peak);
-                }
-            }
+            //using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\AllDecoys_minRtDiff.tsv"))
+            //{
+            //    writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+            //    foreach (var peak in engine.DecoyPeaks)
+            //    {
+            //        writer.WriteLine(peak);
+            //    }
+            //}
 
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
