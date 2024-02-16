@@ -23,7 +23,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
     /// </summary>
     internal class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>
     {
-        public Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+        internal Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
             "RetentionTimePrediction",
             "Chronologer", "Chronologer_20220601193755_TorchSharp.dat"))
         { }
@@ -38,7 +38,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         /// </summary>
         /// <param name="weightsPath"></param>
         /// <param name="evalMode"></param>
-        public Chronologer(string weightsPath, bool evalMode = true) : base(nameof(Chronologer))
+        internal Chronologer(string weightsPath, bool evalMode = true) : base(nameof(Chronologer))
         {
             RegisterComponents();
 
@@ -116,7 +116,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
-        public torch.Tensor Predict(torch.Tensor input)
+        internal torch.Tensor Predict(torch.Tensor input)
         {
             return call(input);
         }

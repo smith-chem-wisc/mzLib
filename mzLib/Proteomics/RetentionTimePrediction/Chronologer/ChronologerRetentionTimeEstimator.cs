@@ -7,8 +7,24 @@ namespace Proteomics.RetentionTimePrediction.Chronologer;
 public static class ChronologerRetentionTimeEstimator
 {
     /// <summary>
-    /// Uses the Chronologer model to predict the retention time of a peptide.
+    /// Uses the Chronologer model to predict the retention time of a peptide (reported in % of ACN).
     /// Only modifications present in the Chronologer dictionary are supported.
+    /// <code>
+    /// "Carbamidomethyl on C"
+    /// "Oxidation on M"
+    /// "Glu to PyroGlu"
+    /// "Phosphorylation on S"
+    /// "Phosphorylation on T"
+    /// "Phosphorylation on Y"
+    /// "Accetylation on K"
+    /// "Succinylation on K"
+    /// "Ubiquitination on K"
+    /// "Methylation on K"
+    /// "Dimethylation on K"
+    /// "Trimethylation on K"
+    /// "Methylation on R"
+    /// "Dimethylation on R"
+    /// </code>
     /// </summary>
     /// <param name="baseSequence"></param>
     /// <param name="fullPeptideSequence"></param>
