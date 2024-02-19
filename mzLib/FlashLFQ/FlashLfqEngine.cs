@@ -664,7 +664,7 @@ namespace FlashLFQ
             seqPeakDict = _results.Peaks.SelectMany(kvp => kvp.Value)
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1 
                     && peak.IsotopicEnvelopes.Any()
-                    && peak.Identifications.Min(id => id.QValue) < 0.05)
+                    && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                 .ToDictionary(group => group.Key, group => group.ToList());
 
@@ -901,6 +901,8 @@ namespace FlashLFQ
                     }
                 }
 
+                if (best.Identifications.First().QValue >= 0.01 && !best.DecoyPeptide && !best.RandomRt)
+                    continue; // don't accept MBR peaks based on low q ids, do accept decoys though
                 _results.Peaks[idAcceptorFile].Add(best);
             }
 
@@ -973,7 +975,7 @@ namespace FlashLFQ
                 if (!chargeXic.Any())
                     continue;
 
-                List<IsotopicEnvelope> chargeEnvelopes = GetIsotopicEnvelopes(chargeXic, donorIdentification, z);
+                List<IsotopicEnvelope> chargeEnvelopes = GetIsotopicEnvelopes(chargeXic, donorIdentification, z).OrderBy(env => env.Intensity).ToList();
 
                 // treat each isotopic envelope in the valid region as a potential seed for a chromatographic peak.
                 // remove the clustered isotopic envelopes from the list of seeds after each iteration
@@ -1038,10 +1040,11 @@ namespace FlashLFQ
             List<IsotopicEnvelope> chargeEnvelopes,
             bool randomRt = false)
         {
-            var donorId = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First();
+            var donorId = donorPeak.Identifications.OrderBy(p => p.QValue).First();
             var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile, randomRt);
-            IsotopicEnvelope seedEnv = chargeEnvelopes.First();
 
+            // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
+            IsotopicEnvelope seedEnv = chargeEnvelopes.First();
             var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, idAcceptorFile, mbrTol);
             List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z);
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
@@ -1223,8 +1226,7 @@ namespace FlashLFQ
             }
 
             errorCheckedPeaks.AddRange(errorCheckedPeaksGroupedByApex.Values.Where(p => p != null));
-            errorCheckedPeaks.AddRange(decoyPeptidePeaks);
-
+            //errorCheckedPeaks.AddRange(decoyPeptidePeaks);
 
             _results.Peaks[spectraFile] = errorCheckedPeaks;
         }
