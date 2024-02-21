@@ -109,6 +109,12 @@ namespace MassSpectrometry
         /// </summary>
         LowCID,
 
+
+        /// <summary>
+        /// activated ion electron photo detachment dissociation
+        /// </summary>
+        aEPD,
+
         Unknown,
         AnyActivationType,
         Custom,
