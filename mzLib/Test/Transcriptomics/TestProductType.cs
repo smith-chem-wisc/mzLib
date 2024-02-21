@@ -20,8 +20,10 @@ namespace Test.Transcriptomics
     public class TestProductType
     {
         [Test]
-        [TestCase(DissociationType.HCD, new[] { ProductType.M, ProductType.y, ProductType.w, ProductType.aBaseLoss, ProductType.dWaterLoss })]
-        [TestCase(DissociationType.CID, new[] { ProductType.M, ProductType.y, ProductType.yWaterLoss, ProductType.c, ProductType.w, ProductType.aBaseLoss, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.HCD, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.b, ProductType.c, ProductType.d,
+            ProductType.dWaterLoss, ProductType.w, ProductType.x, ProductType.y, ProductType.z, ProductType.M })]
+        [TestCase(DissociationType.CID, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss, 
+            ProductType.w, ProductType.y, ProductType.yWaterLoss, ProductType.M })]
         public void TestProductTypes_Dissociation(DissociationType dissociation, ProductType[] products)
         {
             CollectionAssert.AreEquivalent(products, dissociation.GetRnaProductTypesFromDissociationType());
@@ -48,12 +50,18 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.FivePrime, new[] { ProductType.aBaseLoss, ProductType.dWaterLoss })]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.ThreePrime, new[] { ProductType.w, ProductType.y })]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.Both, new[] { ProductType.M, ProductType.y, ProductType.w, ProductType.aBaseLoss, ProductType.dWaterLoss })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.FivePrime, new[] { ProductType.aBaseLoss, ProductType.dWaterLoss, ProductType.c })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.ThreePrime, new[] { ProductType.w, ProductType.y, ProductType.yWaterLoss })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.Both, new[] { ProductType.M, ProductType.y, ProductType.yWaterLoss, ProductType.c, ProductType.w, ProductType.aBaseLoss, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.HCD, FragmentationTerminus.FivePrime, new[] 
+        { ProductType.a, ProductType.aBaseLoss, ProductType.b, ProductType.c, ProductType.d, ProductType.dWaterLoss, })]
+        [TestCase(DissociationType.HCD, FragmentationTerminus.ThreePrime, new[] 
+            { ProductType.w, ProductType.x, ProductType.y, ProductType.z, })]
+        [TestCase(DissociationType.HCD, FragmentationTerminus.Both, new[] 
+            { ProductType.a, ProductType.aBaseLoss, ProductType.b, ProductType.c, ProductType.d, ProductType.dWaterLoss, ProductType.w, ProductType.x, ProductType.y, ProductType.z, ProductType.M })]
+        [TestCase(DissociationType.CID, FragmentationTerminus.FivePrime, new[] 
+            { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss })]
+        [TestCase(DissociationType.CID, FragmentationTerminus.ThreePrime, new[] 
+            { ProductType.w, ProductType.y, ProductType.yWaterLoss })]
+        [TestCase(DissociationType.CID, FragmentationTerminus.Both, new[] 
+            { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss, ProductType.w, ProductType.y, ProductType.yWaterLoss, ProductType.M })]
         public void TestProductTypes_TerminusAndDissociation(DissociationType dissociation, FragmentationTerminus terminus, ProductType[] products)
         {
             CollectionAssert.AreEquivalent(products, dissociation.GetRnaTerminusSpecificProductTypesFromDissociation(terminus));

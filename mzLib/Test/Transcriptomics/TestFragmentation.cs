@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using static Test.Transcriptomics.TestNucleicAcid;
@@ -13,6 +14,9 @@ using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
+using System.Security.Cryptography;
+using Easy.Common.Extensions;
+using Proteomics.ProteolyticDigestion;
 
 namespace Test.Transcriptomics
 {
@@ -40,29 +44,57 @@ namespace Test.Transcriptomics
         }
 
 
-        [Test]
-        public void TestFragmentation_Unmodified()
+        private static IEnumerable<DissociationType> ImplementedDissociationTypes
         {
-            var rna = new RNA("GUACUG")
-                .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
-                .First();
+            get
+            {
+                Loaders.LoadElements();
+                foreach (var type in DissociationTypeCollection.AllImplementedDissociationTypes)
+                    yield return type;
+                
+            }
+        }
+
+        /// <summary>
+        /// This test makes the assumption that the M ion is a component of all product types
+        /// </summary>
+        /// <param name="type"></param>
+        [Test]
+        [TestCaseSource(nameof(ImplementedDissociationTypes))]
+        public void TestFragmentation_Unmodified_ProductCountsAreCorrect(DissociationType type)
+        {
+            Loaders.LoadElements();
             List<Product> products = new();
+            var rnaToTest = new List<RNA>
+            {
+                new RNA("GUACUG"),
+                new RNA("GUACUGCACUGU"),
+                new RNA("GUACUGUAAUGAGACUAGUACAUGACAUG"),
+            };
+            var terminiToTest = new List<FragmentationTerminus> { FragmentationTerminus.Both, FragmentationTerminus.FivePrime, FragmentationTerminus.ThreePrime };
+            var potentialProducts = type.GetRnaProductTypesFromDissociationType();
 
-            // both termini
-            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
-            Assert.That(products.Count, Is.EqualTo(31));
-            Assert.That(products.All(p => p.ProductType is ProductType.M or ProductType.w or ProductType.dWaterLoss or ProductType.y or ProductType.yWaterLoss or ProductType.aBaseLoss or ProductType.c));
+            // test with top down digestion and no modifications
+            var digestionparams = new RnaDigestionParams(rnase: "top-down");
+            var fixedMods = new List<Modification>();
+            var variableMods = new List<Modification>();
+            foreach (var term in terminiToTest)
+            {
+                foreach (var oligoWithSetMods in rnaToTest.Select(rna => rna.Digest(digestionparams, fixedMods, variableMods).First()))
+                {
+                    var terminalSpecifc = term == FragmentationTerminus.Both 
+                        ? potentialProducts 
+                        : potentialProducts.Where(p => p.GetRnaTerminusType() == term).ToList();
 
-            // only 5'
-            rna.Fragment(DissociationType.CID, FragmentationTerminus.FivePrime, products);
-            Assert.That(products.Count, Is.EqualTo(15));
-            Assert.That(products.All(p => p.ProductType is ProductType.dWaterLoss or  ProductType.aBaseLoss or ProductType.c));
+                    var expectedProductCount = term == FragmentationTerminus.Both 
+                        ? (oligoWithSetMods.Length - 1) * (terminalSpecifc.Count - 1) + 1 // there is only one M ion, so for both, remove that form muliplier and add one
+                        : (oligoWithSetMods.Length - 1) * terminalSpecifc.Count;
 
-            // only 3'
-            rna.Fragment(DissociationType.CID, FragmentationTerminus.ThreePrime, products);
-            Assert.That(products.Count, Is.EqualTo(15));
-            Assert.That(products.All(p => p.ProductType is ProductType.w or ProductType.y or ProductType.yWaterLoss ));
-
+                    oligoWithSetMods.Fragment(type, term, products);
+                    Assert.That(products.Count, Is.EqualTo(expectedProductCount));
+                    Assert.That(products.All(p => terminalSpecifc.Contains(p.ProductType)));
+                }
+            }
         }
 
         [Test]
