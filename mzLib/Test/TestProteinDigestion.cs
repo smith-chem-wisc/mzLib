@@ -549,5 +549,46 @@ namespace Test
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
             Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
         }
+
+        [Test]
+        public static void TestWhenFixedModIsSamePositionAsUniProtModWithDigestion()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
+            List<Modification> fixedMods = new List<Modification>();
+            ModificationMotif.TryGetMotif("S", out ModificationMotif serineMotif);
+            ChemicalFormula ohFormula = ChemicalFormula.ParseFormula("OH");
+            double ohMass = GetElement("O").PrincipalIsotope.AtomicMass + GetElement("H").PrincipalIsotope.AtomicMass;
+
+            fixedMods.Add(new Modification(_originalId: "serineOhMod", _target: serineMotif, _locationRestriction: "Anywhere.", _chemicalFormula: ohFormula, _monoisotopicMass: ohMass));
+
+
+            List<Protein> dbProteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, UniProtPtms.Concat(fixedMods), false,
+                new List<string>(), out Dictionary<string, Modification> un);
+
+            Protein prot = dbProteins.First();
+
+            var digestionProducts = prot.Digest(digestionParams, fixedMods, new List<Modification>()).ToList();
+            var firstPeptideModifiedForms = digestionProducts.Where(p => p.BaseSequence == "MSGR").ToList();
+            List<string> fullSequences = firstPeptideModifiedForms.Select(p => p.FullSequence).ToList();
+            List<string> expectedFullSequences = new List<string>
+            {
+                "MS[:serineOhMod on S]GR",
+                "MS[:serineOhMod on S]GR[UniProt:Asymmetric dimethylarginine on R]",
+                "MS[:serineOhMod on S]GR[UniProt:Citrulline on R]",
+                "MS[:serineOhMod on S]GR[UniProt:Omega-N-methylarginine on R]",
+                "MS[:serineOhMod on S]GR[UniProt:Symmetric dimethylarginine on R]",
+                "MS[UniProt:Phosphoserine on S]GR",
+                "MS[UniProt:Phosphoserine on S]GR[UniProt:Asymmetric dimethylarginine on R]",
+                "MS[UniProt:Phosphoserine on S]GR[UniProt:Citrulline on R]",
+                "MS[UniProt:Phosphoserine on S]GR[UniProt:Omega-N-methylarginine on R]",
+                "MS[UniProt:Phosphoserine on S]GR[UniProt:Symmetric dimethylarginine on R]"
+            };
+
+            CollectionAssert.AreEquivalent(expectedFullSequences, fullSequences);
+        }
     }
 }
