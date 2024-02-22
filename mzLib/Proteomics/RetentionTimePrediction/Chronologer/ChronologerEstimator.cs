@@ -7,17 +7,20 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
 {
     public class ChronologerEstimator
     {
-        private Chronologer _chronologerModel = new();
+        private Chronologer chronologerModel { get; }
 
         /// <summary>
         /// Class to estimate the retention time of a peptide using the Chronologer model.
         /// </summary>
         public ChronologerEstimator()
-        { }
+        {
+            chronologerModel = new Chronologer();
+        }
 
         /// <summary>
         /// Uses the Chronologer model to predict C18 retention times (reported in % ACN).
         /// Only modifications present in the Chronologer dictionary are supported.
+        /// Returns null if the sequence is not valid.
         /// <code>
         /// "Carbamidomethyl on C"
         /// "Oxidation on M"
@@ -36,12 +39,15 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         /// </code>
         /// </summary>
         /// <param name="baseSequence"></param>
-        /// <param name="fullPeptideSequence"></param>
+        /// <param name="fullSequence"></param>
         /// <returns></returns>
-        public double PredictRetentionTime(string baseSequence, string fullPeptideSequence)
+        public double? PredictRetentionTime(string baseSequence, string fullSequence)
         {
-            torch.Tensor tensor = Tensorize(baseSequence, fullPeptideSequence);
-            var prediction = _chronologerModel.Predict(tensor);
+            var tensor = Tensorize(baseSequence, fullSequence);
+            if (tensor is null)
+                return null;
+
+            var prediction = chronologerModel.Predict(tensor);
             return prediction[0].ToDouble();
         }
 
@@ -52,7 +58,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         /// Unvalid sequences will return null.
         /// </summary>
         /// <param name="baseSequence"></param>
-        /// <param name="fullPeptideSequence"></param>
+        /// <param name="fullSequence"></param>
         /// <returns></returns>
         private static torch.Tensor Tensorize(string baseSequence, string fullSequence)
         {
@@ -62,7 +68,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
 
             //section to remoce type of mod from the sequence
             //e.g. Common Fixed:Carbamidomethyl and only stay with the target aa after the mod
-            for (int i = 0; i < fullSequence.Length; i++)
+            for (int i = 0; i < fullSeq.Length; i++)
             {
                 if (fullSeq[i].Contains(" "))
                 {

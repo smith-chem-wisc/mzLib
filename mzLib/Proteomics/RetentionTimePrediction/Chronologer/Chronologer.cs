@@ -26,7 +26,9 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         public Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
             "RetentionTimePrediction",
             "Chronologer", "Chronologer_20220601193755_TorchSharp.dat"))
-        { }
+        {
+            RegisterComponents();
+        }
 
         /// <summary>
         /// Initializes a new instance of the Chronologer model class with pre-trained weights from the paper

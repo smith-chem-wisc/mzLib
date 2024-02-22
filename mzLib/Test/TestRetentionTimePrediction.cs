@@ -741,10 +741,12 @@ namespace Test
 
             var withBegginingMods =
                 model.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
+            
             Assert.AreEqual(withBegginingMods.GetType(), typeof(double));
 
-            Assert.Throws<Exception>(() =>
-                model.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2));
+            var invalidSequence = model.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2);
+            Assert.That(invalidSequence == null);
+
 
         }
     }
