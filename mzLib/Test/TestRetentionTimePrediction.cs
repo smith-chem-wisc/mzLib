@@ -720,34 +720,31 @@ namespace Test
         [Test]
         public void TestChronologerPredictions()
         {
+            ChronologerEstimator model = new ChronologerEstimator();
+
             var testingData = new List<(string, string)>()
             {
-                { ("GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK", "GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK") },
-                { ("FASDDEHDEHDENGATGPVK", "FAS[Common Biological:Phosphorylation on S]DDEHDEHDENGATGPVK") },
-                {
-                    ("AETLSGLGDSGAAGAAALSSASSETGTR", "[Common Biological:Acetylation on X]AETLSGLGDSGAAGAAALSSASSETGTR")
-                },
-                {
-                    ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-                },
+                ("GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK", "GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK"),
+                ("FASDDEHDEHDENGATGPVK", "FAS[Common Biological:Phosphorylation on S]DDEHDEHDENGATGPVK"),
+                ("AETLSGLGDSGAAGAAALSSASSETGTR", "[Common Biological:Acetylation on X]AETLSGLGDSGAAGAAALSSASSETGTR"),
+                ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             };
 
             var noMods =
-                ChronologerRetentionTimeEstimator.PredictRetentionTime(testingData[0].Item1, testingData[0].Item2);
+                model.PredictRetentionTime(testingData[0].Item1, testingData[0].Item2);
 
             Assert.AreEqual(noMods.GetType(), typeof(double));
 
             var withMiddleMods =
-                ChronologerRetentionTimeEstimator.PredictRetentionTime(testingData[1].Item1, testingData[1].Item2);
+                model.PredictRetentionTime(testingData[1].Item1, testingData[1].Item2);
             Assert.AreEqual(withMiddleMods.GetType(), typeof(double));
 
             var withBegginingMods =
-                ChronologerRetentionTimeEstimator.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
+                model.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
             Assert.AreEqual(withBegginingMods.GetType(), typeof(double));
 
             Assert.Throws<Exception>(() =>
-                ChronologerRetentionTimeEstimator.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2));
+                model.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2));
 
         }
     }
