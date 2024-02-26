@@ -193,23 +193,25 @@ namespace Test
             Assert.That(s.DotProduct(), Is.EqualTo(0.16).Within(0.01));
 
             //Test when not using all peaks of primary(experimental) spectra (bool allpeaks is false) and mz cut off is is 0 (no cut off)
+            //primary xArray 100, 200, 300, 400, 500, 600, 700 and secondary xArray 200, 300, 500, 600, 800. So, 200, 300, 500, 600 are common. So, 4 intensity pairs with no cutt off.
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, false, 0);
-            Assert.AreEqual(5, s.intensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.90).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.72).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.76).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.71).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.48).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.12).Within(0.01));
-
-            //Test when not using all peaks of primary(experimental) spectra (bool allpeaks is false) and mz cut off is is 300 (default cut off)
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, false);
             Assert.AreEqual(4, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.92).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.75).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.75).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.73).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.68).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.78).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.76).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.98).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.12).Within(0.01));
+
+            //Test when not using all peaks of primary(experimental) spectra (bool allpeaks is false) and mz cut off is is 300 (default cut off)
+            //primary xArray 100, 200, 300, 400, 500, 600, 700 and secondary xArray 200, 300, 500, 600, 800. So, 200, 300, 500, 600 are common. But with 300 cut off, only 300, 500, 600 are common
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, false);
+            Assert.AreEqual(3, s.intensityPairs.Count);
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.95).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.81).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.79).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.80).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.96).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.16).Within(0.01));
 
             //Test all different similarity calculations
