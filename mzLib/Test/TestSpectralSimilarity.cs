@@ -182,7 +182,7 @@ namespace Test
         public void TestAllSpectrumSimilaritiesWithDefaultedMzFilter()
         {
             double ppmTolerance = 10;
-            MzSpectrum primary = new MzSpectrum(new double[] { 100, 200, 300, 400, 500 ,600,700}, new double[] { 2, 4, 6, 8, 10,12,14 }, false);
+            MzSpectrum primary = new MzSpectrum(new double[] { 100, 200, 300, 400, 500 , 600, 700}, new double[] { 2, 4, 6, 8, 10, 12, 14 }, false);
             MzSpectrum secondary = new MzSpectrum(new double[] { 200, 300, 500, 600 ,800}, new double[] { 9, 7, 5, 3, 1 }, false);
             //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
             SpectralSimilarity s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true,0);
@@ -206,35 +206,38 @@ namespace Test
 
             //Test when not using all peaks of primary(experimental) spectra (bool allpeaks is false) and mz cut off is is 0 (no cut off)
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, false, 0);
-            Assert.AreEqual(5, s.intensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.90).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.72).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.76).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.71).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.48).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.12).Within(0.01));
+            //mz pairs in tolerance are (200,200), (300,300), (500,500), (600,600). Since we are NOT using all peaks, we get the four corresponding intensity pairs.
+            Assert.AreEqual(4, s.intensityPairs.Count);
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.922).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.747).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.780).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.757).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.98).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.126).Within(0.01));
 
             //Test when not using all peaks of primary(experimental) spectra (bool allpeaks is false) and mz cut off is is 300 (default cut off)
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, false);
-            Assert.AreEqual(4, s.intensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.92).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.75).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.75).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.73).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.68).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.16).Within(0.01));
+            //mz pairs in tolerance are (200,200), (300,300), (500,500), (600,600). Since we are NOT using all peaks but we ARE using cut off we get only 3 intensity pairs.
+            Assert.AreEqual(3, s.intensityPairs.Count);
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.954).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.806).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.788).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.73).Within(0.801));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-.958).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.164).Within(0.01));
 
             //Test all different similarity calculations
             primary = new MzSpectrum(new double[] { 100, 200, 300, 400, 500 }, new double[] { 2, 4, 6, 8, 10 }, false);
             secondary = new MzSpectrum(new double[] { 300, 400, 500, 600, 700 }, new double[] { 9, 7, 5, 3, 1 }, false);
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, false);
-            Assert.AreEqual(5, s.intensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.89).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.70).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.74).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.74).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.81).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.24).Within(0.01));
+            //mz pairs in tolerance are (300,300), (400,400), (500,500). Since we are NOT using all peaks, we get 3 intensity pairs. We are using the default 300mz cut off but that has no effect here
+            Assert.AreEqual(3, s.intensityPairs.Count);
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.976).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.859).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.815).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.852).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-.997).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.244).Within(0.01));
 
 
             //Test all normalization schemes
@@ -279,24 +282,32 @@ namespace Test
             secondary = new MzSpectrum(new double[] { 400, 500 }, new double[] { 2, 4 }, false);
 
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
+            //there are no mz pairs in tolerance, but since we have all peaks and 300 default cutoff, we get 3 intensity pairs with 300, 400, 500 intensities being paired zero
             Assert.AreEqual(3, s.intensityPairs.Count);
+
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.25).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.247).Within(0.01));
             Assert.That(s.BrayCurtis(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.867).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0).Within(0.01));
 
+
+            //Test what happens when some initial peak intensities are zero.
             primary = new MzSpectrum(new double[] { 1000, 2000, 3000 }, new double[] { 0, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 1000, 2000, 3000, 4000 }, new double[] { 2, 0, 2, 2 }, false);
 
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
+
+            //First, we throw out zero intensity peaks.
+            //primary spectrum becomes 2000, 3000 and secondary spectrum becomes 1000, 3000, 4000
+            //mz pairs are (1000,1000), (2000,2000) and (3000,3000). Since we are using all peaks, we get an additional pairs with 4000 intensity being paired zero
             Assert.AreEqual(4, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.48).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.32).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.33).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.33).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.33).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.319).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.327).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.333).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.333).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.20).Within(0.01));
 
             //Test what happens when all intensity pairs include 1 zero
@@ -304,76 +315,88 @@ namespace Test
             secondary = new MzSpectrum(new double[] { 4000, 5000 }, new double[] { 2, 0 }, false);
 
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
+            //There are no mz pairs within tolerance. Since we are using all peaks, we get 5 intensity pairs with 1000, 2000, 3000, 4000 and 5000 intensities being paired zero
             Assert.AreEqual(5, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.23).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.232).Within(0.01));
             Assert.That(s.BrayCurtis(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.4).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.395).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0).Within(0.01));
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, false);
-            Assert.AreEqual(2, s.intensityPairs.Count);
-
-
 
             //Test alternate constructor
             primary = new MzSpectrum(new double[] { 100, 350, 400 }, new double[] { 2, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 350 }, new double[] { 2 }, false);
             s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, true);
+            //mz pairs in tolerance are (350,350). Since we are using all peaks and default mz cut off of 300 we get 1 additional intensity pairs with 400 intensity being paired zero
             Assert.AreEqual(2, s.intensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.55).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.37).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.05).Within(0.01));
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.555).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.374).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.054).Within(0.01));
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.50).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-1).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.67).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.667).Within(0.01));
 
             //Test alternate constructor only library peaks. Since library has one peak, and primary has three peaks, we get only one intensity pair
             primary = new MzSpectrum(new double[] { 350, 400, 500 }, new double[] { 2, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 400 }, new double[] { 2 }, false);
             s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false);
+            //mz pairs in tolerance are (400,400). Since we are NOT using all peaks, we get only 1 intensity pair
             Assert.AreEqual(1, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(1.0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(1.0).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.67).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.667).Within(0.01));
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.80).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-1.0).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.67).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.667).Within(0.01));
 
             //Test cosine similarity when there are no peaks from spectrum one matching spectrum 2
             primary = new MzSpectrum(new double[] { 450, 650, 850 }, new double[] { 2, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 400, 600, 800 }, new double[] { 2, 4, 6 }, false);
             s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false);
-            Assert.AreEqual(3, s.intensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
+            //There are no mz pairs in tolerance. Since we are NOT using all peaks, we get 0 intensity pairs.
+            //However, since there are zero pairs, we return as a pair (-1,-1) so we know that and there is no crash.
+            Assert.AreEqual(1, s.intensityPairs.Count);
+            Assert.AreEqual((-1, -1), s.intensityPairs[0]);
+            Assert.IsNull(s.CosineSimilarity());
+            Assert.IsNull(s.SpectralContrastAngle());
+            Assert.IsNull(s.EuclideanDistance());
+            Assert.IsNull(s.BrayCurtis());
+            Assert.IsNull(s.PearsonsCorrelation());
+            Assert.IsNull(s.DotProduct());
 
             //Test when intensityPairs is null 
             //Test when all mz are less than 300 in experimental peaks
             primary = new MzSpectrum(new double[] { 100, 150, 200 }, new double[] { 2, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 400, 600, 800 }, new double[] { 2, 4, 6 }, false);
             s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false);
+            //There are no mz pairs in tolerance. It doesn't matter but 3 peaks are also below mz300 cut off.
+            //Since we are NOT using all peaks, we get 0 intensity pairs.
+            //However, since there are zero pairs, we return as a pair (-1,-1) so we know that and there is no crash.
             Assert.AreEqual(1, s.intensityPairs.Count);
-            Assert.AreEqual(new List<(double, double)> { (-1, -1) }, s.intensityPairs);
-            Assert.That(s.CosineSimilarity(), Is.Null);
-            Assert.That(s.SpectralContrastAngle(), Is.Null);
-            Assert.That(s.EuclideanDistance(), Is.Null);
-            Assert.That(s.BrayCurtis(), Is.Null);
-            Assert.That(s.PearsonsCorrelation(), Is.Null);
-            Assert.That(s.DotProduct(), Is.Null);
+            Assert.AreEqual((-1, -1), s.intensityPairs[0]);
+            Assert.IsNull(s.CosineSimilarity());
+            Assert.IsNull(s.SpectralContrastAngle());
+            Assert.IsNull(s.EuclideanDistance());
+            Assert.IsNull(s.BrayCurtis());
+            Assert.IsNull(s.PearsonsCorrelation());
+            Assert.IsNull(s.DotProduct());
 
             //Test when all mz are less than 300 in theoretical peaks
             primary = new MzSpectrum(new double[] { 150, 250, 350 }, new double[] { 2, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 100, 150, 200 }, new double[] { 2, 4, 6 }, false);
             s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false);
+            //There are no mz pairs in tolerance. It doesn't matter but all 6 peaks are also below mz300 cut off.
+            //Since we are NOT using all peaks, we get 0 intensity pairs.
+            //However, since there are zero pairs, we return as a pair (-1,-1) so we know that and there is no crash.
             Assert.AreEqual(1, s.intensityPairs.Count);
-            Assert.AreEqual(new List<(double, double)> { (-1, -1) }, s.intensityPairs);
-            Assert.That(s.CosineSimilarity(), Is.Null);
-            Assert.That(s.SpectralContrastAngle(), Is.Null);
-            Assert.That(s.EuclideanDistance(), Is.Null);
-            Assert.That(s.BrayCurtis(), Is.Null);
-            Assert.That(s.PearsonsCorrelation(), Is.Null);
-            Assert.That(s.DotProduct(), Is.Null);
+            Assert.AreEqual((-1, -1), s.intensityPairs[0]);
+            Assert.IsNull(s.CosineSimilarity());
+            Assert.IsNull(s.SpectralContrastAngle());
+            Assert.IsNull(s.EuclideanDistance());
+            Assert.IsNull(s.BrayCurtis());
+            Assert.IsNull(s.PearsonsCorrelation());
+            Assert.IsNull(s.DotProduct());
         }
 
         [Test]
