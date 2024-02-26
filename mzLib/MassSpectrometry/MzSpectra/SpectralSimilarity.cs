@@ -160,7 +160,10 @@ namespace MassSpectrometry.MzSpectra
                 if (index > 0)
                 {
                     //didn't find a experimental mz in range
-                    intensityPairs.Add((0, xyPair.Item2));
+                    if (allPeaks)
+                    {
+                        intensityPairs.Add((0, xyPair.Item2));
+                    }
                 }
             }
 
@@ -171,6 +174,11 @@ namespace MassSpectrometry.MzSpectra
                 {
                     intensityPairs.Add((xyPair.Item2, 0));
                 }
+            }
+
+            if (intensityPairs.Count == 0)
+            {
+                intensityPairs.Add((-1, -1));
             }
             return intensityPairs;
         }
