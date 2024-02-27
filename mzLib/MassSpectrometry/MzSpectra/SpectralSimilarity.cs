@@ -85,9 +85,9 @@ namespace MassSpectrometry.MzSpectra
            
             return scheme switch
             {
-                SpectrumNormalizationScheme.mostAbundantPeak => NormalizeMostAbundantPeak(spectrum),
-                SpectrumNormalizationScheme.spectrumSum => NormalizeSpectrumSum(spectrum),
-                SpectrumNormalizationScheme.squareRootSpectrumSum => NormalizeSquareRootSpectrumSum(spectrum),
+                SpectrumNormalizationScheme.MostAbundantPeak => NormalizeMostAbundantPeak(spectrum),
+                SpectrumNormalizationScheme.SpectrumSum => NormalizeSpectrumSum(spectrum),
+                SpectrumNormalizationScheme.SquareRootSpectrumSum => NormalizeSquareRootSpectrumSum(spectrum),
                 _ => spectrum,
             };
         }
@@ -362,8 +362,8 @@ namespace MassSpectrometry.MzSpectra
             {
                 // Add correctionConstant and renormalize
                 // Need to use temp variables to avoid modifying the Y array fields
-                double[] tempExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
-                double[] tempTheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
+                double[] tempExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.SpectrumSum);
+                double[] tempTheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.SpectrumSum);
                 List<(double, double)> correctedIntensityPairs = GetIntensityPairs(
                     allPeaks: true,
                     experimentalYArray: tempExperimentalYArray,
@@ -404,10 +404,10 @@ namespace MassSpectrometry.MzSpectra
 
         public enum SpectrumNormalizationScheme
         {
-            squareRootSpectrumSum,
-            spectrumSum,
-            mostAbundantPeak,
-            unnormalized
+            SquareRootSpectrumSum,
+            SpectrumSum,
+            MostAbundantPeak,
+            Unnormalized
         }
     }
 }
