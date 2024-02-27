@@ -18,7 +18,7 @@ namespace MassSpectrometry.MzSpectra
             IntensityPairs = GetIntensityPairs(allPeaks);
         }
 
-        public SpectralSimilarity(MzSpectrum experimentalSpectrum, double[] theoreticalX, double[] theoreticalY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
+        public SpectralSimilarity(MzSpectrum experimentalSpectrum, IReadOnlyList<double> theoreticalX, IReadOnlyList<double> theoreticalY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
             ExperimentalYArray = Normalize(FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             ExperimentalXArray = FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
@@ -28,19 +28,19 @@ namespace MassSpectrometry.MzSpectra
             IntensityPairs = GetIntensityPairs(allPeaks);
         }
 
-        public SpectralSimilarity(double[] P_XArray, double[] P_YArray, double[] Q_XArray, double[] Q_YArray, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
+        public SpectralSimilarity(IReadOnlyList<double> pXArray, IReadOnlyList<double> pYArray, IReadOnlyList<double> qXArray, IReadOnlyList<double> qYArray, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
-            ExperimentalYArray = Normalize(FilterOutIonsBelowThisMz(P_XArray, P_YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
-            ExperimentalXArray = FilterOutIonsBelowThisMz(P_XArray, P_YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
-            TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(Q_XArray, Q_YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
-            TheoreticalXArray = FilterOutIonsBelowThisMz(Q_XArray, Q_YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            ExperimentalYArray = Normalize(FilterOutIonsBelowThisMz(pXArray, pYArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            ExperimentalXArray = FilterOutIonsBelowThisMz(pXArray, pYArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(qXArray, qYArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            TheoreticalXArray = FilterOutIonsBelowThisMz(qXArray, qYArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             _localPpmTolerance = toleranceInPpm;
             IntensityPairs = GetIntensityPairs(allPeaks);
         }
-        public double[] ExperimentalYArray { get; private set; }
-        public double[] ExperimentalXArray { get; private set; }
-        public double[] TheoreticalYArray { get; private set; }
-        public double[] TheoreticalXArray { get; private set; }
+        public double[] ExperimentalYArray { get; }
+        public double[] ExperimentalXArray { get; }
+        public double[] TheoreticalYArray { get; }
+        public double[] TheoreticalXArray { get; }
 
         private readonly double _localPpmTolerance;
 
@@ -58,7 +58,7 @@ namespace MassSpectrometry.MzSpectra
                 throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Spectrum has no intensity."));
             }
 
-            List<(double, double)> spectrumWithMzCutoff = new List<(double, double)>();
+            List<(double, double)> spectrumWithMzCutoff = new();
             for (int i = 0; i < spectrumX.Count; i++)
             {
                 //second conditional to avoid getting an accidental negative intensities
@@ -93,7 +93,7 @@ namespace MassSpectrometry.MzSpectra
         }
 
         /// Intensity Pairs a computed immediately upon creation of the SpectralSimilarity object. That way they can be used in all the methods without being recomputed.
-        private List<(double,double)> GetIntensityPairs(bool allPeaks, double[] experimentalYArray = null, double[] theoreticalYArray = null)
+        private List<(double,double)> GetIntensityPairs(bool allPeaks, IReadOnlyList<double> experimentalYArray = null, IReadOnlyList<double> theoreticalYArray = null)
         {
             if (experimentalYArray == null) experimentalYArray = ExperimentalYArray;
             if (theoreticalYArray == null) theoreticalYArray = TheoreticalYArray;
