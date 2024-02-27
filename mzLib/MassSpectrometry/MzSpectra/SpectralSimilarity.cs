@@ -15,7 +15,6 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             _localPpmTolerance = toleranceInPpm;
-            _normalizationScheme = scheme;
             _intensityPairs = GetIntensityPairs(allPeaks);
         }
 
@@ -26,7 +25,6 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             _localPpmTolerance = toleranceInPpm;
-            _normalizationScheme = scheme;
             _intensityPairs = GetIntensityPairs(allPeaks);
         }
 
@@ -44,9 +42,7 @@ namespace MassSpectrometry.MzSpectra
         public double[] TheoreticalYArray { get; private set; }
         public double[] TheoreticalXArray { get; private set; }
 
-        private SpectrumNormalizationScheme _normalizationScheme;
-
-        private double _localPpmTolerance;
+        private readonly double _localPpmTolerance;
 
         private readonly List<(double, double)> _intensityPairs = new();
         
@@ -56,9 +52,9 @@ namespace MassSpectrometry.MzSpectra
 
         /// <summary>
         /// All peaks with mz less than the cutOff will be filtered out. default to zero to remove an mz values that are accidentally negative. this is an unexpected error. 
-        private static List<(double, double)> FilterOutIonsBelowThisMz(double[] spectrumX, double[] spectrumY,double filterOutBelowThisMz = 0)
+        private static IEnumerable<(double, double)> FilterOutIonsBelowThisMz(IReadOnlyList<double> spectrumX, IReadOnlyList<double> spectrumY,double filterOutBelowThisMz = 0)
         {
-            if (spectrumY.Length == 0)
+            if (spectrumY.Count == 0)
             {
                 throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Empty YArray in spectrum."));
             }
@@ -68,7 +64,7 @@ namespace MassSpectrometry.MzSpectra
             }
 
             List<(double, double)> spectrumWithMzCutoff = new List<(double, double)>();
-            for (int i = 0; i < spectrumX.Length; i++)
+            for (int i = 0; i < spectrumX.Count; i++)
             {
                 //second conditional to avoid getting an accidental negative intensities
                 if (spectrumX[i] >= filterOutBelowThisMz && spectrumY[i] >= 0)
@@ -85,7 +81,7 @@ namespace MassSpectrometry.MzSpectra
         /// <param name="spectrum"></param>
         /// <param name="scheme"></param>
         /// <returns></returns>
-        private double[] Normalize(double[] spectrum, SpectrumNormalizationScheme scheme)
+        private static double[] Normalize(double[] spectrum, SpectrumNormalizationScheme scheme)
         {
             if (spectrum.Length == 0)
             {
@@ -215,7 +211,7 @@ namespace MassSpectrometry.MzSpectra
         //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthoganal
         public double? CosineSimilarity()
         {
-            if (_intensityPairs.First().Item1==-1)
+            if (_intensityPairs.First().Item1 < 0)//if the first pair is (-1,-1) then there are no peaks to compare
             {
                 return null;
             }
@@ -241,7 +237,7 @@ namespace MassSpectrometry.MzSpectra
         //Spectral contrast angle should expect values between 1 and -1;
         public double? SpectralContrastAngle()
         {
-            if (_intensityPairs.First().Item1 == -1)
+            if (_intensityPairs.First().Item1 < 0)//if the first pair is (-1,-1) then there are no peaks to compare
             {
                 return null;
             }
@@ -251,7 +247,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double? EuclideanDistance()
         {
-            if (_intensityPairs.First().Item1 == -1)
+            if (_intensityPairs.First().Item1 < 0)
             {
                 return null;
             }
@@ -265,7 +261,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double? BrayCurtis()
         {
-            if (_intensityPairs.First().Item1 == -1)
+            if (_intensityPairs.First().Item1 < 0)
             {
                 return null;
             }
@@ -281,7 +277,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double? PearsonsCorrelation()
         {
-            if (_intensityPairs.First().Item1 == -1)
+            if (_intensityPairs.First().Item1 < 0)
             {
                 return null;
             }
@@ -307,7 +303,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double? DotProduct()
         {
-            if (_intensityPairs.First().Item1 == -1)
+            if (_intensityPairs.First().Item1 < 0)//if the first pair is (-1,-1) then there are no peaks to compare
             {
                 return null;
             }
@@ -350,7 +346,7 @@ namespace MassSpectrometry.MzSpectra
         /// When using, the allPeaks argument in the SpectralSimilarity constructor should be set to "true"
         /// </summary>
         /// <param name="correctionConstant"> A constant value added to each intensity pair in order to penalize zero peaks.
-        /// Default is 1e-9 (one OoM smalller than the theoretical isotopic intensity minimum)</param>
+        /// Default is 1e-9 (one OoM smaller than the theoretical isotopic intensity minimum)</param>
         /// <returns> A nullable double between 0 and positive infinity. More similar envelopes score lower </returns>
         public double? KullbackLeiblerDivergence_P_Q(double correctionConstant = 1e-9)
         {
@@ -372,7 +368,7 @@ namespace MassSpectrometry.MzSpectra
             else
             {
                 // Add correctionConstant and renormalize
-                // Need to use temp variables to avoid modifiying the Y array fields
+                // Need to use temp variables to avoid modifying the Y array fields
                 double[] tempExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
                 double[] tempTheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.spectrumSum);
                 List<(double, double)> correctedIntensityPairs = GetIntensityPairs(
@@ -408,7 +404,7 @@ namespace MassSpectrometry.MzSpectra
 
         #endregion similarityMethods
 
-        //use Math.Max() in the denominator for consistancy
+        //use Math.Max() in the denominator for consistency
         private bool Within(double mz1, double mz2)
         {
             return ((Math.Abs(mz1 - mz2) / Math.Max(mz1,mz2) * 1000000.0) < _localPpmTolerance);
