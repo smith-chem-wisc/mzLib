@@ -234,7 +234,7 @@ namespace MassSpectrometry.MzSpectra
             {
                 return null;
             }
-            return (1 - 2 * Math.Acos((double)CosineSimilarity()) / Math.PI);
+            return 1 - 2 * Math.Acos((double)CosineSimilarity()) / Math.PI;
 
         }
 
@@ -377,7 +377,6 @@ namespace MassSpectrometry.MzSpectra
                     }
                 }
             }
-
             return divergence;
         }
 
