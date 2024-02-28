@@ -15,6 +15,9 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMzAndRemoveZeroIntensityPeaks(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMzAndRemoveZeroIntensityPeaks(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             _localPpmTolerance = toleranceInPpm;
+            _scheme = scheme;
+            _keepAllExperimentalPeaks = keepAllExperimentalPeaks;
+            _keepAllTheoreticalPeaks = keepAllTheoreticalPeaks;
             IntensityPairs = GetIntensityPairs(keepAllExperimentalPeaks, keepAllTheoreticalPeaks);
         }
 
@@ -25,6 +28,9 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMzAndRemoveZeroIntensityPeaks(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMzAndRemoveZeroIntensityPeaks(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             _localPpmTolerance = toleranceInPpm;
+            _scheme = scheme;
+            _keepAllExperimentalPeaks = keepAllExperimentalPeaks;
+            _keepAllTheoreticalPeaks = keepAllTheoreticalPeaks;
             IntensityPairs = GetIntensityPairs(keepAllExperimentalPeaks, keepAllTheoreticalPeaks);
         }
 
@@ -35,6 +41,9 @@ namespace MassSpectrometry.MzSpectra
             TheoreticalYArray = Normalize(FilterOutIonsBelowThisMzAndRemoveZeroIntensityPeaks(qXArray, qYArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
             TheoreticalXArray = FilterOutIonsBelowThisMzAndRemoveZeroIntensityPeaks(qXArray, qYArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             _localPpmTolerance = toleranceInPpm;
+            _scheme = scheme;
+            _keepAllExperimentalPeaks = keepAllExperimentalPeaks;
+            _keepAllTheoreticalPeaks = keepAllTheoreticalPeaks;
             IntensityPairs = GetIntensityPairs(keepAllExperimentalPeaks, keepAllTheoreticalPeaks);
         }
         public double[] ExperimentalYArray { get; }
@@ -43,6 +52,10 @@ namespace MassSpectrometry.MzSpectra
         public double[] TheoreticalXArray { get; }
 
         private readonly double _localPpmTolerance;
+
+        private readonly SpectrumNormalizationScheme _scheme;
+        private readonly bool _keepAllExperimentalPeaks;
+        private readonly bool _keepAllTheoreticalPeaks;
 
         public List<(double, double)> IntensityPairs { get; } = new();
 
@@ -208,7 +221,7 @@ namespace MassSpectrometry.MzSpectra
 
         #region similarityMethods
 
-        //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthoganal
+        //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthogonal
         public double? CosineSimilarity()
         {
             if (IntensityPairs.First().Item1 < 0)//if the first pair is (-1,-1) then there are no peaks to compare
@@ -318,6 +331,10 @@ namespace MassSpectrometry.MzSpectra
         // This method should only be used when allPeaks is set to true
         public double? SpectralEntropy()
         {
+            if (_scheme != SpectrumNormalizationScheme.SpectrumSum && !_keepAllExperimentalPeaks && !_keepAllTheoreticalPeaks)
+            {
+                return null;
+            }
             double theoreticalEntropy = 0;
             foreach (double intensity in TheoreticalYArray)
             {
