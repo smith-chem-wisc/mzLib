@@ -121,7 +121,7 @@ namespace MassSpectrometry.MzSpectra
             {
                 if (Within(ExperimentalXArray[expIndex], TheoreticalXArray[theoIndex]))
                 {
-                    intensityPairs.Add((ExperimentalYArray[expIndex], TheoreticalYArray[theoIndex]));
+                    intensityPairs.Add((experimentalYArray[expIndex], theoreticalYArray[theoIndex]));
                     expIndex++;
                     theoIndex++;
                 }
@@ -129,7 +129,7 @@ namespace MassSpectrometry.MzSpectra
                 {
                     if (keepAllExperimentalPeaks)
                     {
-                        intensityPairs.Add((ExperimentalYArray[expIndex], 0));
+                        intensityPairs.Add((experimentalYArray[expIndex], 0));
                     }
                     expIndex++;
                 }
@@ -137,7 +137,7 @@ namespace MassSpectrometry.MzSpectra
                 {
                     if (keepAllTheoreticalPeaks)
                     {
-                        intensityPairs.Add((0, TheoreticalYArray[theoIndex]));
+                        intensityPairs.Add((0, theoreticalYArray[theoIndex]));
                     }
                     theoIndex++;
                 }
@@ -148,13 +148,13 @@ namespace MassSpectrometry.MzSpectra
             //we need to add zero intensity pairs for each experimental peak that does not have a corresponding theoretical peak
             while (expIndex < ExperimentalXArray.Length && keepAllExperimentalPeaks)
             {
-                intensityPairs.Add((ExperimentalYArray[expIndex], 0));
+                intensityPairs.Add((experimentalYArray[expIndex], 0));
                 expIndex++;
             }
             //We add an intensity pair for every value in the theoretical spectrum.
             while (theoIndex < TheoreticalXArray.Length && keepAllTheoreticalPeaks)
             {
-                intensityPairs.Add((0, TheoreticalYArray[theoIndex]));
+                intensityPairs.Add((0, theoreticalYArray[theoIndex]));
                 theoIndex++;
             }
             
@@ -352,9 +352,9 @@ namespace MassSpectrometry.MzSpectra
             // counts the number of zero values. If zeroCount == intensityPairs.Count, then there are no shared peaks
             int zeroCount = IntensityPairs.Count(p => p.Item1 == 0 | p.Item2 == 0);
             if (zeroCount == IntensityPairs.Count) return null;
+            
             double divergence = 0;
-
-            if (zeroCount == 0) // | correctionConstant == 0)
+            if (zeroCount == 0 || correctionConstant == 0) // | correctionConstant == 0)
             {
                 foreach (var pair in IntensityPairs)
                 {
@@ -366,22 +366,11 @@ namespace MassSpectrometry.MzSpectra
             }
             else
             {
-                // Add correctionConstant and renormalize
-                // Need to use temp variables to avoid modifying the Y array fields
-                double[] tempExperimentalYArray = Normalize(ExperimentalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.SpectrumSum);
-                double[] tempTheoreticalYArray = Normalize(TheoreticalYArray.Select(i => i + correctionConstant).ToArray(), SpectrumNormalizationScheme.SpectrumSum);
-                List<(double, double)> correctedIntensityPairs = GetIntensityPairs(
-                    keepAllExperimentalPeaks: true,
-                    keepAllTheoreticalPeaks: true,
-                    experimentalYArray: tempExperimentalYArray,
-                    theoreticalYArray: tempTheoreticalYArray);
-
-                foreach (var pair in correctedIntensityPairs)
+                double item1NormalizationFactor = IntensityPairs.Select(p => (p.Item1 + correctionConstant)).Sum();
+                double item2NormalizationFactor = IntensityPairs.Select(p => (p.Item2 + correctionConstant)).Sum();
+                foreach (var pair in IntensityPairs)
                 {
-                    if (pair.Item1 != 0 && pair.Item2 != 0)
-                    {
-                        divergence += pair.Item1 * Math.Log(pair.Item1 / pair.Item2);
-                    }
+                    divergence += (pair.Item1 + correctionConstant) / item1NormalizationFactor * Math.Log(((pair.Item1 + correctionConstant) / item1NormalizationFactor) / ((pair.Item2 + correctionConstant) / item2NormalizationFactor));
                 }
             }
             return divergence;
@@ -396,7 +385,7 @@ namespace MassSpectrometry.MzSpectra
             //there must be some legitimate pairs to enter this function so no need to test if pairs exist
             foreach ((double, double) pair in IntensityPairs)
             {
-                squaredSumDifferences += Math.Pow((pair.Item1 - pair.Item2),2);
+                squaredSumDifferences += Math.Pow((pair.Item1 - pair.Item2), 2);
             }
             return squaredSumDifferences > 0 ? Math.Log(Math.Pow(squaredSumDifferences, -1)) : double.MaxValue;
         }

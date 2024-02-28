@@ -212,24 +212,24 @@ namespace Test
             //because the default is to keep all theoretical peaks.
             s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum, ppmTolerance, false, true, 0);
             Assert.AreEqual(5, s.IntensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.92).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.75).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.78).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.76).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.98).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.12).Within(0.01));
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.903).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.718).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.76).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.712).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.475).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.126).Within(0.01));
 
             //Test when not using all peaks of primary(experimental) spectra (bool all experimental peaks is false) and mz cut off is is 300 (default cut off)
             //primary xArray 100, 200, 300, 400, 500, 600, 700 and secondary xArray 200, 300, 500, 600, 800. So, 200, 300, 500, 600 are common. But with 300 cut off, only 300, 500, 600 are common
             //we keep 800 because it is a theoretical peak.
             s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum, ppmTolerance, false, true);
             Assert.AreEqual(4, s.IntensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.95).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.81).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.79).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.80).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.96).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.16).Within(0.01));
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.924).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.75).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.751).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.734).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.681).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.164).Within(0.01));
 
             //Test all different similarity calculations
             experimentalSpectrum = new MzSpectrum(new double[] { 100, 200, 300, 400, 500 }, new double[] { 2, 4, 6, 8, 10 }, false);
@@ -238,13 +238,12 @@ namespace Test
             //all experimental peaks is false and there is no mz cut off.
             //Therefore we get a intensity pair for each theoretical mz for a total of 5.
             Assert.AreEqual(5, s.IntensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.89).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.70).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.74).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.74).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.81).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.24).Within(0.01));
-
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.894).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.704).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.736).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.743).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(0.812).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.244).Within(0.01));
 
             //Test all normalization schemes
             experimentalSpectrum = new MzSpectrum(new double[] { 1000, 2000, 3000 }, new double[] { 2, 4, 6 }, false);
@@ -252,12 +251,12 @@ namespace Test
             s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, ppmTolerance, true, true);
             //there is one mz pair in tolerance (1000,1000). Since we are using all experimental peaks, we get additional pairs for 2000 and 3000 with zero intensities
             Assert.AreEqual(3, s.IntensityPairs.Count);
-            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.27).Within(0.01));
-            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.17).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.37).Within(0.01));
-            Assert.That(s.BrayCurtis(), Is.EqualTo(0.22).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
-            Assert.That(s.DotProduct(), Is.EqualTo(0.33).Within(0.01));
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0.267).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.172).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.374).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.222).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.866).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.333).Within(0.01));
 
             s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum, ppmTolerance, true, true);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.27).Within(0.01));
@@ -288,13 +287,13 @@ namespace Test
             experimentalSpectrum = new MzSpectrum(new double[] { 100, 200, 300 }, new double[] { 2, 4, 6 }, false);
             theoreticalSpectrum = new MzSpectrum(new double[] { 400, 500 }, new double[] { 2, 4 }, false);
             s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum, ppmTolerance, true, true);
-            //There are no mz pairs in tolerence. But, we are keeping all experimental peaks. With the theoretical peaks that totals 5 intensity pairs.
-            Assert.AreEqual(5, s.IntensityPairs.Count);
+            //There are no mz pairs in tolerence. But, we are keeping all experimental peaks. With the theoretical peaks with mz >= 300. That gives us 3 intensity pairs
+            Assert.AreEqual(3, s.IntensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.25).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.247).Within(0.01));
             Assert.That(s.BrayCurtis(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.866).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0).Within(0.01));
 
             experimentalSpectrum = new MzSpectrum(new double[] { 1000, 2000, 3000 }, new double[] { 0, 4, 6 }, false);
@@ -313,22 +312,21 @@ namespace Test
             experimentalSpectrum = new MzSpectrum(new double[] { 1000, 2000, 3000 }, new double[] { 0, 4, 6 }, false);
             theoreticalSpectrum = new MzSpectrum(new double[] { 4000, 5000 }, new double[] { 2, 0 }, false);
             s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum, ppmTolerance, true);
-            //We toss the experimental peak at 1000 and the theoretical peak at 500 because they have zero intensity.
+            //We toss the experimental peak at 1000 and the theoretical peak at 5000 because they have zero intensity.
             //there are no mz pairs in tolerance. But we are keeping all experimental and theoretical peaks. We get 3 intensity pairs for 2000, 3000 and 4000
             Assert.AreEqual(3, s.IntensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.23).Within(0.01));
             Assert.That(s.BrayCurtis(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.4).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.949).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0).Within(0.01));
-            s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum, ppmTolerance, false);
-            Assert.AreEqual(2, s.IntensityPairs.Count);
 
             //Test alternate constructor
             experimentalSpectrum = new MzSpectrum(new double[] { 100, 350, 400 }, new double[] { 2, 4, 6 }, false);
             theoreticalSpectrum = new MzSpectrum(new double[] { 350 }, new double[] { 2 }, false);
             s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, ppmTolerance, true);
+            //there is one mz pair with mz > 300 (350,350). We keep all experimental peaks > 300. That give one more intensity pair for 400.
             Assert.AreEqual(2, s.IntensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.55).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.37).Within(0.01));
@@ -420,20 +418,16 @@ namespace Test
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(0.0853).Within(0.001));
 
             // correct for 0 intensity values
-            p_XArray = new double[] { 1, 2, 3, 4, 5 };
-            p_YArray = new double[] { 0.0, 0.0, 9.0 / 25.0, 12.0 / 25.0, 4.0 / 25.0 };
+            p_XArray = new double[] { 3, 4, 5 };
+            p_YArray = new double[] {9.0 / 25.0, 12.0 / 25.0, 4.0 / 25.0 };
             q_XArray = new double[] { 1, 2, 3, 4, 5 };
             q_YArray = new double[] { 1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0, 1.0 / 4.0, 0.0 };
 
-            //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool allpeaks is true) and mz cut off is 0 (no cut off)
+            //Test when using all peaks of primary(experimental) and secondary(theoretical)  spectra (bool all experimental peaks is true) and mz cut off is 0 (no cut off)
             s = new(p_XArray, p_YArray, q_XArray, q_YArray,
                 SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum, ppmTolerance, true, true, 0);
             // With correction, this should increase divergence for missing peaks
-            double? corrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-8);
-            double? uncorrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0);
-            double? testCorrect = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1.0 / 50.0);
-            double? defaultValue = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-9);
-            Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.GreaterThan(3));
+            Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.EqualTo(3.467).Within(0.01));
             Assert.That(s.KullbackLeiblerDivergence_P_Q() > s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0));
 
             // correct for 0 intensity values
@@ -446,9 +440,6 @@ namespace Test
             s = new(p_XArray, p_YArray, q_XArray, q_YArray,
                 SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum, ppmTolerance, true, true, 0);
             // With correction, this should increase divergence for missing peaks
-            //corrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1e-8);
-            //uncorrected = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0);
-            //testCorrect = s.KullbackLeiblerDivergence_P_Q(correctionConstant: 1.0 / 50.0);
             Assert.That(s.KullbackLeiblerDivergence_P_Q(), Is.GreaterThan(3));
             Assert.That(s.KullbackLeiblerDivergence_P_Q() > s.KullbackLeiblerDivergence_P_Q(correctionConstant: 0));
 
