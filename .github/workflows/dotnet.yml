@@ -25,9 +25,9 @@ jobs:
     - name: Build (TestFlashLFQ)
       run: cd mzLib && dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj
     - name: Add coverlet collector (Test)
-      run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector && dotnet add Test/Test.csproj package System.Text.Json -v 8.0.0
+      run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.0
     - name: Add coverlet collector (TestFlashLFQ)
-      run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector && dotnet add Test/Test.csproj package System.Text.Json -v 8.0.0
+      run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector -v 6.0.0
     - name: Test
       run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
     - name: TestFlashLFQ
