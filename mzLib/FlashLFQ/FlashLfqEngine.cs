@@ -912,38 +912,6 @@ namespace FlashLFQ
                             }
                         }
                     });
-
-                // List of donor peaks where the peptide WAS identified in the acceptor file and the best donor is a different file.
-                // This will be used for checking the error rate
-                // For each sequence, we only select one peak corresponding to the PSM with the lowest q-value
-                List<ChromatographicPeak> donorPeaksWithMsms = donorFilePeakListKvp.Value
-                    .Where(p => acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)
-                      && p.SpectraFileInfo != idAcceptorFile
-                      && !p.Identifications.First().IsDecoy )
-                    .ToList();
-
-                // Loop through every MSMS id in the donor file
-                Parallel.ForEach(Partitioner.Create(0, donorPeaksWithMsms.Count),
-                    new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
-                    (range, loopState) =>
-                    {
-
-                        for (int i = range.Item1; i < range.Item2; i++)
-                        {
-                            ChromatographicPeak donorPeak = donorPeaksWithMsms[i];
-                            // TODO: Add a toggle that set rtRange to be maximum width
-                            RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
-                            if (rtInfo == null) continue;
-
-                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, doubleCheckPeaks, out var bestAcceptor);
-                            if(bestAcceptor == null)
-                            {
-                                doubleCheckPeaks.TryAdd(
-                                    key: donorPeak.Identifications.First().ModifiedSequence,
-                                    value: null);
-                            }
-                        }
-                    });
             }
 
             foreach (var seqDictionaryKvp in matchBetweenRunsIdentifiedPeaks)
@@ -993,101 +961,9 @@ namespace FlashLFQ
                     }
                 }
 
-                if (best.Identifications.First().QValue >= 0.01 && !best.DecoyPeptide && !best.RandomRt)
-                    continue; // don't accept MBR peaks based on low q ids, do accept decoys though
+                //if (best.Identifications.First().QValue >= 0.01 && !best.DecoyPeptide && !best.RandomRt)
+                //    continue; // don't accept MBR peaks based on low q ids, do accept decoys though
                 _results.Peaks[idAcceptorFile].Add(best);
-            }
-
-            // repeat the above procedures for the doubleCheckPeaks
-            foreach (var seqDictionaryKvp in doubleCheckPeaks.Where(kvp => kvp.Value != null))
-            {
-                // Each isotopic envelope is linked to a list of ChromatographicPeaks
-                // If multiple peaks are associated with the same envelope, and they have different associated peptide identifications and they're kept separate.
-                foreach (var envelopePeakListKvp in seqDictionaryKvp.Value)
-                {
-                    List<ChromatographicPeak> bestPeaks = new();
-                    foreach (var peakGroup in envelopePeakListKvp.Value.GroupBy(peak => peak.Identifications.First().ModifiedSequence))
-                    {
-                        bestPeaks.Add(peakGroup.MaxBy(peak => peak.MbrScore));
-                    }
-                    envelopePeakListKvp.Value.Clear();
-                    envelopePeakListKvp.Value.AddRange(bestPeaks);
-                }
-            }
-
-            // take the best result (highest scoring) for each peptide after we've matched from all the donor files
-            foreach (var mbrIdentifiedPeptide in doubleCheckPeaks.Where(p => acceptorFileIdentifiedSequences.Contains(p.Key)))
-            {
-                string peptideModifiedSequence = mbrIdentifiedPeptide.Key;
-                List<ChromatographicPeak> msmsPeaks = acceptorFileIdentifiedPeaks
-                    .Where(peak =>  peak.Apex != null && peak.Identifications.First().ModifiedSequence.Equals(peptideModifiedSequence)).ToList();
-                if (!msmsPeaks.Any()) continue; //This shouldn't happen
-                if (mbrIdentifiedPeptide.Value == null)
-                {
-                    ChromatographicPeak nullPeak = new ChromatographicPeak(msmsPeaks.First().Identifications.First(), isMbrPeak: false, idAcceptorFile);
-                    nullPeak.Collision = "0"; // Zero represent peak not found
-                    _results.DoubleCheckedPeaks[idAcceptorFile].Add(nullPeak);
-                    continue;
-                }
-
-                List<ChromatographicPeak> peakHypotheses = mbrIdentifiedPeptide.Value.SelectMany(p => p.Value).OrderByDescending(p => p.MbrScore).ToList();
-                ChromatographicPeak best = peakHypotheses.First();
-                peakHypotheses.Remove(best);
-
-                if (peakHypotheses.Count > 0)
-                {
-                    double start = best.IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime);
-                    double end = best.IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime);
-
-                    List<ChromatographicPeak> peaksToRemoveFromHypotheses = new List<ChromatographicPeak>();
-                    foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
-                    {
-                        if (peak.Apex.IndexedPeak.RetentionTime > start && peak.Apex.IndexedPeak.RetentionTime < end)
-                        {
-                            best.MergeFeatureWith(peak, Integrate);
-
-                            peaksToRemoveFromHypotheses.Add(peak);
-                        }
-                    }
-                }
-
-                if(best == null || best.Apex == null)
-                {
-                    ChromatographicPeak nullPeak = new ChromatographicPeak(msmsPeaks.First().Identifications.First(), isMbrPeak: false, idAcceptorFile);
-                    nullPeak.Collision = "0"; // Zero represent peak not found
-                    _results.DoubleCheckedPeaks[idAcceptorFile].Add(nullPeak);
-                    continue;
-                }
-
-                if (msmsPeaks.Any(peak => peak.Apex.Equals(best.Apex)))
-                {
-                    best.Collision = "1"; // One is best possible
-                }
-                else
-                {
-                    var test = msmsPeaks.Where(peak => Math.Abs(peak.Apex.IndexedPeak.RetentionTime - best.Apex.IndexedPeak.RetentionTime) < 0.0001);
-                    if(test.IsNotNullOrEmpty())
-                    {
-                        best.Collision = "2"; // Assumed same time, different charge state
-                    }
-                    else
-                    {
-                        test = msmsPeaks.Where(peak =>
-                        {
-                            var rts = peak.IsotopicEnvelopes.Select(e => e.IndexedPeak.RetentionTime);
-                            return best.ApexRetentionTime >= rts.Minimum() && best.ApexRetentionTime <= rts.Maximum();
-                        });
-                        if (test.IsNotNullOrEmpty())
-                        {
-                            best.Collision = "3"; // Overlap peak
-                        }
-                        else
-                        {
-                            best.Collision = "-1";
-                        }
-                    }
-                }
-                _results.DoubleCheckedPeaks[idAcceptorFile].Add(best);
             }
 
             RunErrorChecking(idAcceptorFile);

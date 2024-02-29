@@ -132,9 +132,6 @@ namespace Test
             //    }
             //}
 
-            var collisionDict = results.DoubleCheckedPeaks.SelectMany(kvp => kvp.Value).GroupBy(peak => peak.Collision)
-                .ToDictionary(g => g.Key, g => g.Count());
-
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(j5) == DetectionType.MBR && p.Value.GetDetectionType(j6) == DetectionType.MSMS).ToList();
