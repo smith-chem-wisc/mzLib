@@ -52,7 +52,6 @@ namespace MassSpectrometry.MzSpectra
         public double[] TheoreticalXArray { get; }
 
         private readonly double _localPpmTolerance;
-
         private readonly SpectrumNormalizationScheme _scheme;
         private readonly bool _keepAllExperimentalPeaks;
         private readonly bool _keepAllTheoreticalPeaks;
