@@ -132,11 +132,16 @@ namespace Test
             //    }
             //}
 
+            var collisionDict = results.DoubleCheckedPeaks.SelectMany(kvp => kvp.Value).GroupBy(peak => peak.Collision)
+                .ToDictionary(g => g.Key, g => g.Count());
+
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(j5) == DetectionType.MBR && p.Value.GetDetectionType(j6) == DetectionType.MSMS).ToList();
 
             Assert.That(f1r1MbrResults.Count >= 132);
+
+            results.WriteResults(peaksOutputPath: @"C:\Users\Alex\Desktop\FlashTest\AllPeaks.tsv", null, null, null, true);
 
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(j5) == DetectionType.MSMS && p.Value.GetDetectionType(j6) == DetectionType.MBR).ToList();

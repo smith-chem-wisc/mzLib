@@ -14,6 +14,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
+        public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DoubleCheckedPeaks;
         public  IEnumerable<ChromatographicPeak> DecoyPeaks { get; set; }
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)
@@ -22,10 +23,12 @@ namespace FlashLFQ
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
+            DoubleCheckedPeaks = new();
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
                 Peaks.Add(file, new List<ChromatographicPeak>());
+                DoubleCheckedPeaks.Add(file, new List<ChromatographicPeak>());
             }
 
             foreach (Identification id in identifications)
@@ -557,6 +560,21 @@ namespace FlashLFQ
                     foreach (var peak in Peaks.SelectMany(p => p.Value)
                         .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
                         .ThenByDescending(p => p.Intensity))
+                    {
+                        output.WriteLine(peak.ToString());
+                    }
+                }
+
+                string[] pathSplit = peaksOutputPath.Split(Path.DirectorySeparatorChar);
+                pathSplit[^1] = "DoubleCheckedPeaks.tsv";
+
+                using (var output = new StreamWriter(String.Join(Path.DirectorySeparatorChar, pathSplit)))
+                {
+                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+
+                    foreach (var peak in DoubleCheckedPeaks.SelectMany(p => p.Value)
+                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
+                        .ThenByDescending(p => p.Collision))
                     {
                         output.WriteLine(peak.ToString());
                     }
