@@ -914,10 +914,13 @@ namespace FlashLFQ
                     });
             }
 
+            // Eliminate duplicate peaks (not sure where they come from)
             foreach (var seqDictionaryKvp in matchBetweenRunsIdentifiedPeaks)
             {
                 // Each isotopic envelope is linked to a list of ChromatographicPeaks
-                // If multiple peaks are associated with the same envelope, and they have different associated peptide identifications and they're kept separate.
+                // Here, we remove instances where the same envelope is associated with multiple chromatographic peaks but the peaks correspond to the same donor peptide
+                // I don't know why this happens lol
+                // If multiple peaks are associated with the same envelope, and they have different associated peptide identifications, then they're kept separate.
                 foreach (var envelopePeakListKvp in seqDictionaryKvp.Value)
                 {
                     List<ChromatographicPeak> bestPeaks = new();
@@ -930,6 +933,12 @@ namespace FlashLFQ
                 }
             }
 
+            // Create a dictionary that stores imsPeak associated with an ms/ms identified peptide
+            Dictionary<int, List<IndexedMassSpectralPeak>> msmsImsPeaks = _results.Peaks[idAcceptorFile].Where(peak => peak.Apex?.IndexedPeak != null)
+                .Select(peak => peak.Apex.IndexedPeak)
+                .GroupBy(imsPeak => imsPeak.ZeroBasedMs1ScanIndex)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
             // take the best result (highest scoring) for each peptide after we've matched from all the donor files
             foreach (var mbrIdentifiedPeptide in matchBetweenRunsIdentifiedPeaks.Where(p => !acceptorFileIdentifiedSequences.Contains(p.Key)))
             {
@@ -940,29 +949,46 @@ namespace FlashLFQ
                 }
 
                 List<ChromatographicPeak> peakHypotheses = mbrIdentifiedPeptide.Value.SelectMany(p => p.Value).OrderByDescending(p => p.MbrScore).ToList();
-
                 ChromatographicPeak best = peakHypotheses.First();
                 peakHypotheses.Remove(best);
 
+                // Discard any peaks that are already associated with an ms/ms identified peptide
+                while(best.Apex?.IndexedPeak != null && msmsImsPeaks.TryGetValue(best.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList))
+                {
+                    if(peakList.Contains(best.Apex.IndexedPeak))
+                    {
+                        if(!peakHypotheses.Any())
+                        {
+                            best = null;
+                            break;
+                        }
+                        best = peakHypotheses.First();
+                        peakHypotheses.Remove(best);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                if (best == null) continue;
+
+                // merge peaks with different charge states
                 if (peakHypotheses.Count > 0)
                 {
                     double start = best.IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime);
                     double end = best.IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime);
 
-                    List<ChromatographicPeak> peaksToRemoveFromHypotheses = new List<ChromatographicPeak>();
+                    //List<ChromatographicPeak> peaksToRemoveFromHypotheses = new List<ChromatographicPeak>();
                     foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
                     {
                         if (peak.Apex.IndexedPeak.RetentionTime > start && peak.Apex.IndexedPeak.RetentionTime < end)
                         {
                             best.MergeFeatureWith(peak, Integrate);
 
-                            peaksToRemoveFromHypotheses.Add(peak);
+                            //peaksToRemoveFromHypotheses.Add(peak);
                         }
                     }
                 }
-
-                //if (best.Identifications.First().QValue >= 0.01 && !best.DecoyPeptide && !best.RandomRt)
-                //    continue; // don't accept MBR peaks based on low q ids, do accept decoys though
                 _results.Peaks[idAcceptorFile].Add(best);
             }
 
@@ -1133,7 +1159,6 @@ namespace FlashLFQ
         }
 
 
-
         /// <summary>
         /// Checks for and resolves situations where one IndexedMassSpectralPeak is defined as the apex 
         /// for multiple ChromatographicPeaks. In these situations, the two peaks are merged and the merged
@@ -1152,7 +1177,7 @@ namespace FlashLFQ
             // merge duplicate peaks and handle MBR/MSMS peakfinding conflicts
             var errorCheckedPeaksGroupedByApex = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
             var errorCheckedPeaks = new List<ChromatographicPeak>();
-            List<ChromatographicPeak> decoyPeptidePeaks = new();
+            
             foreach (ChromatographicPeak tryPeak in _results.Peaks[spectraFile].OrderBy(p => p.IsMbrPeak))
             {
                 tryPeak.CalculateIntensityForThisFeature(Integrate);
@@ -1172,21 +1197,18 @@ namespace FlashLFQ
                 IndexedMassSpectralPeak apexImsPeak = tryPeak.Apex.IndexedPeak;
                 if (errorCheckedPeaksGroupedByApex.TryGetValue(apexImsPeak, out ChromatographicPeak storedPeak) && storedPeak != null)
                 {
-                    //if (tryPeak.IsMbrPeak && storedPeak == null)
-                    //{
-                    //    continue;
-                    //}
                     if (!tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
                     {
                         storedPeak.MergeFeatureWith(tryPeak, Integrate);
                     }
                     else if (tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
                     {
-                        if(tryPeak.DecoyPeptide)
-                        {
-                            decoyPeptidePeaks.Add(tryPeak);
-                        }
-                        continue; // Default to MSMS peaks over MBR Peaks
+                        // Default to MSMS peaks over MBR Peaks.
+                        // Most of these have already been eliminated
+                        // However, sometimes merging MBR peaks with different charge states reveals that
+                        // The MBR peak conflicts with an MSMS peak
+                        // Removing the peak when this happens is a conservative step.
+                        continue; 
                     }
                     else if (tryPeak.IsMbrPeak && storedPeak.IsMbrPeak)
                     {
@@ -1203,35 +1225,15 @@ namespace FlashLFQ
                 else
                 {
                     errorCheckedPeaksGroupedByApex.Add(apexImsPeak, tryPeak);
-                    
-                }
-            }
-
-            foreach(var peak in DecoyPeaks.Where(peak => peak.SpectraFileInfo == spectraFile))
-            {
-                var apexIms = peak.Apex.IndexedPeak;
-                if(errorCheckedPeaksGroupedByApex.TryGetValue(apexIms, out var collisionPeak))
-                {
-                    if(collisionPeak.IsMbrPeak)
-                    {
-                        peak.Collision = "MBR";
-                    }
-                    else
-                    {
-                        peak.Collision = "MSMS";
-                    }
-                }
-                else
-                {
-                    peak.Collision = "N/A";
                 }
             }
 
             errorCheckedPeaks.AddRange(errorCheckedPeaksGroupedByApex.Values.Where(p => p != null));
-            //errorCheckedPeaks.AddRange(decoyPeptidePeaks);
-
+            
             _results.Peaks[spectraFile] = errorCheckedPeaks;
         }
+
+        public int collisionCount = 0;
 
         /// <summary>
         /// Takes in a list of imsPeaks and finds all the isotopic peaks in each scan. If the experimental isotopic distribution
