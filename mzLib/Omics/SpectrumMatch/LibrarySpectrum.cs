@@ -50,9 +50,9 @@ namespace Omics.SpectrumMatch
                 spectrumMatchFragments.Select(f => f.Intensity).ToArray(),
                 MatchedFragmentIons.Select(f => f.Mz).ToArray(),
                 MatchedFragmentIons.Select(f => f.Intensity).ToArray(),
-                SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak,
                 toleranceInPpm: 20,
-                allPeaks: true);
+                keepAllExperimentalPeaks: true);
             double? spectralContrastAngle = spectraComparison.SpectralContrastAngle();
 
             return spectralContrastAngle == null
