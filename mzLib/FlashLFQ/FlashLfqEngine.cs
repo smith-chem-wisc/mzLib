@@ -921,34 +921,22 @@ namespace FlashLFQ
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaks, out var bestAcceptor);
 
                             // Draw a random donor that has an rt sufficiently far enough away
-                            ChromatographicPeak randomDonor = null;
-                            double minimumDifference = Math.Min(rtInfo.Width * 1.5, 1);
+                            ChromatographicPeak randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
+                            int randomPeaksSampled = 1;
+                            double minimumDifference = Math.Min(rtInfo.Width * 1.25, 0.5);
 
-                            // when choosing the "random" rt donor peak, we want to go closer to the center of the run
-                            int iterator = rtCalCurveIndex < rtCalibrationCurve.Length / 2 ? 1 : -1;
-                            for(int j = rtCalCurveIndex+iterator; j >=0 && j < rtCalibrationCurve.Length; j += iterator)
+                            while (randomDonor == null 
+                                || randomDonor.Identifications.Any() //probably unneccesary check
+                                || randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
+                                || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumDifference) // multiply for safety, in case the relative rt shifts after alignment
                             {
-                                RetentionTimeCalibDataPoint testPoint = rtCalibrationCurve[j];
-                                if (testPoint.DonorFilePeak != null && testPoint.DonorFilePeak.ApexRetentionTime > 0)
+                                randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
+                                if (randomPeaksSampled++ > (rtCalibrationCurve.Length - 1))
                                 {
-                                    double testRetentionTime = testPoint.DonorFilePeak.ApexRetentionTime;
-                                    if ( Math.Abs(testRetentionTime - donorPeak.ApexRetentionTime) > minimumDifference )
-                                    {
-                                        randomDonor = testPoint.DonorFilePeak;
-                                        break;
-                                    }
+                                    randomDonor = null;
+                                    break; // Prevent infinite loops
                                 }
                             }
-                            //while(randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
-                            //    || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumDifference) // multiply for safety, in case the relative rt shifts after alignment
-                            //{
-                            //    randomDonor = idDonorPeaks[randomGenerator.Next(idDonorPeaks.Count)];
-                            //    if (randomPeaksSampled++ > (idDonorPeaks.Count - 1))
-                            //    {
-                            //        randomDonor = null;
-                            //        break; // Prevent infinite loops
-                            //    }
-                            //}
                             if (randomDonor == null) continue;
 
                             // Map the random rt onto the new file
