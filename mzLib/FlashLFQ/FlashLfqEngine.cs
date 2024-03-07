@@ -926,7 +926,6 @@ namespace FlashLFQ
                             double minimumDifference = Math.Min(rtInfo.Width * 1.25, 0.5);
 
                             while (randomDonor == null 
-                                || randomDonor.Identifications.Any() //probably unneccesary check
                                 || randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
                                 || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumDifference) // multiply for safety, in case the relative rt shifts after alignment
                             {
