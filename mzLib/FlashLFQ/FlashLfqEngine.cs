@@ -41,8 +41,8 @@ namespace FlashLFQ
         public readonly double MbrPpmTolerance;
 
         // New MBR Settings
-        public readonly double RtWindowIncrease = 1.0;
-        public readonly double MbrAlignmentWindow = 0.5;
+        public readonly double RtWindowIncrease = 0;
+        public readonly double MbrAlignmentWindow = 2.5;
         //public readonly double? MbrPpmTolerance;
         /// <summary>
         /// Specifies how the donor peak for MBR is selected. 
@@ -83,6 +83,7 @@ namespace FlashLFQ
         internal PeakIndexingEngine _peakIndexingEngine;
         internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
         internal ConcurrentBag<ChromatographicPeak> DecoyPeaks { get; private set; }
+        internal List<string> PeptidesForMbr { get; init; }
         
 
         public FlashLfqEngine(
@@ -113,7 +114,8 @@ namespace FlashLFQ
             bool pairedSamples = false,
             int? randomSeed = null,
             char donorCriterion = 'I',
-            double donorQValueThreshold = 0.05)
+            double donorQValueThreshold = 0.05,
+            List<string> peptidesForMbr = null)
         {
             Loaders.LoadElements();
 
@@ -134,6 +136,10 @@ namespace FlashLFQ
             if(MatchBetweenRuns)
             {
                 DecoyPeaks = new();
+                if(peptidesForMbr != null)
+                {
+                    PeptidesForMbr = peptidesForMbr;
+                }
             }
             MbrPpmTolerance = matchBetweenRunsPpmTolerance;
             Integrate = integrate;
@@ -580,6 +586,20 @@ namespace FlashLFQ
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                 .ToDictionary(group => group.Key, group => group.ToList());
 
+            if(PeptidesForMbr.IsNotNullOrEmpty())
+            {
+                // remove all donor sequences not in PeptidesForMbr
+                Dictionary<string, List<ChromatographicPeak>> filteredSeqPeakDict = new();
+                foreach(string seq in PeptidesForMbr)
+                {
+                    if(seqPeakDict.TryGetValue(seq, out var value))
+                    {
+                        filteredSeqPeakDict.Add(seq, value);
+                    }
+                }
+                seqPeakDict = filteredSeqPeakDict;
+            }
+
             // iterate through each unique sequence
             foreach (var sequencePeakListKvp in seqPeakDict)
             {
@@ -645,9 +665,10 @@ namespace FlashLFQ
             ChromatographicPeak donorPeak,
             SpectraFileInfo acceptorFile,
             bool acceptorSampleIsFractionated,
-            bool donorSampleIsFractionated)
+            bool donorSampleIsFractionated, 
+            out int rtCalCurveIndex)
         {
-
+            rtCalCurveIndex = -1;
             var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>();
 
             // only compare +- 1 fraction
@@ -674,6 +695,8 @@ namespace FlashLFQ
             {
                 index = rtCalibrationCurve.Length - 1;
             }
+
+            rtCalCurveIndex = index;
 
             // gather nearby data points
             for (int r = index; r < rtCalibrationCurve.Length; r++)
@@ -739,6 +762,17 @@ namespace FlashLFQ
             //rtRange = Math.Min(rtRange, MbrRtWindow);
 
             return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime + median, width: rtRange, rtSd: rtStdDev, rtInterquartileRange: rtInterquartileRange);
+        }
+
+        // Wrapper for the other PredictRetentionTime
+        internal RtInfo PredictRetentionTime(
+            RetentionTimeCalibDataPoint[] rtCalibrationCurve,
+            ChromatographicPeak donorPeak,
+            SpectraFileInfo acceptorFile,
+            bool acceptorSampleIsFractionated,
+            bool donorSampleIsFractionated)
+        {
+            return PredictRetentionTime(rtCalibrationCurve, donorPeak, acceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated, out int calCurveindex);
         }
 
         /// <summary>
@@ -880,29 +914,45 @@ namespace FlashLFQ
                         {
                             ChromatographicPeak donorPeak = idDonorPeaks[i];
                             // TODO: Add a toggle that set rtRange to be maximum width
-                            RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
+                            RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated, 
+                                out int rtCalCurveIndex);
                             if (rtInfo == null) continue;
 
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaks, out var bestAcceptor);
 
                             // Draw a random donor that has an rt sufficiently far enough away
-                            var randomDonor = idDonorPeaks[randomGenerator.Next(idDonorPeaks.Count)];
-                            int randomPeaksSampled = 0;
-                            double minimumDifference = Math.Min(rtInfo.Width * 1.25, 1);
-                            while(randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
-                                || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumDifference) // multiply for safety, in case the relative rt shifts after alignment
+                            ChromatographicPeak randomDonor = null;
+                            double minimumDifference = Math.Min(rtInfo.Width * 1.5, 1);
+
+                            // when choosing the "random" rt donor peak, we want to go closer to the center of the run
+                            int iterator = rtCalCurveIndex < rtCalibrationCurve.Length / 2 ? 1 : -1;
+                            for(int j = rtCalCurveIndex+iterator; j >=0 && j < rtCalibrationCurve.Length; j += iterator)
                             {
-                                randomDonor = idDonorPeaks[randomGenerator.Next(idDonorPeaks.Count)];
-                                if (randomPeaksSampled++ > (idDonorPeaks.Count - 1))
+                                RetentionTimeCalibDataPoint testPoint = rtCalibrationCurve[j];
+                                if (testPoint.DonorFilePeak != null && testPoint.DonorFilePeak.ApexRetentionTime > 0)
                                 {
-                                    randomDonor = null;
-                                    break; // Prevent infinite loops
+                                    double testRetentionTime = testPoint.DonorFilePeak.ApexRetentionTime;
+                                    if ( Math.Abs(testRetentionTime - donorPeak.ApexRetentionTime) > minimumDifference )
+                                    {
+                                        randomDonor = testPoint.DonorFilePeak;
+                                        break;
+                                    }
                                 }
                             }
+                            //while(randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
+                            //    || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumDifference) // multiply for safety, in case the relative rt shifts after alignment
+                            //{
+                            //    randomDonor = idDonorPeaks[randomGenerator.Next(idDonorPeaks.Count)];
+                            //    if (randomPeaksSampled++ > (idDonorPeaks.Count - 1))
+                            //    {
+                            //        randomDonor = null;
+                            //        break; // Prevent infinite loops
+                            //    }
+                            //}
                             if (randomDonor == null) continue;
 
                             // Map the random rt onto the new file
-                            RtInfo decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor,idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
+                            RtInfo decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                             if (decoyRtInfo == null) continue;
                             // Find a decoy peak using the randomly drawn retention time
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaks, out var bestDecoy, randomRt:decoyRtInfo.PredictedRt);
@@ -1044,7 +1094,7 @@ namespace FlashLFQ
             }
 
             Identification donorIdentification = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First();
-            double rtVariance = Math.Min(rtInfo.Width - RtWindowIncrease / 6, 0.05); // Minimum standard deviation of 3 seconds
+            double rtVariance = Math.Min((rtInfo.Width - RtWindowIncrease) / 6, 0.05); // Minimum standard deviation of 3 seconds
             Normal rtScoringDistribution = randomRt == null ? new Normal(rtInfo.PredictedRt, rtVariance) : new Normal((double)randomRt, rtVariance);
             bestAcceptor = null;
 
@@ -1232,8 +1282,6 @@ namespace FlashLFQ
             
             _results.Peaks[spectraFile] = errorCheckedPeaks;
         }
-
-        public int collisionCount = 0;
 
         /// <summary>
         /// Takes in a list of imsPeaks and finds all the isotopic peaks in each scan. If the experimental isotopic distribution
