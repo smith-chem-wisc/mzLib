@@ -902,14 +902,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public override int GetHashCode()
         {
-            if (DigestionParams == null)
-            {
-                return FullSequence.GetHashCode();
-            }
-            else
-            {
-                return FullSequence.GetHashCode() + DigestionParams.DigestionAgent.GetHashCode();
-            }
+            return FullSequence.GetHashCode();
         }
 
         /// <summary>
