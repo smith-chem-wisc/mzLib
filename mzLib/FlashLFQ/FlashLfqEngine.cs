@@ -1056,8 +1056,8 @@ namespace FlashLFQ
             Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
             Ms1ScanInfo start = ms1ScanInfos[0];
             Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
-            double rtStartHypothesis = randomRt == null ? rtInfo.RtStartHypothesis : (double)randomRt - (rtInfo.Width / 2.0);
-            double rtEndHypothesis = randomRt == null ? rtInfo.RtEndHypothesis : (double)randomRt + (rtInfo.Width / 2.0);
+            double rtStartHypothesis = randomRt == null ? rtInfo.RtStartHypothesis : (double)randomRt - Math.Max((rtInfo.Width / 2.0), 0.25);
+            double rtEndHypothesis = randomRt == null ? rtInfo.RtEndHypothesis : (double)randomRt + Math.Max((rtInfo.Width / 2.0), 0.25);
 
             for (int j = 0; j < ms1ScanInfos.Length; j++)
             {

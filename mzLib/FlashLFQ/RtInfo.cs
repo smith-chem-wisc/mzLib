@@ -12,8 +12,8 @@ namespace FlashLFQ
         public double Width { get; }
         public double? RtSd { get; }
         public double? RtInterquartileRange { get; }
-        public double RtStartHypothesis => PredictedRt - (Width / 2.0);
-        public double RtEndHypothesis => PredictedRt + (Width / 2.0);
+        public double RtStartHypothesis => PredictedRt - Math.Max((Width / 2.0), 0.25);
+        public double RtEndHypothesis => PredictedRt + Math.Max((Width / 2.0), 0.25);
 
         public RtInfo(double predictedRt, double width, double? rtSd, double? rtInterquartileRange)
         {
