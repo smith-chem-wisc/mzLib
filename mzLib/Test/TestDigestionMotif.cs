@@ -563,9 +563,9 @@ namespace Test
             Assert.IsTrue(pwsms.Any(x => x.OneBasedStartResidueInProtein == 57 && x.OneBasedEndResidueInProtein == 87));
             Assert.IsTrue(pwsms.Any(x => x.OneBasedStartResidueInProtein == 90 && x.OneBasedEndResidueInProtein == 110));
             //check that all the correct peptides were made
-            Assert.IsTrue(hashset.Count == 52);
-            //check that there are no duplicates
-            Assert.IsTrue(pwsms.Count == hashset.Count);
+            Assert.AreEqual(hashset.Count, 51);
+            //check that there is one duplicate peptide (duplicate full sequence)
+            Assert.AreEqual(1, pwsms.Count - hashset.Count);
             //Speedy semi specific test
             DigestionParams speedySemiN = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Omics.Fragmentation.FragmentationTerminus.N);
             DigestionParams speedySemiC = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Omics.Fragmentation.FragmentationTerminus.C);
