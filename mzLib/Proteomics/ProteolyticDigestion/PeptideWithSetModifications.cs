@@ -49,7 +49,7 @@ namespace Proteomics.ProteolyticDigestion
             FullSequence = this.DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
-            PairedTargetDecoySequence = pairedTargetDecoySequence; // Added PairedTargetDecoyHash as a nullable integer
+            PairedTargetDecoySequence = pairedTargetDecoySequence;
         }
 
         /// <summary>
