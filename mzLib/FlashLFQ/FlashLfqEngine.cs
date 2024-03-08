@@ -706,13 +706,13 @@ namespace FlashLFQ
 
             int numberOfForwardAnchors = 0;
             // gather nearby data points
-            for (int r = index; r < rtCalibrationCurve.Length; r++)
+            for (int r = index+1; r < rtCalibrationCurve.Length; r++)
             {
                 double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
                 if (rtCalibrationCurve[r].AcceptorFilePeak != null 
                     && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
-                    if(Math.Abs(rtDiff) < 0.5) // If the rtDiff is too large, it's no longer local alignment
+                    if(Math.Abs(rtDiff) > 0.5) // If the rtDiff is too large, it's no longer local alignment
                     {
                         break;
                     }
@@ -732,7 +732,7 @@ namespace FlashLFQ
                 if (rtCalibrationCurve[r].AcceptorFilePeak != null
                     && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
-                    if (Math.Abs(rtDiff) < 0.5) // If the rtDiff is too large, it's no longer local alignment
+                    if (Math.Abs(rtDiff) > 0.5) // If the rtDiff is too large, it's no longer local alignment
                     {
                         break;
                     }
@@ -1053,8 +1053,8 @@ namespace FlashLFQ
             Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
             Ms1ScanInfo start = ms1ScanInfos[0];
             Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
-            double rtStartHypothesis = randomRt == null ? rtInfo.RtStartHypothesis : (double)randomRt - Math.Max((rtInfo.Width / 2.0), 0.25);
-            double rtEndHypothesis = randomRt == null ? rtInfo.RtEndHypothesis : (double)randomRt + Math.Max((rtInfo.Width / 2.0), 0.25);
+            double rtStartHypothesis = randomRt == null ? rtInfo.RtStartHypothesis : (double)randomRt - (rtInfo.Width / 2.0);
+            double rtEndHypothesis = randomRt == null ? rtInfo.RtEndHypothesis : (double)randomRt + (rtInfo.Width / 2.0);
 
             for (int j = 0; j < ms1ScanInfos.Length; j++)
             {
