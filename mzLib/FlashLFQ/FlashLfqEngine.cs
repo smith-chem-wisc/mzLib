@@ -753,19 +753,19 @@ namespace FlashLFQ
             if (!nearbyCalibrationPoints.Any())
             {
                 // Default rt adjustments
-                medianRtDiff = scorer.GetMedianRtDiff(donorPeak.SpectraFileInfo);
-                rtRange = scorer.GetRTWindowWidth(donorPeak.SpectraFileInfo);
+                return null;
+                //medianRtDiff = scorer.GetMedianRtDiff(donorPeak.SpectraFileInfo);
+                //rtRange = scorer.GetRTWindowWidth(donorPeak.SpectraFileInfo);
             }
-            else
-            {
-                // calculate difference between acceptor and donor RTs for these RT region
-                List<double> rtDiffs = nearbyCalibrationPoints
-                    .Select(p =>  p.DonorFilePeak.ApexRetentionTime - p.AcceptorFilePeak.ApexRetentionTime)
-                    .ToList();
+
+            // calculate difference between acceptor and donor RTs for these RT region
+            List<double> rtDiffs = nearbyCalibrationPoints
+                .Select(p =>  p.DonorFilePeak.ApexRetentionTime - p.AcceptorFilePeak.ApexRetentionTime)
+                .ToList();
                 
-                medianRtDiff = rtDiffs.Median();
-                rtRange = rtDiffs.InterquartileRange() * 6; // This is roughly equivalent to 2 standard deviations
-            }
+            medianRtDiff = rtDiffs.Median();
+            rtRange = rtDiffs.InterquartileRange() * 4.5; // This is roughly equivalent to 2 standard deviations
+            
             
             double? rtStdDev = null;
             double? rtInterquartileRange = null;
@@ -954,7 +954,6 @@ namespace FlashLFQ
                     });
 
                 HashSet<string> acceptorFileTopMsmsSeqs = rtCalibrationCurve.Where(point => point.DonorFilePeak != null && point.AcceptorFilePeak != null)
-                    .OrderByDescending(p => p.AcceptorFilePeak.Identifications.First().PsmScore)
                     .Select(p => p.AcceptorFilePeak.Identifications.First().ModifiedSequence)
                     .Take(10000)
                     .ToHashSet();
