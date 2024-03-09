@@ -13,17 +13,20 @@ namespace FlashLFQ
     /// </summary>
     internal class MbrScorer
     {
-        // Intensity and ppm distribution are specific to each acceptor file
+        // Intensity and ppm distributions are specific to each acceptor file
         private readonly Normal _logIntensityDistribution;
         private readonly Normal _ppmDistribution;
         private readonly Normal _scanCountDistribution;
-        // The logFcDistributions are unique to each donor file - acceptor file pair
+        // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
         private Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
+        private Dictionary<SpectraFileInfo, Normal> _rtDifferenceDistributionDictionary; // Donor file rt - Acceptor File rt
 
         internal Dictionary<IndexedMassSpectralPeak, ChromatographicPeak> ApexToAcceptorFilePeakDict { get; }
         internal List<ChromatographicPeak> UnambiguousMsMsAcceptorPeaks { get; }
         internal double MaxNumberOfScansObserved { get; }
 
+
+        internal readonly Normal _rtErrorDistribution;
 
         /// <summary>
         /// Takes in an intensity distribution, a log foldchange distribution, and a ppm distribution 
@@ -40,24 +43,49 @@ namespace FlashLFQ
             MaxNumberOfScansObserved = acceptorPeaks.Max(peak => peak.ScanCount);
             _logIntensityDistribution = logIntensityDistribution;
             _ppmDistribution = ppmDistribution;
+            _rtErrorDistribution = new Normal(mean: 0, stddev: 0.1); // in minutes
             _logFcDistributionDictionary = new();
+            _rtDifferenceDistributionDictionary = new();
+
             // This is kludgey, because scan counts are discrete
             List<double> scanList = acceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
             // build a normal distribution for the scan list of the acceptor peaks
             _scanCountDistribution = new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
         }
 
+        internal void AddRtDiffDistribution(SpectraFileInfo donorFile, Normal rtDiffDistribution)
+        {
+            _rtDifferenceDistributionDictionary.Add(donorFile, rtDiffDistribution);
+        }
+
+        /// <summary>
+        /// Get the RT window width for a given donor file,
+        /// where RT window width is equal to 4*stdDev of the rtDiffs for all anchor peptides
+        /// </summary>
+        /// <returns>The width of the retention time window in minutes</returns>
+        internal double GetRTWindowWidth(SpectraFileInfo donorFile)
+        {
+            // 95% of all peaks are expected to fall within six standard deviations
+            return _rtDifferenceDistributionDictionary[donorFile].StdDev * 4;
+        }
+
+        internal double GetMedianRtDiff(SpectraFileInfo donorFile)
+        {
+            return _rtDifferenceDistributionDictionary[donorFile].Median;
+        }
+
+        
+
         /// <summary>
         /// Scores a MBR peak based on it's retention time, ppm error, and intensity
         /// </summary>
         /// <returns> An MBR Score ranging between 0 and 100. Higher scores are better. </returns>
-        internal double ScoreMbr(ChromatographicPeak acceptorPeak, Normal rtDistribution, ChromatographicPeak? donorPeak = null)
+        internal double ScoreMbr(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak, double predictedRt)
         {
             acceptorPeak.IntensityScore = CalculateIntensityScore(acceptorPeak.Intensity, donorPeak);
-            acceptorPeak.RtScore = CalculateScore(rtDistribution, acceptorPeak.ApexRetentionTime);
+            acceptorPeak.RtScore = CalculateScore(_rtErrorDistribution, acceptorPeak.ApexRetentionTime - predictedRt);
             acceptorPeak.PpmScore = CalculateScore(_ppmDistribution, acceptorPeak.MassError);
             acceptorPeak.ScanCountScore = CalculateScore(_scanCountDistribution, acceptorPeak.ScanCount);
-            //acceptorPeak.ScanCountScore = (double)acceptorPeak.ScanCount / _scanCountDistribution.Median;
 
             double donorIdPEP = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First().PosteriorErrorProbability;
             
@@ -71,9 +99,6 @@ namespace FlashLFQ
             double absoluteDiffFromMean = Math.Abs(distribution.Mean - value);
             // Returns a value between (0, 1] where 1 means the value was equal to the distribution mean
             return 2 * distribution.CumulativeDistribution(distribution.Mean - absoluteDiffFromMean);
-
-            // old method
-            //return DensityScoreConversion(distribution.Density(value));
         }
 
         internal double CalculateIntensityScore(double acceptorIntensity, ChromatographicPeak donorPeak)
@@ -100,21 +125,6 @@ namespace FlashLFQ
                 //alternate, more straightforward approach
             }
 
-        }
-
-        internal double CalculatePpmScore(double ppmError)
-        {
-            return DensityScoreConversion(_ppmDistribution.Density(ppmError));
-        }
-
-        internal double CalculateRtScore(double retentionTime, Normal rtDistribution)
-        {
-            return DensityScoreConversion(rtDistribution.Density(retentionTime));
-        }
-
-        internal double CalculateScanCountScore(int scanCount)
-        {
-            return (double)scanCount / (double)MaxNumberOfScansObserved;
         }
 
         /// <summary>
@@ -169,18 +179,6 @@ namespace FlashLFQ
             {
                 _logFcDistributionDictionary.Add(idDonorPeaks.First().SpectraFileInfo, foldChangeDistribution);
             }
-        }
-
-        /// <summary>
-        /// Takes in the density of a normal distribution at a given point, and transforms it
-        /// by taking the log of the density plus the square root of the squared density plus one
-        /// This transformation was implemented in the original code, and we're unsure of the rationale
-        /// </summary>
-        /// <param name="density"> A Normal distribution</param>
-        /// <returns> The transformed score</returns>
-        private double DensityScoreConversion(double density)
-        {
-            return Math.Log(density + Math.Sqrt(Math.Pow(density, 2) + 1));
         }
       
     }
