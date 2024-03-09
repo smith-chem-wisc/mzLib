@@ -806,6 +806,14 @@ namespace FlashLFQ
                 .Where(peak => peak.IsotopicEnvelopes.Any() && peak.Identifications.Min(id => id.QValue) < 0.01)
                 .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence)));
 
+            // Find the 1000 highest scoring psms in the acceptor file, 
+            HashSet<string> bestAcceptorSequences = acceptorFileIdentifiedPeaks
+                .Where(peak => peak.IsotopicEnvelopes.Any() && peak.Identifications.Min(id => id.QValue) < 0.01)
+                .OrderByDescending(peak => peak.Identifications.First().PsmScore)
+                .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence))
+                .Take(1000)
+                .ToHashSet();
+
             MbrScorer scorer = BuildMbrScorer(acceptorFileIdentifiedPeaks, out var mbrTol);
             if (scorer == null)
                 return;
@@ -875,7 +883,6 @@ namespace FlashLFQ
                     new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                     (range, loopState) =>
                     {
-                        
                         for (int i = range.Item1; i < range.Item2; i++)
                         {
                             ChromatographicPeak donorPeak = idDonorPeaks[i];
@@ -913,13 +920,19 @@ namespace FlashLFQ
                         }
                     });
 
+                HashSet<string> acceptorFileTopMsmsSeqs = rtCalibrationCurve.Where(point => point.DonorFilePeak != null && point.AcceptorFilePeak != null)
+                    .OrderByDescending(p => p.AcceptorFilePeak.Identifications.First().PsmScore)
+                    .Select(p => p.AcceptorFilePeak.Identifications.First().ModifiedSequence)
+                    .Take(1000)
+                    .ToHashSet();
+
                 // List of donor peaks where the peptide WAS identified in the acceptor file and the best donor is a different file.
                 // This will be used for checking the error rate
                 // For each sequence, we only select one peak corresponding to the PSM with the lowest q-value
                 List<ChromatographicPeak> donorPeaksWithMsms = donorFilePeakListKvp.Value
-                    .Where(p => acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)
+                    .Where(p => acceptorFileTopMsmsSeqs.Contains(p.Identifications.First().ModifiedSequence)
                       && p.SpectraFileInfo != idAcceptorFile
-                      && !p.Identifications.First().IsDecoy )
+                      && !p.Identifications.First().IsDecoy)
                     .ToList();
 
                 // Loop through every MSMS id in the donor file
@@ -936,6 +949,8 @@ namespace FlashLFQ
                             if (rtInfo == null) continue;
 
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, doubleCheckPeaks, out var bestAcceptor);
+                            
+                            // Then look for a peak decoy
                             if(bestAcceptor == null)
                             {
                                 doubleCheckPeaks.TryAdd(
