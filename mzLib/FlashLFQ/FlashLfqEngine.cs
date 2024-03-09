@@ -764,7 +764,7 @@ namespace FlashLFQ
                     .ToList();
                 
                 medianRtDiff = rtDiffs.Median();
-                rtRange = rtDiffs.InterquartileRange() * 3; // This is roughly equivalent to 2 standard deviations
+                rtRange = rtDiffs.InterquartileRange() * 6; // This is roughly equivalent to 2 standard deviations
             }
             
             double? rtStdDev = null;
