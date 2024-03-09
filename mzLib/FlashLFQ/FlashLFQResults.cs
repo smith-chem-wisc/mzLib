@@ -14,6 +14,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
+        public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DoubleCheckPeaks;
         public  IEnumerable<ChromatographicPeak> DecoyPeaks { get; set; }
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)
@@ -22,10 +23,12 @@ namespace FlashLFQ
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
+            DoubleCheckPeaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
                 Peaks.Add(file, new List<ChromatographicPeak>());
+                DoubleCheckPeaks.Add(file, new List<ChromatographicPeak>());
             }
 
             foreach (Identification id in identifications)
@@ -563,7 +566,22 @@ namespace FlashLFQ
                 }
             }
 
-            if(decoyPath != null & DecoyPeaks.IsNotNullOrEmpty())
+            string[] pathSplit = peaksOutputPath.Split(Path.DirectorySeparatorChar);
+            pathSplit[^1] = "DoubleCheckedPeaks.tsv";
+
+            using (var output = new StreamWriter(String.Join(Path.DirectorySeparatorChar, pathSplit)))
+            {
+                output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+
+                foreach (var peak in DoubleCheckPeaks.SelectMany(p => p.Value)
+                    .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
+                    .ThenByDescending(p => p.Collision))
+                {
+                    output.WriteLine(peak.ToString());
+                }
+            }
+
+            if (decoyPath != null & DecoyPeaks.IsNotNullOrEmpty())
             {
                 using (StreamWriter output = new StreamWriter(decoyPath))
                 {
