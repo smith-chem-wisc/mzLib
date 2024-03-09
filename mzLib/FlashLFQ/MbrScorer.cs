@@ -26,6 +26,8 @@ namespace FlashLFQ
         internal double MaxNumberOfScansObserved { get; }
 
 
+        internal readonly Normal _rtErrorDistribution;
+
         /// <summary>
         /// Takes in an intensity distribution, a log foldchange distribution, and a ppm distribution 
         /// unique to each donor file - acceptor file pair. These are used to score MBR matches
@@ -41,8 +43,10 @@ namespace FlashLFQ
             MaxNumberOfScansObserved = acceptorPeaks.Max(peak => peak.ScanCount);
             _logIntensityDistribution = logIntensityDistribution;
             _ppmDistribution = ppmDistribution;
+            _rtErrorDistribution = new Normal(mean: 0, stddev: 0.1); // in minutes
             _logFcDistributionDictionary = new();
             _rtDifferenceDistributionDictionary = new();
+
             // This is kludgey, because scan counts are discrete
             List<double> scanList = acceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
             // build a normal distribution for the scan list of the acceptor peaks
@@ -56,13 +60,13 @@ namespace FlashLFQ
 
         /// <summary>
         /// Get the RT window width for a given donor file,
-        /// where RT window width is equal to 6*stdDev of the rtDiffs for all anchor peptides
+        /// where RT window width is equal to 4*stdDev of the rtDiffs for all anchor peptides
         /// </summary>
         /// <returns>The width of the retention time window in minutes</returns>
         internal double GetRTWindowWidth(SpectraFileInfo donorFile)
         {
-            // 99.7% of all peaks are expected to fall within six standard deviations
-            return _rtDifferenceDistributionDictionary[donorFile].StdDev * 6;
+            // 95% of all peaks are expected to fall within six standard deviations
+            return _rtDifferenceDistributionDictionary[donorFile].StdDev * 4;
         }
 
         internal double GetMedianRtDiff(SpectraFileInfo donorFile)
@@ -70,16 +74,16 @@ namespace FlashLFQ
             return _rtDifferenceDistributionDictionary[donorFile].Median;
         }
 
+        
+
         /// <summary>
         /// Scores a MBR peak based on it's retention time, ppm error, and intensity
         /// </summary>
         /// <returns> An MBR Score ranging between 0 and 100. Higher scores are better. </returns>
-        internal double ScoreMbr(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak)
+        internal double ScoreMbr(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak, double predictedRt)
         {
             acceptorPeak.IntensityScore = CalculateIntensityScore(acceptorPeak.Intensity, donorPeak);
-            acceptorPeak.RtScore = CalculateScore(
-                _rtDifferenceDistributionDictionary[donorPeak.SpectraFileInfo],
-                donorPeak.ApexRetentionTime - acceptorPeak.ApexRetentionTime);
+            acceptorPeak.RtScore = CalculateScore(_rtErrorDistribution, acceptorPeak.ApexRetentionTime - predictedRt);
             acceptorPeak.PpmScore = CalculateScore(_ppmDistribution, acceptorPeak.MassError);
             acceptorPeak.ScanCountScore = CalculateScore(_scanCountDistribution, acceptorPeak.ScanCount);
 

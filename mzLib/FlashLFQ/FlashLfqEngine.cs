@@ -100,7 +100,7 @@ namespace FlashLFQ
 
             // MBR settings
             bool matchBetweenRuns = false,
-            double matchBetweenRunsPpmTolerance = 10.0,
+            double matchBetweenRunsPpmTolerance = 5.0,
             double maxMbrWindow = 2.5,
             bool requireMsmsIdInCondition = false,
 
@@ -512,12 +512,13 @@ namespace FlashLFQ
         /// Used by the match-between-runs algorithm to determine systematic retention time drifts between
         /// chromatographic runs.
         /// </summary>
-        private RetentionTimeCalibDataPoint[] GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor, out Normal rtDifferenceDistribution)
-        {
+        private RetentionTimeCalibDataPoint[] GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor, MbrScorer scorer)
+        { 
             Dictionary<string, ChromatographicPeak> donorFileBestMsmsPeaks = new();
             Dictionary<string, ChromatographicPeak> acceptorFileBestMsmsPeaks = new();
             List<RetentionTimeCalibDataPoint> rtCalibrationCurve = new();
             List<double> anchorPeptideRtDiffs = new();
+
 
             // get all peaks, not counting ambiguous peaks
             IEnumerable<ChromatographicPeak> donorPeaks = _results.Peaks[donor].Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1);
@@ -570,8 +571,10 @@ namespace FlashLFQ
                 }
             }
 
+
             // build rtDiff distribution 
-            rtDifferenceDistribution = new Normal(mean: anchorPeptideRtDiffs.Median(), stddev: anchorPeptideRtDiffs.StandardDeviation());
+            var rtDifferenceDistribution = new Normal(mean: anchorPeptideRtDiffs.Median(), stddev: anchorPeptideRtDiffs.StandardDeviation());
+            scorer.AddRtDiffDistribution(donor, rtDifferenceDistribution);
 
             return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
         }
@@ -746,9 +749,12 @@ namespace FlashLFQ
             }
 
             double medianRtDiff;
+            double rtRange;
             if (!nearbyCalibrationPoints.Any())
             {
+                // Default rt adjustments
                 medianRtDiff = scorer.GetMedianRtDiff(donorPeak.SpectraFileInfo);
+                rtRange = scorer.GetRTWindowWidth(donorPeak.SpectraFileInfo);
             }
             else
             {
@@ -756,14 +762,11 @@ namespace FlashLFQ
                 List<double> rtDiffs = nearbyCalibrationPoints
                     .Select(p =>  p.DonorFilePeak.ApexRetentionTime - p.AcceptorFilePeak.ApexRetentionTime)
                     .ToList();
+                
                 medianRtDiff = rtDiffs.Median();
+                rtRange = rtDiffs.InterquartileRange() * 3; // This is roughly equivalent to 2 standard deviations
             }
-
-            // figure out the range of RT differences between the files that are "reasonable", centered around the median difference
-            double rtRange = scorer.GetRTWindowWidth(donorPeak.SpectraFileInfo);
-
-            // default range (if only 1 datapoint, or SD is 0, range is very high, etc)
-            //double rtRange = MbrRtWindow;
+            
             double? rtStdDev = null;
             double? rtInterquartileRange = null;
 
@@ -900,8 +903,7 @@ namespace FlashLFQ
                 }
 
                 // generate RT calibration curve
-                RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(donorFilePeakListKvp.Key, idAcceptorFile, out Normal rtDifferenceDistribution);
-                scorer.AddRtDiffDistribution(donorFilePeakListKvp.Key, rtDifferenceDistribution);
+                RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(donorFilePeakListKvp.Key, idAcceptorFile, scorer);
 
                 // Loop through every MSMS id in the donor file
                 Parallel.ForEach(Partitioner.Create(0, idDonorPeaks.Count),
@@ -921,13 +923,18 @@ namespace FlashLFQ
                             // Draw a random donor that has an rt sufficiently far enough away
                             ChromatographicPeak randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
                             int randomPeaksSampled = 1;
-                            double minimumDifference = Math.Min(rtInfo.Width * 1.25, 0.5);
+                            // multiply for safety, in case the relative rt shifts after alignment
+                            double minimumRtDifference = Math.Min(rtInfo.Width * 1.5, 0.5);
+                            double massDiff = Math.Abs(randomDonor.Identifications.First().PeakfindingMass - donorPeak.Identifications.First().PeakfindingMass);
 
-                            while (randomDonor == null 
+                            while (randomDonor == null
+                                || massDiff < 0.1 
+                                || massDiff > 50 // Need the random one to be relatively close in mass (but not too close!)
                                 || randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
-                                || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumDifference) // multiply for safety, in case the relative rt shifts after alignment
+                                || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumRtDifference)
                             {
                                 randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
+                                massDiff = Math.Abs(randomDonor.Identifications.First().PeakfindingMass - donorPeak.Identifications.First().PeakfindingMass);
                                 if (randomPeaksSampled++ > (rtCalibrationCurve.Length - 1))
                                 {
                                     randomDonor = null;
@@ -1101,7 +1108,7 @@ namespace FlashLFQ
                 while (chargeEnvelopes.Any())
                 {
                     ChromatographicPeak acceptorPeak = FindIndividualAcceptorPeak(idAcceptorFile, scorer, donorPeak,
-                        fileSpecificTol, rtInfo, z, chargeEnvelopes, randomRt: randomRt != null);
+                        fileSpecificTol, rtInfo, z, chargeEnvelopes, randomRt);
                     if (acceptorPeak == null)
                         continue;
                     if (bestAcceptor == null || bestAcceptor.MbrScore < acceptorPeak.MbrScore)
@@ -1156,10 +1163,10 @@ namespace FlashLFQ
             RtInfo rtInfo,
             int z,
             List<IsotopicEnvelope> chargeEnvelopes,
-            bool randomRt = false)
+            double? randomRt = null)
         {
             var donorId = donorPeak.Identifications.OrderBy(p => p.QValue).First();
-            var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile, randomRt);
+            var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile, randomRt != null);
 
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
@@ -1183,7 +1190,7 @@ namespace FlashLFQ
                 return null;
             }
 
-            acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak);
+            acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak, randomRt ?? rtInfo.PredictedRt);
 
             return acceptorPeak;
         }
