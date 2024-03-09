@@ -956,7 +956,7 @@ namespace FlashLFQ
                 HashSet<string> acceptorFileTopMsmsSeqs = rtCalibrationCurve.Where(point => point.DonorFilePeak != null && point.AcceptorFilePeak != null)
                     .OrderByDescending(p => p.AcceptorFilePeak.Identifications.First().PsmScore)
                     .Select(p => p.AcceptorFilePeak.Identifications.First().ModifiedSequence)
-                    .Take(1000)
+                    .Take(1500)
                     .ToHashSet();
 
                 // List of donor peaks where the peptide WAS identified in the acceptor file and the best donor is a different file.
