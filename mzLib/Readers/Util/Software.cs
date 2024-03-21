@@ -10,5 +10,6 @@ namespace Readers
         MetaMorpheus,
         MaxQuant,
         Toppic,
+        MsFragger, // files tested were from fragpipe v21.1
     }
 }
