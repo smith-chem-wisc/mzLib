@@ -137,12 +137,12 @@ namespace Test.FileReadingTests
         public static void TestMsFraggerReadWrite()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1.tsv");
-            string outPath = Path.Combine(directoryPath, "testFragger.tsv");
+            string outPath = Path.Combine(directoryPath, "testFragger");
 
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
             file.WriteResults(outPath);
             
-            MsFraggerPsmFile outFile = new MsFraggerPsmFile(outPath);
+            MsFraggerPsmFile outFile = new MsFraggerPsmFile(outPath + ".tsv");
             Assert.That(outFile.Count(), Is.EqualTo(file.Count()));
             for (int i = 0; i < file.Count(); i++)
             {

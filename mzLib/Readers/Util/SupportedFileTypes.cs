@@ -94,7 +94,7 @@ namespace Readers
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
                     using var sw = new StreamReader(filePath);
                     var firstLine = sw.ReadLine() ?? "";
-                    if (firstLine == "") throw new MzLibException("Tsv file type not supported");
+                    if (firstLine == "") throw new MzLibException("Tsv file is empty");
 
                     if (firstLine.Contains("FeatureIndex"))
                         return SupportedFileType.Tsv_FlashDeconv;

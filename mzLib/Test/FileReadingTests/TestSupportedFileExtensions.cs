@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
@@ -40,18 +41,25 @@ namespace Test.FileReadingTests
         {
             string badTest = "badFile.taco";
             Exception e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
-            Assert.That(e?.Message,
-                Is.EqualTo($"File type not supported"));
+            Assert.That(e?.Message, Is.EqualTo($"File type not supported"));
 
             badTest = "badTaco.feature";
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
-            Assert.That(e?.Message,
-                Is.EqualTo($"Feature file type not supported"));
+            Assert.That(e?.Message, Is.EqualTo($"Feature file type not supported"));
 
             badTest = "badTaco.psm.csv";
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
-            Assert.That(e?.Message,
-                Is.EqualTo($"Csv file type not supported"));
+            Assert.That(e?.Message, Is.EqualTo($"Csv file type not supported"));
+
+            badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
+            e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
+            Assert.That(e?.Message, Is.EqualTo($"Tsv file type not supported"));
+
+            var emptyFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "emptyFile.tsv");
+            File.Create(emptyFile).Close();
+            e = Assert.Throws<MzLibException>(() => emptyFile.ParseFileType());
+            Assert.That(e?.Message, Is.EqualTo($"Tsv file is empty"));
+            File.Delete(emptyFile);
 
             // assure all values of enum have a file extension in the swithc method
             foreach (var value in Enum.GetValues<SupportedFileType>())
@@ -59,6 +67,15 @@ namespace Test.FileReadingTests
                 _ = value.GetFileExtension();
             }
         }
+
+        [Test]
+        public static void TestGetFileExtension_Errors()
+        {
+            Exception e = Assert.Throws<MzLibException>(() => ((SupportedFileType)100).GetFileExtension());
+            Assert.That(e?.Message,
+                Is.EqualTo($"File type not supported"));
+        }
+        
 
     }
 }
