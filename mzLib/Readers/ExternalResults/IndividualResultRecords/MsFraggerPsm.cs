@@ -149,9 +149,10 @@ namespace Readers
         [Ignore] public string FileNameWithoutExtension =>
             _fileNameWithoutExtension ??= Spectrum.Split('.')[0];
 
-        [Ignore] private int _oneBasedScanNumber;
-        [Ignore] public int OneBasedScanNumber =>
-            _oneBasedScanNumber != 0 ? _oneBasedScanNumber : int.Parse(Spectrum.Split('.')[1]);
+        [Ignore] private int? _oneBasedScanNumber;
+
+        [Ignore]
+        public int OneBasedScanNumber => _oneBasedScanNumber ??= int.Parse(Spectrum.Split('.')[1]);
 
         #endregion
     }

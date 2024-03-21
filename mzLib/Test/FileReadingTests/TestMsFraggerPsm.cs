@@ -89,6 +89,7 @@ namespace Test.FileReadingTests
             Assert.That(first.MappedProteins, Is.EqualTo(""));
             Assert.That(first.FileNameWithoutExtension, Is.EqualTo("20100611_Velos1_TaGe_SA_Hela_1"));
             Assert.That(first.OneBasedScanNumber, Is.EqualTo(3));
+            Assert.That(first.OneBasedScanNumber, Is.EqualTo(3));
 
             Assert.That(last.Spectrum, Is.EqualTo("20100611_Velos1_TaGe_SA_Hela_1.00018.00018.2"));
             Assert.That(last.SpectrumFilePath, Is.EqualTo(@"D:\Projects\Chimeras\Mann_11cell_analysis\Hela\MsFragger\Hela_1_1\interact-20100611_Velos1_TaGe_SA_Hela_1.pep.xml"));
