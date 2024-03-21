@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace Test.FileReadingTests
 {
@@ -48,11 +49,7 @@ namespace Test.FileReadingTests
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
             MsFraggerPsm first = file.First();
             MsFraggerPsm last = file.Last();
-            //Spectrum Spectrum File Peptide Modified Peptide    Extended Peptide    Prev AA Next AA Peptide Length  Charge Retention   Observed Mass   Calibrated Observed Mass Observed M / Z    Calibrated Observed M / Z Calculated Peptide Mass Calculated M / Z  Delta Mass  Expectation Hyperscore  Nextscore PeptideProphet Probability Number of Enzymatic Termini Number of Missed Cleavages Protein Start Protein End Intensity   Assigned Modifications  Observed Modifications  Purity Is Unique Protein Protein ID  Entry Name  Gene Protein Description Mapped Genes Mapped Proteins
-            //20100611_Velos1_TaGe_SA_Hela_1.00003.00003.2    D:\Projects\Chimeras\Mann_11cell_analysis\Hela\MsFragger\Hela_1_1\interact - 20100611_Velos1_TaGe_SA_Hela_1.pep.xml KPVGAAK     KAGGTKPK.KPVGAAK.KPKKAAGG K   K   7   2   1.9398  669.4164    669.4123    335.7155    335.7135    669.4173    335.7159 - 0.0049 0.01675 20.604  12.521  0.9176  2   1   130 136 0           0   TRUE sp| P16403 | H12_HUMAN P16403 H12_HUMAN   H1 - 2    Histone H1.2
-            //20100611_Velos1_TaGe_SA_Hela_1.00018.00018.2    D:\Projects\Chimeras\Mann_11cell_analysis\Hela\MsFragger\Hela_1_1\interact - 20100611_Velos1_TaGe_SA_Hela_1.pep.xml VVTHGGR     GTAIKNGK.VVTHGGR.VIAVTAIR K   V   7   2   19.114  724.3984    724.3949    363.2065    363.2047    724.398 363.2063 - 0.0031 0.7595  11.978  0   0.8144  2   0   379 385 0           0   TRUE sp| P22102 | PUR2_HUMAN    P22102 PUR2_HUMAN  GART Trifunctional purine biosynthetic protein adenosine-3
-
-            // use the example found in the file and just test its values
+            
             Assert.That(first.Spectrum, Is.EqualTo("20100611_Velos1_TaGe_SA_Hela_1.00003.00003.2"));
             Assert.That(first.SpectrumFilePath, Is.EqualTo(@"D:\Projects\Chimeras\Mann_11cell_analysis\Hela\MsFragger\Hela_1_1\interact-20100611_Velos1_TaGe_SA_Hela_1.pep.xml"));
             Assert.That(first.BaseSequence, Is.EqualTo("KPVGAAK"));
@@ -135,5 +132,35 @@ namespace Test.FileReadingTests
             Assert.That(last.FileNameWithoutExtension, Is.EqualTo("20100611_Velos1_TaGe_SA_Hela_1"));
             Assert.That(last.OneBasedScanNumber, Is.EqualTo(18));
         }
+
+        [Test]
+        public static void TestMsFraggerReadWrite()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1.tsv");
+            string outPath = Path.Combine(directoryPath, "testFragger.tsv");
+
+            MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
+            file.WriteResults(outPath);
+            
+            MsFraggerPsmFile outFile = new MsFraggerPsmFile(outPath);
+            Assert.That(outFile.Count(), Is.EqualTo(file.Count()));
+            for (int i = 0; i < file.Count(); i++)
+            {
+                var original = JsonConvert.SerializeObject(file.ElementAt(i));
+                var written = JsonConvert.SerializeObject(outFile.ElementAt(i));
+                Assert.That(original, Is.EqualTo(written));
+            }
+
+            MsFraggerPsmFile file2 = FileReader.ReadFile<MsFraggerPsmFile>(filePath);
+            Assert.That(file2.Count(), Is.EqualTo(file.Count()));
+            for (int i = 0; i < file2.Count(); i++)
+            {
+                var original = JsonConvert.SerializeObject(file2.ElementAt(i));
+                var written = JsonConvert.SerializeObject(outFile.ElementAt(i));
+                Assert.That(original, Is.EqualTo(written));
+            }
+        }
     }
+
+   
 }

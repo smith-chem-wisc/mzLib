@@ -8,7 +8,5 @@
             resultFile.LoadResults();
             return resultFile;
         }
-
-        
     }
 }

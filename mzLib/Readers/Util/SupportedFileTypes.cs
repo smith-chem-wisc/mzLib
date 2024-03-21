@@ -96,9 +96,9 @@ namespace Readers
                     var firstLine = sw.ReadLine() ?? "";
                     if (firstLine == "") throw new MzLibException("Tsv file type not supported");
 
-                    if (firstLine.Contains("FeatureIndex") && filePath.EndsWith(SupportedFileType.Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (firstLine.Contains("FeatureIndex"))
                         return SupportedFileType.Tsv_FlashDeconv;
-                    if (firstLine.Contains("Extended Peptide") && filePath.EndsWith(SupportedFileType.MsFraggerPsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (firstLine.Contains("Extended Peptide"))
                         return SupportedFileType.MsFraggerPsm;
                     throw new MzLibException("Tsv file type not supported");
                 }

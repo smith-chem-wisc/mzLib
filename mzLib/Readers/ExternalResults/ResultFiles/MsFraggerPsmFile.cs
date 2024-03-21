@@ -13,6 +13,11 @@ namespace Readers
         public override Software Software { get; set; }
         public MsFraggerPsmFile(string filePath) : base(filePath, Software.MsFragger) { }
 
+        /// <summary>
+        /// Constructor used to initialize from the factory method
+        /// </summary>
+        public MsFraggerPsmFile() : base() { }
+
         public override void LoadResults()
         {
             var csv = new CsvReader(new StreamReader(FilePath), MsFraggerPsm.CsvConfiguration);
