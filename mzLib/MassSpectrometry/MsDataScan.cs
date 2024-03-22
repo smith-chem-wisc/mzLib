@@ -25,7 +25,7 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    public class MsDataScan
+    public class MsDataScan : ICloneable
     {
         public MsDataScan(MzSpectrum massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer,
             double totalIonCurrent, double? injectionTime, double[,] noiseData, string nativeId, double? selectedIonMz = null, int? selectedIonChargeStateGuess = null, double? selectedIonIntensity = null, double? isolationMZ = null,
@@ -110,6 +110,15 @@ namespace MassSpectrometry
         {
             return string.Format("Scan #{0}", OneBasedScanNumber);
         }
+
+        public object Clone() =>
+            new MsDataScan(new MzSpectrum(MassSpectrum.XArray, MassSpectrum.YArray, true), 
+                OneBasedScanNumber, MsnOrder, IsCentroid, Polarity, RetentionTime,
+                ScanWindowRange, ScanFilter, MzAnalyzer, TotalIonCurrent, InjectionTime,
+                NoiseData, NativeId, SelectedIonMZ, SelectedIonChargeStateGuess, 
+                SelectedIonIntensity, IsolationMz, IsolationWidth, DissociationType,
+                OneBasedPrecursorScanNumber, SelectedIonMonoisotopicGuessMz, HcdEnergy);
+
 
         public byte[] Get64BitNoiseDataMass()
         {
