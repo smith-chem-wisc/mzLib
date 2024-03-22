@@ -21,7 +21,9 @@ using MzLibUtil;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using Readers;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -340,6 +342,48 @@ namespace Test
             Assert.That(!_mzSpectrumA.Equals((object)null));
             Assert.That(!_mzSpectrumA.Equals(2));
             Assert.That(!_mzSpectrumA.Equals((object)2));
+        }
+
+        [Test]
+        public void TestMsDataScanClone()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"DataFiles/FXN11_tr1_032017-calib_ms1_scans716_718.mzML");
+            var dataFile = MsDataFileReader.GetDataFile(path).LoadAllStaticData();
+            foreach (var scan in dataFile.Scans)
+            {
+                var cloned = scan.Clone() as MsDataScan;
+
+                Assert.AreEqual(scan.OneBasedScanNumber, cloned.OneBasedScanNumber);
+                Assert.AreEqual(scan.MsnOrder, cloned.MsnOrder);
+                Assert.AreEqual(scan.IsCentroid, cloned.IsCentroid);
+                Assert.AreEqual(scan.Polarity, cloned.Polarity);
+                Assert.AreEqual(scan.RetentionTime, cloned.RetentionTime);
+                Assert.AreEqual(scan.ScanWindowRange, cloned.ScanWindowRange);
+                Assert.AreEqual(scan.MzAnalyzer, cloned.MzAnalyzer);
+                Assert.AreEqual(scan.TotalIonCurrent, cloned.TotalIonCurrent);
+                Assert.AreEqual(scan.InjectionTime, cloned.InjectionTime);
+                CollectionAssert.AreEqual(scan.NoiseData, cloned.NoiseData);
+                Assert.AreEqual(scan.NativeId, cloned.NativeId);
+                Assert.AreEqual(scan.OneBasedPrecursorScanNumber, cloned.OneBasedPrecursorScanNumber);
+                Assert.AreEqual(scan.SelectedIonChargeStateGuess, cloned.SelectedIonChargeStateGuess);
+                Assert.AreEqual(scan.SelectedIonIntensity, cloned.SelectedIonIntensity);
+                Assert.AreEqual(scan.IsolationMz, cloned.IsolationMz);
+                Assert.AreEqual(scan.IsolationWidth, cloned.IsolationWidth);
+                Assert.AreEqual(scan.DissociationType, cloned.DissociationType);
+                Assert.AreEqual(scan.HcdEnergy, cloned.HcdEnergy);
+                Assert.AreEqual(scan.ScanDescription, cloned.ScanDescription);
+                Assert.AreEqual(scan.SelectedIonMZ, cloned.SelectedIonMZ);
+                Assert.AreEqual(scan.ScanFilter, cloned.ScanFilter);
+
+                Assert.AreEqual(scan.MassSpectrum, cloned.MassSpectrum);
+                Assert.AreEqual(scan.MassSpectrum.GetHashCode(), cloned.MassSpectrum.GetHashCode());
+                for (int i = 0; i < scan.MassSpectrum.Size; i++)
+                {
+                    Assert.AreEqual(scan.MassSpectrum.XArray[i], cloned.MassSpectrum.XArray[i]);
+                    Assert.AreEqual(scan.MassSpectrum.YArray[i], cloned.MassSpectrum.YArray[i]);
+                }
+            }
         }
     }
 }
