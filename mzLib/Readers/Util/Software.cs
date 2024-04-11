@@ -10,5 +10,6 @@ namespace Readers
         MetaMorpheus,
         MaxQuant,
         Toppic,
+        Crux,
     }
 }

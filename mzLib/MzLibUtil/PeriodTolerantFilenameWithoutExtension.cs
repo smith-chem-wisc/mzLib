@@ -13,7 +13,7 @@ namespace MzLibUtil
             if (periodBeforeExtension > 0)
             {
                 string compressedQuestionMark = filenameWithOrWithoutExtension[periodBeforeExtension..];
-                if(compressedQuestionMark == ".gz" || compressedQuestionMark == ".zip")
+                if(compressedQuestionMark == ".gz" || compressedQuestionMark == ".zip" || compressedQuestionMark == ".mzXML")
                 {
                     periodBeforeExtension = filenameWithOrWithoutExtension[..periodBeforeExtension].LastIndexOf('.');
                 }  

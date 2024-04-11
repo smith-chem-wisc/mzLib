@@ -19,7 +19,7 @@ namespace Readers
         ToppicPrsmSingle,
         ToppicProteoform,
         ToppicProteoformSingle,
-
+        CruxResult,
     }
 
     public static class SupportedFileTypeExtensions
@@ -49,6 +49,7 @@ namespace Readers
                 SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
                 SupportedFileType.ToppicProteoform => "_proteoform.tsv",
                 SupportedFileType.ToppicProteoformSingle => "_proteoform_single.tsv",
+                SupportedFileType.CruxResult => ".txt",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -92,6 +93,11 @@ namespace Readers
                         !filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Tsv_FlashDeconv;
                     throw new MzLibException("Tsv file type not supported");
+
+                case ".txt":
+                    if (filePath.EndsWith(SupportedFileType.CruxResult.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.CruxResult;
+                    throw new MzLibException("Txt file type not supported");
 
                 default:
                     throw new MzLibException("File type not supported");
