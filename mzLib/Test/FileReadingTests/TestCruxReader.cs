@@ -1,11 +1,7 @@
 ﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Readers;
 
@@ -39,6 +35,19 @@ namespace Test.FileReadingTests
             CruxResultFile file = new CruxResultFile(filePath);
             Assert.That(file.Count(), Is.EqualTo(recordCount));
             Assert.That(file.CanRead(path));
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\crux.txt", 14)]
+        public static void TestCruxResultsFromGenericReader(string path, int recordCount)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            var constructedFile = new CruxResultFile(filePath);
+            var genericFile = FileReader.ReadFile<CruxResultFile>(filePath);
+
+            Assert.That(genericFile.Count(), Is.EqualTo(recordCount));
+            Assert.That(genericFile.Count(), Is.EqualTo(constructedFile.Count()));
+            Assert.That(genericFile.FilePath, Is.EqualTo(constructedFile.FilePath));
         }
 
         [Test]

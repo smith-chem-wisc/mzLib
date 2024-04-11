@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
+﻿using System.Globalization;
 using System.Text;
-using System.Threading.Tasks;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 using MzLibUtil;
@@ -11,9 +7,7 @@ using MzLibUtil;
 namespace Readers
 {
     public class CruxResult
-    {
-        //file	scan	charge	retention time	spectrum precursor m/z	spectrum neutral mass	peptide mass	delta_cn	xcorr score	xcorr rank	tailor score	tdc q-value	b/y ions matched	b/y ions total	b/y ions fraction	b/y ion repeat match	distinct matches/spectrum	sequence	unmodified sequence	protein id	flanking aa
-        ///hdd/data/PXD005590/B02_21_161103_D4_HCD_OT_4ul.raw.mzXML	14674	3	2747.6599	1075.1815	3222.5227	3222.5222	0.84335566	6.4364114	1	1.9659604	3.8850189e-06	51	116	0.43965518	0	68	RPQYSNPPVQGEVMEGADNQGAGEQGRPVR RPQYSNPPVQGEVMEGADNQGAGEQGRPVR  sp|P67809|YBOX1_HUMAN(205)  RQ
+    { 
         public static CsvConfiguration CsvConfiguration => new CsvConfiguration(CultureInfo.InvariantCulture)
         {
             Encoding = Encoding.UTF8,
