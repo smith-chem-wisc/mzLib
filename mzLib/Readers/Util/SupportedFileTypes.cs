@@ -20,6 +20,8 @@ namespace Readers
         ToppicProteoform,
         ToppicProteoformSingle,
         MsFraggerPsm,
+        MsFraggerPeptide,
+        MsFraggerProtein,
     }
 
     public static class SupportedFileTypeExtensions
@@ -49,7 +51,9 @@ namespace Readers
                 SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
                 SupportedFileType.ToppicProteoform => "_proteoform.tsv",
                 SupportedFileType.ToppicProteoformSingle => "_proteoform_single.tsv",
-                SupportedFileType.MsFraggerPsm => ".tsv",
+                SupportedFileType.MsFraggerPsm => "psm.tsv",
+                SupportedFileType.MsFraggerPeptide => "peptide.tsv",
+                SupportedFileType.MsFraggerProtein => "protein.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -89,6 +93,12 @@ namespace Readers
                         return SupportedFileType.ToppicPrsmSingle;
                     if (filePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicProteoformSingle;
+                    if (filePath.EndsWith(SupportedFileType.MsFraggerPsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MsFraggerPsm;
+                    if (filePath.EndsWith(SupportedFileType.MsFraggerPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MsFraggerPeptide;
+                    if (filePath.EndsWith(SupportedFileType.MsFraggerProtein.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MsFraggerProtein;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
@@ -98,8 +108,6 @@ namespace Readers
 
                     if (firstLine.Contains("FeatureIndex"))
                         return SupportedFileType.Tsv_FlashDeconv;
-                    if (firstLine.Contains("Extended Peptide"))
-                        return SupportedFileType.MsFraggerPsm;
                     throw new MzLibException("Tsv file type not supported");
                 }
 

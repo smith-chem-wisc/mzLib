@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
@@ -26,7 +27,12 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv", SupportedFileType.ToppicProteoform)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv", SupportedFileType.ToppicProteoformSingle)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv", SupportedFileType.ToppicPrsmSingle)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1.tsv", SupportedFileType.MsFraggerPsm)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv", SupportedFileType.MsFraggerPsm)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1individual_peptide.tsv", SupportedFileType.MsFraggerPeptide)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv", SupportedFileType.MsFraggerProtein)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv", SupportedFileType.MsFraggerPeptide)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1combined_protein.tsv", SupportedFileType.MsFraggerProtein)]
+        
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();
@@ -34,6 +40,13 @@ namespace Test.FileReadingTests
 
             var extension = expectedType.GetFileExtension();
             Assert.That(filePath.EndsWith(extension, StringComparison.InvariantCultureIgnoreCase));
+        }
+
+        [Test]
+        public static void EnsureAllExtensionsAreUnique()
+        {
+            var allExtensions = Enum.GetValues<SupportedFileType>();
+            Assert.That(allExtensions.Length, Is.EqualTo(allExtensions.Distinct().Count()));
         }
 
         [Test]

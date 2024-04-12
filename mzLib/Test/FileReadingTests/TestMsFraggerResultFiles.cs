@@ -13,7 +13,7 @@ using Newtonsoft.Json;
 namespace Test.FileReadingTests
 {
     [ExcludeFromCodeCoverage]
-    internal class TestMsFraggerPsm
+    internal class TestMsFraggerResultFiles
     {
         private static string directoryPath;
 
@@ -32,8 +32,8 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1.tsv", 5)]
-        public void TestMsFraggerPsmeLoadsAndCountCorrect(string path, int count)
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv", 5)]
+        public void TestMsFraggerPsmLoadsAndCountCorrect(string path, int count)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
@@ -42,10 +42,32 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1individual_peptide.tsv", 7)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv", 6)]
+        public static void TestMsFraggerPeptideLoadsAndCountCorrect(string path, int count)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            MsFraggerPeptideFile file = new MsFraggerPeptideFile(filePath);
+            Assert.That(file.Count(), Is.EqualTo(count));
+            Assert.That(file.CanRead(filePath));
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv", 8)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1combined_protein.tsv", 4)]
+        public static void TestMsFraggerProteinLoadsAndCountCorrect(string path, int count)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            MsFraggerProteinFile file = new MsFraggerProteinFile(filePath);
+            Assert.That(file.Count(), Is.EqualTo(count));
+            Assert.That(file.CanRead(filePath));
+        }
+
+        [Test]
         public void TestMsFraggerPsmFirstAndLastCorrect()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1.tsv");
+                @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv");
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
             MsFraggerPsm first = file.First();
             MsFraggerPsm last = file.Last();
@@ -135,9 +157,36 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public static void TestMsFraggerReadWrite()
+        public void TestMsFraggerIndividualPeptideFirstAndLastAreCorrect()
         {
-            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1.tsv");
+
+        }
+
+        [Test]
+        public static void TestMsFraggerIndividualProteinFirstAndLastAreCorrect()
+        {
+
+        }
+
+        [Test]
+        public void TestMsFraggerCombinedPeptideFirstAndLastAreCorrect()
+        {
+
+        }
+
+        [Test]
+        public static void TestMsFraggerCombinedProteinFirstAndLastAreCorrect()
+        {
+
+        }
+
+
+
+
+        [Test]
+        public static void TestMsFraggerPsmReadWrite()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv");
             string outPath = Path.Combine(directoryPath, "testFragger");
 
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
@@ -160,6 +209,19 @@ namespace Test.FileReadingTests
                 var written = JsonConvert.SerializeObject(outFile.ElementAt(i));
                 Assert.That(original, Is.EqualTo(written));
             }
+        }
+
+
+        [Test]
+        public static void TestMsFraggerPeptideReadWrite()
+        {
+
+        }
+
+        [Test]
+        public static void TestMsFraggerProteinReadWrite()
+        {
+
         }
     }
 
