@@ -57,7 +57,10 @@ namespace Readers
     {
         public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
         {
-            return text.Split(',').Where(p => p != "").ToArray();
+            return text.Split(',')
+                .Where(p => p != "")
+                .Select(p => p.Trim())
+                .ToArray();
         }
 
         public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)

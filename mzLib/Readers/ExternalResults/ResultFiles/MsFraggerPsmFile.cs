@@ -20,7 +20,7 @@ namespace Readers
 
         public override void LoadResults()
         {
-            var csv = new CsvReader(new StreamReader(FilePath), MsFraggerPsm.CsvConfiguration);
+            using var csv = new CsvReader(new StreamReader(FilePath), MsFraggerPsm.CsvConfiguration);
             Results = csv.GetRecords<MsFraggerPsm>().ToList();
         }
 

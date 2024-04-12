@@ -24,7 +24,7 @@ namespace Readers
         public string Protein { get; set; }
 
         [Name("Protein ID")]
-        public string Accesion { get; set; }
+        public string Accession { get; set; }
 
         [Name("Entry Name")]
         public string AccessionOrganism { get; set; }

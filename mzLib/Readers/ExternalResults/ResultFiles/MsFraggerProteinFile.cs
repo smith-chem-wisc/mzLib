@@ -21,7 +21,7 @@ namespace Readers
 
         public override void LoadResults()
         {
-            var csv = new CsvReader(new StreamReader(FilePath), MsFraggerProtein.CsvConfiguration);
+            using var csv = new CsvReader(new StreamReader(FilePath), MsFraggerProtein.CsvConfiguration);
             Results = csv.GetRecords<MsFraggerProtein>().ToList();
         }
 
