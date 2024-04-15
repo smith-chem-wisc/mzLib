@@ -302,6 +302,15 @@
     <None Update="FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

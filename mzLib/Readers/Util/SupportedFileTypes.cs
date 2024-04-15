@@ -22,6 +22,9 @@ namespace Readers
         MsFraggerPsm,
         MsFraggerPeptide,
         MsFraggerProtein,
+        MsPathFinderTTargets,
+        MsPathFinderTDecoys,
+        MsPathFinderTAllResults,
     }
 
     public static class SupportedFileTypeExtensions
@@ -54,10 +57,12 @@ namespace Readers
                 SupportedFileType.MsFraggerPsm => "psm.tsv",
                 SupportedFileType.MsFraggerPeptide => "peptide.tsv",
                 SupportedFileType.MsFraggerProtein => "protein.tsv",
+                SupportedFileType.MsPathFinderTTargets => "_IcTarget.tsv",
+                SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
+                SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
-
         public static SupportedFileType ParseFileType(this string filePath)
         {
             switch (Path.GetExtension(filePath).ToLower())
@@ -80,7 +85,7 @@ namespace Readers
                         return SupportedFileType.Mzrt_TopFd;
                     throw new MzLibException("Csv file type not supported");
 
-                case ".tsv":
+                case ".tsv": 
                 {
                     // these tsv cases have a specialized ending before the .tsv
                     if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
@@ -99,6 +104,12 @@ namespace Readers
                         return SupportedFileType.MsFraggerPeptide;
                     if (filePath.EndsWith(SupportedFileType.MsFraggerProtein.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsFraggerProtein;
+                    if (filePath.EndsWith(SupportedFileType.MsPathFinderTTargets.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MsPathFinderTTargets;
+                    if (filePath.EndsWith(SupportedFileType.MsPathFinderTDecoys.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MsPathFinderTDecoys;
+                    if (filePath.EndsWith(SupportedFileType.MsPathFinderTAllResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MsPathFinderTAllResults;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
