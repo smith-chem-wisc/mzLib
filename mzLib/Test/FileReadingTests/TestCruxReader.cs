@@ -80,7 +80,7 @@ namespace Test.FileReadingTests
             Assert.That(first.FullSequence, Is.EqualTo("RPQYSNPPVQGEVMEGADNQGAGEQGRPVR"));
             Assert.That(first.ProteinId, Is.EqualTo("sp|P67809|YBOX1_HUMAN(205)"));
             Assert.That(first.FlankingAa, Is.EqualTo("RQ"));
-            Assert.That(first.FileNameWithoutExtension, Is.EqualTo("B02_21_161103_D4_HCD_OT_4ul"));
+            Assert.That(first.FileNameWithoutExtension, Is.EqualTo("B02_21_161103_D4_HCD_OT_4ul.raw"));
             Assert.That(first.Accession, Is.EqualTo("P67809"));
 
             Assert.That(last.FilePath, Is.EqualTo(@"/hdd/data/PXD005590/B02_20_161103_E4_HCD_OT_4ul.raw.mzXML"));
@@ -103,7 +103,7 @@ namespace Test.FileReadingTests
             Assert.That(last.FullSequence, Is.EqualTo("QDHPSSMGVYGQESGGFSGPGENR"));
             Assert.That(last.ProteinId, Is.EqualTo("sp|Q01844|EWS_HUMAN(269)"));
             Assert.That(last.FlankingAa, Is.EqualTo("RS"));
-            Assert.That(last.FileNameWithoutExtension, Is.EqualTo("B02_20_161103_E4_HCD_OT_4ul"));
+            Assert.That(last.FileNameWithoutExtension, Is.EqualTo("B02_20_161103_E4_HCD_OT_4ul.raw"));
             Assert.That(last.Accession, Is.EqualTo("Q01844"));
         }
 
