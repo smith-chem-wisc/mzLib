@@ -29,6 +29,8 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Omics.Digestion;
+using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -881,8 +883,20 @@ namespace Test
         public static void Test_MatchedFragmentGetHashCode()
         {
             Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product pPrime = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
             MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
-            Assert.AreEqual(1072693248, m.GetHashCode());
+            MatchedFragmentIon mPrime = new MatchedFragmentIon(pPrime, 1, 1, 1);
+            Assert.AreEqual(P.GetHashCode(), pPrime.GetHashCode());
+            Assert.AreEqual(mPrime.GetHashCode(), m.GetHashCode());
+        }
+
+        [Test]
+        public static void TestMatchedFragmentIonEquals()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            MatchedFragmentIon ion1 = new MatchedFragmentIon(P, experMz: 150, experIntensity: 99.99999999999, charge: 2);
+            MatchedFragmentIon ion2 = new MatchedFragmentIon(P, experMz: 149.99999999999, experIntensity: 100, charge: 2);
+            Assert.AreEqual(ion1, ion2);
         }
 
         [Test]

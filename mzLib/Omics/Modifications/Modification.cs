@@ -1,13 +1,18 @@
 ﻿using Chemistry;
 using MassSpectrometry;
+using Omics.Modifications;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 
-namespace Proteomics
+namespace Omics.Modifications
 {
+    /// <summary>
+    /// Represents a modification
+    /// Mods.txt format was taken from https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/docs/ptmlist.txt
+    /// </summary>
     public class Modification
     {
         public string IdWithMotif { get; private set; }
@@ -109,24 +114,20 @@ namespace Proteomics
             switch (_locationRestriction)
             {
                 case "N-terminal.":
-                    return _locationRestriction;
-
                 case "C-terminal.":
-                    return _locationRestriction;
-
                 case "Peptide N-terminal.":
-                    return _locationRestriction;
-
                 case "Peptide C-terminal.":
-                    return _locationRestriction;
-
                 case "Anywhere.":
+                case "3'-terminal.":
+                case "5'-terminal.":
+                case "Oligo 3'-terminal.":
+                case "Oligo 5'-terminal.":
                     return _locationRestriction;
 
                 default:
                     return "Unassigned.";
             }
-        }       
+        }
 
         public override bool Equals(object o)
         {
@@ -298,7 +299,5 @@ namespace Proteomics
 
             return sb.ToString();
         }
-
-        
     }
 }

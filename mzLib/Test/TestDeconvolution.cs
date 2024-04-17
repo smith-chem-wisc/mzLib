@@ -11,7 +11,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using MassSpectrometry;
+using Omics.Digestion;
+using Omics.Modifications;
 using Test.FileReadingTests;
 
 namespace Test
@@ -137,10 +140,9 @@ namespace Test
             // The ones marked 2 are for checking an overload method
 
             DeconvolutionParameters deconParameters = new ClassicDeconvolutionParameters(1, 60, 4, 3);
-            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionType.ClassicDeconvolution, deconParameters);
 
-            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(DeconvolutionType.ClassicDeconvolution, deconParameters).ToList();
-            List<IsotopicEnvelope> isolatedMasses2 = scan.GetIsolatedMassesAndCharges(deconvoluter).ToList();
+            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
+            List<IsotopicEnvelope> isolatedMasses2 = scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, deconParameters).ToList();
 
             List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
             List<double> monoIsotopicMasses2 = isolatedMasses2.Select(m => m.MonoisotopicMass).ToList();
@@ -177,16 +179,15 @@ namespace Test
             DeconvolutionParameters deconParameters =
                 new ClassicDeconvolutionParameters(minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm,
                     intensityRatioLimit);
-            Deconvoluter deconvoluter = new Deconvoluter(DeconvolutionType.ClassicDeconvolution, deconParameters);
 
             //check assigned correctly
 
-            List<IsotopicEnvelope> lie2 = deconvoluter.Deconvolute(singlespec, singleRange).ToList();
+            List<IsotopicEnvelope> lie2 = Deconvoluter.Deconvolute(singlespec, deconParameters, singleRange).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
             Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
 
             //check that if already assigned, skips assignment and just recalls same value
-            List<IsotopicEnvelope> lie3 = deconvoluter.Deconvolute(singlespec, singleRange).ToList();
+            List<IsotopicEnvelope> lie3 = Deconvoluter.Deconvolute(singlespec, deconParameters, singleRange).ToList();
             Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
         }
 
@@ -210,9 +211,8 @@ namespace Test
 
             // set up deconvolution
             DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(-10, -1, 20, 3, Polarity.Negative);
-            Deconvoluter deconvoluter = new(DeconvolutionType.ClassicDeconvolution, deconParams);
 
-            List<IsotopicEnvelope> deconvolutionResults = deconvoluter.Deconvolute(scan).ToList();
+            List<IsotopicEnvelope> deconvolutionResults = Deconvoluter.Deconvolute(scan, deconParams).ToList();
             // ensure each expected result is found, with correct mz, charge, and monoisotopic mass
             var resultsWithPeakOfInterest = deconvolutionResults.FirstOrDefault(envelope =>
                 envelope.Peaks.Any(peak => tolerance.Within(peak.mz, expectedMz)));
@@ -220,6 +220,53 @@ namespace Test
 
             Assert.That(tolerance.Within(expectedMonoMass, resultsWithPeakOfInterest.MonoisotopicMass));
             Assert.That(expectedCharge, Is.EqualTo(resultsWithPeakOfInterest.Charge));
+        }
+
+        [Test]
+        public static void TestExampleNewDeconvolutionInDeconvoluter()
+        {
+            DeconvolutionParameters deconParams = new ExampleNewDeconvolutionParametersTemplate(1, 60);
+            var dataFile = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "GUACUG_NegativeMode_Sliced.mzML"));
+            dataFile.InitiateDynamicConnection();
+            var scan = dataFile.GetOneBasedScanFromDynamicConnection(726);
+            var spectrum = scan.MassSpectrum;
+            dataFile.CloseDynamicConnection();
+
+            // test switch statements in Deconvoluter
+            Assert.Throws<NotImplementedException>(() => Deconvoluter.Deconvolute(spectrum, deconParams));
+            Assert.Throws<NotImplementedException>(() => Deconvoluter.Deconvolute(scan, deconParams));
+
+            // test default exceptions in deconvoluter
+            var badEnumValue = (DeconvolutionType)Int32.MaxValue;
+            deconParams.GetType().GetProperty("DeconvolutionType")!.SetValue(deconParams, badEnumValue);
+            Assert.Throws<MzLibException>(() => Deconvoluter.Deconvolute(spectrum, deconParams));
+            Assert.Throws<MzLibException>(() => Deconvoluter.Deconvolute(scan, deconParams));
+        }
+
+
+        [Test]
+        public static void Test_MsDataScan_GetIsolatedMassesAndCharges()
+        {
+            // get scan
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "GUACUG_NegativeMode_Sliced.mzML");
+            var dataFile = MsDataFileReader.GetDataFile(filePath);
+            var precursorScan = dataFile.GetOneBasedScan(1);
+            var fragmentationScan = dataFile.GetOneBasedScan(2);
+
+            // set up deconvolution
+            DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(-10, -1, 20, 3, Polarity.Negative);
+            
+            // get isolated masses and charges on an MS1 scan. This means the isolation window is null.
+            var ms1Result = precursorScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams).ToList();
+            Assert.That(ms1Result.Count, Is.EqualTo(0));
+            ms1Result = precursorScan.GetIsolatedMassesAndCharges(precursorScan, deconParams).ToList();
+            Assert.That(ms1Result.Count, Is.EqualTo(0));
+
+            // get isolated masses and charges on an MS2 scan. This should work correctly
+            var ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams).ToList();
+            Assert.That(ms2Result.Count, Is.EqualTo(1));
+            ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan, deconParams).ToList();
+            Assert.That(ms2Result.Count, Is.EqualTo(1));
         }
     }
 }

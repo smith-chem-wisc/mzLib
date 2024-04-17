@@ -8,7 +8,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics.Digestion;
 using Omics.Fragmentation;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -407,6 +409,186 @@ namespace Test
             var ye = prot.Digest(digestionParams, new List<Modification>(), variableModifications).ToList();
 
             Assert.AreEqual(2, ye.Count);
+        }
+
+        [Test]
+        public static void TestDigestionParamsClone()
+        {
+            DigestionParams digestionParams = new DigestionParams(
+                protease: "top-down",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                keepNGlycopeptide: true,
+                keepOGlycopeptide: true);
+
+            DigestionParams digestionParamsClone = (DigestionParams)digestionParams.Clone();
+            Assert.AreEqual(digestionParams, digestionParamsClone);
+            Assert.AreEqual(digestionParams.InitiatorMethionineBehavior, digestionParamsClone.InitiatorMethionineBehavior);
+            Assert.AreEqual(digestionParams.MaxMissedCleavages, digestionParamsClone.MaxMissedCleavages);
+            Assert.AreEqual(digestionParams.MaxModificationIsoforms, digestionParamsClone.MaxModificationIsoforms);
+            Assert.AreEqual(digestionParams.MinLength, digestionParamsClone.MinLength);
+            Assert.AreEqual(digestionParams.MaxLength, digestionParamsClone.MaxLength);
+            Assert.AreEqual(digestionParams.MaxMods, digestionParamsClone.MaxMods);
+            Assert.AreEqual(digestionParams.Protease, digestionParamsClone.Protease);
+            Assert.AreEqual(digestionParams.SearchModeType, digestionParamsClone.SearchModeType);
+            Assert.AreEqual(digestionParams.FragmentationTerminus, digestionParamsClone.FragmentationTerminus);
+            Assert.AreEqual(digestionParams.GeneratehUnlabeledProteinsForSilac, digestionParamsClone.GeneratehUnlabeledProteinsForSilac);
+            Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
+            Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
+            Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
+            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+
+            digestionParams = new DigestionParams(
+                protease: "top-down",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                keepNGlycopeptide: true,
+                keepOGlycopeptide: true,
+                maxModificationIsoforms: 5,
+                maxModsForPeptides: 6,
+                maxPeptideLength: 7,
+                searchModeType: CleavageSpecificity.None,
+                fragmentationTerminus: FragmentationTerminus.C,
+                generateUnlabeledProteinsForSilac: false);
+
+            digestionParamsClone = (DigestionParams)digestionParams.Clone();
+            Assert.AreEqual(digestionParams, digestionParamsClone);
+            Assert.AreEqual(digestionParams.InitiatorMethionineBehavior, digestionParamsClone.InitiatorMethionineBehavior);
+            Assert.AreEqual(digestionParams.MaxMissedCleavages, digestionParamsClone.MaxMissedCleavages);
+            Assert.AreEqual(digestionParams.MaxModificationIsoforms, digestionParamsClone.MaxModificationIsoforms);
+            Assert.AreEqual(digestionParams.MinLength, digestionParamsClone.MinLength);
+            Assert.AreEqual(digestionParams.MaxLength, digestionParamsClone.MaxLength);
+            Assert.AreEqual(digestionParams.MaxMods, digestionParamsClone.MaxMods);
+            Assert.AreEqual(digestionParams.Protease, digestionParamsClone.Protease);
+            Assert.AreEqual(digestionParams.SearchModeType, digestionParamsClone.SearchModeType);
+            Assert.AreEqual(digestionParams.FragmentationTerminus, digestionParamsClone.FragmentationTerminus);
+            Assert.AreEqual(digestionParams.GeneratehUnlabeledProteinsForSilac, digestionParamsClone.GeneratehUnlabeledProteinsForSilac);
+            Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
+            Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
+            Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
+            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+        }
+
+
+
+        [Test]
+        public static void TestDigestionParamsCloneWithNewTerminus()
+        {
+            DigestionParams digestionParams = new DigestionParams(
+                protease: "top-down",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                keepNGlycopeptide: true,
+                keepOGlycopeptide: true);
+
+            DigestionParams digestionParamsClone = (DigestionParams)digestionParams.Clone(FragmentationTerminus.N);
+            Assert.AreNotEqual(digestionParams, digestionParamsClone);
+            Assert.AreEqual(digestionParams.InitiatorMethionineBehavior, digestionParamsClone.InitiatorMethionineBehavior);
+            Assert.AreEqual(digestionParams.MaxMissedCleavages, digestionParamsClone.MaxMissedCleavages);
+            Assert.AreEqual(digestionParams.MaxModificationIsoforms, digestionParamsClone.MaxModificationIsoforms);
+            Assert.AreEqual(digestionParams.MinLength, digestionParamsClone.MinLength);
+            Assert.AreEqual(digestionParams.MaxLength, digestionParamsClone.MaxLength);
+            Assert.AreEqual(digestionParams.MaxMods, digestionParamsClone.MaxMods);
+            Assert.AreEqual(digestionParams.Protease, digestionParamsClone.Protease);
+            Assert.AreEqual(digestionParams.SearchModeType, digestionParamsClone.SearchModeType);
+            Assert.AreEqual(FragmentationTerminus.N, digestionParamsClone.FragmentationTerminus);
+            Assert.AreEqual(digestionParams.GeneratehUnlabeledProteinsForSilac, digestionParamsClone.GeneratehUnlabeledProteinsForSilac);
+            Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
+            Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
+            Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
+            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+
+            digestionParams = new DigestionParams(
+                protease: "top-down",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                keepNGlycopeptide: true,
+                keepOGlycopeptide: true,
+                maxModificationIsoforms: 5,
+                maxModsForPeptides: 6,
+                maxPeptideLength: 7,
+                searchModeType: CleavageSpecificity.None,
+                fragmentationTerminus: FragmentationTerminus.None,
+                generateUnlabeledProteinsForSilac: false);
+
+            digestionParamsClone = (DigestionParams)digestionParams.Clone(FragmentationTerminus.N);
+            Assert.AreNotEqual(digestionParams, digestionParamsClone);
+            Assert.AreEqual(digestionParams.InitiatorMethionineBehavior, digestionParamsClone.InitiatorMethionineBehavior);
+            Assert.AreEqual(digestionParams.MaxMissedCleavages, digestionParamsClone.MaxMissedCleavages);
+            Assert.AreEqual(digestionParams.MaxModificationIsoforms, digestionParamsClone.MaxModificationIsoforms);
+            Assert.AreEqual(digestionParams.MinLength, digestionParamsClone.MinLength);
+            Assert.AreEqual(digestionParams.MaxLength, digestionParamsClone.MaxLength);
+            Assert.AreEqual(digestionParams.MaxMods, digestionParamsClone.MaxMods);
+            Assert.AreEqual(ProteaseDictionary.Dictionary["singleN"], digestionParamsClone.Protease);
+            Assert.AreEqual(digestionParams.SearchModeType, digestionParamsClone.SearchModeType);
+            Assert.AreEqual(FragmentationTerminus.N, digestionParamsClone.FragmentationTerminus);
+            Assert.AreEqual(digestionParams.GeneratehUnlabeledProteinsForSilac, digestionParamsClone.GeneratehUnlabeledProteinsForSilac);
+            Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
+            Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
+            Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
+            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+
+            digestionParamsClone = (DigestionParams)digestionParams.Clone(FragmentationTerminus.C);
+            Assert.AreNotEqual(digestionParams, digestionParamsClone);
+            Assert.AreEqual(digestionParams.InitiatorMethionineBehavior, digestionParamsClone.InitiatorMethionineBehavior);
+            Assert.AreEqual(digestionParams.MaxMissedCleavages, digestionParamsClone.MaxMissedCleavages);
+            Assert.AreEqual(digestionParams.MaxModificationIsoforms, digestionParamsClone.MaxModificationIsoforms);
+            Assert.AreEqual(digestionParams.MinLength, digestionParamsClone.MinLength);
+            Assert.AreEqual(digestionParams.MaxLength, digestionParamsClone.MaxLength);
+            Assert.AreEqual(digestionParams.MaxMods, digestionParamsClone.MaxMods);
+            Assert.AreEqual(ProteaseDictionary.Dictionary["singleC"], digestionParamsClone.Protease);
+            Assert.AreEqual(digestionParams.SearchModeType, digestionParamsClone.SearchModeType);
+            Assert.AreEqual(FragmentationTerminus.C, digestionParamsClone.FragmentationTerminus);
+            Assert.AreEqual(digestionParams.GeneratehUnlabeledProteinsForSilac, digestionParamsClone.GeneratehUnlabeledProteinsForSilac);
+            Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
+            Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
+            Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
+            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+        }
+
+        [Test]
+        public static void TestWhenFixedModIsSamePositionAsUniProtModWithDigestion()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
+            List<Modification> fixedMods = new List<Modification>();
+            ModificationMotif.TryGetMotif("S", out ModificationMotif serineMotif);
+            ChemicalFormula ohFormula = ChemicalFormula.ParseFormula("OH");
+            double ohMass = GetElement("O").PrincipalIsotope.AtomicMass + GetElement("H").PrincipalIsotope.AtomicMass;
+
+            fixedMods.Add(new Modification(_originalId: "serineOhMod", _target: serineMotif, _locationRestriction: "Anywhere.", _chemicalFormula: ohFormula, _monoisotopicMass: ohMass));
+
+
+            List<Protein> dbProteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, UniProtPtms.Concat(fixedMods), false,
+                new List<string>(), out Dictionary<string, Modification> un);
+
+            Protein prot = dbProteins.First();
+
+            var digestionProducts = prot.Digest(digestionParams, fixedMods, new List<Modification>()).ToList();
+            var firstPeptideModifiedForms = digestionProducts.Where(p => p.BaseSequence == "MSGR").ToList();
+            List<string> fullSequences = firstPeptideModifiedForms.Select(p => p.FullSequence).ToList();
+            List<string> expectedFullSequences = new List<string>
+            {
+                "MS[:serineOhMod on S]GR",
+                "MS[:serineOhMod on S]GR[UniProt:Asymmetric dimethylarginine on R]",
+                "MS[:serineOhMod on S]GR[UniProt:Citrulline on R]",
+                "MS[:serineOhMod on S]GR[UniProt:Omega-N-methylarginine on R]",
+                "MS[:serineOhMod on S]GR[UniProt:Symmetric dimethylarginine on R]",
+                "MS[UniProt:Phosphoserine on S]GR",
+                "MS[UniProt:Phosphoserine on S]GR[UniProt:Asymmetric dimethylarginine on R]",
+                "MS[UniProt:Phosphoserine on S]GR[UniProt:Citrulline on R]",
+                "MS[UniProt:Phosphoserine on S]GR[UniProt:Omega-N-methylarginine on R]",
+                "MS[UniProt:Phosphoserine on S]GR[UniProt:Symmetric dimethylarginine on R]"
+            };
+
+            CollectionAssert.AreEquivalent(expectedFullSequences, fullSequences);
         }
     }
 }

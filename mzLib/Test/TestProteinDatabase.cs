@@ -3,6 +3,7 @@ using Proteomics;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 
 namespace Test

@@ -1,9 +1,9 @@
-﻿using System;
+﻿using Omics.Digestion;
 using Omics.Fragmentation;
 
-namespace Proteomics.ProteolyticDigestion
+namespace Proteomics.ProteolyticDigestion 
 {
-    public class DigestionParams
+    public class DigestionParams : IDigestionParams
     {
         // this parameterless constructor needs to exist to read the toml.
         // if you can figure out a way to get rid of it, feel free...
@@ -18,11 +18,11 @@ namespace Proteomics.ProteolyticDigestion
         {
             Protease = ProteaseDictionary.Dictionary[protease];
             MaxMissedCleavages = maxMissedCleavages;
-            MinPeptideLength = minPeptideLength;
-            MaxPeptideLength = maxPeptideLength;
+            MinLength = minPeptideLength;
+            MaxLength = maxPeptideLength;
+            MaxMods = maxModsForPeptides;
             MaxModificationIsoforms = maxModificationIsoforms;
             InitiatorMethionineBehavior = initiatorMethionineBehavior;
-            MaxModsForPeptide = maxModsForPeptides;
             SearchModeType = searchModeType;
             FragmentationTerminus = fragmentationTerminus;
             RecordSpecificProtease();
@@ -31,13 +31,14 @@ namespace Proteomics.ProteolyticDigestion
             KeepOGlycopeptide = keepOGlycopeptide;
         }
 
-        public int MaxMissedCleavages { get; private set; }
         public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; private set; }
-        public int MinPeptideLength { get; private set; }
-        public int MaxPeptideLength { get; private set; }
-        public int MaxModificationIsoforms { get; private set; }
-        public int MaxModsForPeptide { get; private set; }
-        public Protease Protease { get; private set; }
+        public int MaxMissedCleavages { get; set; }
+        public int MaxModificationIsoforms { get; set; }
+        public int MinLength { get; set; }
+        public int MaxLength { get; set; }
+        public int MaxMods { get; set; }
+        public DigestionAgent DigestionAgent => Protease;
+
         public CleavageSpecificity SearchModeType { get; private set; } //for fast semi and nonspecific searching of proteases
         public FragmentationTerminus FragmentationTerminus { get; private set; } //for fast semi searching of proteases
         public Protease SpecificProtease { get; private set; } //for fast semi and nonspecific searching of proteases
@@ -45,21 +46,45 @@ namespace Proteomics.ProteolyticDigestion
         public bool KeepNGlycopeptide { get; private set; }
         public bool KeepOGlycopeptide { get; private set; }
 
+        #region Properties overridden by more generic interface
+
+        public Protease Protease { get; private set; }
+
+        public int MinPeptideLength
+        {
+            get => MinLength;
+            set => MinLength = value;
+        }
+
+        public int MaxPeptideLength
+        {
+            get => MaxLength;
+            set => MaxLength = value;
+        }
+
+        public int MaxModsForPeptide
+        {
+            get => MaxMods;
+            set => MaxMods = value;
+        }
+
+        #endregion
+
         public override bool Equals(object obj)
         {
             return obj is DigestionParams a
-                && MaxMissedCleavages.Equals(a.MaxMissedCleavages)
-                && MinPeptideLength.Equals(a.MinPeptideLength)
-                && MaxPeptideLength.Equals(a.MaxPeptideLength)
-                && InitiatorMethionineBehavior.Equals(a.InitiatorMethionineBehavior)
-                && MaxModificationIsoforms.Equals(a.MaxModificationIsoforms)
-                && MaxModsForPeptide.Equals(a.MaxModsForPeptide)
-                && Protease.Equals(a.Protease)
-                && SearchModeType.Equals(a.SearchModeType)
-                && FragmentationTerminus.Equals(a.FragmentationTerminus)
-                && GeneratehUnlabeledProteinsForSilac.Equals(a.GeneratehUnlabeledProteinsForSilac)
-                && KeepNGlycopeptide.Equals(a.KeepNGlycopeptide)
-                && KeepOGlycopeptide.Equals(a.KeepOGlycopeptide);
+                   && MaxMissedCleavages.Equals(a.MaxMissedCleavages)
+                   && MinLength.Equals(a.MinLength)
+                   && MaxLength.Equals(a.MaxLength)
+                   && InitiatorMethionineBehavior.Equals(a.InitiatorMethionineBehavior)
+                   && MaxModificationIsoforms.Equals(a.MaxModificationIsoforms)
+                   && MaxMods.Equals(a.MaxMods)
+                   && Protease.Equals(a.Protease)
+                   && SearchModeType.Equals(a.SearchModeType)
+                   && FragmentationTerminus.Equals(a.FragmentationTerminus)
+                   && GeneratehUnlabeledProteinsForSilac.Equals(a.GeneratehUnlabeledProteinsForSilac)
+                   && KeepNGlycopeptide.Equals(a.KeepNGlycopeptide)
+                   && KeepOGlycopeptide.Equals(a.KeepOGlycopeptide);
         }
 
         public override int GetHashCode()
@@ -68,15 +93,28 @@ namespace Proteomics.ProteolyticDigestion
                 MaxMissedCleavages.GetHashCode()
                 ^ InitiatorMethionineBehavior.GetHashCode()
                 ^ MaxModificationIsoforms.GetHashCode()
-                ^ MaxModsForPeptide.GetHashCode();
+                ^ MaxMods.GetHashCode();
         }
 
         public override string ToString()
         {
-            return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinPeptideLength + "," + MaxPeptideLength + ","
-                + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
-                + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide;
+            return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinLength + "," + MaxLength + ","
+                   + MaxModificationIsoforms + "," + MaxMods + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
+                   + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide;
         }
+
+        public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
+        {
+            var terminus = newTerminus ?? FragmentationTerminus;
+            if (SearchModeType == CleavageSpecificity.None)
+                return new DigestionParams(SpecificProtease.Name, MaxMissedCleavages, MinLength, MaxLength,
+                    MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
+                    GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+            return new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength,
+                MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
+                GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+        }
+            
 
         private void RecordSpecificProtease()
         {
