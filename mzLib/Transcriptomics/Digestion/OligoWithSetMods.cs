@@ -25,6 +25,28 @@ namespace Transcriptomics.Digestion
             FullSequence = this.DetermineFullSequence();
         }
 
+        public OligoWithSetMods(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
+            RnaDigestionParams digestionParams = null, NucleicAcid n = null, int oneBaseStartResidue = 1, int oneBasedEndResidue = 0,
+             int missedCleavages = 0, CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string description = null,
+            IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null)
+            : base(n, oneBaseStartResidue, oneBasedEndResidue, missedCleavages, 
+                cleavageSpecificity, fivePrimeTerminus, threePrimeTerminus)
+        {
+            if (sequence.Contains("|"))
+            {
+                throw new MzLibUtil.MzLibException("Ambiguous oligo cannot be parsed from string: " + sequence);
+            }
+
+            FullSequence = sequence;
+            _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
+            GetModsAfterDeserialization(allKnownMods);
+            NumFixedMods = numFixedMods;
+            _digestionParams = digestionParams;
+
+            if (n != null)
+                Parent = n;
+        }
+
         private RnaDigestionParams _digestionParams;
         private Dictionary<int, Modification> _allModsOneIsNterminus;
         private double? _monoisotopicMass;
@@ -241,6 +263,70 @@ namespace Transcriptomics.Digestion
                 CleavageSpecificityForFdrCategory, dictWithLocalizedMass, NumFixedMods, FivePrimeTerminus, ThreePrimeTerminus);
 
             return peptideWithLocalizedMass;
+        }
+
+        private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
+        {
+            _allModsOneIsNterminus = new Dictionary<int, Modification>();
+            int currentModStart = 0;
+            int currentModificationLocation = 1;
+            bool currentlyReadingMod = false;
+            int bracketCount = 0;
+
+            for (int r = 0; r < FullSequence.Length; r++)
+            {
+                char c = FullSequence[r];
+                if (c == '[')
+                {
+                    currentlyReadingMod = true;
+                    if (bracketCount == 0)
+                    {
+                        currentModStart = r + 1;
+                    }
+
+                    bracketCount++;
+                }
+                else if (c == ']')
+                {
+                    string modId = null;
+                    bracketCount--;
+                    if (bracketCount == 0)
+                    {
+                        try
+                        {
+                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
+                            string modString = FullSequence.Substring(currentModStart, r - currentModStart);
+                            int splitIndex = modString.IndexOf(':');
+                            string modType = modString.Substring(0, splitIndex);
+                            modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
+                        }
+                        catch (Exception e)
+                        {
+                            throw new MzLibUtil.MzLibException(
+                                "Error while trying to parse string into peptide: " + e.Message);
+                        }
+
+                        if (!idToMod.TryGetValue(modId, out Modification mod))
+                        {
+                            throw new MzLibUtil.MzLibException(
+                                "Could not find modification while reading string: " + FullSequence);
+                        }
+
+                        if (mod.LocationRestriction.Contains("C-terminal.") && r == FullSequence.Length - 1)
+                        {
+                            currentModificationLocation = BaseSequence.Length + 2;
+                        }
+
+                        _allModsOneIsNterminus.Add(currentModificationLocation, mod);
+                        currentlyReadingMod = false;
+                    }
+                }
+                else if (!currentlyReadingMod)
+                {
+                    currentModificationLocation++;
+                }
+                //else do nothing
+            }
         }
     }
 }
