@@ -1,8 +1,10 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using MassSpectrometry;
 using NUnit; 
 using NUnit.Framework;
 using Readers;
+using Readers.Bruker;
 
 namespace Test.FileReadingTests
 {

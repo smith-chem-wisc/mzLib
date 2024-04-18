@@ -56,6 +56,18 @@ namespace MzLibUtil
             return result;
         }
 
+        public static bool ToEnum<T>(this int modeInt, out T result) where T : Enum
+        {
+            Type enumType = typeof(T);
+            if (!Enum.IsDefined(enumType, modeInt))
+            {
+                result = default(T);
+                return false;
+            }
+            result = (T)Enum.ToObject(enumType, modeInt);
+            return true;
+        }
+
         /// <summary>
         /// Checks if two collections are equivalent, regardless of the order of their contents
         /// </summary>
