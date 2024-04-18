@@ -138,16 +138,6 @@ namespace FlashLFQ
             {
                 var logIntensity = Math.Log(acceptorIntensity, 2);
                 return CalculateScore(_logIntensityDistribution, logIntensity);
-
-
-                // I don't know what the if/else statement accomplishes. It feels like we should take the density regardless
-                // As it is, the score is artifically inflated for very intense peaks
-                //if (logIntensity < _logIntensityDistribution.Median)
-                //    intensityDensity = _logIntensityDistribution.Density(logIntensity);
-                //else
-                //    intensityDensity = _logIntensityDistribution.Density(_logIntensityDistribution.Mode);
-
-                //alternate, more straightforward approach
             }
 
         }

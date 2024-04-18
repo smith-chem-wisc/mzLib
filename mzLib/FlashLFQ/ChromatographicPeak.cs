@@ -22,8 +22,6 @@ namespace FlashLFQ
         public double IntensityScore { get; set; }
         public double RtScore { get; set; }
         public double ScanCountScore { get; set; }
-        public List<int> ChargeList { get; set; }
-        public string Collision { get; set; }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -36,8 +34,6 @@ namespace FlashLFQ
             IsotopicEnvelopes = new List<IsotopicEnvelope>();
             IsMbrPeak = isMbrPeak;
             SpectraFileInfo = fileInfo;
-            RandomRt = randomRt;
-            
         }
 
         public IsotopicEnvelope Apex { get; private set; }
@@ -50,16 +46,6 @@ namespace FlashLFQ
         /// Expected retention time for MBR acceptor peaks (mean)
         /// </summary>
         public double? RtHypothesis { get; private set; }
-        /// <summary>
-        /// Std. Dev of retention time differences between MBR acceptor file and donor file, used if # calibration points < 6
-        /// </summary>
-        public double? RtStdDev { get; private set;  }
-        /// <summary>
-        /// Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6
-        /// </summary>
-        public double? RtInterquartileRange { get; private set; }
-        public bool RandomRt { get; }
-        public bool DecoyPeptide => Identifications.First().IsDecoy;
 
         public static string TabSeparatedHeader
         {
@@ -93,25 +79,8 @@ namespace FlashLFQ
                 sb.Append("Full Sequences Mapped" + "\t");
                 sb.Append("Peak Split Valley RT" + "\t");
                 sb.Append("Peak Apex Mass Error (ppm)");
-                sb.Append("\t" + "Decoy Peptide");
-                sb.Append("\t" + "Random Rt");
-                sb.Append("\t" + "Collision");
-                //sb.Append("Timepoints");
                 return sb.ToString();
             }
-        }
-
-        /// <summary>
-        /// Sets retention time information for a given peak. Used for MBR peaks
-        /// </summary>
-        /// <param name="rtHypothesis"> Expected retention time for peak, based on alignment between a donor and acceptor file </param>
-        /// <param name="rtStdDev"> Standard deviation in the retention time differences between aligned peaks </param>
-        /// <param name="rtInterquartileRange"> Interquartile range og the retention time differences between aligned peaks</param>
-        internal void SetRtWindow(double rtHypothesis, double? rtStdDev, double? rtInterquartileRange)
-        {
-            RtHypothesis = rtHypothesis;
-            RtStdDev = rtStdDev;
-            RtInterquartileRange = rtInterquartileRange;
         }
 
         public void CalculateIntensityForThisFeature(bool integrate)
@@ -166,7 +135,7 @@ namespace FlashLFQ
                 this.Identifications = this.Identifications
                     .Union(otherFeature.Identifications)
                     .Distinct()
-                    .OrderBy(p => p.PosteriorErrorProbability).ToList();
+                    .ToList();
                 ResolveIdentifications();
                 this.IsotopicEnvelopes.AddRange(otherFeature.IsotopicEnvelopes
                     .Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
@@ -276,9 +245,6 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError);
-            sb.Append("\t" + DecoyPeptide);
-            sb.Append("\t" + RandomRt);
-            sb.Append("\t" + Collision ?? "");
 
             return sb.ToString();
         }

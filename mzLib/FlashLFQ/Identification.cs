@@ -15,16 +15,11 @@ namespace FlashLFQ
         public readonly ChemicalFormula OptionalChemicalFormula;
         public readonly bool UseForProteinQuant;
         public double PeakfindingMass;
-        public double PosteriorErrorProbability;
-        public double PsmScore { get; init; }
-        public double QValue { get; init; }
-        public bool IsDecoy { get; }
 
         public Identification(SpectraFileInfo fileInfo, string BaseSequence, string ModifiedSequence,
             double monoisotopicMass,
             double ms2RetentionTimeInMinutes, int chargeState, List<ProteinGroup> proteinGroups,
-            ChemicalFormula optionalChemicalFormula = null, bool useForProteinQuant = true, double posteriorErrorProbability = 0,
-            double psmScore = 0, double qValue = 0, bool decoy = false)
+            ChemicalFormula optionalChemicalFormula = null, bool useForProteinQuant = true)
         {
             this.FileInfo = fileInfo;
             this.BaseSequence = BaseSequence;
@@ -35,10 +30,6 @@ namespace FlashLFQ
             this.ProteinGroups = new HashSet<ProteinGroup>(proteinGroups);
             this.OptionalChemicalFormula = optionalChemicalFormula;
             UseForProteinQuant = useForProteinQuant;
-            PosteriorErrorProbability = posteriorErrorProbability;
-            QValue = qValue;
-            PsmScore = psmScore;
-            IsDecoy = decoy;
         }
 
         public override string ToString()
