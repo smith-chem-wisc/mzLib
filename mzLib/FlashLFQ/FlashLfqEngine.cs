@@ -517,7 +517,7 @@ namespace FlashLFQ
             Dictionary<string, ChromatographicPeak> donorFileBestMsmsPeaks = new();
             Dictionary<string, ChromatographicPeak> acceptorFileBestMsmsPeaks = new();
             List<RetentionTimeCalibDataPoint> rtCalibrationCurve = new();
-            List<double> anchorPeptideRtDiffs = new();
+            List<double> anchorPeptideRtDiffs = new(); // anchor peptides are peptides that were MS2 detected in both the donor and acceptor runs
 
 
             // get all peaks, not counting ambiguous peaks
@@ -571,10 +571,9 @@ namespace FlashLFQ
                 }
             }
 
-
             // build rtDiff distribution 
-            var rtDifferenceDistribution = new Normal(mean: anchorPeptideRtDiffs.Median(), stddev: anchorPeptideRtDiffs.StandardDeviation());
-            scorer.AddRtDiffDistribution(donor, rtDifferenceDistribution);
+            //var rtDifferenceDistribution = new Normal(mean: anchorPeptideRtDiffs.Median(), stddev: anchorPeptideRtDiffs.StandardDeviation());
+            scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs);
 
             return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
         }
@@ -967,6 +966,8 @@ namespace FlashLFQ
                       && !p.Identifications.First().IsDecoy)
                     .Take(2500)
                     .ToList();
+
+                if (donorPeaksWithMsms.Count < 1) continue;
 
                 // Loop through every MSMS id in the donor file
                 Parallel.ForEach(Partitioner.Create(0, donorPeaksWithMsms.Count),

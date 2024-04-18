@@ -3,6 +3,7 @@ using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Linq;
 
 namespace FlashLFQ
@@ -19,14 +20,11 @@ namespace FlashLFQ
         private readonly Normal _scanCountDistribution;
         // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
         private Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
-        private Dictionary<SpectraFileInfo, Normal> _rtDifferenceDistributionDictionary; // Donor file rt - Acceptor File rt
+        private Dictionary<SpectraFileInfo, Normal> _rtPredictionErrorDistributionDictionary;
 
         internal Dictionary<IndexedMassSpectralPeak, ChromatographicPeak> ApexToAcceptorFilePeakDict { get; }
         internal List<ChromatographicPeak> UnambiguousMsMsAcceptorPeaks { get; }
         internal double MaxNumberOfScansObserved { get; }
-
-
-        internal readonly Normal _rtErrorDistribution;
 
         /// <summary>
         /// Takes in an intensity distribution, a log foldchange distribution, and a ppm distribution 
@@ -43,9 +41,8 @@ namespace FlashLFQ
             MaxNumberOfScansObserved = acceptorPeaks.Max(peak => peak.ScanCount);
             _logIntensityDistribution = logIntensityDistribution;
             _ppmDistribution = ppmDistribution;
-            _rtErrorDistribution = new Normal(mean: 0, stddev: 0.1); // in minutes
             _logFcDistributionDictionary = new();
-            _rtDifferenceDistributionDictionary = new();
+            _rtPredictionErrorDistributionDictionary = new();
 
             // This is kludgey, because scan counts are discrete
             List<double> scanList = acceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
@@ -53,9 +50,40 @@ namespace FlashLFQ
             _scanCountDistribution = new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
         }
 
-        internal void AddRtDiffDistribution(SpectraFileInfo donorFile, Normal rtDiffDistribution)
+        /// <summary>
+        /// Takes in a list of retention time differences for anchor peptides (donor RT - acceptor RT) and uses
+        /// this list to calculate the distribution of prediction errors of the local RT alignment strategy employed by
+        /// match-between-runs for the specified donor file
+        /// </summary>
+        /// <param name="anchorPeptideRtDiffs">List of retention time differences (doubles) calculated as donor file RT - acceptor file RT</param>
+        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, List<double> anchorPeptideRtDiffs)
         {
-            _rtDifferenceDistributionDictionary.Add(donorFile, rtDiffDistribution);
+            // in MBR, we use anchor peptides on either side of the donor to predict the retention time
+            // here, we're going to repeat the same process, using neighboring anchor peptides to predicte the Rt shift for each
+            // individual anchor peptide 
+            // then, we'll check how close our predicted rt shift was to the observed rt shift
+            // and build a distribution based on the predicted v actual rt diffs
+
+            int numAnchorPepsPerSide = 2; // hardCoded for now, number of anchor peptides on each side of the "donor" to be considered
+            double cumSumRtDiffs;
+            List<double> rtPredictionErrors = new();
+
+            for (int i = numAnchorPepsPerSide; i < anchorPeptideRtDiffs.Count - (numAnchorPepsPerSide); i++)
+            {
+                cumSumRtDiffs = 0;
+                for(int j = 1; j <= numAnchorPepsPerSide; j++)
+                {
+                    cumSumRtDiffs += anchorPeptideRtDiffs[i - j];
+                    cumSumRtDiffs += anchorPeptideRtDiffs[i + j];
+                }
+                double avgDiff = cumSumRtDiffs / (2 * numAnchorPepsPerSide);
+                rtPredictionErrors.Add(avgDiff - anchorPeptideRtDiffs[i]);
+            }
+
+            double medianRtError = rtPredictionErrors.Median();
+            double stdDevRtError = rtPredictionErrors.StandardDeviation();
+
+            _rtPredictionErrorDistributionDictionary.Add(donorFile, new Normal(medianRtError, stdDevRtError));
         }
 
         /// <summary>
@@ -66,15 +94,13 @@ namespace FlashLFQ
         internal double GetRTWindowWidth(SpectraFileInfo donorFile)
         {
             // 95% of all peaks are expected to fall within six standard deviations
-            return _rtDifferenceDistributionDictionary[donorFile].StdDev * 4;
+            return _rtPredictionErrorDistributionDictionary[donorFile].StdDev * 4;
         }
 
         internal double GetMedianRtDiff(SpectraFileInfo donorFile)
         {
-            return _rtDifferenceDistributionDictionary[donorFile].Median;
+            return _rtPredictionErrorDistributionDictionary[donorFile].Median;
         }
-
-        
 
         /// <summary>
         /// Scores a MBR peak based on it's retention time, ppm error, and intensity
@@ -83,11 +109,10 @@ namespace FlashLFQ
         internal double ScoreMbr(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak, double predictedRt)
         {
             acceptorPeak.IntensityScore = CalculateIntensityScore(acceptorPeak.Intensity, donorPeak);
-            acceptorPeak.RtScore = CalculateScore(_rtErrorDistribution, acceptorPeak.ApexRetentionTime - predictedRt);
+            acceptorPeak.RtScore = CalculateScore(_rtPredictionErrorDistributionDictionary[donorPeak.SpectraFileInfo],
+                predictedRt - acceptorPeak.ApexRetentionTime);
             acceptorPeak.PpmScore = CalculateScore(_ppmDistribution, acceptorPeak.MassError);
             acceptorPeak.ScanCountScore = CalculateScore(_scanCountDistribution, acceptorPeak.ScanCount);
-
-            double donorIdPEP = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First().PosteriorErrorProbability;
             
             // Returns 100 times the geometric mean of the four scores
             return 100 * Math.Pow( acceptorPeak.IntensityScore * acceptorPeak.RtScore * acceptorPeak.PpmScore * acceptorPeak.ScanCountScore, 0.25);
