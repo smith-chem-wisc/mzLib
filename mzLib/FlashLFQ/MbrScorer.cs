@@ -80,6 +80,12 @@ namespace FlashLFQ
                 rtPredictionErrors.Add(avgDiff - anchorPeptideRtDiffs[i]);
             }
 
+            if(!rtPredictionErrors.Any())
+            {
+                _rtPredictionErrorDistributionDictionary.Add(donorFile, new Normal(0, 1));
+                return;
+            }
+
             double medianRtError = rtPredictionErrors.Median();
             double stdDevRtError = rtPredictionErrors.StandardDeviation();
 

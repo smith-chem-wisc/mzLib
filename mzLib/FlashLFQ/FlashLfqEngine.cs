@@ -915,7 +915,7 @@ namespace FlashLFQ
                 chargesToMatch.Add(donorPeak.Apex.ChargeState);
             }
 
-            Identification donorIdentification = donorPeak.Identifications.OrderBy(p => p.PosteriorErrorProbability).First();
+            Identification donorIdentification = donorPeak.Identifications.First();
 
             foreach (int z in chargesToMatch)
             {
@@ -992,7 +992,7 @@ namespace FlashLFQ
             int z,
             List<IsotopicEnvelope> chargeEnvelopes)
         {
-            var donorId = donorPeak.Identifications.OrderBy(p => p.QValue).First();
+            var donorId = donorPeak.Identifications.First();
             var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile);
 
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list

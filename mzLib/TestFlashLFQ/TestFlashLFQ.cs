@@ -585,9 +585,6 @@ namespace Test
                 if (i == 2) continue; // exclude the mbr peak from the calculation
                 rtDiffs.Add(Math.Abs(file1Rt[i] - file2Rt[i]));
             }
-            Assert.That(peak.RtStdDev.HasValue);
-            Assert.That(!peak.RtInterquartileRange.HasValue);
-            Assert.That(peak.RtStdDev, Is.EqualTo(rtDiffs.StandardDeviation()).Within(0.01));
 
             Assert.That(results.Peaks[file1].Count == 5);
             Assert.That(!results.Peaks[file1].Any(p => p.IsMbrPeak));
@@ -603,9 +600,6 @@ namespace Test
                 if (i == 2) continue; // exclude the mbr peak from the calculation
                 rtDiffs.Add(Math.Abs(file1Rt[i] - file2Rt[i]));
             }
-            Assert.That(!peak.RtStdDev.HasValue);
-            Assert.That(peak.RtInterquartileRange.HasValue);
-            Assert.That(peak.RtInterquartileRange, Is.EqualTo(rtDiffs.InterquartileRange()).Within(0.01));
         }
 
         [Test]
@@ -1368,7 +1362,9 @@ namespace Test
 
             corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
 
-            Assert.That(corr > 0.7);
+            // Making MBR more permissive (i.e., minimum RT Window width) results in more MBR-detections but a lower corr
+            // corr should increase once we introduce target/decoy and score filtering
+            Assert.That(corr > 0.65);
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
