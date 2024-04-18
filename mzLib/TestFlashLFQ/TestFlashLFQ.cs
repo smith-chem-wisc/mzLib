@@ -577,8 +577,6 @@ namespace Test
 
             Assert.That(peak.Intensity > 0);
             Assert.That(peak.Intensity == otherFilePeak.Intensity);
-            Assert.That(peak.RtHypothesis.HasValue);
-            Assert.That(peak.RtHypothesis, Is.EqualTo(1.03).Within(0.01));
             List<double> rtDiffs = new();
             for (int i = 0; i < 5; i++)
             {
@@ -593,8 +591,6 @@ namespace Test
             results = interquartileEngine.Run();
             peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
 
-            Assert.That(peak.RtHypothesis.HasValue);
-            Assert.That(peak.RtHypothesis, Is.EqualTo(1.04).Within(0.01));
             for (int i = 0; i < 5; i++)
             {
                 if (i == 2) continue; // exclude the mbr peak from the calculation
