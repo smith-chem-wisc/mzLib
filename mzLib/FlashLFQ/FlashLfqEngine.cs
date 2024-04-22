@@ -1055,45 +1055,49 @@ namespace FlashLFQ
                     continue;
                 }
 
-                List<ChromatographicPeak> peakHypotheses = mbrIdentifiedPeptide.Value.SelectMany(p => p.Value).OrderByDescending(p => p.MbrScore).ToList();
-                ChromatographicPeak best = peakHypotheses.First();
-                peakHypotheses.Remove(best);
-
-                // Discard any peaks that are already associated with an ms/ms identified peptide
-                while(best.Apex?.IndexedPeak != null && msmsImsPeaks.TryGetValue(best.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList))
+                // evaluates real peaks and random RT peaks separately
+                foreach (var peakHypothesisGroup in mbrIdentifiedPeptide.Value.SelectMany(p => p.Value).OrderByDescending(p => p.MbrScore).GroupBy(p => p.RandomRt))
                 {
-                    if(peakList.Contains(best.Apex.IndexedPeak))
+                    List<ChromatographicPeak> peakHypotheses = peakHypothesisGroup.Select(p => p).ToList();
+                    ChromatographicPeak best = peakHypotheses.First();
+                    peakHypotheses.Remove(best);
+
+                    // Discard any peaks that are already associated with an ms/ms identified peptide
+                    while (best.Apex?.IndexedPeak != null && msmsImsPeaks.TryGetValue(best.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList))
                     {
-                        if(!peakHypotheses.Any())
+                        if (peakList.Contains(best.Apex.IndexedPeak))
                         {
-                            best = null;
+                            if (!peakHypotheses.Any())
+                            {
+                                best = null;
+                                break;
+                            }
+                            best = peakHypotheses.First();
+                            peakHypotheses.Remove(best);
+                        }
+                        else
+                        {
                             break;
                         }
-                        best = peakHypotheses.First();
-                        peakHypotheses.Remove(best);
                     }
-                    else
-                    {
-                        break;
-                    }
-                }
-                if (best == null) continue;
+                    if (best == null) continue;
 
-                // merge peaks with different charge states
-                if (peakHypotheses.Count > 0)
-                {
-                    double start = best.IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime);
-                    double end = best.IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime);
-
-                    foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
+                    // merge peaks with different charge states
+                    if (peakHypotheses.Count > 0)
                     {
-                        if (peak.Apex.IndexedPeak.RetentionTime >= start && peak.Apex.IndexedPeak.RetentionTime <= end)
+                        double start = best.IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime);
+                        double end = best.IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime);
+
+                        foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
                         {
-                            best.MergeFeatureWith(peak, Integrate);
+                            if (peak.Apex.IndexedPeak.RetentionTime >= start && peak.Apex.IndexedPeak.RetentionTime <= end)
+                            {
+                                best.MergeFeatureWith(peak, Integrate);
+                            }
                         }
                     }
+                    _results.Peaks[idAcceptorFile].Add(best);
                 }
-                _results.Peaks[idAcceptorFile].Add(best);
             }
 
             #region MsmsDoubleCheck
