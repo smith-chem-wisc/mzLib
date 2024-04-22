@@ -37,3 +37,4 @@ jobs:
       with:
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+        token: 48652cde-9167-4c20-b4a0-f26fc2bb44f7
