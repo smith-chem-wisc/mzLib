@@ -1,8 +1,6 @@
 ﻿using Chemistry;
-using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Linq;
 using System.Text;
 
@@ -22,6 +20,8 @@ namespace FlashLFQ
         public double IntensityScore { get; set; }
         public double RtScore { get; set; }
         public double ScanCountScore { get; set; }
+        public List<int> ChargeList { get; set; }
+        public string Collision { get; set; }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -34,6 +34,8 @@ namespace FlashLFQ
             IsotopicEnvelopes = new List<IsotopicEnvelope>();
             IsMbrPeak = isMbrPeak;
             SpectraFileInfo = fileInfo;
+            RandomRt = randomRt;
+            
         }
 
         public IsotopicEnvelope Apex { get; private set; }
@@ -46,6 +48,16 @@ namespace FlashLFQ
         /// Expected retention time for MBR acceptor peaks (mean)
         /// </summary>
         public double? RtHypothesis { get; private set; }
+        /// <summary>
+        /// Std. Dev of retention time differences between MBR acceptor file and donor file, used if # calibration points < 6
+        /// </summary>
+        public double? RtStdDev { get; private set;  }
+        /// <summary>
+        /// Interquartile range of retention time differences between MBR acceptor file and donor file, used if # calibration points >= 6
+        /// </summary>
+        public double? RtInterquartileRange { get; private set; }
+        public bool RandomRt { get; }
+        public bool DecoyPeptide => Identifications.First().IsDecoy;
 
         public static string TabSeparatedHeader
         {
@@ -79,6 +91,10 @@ namespace FlashLFQ
                 sb.Append("Full Sequences Mapped" + "\t");
                 sb.Append("Peak Split Valley RT" + "\t");
                 sb.Append("Peak Apex Mass Error (ppm)");
+                sb.Append("\t" + "Decoy Peptide");
+                sb.Append("\t" + "Random Rt");
+                sb.Append("\t" + "Collision");
+                //sb.Append("Timepoints");
                 return sb.ToString();
             }
         }
@@ -245,6 +261,9 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError);
+            sb.Append("\t" + DecoyPeptide);
+            sb.Append("\t" + RandomRt);
+            sb.Append("\t" + Collision ?? "");
 
             return sb.ToString();
         }
