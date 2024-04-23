@@ -39,6 +39,7 @@ namespace FlashLFQ
         public readonly bool MatchBetweenRuns;
         public readonly double MbrRtWindow;
         public readonly double MbrPpmTolerance;
+        private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
 
         // New MBR Settings
         public readonly double RtWindowIncrease = 0;
@@ -571,9 +572,7 @@ namespace FlashLFQ
                 }
             }
 
-            // build rtDiff distribution 
-            //var rtDifferenceDistribution = new Normal(mean: anchorPeptideRtDiffs.Median(), stddev: anchorPeptideRtDiffs.StandardDeviation());
-            scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs);
+            scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs, _numberOfAnchorPeptidesForMbr);
 
             return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
         }
@@ -662,6 +661,7 @@ namespace FlashLFQ
             }
         }
 
+        
         /// <summary>
         /// Used by MBR. Predicts the retention time of a peak in an acceptor file based on the 
         /// retention time of the peak in the donor file. This is done with a local alignment
@@ -677,8 +677,7 @@ namespace FlashLFQ
             bool acceptorSampleIsFractionated,
             bool donorSampleIsFractionated)
         {
-            var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>();
-            int numberOfAnchorsPerSide = 2; // The number of anchor peptides to be used for local alignment. Must be an even number!
+            var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>(); // The number of anchor peptides to be used for local alignment (on either side of the donor peptide)
 
             // only compare +- 1 fraction
             if (acceptorSampleIsFractionated && donorSampleIsFractionated)
@@ -707,21 +706,21 @@ namespace FlashLFQ
 
             int numberOfForwardAnchors = 0;
             // gather nearby data points
-            for (int r = index+1; r < rtCalibrationCurve.Length; r++)
+            for (int r = index + 1; r < rtCalibrationCurve.Length; r++)
             {
                 double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
-                if (rtCalibrationCurve[r].AcceptorFilePeak != null 
+                if (rtCalibrationCurve[r].AcceptorFilePeak != null
                     && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
-                    if(Math.Abs(rtDiff) > 0.5) // If the rtDiff is too large, it's no longer local alignment
+                    if (Math.Abs(rtDiff) > 0.5) // If the rtDiff is too large, it's no longer local alignment
                     {
                         break;
                     }
                     nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
                     numberOfForwardAnchors++;
-                    if(numberOfForwardAnchors >= numberOfAnchorsPerSide) // We only want a handful of anchor points
+                    if (numberOfForwardAnchors >= _numberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
-                        break; 
+                        break;
                     }
                 }
             }
@@ -739,15 +738,13 @@ namespace FlashLFQ
                     }
                     nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
                     numberOfBackwardsAnchors++;
-                    if (numberOfBackwardsAnchors >= numberOfAnchorsPerSide) // We only want a handful of anchor points
+                    if (numberOfBackwardsAnchors >= _numberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
                         break;
                     }
                 }
             }
 
-            double medianRtDiff;
-            double rtRange;
             if (!nearbyCalibrationPoints.Any())
             {
                 return null;
@@ -755,14 +752,15 @@ namespace FlashLFQ
 
             // calculate difference between acceptor and donor RTs for these RT region
             List<double> rtDiffs = nearbyCalibrationPoints
-                .Select(p =>  p.DonorFilePeak.ApexRetentionTime - p.AcceptorFilePeak.ApexRetentionTime)
+                .Select(p => p.DonorFilePeak.ApexRetentionTime - p.AcceptorFilePeak.ApexRetentionTime)
                 .ToList();
-                
-            medianRtDiff = rtDiffs.Median();
-            rtRange = rtDiffs.InterquartileRange() * 4.5; // This is roughly equivalent to 2 standard deviations
 
-            //TODO: Expand range and see what happens
-            rtRange = Math.Min(rtRange+RtWindowIncrease, MbrRtWindow+RtWindowIncrease); 
+            double medianRtDiff = rtDiffs.Median();
+            double rtRange = rtDiffs.InterquartileRange() * 4.5;
+            // IQR * 4.5 is roughly equivalent to 6 StdDevs, so search window extends ~3 std.devs from either side of predicted RT
+            // IQR is less affected by outliers than StdDev
+
+            rtRange = Math.Min(rtRange, MbrRtWindow);
 
             return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime - medianRtDiff, width: rtRange);
         }

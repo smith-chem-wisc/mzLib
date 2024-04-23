@@ -56,7 +56,7 @@ namespace FlashLFQ
         /// match-between-runs for the specified donor file
         /// </summary>
         /// <param name="anchorPeptideRtDiffs">List of retention time differences (doubles) calculated as donor file RT - acceptor file RT</param>
-        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, List<double> anchorPeptideRtDiffs)
+        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, List<double> anchorPeptideRtDiffs, int numberOfAnchorPeptides)
         {
             // in MBR, we use anchor peptides on either side of the donor to predict the retention time
             // here, we're going to repeat the same process, using neighboring anchor peptides to predicte the Rt shift for each
@@ -64,19 +64,18 @@ namespace FlashLFQ
             // then, we'll check how close our predicted rt shift was to the observed rt shift
             // and build a distribution based on the predicted v actual rt diffs
 
-            int numAnchorPepsPerSide = 2; // hardCoded for now, number of anchor peptides on each side of the "donor" to be considered
             double cumSumRtDiffs;
             List<double> rtPredictionErrors = new();
 
-            for (int i = numAnchorPepsPerSide; i < anchorPeptideRtDiffs.Count - (numAnchorPepsPerSide); i++)
+            for (int i = numberOfAnchorPeptides; i < anchorPeptideRtDiffs.Count - (numberOfAnchorPeptides); i++)
             {
                 cumSumRtDiffs = 0;
-                for(int j = 1; j <= numAnchorPepsPerSide; j++)
+                for(int j = 1; j <= numberOfAnchorPeptides; j++)
                 {
                     cumSumRtDiffs += anchorPeptideRtDiffs[i - j];
                     cumSumRtDiffs += anchorPeptideRtDiffs[i + j];
                 }
-                double avgDiff = cumSumRtDiffs / (2 * numAnchorPepsPerSide);
+                double avgDiff = cumSumRtDiffs / (2 * numberOfAnchorPeptides);
                 rtPredictionErrors.Add(avgDiff - anchorPeptideRtDiffs[i]);
             }
 
