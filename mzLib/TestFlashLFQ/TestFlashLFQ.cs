@@ -1358,7 +1358,8 @@ namespace Test
 
             corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
 
-            Assert.That(corr > 0.7);
+            // Update means more MBR-detections, which decreases the correlation slightly. Will increase again when we begin filtering based on MBR score
+            Assert.Greater(corr, 0.69);
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs

@@ -636,7 +636,9 @@ namespace FlashLFQ
                 .ToList();
                 
             double medianRtDiff = rtDiffs.Median();
-            double rtRange = rtDiffs.StandardDeviation() * 6.0; // Search in the area 3 StdDevs on either side of the predicted RT
+            double rtRange = rtDiffs.InterquartileRange() * 4.5; 
+            // IQR * 4.5 is roughly equivalent to 6 StdDevs, so search window extends ~3 std.devs from either side of predicted RT
+            // IQR is less affected by outliers than StdDev
 
             rtRange = Math.Min(rtRange, MbrRtWindow); 
 
