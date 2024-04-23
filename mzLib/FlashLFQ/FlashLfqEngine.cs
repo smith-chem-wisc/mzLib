@@ -40,6 +40,7 @@ namespace FlashLFQ
         public readonly double MbrRtWindow;
         public readonly double MbrPpmTolerance;
         public readonly bool RequireMsmsIdInCondition;
+        private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
 
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
@@ -54,7 +55,6 @@ namespace FlashLFQ
 
         // structures used in the FlashLFQ engine
         private List<SpectraFileInfo> _spectraFileInfo;
-
         private Stopwatch _globalStopwatch;
         private List<Identification> _allIdentifications;
         /// <summary>
@@ -537,9 +537,7 @@ namespace FlashLFQ
                 }
             }
 
-            // build rtDiff distribution 
-            //var rtDifferenceDistribution = new Normal(mean: anchorPeptideRtDiffs.Median(), stddev: anchorPeptideRtDiffs.StandardDeviation());
-            scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs);
+            scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs, _numberOfAnchorPeptidesForMbr);
 
             return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
         }
@@ -557,11 +555,9 @@ namespace FlashLFQ
             ChromatographicPeak donorPeak,
             SpectraFileInfo acceptorFile,
             bool acceptorSampleIsFractionated,
-            bool donorSampleIsFractionated,
-            MbrScorer scorer)
+            bool donorSampleIsFractionated)
         {
-            var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>();
-            int numberOfAnchorsPerSide = 2; // The number of anchor peptides to be used for local alignment (on either side of the donor peptide)
+            var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>(); // The number of anchor peptides to be used for local alignment (on either side of the donor peptide)
 
             // only compare +- 1 fraction
             if (acceptorSampleIsFractionated && donorSampleIsFractionated)
@@ -602,7 +598,7 @@ namespace FlashLFQ
                     }
                     nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
                     numberOfForwardAnchors++;
-                    if(numberOfForwardAnchors >= numberOfAnchorsPerSide) // We only want a handful of anchor points
+                    if(numberOfForwardAnchors >= _numberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
                         break; 
                     }
@@ -622,7 +618,7 @@ namespace FlashLFQ
                     }
                     nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
                     numberOfBackwardsAnchors++;
-                    if (numberOfBackwardsAnchors >= numberOfAnchorsPerSide) // We only want a handful of anchor points
+                    if (numberOfBackwardsAnchors >= _numberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
                         break;
                     }
@@ -640,7 +636,7 @@ namespace FlashLFQ
                 .ToList();
                 
             double medianRtDiff = rtDiffs.Median();
-            double rtRange = rtDiffs.InterquartileRange() * 4.5; // This is roughly equivalent to 2 standard deviations
+            double rtRange = rtDiffs.StandardDeviation() * 6.0; // Search in the area 3 StdDevs on either side of the predicted RT
 
             rtRange = Math.Min(rtRange, MbrRtWindow); 
 
@@ -785,7 +781,7 @@ namespace FlashLFQ
                         {
                             ChromatographicPeak donorPeak = idDonorPeaks[i];
                             // TODO: Add a toggle that set rtRange to be maximum width
-                            RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated, scorer);
+                            RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                             if (rtInfo == null) continue;
 
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaksThreadSpecific);
