@@ -85,7 +85,7 @@ namespace Readers
                         return SupportedFileType.Mzrt_TopFd;
                     throw new MzLibException("Csv file type not supported");
 
-                case ".tsv": 
+                case ".tsv":
                 {
                     // these tsv cases have a specialized ending before the .tsv
                     if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))

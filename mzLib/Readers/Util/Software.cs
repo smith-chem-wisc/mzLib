@@ -1,5 +1,4 @@
-﻿
-namespace Readers
+﻿namespace Readers
 {
     public enum Software
     {

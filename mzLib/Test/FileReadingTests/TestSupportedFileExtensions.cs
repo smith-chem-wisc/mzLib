@@ -35,7 +35,6 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv", SupportedFileType.MsPathFinderTTargets)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv", SupportedFileType.MsPathFinderTDecoys)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv", SupportedFileType.MsPathFinderTAllResults)]
-        
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();
@@ -91,7 +90,5 @@ namespace Test.FileReadingTests
             Assert.That(e?.Message,
                 Is.EqualTo($"File type not supported"));
         }
-        
-
     }
 }
