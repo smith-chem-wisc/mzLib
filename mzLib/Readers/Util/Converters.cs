@@ -36,4 +36,37 @@ namespace Readers
             return value as double? == null ? "-" : value.ToString();
         }
     }
+
+    public class CommaDelimitedToIntegerArrayTypeConverter : DefaultTypeConverter
+    {
+        public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
+        {
+            var splits = text.Split(',');
+            var toReturn = splits.Where(p => p != "");
+            return toReturn.Select(int.Parse).ToArray();
+        }
+
+        public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
+        {
+            var list = value as IEnumerable<int> ?? throw new MzLibException("Cannot convert input to IEnumerable<double>");
+            return string.Join(',', list);
+        }
+    }
+
+    public class CommaDelimitedToStringArrayTypeConverter : DefaultTypeConverter
+    {
+        public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
+        {
+            return text.Split(',')
+                .Where(p => p != "")
+                .Select(p => p.Trim())
+                .ToArray();
+        }
+
+        public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
+        {
+            var list = value as IEnumerable<string> ?? throw new MzLibException("Cannot convert input to IEnumerable<string>");
+            return string.Join(',', list);
+        }
+    }
 }
