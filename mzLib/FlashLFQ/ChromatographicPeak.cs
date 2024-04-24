@@ -22,6 +22,7 @@ namespace FlashLFQ
         public double ScanCountScore { get; set; }
         public List<int> ChargeList { get; set; }
         public string Collision { get; set; }
+        internal double MbrQValue { get; set; }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -81,6 +82,7 @@ namespace FlashLFQ
                 sb.Append("Peak Charge" + "\t");
                 sb.Append("Num Charge States Observed" + "\t");
                 sb.Append("Peak Detection Type" + "\t");
+                sb.Append("MBR Q-Value" + "\t");
                 sb.Append("MBR Score" + "\t");
                 sb.Append("Ppm Score" + "\t");
                 sb.Append("Intensity Score" + "\t");
@@ -250,6 +252,7 @@ namespace FlashLFQ
                 sb.Append("" + "MSMS" + "\t");
             }
 
+            sb.Append("" + (IsMbrPeak ? MbrQValue.ToString() : "") + "\t");
             sb.Append("" + (IsMbrPeak ? MbrScore.ToString() : "") + "\t");
             sb.Append("" + (IsMbrPeak ? PpmScore.ToString() : "") + "\t");
             sb.Append("" + (IsMbrPeak ? IntensityScore.ToString() : "") + "\t");

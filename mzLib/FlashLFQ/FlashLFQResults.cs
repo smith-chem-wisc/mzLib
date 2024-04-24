@@ -17,13 +17,16 @@ namespace FlashLFQ
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DoubleCheckPeaks;
         public  IEnumerable<ChromatographicPeak> DecoyPeaks { get; set; }
 
-        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)
+        public readonly double MbrQValueThreshold;
+
+        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05)
         {
             SpectraFiles = spectraFiles;
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
             DoubleCheckPeaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
+            MbrQValueThreshold = mbrQValueThreshold;
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
@@ -124,6 +127,7 @@ namespace FlashLFQ
             {
                 var groupedPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
+                    .Where(p => !p.IsMbrPeak || p.MbrQValue < MbrQValueThreshold)
                     .GroupBy(p => p.Identifications.First().ModifiedSequence)
                     .ToList();
 
@@ -158,6 +162,7 @@ namespace FlashLFQ
                 // report ambiguous quantification
                 var ambiguousPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq > 1)
+                    .Where(p => !p.IsMbrPeak || p.MbrQValue < MbrQValueThreshold)
                     .ToList();
                 foreach (ChromatographicPeak ambiguousPeak in ambiguousPeaks)
                 {
@@ -219,7 +224,7 @@ namespace FlashLFQ
 
                     foreach (SpectraFileInfo file in sample)
                     {
-                        foreach (ChromatographicPeak peak in Peaks[file])
+                        foreach (ChromatographicPeak peak in Peaks[file].Where(p => !p.IsMbrPeak || p.MbrQValue < MbrQValueThreshold))
                         {
                             foreach (Identification id in peak.Identifications)
                             {

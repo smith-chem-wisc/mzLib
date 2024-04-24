@@ -39,6 +39,7 @@ namespace FlashLFQ
         public readonly bool MatchBetweenRuns;
         public readonly double MbrRtWindow;
         public readonly double MbrPpmTolerance;
+        public readonly double MbrDetectionQValueThreshold;
         private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
 
         // New MBR Settings
@@ -104,6 +105,7 @@ namespace FlashLFQ
             double matchBetweenRunsPpmTolerance = 5.0,
             double maxMbrWindow = 2.5,
             bool requireMsmsIdInCondition = false,
+            double matchBetweenRunsFdrThreshold = 0.05,
 
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
@@ -151,6 +153,7 @@ namespace FlashLFQ
             MbrRtWindow = maxMbrWindow;
             DonorCriterion = donorCriterion;
             DonorQValueThreshold = donorQValueThreshold;
+            MbrDetectionQValueThreshold = matchBetweenRunsFdrThreshold;
 
             RequireMsmsIdInCondition = requireMsmsIdInCondition;
             Normalize = normalize;
@@ -183,7 +186,7 @@ namespace FlashLFQ
         {
             _globalStopwatch.Start();
             _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
-            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications);
+            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, MbrDetectionQValueThreshold);
 
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
@@ -233,6 +236,8 @@ namespace FlashLFQ
                     }
 
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
+
+                    CalculateFdrForMbrPeaks();
 
                     _peakIndexingEngine.ClearIndex();
 
@@ -1427,6 +1432,84 @@ namespace FlashLFQ
             errorCheckedPeaks.AddRange(errorCheckedPeaksGroupedByApex.Values.Where(p => p != null));
             
             _results.Peaks[spectraFile] = errorCheckedPeaks;
+        }
+
+        /// <summary>
+        /// Calculates the FDR for each MBR-detected peak using decoy peaks and decoy peptides,
+        /// Then filters out all peaks below a given FDR threshold
+        /// </summary>
+        private void CalculateFdrForMbrPeaks()
+        {
+            List<ChromatographicPeak> mbrPeaks = _results.Peaks.SelectMany(kvp => kvp.Value)
+                .Where(peak => peak.IsMbrPeak)
+                .OrderByDescending(peak => peak.MbrScore)
+                .ToList();
+
+            int allPeakCount = 0;
+            int decoyPeaks = 0;
+            int decoyPeptides = 0;
+            int doubleDecoys = 0;
+            List<double> tempQs = new();
+
+            // Calculate tempory q-values for each peak by counting each type of decoy
+            foreach (var peak in mbrPeaks)
+            {
+                allPeakCount++;
+                if(peak.DecoyPeptide)
+                {
+                    if (peak.RandomRt) doubleDecoys++;
+                    else decoyPeptides++;
+                }
+                else if (peak.RandomRt)
+                {
+                    decoyPeaks++;
+                }
+
+                tempQs.Add(EstimateFdr(doubleDecoys, decoyPeptides, decoyPeaks, allPeakCount)); 
+            }
+
+            // Set the q-value for each peak
+            double[] correctedQs = CorrectQValues(tempQs);
+            for(int i = 0; i < correctedQs.Length; i++)
+            {
+                mbrPeaks[i].MbrQValue = correctedQs[i];
+            }
+
+        }
+
+        private int EstimateDecoyPeptideErrors(int decoyPeptideCount, int doubleDecoyCount)
+        {
+            return Math.Max(0, decoyPeptideCount - doubleDecoyCount);
+        }
+
+        private double EstimateFdr(int doubleDecoyCount, int decoyPeptideCount, int decoyPeakCount, int totalPeakCount)
+        {
+            return (double)(1 + decoyPeakCount + EstimateDecoyPeptideErrors(decoyPeptideCount, doubleDecoyCount)) / totalPeakCount;
+        }
+
+        /// <summary>
+        /// Standard q-value correction, ensures that in a list of temporary q-values, a q-value is equal to
+        /// Min(q-values, every q-value below in the list). As you work your way down a list of q-values, the value should only increase or stay the same.
+        /// </summary>
+        /// <param name="tempQs"></param>
+        /// <returns></returns>
+        private double[] CorrectQValues(List<double> tempQs)
+        {
+            double[] correctedQValues = new double[tempQs.Count];
+            correctedQValues[tempQs.Count - 1] = tempQs.Last();
+            for(int i = tempQs.Count-2; i >=0; i--)
+            {
+                if (tempQs[i] > correctedQValues[i+1])
+                {
+                    correctedQValues[i] = correctedQValues[i + 1];
+                }
+                else
+                {
+                    correctedQValues[i] = tempQs[i];
+                }
+            }
+
+            return correctedQValues;
         }
 
         /// <summary>
