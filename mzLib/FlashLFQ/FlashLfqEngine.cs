@@ -117,7 +117,7 @@ namespace FlashLFQ
             bool pairedSamples = false,
             int? randomSeed = null,
             char donorCriterion = 'I',
-            double donorQValueThreshold = 0.05,
+            double donorQValueThreshold = 0.01,
             List<string> peptidesForMbr = null)
         {
             Loaders.LoadElements();
@@ -665,8 +665,7 @@ namespace FlashLFQ
                 }
             }
         }
-
-        
+ 
         /// <summary>
         /// Used by MBR. Predicts the retention time of a peak in an acceptor file based on the 
         /// retention time of the peak in the donor file. This is done with a local alignment

@@ -33,7 +33,7 @@ namespace FlashLFQ
             this.PrecursorChargeState = chargeState;
             this.ProteinGroups = new HashSet<ProteinGroup>(proteinGroups);
             this.OptionalChemicalFormula = optionalChemicalFormula;
-            UseForProteinQuant = useForProteinQuant;
+            UseForProteinQuant = !decoy && useForProteinQuant; // ensure that decoy peptides aren't used for protein quant
             QValue = qValue;
             PsmScore = psmScore;
             IsDecoy = decoy;
