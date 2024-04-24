@@ -3,7 +3,6 @@ using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Linq;
 
 namespace FlashLFQ
@@ -14,6 +13,7 @@ namespace FlashLFQ
     /// </summary>
     internal class MbrScorer
     {
+        internal SpectraFileInfo AcceptorFile { get; init; }
         // Intensity and ppm distributions are specific to each acceptor file
         private readonly Normal _logIntensityDistribution;
         private readonly Normal _ppmDistribution;
@@ -21,10 +21,8 @@ namespace FlashLFQ
         // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
         private Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
         private Dictionary<SpectraFileInfo, Normal> _rtPredictionErrorDistributionDictionary;
-
         internal Dictionary<IndexedMassSpectralPeak, ChromatographicPeak> ApexToAcceptorFilePeakDict { get; }
-        internal List<ChromatographicPeak> UnambiguousMsMsAcceptorPeaks { get; }
-        internal double MaxNumberOfScansObserved { get; }
+        internal List<ChromatographicPeak> UnambiguousMsMsPeaks { get; }
 
         /// <summary>
         /// Takes in an intensity distribution, a log foldchange distribution, and a ppm distribution 
@@ -36,9 +34,9 @@ namespace FlashLFQ
             Normal ppmDistribution, 
             Normal logIntensityDistribution)
         {
+            AcceptorFile = acceptorPeaks.First().SpectraFileInfo;
             ApexToAcceptorFilePeakDict = apexToAcceptorFilePeakDict;
-            UnambiguousMsMsAcceptorPeaks = acceptorPeaks.Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1).ToList();
-            MaxNumberOfScansObserved = acceptorPeaks.Max(peak => peak.ScanCount);
+            UnambiguousMsMsPeaks = acceptorPeaks.Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1).ToList();
             _logIntensityDistribution = logIntensityDistribution;
             _ppmDistribution = ppmDistribution;
             _logFcDistributionDictionary = new();
@@ -47,6 +45,7 @@ namespace FlashLFQ
             // This is kludgey, because scan counts are discrete
             List<double> scanList = acceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
             // build a normal distribution for the scan list of the acceptor peaks
+            // InterQuartileRange / 1.35 = StandardDeviation for a normal distribution
             _scanCountDistribution = new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
         }
 
@@ -91,48 +90,16 @@ namespace FlashLFQ
             _rtPredictionErrorDistributionDictionary.Add(donorFile, new Normal(medianRtError, stdDevRtError));
         }
 
-        /// <summary>
-        /// Get the RT window width for a given donor file,
-        /// where RT window width is equal to 4*stdDev of the rtDiffs for all anchor peptides
-        /// </summary>
-        /// <returns>The width of the retention time window in minutes</returns>
-        internal double GetRTWindowWidth(SpectraFileInfo donorFile)
+        private double CalculateScore(Normal distribution, double value)
         {
-            // 95% of all peaks are expected to fall within six standard deviations
-            return _rtPredictionErrorDistributionDictionary[donorFile].StdDev * 4;
-        }
-
-        internal double GetMedianRtDiff(SpectraFileInfo donorFile)
-        {
-            return _rtPredictionErrorDistributionDictionary[donorFile].Median;
-        }
-
-        /// <summary>
-        /// Scores a MBR peak based on it's retention time, ppm error, and intensity
-        /// </summary>
-        /// <returns> An MBR Score ranging between 0 and 100. Higher scores are better. </returns>
-        internal double ScoreMbr(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak, double predictedRt)
-        {
-            acceptorPeak.IntensityScore = CalculateIntensityScore(acceptorPeak.Intensity, donorPeak);
-            acceptorPeak.RtScore = CalculateScore(_rtPredictionErrorDistributionDictionary[donorPeak.SpectraFileInfo],
-                predictedRt - acceptorPeak.ApexRetentionTime);
-            acceptorPeak.PpmScore = CalculateScore(_ppmDistribution, acceptorPeak.MassError);
-            acceptorPeak.ScanCountScore = CalculateScore(_scanCountDistribution, acceptorPeak.ScanCount);
-            
-            // Returns 100 times the geometric mean of the four scores
-            return 100 * Math.Pow( acceptorPeak.IntensityScore * acceptorPeak.RtScore * acceptorPeak.PpmScore * acceptorPeak.ScanCountScore, 0.25);
-        }
-
-        internal double CalculateScore(Normal distribution, double value)
-        {
-            // new method
             double absoluteDiffFromMean = Math.Abs(distribution.Mean - value);
             // Returns a value between (0, 1] where 1 means the value was equal to the distribution mean
             return 2 * distribution.CumulativeDistribution(distribution.Mean - absoluteDiffFromMean);
         }
 
-        internal double CalculateIntensityScore(double acceptorIntensity, ChromatographicPeak donorPeak)
+        internal double CalculateIntensityScore(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak)
         {
+            double acceptorIntensity = acceptorPeak.Intensity;
             if (donorPeak != null && acceptorIntensity != 0 && donorPeak.Intensity != 0 &&
                 _logFcDistributionDictionary.TryGetValue(donorPeak.SpectraFileInfo, out var logFcDistribution))
             {
@@ -144,7 +111,38 @@ namespace FlashLFQ
                 var logIntensity = Math.Log(acceptorIntensity, 2);
                 return CalculateScore(_logIntensityDistribution, logIntensity);
             }
+        }
 
+        /// <summary>
+        /// Calculates the retention time score for a given MbrAcceptor by comparing to the 
+        /// distribution of all retention time prediction errors for all anchor peptides shared between 
+        /// the donor and acceptor files
+        /// </summary>
+        /// <returns>Score bounded by 0 and 1, where higher scores are better</returns>
+        internal double CalculateRetentionTimeScore(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak)
+        {
+            double rtPredictionError = acceptorPeak.PredictedRetentionTime - acceptorPeak.ApexRetentionTime;
+            return CalculateScore(_rtPredictionErrorDistributionDictionary[donorPeak.SpectraFileInfo], rtPredictionError);
+        }
+
+        /// <summary>
+        /// Calculates the Ppm error score for a given acceptor by comparing the ppm error for the given peak
+        /// to the ppm error of all non-MBR peaks in the acceptor file
+        /// </summary>
+        /// <returns>Score bounded by 0 and 1, where higher scores are better</returns>
+        internal double CalculatePpmErrorScore(ChromatographicPeak acceptorPeak)
+        {
+            return CalculateScore(_ppmDistribution, acceptorPeak.MassError);
+        }
+
+        /// <summary>
+        /// Calculates the scan count score for a given acceptor by comparing the number of scans observed for the given peak
+        /// to the ppm error of all non-MBR peaks in the acceptor file
+        /// </summary>
+        /// <returns>Score bounded by 0 and 1, where higher scores are better</returns>
+        internal double CalculateScanCountScore(ChromatographicPeak acceptorPeak)
+        {
+            return CalculateScore(_scanCountDistribution, acceptorPeak.ScanCount);
         }
 
         /// <summary>
@@ -164,7 +162,7 @@ namespace FlashLFQ
             var acceptorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
 
             // get the best (most intense) peak for each peptide in the acceptor file
-            foreach (ChromatographicPeak acceptorPeak in UnambiguousMsMsAcceptorPeaks)
+            foreach (ChromatographicPeak acceptorPeak in UnambiguousMsMsPeaks)
             {
                 if (acceptorFileBestMsmsPeaks.TryGetValue(acceptorPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
                 {

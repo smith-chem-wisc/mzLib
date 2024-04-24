@@ -586,7 +586,6 @@ namespace Test
 
             Assert.That(results.Peaks[file1].Count == 5);
             Assert.That(!results.Peaks[file1].Any(p => p.IsMbrPeak));
-            Assert.That(!results.Peaks[file1].Any(p => p.RtHypothesis.HasValue));
 
             results = interquartileEngine.Run();
             peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();

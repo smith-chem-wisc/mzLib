@@ -806,7 +806,6 @@ namespace FlashLFQ
 
                                                 if (samePeakSameSequence != null)
                                                 {
-                                                    samePeakSameSequence.MbrScore += acceptorPeak.MbrScore;
                                                     samePeakSameSequence.Identifications.Add(acceptorPeak.Identifications.First());
                                                 }
                                                 else
@@ -991,7 +990,7 @@ namespace FlashLFQ
             List<IsotopicEnvelope> chargeEnvelopes)
         {
             var donorId = donorPeak.Identifications.First();
-            var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile);
+            var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile, predictedRetentionTime: rtInfo.PredictedRt);
 
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
@@ -1014,7 +1013,7 @@ namespace FlashLFQ
                 return null;
             }
 
-            acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak, rtInfo.PredictedRt);
+            acceptorPeak.CalculateMbrScore(scorer, donorPeak);
 
             return acceptorPeak;
         }

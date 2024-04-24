@@ -1,10 +1,9 @@
-﻿using Chemistry;
-using MathNet.Numerics.Statistics;
+﻿using MzLibUtil;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Linq;
 using System.Text;
+using ClassExtensions = Chemistry.ClassExtensions;
 
 namespace FlashLFQ
 {
@@ -17,13 +16,20 @@ namespace FlashLFQ
         public int ScanCount => IsotopicEnvelopes.Count;
         public double SplitRT;
         public readonly bool IsMbrPeak;
-        public double MbrScore;
-        public double PpmScore { get; set; }
-        public double IntensityScore { get; set; }
-        public double RtScore { get; set; }
-        public double ScanCountScore { get; set; }
+        public double PredictedRetentionTime { get; init; }
 
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
+        /// <summary>
+        /// A score bounded by 100 and 0, with more confident MBR-detections receiving higher scores
+        /// </summary>
+        public double MbrScore { get; private set; }
+
+        /// The four scores below are bounded by 0 and 1, with higher scores being better
+        public double PpmScore { get; private set; }
+        public double IntensityScore { get; private set; }
+        public double RtScore { get; private set; }
+        public double ScanCountScore { get; private set; }
+
+        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
             SplitRT = 0;
             NumChargeStatesObserved = 0;
@@ -36,52 +42,18 @@ namespace FlashLFQ
             SpectraFileInfo = fileInfo;
         }
 
+        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime) :
+            this(id, isMbrPeak, fileInfo)
+        {
+            PredictedRetentionTime = predictedRetentionTime;
+        }
+
         public IsotopicEnvelope Apex { get; private set; }
         public List<Identification> Identifications { get; private set; }
         public int NumChargeStatesObserved { get; private set; }
         public int NumIdentificationsByBaseSeq { get; private set; }
         public int NumIdentificationsByFullSeq { get; private set; }
         public double MassError { get; private set; }
-        /// <summary>
-        /// Expected retention time for MBR acceptor peaks (mean)
-        /// </summary>
-        public double? RtHypothesis { get; private set; }
-
-        public static string TabSeparatedHeader
-        {
-            get
-            {
-                var sb = new StringBuilder();
-                sb.Append("File Name" + "\t");
-                sb.Append("Base Sequence" + "\t");
-                sb.Append("Full Sequence" + "\t");
-                sb.Append("Protein Group" + "\t");
-                sb.Append("Organism" + '\t');
-                sb.Append("Peptide Monoisotopic Mass" + "\t");
-                sb.Append("MS2 Retention Time" + "\t");
-                sb.Append("Precursor Charge" + "\t");
-                sb.Append("Theoretical MZ" + "\t");
-                sb.Append("Peak intensity" + "\t");
-                sb.Append("Peak RT Start" + "\t");
-                sb.Append("Peak RT Apex" + "\t");
-                sb.Append("Peak RT End" + "\t");
-                sb.Append("Peak MZ" + "\t");
-                sb.Append("Peak Charge" + "\t");
-                sb.Append("Num Charge States Observed" + "\t");
-                sb.Append("Peak Detection Type" + "\t");
-                sb.Append("MBR Score" + "\t");
-                sb.Append("Ppm Score" + "\t");
-                sb.Append("Intensity Score" + "\t");
-                sb.Append("Rt Score" + "\t");
-                sb.Append("Scan Count Score" + "\t");
-                sb.Append("PSMs Mapped" + "\t");
-                sb.Append("Base Sequences Mapped" + "\t");
-                sb.Append("Full Sequences Mapped" + "\t");
-                sb.Append("Peak Split Valley RT" + "\t");
-                sb.Append("Peak Apex Mass Error (ppm)");
-                return sb.ToString();
-            }
-        }
 
         public void CalculateIntensityForThisFeature(bool integrate)
         {
@@ -150,6 +122,60 @@ namespace FlashLFQ
         {
             this.NumIdentificationsByBaseSeq = Identifications.Select(v => v.BaseSequence).Distinct().Count();
             this.NumIdentificationsByFullSeq = Identifications.Select(v => v.ModifiedSequence).Distinct().Count();
+        }
+
+        /// <summary>
+        /// Calculates four component scores and one overarching Mbr score for an MBR peak.
+        /// MBR Score is equal to 100 * the geometric mean of the four component scores.
+        /// </summary>
+        /// <param name="scorer"> An MbrScorer specific to the file where this peak was found </param>
+        /// <param name="donorPeak"> The donor peak used as the basis for the MBR identification. </param>
+        internal void CalculateMbrScore(MbrScorer scorer, ChromatographicPeak donorPeak)
+        {
+            if (SpectraFileInfo != scorer.AcceptorFile) throw new MzLibException("Error when performing match-between-runs: Mismatch between scorer and peak.");
+
+            IntensityScore = scorer.CalculateIntensityScore(this, donorPeak);
+            RtScore = scorer.CalculateRetentionTimeScore(this, donorPeak);
+            PpmScore = scorer.CalculatePpmErrorScore(this);
+            ScanCountScore = scorer.CalculateScanCountScore(this);
+
+            MbrScore = 100 * Math.Pow(IntensityScore * RtScore * PpmScore * ScanCountScore, 0.25);
+        }
+
+        public static string TabSeparatedHeader
+        {
+            get
+            {
+                var sb = new StringBuilder();
+                sb.Append("File Name" + "\t");
+                sb.Append("Base Sequence" + "\t");
+                sb.Append("Full Sequence" + "\t");
+                sb.Append("Protein Group" + "\t");
+                sb.Append("Organism" + '\t');
+                sb.Append("Peptide Monoisotopic Mass" + "\t");
+                sb.Append("MS2 Retention Time" + "\t");
+                sb.Append("Precursor Charge" + "\t");
+                sb.Append("Theoretical MZ" + "\t");
+                sb.Append("Peak intensity" + "\t");
+                sb.Append("Peak RT Start" + "\t");
+                sb.Append("Peak RT Apex" + "\t");
+                sb.Append("Peak RT End" + "\t");
+                sb.Append("Peak MZ" + "\t");
+                sb.Append("Peak Charge" + "\t");
+                sb.Append("Num Charge States Observed" + "\t");
+                sb.Append("Peak Detection Type" + "\t");
+                sb.Append("MBR Score" + "\t");
+                sb.Append("Ppm Score" + "\t");
+                sb.Append("Intensity Score" + "\t");
+                sb.Append("Rt Score" + "\t");
+                sb.Append("Scan Count Score" + "\t");
+                sb.Append("PSMs Mapped" + "\t");
+                sb.Append("Base Sequences Mapped" + "\t");
+                sb.Append("Full Sequences Mapped" + "\t");
+                sb.Append("Peak Split Valley RT" + "\t");
+                sb.Append("Peak Apex Mass Error (ppm)");
+                return sb.ToString();
+            }
         }
 
         public override string ToString()
