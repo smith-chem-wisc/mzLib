@@ -127,7 +127,7 @@ namespace FlashLFQ
             {
                 var groupedPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
-                    .Where(p => !p.IsMbrPeak || p.MbrQValue < MbrQValueThreshold)
+                    .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .GroupBy(p => p.Identifications.First().ModifiedSequence)
                     .ToList();
 
@@ -162,7 +162,7 @@ namespace FlashLFQ
                 // report ambiguous quantification
                 var ambiguousPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq > 1)
-                    .Where(p => !p.IsMbrPeak || p.MbrQValue < MbrQValueThreshold)
+                    .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .ToList();
                 foreach (ChromatographicPeak ambiguousPeak in ambiguousPeaks)
                 {

@@ -967,7 +967,8 @@ namespace FlashLFQ
             }
 
             // Create a dictionary that stores imsPeak associated with an ms/ms identified peptide
-            Dictionary<int, List<IndexedMassSpectralPeak>> msmsImsPeaks = _results.Peaks[idAcceptorFile].Where(peak => peak.Apex?.IndexedPeak != null)
+            Dictionary<int, List<IndexedMassSpectralPeak>> msmsImsPeaks = _results.Peaks[idAcceptorFile]
+                .Where(peak => !peak.DecoyPeptide && peak.Apex?.IndexedPeak != null)
                 .Select(peak => peak.Apex.IndexedPeak)
                 .GroupBy(imsPeak => imsPeak.ZeroBasedMs1ScanIndex)
                 .ToDictionary(g => g.Key, g => g.ToList());
@@ -989,7 +990,7 @@ namespace FlashLFQ
                     peakHypotheses.Remove(best);
 
                     // Discard any peaks that are already associated with an ms/ms identified peptide
-                    while (best.Apex?.IndexedPeak != null && msmsImsPeaks.TryGetValue(best.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList))
+                    while (best?.Apex?.IndexedPeak != null && msmsImsPeaks.TryGetValue(best.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList))
                     {
                         if (peakList.Contains(best.Apex.IndexedPeak))
                         {
@@ -1236,7 +1237,14 @@ namespace FlashLFQ
                         // However, sometimes merging MBR peaks with different charge states reveals that
                         // The MBR peak conflicts with an MSMS peak
                         // Removing the peak when this happens is a conservative step.
-                        continue; 
+                        if (storedPeak.DecoyPeptide)
+                        {
+                            errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
+                        }
+                        else
+                        {
+                            continue;
+                        }
                     }
                     else if (tryPeak.IsMbrPeak && storedPeak.IsMbrPeak)
                     {

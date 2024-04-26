@@ -120,7 +120,9 @@ namespace FlashLFQ
             acceptorPeak.ScanCountScore = CalculateScore(_scanCountDistribution, acceptorPeak.ScanCount);
             
             // Returns 100 times the geometric mean of the three scores (scan count, intensity score, rt score)
-            return 100 * Math.Pow(acceptorPeak.IntensityScore * acceptorPeak.RtScore * acceptorPeak.PpmScore * acceptorPeak.ScanCountScore, 0.25);
+            return 100 * Math.Pow(acceptorPeak.IntensityScore * acceptorPeak.IntensityScore 
+                * acceptorPeak.RtScore * acceptorPeak.RtScore 
+                * acceptorPeak.PpmScore * acceptorPeak.ScanCountScore, 1.0/6.0);
         }
 
         internal double CalculateScore(Normal distribution, double value)

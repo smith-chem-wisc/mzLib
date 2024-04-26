@@ -23,14 +23,13 @@ namespace FlashLFQ
             var otherPeak = (IndexedMassSpectralPeak)obj;
 
             return otherPeak != null
-                //&& Math.Abs(otherPeak.Mz - this.Mz) < 0.00000001
                 && otherPeak.Mz == this.Mz
                 && otherPeak.ZeroBasedMs1ScanIndex == this.ZeroBasedMs1ScanIndex;
         }
 
         public override int GetHashCode()
         {
-            return Mz.GetHashCode();
+            return HashCode.Combine(Mz.GetHashCode(), ZeroBasedMs1ScanIndex.GetHashCode());
         }
 
         public override string ToString()
