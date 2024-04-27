@@ -1017,9 +1017,18 @@ namespace FlashLFQ
 
                         foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
                         {
-                            if (peak.Apex.IndexedPeak.RetentionTime >= start && peak.Apex.IndexedPeak.RetentionTime <= end)
+                            if (peak.Apex.IndexedPeak.RetentionTime >= start 
+                                && peak.Apex.IndexedPeak.RetentionTime <= end
+                                && peak.MbrScore > 25) // 25 is a rough heuristic, but I don't want super shitty peaks being able to supercede the intensity of a good peak!
                             {
-                                best.MergeFeatureWith(peak, Integrate);
+                                if (msmsImsPeaks.TryGetValue(peak.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList) && peakList.Contains(peak.Apex.IndexedPeak))
+                                {
+                                    continue; // If the peak is already accounted for, skip it.
+                                }
+                                else
+                                {
+                                    best.MergeFeatureWith(peak, Integrate);
+                                }
                             }
                         }
                     }

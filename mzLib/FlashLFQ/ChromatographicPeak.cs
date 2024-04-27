@@ -105,8 +105,7 @@ namespace FlashLFQ
         {
             if (IsotopicEnvelopes.Any())
             {
-                double maxIntensity = IsotopicEnvelopes.Max(p => p.Intensity);
-                Apex = IsotopicEnvelopes.First(p => p.Intensity == maxIntensity);
+                Apex = IsotopicEnvelopes.MaxBy(p => p.Intensity);
 
                 if (integrate)
                 {
