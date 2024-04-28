@@ -103,7 +103,7 @@ namespace FlashLFQ
             // MBR settings
             bool matchBetweenRuns = false,
             double matchBetweenRunsPpmTolerance = 5.0,
-            double maxMbrWindow = 2.5,
+            double maxMbrWindow = 1.0,
             bool requireMsmsIdInCondition = false,
             double matchBetweenRunsFdrThreshold = 0.05,
 
@@ -760,7 +760,7 @@ namespace FlashLFQ
                 .ToList();
 
             double medianRtDiff = rtDiffs.Median();
-            double rtRange = rtDiffs.InterquartileRange() * 4.5;
+            double rtRange = rtDiffs.StandardDeviation() * 6;
             // IQR * 4.5 is roughly equivalent to 6 StdDevs, so search window extends ~3 std.devs from either side of predicted RT
             // IQR is less affected by outliers than StdDev
 

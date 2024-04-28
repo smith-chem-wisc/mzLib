@@ -1333,9 +1333,9 @@ namespace Test
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
 
-            Assert.That(f1r1MbrResults.Count >= 132);
+            Assert.GreaterOrEqual(f1r1MbrResults.Count, 132);
 
-            //var mbrResults = results.Peaks.SelectMany(kvp => kvp.Value).Where(peak => peak.IsMbrPeak).OrderBy(peak => peak.MbrQValue).ToList();
+            var mbrResults = results.Peaks.SelectMany(kvp => kvp.Value).Where(peak => peak.IsMbrPeak).OrderByDescending(peak => peak.MbrScore).ToList();
 
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
@@ -1364,7 +1364,7 @@ namespace Test
 
             corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
 
-            Assert.Greater(corr, 0.69);
+            Assert.Greater(corr, 0.70);
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
