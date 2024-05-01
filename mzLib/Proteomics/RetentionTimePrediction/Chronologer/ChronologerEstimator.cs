@@ -5,17 +5,9 @@ using TorchSharp;
 
 namespace Proteomics.RetentionTimePrediction.Chronologer
 {
-    public class ChronologerEstimator
+    public static class ChronologerEstimator
     {
-        private Chronologer chronologerModel { get; }
-
-        /// <summary>
-        /// Class to estimate the retention time of a peptide using the Chronologer model.
-        /// </summary>
-        public ChronologerEstimator()
-        {
-            chronologerModel = new Chronologer();
-        }
+        private static Chronologer ChronologerModel = new Chronologer();
 
         /// <summary>
         /// Uses the Chronologer model to predict C18 retention times (reported in % ACN).
@@ -41,13 +33,13 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         /// <param name="baseSequence"></param>
         /// <param name="fullSequence"></param>
         /// <returns></returns>
-        public double? PredictRetentionTime(string baseSequence, string fullSequence)
+        public static double? PredictRetentionTime(string baseSequence, string fullSequence)
         {
             var tensor = Tensorize(baseSequence, fullSequence);
             if (tensor is null)
                 return null;
 
-            var prediction = chronologerModel.Predict(tensor);
+            var prediction = ChronologerModel.Predict(tensor);
             return prediction[0].ToDouble();
         }
 

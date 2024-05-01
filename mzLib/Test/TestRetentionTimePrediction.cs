@@ -723,8 +723,6 @@ namespace Test
         [Test]
         public void TestChronologerPredictions()
         {
-            ChronologerEstimator model = new ChronologerEstimator();
-
             var testingData = new List<(string, string)>()
             {
                 ("GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK", "GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK"),
@@ -734,20 +732,20 @@ namespace Test
             };
 
             var noMods =
-                model.PredictRetentionTime(testingData[0].Item1, testingData[0].Item2);
+                ChronologerEstimator.PredictRetentionTime(testingData[0].Item1, testingData[0].Item2);
 
             Assert.AreEqual(noMods.GetType(), typeof(double));
 
             var withMiddleMods =
-                model.PredictRetentionTime(testingData[1].Item1, testingData[1].Item2);
+                ChronologerEstimator.PredictRetentionTime(testingData[1].Item1, testingData[1].Item2);
             Assert.AreEqual(withMiddleMods.GetType(), typeof(double));
 
             var withBegginingMods =
-                model.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
+                ChronologerEstimator.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
             
             Assert.AreEqual(withBegginingMods.GetType(), typeof(double));
 
-            var invalidSequence = model.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2);
+            var invalidSequence = ChronologerEstimator.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2);
             Assert.That(invalidSequence == null);
 
 
