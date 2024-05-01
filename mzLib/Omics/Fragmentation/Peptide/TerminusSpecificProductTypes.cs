@@ -1,5 +1,6 @@
+
 ﻿namespace Omics.Fragmentation.Peptide
-{
+ {
     public class TerminusSpecificProductTypes
     {
         public static Dictionary<FragmentationTerminus, List<ProductType>> ProductIonTypesFromSpecifiedTerminus = new Dictionary<FragmentationTerminus, List<ProductType>>
