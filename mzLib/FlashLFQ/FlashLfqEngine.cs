@@ -57,6 +57,11 @@ namespace FlashLFQ
 
         private Stopwatch _globalStopwatch;
         private List<Identification> _allIdentifications;
+        /// <summary>
+        /// These peptides will be reported in the QuantifiedPeptides output and used for protein quant.
+        /// Other peptides may appear in the QuantifiedPeaks output, but this list is used to enable
+        /// peptide-level FDR filtering
+        /// </summary>
         public HashSet<string> PeptidesToQuantify { get; init; }
         /// <summary>
         /// Dictionary linking a modified sequence to a List of tuples containing
@@ -69,6 +74,13 @@ namespace FlashLFQ
         internal Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
         internal PeakIndexingEngine _peakIndexingEngine;
 
+        /// <summary>
+        /// Create an instance of FlashLFQ that will quantify peptides based on their precursor intensity in MS1 spectra
+        /// </summary>
+        /// <param name="allIdentifications">A list of identifications corresponding to MS2 peptide detections. One ID per peptide per file</param>
+        /// <param name="integrate">Optional. Bool indicating whether peaks should be integrated before quantification. It is HIGHLY recommended this is set to FALSE</param>
+        /// <param name="peptideSequencesToUse">Optional. A list of strings corresponding to the modified sequences of peptides that should be quantified/used for
+        /// protein level quant. Reccommended use is to pass in the full sequence of every peptide at 1% peptide-level FDR</param>
         public FlashLfqEngine(
             List<Identification> allIdentifications,
             bool normalize = false,
