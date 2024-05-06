@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 using System.Runtime.CompilerServices;
+using Easy.Common.Extensions;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -56,6 +57,7 @@ namespace FlashLFQ
 
         private Stopwatch _globalStopwatch;
         private List<Identification> _allIdentifications;
+        public HashSet<string> PeptidesToQuantify { get; init; }
         /// <summary>
         /// Dictionary linking a modified sequence to a List of tuples containing
         /// the mass shifts (isotope mass - monoisotopic mass) and normalized abundances for the
@@ -93,6 +95,7 @@ namespace FlashLFQ
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,
             bool pairedSamples = false,
+            List<string> peptideSequencesToUse = null,
             int? randomSeed = null)
         {
             Loaders.LoadElements();
@@ -128,6 +131,8 @@ namespace FlashLFQ
             McmcSteps = mcmcSteps;
             McmcBurninSteps = mcmcBurninSteps;
             UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
+            PeptidesToQuantify = peptideSequencesToUse.IsNotNullOrEmpty() ? new HashSet<string>(peptideSequencesToUse) 
+                : allIdentifications.Select(id => id.ModifiedSequence).ToHashSet();
             RandomSeed = randomSeed;
 
             if (MaxThreads == -1 || MaxThreads >= Environment.ProcessorCount)
@@ -149,7 +154,7 @@ namespace FlashLFQ
         {
             _globalStopwatch.Start();
             _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
-            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications);
+            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, PeptidesToQuantify);
 
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
@@ -677,6 +682,7 @@ namespace FlashLFQ
                     !p.IsMbrPeak
                     && p.NumIdentificationsByFullSeq == 1
                     && p.IsotopicEnvelopes.Any()
+                    && PeptidesToQuantify.Contains(p.Identifications.First().ModifiedSequence) // Only do MBR for peptides that we want to quantify
                     && !acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)
                     && (!RequireMsmsIdInCondition || p.Identifications.Any(v => v.ProteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g))))).ToList();
 
@@ -1060,11 +1066,35 @@ namespace FlashLFQ
 
                     if (!tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
                     {
-                        storedPeak.MergeFeatureWith(tryPeak, Integrate);
+                        if (PeptidesToQuantify.Contains(tryPeak.Identifications.First().ModifiedSequence))
+                        {
+                            if (PeptidesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
+                            {
+                                storedPeak.MergeFeatureWith(tryPeak, Integrate);
+                            }
+                            else
+                            {
+                                // If the stored peak id isn't in the list of peptides to quantify, overwrite it
+                                errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
+                            }
+                        }
+                        else
+                        {
+                            continue; // if the tryPeak id isn't in the list of peptides to quantify, it is discarded
+                        }
+                        
                     }
                     else if (tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
                     {
-                        continue;
+                        if(PeptidesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            // If the stored peak id isn't in the list of peptides to quantify, overwrite it
+                            errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
+                        }
                     }
                     else if (tryPeak.IsMbrPeak && storedPeak.IsMbrPeak)
                     {

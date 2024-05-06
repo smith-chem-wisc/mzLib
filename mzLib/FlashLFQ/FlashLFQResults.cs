@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics.Statistics;
+﻿using Easy.Common.Extensions;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,19 +14,26 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
+        private readonly HashSet<string> _peptideSequences;
 
-        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)
+        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, HashSet<string> peptides = null)
         {
             SpectraFiles = spectraFiles;
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
+            _peptideSequences = peptides;
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
                 Peaks.Add(file, new List<ChromatographicPeak>());
             }
 
+            if(peptides.IsNotNullOrEmpty())
+            {
+                // Only quantify peptides within the set of valid peptide sequences. This is done to enable pepitde-level FDR control of reported results
+                identifications.RemoveAll(id => !peptides.Contains(id.ModifiedSequence));
+            }
             foreach (Identification id in identifications)
             {
                 if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
@@ -120,6 +128,7 @@ namespace FlashLFQ
                 var groupedPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
                     .GroupBy(p => p.Identifications.First().ModifiedSequence)
+                    .Where(group => _peptideSequences.Contains(group.Key))
                     .ToList();
 
                 foreach (var sequenceWithPeaks in groupedPeaks)

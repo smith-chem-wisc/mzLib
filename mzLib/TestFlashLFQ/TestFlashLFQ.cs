@@ -15,6 +15,7 @@ using Test.FileReadingTests;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using TopDownProteomics;
 
 namespace Test
 {
@@ -1382,6 +1383,13 @@ namespace Test
             {
                 Assert.That(results.ProteinGroups[protein.ProteinGroupName].GetIntensity(f1r2) == 0);
             }
+
+            List<string> peptidesToUse = ids.Select(id => id.ModifiedSequence).Take(400).Distinct().ToList();
+            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1, peptideSequencesToUse: peptidesToUse);
+            results = engine.Run();
+            var test = results.PeptideModifiedSequences.Select(kvp => !peptidesToUse.Contains(kvp.Key)).ToList();
+
+            CollectionAssert.AreEquivalent(results.PeptideModifiedSequences.Select(kvp => kvp.Key), peptidesToUse);
         }
 
         [Test]
@@ -1620,7 +1628,8 @@ namespace Test
             peak1.CalculateIntensityForThisFeature(false);
             peak2.CalculateIntensityForThisFeature(false);
 
-            FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 });
+            FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 },
+                new HashSet<string> { "peptide1", "peptide2"});
             res.Peaks[fraction1].Add(peak1);
             res.Peaks[fraction2].Add(peak2);
             res.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
