@@ -605,7 +605,8 @@ namespace FlashLFQ
             // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
             var apexToAcceptorFilePeakDict = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
             List<double> ppmErrors = new List<double>();
-            foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null))
+            foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null
+                && PeptidesToQuantify.Contains(p.Identifications.First().ModifiedSequence))) 
             {
                 if (!apexToAcceptorFilePeakDict.ContainsKey(peak.Apex.IndexedPeak))
                 {

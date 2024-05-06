@@ -493,7 +493,7 @@ namespace Test
             };
             double intensity = 1e6;
 
-            double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.033, 1.035, 1.04, 1.045, 1.067 };
+            double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.033, 1.035, 1.04, 1.045, 1.05 };
             double[] file2Rt = new double[] { 1.00, 1.025, 1.03, 1.031, 1.035, 1.04, 1.055, 1.07 };
 
             Loaders.LoadElements();
@@ -502,7 +502,7 @@ namespace Test
             for (int f = 0; f < filesToWrite.Count; f++)
             {
                 // 1 MS1 scan per peptide
-                MsDataScan[] scans = new MsDataScan[7];
+                MsDataScan[] scans = new MsDataScan[8];
 
                 for (int p = 0; p < pepSequences.Count; p++)
                 {
@@ -569,20 +569,28 @@ namespace Test
             Identification id14 = new Identification(file2, "PEPTIDEVVVVAA", "PEPTIDEVVVVAA",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file2Rt[7] + 0.001, 1, new List<ProteinGroup> { pg });
 
-            // Additional peaks to check interactions when ID is for peptide not in PeptidesToQuantify
+            // Additional peaks, check that a non-confident ID (i.e., one that isn't included in the peptides to quantify list) is overwritten
+            // by a MBR transfer of a more confident ID
             Identification id15 = new Identification(file1, "TARGETPEP", "TARGETPEP",
                 new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id16 = new Identification(file1, "DECOYPEP", "DECOYPEP",
+            Identification id16 = new Identification(file2, "DECOYPEP", "DECOYPEP",
+                new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+
+            // Additional peaks to ensure that non-confident IDs aren't merged with confident IDs at the peak level
+            Identification id17 = new Identification(file1, "DECOYPEP", "DECOYPEP",
+                new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id18 = new Identification(file1, "DECOYPEP2", "DECOYPEP2",
                 new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
 
-
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id15, id16 }, matchBetweenRuns: true);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             FlashLfqEngine interquartileEngine = new FlashLfqEngine(
                 new List<Identification> { id1, id2, id3, id4, id5, id11, id12, id6, id7, id9, id10, id13, id14 }, matchBetweenRuns: true);
+            FlashLfqEngine engineAmbiguous = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id18, id15, id16, id17 }, matchBetweenRuns: true,
+                peptideSequencesToUse: pepSequences);
 
 
-            // run the engine
+            //run the engine
             var results = engine.Run();
 
             Assert.That(results.Peaks[file2].Count == 5);
@@ -623,6 +631,15 @@ namespace Test
             Assert.That(!peak.RtStdDev.HasValue);
             Assert.That(peak.RtInterquartileRange.HasValue);
             Assert.That(peak.RtInterquartileRange, Is.EqualTo(rtDiffs.InterquartileRange()).Within(0.01));
+
+            // The ambiguous engine tests that a non-confident ID (i.e., a PSM that didn't make the peptide level fdr cutoff) 
+            // gets overwritten by a MBR transfer of a confident ID, and that non-confident IDs are overwriteen by confident MS2 ids
+            results = engineAmbiguous.Run();
+            Assert.False(results.PeptideModifiedSequences.Select(kvp => kvp.Key).Contains("DECOYPEP"));
+            Assert.False(results.Peaks[file1].Any(peak => peak.Identifications.Any(id => id.ModifiedSequence.Contains("DECOYPEP"))));
+            Assert.That(results.Peaks[file2].Any(peak => peak.Identifications.First().ModifiedSequence == "TARGETPEP"));
+            Assert.AreEqual(results.Peaks[file2].Count(peak => peak.IsMbrPeak), 2);
+
         }
 
         [Test]

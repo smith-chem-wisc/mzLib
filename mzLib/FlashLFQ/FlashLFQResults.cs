@@ -22,6 +22,10 @@ namespace FlashLFQ
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
+            if(peptides == null || !peptides.Any())
+            {
+                peptides = identifications.Select(id => id.ModifiedSequence).ToHashSet();
+            }
             _peptideSequences = peptides;
 
             foreach (SpectraFileInfo file in spectraFiles)
@@ -29,12 +33,9 @@ namespace FlashLFQ
                 Peaks.Add(file, new List<ChromatographicPeak>());
             }
 
-            if(peptides.IsNotNullOrEmpty())
-            {
-                // Only quantify peptides within the set of valid peptide sequences. This is done to enable pepitde-level FDR control of reported results
-                identifications.RemoveAll(id => !peptides.Contains(id.ModifiedSequence));
-            }
-            foreach (Identification id in identifications)
+
+            // Only quantify peptides within the set of valid peptide sequences. This is done to enable pepitde-level FDR control of reported results
+            foreach (Identification id in identifications.Where(id => peptides.Contains(id.ModifiedSequence)))
             {
                 if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
                 {
