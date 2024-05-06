@@ -480,11 +480,21 @@ namespace Test
         public static void TestFlashLfqMatchBetweenRuns()
         {
             List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> { "PEPTIDE", "PEPTIDEV", "PEPTIDEVV", "PEPTIDEVVV", "PEPTIDEVVVV", "PEPTIDEVVVVA", "PEPTIDEVVVVAA" };
+            List<string> pepSequences = new List<string> 
+                { 
+                "PEPTIDE", 
+                "PEPTIDEV", 
+                "PEPTIDEVV", 
+                "TARGETPEP",
+                "PEPTIDEVVV",
+                "PEPTIDEVVVV", 
+                "PEPTIDEVVVVA", 
+                "PEPTIDEVVVVAA"
+            };
             double intensity = 1e6;
 
-            double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.035, 1.04, 1.045, 1.05 };
-            double[] file2Rt = new double[] { 1.00, 1.025, 1.03, 1.035, 1.04, 1.055, 1.07 };
+            double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.033, 1.035, 1.04, 1.045, 1.067 };
+            double[] file2Rt = new double[] { 1.00, 1.025, 1.03, 1.031, 1.035, 1.04, 1.055, 1.07 };
 
             Loaders.LoadElements();
 
@@ -534,34 +544,40 @@ namespace Test
             Identification id3 = new Identification(file1, "PEPTIDEVV", "PEPTIDEVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id4 = new Identification(file1, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id5 = new Identification(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
 
             Identification id6 = new Identification(file2, "PEPTIDE", "PEPTIDE",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id7 = new Identification(file2, "PEPTIDEV", "PEPTIDEV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
-            // missing ID 8 - MBR feature
+            // missing ID 8 - MBR feature - "PEPTIDEVV"
+
             Identification id9 = new Identification(file2, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id10 = new Identification(file2, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
 
             // Adding additional peaks to check interquartile range
             Identification id11 = new Identification(file1, "PEPTIDEVVVVA", "PEPTIDEVVVVA",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVA").MonoisotopicMass, file1Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVA").MonoisotopicMass, file1Rt[6] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id12 = new Identification(file1, "PEPTIDEVVVVAA", "PEPTIDEVVVVAA",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file1Rt[6] + 0.001, 1, new List<ProteinGroup> { pg });
-
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file1Rt[7] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id13 = new Identification(file2, "PEPTIDEVVVVA", "PEPTIDEVVVVA",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVA").MonoisotopicMass, file2Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVA").MonoisotopicMass, file2Rt[6] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id14 = new Identification(file2, "PEPTIDEVVVVAA", "PEPTIDEVVVVAA",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file2Rt[6] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file2Rt[7] + 0.001, 1, new List<ProteinGroup> { pg });
+
+            // Additional peaks to check interactions when ID is for peptide not in PeptidesToQuantify
+            Identification id15 = new Identification(file1, "TARGETPEP", "TARGETPEP",
+                new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id16 = new Identification(file1, "DECOYPEP", "DECOYPEP",
+                new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
 
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id15, id16 }, matchBetweenRuns: true);
             FlashLfqEngine interquartileEngine = new FlashLfqEngine(
                 new List<Identification> { id1, id2, id3, id4, id5, id11, id12, id6, id7, id9, id10, id13, id14 }, matchBetweenRuns: true);
 
