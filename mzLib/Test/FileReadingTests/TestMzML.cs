@@ -86,6 +86,7 @@ namespace Test.FileReadingTests
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "BinGenerationTest.mzML");
+            origDataFile = "D:\\pepDesc_spikeIn\\20210913_h94e6_500nl_1_-50.mzML";
             FilteringParams filter = new FilteringParams(200, 0.01, 1, null, false, false, true);
             var reader = MsDataFileReader.GetDataFile(origDataFile);
             reader.LoadAllStaticData(filter, 1);

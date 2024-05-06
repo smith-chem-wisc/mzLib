@@ -915,7 +915,7 @@ namespace FlashLFQ
                             ChromatographicPeak randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
                             int randomPeaksSampled = 1;
                             // multiply for safety, in case the relative rt shifts after alignment
-                            double minimumRtDifference = Math.Min(rtInfo.Width * 1.5, 0.5);
+                            double minimumRtDifference = Math.Max(rtInfo.Width * 1.5, 0.5);
                             double massDiff = Math.Abs(randomDonor.Identifications.First().PeakfindingMass - donorPeak.Identifications.First().PeakfindingMass);
 
                             while (randomDonor == null
