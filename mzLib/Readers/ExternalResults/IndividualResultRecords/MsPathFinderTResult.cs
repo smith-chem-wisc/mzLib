@@ -94,7 +94,7 @@ namespace Readers
 
         [Ignore] private bool? _isDecoy = null;
         [Ignore] public bool IsDecoy => _isDecoy ??= ProteinName.StartsWith("XXX");
-
+        [Optional] public string FileNameWithoutExtension { get; set; }
 
         #endregion
     }

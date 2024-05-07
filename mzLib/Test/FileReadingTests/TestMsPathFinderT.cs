@@ -74,6 +74,7 @@ namespace Test.FileReadingTests
             Assert.That(first.PepQValue, Is.EqualTo(0));
             Assert.That(first.Accession, Is.EqualTo("P05114"));
             Assert.That(first.IsDecoy, Is.EqualTo(false));
+            Assert.That(first.FileNameWithoutExtension, Is.EqualTo("MsPathFinderT_AllResults"));
 
             Assert.That(last.OneBasedScanNumber, Is.EqualTo(1181));
             Assert.That(last.PreviousResidue, Is.EqualTo('M'));
@@ -98,6 +99,7 @@ namespace Test.FileReadingTests
             Assert.That(last.PepQValue, Is.EqualTo(0));
             Assert.That(last.Accession, Is.EqualTo("P05114"));
             Assert.That(last.IsDecoy, Is.EqualTo(false));
+            Assert.That(last.FileNameWithoutExtension, Is.EqualTo("MsPathFinderT_AllResults"));
         }
 
         [Test]
