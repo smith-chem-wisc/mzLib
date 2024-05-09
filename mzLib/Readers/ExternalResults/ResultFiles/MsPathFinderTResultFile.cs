@@ -16,15 +16,6 @@ namespace Readers
         public MsPathFinderTResultFile(string filePath) : base(filePath, Software.MsPathFinderT)
         {
             FileType = filePath.ParseFileType();
-            try
-            {
-                if (Results.First().FileNameWithoutExtension.IsNullOrEmpty())
-                    Results.ForEach(p => p.FileNameWithoutExtension = string.Join("_", Path.GetFileNameWithoutExtension(filePath).Split('_')[..^1]));
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
         }
 
         public MsPathFinderTResultFile() : base()
@@ -36,6 +27,8 @@ namespace Readers
         {
             using var csv = new CsvReader(new StreamReader(FilePath), MsPathFinderTResult.CsvConfiguration);
             Results = csv.GetRecords<MsPathFinderTResult>().ToList();
+            if (Results.Any() && Results.First().FileNameWithoutExtension.IsNullOrEmpty())
+                Results.ForEach(p => p.FileNameWithoutExtension = string.Join("_", Path.GetFileNameWithoutExtension(FilePath).Split('_')[..^1]));
         }
 
         public override void WriteResults(string outputPath)
