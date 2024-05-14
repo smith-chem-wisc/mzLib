@@ -24,7 +24,13 @@ namespace Omics.Fragmentation.Peptide
 
         public static List<ProductType> GetTerminusSpecificProductTypesFromDissociation(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
-            if (!TerminusSpecificProductTypesFromDissociation.TryGetValue((dissociationType, fragmentationTerminus), out List<ProductType> productTypes))
+            List<ProductType> productTypes;
+            if (dissociationType == DissociationType.Custom)
+            {
+                productTypes = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus]
+                    .Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]).ToList();
+            }
+            else if (!TerminusSpecificProductTypesFromDissociation.TryGetValue((dissociationType, fragmentationTerminus), out productTypes))
             {
                 lock (TerminusSpecificProductTypesFromDissociation)
                 {
