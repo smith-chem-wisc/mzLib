@@ -137,7 +137,16 @@ namespace Omics.Fragmentation.Peptide
         /// </summary>
         public static (double[], double[]) GetNAndCTerminalMassShiftsForDissociationType(DissociationType dissociationType)
         {
-            if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out var massShifts))
+            (double[], double[]) massShifts;
+            if (dissociationType == DissociationType.Custom)
+            {
+                massShifts = (
+                    GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.N)
+                        .Select(p => GetMassShiftFromProductType(p)).ToArray(),
+                    GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.C)
+                        .Select(p => GetMassShiftFromProductType(p)).ToArray());
+            }
+            else if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out massShifts))
             {
                 lock (DissociationTypeToTerminusMassShift)
                 {

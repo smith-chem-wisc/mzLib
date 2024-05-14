@@ -816,12 +816,19 @@ namespace Test
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Clear();
             Assert.That(!DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Any());
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].AddRange(new List<ProductType> { ProductType.b, ProductType.y });
-            products.Clear();
-            peptide.Fragment(DissociationType.Custom, FragmentationTerminus.Both, products);
-            Assert.That(products.Any(p => p.ProductType == ProductType.b));
-            Assert.That(products.Any(p => p.ProductType == ProductType.y));
-            Assert.That(products.All(p => p.ProductType != ProductType.c));
-            Assert.That(products.All(p => p.ProductType != ProductType.x));
+            
+            var secondTimeProducts = new List<Product>();
+            peptide.Fragment(DissociationType.Custom, FragmentationTerminus.Both, secondTimeProducts);
+            Assert.That(secondTimeProducts.Any(p => p.ProductType == ProductType.b));
+            Assert.That(secondTimeProducts.Any(p => p.ProductType == ProductType.y));
+            Assert.That(secondTimeProducts.All(p => p.ProductType != ProductType.c));
+            Assert.That(secondTimeProducts.All(p => p.ProductType != ProductType.x));
+
+            var originalOnlyby = products.Where(p => p.ProductType is ProductType.b or ProductType.y).ToList();
+            Assert.That(originalOnlyby.Count, Is.EqualTo(secondTimeProducts.Count));
+
+            for (int i = 0; i < secondTimeProducts.Count; i++)
+                Assert.That(secondTimeProducts[i].Equals(originalOnlyby[i]));
         }
 
         [Test]
