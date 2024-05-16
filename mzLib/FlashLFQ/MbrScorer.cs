@@ -67,7 +67,7 @@ namespace FlashLFQ
             double cumSumRtDiffs;
             List<double> rtPredictionErrors = new();
 
-            for (int i = numberOfAnchorPeptides; i < anchorPeptideRtDiffs.Count - (numberOfAnchorPeptides); i++)
+            for (int i = numberOfAnchorPeptides; i < (anchorPeptideRtDiffs.Count - numberOfAnchorPeptides); i++)
             {
                 cumSumRtDiffs = 0;
                 for(int j = 1; j <= numberOfAnchorPeptides; j++)
@@ -79,16 +79,21 @@ namespace FlashLFQ
                 rtPredictionErrors.Add(avgDiff - anchorPeptideRtDiffs[i]);
             }
 
-            if(!rtPredictionErrors.Any())
+            Normal rtPredictionErrorDist = new Normal(0, 0); 
+            // Default distribution. Effectively assigns a RT Score of zero if no alignment can be performed
+            // between the donor and acceptor based on shared MS/MS IDs
+
+            if(rtPredictionErrors.Any())
             {
-                _rtPredictionErrorDistributionDictionary.Add(donorFile, new Normal(0, 1));
-                return;
+                double medianRtError = rtPredictionErrors.Median();
+                double stdDevRtError = rtPredictionErrors.StandardDeviation();
+                if(stdDevRtError >= 0.0 && !double.IsNaN(medianRtError))
+                {
+                    rtPredictionErrorDist = new Normal(medianRtError, 1);
+                }
             }
-
-            double medianRtError = rtPredictionErrors.Median();
-            double stdDevRtError = rtPredictionErrors.StandardDeviation();
-
-            _rtPredictionErrorDistributionDictionary.Add(donorFile, new Normal(medianRtError, stdDevRtError));
+            
+            _rtPredictionErrorDistributionDictionary.Add(donorFile, rtPredictionErrorDist);
         }
 
         /// <summary>
@@ -121,17 +126,22 @@ namespace FlashLFQ
             
             // Returns 100 times the geometric mean of the four scores (scan count, intensity score, rt score, ppm score)
             return 100 * Math.Pow(acceptorPeak.IntensityScore 
-                * acceptorPeak.RtScore 
+                * acceptorPeak.RtScore
                 * acceptorPeak.PpmScore 
                 * acceptorPeak.ScanCountScore, 0.25);
         }
+
+        // Setting a minimum score prevents the MBR score from going to zero if one component of that score is 0
+        // 3e-7 is the fraction of a normal distribution that lies at least 5 stdDev away from the mean
+        private double _minScore = 3e-7;
 
         internal double CalculateScore(Normal distribution, double value)
         {
             // new method
             double absoluteDiffFromMean = Math.Abs(distribution.Mean - value);
             // Returns a value between (0, 1] where 1 means the value was equal to the distribution mean
-            return 2 * distribution.CumulativeDistribution(distribution.Mean - absoluteDiffFromMean);
+            double score = 2 * distribution.CumulativeDistribution(distribution.Mean - absoluteDiffFromMean);
+            return (double.IsNaN(score) || score == 0) ? _minScore : score;
         }
 
         internal double CalculateIntensityScore(double acceptorIntensity, ChromatographicPeak donorPeak)
@@ -204,5 +214,18 @@ namespace FlashLFQ
             }
         }
       
+        /// <summary>
+        /// Determines whether or not the scorer is validly paramaterized and capable 
+        /// of scoring MBR transfers originating from the given donorFile
+        /// </summary>
+        internal bool IsValid(SpectraFileInfo donorFile)
+        {
+            return _rtPredictionErrorDistributionDictionary.TryGetValue(donorFile, out var rtDist)
+                && rtDist != null
+                && _ppmDistribution != null
+                && _scanCountDistribution != null
+                && _logIntensityDistribution != null;
+        }
+
     }
 }

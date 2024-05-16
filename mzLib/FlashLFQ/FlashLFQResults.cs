@@ -569,20 +569,20 @@ namespace FlashLFQ
                         output.WriteLine(peak.ToString());
                     }
                 }
-            }
 
-            string[] pathSplit = peaksOutputPath.Split(Path.DirectorySeparatorChar);
-            pathSplit[^1] = "DoubleCheckedPeaks.tsv";
+                string[] pathSplit = peaksOutputPath.Split(Path.DirectorySeparatorChar);
+                pathSplit[^1] = "DoubleCheckedPeaks.tsv";
 
-            using (var output = new StreamWriter(String.Join(Path.DirectorySeparatorChar, pathSplit)))
-            {
-                output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
-
-                foreach (var peak in DoubleCheckPeaks.SelectMany(p => p.Value)
-                    .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
-                    .ThenByDescending(p => p.Collision))
+                using (var output = new StreamWriter(String.Join(Path.DirectorySeparatorChar, pathSplit)))
                 {
-                    output.WriteLine(peak.ToString());
+                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+
+                    foreach (var peak in DoubleCheckPeaks.SelectMany(p => p.Value)
+                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
+                        .ThenByDescending(p => p.Collision))
+                    {
+                        output.WriteLine(peak.ToString());
+                    }
                 }
             }
 

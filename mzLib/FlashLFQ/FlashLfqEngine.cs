@@ -87,7 +87,6 @@ namespace FlashLFQ
         internal ConcurrentBag<ChromatographicPeak> DecoyPeaks { get; private set; }
         internal List<string> PeptidesForMbr { get; init; }
         
-
         public FlashLfqEngine(
             List<Identification> allIdentifications,
             bool normalize = false,
@@ -897,6 +896,9 @@ namespace FlashLFQ
                 // generate RT calibration curve
                 RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(donorFilePeakListKvp.Key, idAcceptorFile, scorer);
 
+                // break if MBR transfers can't be scored
+                if (!scorer.IsValid(donorFilePeakListKvp.Key)) continue;
+
                 // Loop through every MSMS id in the donor file
                 Parallel.ForEach(Partitioner.Create(0, idDonorPeaks.Count),
                     new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
@@ -1289,6 +1291,8 @@ namespace FlashLFQ
                 .OrderByDescending(peak => peak.MbrScore)
                 .ToList();
 
+            if (!mbrPeaks.IsNotNullOrEmpty()) return;
+
             int allPeakCount = 0;
             int decoyPeaks = 0;
             int decoyPeptides = 0;
@@ -1339,6 +1343,7 @@ namespace FlashLFQ
         /// <returns></returns>
         private double[] CorrectQValues(List<double> tempQs)
         {
+            if (!tempQs.IsNotNullOrEmpty()) return null;
             double[] correctedQValues = new double[tempQs.Count];
             correctedQValues[tempQs.Count - 1] = tempQs.Last();
             for(int i = tempQs.Count-2; i >=0; i--)
