@@ -6,6 +6,9 @@ namespace Omics.Fragmentation.Peptide
 {
     public class DissociationTypeCollection
     {
+        /// <summary>
+        /// Collection of product types to generate based upon the dissociation type
+        /// </summary>
         public static Dictionary<DissociationType, List<ProductType>> ProductsFromDissociationType = new Dictionary<DissociationType, List<ProductType>>
         {
             { DissociationType.Unknown, new List<ProductType>() },
@@ -22,9 +25,17 @@ namespace Omics.Fragmentation.Peptide
             { DissociationType.ISCID, new List<ProductType>() }
         };
 
+
+        /// <summary>
+        /// Collection of product types to generate based upon the dissociation type and fragmentation terminus
+        /// </summary>
+        /// <param name="dissociationType">Dissociation Type to get products of</param>
+        /// <param name="fragmentationTerminus">Terminus to get products of</param>
+        /// <returns></returns>
         public static List<ProductType> GetTerminusSpecificProductTypesFromDissociation(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
             List<ProductType> productTypes;
+            // if using custom dissociation, calculate every time instead of caching
             if (dissociationType == DissociationType.Custom)
             {
                 productTypes = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus]
@@ -48,6 +59,12 @@ namespace Omics.Fragmentation.Peptide
             return productTypes;
         }
 
+        /// <summary>
+        /// Get the product types that can lose water or ammonia from a given dissociation type and fragmentation terminus
+        /// </summary>
+        /// <param name="dissociationType"></param>
+        /// <param name="fragmentationTerminus"></param>
+        /// <returns></returns>
         public static List<ProductType> GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
             List<ProductType> productList = new();
@@ -138,13 +155,14 @@ namespace Omics.Fragmentation.Peptide
         public static (double[], double[]) GetNAndCTerminalMassShiftsForDissociationType(DissociationType dissociationType)
         {
             (double[], double[]) massShifts;
+            // if using custom dissociation, calculate every time instead of caching
             if (dissociationType == DissociationType.Custom)
             {
                 massShifts = (
                     GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.N)
-                        .Select(p => GetMassShiftFromProductType(p)).ToArray(),
+                        .Select(GetMassShiftFromProductType).ToArray(),
                     GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.C)
-                        .Select(p => GetMassShiftFromProductType(p)).ToArray());
+                        .Select(GetMassShiftFromProductType).ToArray());
             }
             else if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out massShifts))
             {
@@ -153,8 +171,8 @@ namespace Omics.Fragmentation.Peptide
                     if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out massShifts))
                     {
                         DissociationTypeToTerminusMassShift.Add(dissociationType,
-                        (GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.N).Select(p => GetMassShiftFromProductType(p)).ToArray(),
-                        GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.C).Select(p => GetMassShiftFromProductType(p)).ToArray()));
+                        (GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.N).Select(GetMassShiftFromProductType).ToArray(),
+                        GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.C).Select(GetMassShiftFromProductType).ToArray()));
 
                         massShifts = DissociationTypeToTerminusMassShift[dissociationType];
                     }
@@ -164,6 +182,13 @@ namespace Omics.Fragmentation.Peptide
             return massShifts;
         }
 
+        /// <summary>
+        /// Get the mass shift for a given product type due to breaking the amide bond
+        /// </summary>
+        /// <param name="productType"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        /// <exception cref="MzLibUtil.MzLibException"></exception>
         public static double GetMassShiftFromProductType(ProductType productType)
         {
             if (NeutralMassShiftFromProductType.TryGetValue(productType, out double? shift))
