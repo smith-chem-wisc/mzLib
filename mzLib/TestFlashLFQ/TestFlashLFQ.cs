@@ -476,6 +476,12 @@ namespace Test
             Assert.AreEqual(4, resultsA.SpectraFiles.Count);
         }
 
+
+        /// <summary>
+        /// This test MatchBetweenRuns by creating two fake mzML files and a list of fake IDs. 
+        /// There are multiple sets of IDs, where most are shared between the two runs but one+ is/are missing
+        /// MBR is tested by ensuring that IDs are transferred between runs
+        /// </summary>
         [Test]
         public static void TestFlashLfqMatchBetweenRuns()
         {

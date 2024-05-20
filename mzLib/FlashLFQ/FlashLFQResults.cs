@@ -14,7 +14,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
-        private readonly HashSet<string> _peptideSequences;
+        private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, HashSet<string> peptides = null)
         {
@@ -26,7 +26,7 @@ namespace FlashLFQ
             {
                 peptides = identifications.Select(id => id.ModifiedSequence).ToHashSet();
             }
-            _peptideSequences = peptides;
+            _peptideModifiedSequencesToQuantify = peptides;
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
@@ -34,7 +34,7 @@ namespace FlashLFQ
             }
 
 
-            // Only quantify peptides within the set of valid peptide sequences. This is done to enable pepitde-level FDR control of reported results
+            // Only quantify peptides within the set of valid peptide modified (full) sequences. This is done to enable pepitde-level FDR control of reported results
             foreach (Identification id in identifications.Where(id => peptides.Contains(id.ModifiedSequence)))
             {
                 if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
@@ -129,7 +129,7 @@ namespace FlashLFQ
                 var groupedPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
                     .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                    .Where(group => _peptideSequences.Contains(group.Key))
+                    .Where(group => _peptideModifiedSequencesToQuantify.Contains(group.Key))
                     .ToList();
 
                 foreach (var sequenceWithPeaks in groupedPeaks)
