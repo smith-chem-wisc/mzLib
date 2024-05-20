@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics.Statistics;
+﻿using Easy.Common.Extensions;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -539,7 +540,7 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent = true)
         {
             if (!silent)
             {
