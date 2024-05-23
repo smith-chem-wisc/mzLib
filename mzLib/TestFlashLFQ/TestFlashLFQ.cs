@@ -15,6 +15,7 @@ using Test.FileReadingTests;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using TopDownProteomics;
 
 namespace Test
 {
@@ -475,15 +476,31 @@ namespace Test
             Assert.AreEqual(4, resultsA.SpectraFiles.Count);
         }
 
+
+        /// <summary>
+        /// This test MatchBetweenRuns by creating two fake mzML files and a list of fake IDs. 
+        /// There are multiple sets of IDs, where most are shared between the two runs but one+ is/are missing
+        /// MBR is tested by ensuring that IDs are transferred between runs
+        /// </summary>
         [Test]
         public static void TestFlashLfqMatchBetweenRuns()
         {
             List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> { "PEPTIDE", "PEPTIDEV", "PEPTIDEVV", "PEPTIDEVVV", "PEPTIDEVVVV", "PEPTIDEVVVVA", "PEPTIDEVVVVAA" };
+            List<string> pepSequences = new List<string> 
+                { 
+                "PEPTIDE", 
+                "PEPTIDEV", 
+                "PEPTIDEVV", 
+                "TARGETPEP",
+                "PEPTIDEVVV",
+                "PEPTIDEVVVV", 
+                "PEPTIDEVVVVA", 
+                "PEPTIDEVVVVAA"
+            };
             double intensity = 1e6;
 
-            double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.035, 1.04, 1.045, 1.05 };
-            double[] file2Rt = new double[] { 1.00, 1.025, 1.03, 1.035, 1.04, 1.055, 1.07 };
+            double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.033, 1.035, 1.04, 1.045, 1.05 };
+            double[] file2Rt = new double[] { 1.00, 1.025, 1.03, 1.031, 1.035, 1.04, 1.055, 1.07 };
 
             Loaders.LoadElements();
 
@@ -491,7 +508,7 @@ namespace Test
             for (int f = 0; f < filesToWrite.Count; f++)
             {
                 // 1 MS1 scan per peptide
-                MsDataScan[] scans = new MsDataScan[7];
+                MsDataScan[] scans = new MsDataScan[8];
 
                 for (int p = 0; p < pepSequences.Count; p++)
                 {
@@ -533,39 +550,53 @@ namespace Test
             Identification id3 = new Identification(file1, "PEPTIDEVV", "PEPTIDEVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id4 = new Identification(file1, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id5 = new Identification(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
 
             Identification id6 = new Identification(file2, "PEPTIDE", "PEPTIDE",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id7 = new Identification(file2, "PEPTIDEV", "PEPTIDEV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
-            // missing ID 8 - MBR feature
+            // missing ID 8 - MBR feature - "PEPTIDEVV"
+
             Identification id9 = new Identification(file2, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id10 = new Identification(file2, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
 
             // Adding additional peaks to check interquartile range
             Identification id11 = new Identification(file1, "PEPTIDEVVVVA", "PEPTIDEVVVVA",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVA").MonoisotopicMass, file1Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVA").MonoisotopicMass, file1Rt[6] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id12 = new Identification(file1, "PEPTIDEVVVVAA", "PEPTIDEVVVVAA",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file1Rt[6] + 0.001, 1, new List<ProteinGroup> { pg });
-
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file1Rt[7] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id13 = new Identification(file2, "PEPTIDEVVVVA", "PEPTIDEVVVVA",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVA").MonoisotopicMass, file2Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVA").MonoisotopicMass, file2Rt[6] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id14 = new Identification(file2, "PEPTIDEVVVVAA", "PEPTIDEVVVVAA",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file2Rt[6] + 0.001, 1, new List<ProteinGroup> { pg });
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVVAA").MonoisotopicMass, file2Rt[7] + 0.001, 1, new List<ProteinGroup> { pg });
 
+            // Additional peaks, check that a non-confident ID (i.e., one that isn't included in the peptides to quantify list) is overwritten
+            // by a MBR transfer of a more confident ID
+            Identification id15 = new Identification(file1, "TARGETPEP", "TARGETPEP",
+                new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id16 = new Identification(file2, "DECOYPEP", "DECOYPEP",
+                new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+
+            // Additional peaks to ensure that non-confident IDs aren't merged with confident IDs at the peak level
+            Identification id17 = new Identification(file1, "DECOYPEP", "DECOYPEP",
+                new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id18 = new Identification(file1, "DECOYPEP2", "DECOYPEP2",
+                new Proteomics.AminoAcidPolymer.Peptide("TARGETPEP").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             FlashLfqEngine interquartileEngine = new FlashLfqEngine(
                 new List<Identification> { id1, id2, id3, id4, id5, id11, id12, id6, id7, id9, id10, id13, id14 }, matchBetweenRuns: true);
+            FlashLfqEngine engineAmbiguous = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id18, id15, id16, id17 }, matchBetweenRuns: true,
+                peptideSequencesToUse: pepSequences);
 
 
-            // run the engine
+            //run the engine
             var results = engine.Run();
 
             Assert.That(results.Peaks[file2].Count == 5);
@@ -606,6 +637,15 @@ namespace Test
             Assert.That(!peak.RtStdDev.HasValue);
             Assert.That(peak.RtInterquartileRange.HasValue);
             Assert.That(peak.RtInterquartileRange, Is.EqualTo(rtDiffs.InterquartileRange()).Within(0.01));
+
+            // The ambiguous engine tests that a non-confident ID (i.e., a PSM that didn't make the peptide level fdr cutoff) 
+            // gets overwritten by a MBR transfer of a confident ID, and that non-confident IDs are overwriteen by confident MS2 ids
+            results = engineAmbiguous.Run();
+            Assert.False(results.PeptideModifiedSequences.Select(kvp => kvp.Key).Contains("DECOYPEP"));
+            Assert.False(results.Peaks[file1].Any(peak => peak.Identifications.Any(id => id.ModifiedSequence.Contains("DECOYPEP"))));
+            Assert.That(results.Peaks[file2].Any(peak => peak.Identifications.First().ModifiedSequence == "TARGETPEP"));
+            Assert.AreEqual(results.Peaks[file2].Count(peak => peak.IsMbrPeak), 2);
+
         }
 
         [Test]
@@ -1382,6 +1422,13 @@ namespace Test
             {
                 Assert.That(results.ProteinGroups[protein.ProteinGroupName].GetIntensity(f1r2) == 0);
             }
+
+            List<string> peptidesToUse = ids.Select(id => id.ModifiedSequence).Take(400).Distinct().ToList();
+            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1, peptideSequencesToUse: peptidesToUse);
+            results = engine.Run();
+            var test = results.PeptideModifiedSequences.Select(kvp => !peptidesToUse.Contains(kvp.Key)).ToList();
+
+            CollectionAssert.AreEquivalent(results.PeptideModifiedSequences.Select(kvp => kvp.Key), peptidesToUse);
         }
 
         [Test]
@@ -1620,7 +1667,8 @@ namespace Test
             peak1.CalculateIntensityForThisFeature(false);
             peak2.CalculateIntensityForThisFeature(false);
 
-            FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 });
+            FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 },
+                new HashSet<string> { "peptide1", "peptide2"});
             res.Peaks[fraction1].Add(peak1);
             res.Peaks[fraction2].Add(peak2);
             res.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
