@@ -18,7 +18,7 @@ jobs:
       - name: Set up NuGet
         uses: nuget/setup-nuget@v1
         with:
-          nuget-version: '7.x'
+          nuget-version: '6.x'
       - name: Verify commit exists in origin/master
         run: |
           git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
