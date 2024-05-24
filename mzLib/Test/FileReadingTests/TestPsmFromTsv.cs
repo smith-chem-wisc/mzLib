@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
-using Proteomics.ProteolyticDigestion;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.PSM;
 using System;
 using System.Collections.Generic;

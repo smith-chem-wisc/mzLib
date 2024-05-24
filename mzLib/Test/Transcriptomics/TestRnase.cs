@@ -1,9 +1,7 @@
 ﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
 using Proteomics.ProteolyticDigestion;
 using Transcriptomics.Digestion;
 

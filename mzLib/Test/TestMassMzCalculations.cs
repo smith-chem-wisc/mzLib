@@ -17,6 +17,7 @@
 
 using Chemistry;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using Stopwatch = System.Diagnostics.Stopwatch;
 

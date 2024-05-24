@@ -2,6 +2,7 @@
 using MassSpectrometry.MzSpectra;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.Collections.Generic;
 
