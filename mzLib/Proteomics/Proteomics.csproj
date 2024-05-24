@@ -28,4 +28,8 @@
     <Folder Include="Fragmentation\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="32.0.3" />
+  </ItemGroup>
+
 </Project>
