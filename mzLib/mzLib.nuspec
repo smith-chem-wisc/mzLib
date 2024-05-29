@@ -60,7 +60,7 @@
     <file src="Transcriptomics\bin\x64\Release\net8.0\Digestion\rnases.tsv" target="lib\net8.0" />
     <!--net8.0-windows target with mzPlot-->
     <file src="mzPlot\bin\x64\Release\net8.0-windows\mzPlot.dll" target="lib\net8.0-windows" />
-    <file src="BayesianEstimation\bin\x64\Release\net8.0-windows\BayesianEstimation.dll" target="lib\net8.0-windows" />
+    <file src="BayesianEstimation\bin\x64\Release\net8.0\BayesianEstimation.dll" target="lib\net8.0-windows" />
     <file src="Chemistry\bin\x64\Release\net8.0\Chemistry.dll" target="lib\net8.0-windows" />
     <file src="FlashLFQ\bin\x64\Release\net8.0\FlashLFQ.dll" target="lib\net8.0-windows" />
     <file src="MassSpectrometry\bin\x64\Release\net8.0\MassSpectrometry.dll" target="lib\net8.0-windows" />
