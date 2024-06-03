@@ -28,10 +28,13 @@ namespace Test
         [TestCase("penguin", "penguin")]
         [TestCase("penguin.jpg.gz", "penguin")]
         [TestCase("penguin.jpg.zip", "penguin")]
+        [TestCase("penguin.jpg.mzXML", "penguin.jpg")]
         public static void TestPeriodTolerantFilenameWithoutExtension(string filenameAndOrPath, string expectedResult)
         {
             string result = PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(filenameAndOrPath);
+            string extensionResult = filenameAndOrPath.GetPeriodTolerantFilenameWithoutExtension();
             Assert.AreEqual(expectedResult, result);
+            Assert.AreEqual(expectedResult, extensionResult);
         }
     }
 }
