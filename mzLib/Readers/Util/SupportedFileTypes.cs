@@ -22,6 +22,7 @@ namespace Readers
         MsFraggerPsm,
         MsFraggerPeptide,
         MsFraggerProtein,
+        MsFraggerExperiment
     }
 
     public static class SupportedFileTypeExtensions

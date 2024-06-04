@@ -14,6 +14,7 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics;
 using static System.Net.Mime.MediaTypeNames;
 using ThermoFisher.CommonCore.Data.Interfaces;
+using Easy.Common.Extensions;
 
 namespace Readers
 {
@@ -40,7 +41,7 @@ namespace Readers
         public string BaseSequence { get; set; }
 
         [Name("Modified Peptide")]
-        public string FullSequence { get; set; }
+        public string ModifiedSequence { get; set; }
 
         [Name("Extended Peptide")]
         public string ExtendedSequence { get; set; }
@@ -153,6 +154,9 @@ namespace Readers
 
         [Ignore]
         public int OneBasedScanNumber => _oneBasedScanNumber ??= int.Parse(Spectrum.Split('.')[1]);
+
+        [Ignore]
+        public string FullSequence => ModifiedSequence.IsNullOrEmpty() ? BaseSequence : ModifiedSequence;
 
         #endregion
     }

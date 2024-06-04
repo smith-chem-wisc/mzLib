@@ -25,6 +25,7 @@ namespace Readers
         };
 
         [Name("Peptide", "Sequence")] public string BaseSequence { get; set; }
+        [Name("Modified Sequence")] [Optional] public string FullSequence { get; set; }
 
         [Name("Prev AA")] [Optional] public char PreviousAminoAcid { get; set; }
 
