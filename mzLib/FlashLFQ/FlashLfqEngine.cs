@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
+using System.Net;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -33,6 +34,7 @@ namespace FlashLFQ
         public readonly bool Normalize;
         public readonly double DiscriminationFactorToCutPeak;
         public readonly bool QuantifyAmbiguousPeptides;
+        public readonly bool WriteVerbosePeaks;
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -92,6 +94,7 @@ namespace FlashLFQ
             bool quantifyAmbiguousPeptides = false,
             bool silent = false,
             int maxThreads = -1,
+            bool writeVerbosePeaks = false,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -132,6 +135,7 @@ namespace FlashLFQ
             QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
             Silent = silent;
             IdSpecificChargeState = idSpecificChargeState;
+            WriteVerbosePeaks = writeVerbosePeaks;
             MbrRtWindow = maxMbrWindow;
             RequireMsmsIdInCondition = requireMsmsIdInCondition;
             Normalize = normalize;
@@ -166,7 +170,7 @@ namespace FlashLFQ
         {
             _globalStopwatch.Start();
             _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
-            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, PeptidesModifiedSequencesToQuantify);
+            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, PeptidesModifiedSequencesToQuantify, WriteVerbosePeaks);
 
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
@@ -1183,6 +1187,7 @@ namespace FlashLFQ
                 // isotope masses are calculated relative to the observed peak
                 double observedMass = peak.Mz.ToMass(chargeState);
                 double observedMassError = observedMass - identification.PeakfindingMass;
+                List<IndexedMassSpectralPeak> allPeaks = new();
 
                 foreach (var shift in massShiftToIsotopePeaks)
                 {
@@ -1219,6 +1224,7 @@ namespace FlashLFQ
                             if (shift.Key == 0)
                             {
                                 experimentalIsotopeIntensities[i] = isotopePeak.Intensity;
+                                allPeaks.Add(isotopePeak);
                             }
                         }
                     }
@@ -1243,7 +1249,10 @@ namespace FlashLFQ
                         }
                     }
 
-                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum()));
+                    IsotopicEnvelope isotopicEnvelope = WriteVerbosePeaks 
+                        ? new VerboseIsotopicEnvelope(peak, allPeaks, chargeState, identification.MonoisotopicMass) 
+                        : new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum());
+                    isotopicEnvelopes.Add(isotopicEnvelope);
                 }
             }
 
