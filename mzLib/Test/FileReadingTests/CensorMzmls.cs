@@ -96,11 +96,11 @@ namespace Test.FileReadingTests
         [Test]
         public static void CensorFraggerKelly()
         {
-            string peptideFilePath = @"D:\Kelly_TwoProteomeData\IonQuant1Percent\A_1\psm.tsv";
+            string peptideFilePath = @"D:\Kelly_TwoProteomeData\IonQuant1Percent\combined_peptide.tsv";
 
-            MsFraggerPsmFile peptideFile = new MsFraggerPsmFile(peptideFilePath);
+            var peptideFile = new MsFraggerPeptideFile(peptideFilePath);
             peptideFile.LoadResults();
-            List<MsFraggerPsm> parsedPeptides = peptideFile.Results;
+            List<MsFraggerPeptide> parsedPeptides = peptideFile.Results;
 
             int placeholder = 0;
             // Filter on peptideProphet probability, 0.99 or higher
