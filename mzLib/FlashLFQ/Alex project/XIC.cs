@@ -123,6 +123,8 @@ namespace FlashLFQ.Alex_project
             int indexForTheMaxValue = Array.FindIndex(product, p => p.Magnitude == maxMagnitude);
             double rtShift = -(product.Length/2 - indexForTheMaxValue) * (1.0 / resolution);
             return rtShift;
+
+            // Example
         }
 
     }
