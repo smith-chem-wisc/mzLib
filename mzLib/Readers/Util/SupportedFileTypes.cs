@@ -22,7 +22,8 @@ namespace Readers
         MsFraggerPsm,
         MsFraggerPeptide,
         MsFraggerProtein,
-        MsFraggerExperiment
+        MsFraggerExperiment,
+        MaxQuantEvidence
     }
 
     public static class SupportedFileTypeExtensions
@@ -55,6 +56,7 @@ namespace Readers
                 SupportedFileType.MsFraggerPsm => "psm.tsv",
                 SupportedFileType.MsFraggerPeptide => "peptide.tsv",
                 SupportedFileType.MsFraggerProtein => "protein.tsv",
+                SupportedFileType.MaxQuantEvidence => "evidence.txt",
                 _ => throw new MzLibException("File type not supported")
             };
         }

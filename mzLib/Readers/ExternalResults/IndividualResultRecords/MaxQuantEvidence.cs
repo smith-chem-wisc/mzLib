@@ -79,7 +79,8 @@ namespace Readers
         public string Experiment { get; set; }
 
         [Name("MS/MS m/z")]
-        public double IsolatedMz { get; set; }
+        [Optional]
+        public double? IsolatedMz { get; set; }
 
         [Name("Charge")]
         public int Charge { get; set; }
@@ -143,22 +144,22 @@ namespace Readers
         public double? MatchScore { get; set; }
 
         [Name("Number of data points")]
-        public int NumberOfDataPoints { get; set; }
+        public int? NumberOfDataPoints { get; set; }
 
         [Name("Number of scans")]
-        public int NumberOfScans { get; set; }
+        public int? NumberOfScans { get; set; }
 
         [Name("Number of isotopic peaks")]
-        public int NumberOfIsotopicPeaks { get; set; }
+        public int? NumberOfIsotopicPeaks { get; set; }
 
         [Name("PIF")]
-        public double ParentIonFraction { get; set; }
+        public double? ParentIonFraction { get; set; }
 
         [Name("Fraction of total spectrum")]
-        public double FractionOfTotalSpectrum { get; set; }
+        public double? FractionOfTotalSpectrum { get; set; }
 
         [Name("Base peak fraction")]
-        public double BasePeakFraction { get; set; }
+        public double? BasePeakFraction { get; set; }
 
         [Name("PEP")]
         public double PEP { get; set; }
@@ -167,7 +168,7 @@ namespace Readers
         public int PsmCount { get; set; }
 
         [Name("MS/MS scan number")]
-        public int PrecursorScanNum { get; set; }
+        public int? PrecursorScanNum { get; set; }
 
         [Name("MS/MS scan numbers")]
         public string PrecursorScanNumbers { get; set; }
@@ -185,13 +186,13 @@ namespace Readers
         public int Combinatorics { get; set; }
 
         [Name("Intensity")]
-        public double SummedIntensity { get; set; }
+        public double? SummedIntensity { get; set; }
 
         [Name("Reverse")]
-        public char Reverse { get; set; }
+        public string Reverse { get; set; }
 
         [Name("Potential contaminant")]
-        public char PotentialContaminant { get; set; }
+        public string PotentialContaminant { get; set; }
 
         [Name("id")]
         public int Id { get; set; }
@@ -200,13 +201,13 @@ namespace Readers
         public string ProteinGroupIds { get; set; }
 
         [Name("Peptide ID")]
-        public int PeptideId { get; set; }
+        public int? PeptideId { get; set; }
 
         [Name("Mod. peptide ID")]
-        public int ModPeptideId { get; set; }
+        public int? ModPeptideId { get; set; }
 
         [Name("Best MS/MS")]
-        public int BestMsMs { get; set; } // This is an ID identifier that links to a different MaxQuant output file. It doesn't contain the scan number
+        public int? BestMsMs { get; set; } // This is an ID identifier that links to a different MaxQuant output file. It doesn't contain the scan number
 
         [Name("Oxidation (M) site IDs")]
         public string OxidationSiteIds { get; set; }
@@ -218,7 +219,7 @@ namespace Readers
         public string TaxonomyNames { get; set; }
 
         [Name("Mass deficit")]
-        public double MassDeficit { get; set; }
+        public double? MassDeficit { get; set; }
 
         #endregion
 

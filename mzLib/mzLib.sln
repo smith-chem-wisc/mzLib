@@ -33,7 +33,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Development", "Development\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Readers", "Readers\Readers.csproj", "{E27A5C14-0C05-466A-91CE-ABB5151A69C4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Omics", "Omics\Omics.csproj", "{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Omics", "Omics\Omics.csproj", "{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Transcriptomics", "Transcriptomics\Transcriptomics.csproj", "{559BAA74-8C17-4650-AAF8-FFB79DA88007}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -137,6 +139,12 @@ Global
 		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.Release|x64.Build.0 = Release|x64
 		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.TestAndRelease|x64.ActiveCfg = Debug|x64
 		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.TestAndRelease|x64.Build.0 = Debug|x64
+		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.Debug|x64.ActiveCfg = Debug|x64
+		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.Debug|x64.Build.0 = Debug|x64
+		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.Release|x64.ActiveCfg = Release|x64
+		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.Release|x64.Build.0 = Release|x64
+		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.TestAndRelease|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
