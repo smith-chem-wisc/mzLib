@@ -188,8 +188,8 @@ namespace Readers.Bruker
             else
             {
                 List<MsDataScan> scanList = new();
-                for (int i = 0; i < Ms1FrameIds.Count; i++)
-                //for (int i = 0; i < 500; i++)
+                //for (int i = 0; i < Ms1FrameIds.Count; i++)
+                for (int i = 0; i < 2500; i++)
                 {
                     long frameId = Ms1FrameIds[i];
                     BuildMS1Scans(scanList, frameId, filteringParams);
@@ -233,6 +233,14 @@ namespace Readers.Bruker
             }
         }
 
+        /// <summary>
+        /// This function will create multiple MS1 scans from each MS1 frame in the timsTOF data file
+        /// The spectra of every scan in a given Ion Mobility range will be averaged to create a single spectrum
+        /// </summary>
+        /// <param name="scanList"></param>
+        /// <param name="frameId"></param>
+        /// <param name="filteringParams"></param>
+        /// <param name="sqLiteConnection"></param>
         internal void BuildMS1Scans(List<MsDataScan> scanList, long frameId, FilteringParams filteringParams, SQLiteConnection sqLiteConnection = null)
         {
             FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
