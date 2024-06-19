@@ -96,6 +96,17 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public static void TinyTest()
+        {
+            string filePath = @"D:\Human_Ecoli_TwoProteome_60minGradient\RawData\04-12-24_Human_C18_3mm_50msec_stnd-60min_1_centroid.mzML";
+
+            var file = MsDataFileReader.GetDataFile(filePath);
+            file.LoadAllStaticData();
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file, @"D:\Human_Ecoli_TwoProteome_60minGradient\RawData\04-12-24_Human_C18_3mm_50msec_stnd-60min_1_mzLib_convert.mzML", writeIndexed: true);
+        }
+
+        [Test]
         public static void CensorFraggerKelly()
         {
             string peptideFilePath = @"D:\Kelly_TwoProteomeData\IonQuant1Percent\combined_modified_peptide.tsv";
