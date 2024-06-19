@@ -302,7 +302,9 @@ namespace Readers.Bruker
                     totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
                     injectionTime: FrameProxyFactory.GetInjectionTime(frameId),
                     noiseData: null,
-                    nativeId: "frame=" + frame.FrameId.ToString() + ";scans=" + record.ScanStart.ToString() + "-" + record.ScanEnd.ToString(),
+                    nativeId: "frame=" + frame.FrameId.ToString() + 
+                        ";scans=" + record.ScanStart.ToString() + "-" + record.ScanEnd.ToString() + 
+                        ";precursor=" + record.PrecursorId.ToString(),
                     frameId: frame.FrameId,
                     scanNumberStart: record.ScanStart,
                     scanNumberEnd: record.ScanEnd,

@@ -41,7 +41,7 @@ namespace Test.FileReadingTests
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
-            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\MS1_Parallel10_fullFile_SpectraMergeChangeplusFiltertoHalf_take2.txt");
+            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\2500_ms1_frames_compiled_2.txt");
             using (output)
             {
                 output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
@@ -53,7 +53,7 @@ namespace Test.FileReadingTests
 
             // This is failing during write, giving the following error:
             //  System.ArgumentException : An item with the same key has already been added. Key: frame=1141;scans=684-709
-            test.ExportAsMzML(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\AurEl3_halfFilter_take2.mzML", writeIndexed: true);
+            test.ExportAsMzML(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\AurEl3_halfFilter_take3.mzML", writeIndexed: true);
             Assert.Pass();
             
         }
