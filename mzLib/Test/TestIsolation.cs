@@ -19,6 +19,7 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Linq;

@@ -1,8 +1,7 @@
 ﻿using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Diagnostics.CodeAnalysis;
 using MzLibUtil;
-using System.IO;
-using System.Linq;
 using System;
 using MassSpectrometry;
 using System.Collections.Generic;

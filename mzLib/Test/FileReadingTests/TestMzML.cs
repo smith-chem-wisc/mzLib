@@ -9,6 +9,7 @@ using MassSpectrometry;
 using MzIdentML;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.AminoAcidPolymer;
 using Readers;
 using Stopwatch = System.Diagnostics.Stopwatch;
