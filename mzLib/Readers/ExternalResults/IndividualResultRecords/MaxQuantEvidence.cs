@@ -30,6 +30,12 @@ namespace Readers
             HeaderValidated = null,
         };
 
+        #region Interpreted Fields
+
+        public List<string> ProteinList => Proteins.Split(';').ToList();
+
+        #endregion
+
         #region MaxQuant Fields
 
         [Name("Sequence")]
@@ -168,7 +174,7 @@ namespace Readers
         public int PsmCount { get; set; }
 
         [Name("MS/MS scan number")]
-        public int? PrecursorScanNum { get; set; }
+        public int? Ms2ScanNumber { get; set; }
 
         [Name("MS/MS scan numbers")]
         public string PrecursorScanNumbers { get; set; }
