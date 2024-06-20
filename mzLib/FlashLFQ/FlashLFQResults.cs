@@ -17,7 +17,7 @@ namespace FlashLFQ
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DoubleCheckPeaks;
         public  IEnumerable<ChromatographicPeak> DecoyPeaks { get; set; }
 
-        public readonly double MbrQValueThreshold;
+        public double MbrQValueThreshold { get; set; }
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05)
         {
