@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using Easy.Common.Extensions;
 using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
@@ -80,6 +81,8 @@ namespace FlashLFQ
                 return sb.ToString();
             }
         }
+
+        public static string VerboseTabSeparatedHeader => TabSeparatedHeader + "\tIsotope Peak Intensity\tIsotope Peak m/z\tIsotope Peak RTs";
 
         /// <summary>
         /// Sets retention time information for a given peak. Used for MBR peaks
@@ -253,6 +256,62 @@ namespace FlashLFQ
             sb.Append("\t" + (IsMbrPeak ? RtHypothesis.ToString() : ""));
 
             return sb.ToString();
+        }
+
+        public string ToString(bool verbose)
+        {
+            string peakString = ToString();
+            if (verbose)
+            {
+                return peakString + "\t" + GetIsotopeInformation();
+            }
+            else
+            {
+                return peakString;
+            }   
+        }
+
+        internal string GetIsotopeInformation()
+        {
+            List<VerboseIsotopicEnvelope> verboseEnvelopes = IsotopicEnvelopes.Select(e => e as VerboseIsotopicEnvelope)
+                .Where(e => e != null).OrderBy(e => e.IndexedPeak.RetentionTime).ToList();
+            if (!verboseEnvelopes.IsNotNullOrEmpty())
+                return "\t\t\t";
+            List<IGrouping<double, VerboseIsotopicEnvelope>> chargeStateEnvelopeGroups = verboseEnvelopes
+                .OrderBy(e => e.ChargeState)
+                .GroupBy(e => e.RetentionTime)
+                .OrderBy(group => group.Key)
+                .ToList();
+            Dictionary<(int, int), IndexedMassSpectralPeak[]> source = new Dictionary<(int, int), IndexedMassSpectralPeak[]>();
+            for (int index = 0; index < chargeStateEnvelopeGroups.Count; ++index)
+            {
+                foreach (VerboseIsotopicEnvelope isotopicEnvelope in (IEnumerable<VerboseIsotopicEnvelope>)chargeStateEnvelopeGroups[index])
+                {
+                    foreach (KeyValuePair<int, IndexedMassSpectralPeak> peak in isotopicEnvelope.PeakDictionary)
+                    {
+                        (int, int) key = (peak.Key, isotopicEnvelope.ChargeState);
+                        if (source.ContainsKey(key))
+                        {
+                            source[key][index] = peak.Value;
+                        }
+                        else
+                        {
+                            source.Add(key, new IndexedMassSpectralPeak[chargeStateEnvelopeGroups.Count]);
+                            source[key][index] = peak.Value;
+                        }
+                    }
+                }
+            }
+            List<KeyValuePair<(int, int), IndexedMassSpectralPeak[]>> list3 = source.OrderBy<KeyValuePair<(int, int), IndexedMassSpectralPeak[]>, int>((Func<KeyValuePair<(int, int), IndexedMassSpectralPeak[]>, int>)(kvp => kvp.Key.Item1)).ThenBy<KeyValuePair<(int, int), IndexedMassSpectralPeak[]>, int>((Func<KeyValuePair<(int, int), IndexedMassSpectralPeak[]>, int>)(kvp => kvp.Key.Item2)).ToList<KeyValuePair<(int, int), IndexedMassSpectralPeak[]>>();
+            StringBuilder intensityString = new StringBuilder();
+            StringBuilder mzString = new StringBuilder();
+            foreach (KeyValuePair<(int, int), IndexedMassSpectralPeak[]> keyValuePair in list3)
+            {
+                intensityString.Append("[" + VerboseIsotopicEnvelope.GetIsotopePeakName(keyValuePair.Key) + ": " + string.Join(", ", ((IEnumerable<IndexedMassSpectralPeak>)keyValuePair.Value).Select<IndexedMassSpectralPeak, string>((Func<IndexedMassSpectralPeak, string>)(imsPeak => imsPeak != null ? imsPeak.Intensity.ToString() : "-"))) + "];");
+                mzString.Append("[" + VerboseIsotopicEnvelope.GetIsotopePeakName(keyValuePair.Key) + ": " + string.Join(", ", ((IEnumerable<IndexedMassSpectralPeak>)keyValuePair.Value).Select<IndexedMassSpectralPeak, string>((Func<IndexedMassSpectralPeak, string>)(imsPeak => imsPeak != null ? imsPeak.Mz.ToString() : "-"))) + "];");
+            }
+            string retentionTimeString = "[" + string.Join<double>(", ", chargeStateEnvelopeGroups.Select<IGrouping<double, VerboseIsotopicEnvelope>, double>((Func<IGrouping<double, VerboseIsotopicEnvelope>, double>)(group => group.First<VerboseIsotopicEnvelope>().RetentionTime))) + "]";
+            return "\"" + intensityString.ToString().Trim() + "\"\t\"" + mzString.ToString().Trim() + "\"\t" + retentionTimeString + "\t";
         }
     }
 }

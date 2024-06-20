@@ -54,7 +54,7 @@ namespace Test
             Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1, writeVerbosePeaks: true);
 
             // run the engine
             var results = engine.Run();
@@ -96,6 +96,7 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
                 null,
                 true);
+            int placeholder = 0;
         }
 
         [Test]
