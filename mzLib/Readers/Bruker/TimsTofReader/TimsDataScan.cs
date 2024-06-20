@@ -13,7 +13,7 @@ namespace MassSpectrometry
         public int ScanNumberStart { get; }
         public int ScanNumberEnd { get; }
         public double OneOverK0 { get; }
-        public int PrecursorId { get; }
+        public int? PrecursorId { get; }
         public long FrameId { get; }
         /// <summary>
         /// For PASEF Aggregate scans, contains the list of Frames where the same precursor was samples
@@ -43,7 +43,7 @@ namespace MassSpectrometry
             int scanNumberStart,
             int scanNumberEnd,
             double medianOneOverK0,
-            int precursorId,
+            int? precursorId,
             double? selectedIonMz = null,
             int? selectedIonChargeStateGuess = null,
             double? selectedIonIntensity = null,

@@ -493,6 +493,8 @@ namespace Readers
                     };
 
                     // Selected ion MZ
+                    // An exception gets thrown here when writing the timsTOF data file!
+                    // System.InvalidOperationException : Nullable object must have a value.
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[0] = new Generated.CVParamType
                     {
                         name = "selected ion m/z",

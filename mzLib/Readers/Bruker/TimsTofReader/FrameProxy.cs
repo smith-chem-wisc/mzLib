@@ -80,7 +80,6 @@ namespace Readers.Bruker.TimsTofReader
             _rawData = GetScanRawData(fileHandle, frameId, (uint)numScans, fileLock);
             _scanOffsets = PartialSum(_rawData, 0, numScans);
         }
-        
 
         internal double[] GetScanMzs(int zeroIndexedScanNumber)
         {

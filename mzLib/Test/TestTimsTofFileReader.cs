@@ -35,13 +35,15 @@ namespace Test.FileReadingTests
                 applyTrimmingToMsMs: true);
 
             //MsDataFile brukerData = MsDataFileReader.GetDataFile(@"C:\Users\Alex\Downloads\transfer_292991_files_907ddd5f\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.mzML").LoadAllStaticData();
-            string filePath = @"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.d";
+            //string filePath = @"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\T03797_AurEl3_trap1_CMB-1380_1_GC1_1_4093.d";
+
+            string filePath = @"D:\timsTof_DDA_PXD016870\c10_1_GF3_01_1619.d";
             var test = new TimsTofFileReader(filePath).LoadAllStaticData(filteringParams: filter, maxThreads: 10);
             //TimsTofFileReader testAsTimmyReader = (TimsTofFileReader)test;
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
-            StreamWriter output = new StreamWriter(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\2500_ms1_frames_compiled_2.txt");
+            StreamWriter output = new StreamWriter(@"D:\timsTof_DDA_PXD016870\c10_1_GF3_01_1619_reader_results.txt");
             using (output)
             {
                 output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
@@ -52,8 +54,9 @@ namespace Test.FileReadingTests
             }
 
             // This is failing during write, giving the following error:
-            //  System.ArgumentException : An item with the same key has already been added. Key: frame=1141;scans=684-709
-            test.ExportAsMzML(@"C:\Users\Alex\Documents\timsTOF Data\timsTOF_User_Example_file\data_files\AurEl3_halfFilter_take3.mzML", writeIndexed: true);
+            // System.InvalidOperationException : Nullable object must have a value.
+            // MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, String outputFile, Boolean writeIndexed) line 496
+            test.ExportAsMzML(@"D:\timsTof_DDA_PXD016870\c10_1_GF3_01_1619_from_mzLib_reader.mzML", writeIndexed: true);
             Assert.Pass();
             
         }
