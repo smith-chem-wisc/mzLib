@@ -106,103 +106,6 @@ namespace Test.FileReadingTests
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file, @"D:\Human_Ecoli_TwoProteome_60minGradient\RawData\04-12-24_Human_C18_3mm_50msec_stnd-60min_1_mzLib_convert.mzML", writeIndexed: true);
         }
 
-        [Test]
-        public static void CensorFraggerKelly()
-        {
-            string peptideFilePath = @"D:\Kelly_TwoProteomeData\IonQuant1Percent\combined_modified_peptide.tsv";
-
-            var peptideFile = new MsFraggerPeptideFile(peptideFilePath);
-            peptideFile.LoadResults();
-            List<MsFraggerPeptide> parsedPeptides = peptideFile.Results;
-
-            var testPept = parsedPeptides.First();
-
-            MzSpectrum blankSpectrum = new MzSpectrum(mz: new double[] { 150 }, intensities: new double[] { 10000 }, false);
-            int placeholder = 0;
-            // Filter on peptideProphet probability, 0.99 or higher
-
-            // For each peptide, select the run with the highest intensity. That run is the master donor and will not be censored
-            // Construct a dictionary linking file/run to the list of master donor peptides
-            Dictionary<string, List<string>> masterDonorPeptidesByFile = new();
-            foreach(var peptide in parsedPeptides)
-            {
-                string masterDonor = peptide.IntensityByFile.MaxBy(kvp => kvp.Value).Key;
-                if (!masterDonorPeptidesByFile.ContainsKey(masterDonor))
-                {
-                    masterDonorPeptidesByFile.Add(masterDonor, new List<string> { peptide.FullSequence } );
-                }
-                else
-                {
-                    masterDonorPeptidesByFile[masterDonor].Add(peptide.FullSequence);
-                }
-            }
-
-            placeholder += 1;
-            List<string> acceptorSamples = new List<string> { "A_1", "A_2", "A_3", "A_4", "A_5", "A_6", "A_7" };
-            var expFile = new MsFraggerExperimentFile(@"D:\Kelly_TwoProteomeData\IonQuant1Percent\experiment_annotation.tsv");
-            List<MsFraggerExperiment> experiments = expFile.Results;
-
-            List<MsFraggerPsm> censoredPsms = new();
-
-
-            // Iterate through the psm.tsv file for each run
-            // Select only human peptides with peptide prophet probability > 0.99
-            // and group by modified peptide (create some field that defaults to base sequence if mod seq is NA)
-            // Fragger only gives scan retention times (in seconds), so we'll need to map the RT to the scan number, which will suck
-            // Randomly select 500 peptides to censor
-            // Load in the raw file, iterate through each peptide group
-            // for every psm in the group, censor the corresponding spectrum
-            foreach (var exp in experiments.Where(exp => acceptorSamples.Contains(exp.Sample)))
-            {
-                var psms = new MsFraggerPsmFile(Path.Combine(@"D:\Kelly_TwoProteomeData\IonQuant1Percent", exp.Sample, "psm.tsv")); 
-
-                var psmsToRemove = psms
-                    .Where(pep => pep.Protein.Contains("HUMAN") && !pep.Protein.Contains("REV") && !pep.Protein.Contains("CON") 
-                        && pep.PeptideProphetProbability > 0.99
-                        && !masterDonorPeptidesByFile[exp.Sample].Contains(pep.ModifiedSequence))
-                    .GroupBy(pep => pep.ModifiedSequence)
-                    .Where(group => group.Count() == 1)
-                    .OrderBy(group => Guid.NewGuid())
-                    .SelectMany(group => group.Take(1))
-                    .Take(500)
-                    .ToList();
-
-                censoredPsms.AddRange(psmsToRemove);
-
-                // Open up the mzMl file specified by the psm FileName
-                // Select all scans referenced by the psms
-                // set the intensity of all peaks but 1 to zero
-                // Save the new mzMl file
-                string rawFilePath = Path.Combine(exp.FullFilePathWithExtension);
-                var file = MsDataFileReader.GetDataFile(rawFilePath);
-                file.LoadAllStaticData();
-
-                foreach (var psm in psmsToRemove)
-                {
-                    MsDataScan scan = file.GetOneBasedScan(psm.OneBasedScanNumber);
-                    scan.MassSpectrum = blankSpectrum;
-                }
-                
-                string fileName = psmsToRemove.First().FileNameWithoutExtension;
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file,
-                                       Path.Combine(@"D:\Kelly_TwoProteomeData\CensoredDataFiles_fragger", fileName + "-censored.mzML"),
-                                                          writeIndexed: true);
-            }
-
-            // Write out the list of censored PSMs 
-            using (var csv =
-                new CsvWriter(new StreamWriter(Path.Combine(@"D:\Kelly_TwoProteomeData\CensoredDataFiles_fragger", "CensoredPsms.tsv")), MsFraggerPsm.CsvConfiguration))
-            {
-                csv.WriteHeader<MsFraggerPsm>();
-                foreach (var result in censoredPsms)
-                {
-                    csv.NextRecord();
-                    csv.WriteRecord(result);
-                }
-            }
-
-        }
 
         [Test]
         public static void CensorGygiTwoProteomeData()
@@ -275,110 +178,6 @@ namespace Test.FileReadingTests
                     writer.WriteLine(psm);
                 }
             }
-
-        }
-
-        [Test]
-        public static void CensorFraggerGygi()
-        {
-            string peptideFilePath = @"D:\GygiTwoProteome_PXD014415\IonQuant1Percent\combined_modified_peptide.tsv";
-
-            var peptideFile = new MsFraggerPeptideFile(peptideFilePath);
-            peptideFile.LoadResults();
-            List<MsFraggerPeptide> parsedPeptides = peptideFile.Results;
-
-            var testPept = parsedPeptides.First();
-
-            MzSpectrum blankSpectrum = new MzSpectrum(mz: new double[] { 150 }, intensities: new double[] { 10000 }, false);
-            int placeholder = 0;
-
-            // For each peptide, select the run with the highest intensity. That run is the master donor and will not be censored
-            // Construct a dictionary linking file/run to the list of master donor peptides
-            Dictionary<string, List<string>> masterDonorPeptidesByFile = new();
-            foreach (var peptide in parsedPeptides)
-            {
-                string masterDonor = peptide.IntensityByFile.MaxBy(kvp => kvp.Value).Key;
-                if (!masterDonorPeptidesByFile.ContainsKey(masterDonor))
-                {
-                    masterDonorPeptidesByFile.Add(masterDonor, new List<string> { peptide.FullSequence });
-                }
-                else
-                {
-                    masterDonorPeptidesByFile[masterDonor].Add(peptide.FullSequence);
-                }
-            }
-
-            placeholder += 1;
-            List<string> acceptorSamples = new List<string> 
-            { 
-                "Raw_Files_1", "Raw_Files_2", "Raw_Files_3", "Raw_Files_4", "Raw_Files_5",
-                "Raw_Files_6", "Raw_Files_7", "Raw_Files_8", "Raw_Files_9", "Raw_Files_10",
-                "Raw_Files_11", "Raw_Files_12", "Raw_Files_13", "Raw_Files_14", "Raw_Files_15",
-                "Raw_Files_16", "Raw_Files_17", "Raw_Files_18", "Raw_Files_19", "Raw_Files_20"
-            };
-            var expFile = new MsFraggerExperimentFile(@"D:\GygiTwoProteome_PXD014415\IonQuant1Percent\experiment_annotation.tsv");
-            List<MsFraggerExperiment> experiments = expFile.Results;
-
-            List<MsFraggerPsm> censoredPsms = new();
-
-
-            // Iterate through the psm.tsv file for each run
-            // Select only human peptides with peptide prophet probability > 0.99
-            // and group by modified peptide (create some field that defaults to base sequence if mod seq is NA)
-            // Fragger only gives scan retention times (in seconds), so we'll need to map the RT to the scan number, which will suck
-            // Randomly select 500 peptides to censor
-            // Load in the raw file, iterate through each peptide group
-            // for every psm in the group, censor the corresponding spectrum
-            foreach (var exp in experiments.Where(exp => acceptorSamples.Contains(exp.Sample)))
-            {
-                var psms = new MsFraggerPsmFile(Path.Combine(@"D:\GygiTwoProteome_PXD014415\IonQuant1Percent", exp.Sample, "psm.tsv"));
-
-                var psmsToRemove = psms
-                    .Where(pep => pep.Protein.Contains("HUMAN") && !pep.Protein.Contains("REV") && !pep.Protein.Contains("CON")
-                        && pep.PeptideProphetProbability > 0.99
-                        && !masterDonorPeptidesByFile[exp.Sample].Contains(pep.ModifiedSequence))
-                    .GroupBy(pep => pep.ModifiedSequence)
-                    .Where(group => group.Count() == 1)
-                    .OrderBy(group => Guid.NewGuid())
-                    .SelectMany(group => group.Take(1))
-                    .Take(500)
-                    .ToList();
-
-                censoredPsms.AddRange(psmsToRemove);
-
-                // Open up the mzMl file specified by the psm FileName
-                // Select all scans referenced by the psms
-                // set the intensity of all peaks but 1 to zero
-                // Save the new mzMl file
-                string rawFilePath = Path.Combine(exp.FullFilePathWithExtension);
-                var file = MsDataFileReader.GetDataFile(rawFilePath);
-                file.LoadAllStaticData();
-
-                foreach (var psm in psmsToRemove)
-                {
-                    MsDataScan scan = file.GetOneBasedScan(psm.OneBasedScanNumber);
-                    scan.MassSpectrum = blankSpectrum;
-                }
-
-                string fileName = psmsToRemove.First().FileNameWithoutExtension;
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file,
-                                       Path.Combine(@"D:\GygiTwoProteome_PXD014415\CensoredDataFiles_fragger", fileName + "-censored.mzML"),
-                                                          writeIndexed: true);
-            }
-
-            // Write out the list of censored PSMs 
-            using (var csv =
-                new CsvWriter(new StreamWriter(Path.Combine(@"D:\GygiTwoProteome_PXD014415\CensoredDataFiles_fragger", "CensoredPsms.tsv")), MsFraggerPsm.CsvConfiguration))
-            {
-                csv.WriteHeader<MsFraggerPsm>();
-                foreach (var result in censoredPsms)
-                {
-                    csv.NextRecord();
-                    csv.WriteRecord(result);
-                }
-            }
-
         }
 
         [Test]
@@ -450,6 +249,208 @@ namespace Test.FileReadingTests
                 foreach (var psm in censoredPsms)
                 {
                     writer.WriteLine(psm);
+                }
+            }
+
+        }
+
+
+        [Test]
+        public static void CensorFraggerKelly()
+        {
+            string peptideFilePath = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\IonQuant_1Percent\combined_modified_peptide.tsv";
+
+            var peptideFile = new MsFraggerPeptideFile(peptideFilePath);
+            peptideFile.LoadResults();
+            List<MsFraggerPeptide> parsedPeptides = peptideFile.Results;
+
+            var testPept = parsedPeptides.First();
+
+            MzSpectrum blankSpectrum = new MzSpectrum(mz: new double[] { 150 }, intensities: new double[] { 10000 }, false);
+            int placeholder = 0;
+            // Filter on peptideProphet probability, 0.99 or higher
+
+            // For each peptide, select the run with the highest intensity. That run is the master donor and will not be censored
+            // Construct a dictionary linking file/run to the list of master donor peptides
+            Dictionary<string, List<string>> masterDonorPeptidesByFile = new();
+            foreach (var peptide in parsedPeptides)
+            {
+                string masterDonor = peptide.IntensityByFile.MaxBy(kvp => kvp.Value).Key;
+                if (!masterDonorPeptidesByFile.ContainsKey(masterDonor))
+                {
+                    masterDonorPeptidesByFile.Add(masterDonor, new List<string> { peptide.FullSequence });
+                }
+                else
+                {
+                    masterDonorPeptidesByFile[masterDonor].Add(peptide.FullSequence);
+                }
+            }
+
+            placeholder += 1;
+            List<string> acceptorSamples = new List<string> { "A_3", "A_4", "A_5", "A_6", "A_7", "A_8", "A_9" };
+            var expFile = new MsFraggerExperimentFile(@"D:\Kelly_TwoProteomeData\MsConvertMzMls\IonQuant_1Percent\experiment_annotation.tsv");
+            List<MsFraggerExperiment> experiments = expFile.Results;
+
+            List<MsFraggerPsm> censoredPsms = new();
+
+
+            // Iterate through the psm.tsv file for each run
+            // Select only human peptides with peptide prophet probability > 0.99
+            // and group by modified peptide (create some field that defaults to base sequence if mod seq is NA)
+            // Fragger only gives scan retention times (in seconds), so we'll need to map the RT to the scan number, which will suck
+            // Randomly select 500 peptides to censor
+            // Load in the raw file, iterate through each peptide group
+            // for every psm in the group, censor the corresponding spectrum
+            foreach (var exp in experiments.Where(exp => acceptorSamples.Contains(exp.Sample)))
+            {
+                var psms = new MsFraggerPsmFile(Path.Combine(@"D:\Kelly_TwoProteomeData\IonQuant1Percent", exp.Sample, "psm.tsv"));
+
+                var psmsToRemove = psms
+                    .Where(pep => pep.Protein.Contains("HUMAN") && !pep.Protein.Contains("REV") && !pep.Protein.Contains("CON")
+                        && pep.PeptideProphetProbability > 0.99
+                        && !masterDonorPeptidesByFile[exp.Sample].Contains(pep.ModifiedSequence))
+                    .GroupBy(pep => pep.ModifiedSequence)
+                    .Where(group => group.Count() == 1)
+                    .OrderBy(group => Guid.NewGuid())
+                    .SelectMany(group => group.Take(1))
+                    .Take(500)
+                    .ToList();
+
+                censoredPsms.AddRange(psmsToRemove);
+
+                // Open up the mzMl file specified by the psm FileName
+                // Select all scans referenced by the psms
+                // set the intensity of all peaks but 1 to zero
+                // Save the new mzMl file
+                string rawFilePath = Path.Combine(exp.FullFilePathWithExtension);
+                var file = MsDataFileReader.GetDataFile(rawFilePath);
+                file.LoadAllStaticData();
+
+                foreach (var psm in psmsToRemove)
+                {
+                    MsDataScan scan = file.GetOneBasedScan(psm.OneBasedScanNumber);
+                    scan.MassSpectrum = blankSpectrum;
+                }
+
+                string fileName = psmsToRemove.First().FileNameWithoutExtension;
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file,
+                                       Path.Combine(@"D:\Kelly_TwoProteomeData\CensoredDataFiles_fragger", fileName + "-censored.mzML"),
+                                                          writeIndexed: true);
+            }
+
+            // Write out the list of censored PSMs 
+            using (var csv =
+                new CsvWriter(new StreamWriter(Path.Combine(@"D:\Kelly_TwoProteomeData\CensoredDataFiles_fragger", "CensoredPsms.tsv")), MsFraggerPsm.CsvConfiguration))
+            {
+                csv.WriteHeader<MsFraggerPsm>();
+                foreach (var result in censoredPsms)
+                {
+                    csv.NextRecord();
+                    csv.WriteRecord(result);
+                }
+            }
+
+        }
+
+        [Test]
+        public static void CensorFraggerGygi()
+        {
+            string peptideFilePath = @"D:\GygiTwoProteome_PXD014415\MsConvertmzMLs\IonQuant_1Percent\combined_modified_peptide.tsv";
+
+            var peptideFile = new MsFraggerPeptideFile(peptideFilePath);
+            peptideFile.LoadResults();
+            List<MsFraggerPeptide> parsedPeptides = peptideFile.Results;
+
+            var testPept = parsedPeptides.First();
+
+            MzSpectrum blankSpectrum = new MzSpectrum(mz: new double[] { 150 }, intensities: new double[] { 10000 }, false);
+            int placeholder = 0;
+
+            // For each peptide, select the run with the highest intensity. That run is the master donor and will not be censored
+            // Construct a dictionary linking file/run to the list of master donor peptides
+            Dictionary<string, List<string>> masterDonorPeptidesByFile = new();
+            foreach (var peptide in parsedPeptides)
+            {
+                string masterDonor = peptide.IntensityByFile.MaxBy(kvp => kvp.Value).Key;
+                if (!masterDonorPeptidesByFile.ContainsKey(masterDonor))
+                {
+                    masterDonorPeptidesByFile.Add(masterDonor, new List<string> { peptide.FullSequence });
+                }
+                else
+                {
+                    masterDonorPeptidesByFile[masterDonor].Add(peptide.FullSequence);
+                }
+            }
+
+            placeholder += 1;
+            List<string> acceptorSamples = new List<string>
+            {
+                "A_14", "A_15", "A_3", "A_4", "A_5",
+                "A_6", "A_7", "A_8", "A_9", "A_10",
+                "A_11", "A_12", "A_13", "A_14", "A_15",
+                "A_16", "A_17", "A_18", "A_19", "A_20"
+            };
+            var expFile = new MsFraggerExperimentFile(@"D:\GygiTwoProteome_PXD014415\IonQuant1Percent\experiment_annotation.tsv");
+            List<MsFraggerExperiment> experiments = expFile.Results;
+
+            List<MsFraggerPsm> censoredPsms = new();
+
+
+            // Iterate through the psm.tsv file for each run
+            // Select only human peptides with peptide prophet probability > 0.99
+            // and group by modified peptide (create some field that defaults to base sequence if mod seq is NA)
+            // Fragger only gives scan retention times (in seconds), so we'll need to map the RT to the scan number, which will suck
+            // Randomly select 500 peptides to censor
+            // Load in the raw file, iterate through each peptide group
+            // for every psm in the group, censor the corresponding spectrum
+            foreach (var exp in experiments.Where(exp => exp.FullFilePathWithExtension.Contains("_human_90min")))
+            {
+                var psms = new MsFraggerPsmFile(Path.Combine(@"D:\GygiTwoProteome_PXD014415\MsConvertmzMLs\IonQuant_1Percent", exp.Sample, "psm.tsv"));
+
+                var psmsToRemove = psms
+                    .Where(pep => pep.Protein.Contains("HUMAN") && !pep.Protein.Contains("REV") && !pep.Protein.Contains("CON")
+                        && pep.PeptideProphetProbability > 0.99
+                        && !masterDonorPeptidesByFile[exp.Sample].Contains(pep.ModifiedSequence))
+                    .GroupBy(pep => pep.ModifiedSequence)
+                    .Where(group => group.Count() == 1)
+                    .OrderBy(group => Guid.NewGuid())
+                    .SelectMany(group => group.Take(1))
+                    .Take(500)
+                    .ToList();
+
+                censoredPsms.AddRange(psmsToRemove);
+
+                // Open up the mzMl file specified by the psm FileName
+                // Select all scans referenced by the psms
+                // set the intensity of all peaks but 1 to zero
+                // Save the new mzMl file
+                string rawFilePath = Path.Combine(exp.FullFilePathWithExtension);
+                var file = MsDataFileReader.GetDataFile(rawFilePath);
+                file.LoadAllStaticData();
+
+                foreach (var psm in psmsToRemove)
+                {
+                    MsDataScan scan = file.GetOneBasedScan(psm.OneBasedScanNumber);
+                    scan.MassSpectrum = blankSpectrum;
+                }
+
+                string fileName = psmsToRemove.First().FileNameWithoutExtension;
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file,
+                                       Path.Combine(@"D:\GygiTwoProteome_PXD014415\CensoredDataFiles_fragger", fileName + "-censored.mzML"),
+                                                          writeIndexed: true);
+            }
+
+            // Write out the list of censored PSMs 
+            using (var csv =
+                new CsvWriter(new StreamWriter(Path.Combine(@"D:\GygiTwoProteome_PXD014415\CensoredDataFiles_fragger", "CensoredPsms.tsv")), MsFraggerPsm.CsvConfiguration))
+            {
+                csv.WriteHeader<MsFraggerPsm>();
+                foreach (var result in censoredPsms)
+                {
+                    csv.NextRecord();
+                    csv.WriteRecord(result);
                 }
             }
 
