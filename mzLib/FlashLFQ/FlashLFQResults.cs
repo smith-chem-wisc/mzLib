@@ -58,6 +58,13 @@ namespace FlashLFQ
             }
         }
 
+        public void ReNormalizeResults(bool integrate = false, int maxThreads = 10, bool useSharedPeptides = false)
+        {
+            new IntensityNormalizationEngine(this, integrate, silent: true, maxThreads).NormalizeResults();
+            CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+            CalculateProteinResultsMedianPolish(useSharedPeptides: useSharedPeptides);
+        }
+
         public void MergeResultsWith(FlashLfqResults mergeFrom)
         {
             this.SpectraFiles.AddRange(mergeFrom.SpectraFiles);
