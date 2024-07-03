@@ -111,7 +111,7 @@ namespace Test.FileReadingTests
         public static void CensorGygiTwoProteomeData()
         {
             string peptideFilePath = @"D:\GygiTwoProteome_PXD014415\Yeast_Human_Arabad_Contam_search\AllPeptides.psmtsv";
-            List<PsmFromTsv> parsedPeptides = SpectrumMatchTsvReader.ReadPsmTsv(peptideFilePath, out var warnings).Where(psm => psm.PEP_QValue < 0.002).ToList();
+            List<PsmFromTsv> parsedPeptides = SpectrumMatchTsvReader.ReadPsmTsv(peptideFilePath, out var warnings).Where(psm => psm.PEP_QValue < 0.001).ToList();
             HashSet<string> allPeptideSeqs = parsedPeptides.Select(pep => pep.FullSequence).ToHashSet();
             Assert.That(warnings.Count, Is.EqualTo(0));
             Assert.That(parsedPeptides.Count, Is.GreaterThan(100));
@@ -184,7 +184,7 @@ namespace Test.FileReadingTests
         public static void CensorInHouseHumanTwoProteomeData()
         {
             string peptideFilePath = @"D:\Human_Ecoli_TwoProteome_60minGradient\MM105_Human_Mixed\Task1-SearchTask\AllPeptides.psmtsv";
-            List<PsmFromTsv> parsedPeptides = SpectrumMatchTsvReader.ReadPsmTsv(peptideFilePath, out var warnings).Where(psm => psm.PEP_QValue < 0.002).ToList();
+            List<PsmFromTsv> parsedPeptides = SpectrumMatchTsvReader.ReadPsmTsv(peptideFilePath, out var warnings).Where(psm => psm.PEP_QValue < 0.001).ToList();
             HashSet<string> allPeptideSeqs = parsedPeptides.Select(pep => pep.FullSequence).ToHashSet();
             Assert.That(warnings.Count, Is.EqualTo(0));
             Assert.That(parsedPeptides.Count, Is.GreaterThan(100));
@@ -211,6 +211,7 @@ namespace Test.FileReadingTests
             foreach (var kvp in psmsByFile)
             {
                 if (kvp.Key.Contains("yaeast")) continue;
+                if (kvp.Key.Contains("Human_Ecoli")) continue;
 
                 var psmsToRemove = kvp.Value
                    // If this file contains the top peptide instance, we can't remove it
@@ -219,7 +220,7 @@ namespace Test.FileReadingTests
                    .Where(group => allPeptideSeqs.Contains(group.Key) && group.Count() == 1)
                    .OrderBy(group => Guid.NewGuid()) // Order randomly, ensure different things are selected for each file
                    .SelectMany(group => group.Take(1))
-                   .Take(1000)
+                   .Take(500)
                    .ToList();
                 censoredPsms.AddRange(psmsToRemove);
 
