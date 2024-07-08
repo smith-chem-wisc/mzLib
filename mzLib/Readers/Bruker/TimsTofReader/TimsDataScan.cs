@@ -78,7 +78,8 @@ namespace MassSpectrometry
             // TODO: Probably need to add, like, checks and stuff. But oh well.
             //MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectra);
             //ComponentSpectra.Clear();
-            MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectraListNodes, ComponentSpectraTotalPeaks, filteringParams: filteringParams);
+            MassSpectrum = TofSpectraMerger.MergeMsmsSpectra(ComponentSpectraListNodes, ComponentSpectraTotalPeaks, filteringParams: filteringParams);
+            TotalIonCurrent = (double)MassSpectrum.SumOfAllY;
             ComponentSpectraListNodes.Clear();
         }
 

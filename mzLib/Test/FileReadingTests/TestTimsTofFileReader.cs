@@ -62,6 +62,84 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public static void TestOneMinuteReader()
+        {
+            Stopwatch watch = Stopwatch.StartNew();
+            var memoryBeforeReading = GC.GetTotalMemory(true) / 1000;
+
+            FilteringParams filter = new FilteringParams(
+                numberOfPeaksToKeepPerWindow: 200,
+                minimumAllowedIntensityRatioToBasePeak: 0.005,
+                windowWidthThomsons: null,
+                numberOfWindows: null,
+                normalizePeaksAcrossAllWindows: false,
+                applyTrimmingToMs1: false,
+                applyTrimmingToMsMs: true);
+
+            string filePath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d";
+            var test = new TimsTofFileReader(filePath).LoadAllStaticData(filteringParams: filter, maxThreads: 10);
+            //TimsTofFileReader testAsTimmyReader = (TimsTofFileReader)test;
+            watch.Stop();
+            var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
+
+            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min_results_10_10ppm.txt");
+            using (output)
+            {
+                output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
+                output.WriteLine(test.Scans.Length + " scans read from file.");
+                output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
+                GC.Collect();
+                output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
+            }
+
+            // This is failing during write, giving the following error:
+            // System.InvalidOperationException : Nullable object must have a value.
+            // MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, String outputFile, Boolean writeIndexed) line 496
+            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min_10_10ppmCentroid.mzML", writeIndexed: true);
+            Assert.Pass();
+
+        }
+
+        [Test]
+        public static void TestNinetyMinuteReader()
+        {
+            Stopwatch watch = Stopwatch.StartNew();
+            var memoryBeforeReading = GC.GetTotalMemory(true) / 1000;
+
+            FilteringParams filter = new FilteringParams(
+                numberOfPeaksToKeepPerWindow: 200,
+                minimumAllowedIntensityRatioToBasePeak: 0.005,
+                windowWidthThomsons: null,
+                numberOfWindows: null,
+                normalizePeaksAcrossAllWindows: false,
+                applyTrimmingToMs1: false,
+                applyTrimmingToMsMs: true);
+
+            string filePath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\20191021_K562_200ng_90min_Slot1-1_01_4786.d";
+            var test = new TimsTofFileReader(filePath).LoadAllStaticData(filteringParams: filter, maxThreads: 10);
+            //TimsTofFileReader testAsTimmyReader = (TimsTofFileReader)test;
+            watch.Stop();
+            var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
+
+            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\20191021_K562_200ng_90min_Slot1-1_01_4786_results.txt");
+            using (output)
+            {
+                output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
+                output.WriteLine(test.Scans.Length + " scans read from file.");
+                output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
+                GC.Collect();
+                output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
+            }
+
+            // This is failing during write, giving the following error:
+            // System.InvalidOperationException : Nullable object must have a value.
+            // MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, String outputFile, Boolean writeIndexed) line 496
+            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\20191021_K562_200ng_90min_Slot1-1_01_4786_mzLlib.mzML", writeIndexed: true);
+            Assert.Pass();
+
+        }
+
+        [Test]
         public static void TestReadingRealLocalDataTenThreads()
         {
             Stopwatch watch = Stopwatch.StartNew();
@@ -130,7 +208,7 @@ namespace Test.FileReadingTests
             int[] intensity1 = new int[] { 1, 3, 5, 7, 9 };
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeSpectra(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergesMs1Spectra(
                 new List<double[]> { mz1, mz2 },
                 new List<int[]> { intensity1, intensity2 });
 
@@ -147,7 +225,7 @@ namespace Test.FileReadingTests
             int[] intensity1 = new int[] { 1, 3, 5, 7, 9, 10 };
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeSpectra(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergesMs1Spectra(
                 new List<double[]> { mz1, mz2 },
                 new List<int[]> { intensity1, intensity2 });
 
@@ -167,7 +245,7 @@ namespace Test.FileReadingTests
             int[] intensity2 = new int[] { 2, 5, 8 };
             int[] intensity3 = new int[] { 3, 6, 9 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeSpectra(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergesMs1Spectra(
                 new List<double[]> { mz1, mz2, mz3 },
                 new List<int[]> { intensity1, intensity2, intensity3 });
 
@@ -187,7 +265,7 @@ namespace Test.FileReadingTests
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
             int[] intensity3 = new int[] { 10, 10, 11 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeSpectra(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergesMs1Spectra(
                 new List<double[]> { mz1, mz2, mz3 },
                 new List<int[]> { intensity1, intensity2, intensity3 });
 

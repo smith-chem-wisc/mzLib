@@ -338,11 +338,15 @@ namespace Readers.Bruker
             if(precursorIdsInFrame.Count == 0)
             {
                 var recordForNoPrecursors = new Ms1Record(-1, 0, frame.NumberOfScans - 1, (frame.NumberOfScans - 1) / 2.0);
+
                 TimsDataScan fullRangeScan = GetMs1Scan(recordForNoPrecursors, frame, scanList.Count + 1, filteringParams);
                 scanList.Add(fullRangeScan);
                 BuildPasefScanNoPrecursor(scanList, frameId, nextFrameId, filteringParams);
                 return;
             }
+
+            //UInt32 test = MsmsSpectrumWrapper.GetSpectrumTest((ulong)_fileHandle, frameId, (uint)records.First().ScanStart, (uint)records.First().ScanEnd);
+
 
             ConcurrentBag<TimsDataScan> scanBag = new();
             Parallel.ForEach(records, record =>
@@ -625,7 +629,7 @@ namespace Readers.Bruker
 
         internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
         {
-            return TofSpectraMerger.MergeSpectra(mzArrays, intensityArrays, filteringParams: filteringParams);
+            return TofSpectraMerger.MergesMs1Spectra(mzArrays, intensityArrays, filteringParams: filteringParams);
 
             //int mostIntenseScanIndex = 0;
             //int maxIntensity = 0;

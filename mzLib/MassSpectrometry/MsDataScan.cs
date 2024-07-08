@@ -90,7 +90,7 @@ namespace MassSpectrometry
         public string ScanFilter { get; }
         public string NativeId { get; private set; }
         public bool IsCentroid { get; }
-        public double TotalIonCurrent { get; }
+        public double TotalIonCurrent { get; protected set; }
         public double? InjectionTime { get; }
         public double[,] NoiseData { get; }
 

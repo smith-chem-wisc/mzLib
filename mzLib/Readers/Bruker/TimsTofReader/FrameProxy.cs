@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -58,6 +60,104 @@ namespace Readers.Bruker.TimsTofReader
             }
             return injectionTimeSum;
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct CentroidedSpectrum
+    {
+
+        internal IntPtr MzPointer { get; set; }
+        internal IntPtr AreaPointer { get; set; }
+        internal UInt32 NumPeaks { get; set; }
+
+        public CentroidedSpectrum()
+        {
+            MzPointer = IntPtr.Zero;
+            AreaPointer = IntPtr.Zero;
+            NumPeaks = 0;
+        }
+
+    }
+
+    public static unsafe class MsmsSpectrumWrapper
+    {
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void msms_spectrum_function(Int64 id, UInt32 num_peaks, in double*[] mz_values, in float*[] area_values, void* user_data);
+
+        /// <summary>
+        /// Function type that takes a centroided peak list.
+        /// </summary>
+        /// <param name="id"> the id of the precursor or frame </param>
+        /// <param name="num_peaks"> the number of peaks in the spectrum </param>
+        /// <param name="mz_values"> all peak m/z values </param>
+        /// <param name="area_values"> all peak areas </param>
+        /// <param name="user_data"> Passed to the function by "tims_read_pasef_msms_v2" function </param>
+        internal unsafe static void GetCentroidedSpectrumCallback(Int64 id, UInt32 num_peaks, in double*[] mz_values, in float*[] area_values, void* user_data)
+        {
+            //int mz_buffer_size = (int)num_peaks * Marshal.SizeOf<double>();
+            //int area_buffer_size = (int)num_peaks * Marshal.SizeOf<float>();
+            //IntPtr mz_pointer = Marshal.AllocHGlobal(mz_buffer_size);
+            //IntPtr area_pointer = Marshal.AllocHGlobal(area_buffer_size);
+
+            //var mzArray = new double[mz_buffer_size];
+            //FrameProxy.CopyToManaged(mz_pointer, mzArray, 0, mz_buffer_size);
+            //Marshal.FreeHGlobal(mz_pointer);
+
+            //var areaArray = new float[area_buffer_size];
+            //FrameProxy.CopyToManaged(area_pointer, areaArray, 0, area_buffer_size);
+            //Marshal.FreeHGlobal(area_pointer);
+
+            //CentroidedSpectrum spectrum = Marshal.PtrToStructure<CentroidedSpectrum>((IntPtr)user_data);
+            //spectrum.MzPointer = mz_pointer;
+            //spectrum.AreaPointer = area_pointer;
+            //spectrum.NumPeaks = num_peaks;
+        }
+
+        [MarshalAs(UnmanagedType.FunctionPtr)]
+        private static msms_spectrum_function? callback;
+
+        public static unsafe UInt32 GetSpectrumTest(UInt64 handle, Int64 frame_id, UInt32 scan_begin, UInt32 scan_end)
+        {
+            CentroidedSpectrum spectrum = new CentroidedSpectrum();
+            IntPtr spectrumPointer = Marshal.AllocHGlobal(Marshal.SizeOf<CentroidedSpectrum>());
+            Marshal.StructureToPtr(spectrum, spectrumPointer, false);
+
+            callback = new msms_spectrum_function(GetCentroidedSpectrumCallback);
+            //IntPtr callbackPtr = GCHandle.ToIntPtr(GCHandle.Alloc(callback));
+            var fPtr = Marshal.GetFunctionPointerForDelegate(callback);
+
+
+            UInt32 returnCode = tims_extract_centroided_spectrum_for_frame_v2(handle, frame_id, scan_begin, scan_end, fPtr, spectrumPointer);
+
+            CentroidedSpectrum testSpec = Marshal.PtrToStructure<CentroidedSpectrum>(spectrumPointer);
+
+            return returnCode;
+        }
+
+
+        public static MzSpectrum GetMzSpectrum(CentroidedSpectrum spectrum)
+        {
+            int mz_buffer_size = (int)spectrum.NumPeaks * Marshal.SizeOf<double>();
+            int area_buffer_size = (int)spectrum.NumPeaks * Marshal.SizeOf<float>();
+            IntPtr mz_pointer = Marshal.AllocHGlobal(mz_buffer_size);
+            IntPtr area_pointer = Marshal.AllocHGlobal(area_buffer_size);
+
+            var mzArray = new double[mz_buffer_size];
+            FrameProxy.CopyToManaged(mz_pointer, mzArray, 0, mz_buffer_size);
+            Marshal.FreeHGlobal(mz_pointer);
+
+            var areaArray = new float[area_buffer_size];
+            FrameProxy.CopyToManaged(area_pointer, areaArray, 0, area_buffer_size);
+            Marshal.FreeHGlobal(area_pointer);
+
+            var areaDoubleArray = Array.ConvertAll(areaArray, entry => (double)entry);
+
+            return new MzSpectrum(mzArray, areaDoubleArray, shouldCopy: false);
+        }
+
+        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        unsafe static extern UInt32 tims_extract_centroided_spectrum_for_frame_v2
+              (UInt64 handle, Int64 frame_id, UInt32 scan_begin, UInt32 scan_end, IntPtr callback, IntPtr user_data);
     }
 
     internal class FrameProxy
@@ -228,7 +328,7 @@ namespace Readers.Bruker.TimsTofReader
         /// <param name="length"></param>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        private static unsafe void CopyToManaged<T>(IntPtr source, T[] destination, int startIndex, int length)
+        internal static unsafe void CopyToManaged<T>(IntPtr source, T[] destination, int startIndex, int length)
         {
             if (source == IntPtr.Zero) throw new ArgumentNullException(nameof(source));
             if (destination is null) throw new ArgumentNullException(nameof(destination));
@@ -265,5 +365,6 @@ namespace Readers.Bruker.TimsTofReader
         [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern UInt32 tims_read_scans_v2
               (UInt64 handle, Int64 frame_id, UInt32 scan_begin, UInt32 scan_end, IntPtr buffer, UInt32 length);
+
     }
 }
