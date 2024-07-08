@@ -20,6 +20,11 @@ namespace FlashLFQ
         public double IntensityScore { get; set; }
         public double RtScore { get; set; }
         public double ScanCountScore { get; set; }
+        public double IsotopicDistributionScore { get; set; }
+        /// <summary>
+        /// Stores the pearson correlation between the apex isotopic envelope and the theoretical isotopic distribution
+        /// </summary>
+        public double IsotopicPearsonCorrelation => Apex?.PearsonCorrelation ?? -1;
         public List<int> ChargeList { get; set; }
         public string Collision { get; set; }
         internal double MbrQValue { get; set; }
@@ -88,6 +93,7 @@ namespace FlashLFQ
                 sb.Append("Intensity Score" + "\t");
                 sb.Append("Rt Score" + "\t");
                 sb.Append("Scan Count Score" + "\t");
+                sb.Append("Isotopic Distribution Score" + "\t");
                 sb.Append("PSMs Mapped" + "\t");
                 sb.Append("Base Sequences Mapped" + "\t");
                 sb.Append("Full Sequences Mapped" + "\t");
@@ -257,6 +263,7 @@ namespace FlashLFQ
             sb.Append("" + (IsMbrPeak ? IntensityScore.ToString() : "") + "\t");
             sb.Append("" + (IsMbrPeak ? RtScore.ToString() : "") + "\t");
             sb.Append("" + (IsMbrPeak ? ScanCountScore.ToString() : "") + "\t");
+            sb.Append("" + (IsMbrPeak ? IsotopicDistributionScore.ToString() : "") + "\t");
 
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");

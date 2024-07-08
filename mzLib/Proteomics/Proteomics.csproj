@@ -28,4 +28,8 @@
     <Folder Include="Fragmentation\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Plotly.NET.CSharp" Version="0.12.0" />
+  </ItemGroup>
+
 </Project>

@@ -1460,7 +1460,7 @@ namespace FlashLFQ
                 }
 
                 // Check that the experimental envelope matches the theoretical
-                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance))
+                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance, out var pearsonCorr))
                 {
                     // impute unobserved isotope peak intensities
                     // TODO: Figure out why value imputation is performed. Build a toggle?
@@ -1472,7 +1472,7 @@ namespace FlashLFQ
                         }
                     }
 
-                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum()));
+                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum(), pearsonCorr));
                 }
             }
 
@@ -1493,9 +1493,10 @@ namespace FlashLFQ
             Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>> massShiftToIsotopePeaks,
             IndexedMassSpectralPeak peak,
             int chargeState,
-            Tolerance isotopeTolerance)
+            Tolerance isotopeTolerance,
+            out double pearsonCorrelation)
         {
-            double pearsonCorrelation = Correlation.Pearson(
+            pearsonCorrelation = Correlation.Pearson(
                 massShiftToIsotopePeaks[0].Select(p => p.expIntensity),
                 massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
 

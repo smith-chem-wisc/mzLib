@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics.Distributions;
+﻿using Easy.Common.EasyComparer;
+using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
@@ -18,6 +19,7 @@ namespace FlashLFQ
         private readonly Normal _logIntensityDistribution;
         private readonly Normal _ppmDistribution;
         private readonly Normal _scanCountDistribution;
+        private readonly Gamma _isotopicCorrelationDistribution;
         // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
         private Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
         private Dictionary<SpectraFileInfo, Normal> _rtPredictionErrorDistributionDictionary;
@@ -32,22 +34,38 @@ namespace FlashLFQ
         /// </summary>
         internal MbrScorer(
             Dictionary<IndexedMassSpectralPeak, ChromatographicPeak> apexToAcceptorFilePeakDict,
-            List<ChromatographicPeak> acceptorPeaks,
+            List<ChromatographicPeak> acceptorFileMsmsPeaks,
             Normal ppmDistribution, 
             Normal logIntensityDistribution)
         {
             ApexToAcceptorFilePeakDict = apexToAcceptorFilePeakDict;
-            UnambiguousMsMsAcceptorPeaks = acceptorPeaks.Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1).ToList();
-            MaxNumberOfScansObserved = acceptorPeaks.Max(peak => peak.ScanCount);
+            UnambiguousMsMsAcceptorPeaks = acceptorFileMsmsPeaks.Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1).ToList();
+            MaxNumberOfScansObserved = acceptorFileMsmsPeaks.Max(peak => peak.ScanCount);
             _logIntensityDistribution = logIntensityDistribution;
             _ppmDistribution = ppmDistribution;
+            _isotopicCorrelationDistribution = GetIsotopicEnvelopeCorrDistribution();
             _logFcDistributionDictionary = new();
             _rtPredictionErrorDistributionDictionary = new();
 
             // This is kludgey, because scan counts are discrete
-            List<double> scanList = acceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
+            List<double> scanList = acceptorFileMsmsPeaks.Select(peak => (double)peak.ScanCount).ToList();
             // build a normal distribution for the scan list of the acceptor peaks
             _scanCountDistribution = new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
+            GetIsotopicEnvelopeCorrDistribution();
+        }
+
+        /// <summary>
+        /// This distribution represents (1 - Pearson Correlation) for isotopic envelopes of MS/MS acceptor peaks
+        /// </summary>
+        /// <returns></returns>
+        private Gamma GetIsotopicEnvelopeCorrDistribution()
+        {
+            var pearsonCorrs = UnambiguousMsMsAcceptorPeaks.Select(p => 1 - p.IsotopicPearsonCorrelation).Where(p => p > 0).ToList();
+            double mean = pearsonCorrs.Mean();
+            double variance = pearsonCorrs.Variance();
+            var alpha = Math.Pow(mean, 2) / variance;
+            var beta = mean / variance;
+            return new Gamma(alpha, beta);
         }
 
         /// <summary>
@@ -123,12 +141,14 @@ namespace FlashLFQ
                 predictedRt - acceptorPeak.ApexRetentionTime);
             acceptorPeak.PpmScore = CalculateScore(_ppmDistribution, acceptorPeak.MassError);
             acceptorPeak.ScanCountScore = CalculateScore(_scanCountDistribution, acceptorPeak.ScanCount);
-            
+            acceptorPeak.IsotopicDistributionScore = CalculateScore(_isotopicCorrelationDistribution, 1 - acceptorPeak.IsotopicPearsonCorrelation);
+
             // Returns 100 times the geometric mean of the four scores (scan count, intensity score, rt score, ppm score)
             return 100 * Math.Pow(acceptorPeak.IntensityScore 
                 * acceptorPeak.RtScore
                 * acceptorPeak.PpmScore 
-                * acceptorPeak.ScanCountScore, 0.25);
+                * acceptorPeak.ScanCountScore
+                * acceptorPeak.IsotopicDistributionScore, 0.20);
         }
 
         // Setting a minimum score prevents the MBR score from going to zero if one component of that score is 0
@@ -143,6 +163,18 @@ namespace FlashLFQ
             double score = 2 * distribution.CumulativeDistribution(distribution.Mean - absoluteDiffFromMean);
             return (double.IsNaN(score) || score == 0) ? _minScore : score;
         }
+
+        internal double CalculateScore(Gamma distribution, double value)
+        {
+            if (value < 0)
+            {
+                return _minScore;
+            }
+
+            // For the gamma distribtuion, the CDF is 0 when the pearson correlation is equal to 1 (value = 0)
+            // The CDF then rapidly rises, reaching ~1 at a value of 0.3 (corresponding to a pearson correlation of 0.7)
+            return 1 - distribution.CumulativeDistribution(value);
+        }       
 
         internal double CalculateIntensityScore(double acceptorIntensity, ChromatographicPeak donorPeak)
         {

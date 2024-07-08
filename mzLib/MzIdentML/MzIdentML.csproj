@@ -9,6 +9,10 @@
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Plotly.NET.CSharp" Version="0.12.0" />
+  </ItemGroup>
   
   <ItemGroup>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />

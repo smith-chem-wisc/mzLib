@@ -11,12 +11,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Easy.Common.Extensions;
-using Test.FileReadingTests;
-using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
-using Stopwatch = System.Diagnostics.Stopwatch;
-using Peptide = Proteomics.AminoAcidPolymer.Peptide;
-using System.Windows.Shapes;
+using Plotly.NET.CSharp;
 
 namespace Test
 {
@@ -123,6 +119,13 @@ namespace Test
                 }
             }
 
+
+            var ppmMean = mbrPeaks.Select(p => p.PpmScore).Mean();
+            var rtMean = mbrPeaks.Select(p => p.RtScore).Mean();
+            var mbrMean = mbrPeaks.Select(p => p.MbrScore).Mean();
+            var scanMean = mbrPeaks.Select(p => p.ScanCountScore).Mean();
+            var isoMean = mbrPeaks.Select(p => p.IsotopicDistributionScore).Mean();
+
             //using (StreamWriter writer = new StreamWriter(@"D:\SingleCellDataSets\Organoid\TwoFileSearch\Task1-SearchTask\RealMBR\AllDecoys_minRtDiff.tsv"))
             //{
             //    writer.WriteLine(ChromatographicPeak.TabSeparatedHeader);
@@ -138,8 +141,57 @@ namespace Test
 
             Assert.That(f1r1MbrResults.Count >= 132);
 
+            var msmsPeaks = results.Peaks[j5].Where(p => !p.IsMbrPeak & !p.DecoyPeptide).ToList();
+            msmsPeaks.AddRange(results.Peaks[j5].Where(p => !p.IsMbrPeak & !p.DecoyPeptide));
+
+            var pearsonCorrs = msmsPeaks.Select(p => p.ScanCount);
+
+            var minCorr = pearsonCorrs.Min();
+
+            pearsonCorrs = pearsonCorrs.Where(p => p > 0).ToList();
+
+            int[] corrArray = new int[60];
+            int[] freqArray = new int[60];
+            for(int i =0; i<60; i++)
+            {
+                int binStart = i;
+                freqArray[i] = pearsonCorrs.Count(p => p == binStart);
+                corrArray[i] = binStart;
+            }
+
+
+            //Chart.Bar<int, int, string>(freqArray, corrArray)
+            //    .WithTraceInfo("Scan Count Histogram")
+            //    .WithXAxisStyle<int, double, string>(Title: Plotly.NET.Title.init("Scans"))
+            //    .WithYAxisStyle<int, double, string>(Title: Plotly.NET.Title.init("Frequency"))
+            //    .WithSize(Width: 1000, Height: 500)
+            //    .Show();
+
             var j5Peaks = results.Peaks[j5].Where(p => p.IsMbrPeak & !p.DecoyPeptide & !p.RandomRt).ToList();
             var j5Decoys = results.Peaks[j5].Where(p => p.IsMbrPeak & !p.DecoyPeptide & p.RandomRt).ToList();
+
+            var mean = pearsonCorrs.Select(x => (double)x).Mean();
+            var variance = pearsonCorrs.Select(x => (double)x).Variance();
+
+
+
+            var p = 1 - (variance / mean);
+            var n = mean / p;
+            //var r = (mean * mean / variance) / (1 - (mean/variance));
+
+            
+            var pdfArray = new double[60];
+            for (int i = 0; i < 60; i++)
+            {
+                pdfArray[i] = (double)freqArray[i] / pearsonCorrs.Count();
+            }
+
+            Chart.Bar<double, int, string>(pdfArray, corrArray)
+                .WithTraceInfo("Pearson Correlation Histogram")
+                .WithXAxisStyle<double, int, string>(Title: Plotly.NET.Title.init("Correlation"))
+                .WithYAxisStyle<double, int, string>(Title: Plotly.NET.Title.init("Probability"))
+                .WithSize(Width: 1000, Height: 500)
+                .Show();
 
             results.WriteResults(peaksOutputPath: @"C:\Users\Alex\Desktop\FlashTest\AllPeaks.tsv", null, null, null, true);
 
