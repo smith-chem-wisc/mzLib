@@ -8,24 +8,13 @@ namespace Readers.Bruker.TimsTofReader
     // The implementation is based off the code found here: https://leetcode.com/problems/merge-k-sorted-lists/solutions/3286058/image-explanation-5-methods-divide-conquer-priority-queue-complete-intuition/
     public static class TofSpectraMerger
     {
-        //public static MzSpectrum MergeSpectra(List<MzSpectrum> spectra, FilteringParams filteringParams = null, Tolerance tolerance = null)
-        //{
-        //    List<double[]> mzArrays = new();
-        //    List<double[]> intensityArrays = new();
-        //    foreach (var spectrum in spectra)
-        //    {
-        //        mzArrays.Add(spectrum.XArray);
-        //        intensityArrays.Add(spectrum.YArray);
-        //    }
 
-        //    return MergeSpectra(mzArrays, intensityArrays, tolerance);
-        //}
+        public static readonly double DefaultPpmTolerance = 5;
 
-        // This isfor ms1
         public static MzSpectrum MergesMs1Spectra(List<double[]> mzArrays, List<int[]> intensityArrays,
             FilteringParams filteringParams = null, Tolerance tolerance = null) 
         {
-            tolerance ??= new PpmTolerance(10);
+            tolerance ??= new PpmTolerance(DefaultPpmTolerance);
             if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
                 return null;
 
@@ -75,7 +64,7 @@ namespace Readers.Bruker.TimsTofReader
         internal static MzSpectrum MergeMsmsSpectra(List<ListNode<TofPeak>> spectrumHeadNodes,
             int allSpectraPeakCount, FilteringParams filteringParams = null, Tolerance tolerance = null)
         {
-            tolerance ??= new PpmTolerance(10);
+            tolerance ??= new PpmTolerance(DefaultPpmTolerance);
 
             var mergedListHead = MergeSpectraHelper(spectrumHeadNodes, 0, spectrumHeadNodes.Count - 1, tolerance, out int mergedPeaksCount);
             int finalPeaksCount = allSpectraPeakCount - mergedPeaksCount;
@@ -104,7 +93,7 @@ namespace Readers.Bruker.TimsTofReader
         internal static ListNode<TofPeak> MergeSpectraToLinkedList(List<double[]> mzArrays, List<int[]> intensityArrays, out int listLength,
            Tolerance tolerance = null)
         {
-            tolerance ??= new PpmTolerance(5);
+            tolerance ??= new PpmTolerance(DefaultPpmTolerance);
             listLength = 0;
             if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
                 return null;
@@ -144,7 +133,7 @@ namespace Readers.Bruker.TimsTofReader
         public static MzSpectrum MergeSpectra(List<double[]> mzArrays, List<double[]> intensityArrays,
            Tolerance tolerance = null)
         {
-            tolerance ??= new PpmTolerance(25);
+            tolerance ??= new PpmTolerance(DefaultPpmTolerance);
             if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
                 return null;
 

@@ -43,7 +43,7 @@ namespace MassSpectrometry
             int scanNumberStart,
             int scanNumberEnd,
             double medianOneOverK0,
-            int? precursorId,
+            int? precursorId = null,
             double? selectedIonMz = null,
             int? selectedIonChargeStateGuess = null,
             double? selectedIonIntensity = null,

@@ -81,7 +81,7 @@ namespace MassSpectrometry
         /// </summary>
         public MzSpectrum MassSpectrum { get; protected set; }
 
-        public int OneBasedScanNumber { get; private set; }
+        public int OneBasedScanNumber { get; protected set; }
         public int MsnOrder { get; }
         public double RetentionTime { get; }
         public Polarity Polarity { get; }
@@ -102,7 +102,7 @@ namespace MassSpectrometry
         public double? SelectedIonMZ { get; private set; } // May be adjusted by calibration
         public DissociationType? DissociationType { get; }
         public double? IsolationWidth { get; }
-        public int? OneBasedPrecursorScanNumber { get; private set; }
+        public int? OneBasedPrecursorScanNumber { get; protected set; }
         public double? SelectedIonMonoisotopicGuessIntensity { get; private set; } // May be refined
         public double? SelectedIonMonoisotopicGuessMz { get; private set; } // May be refined
         public string HcdEnergy { get; private set; }

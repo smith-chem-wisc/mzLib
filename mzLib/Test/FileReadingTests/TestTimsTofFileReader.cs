@@ -82,7 +82,7 @@ namespace Test.FileReadingTests
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
-            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min_results_10_10ppm.txt");
+            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min_results_5_5ppm.txt");
             using (output)
             {
                 output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
@@ -92,12 +92,45 @@ namespace Test.FileReadingTests
                 output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
             }
 
-            // This is failing during write, giving the following error:
-            // System.InvalidOperationException : Nullable object must have a value.
-            // MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, String outputFile, Boolean writeIndexed) line 496
-            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min_10_10ppmCentroid.mzML", writeIndexed: true);
+            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min_5_5ppmCentroid.mzML", writeIndexed: true);
             Assert.Pass();
 
+        }
+
+
+        [Test]
+        public static void TestThreeMinuteReader()
+        {
+            Stopwatch watch = Stopwatch.StartNew();
+            var memoryBeforeReading = GC.GetTotalMemory(true) / 1000;
+
+            FilteringParams filter = new FilteringParams(
+                numberOfPeaksToKeepPerWindow: 200,
+                minimumAllowedIntensityRatioToBasePeak: 0.005,
+                windowWidthThomsons: null,
+                numberOfWindows: null,
+                normalizePeaksAcrossAllWindows: false,
+                applyTrimmingToMs1: false,
+                applyTrimmingToMsMs: true);
+
+            string filePath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d";
+            var test = new TimsTofFileReader(filePath).LoadAllStaticData(filteringParams: filter, maxThreads: 10);
+            //TimsTofFileReader testAsTimmyReader = (TimsTofFileReader)test;
+            watch.Stop();
+            var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
+
+            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min_Results_10ppm.txt");
+            using (output)
+            {
+                output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
+                output.WriteLine(test.Scans.Length + " scans read from file.");
+                output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
+                GC.Collect();
+                output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
+            }
+
+            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min_10ppm_Centroid.mzML", writeIndexed: true);
+            Assert.Pass();
         }
 
         [Test]
