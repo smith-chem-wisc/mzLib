@@ -133,6 +133,9 @@ namespace Test.FileReadingTests
             Assert.Pass();
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         [Test]
         public static void TestNinetyMinuteReader()
         {

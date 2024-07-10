@@ -60,7 +60,6 @@ namespace Readers.Bruker.TimsTofReader
             return new MzSpectrum(mzs, intensities, shouldCopy: false);
         }
 
-        // This is for msms
         internal static MzSpectrum MergeMsmsSpectra(List<ListNode<TofPeak>> spectrumHeadNodes,
             int allSpectraPeakCount, FilteringParams filteringParams = null, Tolerance tolerance = null)
         {
