@@ -92,7 +92,7 @@ namespace Test.FileReadingTests
                     if (!proteinDict.TryGetValue(proteinAccession, out proteinGroup))
                     {
                         string organism = null;
-                        switch (proteinAccession)
+                        switch (psm.Protein)
                         {
                             case string x when x.Contains("HUMAN"):
                                 organism = "Homo sapiens";
@@ -108,14 +108,26 @@ namespace Test.FileReadingTests
                         proteinGroup = new(proteinAccession, gene, organism);
                         proteinDict.Add(proteinAccession, proteinGroup);
                     }
+
                     //TODO: Check the Mapped proteins column for multiple groups!!@!!
-                    Identification id = new Identification(spectraFileInfo, psm.BaseSequence, psm.ModifiedSequence, psm.ObservedMass,
-                        psm.RetentionTime / 60.0, psm.Charge, new List<ProteinGroup> { proteinGroup });
-
-
+                    Identification id = new Identification(spectraFileInfo, psm.BaseSequence, psm.FullSequence, psm.CalculatedPeptideMass,
+                        psm.RetentionTime / 60.0, psm.Charge, new List<ProteinGroup> { proteinGroup }, psmScore: psm.PeptideProphetProbability, decoy: psm.IsDecoy);
+                    ids.Add(id);
                 }
 
             }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 12, matchBetweenRunsFdrThreshold: 0.1, donorCriterion: 'S');
+            var results = engine.Run();
+
+            string baseOutputDirectory = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\Fragger_1Percent_PeptideLv_ReportDecoys\FlashLFQ_Results_ScoreDonor";
+
+            results.WriteResults(
+                Path.Combine(baseOutputDirectory, @"QuantifiedPeaks.tsv"),
+                Path.Combine(baseOutputDirectory, @"QuantifiedPeptides.tsv"),
+                Path.Combine(baseOutputDirectory, @"QuantifiedProteins.tsv"),
+                null,
+                true);
 
         }
 

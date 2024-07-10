@@ -73,12 +73,6 @@ namespace FlashLFQ
         private Stopwatch _globalStopwatch;
         private List<Identification> _allIdentifications;
         /// <summary>
-        /// These peptides will be reported in the QuantifiedPeptides output and used for protein quant.
-        /// Other peptides may appear in the QuantifiedPeaks output, but this list is used to enable
-        /// peptide-level FDR filtering
-        /// </summary>
-        public HashSet<string> PeptidesModifiedSequencesToQuantify { get; init; }
-        /// <summary>
         /// Dictionary linking a modified sequence to a List of tuples containing
         /// the mass shifts (isotope mass - monoisotopic mass) and normalized abundances for the
         /// isotopes for a given peptide
@@ -90,7 +84,7 @@ namespace FlashLFQ
         internal PeakIndexingEngine _peakIndexingEngine;
         internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
         internal ConcurrentBag<ChromatographicPeak> DecoyPeaks { get; private set; }
-        internal List<string> PeptidesForMbr { get; init; }
+        internal HashSet<string> PeptidesForMbr { get; init; }
         
 
         /// <summary>
@@ -153,7 +147,11 @@ namespace FlashLFQ
                 DecoyPeaks = new();
                 if(peptidesForMbr != null)
                 {
-                    PeptidesForMbr = peptidesForMbr;
+                    PeptidesForMbr = new HashSet<string>(peptidesForMbr);
+                }
+                else
+                {
+                    PeptidesForMbr = allIdentifications.Select(id => id.ModifiedSequence).Distinct().ToHashSet();
                 }
             }
             MbrPpmTolerance = matchBetweenRunsPpmTolerance;
@@ -794,7 +792,7 @@ namespace FlashLFQ
             var apexToAcceptorFilePeakDict = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
             List<double> ppmErrors = new List<double>();
             foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null
-                && PeptidesModifiedSequencesToQuantify.Contains(p.Identifications.First().ModifiedSequence))) 
+                && PeptidesForMbr.Contains(p.Identifications.First().ModifiedSequence))) 
             {
                 if (!apexToAcceptorFilePeakDict.ContainsKey(peak.Apex.IndexedPeak))
                 {
@@ -1254,9 +1252,9 @@ namespace FlashLFQ
                 {
                     if (!tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
                     {
-                        if (PeptidesModifiedSequencesToQuantify.Contains(tryPeak.Identifications.First().ModifiedSequence))
+                        if (PeptidesForMbr.Contains(tryPeak.Identifications.First().ModifiedSequence))
                         {
-                            if (PeptidesModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
+                            if (PeptidesForMbr.Contains(storedPeak.Identifications.First().ModifiedSequence))
                             {
                                 storedPeak.MergeFeatureWith(tryPeak, Integrate);
                             }
