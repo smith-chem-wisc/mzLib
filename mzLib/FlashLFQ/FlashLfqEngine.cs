@@ -12,8 +12,6 @@ using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
-using System.IO;
-using Easy.Common.Extensions;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -179,8 +177,7 @@ namespace FlashLFQ
             McmcSteps = mcmcSteps;
             McmcBurninSteps = mcmcBurninSteps;
             UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
-            PeptidesModifiedSequencesToQuantify = peptideSequencesToUse.IsNotNullOrEmpty() ? new HashSet<string>(peptideSequencesToUse) 
-                : allIdentifications.Select(id => id.ModifiedSequence).ToHashSet();
+            
             RandomSeed = randomSeed;
 
             if (MaxThreads == -1 || MaxThreads >= Environment.ProcessorCount)
