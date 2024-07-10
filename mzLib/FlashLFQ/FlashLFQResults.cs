@@ -34,7 +34,9 @@ namespace FlashLFQ
                 DoubleCheckPeaks.Add(file, new List<ChromatographicPeak>());
             }
 
-            foreach (Identification id in identifications)
+
+            // Only quantify peptides within the set of valid peptide modified (full) sequences. This is done to enable pepitde-level FDR control of reported results
+            foreach (Identification id in identifications.Where(id => peptides.Contains(id.ModifiedSequence)))
             {
                 if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
                 {
@@ -136,6 +138,7 @@ namespace FlashLFQ
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
                     .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .GroupBy(p => p.Identifications.First().ModifiedSequence)
+                    .Where(group => _peptideModifiedSequencesToQuantify.Contains(group.Key))
                     .ToList();
 
                 foreach (var sequenceWithPeaks in groupedPeaks)
