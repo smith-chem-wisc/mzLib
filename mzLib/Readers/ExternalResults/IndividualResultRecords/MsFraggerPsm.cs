@@ -150,6 +150,11 @@ namespace Readers
         [Ignore] public string FileNameWithoutExtension =>
             _fileNameWithoutExtension ??= Spectrum.Split('.')[0];
 
+        [Ignore] public bool IsDecoy =>
+            _isDecoy ??= ProteinAccession.Contains("rev_");
+
+        [Ignore] private bool? _isDecoy;
+
         [Ignore] private int? _oneBasedScanNumber;
 
         [Ignore]
