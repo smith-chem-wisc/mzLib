@@ -108,7 +108,7 @@ namespace FlashLFQ
 
             // MBR settings
             bool matchBetweenRuns = false,
-            double matchBetweenRunsPpmTolerance = 5.0,
+            double matchBetweenRunsPpmTolerance = 10.0,
             double maxMbrWindow = 1.0,
             bool requireMsmsIdInCondition = false,
             double matchBetweenRunsFdrThreshold = 0.05,
@@ -122,7 +122,7 @@ namespace FlashLFQ
             bool useSharedPeptidesForProteinQuant = false,
             bool pairedSamples = false,
             int? randomSeed = null,
-            char donorCriterion = 'I',
+            char donorCriterion = 'S',
             double donorQValueThreshold = 0.01,
             List<string> peptidesForMbr = null)
         {
