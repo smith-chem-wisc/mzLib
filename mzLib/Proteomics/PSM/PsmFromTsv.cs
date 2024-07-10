@@ -259,6 +259,5 @@ namespace Proteomics.PSM
             LocalizedGlycan = psm.LocalizedGlycan;
         }
 
-        
     }
 }
