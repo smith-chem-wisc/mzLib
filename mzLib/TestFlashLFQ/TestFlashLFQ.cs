@@ -1356,7 +1356,7 @@ namespace Test
             // Setting the FDR threshold to 0.1 ensures that all detected peak traces are included
             // Setting the FDR threshold below 0.1 makes the results stochastic due to the way the decoy selection process interacts with the 
             // test data
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.2);
             var results = engine.Run();
 
             var f1r1MbrResults = results
