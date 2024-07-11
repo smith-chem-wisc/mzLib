@@ -1,5 +1,6 @@
 ﻿using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MassSpectrometry;
 using System.Diagnostics.CodeAnalysis;
 using Readers;

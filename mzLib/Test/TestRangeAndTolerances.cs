@@ -18,6 +18,7 @@
 
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
