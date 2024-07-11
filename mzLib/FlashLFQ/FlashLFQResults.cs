@@ -15,6 +15,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DoubleCheckPeaks;
+        public string PepResultString { get; set; }
         public  IEnumerable<ChromatographicPeak> DecoyPeaks { get; set; }
 
         public double MbrQValueThreshold { get; set; }

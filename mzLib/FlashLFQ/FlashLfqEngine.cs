@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
+using FlashLFQ.PEP;
+using System.IO;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -44,6 +46,7 @@ namespace FlashLFQ
         // New MBR Settings
         public readonly double RtWindowIncrease = 0;
         public readonly double MbrAlignmentWindow = 2.5;
+        public readonly double PepTrainingFraction = 0.25;
         //public readonly double? MbrPpmTolerance;
         /// <summary>
         /// Specifies how the donor peak for MBR is selected. 
@@ -247,15 +250,20 @@ namespace FlashLFQ
                     }
 
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
-
-                    
-
                     _peakIndexingEngine.ClearIndex();
 
                     if (!Silent)
                     {
                         Console.WriteLine("Finished MBR for " + spectraFile.FilenameWithoutExtension);
                     }
+                }
+
+                Console.WriteLine("Computing PEP for PIP Transfers");
+                bool pepSuccesful = RunPEPAnalysis();
+                
+                foreach (var spectraFile in _spectraFileInfo)
+                {
+                    CalculateFdrForMbrPeaks(spectraFile, pepSuccesful);
                 }
 
                 _results.DecoyPeaks = DecoyPeaks;
@@ -526,6 +534,7 @@ namespace FlashLFQ
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
         }
 
+        #region PeptideIdentityPropagation
         internal ChromatographicPeak ChooseBestPeak(List<ChromatographicPeak> peaks)
         {
             ChromatographicPeak bestPeak = null;
@@ -993,7 +1002,7 @@ namespace FlashLFQ
                             AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestAcceptor, donorPeak.Identifications.First());
 
                             //Draw a random donor that has an rt sufficiently far enough away
-                            double minimumRtDifference = Math.Max(rtInfo.Width * 2, medianPeakWidth);
+                            double minimumRtDifference = 2.0 * Math.Max(rtInfo.Width, medianPeakWidth);
                             ChromatographicPeak randomDonor = GetRandomPeak(donorPeaksMassOrdered, 
                                 donorPeak.Identifications.First().PeakfindingMass, 
                                 donorPeak.ApexRetentionTime,
@@ -1101,7 +1110,6 @@ namespace FlashLFQ
             }
 
             RunErrorChecking(idAcceptorFile);
-            CalculateFdrForMbrPeaks(idAcceptorFile);
         }
 
         private void AddPeakToConcurrentDict(ConcurrentDictionary<string, ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaks,
@@ -1366,55 +1374,89 @@ namespace FlashLFQ
             _results.Peaks[spectraFile] = errorCheckedPeaks;
         }
 
+        private bool RunPEPAnalysis()
+        {
+            List<ChromatographicPeak> mbrPeaks = _results.Peaks.SelectMany(kvp => kvp.Value)
+                .Where(peak => peak.IsMbrPeak)
+                .ToList();
+
+            if (!mbrPeaks.IsNotNullOrEmpty()) return false;
+            int decoyPeakTotal = mbrPeaks.Count(peak => peak.RandomRt);
+
+            List<double> tempPepQs = new();
+            List<double> tempQs = new();
+            if (mbrPeaks.Count > 100 && decoyPeakTotal > 20)
+            {
+                var pepOutput = PEP_Analysis_Cross_Validation.ComputePEPValuesForAllPeaks(ref mbrPeaks,
+                    outputFolder: Path.GetDirectoryName(_spectraFileInfo.First().FullFilePathWithExtension),
+                    maxThreads: MaxThreads,
+                    pepTrainingFraction: PepTrainingFraction);
+                _results.PepResultString = pepOutput;
+
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Calculates the FDR for each MBR-detected peak using decoy peaks and decoy peptides,
         /// Then filters out all peaks below a given FDR threshold
         /// </summary>
-        private void CalculateFdrForMbrPeaks(SpectraFileInfo acceptorFile)
+        private void CalculateFdrForMbrPeaks(SpectraFileInfo acceptorFile, bool usePep)
         {
-            List<ChromatographicPeak> mbrPeaks = _results.Peaks[acceptorFile]
-                .Where(peak => peak.IsMbrPeak)
-                .OrderByDescending(peak => peak.MbrScore)
-                .ToList();
+            List<ChromatographicPeak> mbrPeaks;
+            if (usePep)
+            {
+                mbrPeaks = _results.Peaks[acceptorFile]
+                    .Where(peak => peak.IsMbrPeak)
+                    .OrderBy(peak => peak.PipPep)
+                    .ThenByDescending(peak => peak.MbrScore)
+                    .ToList();
+            }
+            else
+            {
+                mbrPeaks = _results.Peaks[acceptorFile]
+                    .Where(peak => peak.IsMbrPeak)
+                    .OrderByDescending(peak => peak.MbrScore)
+                    .ToList();
+            }
 
             if (!mbrPeaks.IsNotNullOrEmpty()) return;
 
-            int allPeakCount = 0;
-            int decoyPeaks = 0;
-            int decoyPeptides = 0;
-            int doubleDecoys = 0;
             List<double> tempQs = new();
-
-            // Calculate tempory q-values for each peak by counting each type of decoy
-            foreach (var peak in mbrPeaks)
+            int totalPeaks = 0;
+            int decoyPeptides = 0;
+            int decoyPeaks = 0;
+            int doubleDecoys = 0;
+            for (int i = 0; i < mbrPeaks.Count; i++)
             {
-                allPeakCount++;
-                if(peak.DecoyPeptide)
+                totalPeaks++;
+                switch (mbrPeaks[i])
                 {
-                    if (peak.RandomRt)
-                    {
-                        doubleDecoys++;
-                    }
-                    else
-                    {
+                    case ChromatographicPeak p when (!p.DecoyPeptide && !p.RandomRt):
+                        break;
+                    case ChromatographicPeak p when (p.DecoyPeptide && !p.RandomRt):
                         decoyPeptides++;
-                    }
-                }
-                else if (peak.RandomRt)
-                {
-                    decoyPeaks++;
+                        break;
+                    case ChromatographicPeak p when (!p.DecoyPeptide && p.RandomRt):
+                        decoyPeaks++;
+                        break;
+                    case ChromatographicPeak p when (p.DecoyPeptide && p.RandomRt):
+                        doubleDecoys++;
+                        break;
                 }
 
-                tempQs.Add(EstimateFdr(doubleDecoys, decoyPeptides, decoyPeaks, allPeakCount)); 
+                // There are two parts to this score. We're summing the PEPs of peaks derived from target peptides. For peaks derived from decoy peptides,
+                // We do the double decoy things where we count decoyPeptidePeaks - doubleDecoypeaks
+                tempQs.Add(Math.Round(EstimateFdr(doubleDecoys, decoyPeptides, decoyPeaks, totalPeaks), 6));
             }
 
             // Set the q-value for each peak
             double[] correctedQs = CorrectQValues(tempQs);
-            for(int i = 0; i < correctedQs.Length; i++)
+            for (int i = 0; i < correctedQs.Length; i++)
             {
                 mbrPeaks[i].MbrQValue = correctedQs[i];
             }
-
         }
 
         private int EstimateDecoyPeptideErrors(int decoyPeptideCount, int doubleDecoyCount)
@@ -1452,6 +1494,8 @@ namespace FlashLFQ
 
             return correctedQValues;
         }
+
+        #endregion
 
         /// <summary>
         /// Takes in a list of imsPeaks and finds all the isotopic peaks in each scan. If the experimental isotopic distribution

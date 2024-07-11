@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using FlashLFQ.PEP;
 using MathNet.Numerics;
 using System;
 using System.Collections.Generic;
@@ -46,9 +47,13 @@ namespace FlashLFQ
         /// Stores the pearson correlation between the apex isotopic envelope and the theoretical isotopic distribution
         /// </summary>
         public double IsotopicPearsonCorrelation => Apex?.PearsonCorrelation ?? -1;
+        public double RtPredictionError { get; set; }
         public List<int> ChargeList { get; set; }
         public string Collision { get; set; }
         internal double MbrQValue { get; set; }
+        public ChromatographicPeakData PepPeakData { get; set; }
+        public double? PipPep { get; set; }
+        public double? PipPepQ { get; set; }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -62,7 +67,13 @@ namespace FlashLFQ
             IsMbrPeak = isMbrPeak;
             SpectraFileInfo = fileInfo;
             RandomRt = randomRt;
-            
+        }
+
+        public bool Equals(ChromatographicPeak peak)
+        {
+            return SpectraFileInfo.Equals(peak.SpectraFileInfo) 
+                && Identifications.First().ModifiedSequence.Equals(peak.Identifications.First().ModifiedSequence)
+                && ApexRetentionTime == peak.ApexRetentionTime;
         }
 
         public IsotopicEnvelope Apex { get; private set; }
