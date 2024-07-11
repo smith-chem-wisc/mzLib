@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>mzLib</id>
-    <version>5.305.0</version>
+    <version>5.306.0</version>
     <title>mzLib</title>
     <authors>Stef S.</authors>
     <owners>Stef S.</owners>
@@ -16,6 +16,8 @@
         <!--net6.0 target-->
         <dependency id="Easy.Common" version="4.3.0" />
         <dependency id="MathNet.Numerics" version="5.0.0" />
+		<dependency id="Microsoft.ML" version="2.0.0" />
+		<dependency id="Microsoft.ML.FastTree" version="2.0.0" />
         <dependency id="Microsoft.Win32.Registry" version="5.0.0" />
         <dependency id="NetSerializer" version="4.1.1" />
         <dependency id="OpenMcdf" version="2.2.1.3" />
@@ -26,6 +28,8 @@
         <!--net6.0-windows7.0 target with OxyPlot-->
         <dependency id="Easy.Common" version="4.3.0" />
         <dependency id="MathNet.Numerics" version="5.0.0" />
+		<dependency id="Microsoft.ML" version="2.0.0" />
+		<dependency id="Microsoft.ML.FastTree" version="2.0.0" />
         <dependency id="Microsoft.Win32.Registry" version="5.0.0" />
         <dependency id="NetSerializer" version="4.1.1" />
         <dependency id="OpenMcdf" version="2.2.1.3" />
