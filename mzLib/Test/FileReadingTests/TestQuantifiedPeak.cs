@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,6 +11,7 @@ using Readers.QuantificationResults;
 
 namespace Test.FileReadingTests
 {
+    [ExcludeFromCodeCoverage]
     internal class TestQuantifiedPeak
     {
         internal static string TestDirectory;
@@ -95,6 +97,89 @@ namespace Test.FileReadingTests
             Assert.That(last.FullSequencesMapped, Is.EqualTo(1));
             Assert.That(last.PeakSplitValleyRT, Is.EqualTo(0));
             Assert.That(last.PeakApexMassError, Is.EqualTo(double.NaN));
+        }
+
+        [Test]
+        public static void TestFileReadWrite_WithoutExtensionInPath()
+        {
+            var file = FileReader.ReadFile<QuantifiedPeakFile>(TestFilePath);
+            var testOutputPath = Path.Combine(TestDirectory, "TestOutput");
+
+            file.WriteResults(testOutputPath);
+            var newPath = testOutputPath + file.FileType.GetFileExtension();
+            Assert.That(File.Exists(newPath));
+
+            var writtenFile = new QuantifiedPeakFile(newPath);
+            Assert.That(file.Count(), Is.EqualTo(writtenFile.Count()));
+
+            for (int i = 0; i < file.Count(); i++)
+            {
+                var originalPeak = file.Results[i];
+                var writtenPeak = writtenFile.Results[i];
+                Assert.That(originalPeak.FileName, Is.EqualTo(writtenPeak.FileName));
+                Assert.That(originalPeak.BaseSequence, Is.EqualTo(writtenPeak.BaseSequence));
+                Assert.That(originalPeak.FullSequence, Is.EqualTo(writtenPeak.FullSequence));
+                Assert.That(originalPeak.ProteinGroup, Is.EqualTo(writtenPeak.ProteinGroup));
+                Assert.That(originalPeak.PeptideMonoisotopicMass, Is.EqualTo(writtenPeak.PeptideMonoisotopicMass).Within(0.0000001));
+                Assert.That(originalPeak.MS2RetentionTime, Is.EqualTo(writtenPeak.MS2RetentionTime).Within(0.0000001));
+                Assert.That(originalPeak.PrecursorCharge, Is.EqualTo(writtenPeak.PrecursorCharge));
+                Assert.That(originalPeak.TheoreticalMZ, Is.EqualTo(writtenPeak.TheoreticalMZ).Within(0.0000001));
+                Assert.That(originalPeak.PeakIntensity, Is.EqualTo(writtenPeak.PeakIntensity).Within(0.0000001));
+                Assert.That(originalPeak.PeakRTStart, Is.EqualTo(writtenPeak.PeakRTStart).Within(0.0000001));
+                Assert.That(originalPeak.PeakRTApex, Is.EqualTo(writtenPeak.PeakRTApex).Within(0.0000001));
+                Assert.That(originalPeak.PeakRTEnd, Is.EqualTo(writtenPeak.PeakRTEnd).Within(0.0000001));
+                Assert.That(originalPeak.PeakMz, Is.EqualTo(writtenPeak.PeakMz).Within(0.0000001));
+                Assert.That(originalPeak.PeakCharge, Is.EqualTo(writtenPeak.PeakCharge));
+                Assert.That(originalPeak.NumChargeStatesObserved, Is.EqualTo(writtenPeak.NumChargeStatesObserved));
+                Assert.That(originalPeak.PeakDetectionType, Is.EqualTo(writtenPeak.PeakDetectionType));
+                Assert.That(originalPeak.MBRScore, Is.EqualTo(writtenPeak.MBRScore).Within(0.0000001));
+                Assert.That(originalPeak.PSMsMapped, Is.EqualTo(writtenPeak.PSMsMapped));
+                Assert.That(originalPeak.BaseSequencesMapped, Is.EqualTo(writtenPeak.BaseSequencesMapped));
+                Assert.That(originalPeak.FullSequencesMapped, Is.EqualTo(writtenPeak.FullSequencesMapped));
+                Assert.That(originalPeak.PeakSplitValleyRT, Is.EqualTo(writtenPeak.PeakSplitValleyRT));
+                Assert.That(originalPeak.PeakApexMassError, Is.EqualTo(writtenPeak.PeakApexMassError).Within(0.0000001));
+            }
+        }
+
+        [Test]
+        public static void TestFileReadWrite_WithExtensionInPath()
+        {
+            var file = FileReader.ReadFile<QuantifiedPeakFile>(TestFilePath);
+            var testOutputPath = Path.Combine(TestDirectory, "TestOutput_QuantifiedPeaks.tsv");
+
+            file.WriteResults(testOutputPath);
+            Assert.That(File.Exists(testOutputPath));
+
+            var writtenFile = new QuantifiedPeakFile(testOutputPath);
+            Assert.That(file.Count(), Is.EqualTo(writtenFile.Count()));
+
+            for (int i = 0; i < file.Count(); i++)
+            {
+                var originalPeak = file.Results[i];
+                var writtenPeak = writtenFile.Results[i];
+                Assert.That(originalPeak.FileName, Is.EqualTo(writtenPeak.FileName));
+                Assert.That(originalPeak.BaseSequence, Is.EqualTo(writtenPeak.BaseSequence));
+                Assert.That(originalPeak.FullSequence, Is.EqualTo(writtenPeak.FullSequence));
+                Assert.That(originalPeak.ProteinGroup, Is.EqualTo(writtenPeak.ProteinGroup));
+                Assert.That(originalPeak.PeptideMonoisotopicMass, Is.EqualTo(writtenPeak.PeptideMonoisotopicMass).Within(0.0000001));
+                Assert.That(originalPeak.MS2RetentionTime, Is.EqualTo(writtenPeak.MS2RetentionTime).Within(0.0000001));
+                Assert.That(originalPeak.PrecursorCharge, Is.EqualTo(writtenPeak.PrecursorCharge));
+                Assert.That(originalPeak.TheoreticalMZ, Is.EqualTo(writtenPeak.TheoreticalMZ).Within(0.0000001));
+                Assert.That(originalPeak.PeakIntensity, Is.EqualTo(writtenPeak.PeakIntensity).Within(0.0000001));
+                Assert.That(originalPeak.PeakRTStart, Is.EqualTo(writtenPeak.PeakRTStart).Within(0.0000001));
+                Assert.That(originalPeak.PeakRTApex, Is.EqualTo(writtenPeak.PeakRTApex).Within(0.0000001));
+                Assert.That(originalPeak.PeakRTEnd, Is.EqualTo(writtenPeak.PeakRTEnd).Within(0.0000001));
+                Assert.That(originalPeak.PeakMz, Is.EqualTo(writtenPeak.PeakMz).Within(0.0000001));
+                Assert.That(originalPeak.PeakCharge, Is.EqualTo(writtenPeak.PeakCharge));
+                Assert.That(originalPeak.NumChargeStatesObserved, Is.EqualTo(writtenPeak.NumChargeStatesObserved));
+                Assert.That(originalPeak.PeakDetectionType, Is.EqualTo(writtenPeak.PeakDetectionType));
+                Assert.That(originalPeak.MBRScore, Is.EqualTo(writtenPeak.MBRScore).Within(0.0000001));
+                Assert.That(originalPeak.PSMsMapped, Is.EqualTo(writtenPeak.PSMsMapped));
+                Assert.That(originalPeak.BaseSequencesMapped, Is.EqualTo(writtenPeak.BaseSequencesMapped));
+                Assert.That(originalPeak.FullSequencesMapped, Is.EqualTo(writtenPeak.FullSequencesMapped));
+                Assert.That(originalPeak.PeakSplitValleyRT, Is.EqualTo(writtenPeak.PeakSplitValleyRT));
+                Assert.That(originalPeak.PeakApexMassError, Is.EqualTo(writtenPeak.PeakApexMassError).Within(0.0000001));
+            }
         }
     }
 }
