@@ -25,6 +25,7 @@ namespace Readers
         MsPathFinderTTargets,
         MsPathFinderTDecoys,
         MsPathFinderTAllResults,
+        CruxResult
     }
 
     public static class SupportedFileTypeExtensions
@@ -60,6 +61,7 @@ namespace Readers
                 SupportedFileType.MsPathFinderTTargets => "_IcTarget.tsv",
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
+                SupportedFileType.CruxResult => ".txt",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -121,6 +123,11 @@ namespace Readers
                         return SupportedFileType.Tsv_FlashDeconv;
                     throw new MzLibException("Tsv file type not supported");
                 }
+
+                case ".txt":
+                    if (filePath.EndsWith(SupportedFileType.CruxResult.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.CruxResult;
+                    throw new MzLibException("Txt file type not supported");
 
                 default:
                     throw new MzLibException("File type not supported");
