@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System;
 using TorchSharp;
 
 namespace Proteomics.RetentionTimePrediction.Chronologer
@@ -84,8 +83,6 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                     //if mod, enter
                     if (mod)
                     {
-                        var key = (modID, subString[0].ToString());
-
                         mod = false; //next iteration is not a mod
                         continue;
                     }
@@ -96,7 +93,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                         for (int i = 0; i < subString.Length; i++)
                         {
                             tensor[0][tensorCounter] = ChronologerDictionary[(subString[i], "")];
-                            tensorCounter = tensorCounter + 1;
+                            tensorCounter++;
                         }
 
                         //save target aa for next loop
@@ -115,8 +112,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
 
         }
 
-        private static readonly Dictionary<(char, string), int> ChronologerDictionary =
-            new Dictionary<(char, string), int>()
+        private static readonly Dictionary<(char, string), int> ChronologerDictionary = new()
             {
                 { ('A', ""), 1 }, //'Alanine
                 { ('C', ""), 2 }, //'Cysteine
