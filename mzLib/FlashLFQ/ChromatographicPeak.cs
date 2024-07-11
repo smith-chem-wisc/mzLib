@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using MathNet.Numerics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +9,26 @@ namespace FlashLFQ
 {
     public class ChromatographicPeak
     {
+
+        public double? GetWidth()
+        {
+            if(IsotopicEnvelopes.Count == 0)
+            {
+                return null;
+            }
+            double minRT = IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime);
+            double maxRt = IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime);
+            double diff = maxRt - minRT;
+            if(diff > 0)
+            {
+                return diff;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         public double Intensity;
         public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
         public readonly SpectraFileInfo SpectraFileInfo;

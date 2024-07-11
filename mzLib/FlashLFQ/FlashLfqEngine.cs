@@ -248,7 +248,7 @@ namespace FlashLFQ
 
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
 
-                    CalculateFdrForMbrPeaks();
+                    
 
                     _peakIndexingEngine.ClearIndex();
 
@@ -257,6 +257,7 @@ namespace FlashLFQ
                         Console.WriteLine("Finished MBR for " + spectraFile.FilenameWithoutExtension);
                     }
                 }
+
                 _results.DecoyPeaks = DecoyPeaks;
             }
 
@@ -636,7 +637,7 @@ namespace FlashLFQ
                 switch (DonorCriterion)
                 {
                     case 'S': // Select best peak by the PSM score
-                        bestPeak = peaksForPeptide.MaxBy(peak => peak.Identifications.First().PsmScore);
+                        bestPeak = peaksForPeptide.MaxBy(peak => peak.Identifications.Max(id => id.PsmScore));
                         if (bestPeak.Identifications.First().PsmScore > 0)
                             break;
                         else // if every ID has a score of zero, let it fall through to the default case
@@ -845,6 +846,19 @@ namespace FlashLFQ
                 .Where(peak => peak.IsotopicEnvelopes.Any() && peak.Identifications.Min(id => id.QValue) < 0.01)
                 .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence)));
 
+            double medianPeakWidth = acceptorFileIdentifiedPeaks
+                .Select(peak => peak.GetWidth())
+                .Where(x => x != null)
+                .Median();
+
+            medianPeakWidth = Math.Max(medianPeakWidth, 0.5);
+
+            double medianRt = acceptorFileIdentifiedPeaks
+                .Select(peak => peak.ApexRetentionTime)
+                .Where(x => x > 0)
+                .Median();
+
+
             MbrScorer scorer = BuildMbrScorer(acceptorFileIdentifiedPeaks, out var mbrTol);
             if (scorer == null)
                 return;
@@ -869,7 +883,7 @@ namespace FlashLFQ
 
             // this stores the results of MBR
             ConcurrentDictionary<string, ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaks = new();
-            Random randomGenerator = new Random();
+            Random randomGenerator = new Random(Seed: 42);
 
             // This stores the results of a check where we examine whether MBR can return the same peak as the MSMS peak
             ConcurrentDictionary<string, ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>> doubleCheckPeaks = new();
@@ -927,33 +941,43 @@ namespace FlashLFQ
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaks, out var bestAcceptor);
 
                             // Draw a random donor that has an rt sufficiently far enough away
-                            ChromatographicPeak randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
-                            int randomPeaksSampled = 1;
-                            // multiply for safety, in case the relative rt shifts after alignment
-                            double minimumRtDifference = Math.Max(rtInfo.Width * 1.5, 0.5);
-                            double massDiff = Math.Abs(randomDonor.Identifications.First().PeakfindingMass - donorPeak.Identifications.First().PeakfindingMass);
+                            //ChromatographicPeak randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
+                            //int randomPeaksSampled = 1;
+                            //// multiply for safety, in case the relative rt shifts after alignment
+                            //double minimumRtDifference = Math.Max(rtInfo.Width * 1.5, medianPeakWidth);
+                            //double massDiff = Math.Abs(randomDonor.Identifications.First().PeakfindingMass - donorPeak.Identifications.First().PeakfindingMass);
 
-                            while (randomDonor == null
-                                || massDiff < 0.1 
-                                || massDiff > 50 // Need the random one to be relatively close in mass (but not too close!)
-                                || randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
-                                || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumRtDifference)
-                            {
-                                randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
-                                massDiff = Math.Abs(randomDonor.Identifications.First().PeakfindingMass - donorPeak.Identifications.First().PeakfindingMass);
-                                if (randomPeaksSampled++ > (rtCalibrationCurve.Length - 1))
-                                {
-                                    randomDonor = null;
-                                    break; // Prevent infinite loops
-                                }
-                            }
-                            if (randomDonor == null) continue;
+                            //Tolerance tol = new PpmTolerance(MbrPpmTolerance);
+                            //var x = tol.GetRange(randomDonor.Identifications.First().PeakfindingMass);
+                            
 
-                            // Map the random rt onto the new file
-                            RtInfo decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
-                            if (decoyRtInfo == null) continue;
+                            //while (randomDonor == null
+                            //    || massDiff < x.Width
+                            //    //|| massDiff > 50 // Need the random one to be relatively close in mass (but not too close!)
+                            //    || randomDonor.Identifications.First().ModifiedSequence == donorPeak.Identifications.First().ModifiedSequence
+                            //    || Math.Abs(randomDonor.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < minimumRtDifference)
+                            //{
+                            //    randomDonor = rtCalibrationCurve[randomGenerator.Next(rtCalibrationCurve.Length)].DonorFilePeak;
+                            //    massDiff = Math.Abs(randomDonor.Identifications.First().PeakfindingMass - donorPeak.Identifications.First().PeakfindingMass);
+                            //    if (randomPeaksSampled++ > (rtCalibrationCurve.Length - 1))
+                            //    {
+                            //        randomDonor = null;
+                            //        break; // Prevent infinite loops
+                            //    }
+                            //}
+                            //if (randomDonor == null) continue;
+
+                            //// Map the random rt onto the new file
+                            //RtInfo decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
+                            //if (decoyRtInfo == null) continue;
                             // Find a decoy peak using the randomly drawn retention time
-                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaks, out var bestDecoy, randomRt:decoyRtInfo.PredictedRt);
+
+                            double shiftedRt = donorPeak.Apex.IndexedPeak.RetentionTime > medianRt ? 
+                            donorPeak.Apex.IndexedPeak.RetentionTime - 3 * medianPeakWidth : 
+                            donorPeak.Apex.IndexedPeak.RetentionTime + 3 * medianPeakWidth;
+
+                            FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, matchBetweenRunsIdentifiedPeaks, out var bestDecoy, 
+                                randomRt: shiftedRt);
                             if(bestDecoy != null)
                             {
                                 DecoyPeaks.Add(bestDecoy);
@@ -1052,6 +1076,8 @@ namespace FlashLFQ
             }
 
             RunErrorChecking(idAcceptorFile);
+            CalculateFdrForMbrPeaks(idAcceptorFile);
+
         }
 
         /// <summary>
@@ -1313,9 +1339,9 @@ namespace FlashLFQ
         /// Calculates the FDR for each MBR-detected peak using decoy peaks and decoy peptides,
         /// Then filters out all peaks below a given FDR threshold
         /// </summary>
-        private void CalculateFdrForMbrPeaks()
+        private void CalculateFdrForMbrPeaks(SpectraFileInfo acceptorFile)
         {
-            List<ChromatographicPeak> mbrPeaks = _results.Peaks.SelectMany(kvp => kvp.Value)
+            List<ChromatographicPeak> mbrPeaks = _results.Peaks[acceptorFile]
                 .Where(peak => peak.IsMbrPeak)
                 .OrderByDescending(peak => peak.MbrScore)
                 .ToList();
@@ -1334,8 +1360,14 @@ namespace FlashLFQ
                 allPeakCount++;
                 if(peak.DecoyPeptide)
                 {
-                    if (peak.RandomRt) doubleDecoys++;
-                    else decoyPeptides++;
+                    if (peak.RandomRt)
+                    {
+                        doubleDecoys++;
+                    }
+                    else
+                    {
+                        decoyPeptides++;
+                    }
                 }
                 else if (peak.RandomRt)
                 {

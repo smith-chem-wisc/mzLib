@@ -120,7 +120,9 @@ namespace Test.FileReadingTests
             var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 12, matchBetweenRunsFdrThreshold: 0.1, donorCriterion: 'S');
             var results = engine.Run();
 
-            string baseOutputDirectory = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\Fragger_1Percent_PeptideLv_ReportDecoys\FlashLFQ_Results_ScoreDonor";
+
+            string baseOutputDirectory = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\Fragger_1Percent_PeptideLv_ReportDecoys\Flash_Individual_SetShift_Max";
+            Directory.CreateDirectory(baseOutputDirectory);
 
             results.WriteResults(
                 Path.Combine(baseOutputDirectory, @"QuantifiedPeaks.tsv"),
@@ -128,7 +130,6 @@ namespace Test.FileReadingTests
                 Path.Combine(baseOutputDirectory, @"QuantifiedProteins.tsv"),
                 null,
                 true);
-
         }
 
         [Test]
