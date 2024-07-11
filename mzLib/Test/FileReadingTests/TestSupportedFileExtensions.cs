@@ -32,6 +32,7 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv", SupportedFileType.MsFraggerProtein)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv", SupportedFileType.MsFraggerPeptide)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1combined_protein.tsv", SupportedFileType.MsFraggerProtein)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv", SupportedFileType.FlashLFQQuantifiedPeak)]
         
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
@@ -88,7 +89,5 @@ namespace Test.FileReadingTests
             Assert.That(e?.Message,
                 Is.EqualTo($"File type not supported"));
         }
-        
-
     }
 }

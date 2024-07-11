@@ -22,6 +22,7 @@ namespace Readers
         MsFraggerPsm,
         MsFraggerPeptide,
         MsFraggerProtein,
+        FlashLFQQuantifiedPeak,
     }
 
     public static class SupportedFileTypeExtensions
@@ -54,6 +55,7 @@ namespace Readers
                 SupportedFileType.MsFraggerPsm => "psm.tsv",
                 SupportedFileType.MsFraggerPeptide => "peptide.tsv",
                 SupportedFileType.MsFraggerProtein => "protein.tsv",
+                SupportedFileType.FlashLFQQuantifiedPeak => "Peaks.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -99,6 +101,8 @@ namespace Readers
                         return SupportedFileType.MsFraggerPeptide;
                     if (filePath.EndsWith(SupportedFileType.MsFraggerProtein.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsFraggerProtein;
+                    if (filePath.EndsWith(SupportedFileType.FlashLFQQuantifiedPeak.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.FlashLFQQuantifiedPeak;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm

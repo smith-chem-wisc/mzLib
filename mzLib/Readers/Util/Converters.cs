@@ -28,12 +28,29 @@ namespace Readers
     {
         public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
         {
-            return text == "-" ? null : double.Parse(text);
+            if (text == "-")
+                return null;
+            return double.TryParse(text, out var result) ? result : 0.0;
         }
 
         public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
         {
             return value as double? == null ? "-" : value.ToString();
+        }
+    }
+
+    public class DashToNullOrIntegerConverter : DefaultTypeConverter
+    {
+        public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
+        {
+            if (text == "-")
+                return null;
+            return int.TryParse(text, out var result) ? result : 0;
+        }
+
+        public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
+        {
+            return value as int? == null ? "-" : value.ToString();
         }
     }
 
