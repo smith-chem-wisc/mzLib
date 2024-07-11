@@ -11,5 +11,6 @@ namespace Readers
         MaxQuant,
         Toppic,
         MsFragger, // files tested were from fragpipe v21.1
+        Crux
     }
 }

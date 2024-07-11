@@ -32,7 +32,7 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv", SupportedFileType.MsFraggerProtein)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv", SupportedFileType.MsFraggerPeptide)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1combined_protein.tsv", SupportedFileType.MsFraggerProtein)]
-        
+        [TestCase(@"FileReadingTests\ExternalFileTypes\crux.txt", SupportedFileType.CruxResult)]
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();
