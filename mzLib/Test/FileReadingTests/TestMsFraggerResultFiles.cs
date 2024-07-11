@@ -62,7 +62,7 @@ namespace Test.FileReadingTests
         [Test]
         public static void TestMsFraggerMasterFile()
         {
-            string directoryPath = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\Fragger_1Percent_PeptideLv_ReportDecoys";
+            string directoryPath = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\IonQuant_1Percent_NoProtein";
             MsFraggerMasterFile file = MsFraggerMasterFile.Load(directoryPath);
 
             Dictionary<string, SpectraFileInfo> spectraFileInfoDict = new();
@@ -117,11 +117,16 @@ namespace Test.FileReadingTests
 
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 12, matchBetweenRunsFdrThreshold: 0.1, donorCriterion: 'S');
+            file.PeptideFile.LoadResults();
+            var peptidesForMbr = file.PeptideFile.Select(psm => psm.FullSequence).Distinct().ToList();
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 12,
+                matchBetweenRunsFdrThreshold: 0.1, donorCriterion: 'S',
+                peptidesForMbr: peptidesForMbr);
             var results = engine.Run();
 
 
-            string baseOutputDirectory = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\Fragger_1Percent_PeptideLv_ReportDecoys\Flash_PEP";
+            string baseOutputDirectory = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\IonQuant_1Percent_NoProtein\Flash_PEP";
             Directory.CreateDirectory(baseOutputDirectory);
 
             results.WriteResults(
