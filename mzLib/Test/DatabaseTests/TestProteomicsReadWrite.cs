@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Omics.Fragmentation;
 using Omics.Modifications;
 using Proteomics;
