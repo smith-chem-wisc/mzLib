@@ -40,7 +40,7 @@ namespace FlashLFQ.PEP
             TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[] trainedModels 
                 = new TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[numGroups];
 
-            var trainer = mlContext.BinaryClassification.Trainers.FastTree(labelColumnName: "Label", featureColumnName: "Features", numberOfTrees: 400);
+            var trainer = mlContext.BinaryClassification.Trainers.FastTree(labelColumnName: "Label", featureColumnName: "Features", numberOfTrees: 100);
             var pipeline = mlContext.Transforms.Concatenate("Features", trainingVariables)
                 .Append(trainer);
 
@@ -84,6 +84,60 @@ namespace FlashLFQ.PEP
                     Compute_Peak_PEP(peaks, peakGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
 
                     allMetrics.Add(metrics);
+                }
+
+                peakScores = peaks.Where(peak => peak.PipPep != null).Select(peak => (double)peak.PipPep).OrderBy(pep => pep).ToList();
+                PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)];
+
+                for (int i = 0; i < 4; i++)
+                {
+                    // calculate a new score cutoff based on the new PEP values
+                    peakScores = peaks.Where(peak => peak.PipPep != null).Select(peak => (double)peak.PipPep).OrderBy(pep => pep).ToList();
+                    PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)];
+
+                    bool trainingSetsContainPositiveAndNegativeTrainingExamples = true;
+                    //reclassify the data
+                    for (int j = 0; j < numGroups; j++)
+                    {
+                        ChromatographicPeakDataGroups[j] = CreateChromatographicPeakDataIteration(peaks, peakGroupIndices[j], maxThreads);
+                        // If we can't train the model, break
+                        if (ChromatographicPeakDataGroups[j].Where(p => p.Label == true).Count() == 0
+                            || ChromatographicPeakDataGroups[j].Where(p => p.Label == false).Count() == 0)
+                        {
+                            trainingSetsContainPositiveAndNegativeTrainingExamples = false;
+                        }
+                    }
+
+                    if(!trainingSetsContainPositiveAndNegativeTrainingExamples)
+                    {
+                        break;
+                    }
+
+                    for (int groupIndexNumber = 0; groupIndexNumber < numGroups; groupIndexNumber++)
+                    {
+                        List<int> allGroupIndexes = Enumerable.Range(0, numGroups).ToList();
+                        allGroupIndexes.RemoveAt(groupIndexNumber);
+
+                        //concat doesn't work in a loop, therefore I had to hard code the concat to group 3 out of 4 lists. if the const int numGroups value is changed, then the concat has to be changed accordingly.
+                        IDataView dataView = mlContext.Data.LoadFromEnumerable(
+                            ChromatographicPeakDataGroups[allGroupIndexes[0]]
+                            .Concat(ChromatographicPeakDataGroups[allGroupIndexes[1]]));
+
+                        trainedModels[groupIndexNumber] = pipeline.Fit(dataView);
+                        var myPredictions = trainedModels[groupIndexNumber].Transform(mlContext.Data.LoadFromEnumerable(ChromatographicPeakDataGroups[groupIndexNumber]));
+                        CalibratedBinaryClassificationMetrics metrics = mlContext.BinaryClassification.Evaluate(data: myPredictions, labelColumnName: "Label", scoreColumnName: "Score");
+
+                        //Parallel operation of the following code requires the method to be stored and then read, once for each thread
+                        //if not output directory is specified, the model cannot be stored, and we must force single-threaded operation
+                        if (outputFolder != null)
+                        {
+                            mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(outputFolder, "model.zip"));
+                        }
+
+                        Compute_Peak_PEP(peaks, peakGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
+
+                        allMetrics.Add(metrics);
+                    }
                 }
 
                 return AggregateMetricsForOutput(allMetrics);
