@@ -72,7 +72,6 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
             {
                 var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
 
-                tensor[0][0] = 38; //C-terminus
                 var tensorCounter = 1; //skips the first element which is the C-terminus in the tensor
                 char modID = ' '; //takes the target aa from inside the loop to hold it for the next loop
 
@@ -83,6 +82,12 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                     //if mod, enter
                     if (mod)
                     {
+                        if(subString.Contains("Acetyl"))
+                            tensor[0][0] = 45; //N-terminus
+                        else
+                        {
+                            tensor[0][0] = 44; //AcetlatedN-terminus
+                        }
                         mod = false; //next iteration is not a mod
                         continue;
                     }
@@ -103,7 +108,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                     mod = true;
                 }
 
-                tensor[0][tensorCounter] = 44; //N-terminus
+                tensor[0][tensorCounter] = 38; //C-terminus
 
                 return tensor;
             }
