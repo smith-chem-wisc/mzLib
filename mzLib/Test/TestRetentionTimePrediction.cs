@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
-using Proteomics;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.ProteolyticDigestion;
 using Proteomics.RetentionTimePrediction;
 using Proteomics.RetentionTimePrediction.Chronologer;

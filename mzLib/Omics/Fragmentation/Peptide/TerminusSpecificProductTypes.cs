@@ -3,6 +3,9 @@
  {
     public class TerminusSpecificProductTypes
     {
+        /// <summary>
+        /// The types of ions that can be generated from a peptide fragment, based on the terminus of the fragment
+        /// </summary>
         public static Dictionary<FragmentationTerminus, List<ProductType>> ProductIonTypesFromSpecifiedTerminus = new Dictionary<FragmentationTerminus, List<ProductType>>
         {
             {FragmentationTerminus.N, new List<ProductType>{ ProductType.a, ProductType.aDegree, ProductType.aStar, ProductType.b, ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.c } }, //all ion types that include the N-terminus
@@ -11,6 +14,9 @@
             {FragmentationTerminus.None, new List<ProductType>() }
         };
 
+        /// <summary>
+        /// The terminus of the peptide fragment that the product ion is generated from
+        /// </summary>
         public static Dictionary<ProductType, FragmentationTerminus> ProductTypeToFragmentationTerminus = new Dictionary<ProductType, FragmentationTerminus>
         {
             { ProductType.a, FragmentationTerminus.N },

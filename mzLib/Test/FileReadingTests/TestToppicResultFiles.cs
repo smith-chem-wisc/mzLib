@@ -6,6 +6,7 @@ using System.Linq;
 using MassSpectrometry;
 using Newtonsoft.Json;
 using NUnit.Framework;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Readers;
 
 namespace Test.FileReadingTests
