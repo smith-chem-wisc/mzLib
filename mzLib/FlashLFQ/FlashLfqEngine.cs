@@ -1391,6 +1391,14 @@ namespace FlashLFQ
                     outputFolder: Path.GetDirectoryName(_spectraFileInfo.First().FullFilePathWithExtension),
                     maxThreads: MaxThreads,
                     pepTrainingFraction: PepTrainingFraction);
+
+                for(int i = 0; i < 4; i++)
+                {
+                    PEP_Analysis_Cross_Validation.ComputePEPValuesForAllPeaksIterations(ref mbrPeaks,
+                       outputFolder: Path.GetDirectoryName(_spectraFileInfo.First().FullFilePathWithExtension),
+                       maxThreads: MaxThreads,
+                       pepTrainingFraction: PepTrainingFraction);
+                }
                 _results.PepResultString = pepOutput;
 
                 return true;
