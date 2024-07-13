@@ -9,9 +9,48 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Omics;
+using Microsoft.FSharp.Collections;
 
 namespace FlashLFQ.PEP
 {
+    public class DonorGroup : IEnumerable<ChromatographicPeak>
+    {
+        public Identification DonorId { get; }
+        public List<ChromatographicPeak> Acceptors { get; }
+        public bool IsPeakDecoy { get; }
+
+        public DonorGroup(Identification donorId, List<ChromatographicPeak> acceptors, bool isPeakDecoy)
+        {
+            DonorId = donorId;
+            Acceptors = acceptors;
+            IsPeakDecoy = isPeakDecoy;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(DonorId.GetHashCode(), IsPeakDecoy.GetHashCode());
+        }
+
+        public ChromatographicPeak BestPeakByScore => Acceptors.MaxBy(acceptor => acceptor.MbrScore);
+
+        // The null coalescing is kinda bad here, really it should throw an exception if the value is null
+        public ChromatographicPeak BestPeakByPep => Acceptors.MinBy(acceptor => acceptor.PipPep ?? 1);
+
+        public double BestMbrScore => Acceptors.Max(acceptor => acceptor.MbrScore);
+        public double BestPep => Acceptors.Min(acceptor => acceptor.PipPep ?? 1);
+
+        public IEnumerator<ChromatographicPeak> GetEnumerator()
+        {
+            return Acceptors.GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return Acceptors.GetEnumerator();
+        }
+    }
+
+
     public static class PEP_Analysis_Cross_Validation
     {
         public static double PipScoreCutoff;
@@ -20,21 +59,51 @@ namespace FlashLFQ.PEP
         {
             string[] trainingVariables = ChromatographicPeakData.trainingInfos["standard"];
 
-            // Combine the groups and ensure that the order is always stable.
-            peaks = peaks.OrderBy(p => p.GetHashCode()).ToList();
+            #region Construct Donor Groups
+            // this is target peak not target peptide
+            List<DonorGroup> donors= new();
+            foreach(var donorGroup in peaks.Where(peak => peak.IsMbrPeak & !peak.RandomRt).GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
+            {
+                var donorId = donorGroup.Key;
+                var acceptors = donorGroup.ToList();
+                donors.Add(new DonorGroup(donorId, acceptors, isPeakDecoy: false));
+            }
 
-            var peakScores = peaks.Select(peak => peak.MbrScore).OrderByDescending(score => score).ToList();
+            foreach (var donorGroup in peaks.Where(peak => peak.IsMbrPeak & peak.RandomRt).GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
+            {
+                var donorId = donorGroup.Key;
+                var acceptors = donorGroup.ToList();
+                donors.Add(new DonorGroup(donorId, acceptors, isPeakDecoy: true));
+            }
+
+            // Fix the order
+            donors = donors.OrderByDescending(donor => donor.GetHashCode()).ToList();
+
+            //var peakScores = donors.SelectMany(donor => donor.Select(p => p.MbrScore)).OrderByDescending(score => score).ToList();
+            //PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
+
+            var peakScores = donors.Select(donor => donor.BestMbrScore).OrderByDescending(score => score).ToList();
             PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
 
             MLContext mlContext = new MLContext();
             //the number of groups used for cross-validation is hard-coded at four. Do not change this number without changing other areas of effected code.
             const int numGroups = 3;
 
-            List<int>[] peakGroupIndices = Get_Peak_Group_Indices(peaks, numGroups);
+            List<int>[] donorGroupIndices = Get_Donor_Group_Indices(donors, numGroups);
+
+            #endregion
+
+            #region Create Groups and Model
             IEnumerable<ChromatographicPeakData>[] ChromatographicPeakDataGroups = new IEnumerable<ChromatographicPeakData>[numGroups];
             for (int i = 0; i < numGroups; i++)
             {
-                ChromatographicPeakDataGroups[i] = CreateChromatographicPeakData(peaks, peakGroupIndices[i], maxThreads);
+                ChromatographicPeakDataGroups[i] = CreateChromatographicPeakData(donors, donorGroupIndices[i], maxThreads);
+
+                if (!ChromatographicPeakDataGroups[i].Any(p => p.Label == true) 
+                    || !ChromatographicPeakDataGroups[i].Any(p => p.Label == false))
+                {
+                    return "Posterior error probability analysis failed. This can occur for small data sets when some sample groups are missing positive or negative training examples.";
+                }
             }
 
             TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[] trainedModels 
@@ -46,26 +115,59 @@ namespace FlashLFQ.PEP
 
             List<CalibratedBinaryClassificationMetrics> allMetrics = new List<CalibratedBinaryClassificationMetrics>();
 
-            bool allSetsContainPositiveAndNegativeTrainingExamples = true;
-            int groupNumber = 0;
-            while (allSetsContainPositiveAndNegativeTrainingExamples == true && groupNumber < numGroups)
+            #endregion
+
+            #region Training and Cross Validation First iteration
+
+            for (int groupIndexNumber = 0; groupIndexNumber < numGroups; groupIndexNumber++)
             {
-                if (ChromatographicPeakDataGroups[groupNumber].Where(p => p.Label == true).Count() == 0 
-                    || ChromatographicPeakDataGroups[groupNumber].Where(p => p.Label == false).Count() == 0)
+
+                List<int> allGroupIndexes = Enumerable.Range(0, numGroups).ToList();
+                allGroupIndexes.RemoveAt(groupIndexNumber);
+
+                //concat doesn't work in a loop, therefore I had to hard code the concat to group 3 out of 4 lists. if the const int numGroups value is changed, then the concat has to be changed accordingly.
+                IDataView dataView = mlContext.Data.LoadFromEnumerable(
+                    ChromatographicPeakDataGroups[allGroupIndexes[0]]
+                    .Concat(ChromatographicPeakDataGroups[allGroupIndexes[1]]));
+
+                trainedModels[groupIndexNumber] = pipeline.Fit(dataView);
+                var myPredictions = trainedModels[groupIndexNumber].Transform(mlContext.Data.LoadFromEnumerable(ChromatographicPeakDataGroups[groupIndexNumber]));
+                CalibratedBinaryClassificationMetrics metrics = mlContext.BinaryClassification.Evaluate(data: myPredictions, labelColumnName: "Label", scoreColumnName: "Score");
+
+                //Parallel operation of the following code requires the method to be stored and then read, once for each thread
+                //if not output directory is specified, the model cannot be stored, and we must force single-threaded operation
+                if (outputFolder != null)
                 {
-                    allSetsContainPositiveAndNegativeTrainingExamples = false;
+                    mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(outputFolder, "model.zip"));
                 }
-                groupNumber++;
+
+                Compute_PEP_For_All_Peaks(donors, donorGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
+
+                allMetrics.Add(metrics);
             }
 
-            if (allSetsContainPositiveAndNegativeTrainingExamples)
+            #endregion
+            #region Iterative Training
+
+            for(int trainingIteration = 0; trainingIteration < 9; trainingIteration++)
             {
+                ChromatographicPeakDataGroups = new IEnumerable<ChromatographicPeakData>[numGroups];
+                for (int i = 0; i < numGroups; i++)
+                {
+                    ChromatographicPeakDataGroups[i] = CreateChromatographicPeakDataIteration(donors, donorGroupIndices[i], maxThreads);
+
+                    if (!ChromatographicPeakDataGroups[i].Any(p => p.Label == true)
+                        || !ChromatographicPeakDataGroups[i].Any(p => p.Label == false))
+                    {
+                        return "Posterior error probability analysis failed. This can occur for small data sets when some sample groups are missing positive or negative training examples.";
+                    }
+                }
+
                 for (int groupIndexNumber = 0; groupIndexNumber < numGroups; groupIndexNumber++)
                 {
                     List<int> allGroupIndexes = Enumerable.Range(0, numGroups).ToList();
                     allGroupIndexes.RemoveAt(groupIndexNumber);
 
-                    //concat doesn't work in a loop, therefore I had to hard code the concat to group 3 out of 4 lists. if the const int numGroups value is changed, then the concat has to be changed accordingly.
                     IDataView dataView = mlContext.Data.LoadFromEnumerable(
                         ChromatographicPeakDataGroups[allGroupIndexes[0]]
                         .Concat(ChromatographicPeakDataGroups[allGroupIndexes[1]]));
@@ -81,150 +183,253 @@ namespace FlashLFQ.PEP
                         mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(outputFolder, "model.zip"));
                     }
 
-                    Compute_Peak_PEP(peaks, peakGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
+                    Compute_PEP_For_All_Peaks(donors, donorGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
 
                     allMetrics.Add(metrics);
                 }
-
-                peakScores = peaks.Where(peak => peak.PipPep != null).Select(peak => (double)peak.PipPep).OrderBy(pep => pep).ToList();
-                PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)];
-
-                for (int i = 0; i < 4; i++)
-                {
-                    // calculate a new score cutoff based on the new PEP values
-                    peakScores = peaks.Where(peak => peak.PipPep != null).Select(peak => (double)peak.PipPep).OrderBy(pep => pep).ToList();
-                    PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)];
-
-                    bool trainingSetsContainPositiveAndNegativeTrainingExamples = true;
-                    //reclassify the data
-                    for (int j = 0; j < numGroups; j++)
-                    {
-                        ChromatographicPeakDataGroups[j] = CreateChromatographicPeakDataIteration(peaks, peakGroupIndices[j], maxThreads);
-                        // If we can't train the model, break
-                        if (ChromatographicPeakDataGroups[j].Where(p => p.Label == true).Count() == 0
-                            || ChromatographicPeakDataGroups[j].Where(p => p.Label == false).Count() == 0)
-                        {
-                            trainingSetsContainPositiveAndNegativeTrainingExamples = false;
-                        }
-                    }
-
-                    if(!trainingSetsContainPositiveAndNegativeTrainingExamples)
-                    {
-                        break;
-                    }
-
-                    for (int groupIndexNumber = 0; groupIndexNumber < numGroups; groupIndexNumber++)
-                    {
-                        List<int> allGroupIndexes = Enumerable.Range(0, numGroups).ToList();
-                        allGroupIndexes.RemoveAt(groupIndexNumber);
-
-                        //concat doesn't work in a loop, therefore I had to hard code the concat to group 3 out of 4 lists. if the const int numGroups value is changed, then the concat has to be changed accordingly.
-                        IDataView dataView = mlContext.Data.LoadFromEnumerable(
-                            ChromatographicPeakDataGroups[allGroupIndexes[0]]
-                            .Concat(ChromatographicPeakDataGroups[allGroupIndexes[1]]));
-
-                        trainedModels[groupIndexNumber] = pipeline.Fit(dataView);
-                        var myPredictions = trainedModels[groupIndexNumber].Transform(mlContext.Data.LoadFromEnumerable(ChromatographicPeakDataGroups[groupIndexNumber]));
-                        CalibratedBinaryClassificationMetrics metrics = mlContext.BinaryClassification.Evaluate(data: myPredictions, labelColumnName: "Label", scoreColumnName: "Score");
-
-                        //Parallel operation of the following code requires the method to be stored and then read, once for each thread
-                        //if not output directory is specified, the model cannot be stored, and we must force single-threaded operation
-                        if (outputFolder != null)
-                        {
-                            mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(outputFolder, "model.zip"));
-                        }
-
-                        Compute_Peak_PEP(peaks, peakGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
-
-                        allMetrics.Add(metrics);
-                    }
-                }
-
-                return AggregateMetricsForOutput(allMetrics);
             }
-            else
-            {
-                return "Posterior error probability analysis failed. This can occur for small data sets when some sample groups are missing positive or negative training examples.";
-            }
+            #endregion
+
+            return AggregateMetricsForOutput(allMetrics);
         }
 
-        public static string ComputePEPValuesForAllPeaksIterations(ref List<ChromatographicPeak> peaks, string outputFolder, int maxThreads, double pepTrainingFraction = 0.25)
+        //we add the indexes of the targets and decoys to the groups separately in the hope that we'll get at least one target and one decoy in each group.
+        //then training can possibly be more successful.
+        public static List<int>[] Get_Donor_Group_Indices(List<DonorGroup> donors, int numGroups)
         {
-            string[] trainingVariables = ChromatographicPeakData.trainingInfos["standard"];
-
-            // Combine the groups and ensure that the order is always stable.
-            peaks = peaks.OrderBy(p => p.GetHashCode()).ToList();
-
-            var peakScores = peaks.Where(peak => peak.PipPep != null).Select(peak => (double)peak.PipPep).OrderBy(pep => pep).ToList();
-            PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
-
-            MLContext mlContext = new MLContext();
-            //the number of groups used for cross-validation is hard-coded at four. Do not change this number without changing other areas of effected code.
-            const int numGroups = 3;
-
-            List<int>[] peakGroupIndices = Get_Peak_Group_Indices_Iteration(peaks, numGroups);
-            IEnumerable<ChromatographicPeakData>[] ChromatographicPeakDataGroups = new IEnumerable<ChromatographicPeakData>[numGroups];
+            List<int>[] groupsOfIndicies = new List<int>[numGroups];
             for (int i = 0; i < numGroups; i++)
             {
-                ChromatographicPeakDataGroups[i] = CreateChromatographicPeakDataIteration(peaks, peakGroupIndices[i], maxThreads);
+                groupsOfIndicies[i] = new List<int>();
             }
 
-            TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[] trainedModels
-                = new TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[numGroups];
+            // Targets and Decoys are labeled and used for training, remaining peaks are not
+            List<int> targetIndices = new List<int>();
+            List<int> decoyIndices = new List<int>();
+            List<int> remainingIndices = new List<int>();
 
-            var trainer = mlContext.BinaryClassification.Trainers.FastTree(labelColumnName: "Label", featureColumnName: "Features", numberOfTrees: 100);
-            var pipeline = mlContext.Transforms.Concatenate("Features", trainingVariables)
-                .Append(trainer);
-
-            List<CalibratedBinaryClassificationMetrics> allMetrics = new List<CalibratedBinaryClassificationMetrics>();
-
-            bool allSetsContainPositiveAndNegativeTrainingExamples = true;
-            int groupNumber = 0;
-            while (allSetsContainPositiveAndNegativeTrainingExamples == true && groupNumber < numGroups)
+            for (int i = 0; i < donors.Count; i++)
             {
-                if (ChromatographicPeakDataGroups[groupNumber].Where(p => p.Label == true).Count() == 0
-                    || ChromatographicPeakDataGroups[groupNumber].Where(p => p.Label == false).Count() == 0)
+                if (donors[i].IsPeakDecoy)
                 {
-                    allSetsContainPositiveAndNegativeTrainingExamples = false;
+                    decoyIndices.Add(i);
                 }
-                groupNumber++;
+                else if (!donors[i].IsPeakDecoy
+                    && donors[i].BestMbrScore >= PipScoreCutoff)
+                {
+                    targetIndices.Add(i);
+                }
+                else
+                {
+                    remainingIndices.Add(i);
+                }
             }
 
-            if (allSetsContainPositiveAndNegativeTrainingExamples)
+            int myIndex = 0;
+
+            while (myIndex < decoyIndices.Count)
             {
-                for (int groupIndexNumber = 0; groupIndexNumber < numGroups; groupIndexNumber++)
+                int subIndex = 0;
+                while (subIndex < numGroups && myIndex < decoyIndices.Count)
                 {
-                    List<int> allGroupIndexes = Enumerable.Range(0, numGroups).ToList();
-                    allGroupIndexes.RemoveAt(groupIndexNumber);
+                    groupsOfIndicies[subIndex].Add(decoyIndices[myIndex]);
+                    subIndex++;
+                    myIndex++;
+                }
+            }
 
-                    //concat doesn't work in a loop, therefore I had to hard code the concat to group 3 out of 4 lists. if the const int numGroups value is changed, then the concat has to be changed accordingly.
-                    IDataView dataView = mlContext.Data.LoadFromEnumerable(
-                        ChromatographicPeakDataGroups[allGroupIndexes[0]]
-                        .Concat(ChromatographicPeakDataGroups[allGroupIndexes[1]]));
+            myIndex = 0;
 
-                    trainedModels[groupIndexNumber] = pipeline.Fit(dataView);
-                    var myPredictions = trainedModels[groupIndexNumber].Transform(mlContext.Data.LoadFromEnumerable(ChromatographicPeakDataGroups[groupIndexNumber]));
-                    CalibratedBinaryClassificationMetrics metrics = mlContext.BinaryClassification.Evaluate(data: myPredictions, labelColumnName: "Label", scoreColumnName: "Score");
+            while (myIndex < targetIndices.Count)
+            {
+                int subIndex = 0;
+                while (subIndex < numGroups && myIndex < targetIndices.Count)
+                {
+                    groupsOfIndicies[subIndex].Add(targetIndices[myIndex]);
+                    subIndex++;
+                    myIndex++;
+                }
+            }
 
-                    //Parallel operation of the following code requires the method to be stored and then read, once for each thread
-                    //if not output directory is specified, the model cannot be stored, and we must force single-threaded operation
-                    if (outputFolder != null)
+            myIndex = 0;
+
+            while (myIndex < remainingIndices.Count)
+            {
+                int subIndex = 0;
+                while (subIndex < numGroups && myIndex < remainingIndices.Count)
+                {
+                    groupsOfIndicies[subIndex].Add(remainingIndices[myIndex]);
+                    subIndex++;
+                    myIndex++;
+                }
+            }
+
+            return groupsOfIndicies;
+        }
+
+        public static IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
+        {
+            object ChromatographicPeakDataListLock = new object();
+            List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
+            int[] threads = Enumerable.Range(0, maxThreads).ToArray();
+
+            Parallel.ForEach(Partitioner.Create(0, donorIndices.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
+                (range, loopState) =>
+                {
+                    List<ChromatographicPeakData> localChromatographicPeakDataList = new List<ChromatographicPeakData>();
+                    for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(outputFolder, "model.zip"));
+                        var donor = donors[donorIndices[i]];
+                        ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
+
+                        bool label;
+
+                        if (donor.IsPeakDecoy)
+                        {
+                            label = false;
+                            //foreach (ChromatographicPeak peak in donor)
+                            //{
+                            //    newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
+                            //    localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                            //}
+
+
+                            newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(donor.BestPeakByScore, label);
+                            localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                        }
+                        else if (!donor.IsPeakDecoy && donor.BestMbrScore >= PipScoreCutoff)
+                        {
+                            label = true;
+                            //foreach(ChromatographicPeak peak in donor.Where(peak => peak.MbrScore >= PipScoreCutoff))
+                            //{
+                            //    newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
+                            //    localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                            //}
+
+                            newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(donor.BestPeakByScore, label);
+                            localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                        }
+                    }
+                    lock (ChromatographicPeakDataListLock)
+                    {
+                        ChromatographicPeakDataList.AddRange(localChromatographicPeakDataList);
+                    }
+                });
+
+            ChromatographicPeakData[] pda = ChromatographicPeakDataList.ToArray();
+
+            return pda.AsEnumerable();
+        }
+
+        public static IEnumerable<ChromatographicPeakData> CreateChromatographicPeakDataIteration(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
+        {
+            object ChromatographicPeakDataListLock = new object();
+            List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
+            int[] threads = Enumerable.Range(0, maxThreads).ToArray();
+
+            //List<double> peps = donors.SelectMany(donors => donors.Select(p => p.PipPep ?? 1)).OrderBy(pep => pep).ToList();
+            //double groupSpecificPepCutoff = peps[(int)Math.Floor(peps.Count * 0.25)];
+
+            List<double> peps = donors.Select(donors => donors.BestPep).OrderBy(pep => pep).ToList();
+            double groupSpecificPepCutoff = peps[(int)Math.Floor(peps.Count * 0.25)];
+
+            Parallel.ForEach(Partitioner.Create(0, donorIndices.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
+                (range, loopState) =>
+                {
+                    List<ChromatographicPeakData> localChromatographicPeakDataList = new List<ChromatographicPeakData>();
+                    for (int i = range.Item1; i < range.Item2; i++)
+                    {
+                        var donor = donors[donorIndices[i]];
+                        ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
+
+                        bool label;
+                        if (donor.IsPeakDecoy)
+                        {
+                            label = false;
+                            //foreach(var peak in donor)
+                            //{
+                            //    newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
+                            //    localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                            //}
+
+                            newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(donor.BestPeakByPep, label);
+                            localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                        }
+                        else if (!donor.IsPeakDecoy && donor.BestPep <= groupSpecificPepCutoff)
+                        {
+                            label = true;
+                            //foreach (var peak in donor.Where(peak => peak.PipPep <= groupSpecificPepCutoff))
+                            //{
+                            //    newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
+                            //    localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                            //}
+
+                            newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(donor.BestPeakByPep, label);
+                            localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                        }
+                    }
+                    lock (ChromatographicPeakDataListLock)
+                    {
+                        ChromatographicPeakDataList.AddRange(localChromatographicPeakDataList);
+                    }
+                });
+
+            ChromatographicPeakData[] pda = ChromatographicPeakDataList.ToArray();
+
+            return pda.AsEnumerable();
+        }
+
+        public static void Compute_PEP_For_All_Peaks(
+            List<DonorGroup> donors,
+            List<int> donorIndices,
+            MLContext mLContext,
+            TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>> trainedModel,
+            string outputFolder, int maxThreads)
+        {
+            object lockObject = new object();
+
+            //the trained model is not threadsafe. Therefore, to use the same model for each thread saved the model to disk. Then each thread reads its own copy of the model back from disk.
+            //If there is no output folder specified, then this can't happen. We set maxthreads eqaul to one and use the model that gets passed into the method.
+            if (String.IsNullOrEmpty(outputFolder))
+            {
+                maxThreads = 1;
+            }
+
+            Parallel.ForEach(Partitioner.Create(0, donorIndices.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
+                (range, loopState) =>
+                {
+
+                    ITransformer threadSpecificTrainedModel;
+                    if (maxThreads == 1)
+                    {
+                        threadSpecificTrainedModel = trainedModel;
+                    }
+                    else
+                    {
+                        threadSpecificTrainedModel = mLContext.Model.Load(Path.Combine(outputFolder, "model.zip"), out DataViewSchema savedModelSchema);
                     }
 
-                    Compute_Peak_PEP(peaks, peakGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
+                    // one prediction engine per thread, because the prediction engine is not thread-safe
+                    var threadPredictionEngine = mLContext.Model.CreatePredictionEngine<ChromatographicPeakData, TruePositivePrediction>(threadSpecificTrainedModel);
 
-                    allMetrics.Add(metrics);
-                }
+                    for (int i = range.Item1; i < range.Item2; i++)
+                    {
+                        DonorGroup donor = donors[donorIndices[i]];
 
-                return AggregateMetricsForOutput(allMetrics);
-            }
-            else
-            {
-                return "Posterior error probability analysis failed. This can occur for small data sets when some sample groups are missing positive or negative training examples.";
-            }
+                        foreach(ChromatographicPeak peak in donor)
+                        {
+                            ChromatographicPeakData pd = CreateOneChromatographicPeakDataEntry(peak, label: !peak.RandomRt);
+                            var pepValuePrediction = threadPredictionEngine.Predict(pd);
+                            peak.PipPep = 1 - pepValuePrediction.Probability;
+                        }
+                    }
+                });
         }
+
+        
 
         public static string AggregateMetricsForOutput(List<CalibratedBinaryClassificationMetrics> allMetrics)
         {
@@ -278,318 +483,6 @@ namespace FlashLFQ.PEP
             s.AppendLine("************************************************************");
             return s.ToString();
         }
-
-        public static void Compute_Peak_PEP(
-            List<ChromatographicPeak> peaks,
-            List<int> peakIndicies,
-            MLContext mLContext,
-            TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>> trainedModel,
-            string outputFolder, int maxThreads)
-        {
-            object lockObject = new object();
-
-            //the trained model is not threadsafe. Therefore, to use the same model for each thread saved the model to disk. Then each thread reads its own copy of the model back from disk.
-            //If there is no output folder specified, then this can't happen. We set maxthreads eqaul to one and use the model that gets passed into the method.
-            if (String.IsNullOrEmpty(outputFolder))
-            {
-                maxThreads = 1;
-            }
-
-            Parallel.ForEach(Partitioner.Create(0, peakIndicies.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
-                (range, loopState) =>
-                {
-
-                    ITransformer threadSpecificTrainedModel;
-                    if (maxThreads == 1)
-                    {
-                        threadSpecificTrainedModel = trainedModel;
-                    }
-                    else
-                    {
-                        threadSpecificTrainedModel = mLContext.Model.Load(Path.Combine(outputFolder, "model.zip"), out DataViewSchema savedModelSchema);
-                    }
-
-                    // one prediction engine per thread, because the prediction engine is not thread-safe
-                    var threadPredictionEngine = mLContext.Model.CreatePredictionEngine<ChromatographicPeakData, TruePositivePrediction>(threadSpecificTrainedModel);
-
-                    for (int i = range.Item1; i < range.Item2; i++)
-                    {
-                        ChromatographicPeak peak = peaks[peakIndicies[i]];
-
-                        if (peak != null)
-                        {
-                            ChromatographicPeakData pd = CreateOneChromatographicPeakDataEntry(peak, label: !peak.RandomRt) ;
-                            var pepValuePrediction = threadPredictionEngine.Predict(pd);
-                            peak.PipPep = 1 - pepValuePrediction.Probability;
-
-                            //A score is available using the variable pepvaluePrediction.Score
-                        }
-                    }
-                });
-        }
-
-        //we add the indexes of the targets and decoys to the groups separately in the hope that we'll get at least one target and one decoy in each group.
-        //then training can possibly be more successful.
-        public static List<int>[] Get_Peak_Group_Indices(List<ChromatographicPeak> peaks, int numGroups)
-        {
-            Dictionary<string, ChromatographicPeak> bestTargetPeaks = peaks
-                .Where(p => !p.RandomRt)
-                .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                .ToDictionary(g => g.Key, g => g.MaxBy(p => p.MbrScore));
-
-            Dictionary<string, ChromatographicPeak> bestDecoyPeaks = peaks
-                .Where(p => p.RandomRt)
-                .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                .ToDictionary(g => g.Key, g => g.MaxBy(p => p.MbrScore));
-
-            List<int>[] groupsOfIndicies = new List<int>[numGroups];
-            for (int i = 0; i < numGroups; i++)
-            {
-                groupsOfIndicies[i] = new List<int>();
-            }
-
-            // Targets and Decoys are labeled and used for training, remaining peaks are not
-            List<int> targetPeakIndices = new List<int>();
-            List<int> decoyPeakIndices = new List<int>();
-            List<int> remainingPeakIndices = new List<int>();
-
-            for (int i = 0; i < peaks.Count; i++)
-            {
-                if (peaks[i].RandomRt
-                    && bestDecoyPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestDecoyPeak)
-                    && peaks[i] == bestDecoyPeak)
-                {
-                    decoyPeakIndices.Add(i);
-                }
-                else if (!peaks[i].RandomRt
-                    && peaks[i].MbrScore >= PipScoreCutoff 
-                    && bestTargetPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestTargetPeak)
-                    && peaks[i] == bestTargetPeak)
-                {
-                    targetPeakIndices.Add(i);
-                }
-                else
-                {
-                    remainingPeakIndices.Add(i);
-                }
-            }
-
-            int myIndex = 0;
-
-            while (myIndex < decoyPeakIndices.Count)
-            {
-                int subIndex = 0;
-                while (subIndex < numGroups && myIndex < decoyPeakIndices.Count)
-                {
-                    groupsOfIndicies[subIndex].Add(decoyPeakIndices[myIndex]);
-                    subIndex++;
-                    myIndex++;
-                }
-            }
-
-            myIndex = 0;
-
-            while (myIndex < targetPeakIndices.Count)
-            {
-                int subIndex = 0;
-                while (subIndex < numGroups && myIndex < targetPeakIndices.Count)
-                {
-                    groupsOfIndicies[subIndex].Add(targetPeakIndices[myIndex]);
-                    subIndex++;
-                    myIndex++;
-                }
-            }
-
-            myIndex = 0;
-
-            while (myIndex < remainingPeakIndices.Count)
-            {
-                int subIndex = 0;
-                while (subIndex < numGroups && myIndex < remainingPeakIndices.Count)
-                {
-                    groupsOfIndicies[subIndex].Add(remainingPeakIndices[myIndex]);
-                    subIndex++;
-                    myIndex++;
-                }
-            }
-
-            return groupsOfIndicies;
-        }
-
-        //we add the indexes of the targets and decoys to the groups separately in the hope that we'll get at least one target and one decoy in each group.
-        //then training can possibly be more successful.
-        public static List<int>[] Get_Peak_Group_Indices_Iteration(List<ChromatographicPeak> peaks, int numGroups)
-        {
-            Dictionary<string, ChromatographicPeak> bestTargetPeaks = peaks
-                .Where(p => !p.RandomRt)
-                .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                .ToDictionary(g => g.Key, g => g.MinBy(p => p.PipPep));
-
-            Dictionary<string, ChromatographicPeak> bestDecoyPeaks = peaks
-                .Where(p => p.RandomRt)
-                .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                .ToDictionary(g => g.Key, g => g.MinBy(p => p.PipPep));
-
-            List<int>[] groupsOfIndicies = new List<int>[numGroups];
-            for (int i = 0; i < numGroups; i++)
-            {
-                groupsOfIndicies[i] = new List<int>();
-            }
-
-            // Targets and Decoys are labeled and used for training, remaining peaks are not
-            List<int> targetPeakIndices = new List<int>();
-            List<int> decoyPeakIndices = new List<int>();
-            List<int> remainingPeakIndices = new List<int>();
-
-            for (int i = 0; i < peaks.Count; i++)
-            {
-                if (peaks[i].RandomRt
-                    && bestDecoyPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestDecoyPeak)
-                    && peaks[i] == bestDecoyPeak)
-                {
-                    decoyPeakIndices.Add(i);
-                }
-                else if (!peaks[i].RandomRt
-                    && peaks[i].MbrScore >= PipScoreCutoff
-                    && bestTargetPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestTargetPeak)
-                    && peaks[i] == bestTargetPeak)
-                {
-                    targetPeakIndices.Add(i);
-                }
-                else
-                {
-                    remainingPeakIndices.Add(i);
-                }
-            }
-
-            int myIndex = 0;
-
-            while (myIndex < decoyPeakIndices.Count)
-            {
-                int subIndex = 0;
-                while (subIndex < numGroups && myIndex < decoyPeakIndices.Count)
-                {
-                    groupsOfIndicies[subIndex].Add(decoyPeakIndices[myIndex]);
-                    subIndex++;
-                    myIndex++;
-                }
-            }
-
-            myIndex = 0;
-
-            while (myIndex < targetPeakIndices.Count)
-            {
-                int subIndex = 0;
-                while (subIndex < numGroups && myIndex < targetPeakIndices.Count)
-                {
-                    groupsOfIndicies[subIndex].Add(targetPeakIndices[myIndex]);
-                    subIndex++;
-                    myIndex++;
-                }
-            }
-
-            myIndex = 0;
-
-            while (myIndex < remainingPeakIndices.Count)
-            {
-                int subIndex = 0;
-                while (subIndex < numGroups && myIndex < remainingPeakIndices.Count)
-                {
-                    groupsOfIndicies[subIndex].Add(remainingPeakIndices[myIndex]);
-                    subIndex++;
-                    myIndex++;
-                }
-            }
-
-            return groupsOfIndicies;
-        }
-
-
-        public static IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<ChromatographicPeak> peaks, List<int> peakIndicies, int maxThreads)
-        {
-            object ChromatographicPeakDataListLock = new object();
-            List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
-            int[] threads = Enumerable.Range(0, maxThreads).ToArray();
-
-            Parallel.ForEach(Partitioner.Create(0, peakIndicies.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
-                (range, loopState) =>
-                {
-                    List<ChromatographicPeakData> localChromatographicPeakDataList = new List<ChromatographicPeakData>();
-                    for (int i = range.Item1; i < range.Item2; i++)
-                    {
-                        var peak = peaks[peakIndicies[i]];
-                        ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
-
-                        bool label;
-
-                        if (peak.RandomRt)
-                        {
-                            label = false;
-                            newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
-                            localChromatographicPeakDataList.Add(newChromatographicPeakData);
-                        }
-                        else if (!peak.RandomRt && peak.MbrScore >= PipScoreCutoff)
-                        {
-                            label = true;
-                            newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
-                            localChromatographicPeakDataList.Add(newChromatographicPeakData);
-                        }
-                    }
-                    lock (ChromatographicPeakDataListLock)
-                    {
-                        ChromatographicPeakDataList.AddRange(localChromatographicPeakDataList);
-                    }
-                });
-
-            ChromatographicPeakData[] pda = ChromatographicPeakDataList.ToArray();
-
-            return pda.AsEnumerable();
-        }
-
-        public static IEnumerable<ChromatographicPeakData> CreateChromatographicPeakDataIteration(List<ChromatographicPeak> peaks, List<int> peakIndicies, int maxThreads)
-        {
-            object ChromatographicPeakDataListLock = new object();
-            List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
-            int[] threads = Enumerable.Range(0, maxThreads).ToArray();
-
-            Parallel.ForEach(Partitioner.Create(0, peakIndicies.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
-                (range, loopState) =>
-                {
-                    List<ChromatographicPeakData> localChromatographicPeakDataList = new List<ChromatographicPeakData>();
-                    for (int i = range.Item1; i < range.Item2; i++)
-                    {
-                        var peak = peaks[peakIndicies[i]];
-                        ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
-
-                        bool label;
-
-                        if (peak.RandomRt)
-                        {
-                            label = false;
-                            newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
-                            localChromatographicPeakDataList.Add(newChromatographicPeakData);
-                        }
-                        else if (!peak.RandomRt && peak.PipPep <= PipScoreCutoff)
-                        {
-                            label = true;
-                            newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
-                            localChromatographicPeakDataList.Add(newChromatographicPeakData);
-                        }
-                    }
-                    lock (ChromatographicPeakDataListLock)
-                    {
-                        ChromatographicPeakDataList.AddRange(localChromatographicPeakDataList);
-                    }
-                });
-
-            ChromatographicPeakData[] pda = ChromatographicPeakDataList.ToArray();
-
-            return pda.AsEnumerable();
-        }
-
 
         public static ChromatographicPeakData CreateOneChromatographicPeakDataEntry(ChromatographicPeak peak,bool label)
         {
