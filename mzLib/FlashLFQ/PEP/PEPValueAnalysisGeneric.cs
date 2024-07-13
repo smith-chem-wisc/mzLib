@@ -40,7 +40,7 @@ namespace FlashLFQ.PEP
             TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[] trainedModels 
                 = new TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[numGroups];
 
-            var trainer = mlContext.BinaryClassification.Trainers.FastTree(labelColumnName: "Label", featureColumnName: "Features", numberOfTrees: 400);
+            var trainer = mlContext.BinaryClassification.Trainers.FastTree(labelColumnName: "Label", featureColumnName: "Features", numberOfTrees: 100);
             var pipeline = mlContext.Transforms.Concatenate("Features", trainingVariables)
                 .Append(trainer);
 
@@ -279,15 +279,15 @@ namespace FlashLFQ.PEP
         //then training can possibly be more successful.
         public static List<int>[] Get_Peak_Group_Indices(List<ChromatographicPeak> peaks, int numGroups)
         {
-            Dictionary<string, ChromatographicPeak> bestTargetPeaks = peaks
-                .Where(p => !p.RandomRt)
-                .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                .ToDictionary(g => g.Key, g => g.MaxBy(p => p.MbrScore));
+            //Dictionary<string, ChromatographicPeak> bestTargetPeaks = peaks
+            //    .Where(p => !p.RandomRt)
+            //    .GroupBy(p => p.Identifications.First().ModifiedSequence)
+            //    .ToDictionary(g => g.Key, g => g.MaxBy(p => p.MbrScore));
 
-            Dictionary<string, ChromatographicPeak> bestDecoyPeaks = peaks
-                .Where(p => p.RandomRt)
-                .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                .ToDictionary(g => g.Key, g => g.MaxBy(p => p.MbrScore));
+            //Dictionary<string, ChromatographicPeak> bestDecoyPeaks = peaks
+            //    .Where(p => p.RandomRt)
+            //    .GroupBy(p => p.Identifications.First().ModifiedSequence)
+            //    .ToDictionary(g => g.Key, g => g.MaxBy(p => p.MbrScore));
 
             List<int>[] groupsOfIndicies = new List<int>[numGroups];
             for (int i = 0; i < numGroups; i++)
@@ -302,16 +302,16 @@ namespace FlashLFQ.PEP
 
             for (int i = 0; i < peaks.Count; i++)
             {
-                if (peaks[i].RandomRt
-                    && bestDecoyPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestDecoyPeak)
-                    && peaks[i] == bestDecoyPeak)
+                if (peaks[i].RandomRt)
+                    //&& bestDecoyPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestDecoyPeak)
+                    //&& peaks[i] == bestDecoyPeak)
                 {
                     decoyPeakIndices.Add(i);
                 }
                 else if (!peaks[i].RandomRt
-                    && peaks[i].MbrScore >= PipScoreCutoff 
-                    && bestTargetPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestTargetPeak)
-                    && peaks[i] == bestTargetPeak)
+                    && peaks[i].MbrScore >= PipScoreCutoff )
+                    //&& bestTargetPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestTargetPeak)
+                    //&& peaks[i] == bestTargetPeak)
                 {
                     targetPeakIndices.Add(i);
                 }
@@ -367,15 +367,15 @@ namespace FlashLFQ.PEP
         //then training can possibly be more successful.
         public static List<int>[] Get_Peak_Group_Indices_Iteration(List<ChromatographicPeak> peaks, int numGroups)
         {
-            Dictionary<string, ChromatographicPeak> bestTargetPeaks = peaks
-                .Where(p => !p.RandomRt)
-                .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                .ToDictionary(g => g.Key, g => g.MinBy(p => p.PipPep));
+            //Dictionary<string, ChromatographicPeak> bestTargetPeaks = peaks
+            //    .Where(p => !p.RandomRt)
+            //    .GroupBy(p => p.Identifications.First().ModifiedSequence)
+            //    .ToDictionary(g => g.Key, g => g.MinBy(p => p.PipPep));
 
-            Dictionary<string, ChromatographicPeak> bestDecoyPeaks = peaks
-                .Where(p => p.RandomRt)
-                .GroupBy(p => p.Identifications.First().ModifiedSequence)
-                .ToDictionary(g => g.Key, g => g.MinBy(p => p.PipPep));
+            //Dictionary<string, ChromatographicPeak> bestDecoyPeaks = peaks
+            //    .Where(p => p.RandomRt)
+            //    .GroupBy(p => p.Identifications.First().ModifiedSequence)
+            //    .ToDictionary(g => g.Key, g => g.MinBy(p => p.PipPep));
 
             List<int>[] groupsOfIndicies = new List<int>[numGroups];
             for (int i = 0; i < numGroups; i++)
@@ -390,16 +390,16 @@ namespace FlashLFQ.PEP
 
             for (int i = 0; i < peaks.Count; i++)
             {
-                if (peaks[i].RandomRt
-                    && bestDecoyPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestDecoyPeak)
-                    && peaks[i] == bestDecoyPeak)
+                if (peaks[i].RandomRt)
+                    //&& bestDecoyPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestDecoyPeak)
+                    //&& peaks[i] == bestDecoyPeak)
                 {
                     decoyPeakIndices.Add(i);
                 }
                 else if (!peaks[i].RandomRt
-                    && peaks[i].MbrScore >= PipScoreCutoff
-                    && bestTargetPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestTargetPeak)
-                    && peaks[i] == bestTargetPeak)
+                    && peaks[i].PipPep <= PipScoreCutoff)
+                    //&& bestTargetPeaks.TryGetValue(peaks[i].Identifications.First().ModifiedSequence, out ChromatographicPeak bestTargetPeak)
+                    //&& peaks[i] == bestTargetPeak)
                 {
                     targetPeakIndices.Add(i);
                 }
