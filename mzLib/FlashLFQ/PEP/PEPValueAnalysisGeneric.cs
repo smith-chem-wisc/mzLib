@@ -77,7 +77,7 @@ namespace FlashLFQ.PEP
             }
 
             // Fix the order
-            donors = donors.OrderByDescending(donor => donor.GetHashCode()).ToList();
+            donors = donors.OrderByDescending(donor => donor.Acceptors.Count).ToList();
 
             //var peakScores = donors.SelectMany(donor => donor.Select(p => p.MbrScore)).OrderByDescending(score => score).ToList();
             //PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
