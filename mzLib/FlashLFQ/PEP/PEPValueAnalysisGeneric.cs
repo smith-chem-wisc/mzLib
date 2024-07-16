@@ -10,20 +10,22 @@ using System.Text;
 using System.Threading.Tasks;
 using Omics;
 using Microsoft.FSharp.Collections;
+using System.Collections;
 
 namespace FlashLFQ.PEP
 {
     public class DonorGroup : IEnumerable<ChromatographicPeak>
     {
         public Identification DonorId { get; }
-        public List<ChromatographicPeak> Acceptors { get; }
+        public List<ChromatographicPeak> TargetAcceptors { get; }
+        public List<ChromatographicPeak> DecoyAcceptors { get; }
         public bool IsPeakDecoy { get; }
 
-        public DonorGroup(Identification donorId, List<ChromatographicPeak> acceptors, bool isPeakDecoy)
+        public DonorGroup(Identification donorId, List<ChromatographicPeak> targetAcceptors, List<ChromatographicPeak> decoyAcceptors)
         {
             DonorId = donorId;
-            Acceptors = acceptors;
-            IsPeakDecoy = isPeakDecoy;
+            TargetAcceptors = targetAcceptors;
+            DecoyAcceptors = decoyAcceptors;
         }
 
         public override int GetHashCode()
@@ -31,23 +33,39 @@ namespace FlashLFQ.PEP
             return HashCode.Combine(DonorId.GetHashCode(), IsPeakDecoy.GetHashCode());
         }
 
-        public ChromatographicPeak BestPeakByScore => Acceptors.MaxBy(acceptor => acceptor.MbrScore);
+        public ChromatographicPeak BestTargetByScore => TargetAcceptors.Count == 0 ? null : TargetAcceptors.MaxBy(acceptor => acceptor.MbrScore);
+        public ChromatographicPeak BestDecoyByScore => DecoyAcceptors.Count == 0 ? null : DecoyAcceptors.MaxBy(acceptor => acceptor.MbrScore);
 
-        // The null coalescing is kinda bad here, really it should throw an exception if the value is null
-        public ChromatographicPeak BestPeakByPep => Acceptors.MinBy(acceptor => acceptor.PipPep ?? 1);
+        // The null coalescing is kinda bad here, really it should throw an exception if the PipPep is null
+        public ChromatographicPeak BestTargetByPep => TargetAcceptors.Count == 0 ? null : TargetAcceptors.MinBy(acceptor => acceptor.PipPep ?? 1);
+        public ChromatographicPeak BestDecoyByPep => DecoyAcceptors.Count == 0 ? null : DecoyAcceptors.MinBy(acceptor => acceptor.PipPep ?? 1);
 
-        public double BestMbrScore => Acceptors.Max(acceptor => acceptor.MbrScore);
-        public double BestPep => Acceptors.Min(acceptor => acceptor.PipPep ?? 1);
+
+        public double BestTargetMbrScore => TargetAcceptors.Count == 0 ? 0 : TargetAcceptors.Max(acceptor => acceptor.MbrScore);
+        public double BestDecoyMbrScore => DecoyAcceptors.Count == 0 ? 0 : DecoyAcceptors.Max(acceptor => acceptor.MbrScore);
+
+        public double BestTargetPep => TargetAcceptors.Count == 0 ? 1 : TargetAcceptors.Min(acceptor => acceptor.PipPep ?? 1);
+        public double BestDecoyPep => DecoyAcceptors.Count == 0 ? 1 : DecoyAcceptors.Min(acceptor => acceptor.PipPep ?? 1);
+
+        //public IEnumerable<ChromatographicPeak> GetEnumerator()
+        //{
+        //    return TargetAcceptors.Concat(DecoyAcceptors);
+        //}
 
         public IEnumerator<ChromatographicPeak> GetEnumerator()
         {
-            return Acceptors.GetEnumerator();
+            return TargetAcceptors.Concat(DecoyAcceptors).GetEnumerator();
         }
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        private IEnumerator GetEnumerator1()
         {
-            return Acceptors.GetEnumerator();
+            return this.GetEnumerator();
         }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator1();
+        }
+
     }
 
 
@@ -62,28 +80,22 @@ namespace FlashLFQ.PEP
             #region Construct Donor Groups
             // this is target peak not target peptide
             List<DonorGroup> donors= new();
-            foreach(var donorGroup in peaks.Where(peak => peak.IsMbrPeak & !peak.RandomRt).GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
+            foreach(var donorGroup in peaks.Where(peak => peak.IsMbrPeak).GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
             {
                 var donorId = donorGroup.Key;
-                var acceptors = donorGroup.ToList();
-                donors.Add(new DonorGroup(donorId, acceptors, isPeakDecoy: false));
-            }
-
-            foreach (var donorGroup in peaks.Where(peak => peak.IsMbrPeak & peak.RandomRt).GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
-            {
-                var donorId = donorGroup.Key;
-                var acceptors = donorGroup.ToList();
-                donors.Add(new DonorGroup(donorId, acceptors, isPeakDecoy: true));
+                var targetAcceptors = donorGroup.Where(peak => !peak.RandomRt).ToList();
+                var decoyAcceptors = donorGroup.Where(peak => peak.RandomRt).ToList();
+                donors.Add(new DonorGroup(donorId, targetAcceptors, decoyAcceptors));
             }
 
             // Fix the order
-            donors = donors.OrderByDescending(donor => donor.Acceptors.Count).ToList();
+            donors = donors.OrderByDescending(donor => donor.DecoyAcceptors.Count)
+                .ThenByDescending(donor => donor.TargetAcceptors.Count)
+                .ThenByDescending(donor => donor.BestTargetMbrScore)
+                .ToList();
 
             var peakScores = donors.SelectMany(donor => donor.Select(p => p.MbrScore)).OrderByDescending(score => score).ToList();
             PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
-
-            //var peakScores = donors.Select(donor => donor.BestMbrScore).OrderByDescending(score => score).ToList();
-            //PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
 
             MLContext mlContext = new MLContext();
             //the number of groups used for cross-validation is hard-coded at four. Do not change this number without changing other areas of effected code.
@@ -149,7 +161,7 @@ namespace FlashLFQ.PEP
             #endregion
             #region Iterative Training
 
-            for(int trainingIteration = 0; trainingIteration < 9; trainingIteration++)
+            for(int trainingIteration = 0; trainingIteration < 4; trainingIteration++)
             {
                 ChromatographicPeakDataGroups = new IEnumerable<ChromatographicPeakData>[numGroups];
                 for (int i = 0; i < numGroups; i++)
@@ -197,74 +209,28 @@ namespace FlashLFQ.PEP
         //then training can possibly be more successful.
         public static List<int>[] Get_Donor_Group_Indices(List<DonorGroup> donors, int numGroups)
         {
-            List<int>[] groupsOfIndicies = new List<int>[numGroups];
+            List<int>[] groupsOfIndices = new List<int>[numGroups];
+            List<int>[] groupsOfDecoyCounts = new List<int>[numGroups];
             for (int i = 0; i < numGroups; i++)
             {
-                groupsOfIndicies[i] = new List<int>();
-            }
-
-            // Targets and Decoys are labeled and used for training, remaining peaks are not
-            List<int> targetIndices = new List<int>();
-            List<int> decoyIndices = new List<int>();
-            List<int> remainingIndices = new List<int>();
-
-            for (int i = 0; i < donors.Count; i++)
-            {
-                if (donors[i].IsPeakDecoy)
-                {
-                    decoyIndices.Add(i);
-                }
-                else if (!donors[i].IsPeakDecoy
-                    && donors[i].BestMbrScore >= PipScoreCutoff)
-                {
-                    targetIndices.Add(i);
-                }
-                else
-                {
-                    remainingIndices.Add(i);
-                }
+                groupsOfIndices[i] = new List<int>();
+                groupsOfDecoyCounts[i] = new List<int>();
             }
 
             int myIndex = 0;
 
-            while (myIndex < decoyIndices.Count)
+            while (myIndex < donors.Count)
             {
                 int subIndex = 0;
-                while (subIndex < numGroups && myIndex < decoyIndices.Count)
+                while (subIndex < numGroups && myIndex < donors.Count)
                 {
-                    groupsOfIndicies[subIndex].Add(decoyIndices[myIndex]);
+                    groupsOfIndices[subIndex].Add(myIndex);
                     subIndex++;
                     myIndex++;
                 }
             }
 
-            myIndex = 0;
-
-            while (myIndex < targetIndices.Count)
-            {
-                int subIndex = 0;
-                while (subIndex < numGroups && myIndex < targetIndices.Count)
-                {
-                    groupsOfIndicies[subIndex].Add(targetIndices[myIndex]);
-                    subIndex++;
-                    myIndex++;
-                }
-            }
-
-            myIndex = 0;
-
-            while (myIndex < remainingIndices.Count)
-            {
-                int subIndex = 0;
-                while (subIndex < numGroups && myIndex < remainingIndices.Count)
-                {
-                    groupsOfIndicies[subIndex].Add(remainingIndices[myIndex]);
-                    subIndex++;
-                    myIndex++;
-                }
-            }
-
-            return groupsOfIndicies;
+            return groupsOfIndices;
         }
 
         public static IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
@@ -272,6 +238,14 @@ namespace FlashLFQ.PEP
             object ChromatographicPeakDataListLock = new object();
             List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
             int[] threads = Enumerable.Range(0, maxThreads).ToArray();
+
+            List<double> pipScores = new();
+            foreach(int i in donorIndices)
+            {
+                pipScores.AddRange(donors[i].Select(peak => peak.MbrScore));
+            }
+            pipScores.Sort((a, b) => b.CompareTo(a)); // This is a descending sort
+            double groupSpecificPipScoreCutoff = pipScores[(int)Math.Floor(pipScores.Count * 0.25)];
 
             Parallel.ForEach(Partitioner.Create(0, donorIndices.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
@@ -281,34 +255,19 @@ namespace FlashLFQ.PEP
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
                         var donor = donors[donorIndices[i]];
-                        ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
-
-                        bool label;
-
-                        if (donor.IsPeakDecoy)
+                        foreach (var peak in donor)
                         {
-                            label = false;
-                            foreach (ChromatographicPeak peak in donor)
+                            ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
+                            if (peak.RandomRt)
                             {
-                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
+                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: false);
                                 localChromatographicPeakDataList.Add(newChromatographicPeakData);
                             }
-
-
-                            //newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(donor.BestPeakByScore, label);
-                            //localChromatographicPeakDataList.Add(newChromatographicPeakData);
-                        }
-                        else if (!donor.IsPeakDecoy && donor.BestMbrScore >= PipScoreCutoff)
-                        {
-                            label = true;
-                            foreach (ChromatographicPeak peak in donor.Where(peak => peak.MbrScore >= PipScoreCutoff))
+                            else if (!peak.RandomRt & peak.MbrScore >= groupSpecificPipScoreCutoff)
                             {
-                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
+                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: true);
                                 localChromatographicPeakDataList.Add(newChromatographicPeakData);
                             }
-
-                            //newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(donor.BestPeakByScore, label);
-                            //localChromatographicPeakDataList.Add(newChromatographicPeakData);
                         }
                     }
                     lock (ChromatographicPeakDataListLock)
@@ -328,11 +287,13 @@ namespace FlashLFQ.PEP
             List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
             int[] threads = Enumerable.Range(0, maxThreads).ToArray();
 
-            List<double> peps = donors.SelectMany(donors => donors.Select(p => p.PipPep ?? 1)).OrderBy(pep => pep).ToList();
+            List<double> peps = new();
+            foreach (int i in donorIndices)
+            {
+                peps.AddRange(donors[i].Select(peak => peak.PipPep ?? 1));
+            }
+            peps.Sort();
             double groupSpecificPepCutoff = peps[(int)Math.Floor(peps.Count * 0.25)];
-
-            //List<double> peps = donors.Select(donors => donors.BestPep).OrderBy(pep => pep).ToList();
-            //double groupSpecificPepCutoff = peps[(int)Math.Floor(peps.Count * 0.25)];
 
             Parallel.ForEach(Partitioner.Create(0, donorIndices.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
@@ -342,32 +303,19 @@ namespace FlashLFQ.PEP
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
                         var donor = donors[donorIndices[i]];
-                        ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
-
-                        bool label;
-                        if (donor.IsPeakDecoy)
+                        foreach (var peak in donor)
                         {
-                            label = false;
-                            foreach (var peak in donor)
+                            ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
+                            if (peak.RandomRt)
                             {
-                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
+                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: false);
                                 localChromatographicPeakDataList.Add(newChromatographicPeakData);
                             }
-
-                            //newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(donor.BestPeakByPep, label);
-                            //localChromatographicPeakDataList.Add(newChromatographicPeakData);
-                        }
-                        else if (!donor.IsPeakDecoy && donor.BestPep <= groupSpecificPepCutoff)
-                        {
-                            label = true;
-                            foreach (var peak in donor.Where(peak => peak.PipPep <= groupSpecificPepCutoff))
+                            else if (!peak.RandomRt & peak.PipPep <= groupSpecificPepCutoff)
                             {
-                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label);
+                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: true);
                                 localChromatographicPeakDataList.Add(newChromatographicPeakData);
                             }
-
-                            //newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(donor.BestPeakByPep, label);
-                            //localChromatographicPeakDataList.Add(newChromatographicPeakData);
                         }
                     }
                     lock (ChromatographicPeakDataListLock)
