@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using TorchSharp;
 
 namespace Proteomics.RetentionTimePrediction.Chronologer
@@ -46,18 +47,24 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         /// Takes the base sequence and the full peptide sequence and returns a tensor for the Chronologer model.
         /// The base sequence is the sequence without modifications and the full peptide sequence is the sequence with modifications.
         /// The model is intended to be used with sequences of length 50 or less, and only supports modifications present in the Chronologer dictionary.
-        /// Unvalid sequences will return null.
+        /// Sequences not supported by chronologer will return null.
         /// </summary>
         /// <param name="baseSequence"></param>
         /// <param name="fullSequence"></param>
         /// <returns></returns>
         private static torch.Tensor Tensorize(string baseSequence, string fullSequence)
         {
+            // Chronologer does not support metals
+            if (fullSequence.Contains("Metal") | (fullSequence.Contains("U") & !fullSequence.Contains("Unimod")))
+            {
+                return null;
+            }
+
             var fullSeq = fullSequence.Split(new[] { '[', ']' })
                 .Where(x => !x.Equals("")).ToArray();
 
 
-            //section to remoce type of mod from the sequence
+            //section to remove type of mod from the sequence
             //e.g. Common Fixed:Carbamidomethyl and only stay with the target aa after the mod
             for (int i = 0; i < fullSeq.Length; i++)
             {
@@ -75,20 +82,20 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                 var tensorCounter = 1; //skips the first element which is the C-terminus in the tensor
                 char modID = ' '; //takes the target aa from inside the loop to hold it for the next loop
 
-                bool mod = fullSequence[0] == '['; // true if the first loop is a mod
+                bool nTerminalMod = fullSequence[0] == '['; // true if the first loop is a mod
 
                 foreach (var subString in fullSeq)
                 {
                     //if mod, enter
-                    if (mod)
+                    if (nTerminalMod)
                     {
                         if(subString.Contains("Acetyl"))
-                            tensor[0][0] = 45; //N-terminus
+                            tensor[0][0] = 39; 
                         else
                         {
-                            tensor[0][0] = 44; //AcetlatedN-terminus
+                            tensor[0][0] = 38; 
                         }
-                        mod = false; //next iteration is not a mod
+                        nTerminalMod = false; //next iteration is not a mod
                         continue;
                     }
 
@@ -105,10 +112,10 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                         modID = subString[subString.Length - 1];
                     }
 
-                    mod = true;
+                    nTerminalMod = true;
                 }
 
-                tensor[0][tensorCounter] = 38; //C-terminus
+                tensor[0][tensorCounter] = 44; //C-terminus
 
                 return tensor;
             }
@@ -155,7 +162,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                 { ('R', "Dimethylation on R"), 35 }, //'Dimethyl
                 {('-', "Free N-terminal"), 38},
                 {('^', "N-acetyl"), 39},
-                {('(', "S-carbamidomethylcysteine cyclization"), 40},
+                {('(', "Pyro-carbamidomethyl on C"), 40}, //S-carbamidomethylcysteine
                 {(')', "pyroglutamate"), 41},
                 {('&', "N-terminal TMT0"), 42},
                 {('&', "N-terminal TMT10"), 43},

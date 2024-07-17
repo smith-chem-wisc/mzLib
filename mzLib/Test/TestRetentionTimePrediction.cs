@@ -728,26 +728,36 @@ namespace Test
                 ("GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK", "GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK"),
                 ("FASDDEHDEHDENGATGPVK", "FAS[Common Biological:Phosphorylation on S]DDEHDEHDENGATGPVK"),
                 ("AETLSGLGDSGAAGAAALSSASSETGTR", "[Common Biological:Acetylation on X]AETLSGLGDSGAAGAAALSSASSETGTR"),
-                ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+                ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+                ("ASASSSACSSDSDS", "ASASSSA[Unimod:Pyro-carbamidomethyl on C]CSSDSDS"),
+                ("GAGTGGLGLAVEGPSEAK", "GAGTGGLGLAVE[Metal:Sodium on E]GPSEAK"),
+                ("UUUUUUU", "UUUUUUU")
             };
 
             var noMods =
                 ChronologerEstimator.PredictRetentionTime(testingData[0].Item1, testingData[0].Item2);
-
-            Assert.AreEqual(noMods.GetType(), typeof(double));
+            Assert.That(noMods.HasValue);
 
             var withMiddleMods =
                 ChronologerEstimator.PredictRetentionTime(testingData[1].Item1, testingData[1].Item2);
-            Assert.AreEqual(withMiddleMods.GetType(), typeof(double));
+            Assert.That(withMiddleMods.HasValue);
 
             var withBegginingMods =
                 ChronologerEstimator.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
-            
-            Assert.AreEqual(withBegginingMods.GetType(), typeof(double));
+            Assert.That(withBegginingMods.HasValue);
 
             var invalidSequence = ChronologerEstimator.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2);
-            Assert.That(invalidSequence == null);
+            Assert.That(invalidSequence.HasValue == false);
 
+            var pyroCarbamidomethyl =
+                ChronologerEstimator.PredictRetentionTime(testingData[4].Item1, testingData[4].Item2);
+            Assert.That(pyroCarbamidomethyl.HasValue);
+
+            var metals = ChronologerEstimator.PredictRetentionTime(testingData[5].Item1, testingData[5].Item2);
+            Assert.That(metals.HasValue == false);
+
+            var uAminoAcid = ChronologerEstimator.PredictRetentionTime(testingData[6].Item1, testingData[6].Item2);
+            Assert.That(uAminoAcid.HasValue == false);
 
         }
     }
