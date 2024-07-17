@@ -153,6 +153,13 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                 { ('K', "Trimethylation on K"), 33 }, //'Trimethyl
                 { ('R', "Methylation on R"), 34 }, //'Monomethyl
                 { ('R', "Dimethylation on R"), 35 }, //'Dimethyl
+                {('-', "Free N-terminal"), 38},
+                {('^', "N-acetyl"), 39},
+                {('(', "S-carbamidomethylcysteine cyclization"), 40},
+                {(')', "pyroglutamate"), 41},
+                {('&', "N-terminal TMT0"), 42},
+                {('&', "N-terminal TMT10"), 43},
+                {('_', "Free C-terminal"), 44},
             };
     }
 }
