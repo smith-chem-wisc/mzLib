@@ -1,28 +1,23 @@
-﻿using Easy.Common.Extensions;
+﻿using Chemistry;
+using Easy.Common.Extensions;
+using FlashLFQ;
+using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Chemistry;
-using FlashLFQ;
-using MassSpectrometry;
-using MzLibUtil;
-using Proteomics.AminoAcidPolymer;
-using UsefulProteomicsDatabases;
-using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
-using Stopwatch = System.Diagnostics.Stopwatch;
 using Test.FileReadingTests;
-using Test.FileReadingTests;
-using UsefulProteomicsDatabases;
-using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
-using Stopwatch = System.Diagnostics.Stopwatch;
 using TopDownProteomics;
+using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
@@ -493,15 +488,15 @@ namespace Test
         public static void TestFlashLfqMatchBetweenRuns()
         {
             List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> 
-                { 
-                "PEPTIDE", 
-                "PEPTIDEV", 
-                "PEPTIDEVV", 
+            List<string> pepSequences = new List<string>
+                {
+                "PEPTIDE",
+                "PEPTIDEV",
+                "PEPTIDEVV",
                 "TARGETPEP",
                 "PEPTIDEVVV",
-                "PEPTIDEVVVV", 
-                "PEPTIDEVVVVA", 
+                "PEPTIDEVVVV",
+                "PEPTIDEVVVVA",
                 "PEPTIDEVVVVAA"
             };
             double intensity = 1e6;
@@ -1675,7 +1670,7 @@ namespace Test
             peak2.CalculateIntensityForThisFeature(false);
 
             FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 },
-                new HashSet<string> { "peptide1", "peptide2"});
+                new HashSet<string> { "peptide1", "peptide2" });
             res.Peaks[fraction1].Add(peak1);
             res.Peaks[fraction2].Add(peak2);
             res.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
