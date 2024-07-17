@@ -1017,6 +1017,28 @@ namespace FlashLFQ
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, out var bestDecoy, 
                                 randomRt: decoyRtInfo.PredictedRt);
                             AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestDecoy, donorPeak.Identifications.First());
+
+                            double windowWidth = 0.5;
+                            // If the search turned up empty, try again with a wider search window
+                            while (bestAcceptor == null && bestDecoy == null)
+                            {
+                                windowWidth = Math.Min(windowWidth, MbrRtWindow);
+                                rtInfo.Width = windowWidth;
+                                FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, out bestAcceptor);
+                                AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestAcceptor, donorPeak.Identifications.First());
+                                FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, out bestDecoy,
+                                    randomRt: decoyRtInfo.PredictedRt);
+                                AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestDecoy, donorPeak.Identifications.First());
+                                if (windowWidth >= MbrRtWindow)
+                                {
+                                    break;
+                                }
+                                else
+                                {
+                                    windowWidth += 0.5;
+                                }
+                            }
+
                         }
                     });
             }
@@ -1224,6 +1246,13 @@ namespace FlashLFQ
                     }
                 }
             }
+
+            //// Re-Do the whole thing with a much wider window if no suitable acceptor was found
+            //if (bestAcceptor == null && rtInfo.Width < MbrRtWindow)
+            //{
+            //    rtInfo.Width = MbrRtWindow;
+            //    FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, fileSpecificTol, donorPeak, out bestAcceptor, randomRt);
+            //}
         }
 
         /// <summary>
@@ -1408,11 +1437,17 @@ namespace FlashLFQ
             List<ChromatographicPeak> mbrPeaks;
             if (usePep)
             {
+                // Take only the top scoring acceptor for each donor (acceptor can be target or decoy!)
+                // Maybe we're sorting twice when we don't have to but idk if order is preserved using group by
                 mbrPeaks = _results.Peaks[acceptorFile]
                     .Where(peak => peak.IsMbrPeak)
+                    .GroupBy(peak => peak.Identifications.First())
+                    .Select(group => group.OrderBy(peak => peak.PipPep).ThenByDescending(peak => peak.MbrScore).First())
                     .OrderBy(peak => peak.PipPep)
                     .ThenByDescending(peak => peak.MbrScore)
                     .ToList();
+
+                _results.Peaks[acceptorFile] = mbrPeaks.Concat(_results.Peaks[acceptorFile].Where(peak => !peak.IsMbrPeak)).ToList();
             }
             else
             {

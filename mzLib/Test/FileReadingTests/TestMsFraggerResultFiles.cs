@@ -126,7 +126,7 @@ namespace Test.FileReadingTests
             var results = engine.Run();
 
 
-            string baseOutputDirectory = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\Fragger_1Percent_PeptideLv_ReportDecoys\Flash315";
+            string baseOutputDirectory = @"D:\Kelly_TwoProteomeData\MsConvertMzMls\Fragger_1Percent_PeptideLv_ReportDecoys\Flash_WideWindow_Paired_1Min";
             Directory.CreateDirectory(baseOutputDirectory);
 
             results.WriteResults(

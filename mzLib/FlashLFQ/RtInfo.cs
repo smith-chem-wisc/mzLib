@@ -9,7 +9,7 @@ namespace FlashLFQ
     public class RtInfo
     {
         public double PredictedRt { get; }
-        public double Width { get; }
+        public double Width { get; set; }
         public double RtStartHypothesis => PredictedRt - (Width / 2.0);
         public double RtEndHypothesis => PredictedRt + (Width / 2.0);
 

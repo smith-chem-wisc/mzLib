@@ -161,7 +161,7 @@ namespace FlashLFQ.PEP
             #endregion
             #region Iterative Training
 
-            for(int trainingIteration = 0; trainingIteration < 4; trainingIteration++)
+            for(int trainingIteration = 0; trainingIteration < 9; trainingIteration++)
             {
                 ChromatographicPeakDataGroups = new IEnumerable<ChromatographicPeakData>[numGroups];
                 for (int i = 0; i < numGroups; i++)
