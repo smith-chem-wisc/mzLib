@@ -868,7 +868,7 @@ namespace FlashLFQ
             List<ChromatographicPeak> randomPeakCandidates = peaksOrderedByMass
                 .Where(p => 
                     p.ApexRetentionTime > 0
-                    && Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > retentionTimeMinDiff
+                    //&& Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > retentionTimeMinDiff
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) > minDiff
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) < maxDiff)
                 .ToList();
@@ -880,7 +880,7 @@ namespace FlashLFQ
                 randomPeakCandidates = peaksOrderedByMass
                 .Where(p =>
                     p.ApexRetentionTime > 0
-                    && Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > retentionTimeMinDiff
+                    //&& Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > retentionTimeMinDiff
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) > minDiff
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) < maxDiff)
                 .ToList();
