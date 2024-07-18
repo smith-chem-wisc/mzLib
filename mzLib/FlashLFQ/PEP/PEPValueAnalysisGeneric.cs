@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Omics;
 using Microsoft.FSharp.Collections;
 using System.Collections;
+using System.Security.Policy;
 
 namespace FlashLFQ.PEP
 {
@@ -19,7 +20,6 @@ namespace FlashLFQ.PEP
         public Identification DonorId { get; }
         public List<ChromatographicPeak> TargetAcceptors { get; }
         public List<ChromatographicPeak> DecoyAcceptors { get; }
-        public bool IsPeakDecoy { get; }
 
         public DonorGroup(Identification donorId, List<ChromatographicPeak> targetAcceptors, List<ChromatographicPeak> decoyAcceptors)
         {
@@ -30,8 +30,10 @@ namespace FlashLFQ.PEP
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(DonorId.GetHashCode(), IsPeakDecoy.GetHashCode());
+            return HashCode.Combine(DonorId.GetHashCode());
         }
+
+        public int TargetDecoyCountDifference => TargetAcceptors.Count - DecoyAcceptors.Count;
 
         public ChromatographicPeak BestTargetByScore => TargetAcceptors.Count == 0 ? null : TargetAcceptors.MaxBy(acceptor => acceptor.MbrScore);
         public ChromatographicPeak BestDecoyByScore => DecoyAcceptors.Count == 0 ? null : DecoyAcceptors.MaxBy(acceptor => acceptor.MbrScore);
@@ -89,8 +91,8 @@ namespace FlashLFQ.PEP
             }
 
             // Fix the order
-            donors = donors.OrderByDescending(donor => donor.DecoyAcceptors.Count)
-                .ThenByDescending(donor => donor.TargetAcceptors.Count)
+            donors = donors.OrderByDescending(donor => donor.TargetAcceptors.Count)
+                .ThenByDescending(donor => donor.DecoyAcceptors.Count)
                 .ThenByDescending(donor => donor.BestTargetMbrScore)
                 .ToList();
 
@@ -210,11 +212,9 @@ namespace FlashLFQ.PEP
         public static List<int>[] Get_Donor_Group_Indices(List<DonorGroup> donors, int numGroups)
         {
             List<int>[] groupsOfIndices = new List<int>[numGroups];
-            List<int>[] groupsOfDecoyCounts = new List<int>[numGroups];
             for (int i = 0; i < numGroups; i++)
             {
                 groupsOfIndices[i] = new List<int>();
-                groupsOfDecoyCounts[i] = new List<int>();
             }
 
             int myIndex = 0;
@@ -225,12 +225,207 @@ namespace FlashLFQ.PEP
                 while (subIndex < numGroups && myIndex < donors.Count)
                 {
                     groupsOfIndices[subIndex].Add(myIndex);
+
                     subIndex++;
                     myIndex++;
                 }
             }
 
+            // We're trying to equalize the number of targets and decoys in each group
+            // This is going to be extremely cursed
+            for(int i = 0; i < numGroups-1; i++)
+            {
+                int targets1 = 0;
+                int targets2 = 0;
+                int decoys1 = 0;
+                int decoys2 = 0;
+                foreach (int index in groupsOfIndices[i])
+                {
+                    targets1 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff);
+                    decoys1 += donors[index].DecoyAcceptors.Count;
+                }
+                foreach (int index in groupsOfIndices[i + 1])
+                {
+                    targets2 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff);
+                    decoys2 += donors[index].DecoyAcceptors.Count;
+                }
+
+                bool stuck = false;
+                int minIndex = groupsOfIndices[i].Min();
+
+                int targetSurplus = targets1 - targets2;
+                int decoySurplus = decoys1 - decoys2;
+                while((Math.Abs(targetSurplus) > 1 | Math.Abs(decoySurplus) > 1) 
+                    && !stuck)
+                {
+                    bool swapped = false;
+
+                    // start from the bottom of group 1, trying to swap peaks.
+                    // Lets do targets first
+                    while (Math.Abs(targetSurplus) > 1 & !stuck)
+                    {
+                        swapped = false;
+                        foreach (int index in groupsOfIndices[i].OrderByDescending(idx => idx))
+                        {
+                            if (targetSurplus > 0)
+                            {
+                                if (donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) > 1)  // if we have a positive number of targets
+                                {
+                                    foreach (int jndex in groupsOfIndices[i + 1].OrderByDescending(idx => idx))
+                                    {
+                                        if (donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) < donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff))
+                                        {
+                                            // Multiply by two because the surplus is the difference between the two groups
+                                            // So removing one peak from one group and adding it to the other group is a difference of two
+                                            targetSurplus += 2 * (
+                                                donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) -
+                                                donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff));
+                                            decoySurplus += 2 * (
+                                                donors[jndex].DecoyAcceptors.Count -
+                                                donors[index].DecoyAcceptors.Count);
+
+                                            groupsOfIndices[i].Add(jndex);
+                                            groupsOfIndices[i].Remove(index);
+
+                                            groupsOfIndices[i + 1].Add(index);
+                                            groupsOfIndices[i + 1].Remove(jndex);
+
+                                            swapped = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            else if (targetSurplus < 0)
+                            {
+                                foreach (int jndex in groupsOfIndices[i + 1].OrderByDescending(idx => idx))
+                                {
+                                    if (donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) > donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff))
+                                    {
+                                        targetSurplus += 2 * (
+                                                donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) -
+                                                donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff));
+                                        decoySurplus += 2 * (
+                                            donors[jndex].DecoyAcceptors.Count -
+                                            donors[index].DecoyAcceptors.Count);
+
+                                        groupsOfIndices[i].Add(jndex);
+                                        groupsOfIndices[i].Remove(index);
+                                        groupsOfIndices[i + 1].Add(index);
+                                        groupsOfIndices[i + 1].Remove(jndex);
+
+                                        swapped = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if(swapped == true)
+                            {
+                                break;
+                            }
+                        }
+                    }
+
+                    // Now we'll do the decoys
+                    while (Math.Abs(decoySurplus) > 1 & !stuck)
+                    {
+                        swapped = false;
+                        foreach (int index in groupsOfIndices[i].OrderByDescending(idx => idx))
+                        {
+
+                            if (decoySurplus > 0)
+                            {
+                                if (donors[index].DecoyAcceptors.Count > 1) // if we have enough decoys to get rid of
+                                {
+                                    foreach (int jndex in groupsOfIndices[i + 1].OrderByDescending(idx => idx))
+                                    {
+                                        if (donors[jndex].DecoyAcceptors.Count < donors[index].DecoyAcceptors.Count
+                                            && donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) == donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff))
+                                        {
+                                            targetSurplus += 2 * (
+                                                donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) -
+                                                donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff));
+                                            decoySurplus += 2 * (
+                                                donors[jndex].DecoyAcceptors.Count -
+                                                donors[index].DecoyAcceptors.Count);
+
+                                            groupsOfIndices[i].Add(jndex);
+                                            groupsOfIndices[i].Remove(index);
+                                            groupsOfIndices[i + 1].Add(index);
+                                            groupsOfIndices[i + 1].Remove(jndex);
+
+                                            swapped = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            else if (decoySurplus < 0)
+                            {
+                                foreach (int jndex in groupsOfIndices[i + 1].OrderByDescending(idx => idx))
+                                {
+                                    if (donors[jndex].DecoyAcceptors.Count > donors[index].DecoyAcceptors.Count
+                                        && donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) == donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff))
+                                    {
+                                        targetSurplus += 2 * (
+                                                donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff) -
+                                                donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff));
+                                        decoySurplus += 2 * (
+                                            donors[jndex].DecoyAcceptors.Count -
+                                            donors[index].DecoyAcceptors.Count);
+
+                                        groupsOfIndices[i].Add(jndex);
+                                        groupsOfIndices[i].Remove(index);
+                                        groupsOfIndices[i + 1].Add(index);
+                                        groupsOfIndices[i + 1].Remove(jndex);
+
+                                        swapped = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (swapped)
+                            {
+                                break;
+                            }
+                            if (index == minIndex)
+                            {
+                                stuck = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                targets1 = 0;
+                targets2 = 0;
+                decoys1 = 0;
+                decoys2 = 0;
+                foreach (int index in groupsOfIndices[i])
+                {
+                    targets1 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff);
+                    decoys1 += donors[index].DecoyAcceptors.Count;
+                }
+                foreach(int index in groupsOfIndices[i + 1])
+                {
+                    targets2 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff);
+                    decoys2 += donors[index].DecoyAcceptors.Count;
+                }
+                int placeholder = 0;
+            }
+
             return groupsOfIndices;
+        }
+
+        /// <summary>
+        /// Negative friendly modulo function
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public static int nfmod(int a, int b)
+        {
+            return a - b * (a / b);
         }
 
         public static IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)

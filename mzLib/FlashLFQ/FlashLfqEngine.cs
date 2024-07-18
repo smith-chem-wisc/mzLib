@@ -1451,6 +1451,8 @@ namespace FlashLFQ
             }
             else
             {
+                // If PEP wasn't performed, things probably aren't calibrated very well, and so it's better
+                // To err on the safe side and not remove the decoys
                 mbrPeaks = _results.Peaks[acceptorFile]
                     .Where(peak => peak.IsMbrPeak)
                     .OrderByDescending(peak => peak.MbrScore)
