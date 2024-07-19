@@ -42,6 +42,7 @@ namespace FlashLFQ
         public readonly double MbrPpmTolerance;
         public readonly double MbrDetectionQValueThreshold;
         private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
+        public double MbrDonorExclusionWindow { get; set; }
 
         // New MBR Settings
         public readonly double RtWindowIncrease = 0;
@@ -115,6 +116,7 @@ namespace FlashLFQ
             double maxMbrWindow = 1.0,
             bool requireMsmsIdInCondition = false,
             double matchBetweenRunsFdrThreshold = 0.05,
+            double mbrDonorExclusionWindow = 0,
 
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
@@ -167,6 +169,7 @@ namespace FlashLFQ
             DonorCriterion = donorCriterion;
             DonorQValueThreshold = donorQValueThreshold;
             MbrDetectionQValueThreshold = matchBetweenRunsFdrThreshold;
+            MbrDonorExclusionWindow = mbrDonorExclusionWindow;
 
             RequireMsmsIdInCondition = requireMsmsIdInCondition;
             Normalize = normalize;
@@ -869,7 +872,7 @@ namespace FlashLFQ
             List<ChromatographicPeak> randomPeakCandidates = peaksOrderedByMass
                 .Where(p => 
                     p.ApexRetentionTime > 0
-                    //&& Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > retentionTimeMinDiff
+                    && Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > MbrDonorExclusionWindow
                     && p.Identifications.First().BaseSequence != donorIdentification.BaseSequence
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) > minDiff
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) < maxDiff)
@@ -882,7 +885,7 @@ namespace FlashLFQ
                 randomPeakCandidates = peaksOrderedByMass
                 .Where(p =>
                     p.ApexRetentionTime > 0
-                    //&& Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > retentionTimeMinDiff
+                    && Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > MbrDonorExclusionWindow
                     && p.Identifications.First().BaseSequence != donorIdentification.BaseSequence
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) > minDiff
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) < maxDiff)
