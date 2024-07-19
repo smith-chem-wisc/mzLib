@@ -23,6 +23,7 @@ namespace Readers
         MsFraggerPeptide,
         MsFraggerProtein,
         FlashLFQQuantifiedPeak,
+        CruxResult
     }
 
     public static class SupportedFileTypeExtensions
@@ -56,6 +57,7 @@ namespace Readers
                 SupportedFileType.MsFraggerPeptide => "peptide.tsv",
                 SupportedFileType.MsFraggerProtein => "protein.tsv",
                 SupportedFileType.FlashLFQQuantifiedPeak => "Peaks.tsv",
+                SupportedFileType.CruxResult => ".txt",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -114,6 +116,11 @@ namespace Readers
                         return SupportedFileType.Tsv_FlashDeconv;
                     throw new MzLibException("Tsv file type not supported");
                 }
+
+                case ".txt":
+                    if (filePath.EndsWith(SupportedFileType.CruxResult.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.CruxResult;
+                    throw new MzLibException("Txt file type not supported");
 
                 default:
                     throw new MzLibException("File type not supported");
