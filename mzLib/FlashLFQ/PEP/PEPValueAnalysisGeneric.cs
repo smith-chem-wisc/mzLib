@@ -253,12 +253,20 @@ namespace FlashLFQ.PEP
                 bool stuck = false;
                 int minIndex = groupsOfIndices[i].Min();
 
+                int totalIterations = 0;
+
                 int targetSurplus = targets1 - targets2;
                 int decoySurplus = decoys1 - decoys2;
                 while((Math.Abs(targetSurplus) > 1 | Math.Abs(decoySurplus) > 1) 
                     && !stuck)
                 {
+                    if(totalIterations > 100)
+                    {
+                        break;
+                    }
+                    totalIterations++;
                     bool swapped = false;
+
 
                     // start from the bottom of group 1, trying to swap peaks.
                     // Lets do targets first
@@ -321,6 +329,11 @@ namespace FlashLFQ.PEP
                             }
                             if(swapped == true)
                             {
+                                break;
+                            }
+                            if (index == minIndex)
+                            {
+                                stuck = true;
                                 break;
                             }
                         }
