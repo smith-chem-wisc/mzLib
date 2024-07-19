@@ -34,7 +34,7 @@ namespace Readers.QuantificationResults
         public double PeptideMonoisotopicMass { get; set; }
 
         [Name("MS2 Retention Time")]
-        public double MS2RetentionTime { get; set; }
+        public double? MS2RetentionTime { get; set; }
 
         [Name("Precursor Charge")]
         public int PrecursorCharge { get; set; }
