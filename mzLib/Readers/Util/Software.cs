@@ -1,5 +1,4 @@
-﻿
-namespace Readers
+﻿namespace Readers
 {
     public enum Software
     {
@@ -11,6 +10,7 @@ namespace Readers
         MaxQuant,
         Toppic,
         MsFragger, // files tested were from fragpipe v21.1
+        MsPathFinderT,
         Crux
     }
 }
