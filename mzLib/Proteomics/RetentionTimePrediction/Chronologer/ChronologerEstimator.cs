@@ -55,7 +55,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         private static torch.Tensor Tensorize(string baseSequence, string fullSequence)
         {
             // Chronologer does not support metals
-            if (fullSequence.Contains("Metal") | (fullSequence.Contains("U") & !fullSequence.Contains("Unimod")))
+            if (fullSequence.Contains("Metal") || baseSequence.Contains("U"))
             {
                 return null;
             }
