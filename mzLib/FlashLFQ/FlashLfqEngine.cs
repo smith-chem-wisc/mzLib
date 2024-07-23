@@ -116,7 +116,7 @@ namespace FlashLFQ
             double maxMbrWindow = 1.0,
             bool requireMsmsIdInCondition = false,
             double matchBetweenRunsFdrThreshold = 0.05,
-            double mbrDonorExclusionWindow = 0,
+            double mbrDonorExclusionWindow = -1,
 
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
@@ -868,11 +868,17 @@ namespace FlashLFQ
             double maxDiff = 11 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
             double donorPeakPeakfindingMass = donorIdentification.PeakfindingMass;
 
+
+            if(MbrDonorExclusionWindow >= 0)
+            {
+                retentionTimeMinDiff = MbrDonorExclusionWindow;
+            }
+
             // Theoretically we could do a binary search but we're just going to iterate through the whole list of donor peaks
             List<ChromatographicPeak> randomPeakCandidates = peaksOrderedByMass
                 .Where(p => 
                     p.ApexRetentionTime > 0
-                    && Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > MbrDonorExclusionWindow
+                    && Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > retentionTimeMinDiff
                     && p.Identifications.First().BaseSequence != donorIdentification.BaseSequence
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) > minDiff
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) < maxDiff)
@@ -885,7 +891,7 @@ namespace FlashLFQ
                 randomPeakCandidates = peaksOrderedByMass
                 .Where(p =>
                     p.ApexRetentionTime > 0
-                    && Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > MbrDonorExclusionWindow
+                    && Math.Abs(p.ApexRetentionTime - donorPeakRetentionTime) > retentionTimeMinDiff
                     && p.Identifications.First().BaseSequence != donorIdentification.BaseSequence
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) > minDiff
                     && Math.Abs(p.Identifications.First().PeakfindingMass - donorPeakPeakfindingMass) < maxDiff)
@@ -1008,7 +1014,7 @@ namespace FlashLFQ
                             AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestAcceptor, donorPeak.Identifications.First());
 
                             //Draw a random donor that has an rt sufficiently far enough away
-                            double minimumRtDifference = rtInfo.Width;
+                            double minimumRtDifference = rtInfo.Width*2;
                             ChromatographicPeak randomDonor = GetRandomPeak(donorPeaksMassOrdered,
                                 donorPeak.ApexRetentionTime,
                                 minimumRtDifference,
