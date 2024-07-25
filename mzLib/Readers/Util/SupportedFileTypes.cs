@@ -22,6 +22,7 @@ namespace Readers
         MsFraggerPsm,
         MsFraggerPeptide,
         MsFraggerProtein,
+        FlashLFQQuantifiedPeak,
         MsPathFinderTTargets,
         MsPathFinderTDecoys,
         MsPathFinderTAllResults,
@@ -58,6 +59,7 @@ namespace Readers
                 SupportedFileType.MsFraggerPsm => "psm.tsv",
                 SupportedFileType.MsFraggerPeptide => "peptide.tsv",
                 SupportedFileType.MsFraggerProtein => "protein.tsv",
+                SupportedFileType.FlashLFQQuantifiedPeak => "Peaks.tsv",
                 SupportedFileType.MsPathFinderTTargets => "_IcTarget.tsv",
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
@@ -106,6 +108,8 @@ namespace Readers
                         return SupportedFileType.MsFraggerPeptide;
                     if (filePath.EndsWith(SupportedFileType.MsFraggerProtein.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsFraggerProtein;
+                    if (filePath.EndsWith(SupportedFileType.FlashLFQQuantifiedPeak.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.FlashLFQQuantifiedPeak;
                     if (filePath.EndsWith(SupportedFileType.MsPathFinderTTargets.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsPathFinderTTargets;
                     if (filePath.EndsWith(SupportedFileType.MsPathFinderTDecoys.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
