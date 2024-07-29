@@ -101,5 +101,15 @@ namespace MzLibUtil
             return true;
         }
 
+        /// <summary>
+        /// Extension method to invoke the GetPeriodTolerantFileNameWithoutExtension method
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static string GetPeriodTolerantFilenameWithoutExtension(this string filePath)
+        {
+            return PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(filePath);
+        }
+
     }
 }

@@ -1,5 +1,7 @@
 ﻿using Chemistry;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System;
