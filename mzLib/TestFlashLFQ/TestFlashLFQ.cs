@@ -609,35 +609,24 @@ namespace Test
 
             Assert.That(peak.Intensity > 0);
             Assert.That(peak.Intensity == otherFilePeak.Intensity);
-            Assert.That(peak.RtHypothesis.HasValue);
-            Assert.That(peak.RtHypothesis, Is.EqualTo(1.03).Within(0.01));
             List<double> rtDiffs = new();
             for (int i = 0; i < 5; i++)
             {
                 if (i == 2) continue; // exclude the mbr peak from the calculation
                 rtDiffs.Add(Math.Abs(file1Rt[i] - file2Rt[i]));
             }
-            Assert.That(peak.RtStdDev.HasValue);
-            Assert.That(!peak.RtInterquartileRange.HasValue);
-            Assert.That(peak.RtStdDev, Is.EqualTo(rtDiffs.StandardDeviation()).Within(0.01));
 
             Assert.That(results.Peaks[file1].Count == 5);
             Assert.That(!results.Peaks[file1].Any(p => p.IsMbrPeak));
-            Assert.That(!results.Peaks[file1].Any(p => p.RtHypothesis.HasValue));
 
             results = interquartileEngine.Run();
             peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
 
-            Assert.That(peak.RtHypothesis.HasValue);
-            Assert.That(peak.RtHypothesis, Is.EqualTo(1.04).Within(0.01));
             for (int i = 0; i < 5; i++)
             {
                 if (i == 2) continue; // exclude the mbr peak from the calculation
                 rtDiffs.Add(Math.Abs(file1Rt[i] - file2Rt[i]));
             }
-            Assert.That(!peak.RtStdDev.HasValue);
-            Assert.That(peak.RtInterquartileRange.HasValue);
-            Assert.That(peak.RtInterquartileRange, Is.EqualTo(rtDiffs.InterquartileRange()).Within(0.01));
 
             // The ambiguous engine tests that a non-confident ID (i.e., a PSM that didn't make the peptide level fdr cutoff) 
             // gets overwritten by a MBR transfer of a confident ID, and that non-confident IDs are overwriteen by confident MS2 ids
@@ -1373,7 +1362,7 @@ namespace Test
                 ids.Add(id);
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 5);
             var results = engine.Run();
 
             var f1r1MbrResults = results
@@ -1385,7 +1374,7 @@ namespace Test
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
-            Assert.That(f1r2MbrResults.Count >= 77);
+            Assert.GreaterOrEqual(f1r2MbrResults.Count, 77);
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 
@@ -1397,7 +1386,7 @@ namespace Test
             }
 
             double corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-            Assert.That(corr > 0.8);
+            Assert.Greater(corr, 0.8);
 
             peptideIntensities.Clear();
             foreach (var peptide in f1r2MbrResults)
@@ -1409,12 +1398,13 @@ namespace Test
 
             corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
 
-            Assert.That(corr > 0.7);
+            // Update means more MBR-detections, which decreases the correlation slightly. Will increase again when we begin filtering based on MBR score
+            Assert.Greater(corr, 0.69);
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
             f1r1.Condition = "b";
-            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1);
+            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 5);
             results = engine.Run();
             var proteinsObservedInF1 = ids.Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
             var proteinsObservedInF2 = ids.Where(p => p.FileInfo == f1r2).SelectMany(p => p.ProteinGroups).Distinct().ToList();
