@@ -14,14 +14,9 @@ namespace Readers.ExternalResults.BaseClasses
         public string FullFilePath { get; set; }
 
         /// <summary>
-        /// A list containing the accession number of every protein associated with the given result
+        /// A list of tuples, each of which represent a protein. Each tuple contains the accession number, gene name, and organism associated with the given result
         /// </summary>
-        public List<string> ProteinAccessions { get; set; }
-
-        /// <summary>
-        /// A list containing the name of every gene associated with the given result
-        /// </summary>
-        public List<string> GeneName { get; set; }
+        public List<(string proteinAccessions, string geneName, string organism)> proteinGroupInfos { get; set; }
 
         /// <summary>
         /// The amino acid sequence of the identified peptide
@@ -47,5 +42,12 @@ namespace Readers.ExternalResults.BaseClasses
         /// Defines whether or not the result is a decoy identification
         /// </summary>
         public bool IsDecoy { get; set; }
+
+        /// <summary>
+        /// The mass of the monoisotopic peptide (i.e., no c13 or n15 atoms are present, the lowest possible mass)
+        /// </summary>
+        public double MonoisotopicMass { get; set; }
+
+     
     }
 }
