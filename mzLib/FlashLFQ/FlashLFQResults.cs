@@ -549,7 +549,7 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent = true)
         {
             if (!silent)
             {
