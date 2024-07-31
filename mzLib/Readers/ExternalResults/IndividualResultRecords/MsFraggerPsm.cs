@@ -14,10 +14,14 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics;
 using static System.Net.Mime.MediaTypeNames;
 using ThermoFisher.CommonCore.Data.Interfaces;
+using Readers.ExternalResults.BaseClasses;
+using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
+using Easy.Common.Extensions;
 
 namespace Readers
 {
-    public class MsFraggerPsm
+    public class MsFraggerPsm : IQuantifiableRecord
     {
         public static CsvConfiguration CsvConfiguration = new CsvConfiguration(CultureInfo.InvariantCulture)
         {
@@ -59,7 +63,7 @@ namespace Readers
 
         [Name("Retention")]
         public double RetentionTime { get; set; }
-        
+
         [Name("Observed Mass")]
         public double ObservedMass { get; set; }
 
@@ -155,5 +159,73 @@ namespace Readers
         public int OneBasedScanNumber => _oneBasedScanNumber ??= int.Parse(Spectrum.Split('.')[1]);
 
         #endregion
+
+        #region IQuantifiableRecord Implementation
+
+        [Ignore] public string FileName => SpectrumFilePath;
+
+        // sp|O60814|H2B1K_HUMAN
+        [Ignore] public List<(string, string, string)> ProteinGroupInfos
+        {
+            get 
+            {
+                _proteinGroupInfos ??= AddProteinGroupInfos();
+                return _proteinGroupInfos;
+            }
+        }
+        private List<(string, string, string)> AddProteinGroupInfos ()
+        {
+            _proteinGroupInfos = new List<(string, string, string)> ();
+            string protein = Protein;
+
+            char[] delimiterChars = { '|', '_'};
+            string[] proteinInfo = protein.Split(delimiterChars);
+
+            string proteinAccessions;
+            string geneName;
+            string organism;
+           
+            proteinAccessions = proteinInfo.Length >= 2 ? proteinInfo[1] : "";
+            geneName = proteinInfo.Length >= 3 ? proteinInfo[2] : "";
+            organism = proteinInfo.Length >= 4 ? proteinInfo[3] : ""; ;
+
+            _proteinGroupInfos.Add((proteinAccessions, geneName, organism));
+
+            if (MappedProteins.IsNullOrEmpty()) return _proteinGroupInfos;
+
+            string mappedProteins = MappedProteins;
+            string[] allMappedProteinInfo = mappedProteins.Split(',');
+            foreach (var singleMappedProteinInfo in allMappedProteinInfo)
+            {
+                string[] mappedProteinInfo = singleMappedProteinInfo.Split(delimiterChars);
+
+                proteinAccessions = mappedProteinInfo.Length >= 2 ? mappedProteinInfo[1] : "";
+                geneName = mappedProteinInfo.Length >= 3 ? mappedProteinInfo[2] : "";
+                organism = mappedProteinInfo.Length >= 4 ? mappedProteinInfo[3] : "";
+
+                _proteinGroupInfos.Add((proteinAccessions, geneName, organism));
+            }
+
+            return _proteinGroupInfos;
+        }
+
+        [Ignore] private List<(string, string, string)> _proteinGroupInfos;
+
+        [Ignore] public string ModifiedSequence => FullSequence;
+
+        [Ignore] public int ChargeState => Charge;
+
+        [Ignore] public bool IsDecoy => false;
+
+        [Ignore] public double MonoisotopicMass => CalculatedPeptideMass;
+
+        #endregion
+
+
+
+
+
+
     }
+
 }

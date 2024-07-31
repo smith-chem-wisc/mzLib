@@ -13,5 +13,7 @@ namespace Readers.ExternalResults.BaseClasses
         /// </summary>
         /// <returns> Enumerable that contains identifications for a peptide </returns>
         public IEnumerable<IQuantifiableRecord> GetQuantifiableResults();
+
+        public Dictionary<string, string> FileNametoFilePath { get; set; }
     }
 }

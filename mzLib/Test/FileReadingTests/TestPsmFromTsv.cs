@@ -324,19 +324,19 @@ namespace Test.FileReadingTests
             Assert.Throws<NotImplementedException>(() => { loadedFile.WriteResults(""); });
         }
 
-        [Test]
+        //[Test]
 
-        public static void TestPsmFiles2()
-        {
-            string psmTsvPath = @"C:\Users\Madeleine\Downloads\FlashLFQVignette\FlashLFQVignette\2024-07-23-13-21-53\Task1-SearchTask\AllPeptides.psmtsv";
-            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out var warnings);
-            Assert.That(warnings.Count == 0);
+        //public static void TestPsmFiles2()
+        //{
+        //    string psmTsvPath = @"C:\Users\Madeleine\Downloads\FlashLFQVignette\FlashLFQVignette\2024-07-23-13-21-53\Task1-SearchTask\AllPeptides.psmtsv";
+        //    List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out var warnings);
+        //    Assert.That(warnings.Count == 0);
 
-            IResultFile loadedFile = FileReader.ReadFile<PsmFromTsvFile>(psmTsvPath);
+        //    IResultFile loadedFile = FileReader.ReadFile<PsmFromTsvFile>(psmTsvPath);
 
-            Assert.That(loadedFile.FileType == SupportedFileType.psmtsv);
-            Assert.Throws<NotImplementedException>(() => { loadedFile.WriteResults(""); });
-        }
+        //    Assert.That(loadedFile.FileType == SupportedFileType.psmtsv);
+        //    Assert.Throws<NotImplementedException>(() => { loadedFile.WriteResults(""); });
+        //}
 
         [Test]
         public static void ReadPsmFromTsvWithNewHeaderTerms()

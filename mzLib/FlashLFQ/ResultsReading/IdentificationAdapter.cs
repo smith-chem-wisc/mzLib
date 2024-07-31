@@ -10,8 +10,9 @@ namespace FlashLFQ.ResultsReading
 {
     public static class IdentificationAdapter
     {
-        public static List<Identification> MakeIdentifications(IEnumerable<IQuantifiableRecord> quantifiableRecords)
+        public static List<Identification> MakeIdentifications(IQuantifiable quantifiable)
         {
+            IEnumerable<IQuantifiableRecord> quantifiableRecords = quantifiable.GetQuantifiableResults();
             List<Identification> identifications = new List<Identification>();
             Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
             Dictionary<string, SpectraFileInfo> allFiles = new Dictionary<string, SpectraFileInfo>();
@@ -25,18 +26,18 @@ namespace FlashLFQ.ResultsReading
                 int precursurChargeState = record.ChargeState;
 
                 SpectraFileInfo file = null;
-                if (allFiles.TryGetValue(record.FullFilePath, out var fileInfo))
+                if (allFiles.TryGetValue(record.FileName, out var fileInfo))
                 {
-                    file = new SpectraFileInfo(record.FullFilePath, "", 1, 1, 1);
+                    file = new SpectraFileInfo(record.FileName, "", 1, 1, 1);
                 }
                 else
                 {
-                    file = new SpectraFileInfo(record.FullFilePath, "", 1, 1, 1);
-                    allFiles.Add(record.FullFilePath, fileInfo);
+                    file = new SpectraFileInfo(record.FileName, "", 1, 1, 1);
+                    allFiles.Add(record.FileName, fileInfo);
                 }
 
                 List<ProteinGroup> proteinGroups = new();
-                foreach (var info in record.proteinGroupInfos)
+                foreach (var info in record.ProteinGroupInfos)
                 {
                     if (allProteinGroups.TryGetValue(info.proteinAccessions, out var proteinGroup))
                     {
