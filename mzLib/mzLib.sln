@@ -33,9 +33,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Development", "Development\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Readers", "Readers\Readers.csproj", "{E27A5C14-0C05-466A-91CE-ABB5151A69C4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Omics", "Omics\Omics.csproj", "{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Omics", "Omics\Omics.csproj", "{48CA975B-65DD-4A03-89A3-EA2448293894}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Transcriptomics", "Transcriptomics\Transcriptomics.csproj", "{559BAA74-8C17-4650-AAF8-FFB79DA88007}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Transcriptomics", "Transcriptomics\Transcriptomics.csproj", "{4661C249-5B9A-4D9F-B852-15EAF3B4F9A3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -125,26 +125,26 @@ Global
 		{04615EBF-20FC-437C-9CF7-47DA6260FAE3}.Debug|x64.ActiveCfg = Debug|x64
 		{04615EBF-20FC-437C-9CF7-47DA6260FAE3}.Debug|x64.Build.0 = Debug|x64
 		{04615EBF-20FC-437C-9CF7-47DA6260FAE3}.Release|x64.ActiveCfg = Release|x64
-		{04615EBF-20FC-437C-9CF7-47DA6260FAE3}.TestAndRelease|x64.ActiveCfg = Release|Any CPU
-		{04615EBF-20FC-437C-9CF7-47DA6260FAE3}.TestAndRelease|x64.Build.0 = Release|Any CPU
+		{04615EBF-20FC-437C-9CF7-47DA6260FAE3}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{04615EBF-20FC-437C-9CF7-47DA6260FAE3}.TestAndRelease|x64.Build.0 = Release|x64
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.Debug|x64.ActiveCfg = Debug|x64
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.Debug|x64.Build.0 = Debug|x64
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.Release|x64.ActiveCfg = Release|x64
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.Release|x64.Build.0 = Release|x64
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{E27A5C14-0C05-466A-91CE-ABB5151A69C4}.TestAndRelease|x64.Build.0 = Release|x64
-		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.Debug|x64.ActiveCfg = Debug|x64
-		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.Debug|x64.Build.0 = Debug|x64
-		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.Release|x64.ActiveCfg = Release|x64
-		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.Release|x64.Build.0 = Release|x64
-		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.TestAndRelease|x64.ActiveCfg = Debug|x64
-		{4F8C55B9-2F6E-4A2D-B704-BC3FBAE8F627}.TestAndRelease|x64.Build.0 = Debug|x64
-		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.Debug|x64.ActiveCfg = Debug|x64
-		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.Debug|x64.Build.0 = Debug|x64
-		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.Release|x64.ActiveCfg = Release|x64
-		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.Release|x64.Build.0 = Release|x64
-		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.TestAndRelease|x64.ActiveCfg = Release|x64
-		{559BAA74-8C17-4650-AAF8-FFB79DA88007}.TestAndRelease|x64.Build.0 = Release|x64
+		{48CA975B-65DD-4A03-89A3-EA2448293894}.Debug|x64.ActiveCfg = Debug|x64
+		{48CA975B-65DD-4A03-89A3-EA2448293894}.Debug|x64.Build.0 = Debug|x64
+		{48CA975B-65DD-4A03-89A3-EA2448293894}.Release|x64.ActiveCfg = Release|x64
+		{48CA975B-65DD-4A03-89A3-EA2448293894}.Release|x64.Build.0 = Release|x64
+		{48CA975B-65DD-4A03-89A3-EA2448293894}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{48CA975B-65DD-4A03-89A3-EA2448293894}.TestAndRelease|x64.Build.0 = Release|x64
+		{4661C249-5B9A-4D9F-B852-15EAF3B4F9A3}.Debug|x64.ActiveCfg = Debug|x64
+		{4661C249-5B9A-4D9F-B852-15EAF3B4F9A3}.Debug|x64.Build.0 = Debug|x64
+		{4661C249-5B9A-4D9F-B852-15EAF3B4F9A3}.Release|x64.ActiveCfg = Release|x64
+		{4661C249-5B9A-4D9F-B852-15EAF3B4F9A3}.Release|x64.Build.0 = Release|x64
+		{4661C249-5B9A-4D9F-B852-15EAF3B4F9A3}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{4661C249-5B9A-4D9F-B852-15EAF3B4F9A3}.TestAndRelease|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
