@@ -10,14 +10,10 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public class ClassicDeconvolutionAlgorithm : DeconvolutionAlgorithm
+    public class ClassicDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
+        : DeconvolutionAlgorithm(deconParameters)
     {
         private MzSpectrum spectrum;
-
-        public ClassicDeconvolutionAlgorithm(DeconvolutionParameters deconParameters) : base(deconParameters)
-        {
-
-        }
 
         /// <summary>
         /// Override to deconvolute the spectra using the Classic Deconvolution algorithm
