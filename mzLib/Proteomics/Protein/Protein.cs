@@ -803,15 +803,15 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// This function takes in a decoy protein and a list of sequences within the base sequence
-        /// of the decoy protein that need to be scrambled. It will scramble the required sequences,
-        /// leaving cleavage sites intact. Additionally, a list of forbidden sequences can be passed 
-        /// in (e.g., target peptides that decoys shouldn't collide with). The forbidden sequences will
-        /// be avoided when creating a new scrambled protein sequence.
+        /// This function takes in a decoy protein and a list of forbidden sequences that the decoy
+        /// protein should not contain. Optionally, a list of the peptides within the base sequence
+        /// of the decoy protein that need to be scrambled can be passed as well. It will scramble the required sequences,
+        /// leaving cleavage sites intact. 
         /// </summary>
         /// <param name="originalDecoyProtein"> A Decoy protein to be cloned </param>
-        /// <param name="sequencesToScramble"> Regions within the decoy protein that need to be changed</param>
-        /// <param name="motifs"> Cleavage sites </param>
+        /// <param name="digestionParams"> Digestion parameters </param>
+        /// <param name="forbiddenSequences"> A HashSet of forbidden sequences that the decoy protein should not contain </param>
+        /// <param name="sequencesToScramble"> Optional IEnumberable of sequences within the decoy protein that need to be replaced </param>
         /// <returns> A cloned copy of the decoy protein with a scrambled sequence </returns>
         public static Protein ScrambleDecoyProteinSequence(
             Protein originalDecoyProtein,
@@ -879,10 +879,11 @@ namespace Proteomics
                 n--;
                 if(zeroBasedCleavageSitesLocations.Contains(n))
                 {
-                    // Leave the cleavage array in place
+                    // Leave the cleavage site in place
                     continue;
                 }
                 int k = rng.Next(n + 1);
+                // don't swap the position of a cleavage site
                 while(zeroBasedCleavageSitesLocations.Contains(k))
                 {
                     k = rng.Next(n + 1);

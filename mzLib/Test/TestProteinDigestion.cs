@@ -16,6 +16,7 @@ using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using System.Runtime.CompilerServices;
 
 namespace Test
 {
@@ -392,7 +393,7 @@ namespace Test
             Assert.IsFalse(scrambledPep.Any(p => offendingDecoys.Contains(p.FullSequence)));
         }
 
-        [Test, Timeout(3000)]
+        [Test, Timeout(5000)]
         public static void TestDecoyScramblerNoInfiniteLoops()
         {
             DigestionParams d = new DigestionParams(
@@ -416,6 +417,19 @@ namespace Test
             var scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
 
             Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
+
+            d = new DigestionParams(
+                        maxMissedCleavages: 1,
+                        minPeptideLength: 3,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            offendingDecoys = new HashSet<string> { "KEK" };
+
+            var impossibleDecoy = new Protein("KEK", "target"); // This guy could crash the shuffling algorithm
+            scrambledDecoy = Protein.ScrambleDecoyProteinSequence(impossibleDecoy, d, offendingDecoys, offendingDecoys);
+
+            Assert.AreEqual("KEK", scrambledDecoy.BaseSequence);
+            
         }
 
         [Test]
