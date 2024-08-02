@@ -811,7 +811,8 @@ namespace Proteomics
         /// <param name="originalDecoyProtein"> A Decoy protein to be cloned </param>
         /// <param name="digestionParams"> Digestion parameters </param>
         /// <param name="forbiddenSequences"> A HashSet of forbidden sequences that the decoy protein should not contain </param>
-        /// <param name="sequencesToScramble"> Optional IEnumberable of sequences within the decoy protein that need to be replaced </param>
+        /// <param name="sequencesToScramble"> Optional IEnumberable of sequences within the decoy protein that need to be replaced.
+        ///                                     If this is passed, only sequences within the IEnumerable will be replaced!!! </param>
         /// <returns> A cloned copy of the decoy protein with a scrambled sequence </returns>
         public static Protein ScrambleDecoyProteinSequence(
             Protein originalDecoyProtein,
