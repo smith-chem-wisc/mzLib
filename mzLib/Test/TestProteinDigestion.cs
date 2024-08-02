@@ -360,6 +360,65 @@ namespace Test
         }
 
         [Test]
+        public static void TestDecoyScramblerReplacesPeptides()
+        {
+            DigestionParams d = new DigestionParams(
+                        maxMissedCleavages: 1,
+                        minPeptideLength: 5,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            Protein target = new Protein("MEDEEKFVGYKYGVFK", "target");
+            Protein decoy = new Protein("EEDEMKYGVFKFVGYK", "decoy");
+
+            var targetPep = target.Digest(d, new List<Modification>(), new List<Modification>());
+            var decoyPep = decoy.Digest(d, new List<Modification>(), new List<Modification>());
+
+            HashSet<string> targetPepSeqs = targetPep.Select(p => p.FullSequence).ToHashSet();
+            var offendingDecoys = decoyPep.Where(p => targetPepSeqs.Contains(p.FullSequence)).Select(d => d.FullSequence).ToList();
+
+            Assert.AreEqual(2, offendingDecoys.Count);
+
+            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy,  d, targetPepSeqs, offendingDecoys);
+            var scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
+
+            Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
+            Assert.IsFalse(scrambledPep.Any(p => offendingDecoys.Contains(p.FullSequence)));
+
+            // Check to make sure that decoy generation also works in no offending sequences are passed in
+            scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs);
+            scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
+
+            Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
+            Assert.IsFalse(scrambledPep.Any(p => offendingDecoys.Contains(p.FullSequence)));
+        }
+
+        [Test, Timeout(3000)]
+        public static void TestDecoyScramblerNoInfiniteLoops()
+        {
+            DigestionParams d = new DigestionParams(
+                        maxMissedCleavages: 0,
+                        minPeptideLength: 3,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            Protein target = new Protein("MEK", "target");
+            Protein decoy = new Protein("EMK", "decoy");
+
+            var targetPep = target.Digest(d, new List<Modification>(), new List<Modification>());
+            var decoyPep = decoy.Digest(d, new List<Modification>(), new List<Modification>());
+
+            HashSet<string> targetPepSeqs = targetPep.Select(p => p.FullSequence).ToHashSet();
+            
+            // We'll pretend that this is also a target sequence and can't be used as a decoy
+            HashSet<string> offendingDecoys = new HashSet<string> { "EMK" };
+
+            // You can't win in this scenario, there's no way to scramble that results in a different decoy
+            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs.Union(offendingDecoys).ToHashSet(), offendingDecoys);
+            var scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
+
+            Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
+        }
+
+        [Test]
         /// <summary>
         /// Tests that a PeptideWithSetModifications object can be parsed correctly from a string, with mod info
         /// </summary>

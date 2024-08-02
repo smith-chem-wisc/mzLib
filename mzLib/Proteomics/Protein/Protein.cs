@@ -76,14 +76,14 @@ namespace Proteomics
 
         /// <summary>
         /// Protein construction that clones a protein but assigns a different base sequence
-        /// For use in SILAC experiments
+        /// For use in SILAC experiments and in decoy construction
         /// </summary>
         /// <param name="originalProtein"></param>
-        /// <param name="silacSequence"></param>
+        /// <param name="newBaseSequence"></param>
         /// <param name="silacAccession"></param>
-        public Protein(Protein originalProtein, string silacSequence)
+        public Protein(Protein originalProtein, string newBaseSequence)
         {
-            BaseSequence = silacSequence;
+            BaseSequence = newBaseSequence;
             Accession = originalProtein.Accession;
             NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
@@ -156,7 +156,7 @@ namespace Proteomics
         /// <summary>
         /// Base sequence, which may contain applied sequence variations.
         /// </summary>
-        public string BaseSequence { get; }
+        public string BaseSequence { get; private set; }
 
         public string Organism { get; }
         public bool IsDecoy { get; }
@@ -206,6 +206,7 @@ namespace Proteomics
         {
             var n = GeneNames.FirstOrDefault();
             string geneName = n == null ? "" : n.Item2;
+
             return string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
         }
 
@@ -799,6 +800,99 @@ namespace Proteomics
                 string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
                 return name + variantTag;
             }
+        }
+
+        /// <summary>
+        /// This function takes in a decoy protein and a list of sequences within the base sequence
+        /// of the decoy protein that need to be scrambled. It will scramble the required sequences,
+        /// leaving cleavage sites intact. Additionally, a list of forbidden sequences can be passed 
+        /// in (e.g., target peptides that decoys shouldn't collide with). The forbidden sequences will
+        /// be avoided when creating a new scrambled protein sequence.
+        /// </summary>
+        /// <param name="originalDecoyProtein"> A Decoy protein to be cloned </param>
+        /// <param name="sequencesToScramble"> Regions within the decoy protein that need to be changed</param>
+        /// <param name="motifs"> Cleavage sites </param>
+        /// <returns> A cloned copy of the decoy protein with a scrambled sequence </returns>
+        public static Protein ScrambleDecoyProteinSequence(
+            Protein originalDecoyProtein,
+            DigestionParams digestionParams,
+            HashSet<string> forbiddenSequences,
+            IEnumerable<string> sequencesToScramble = null)
+        {
+            // If no sequencesToScramble are passed in, we check to see if any 
+            // peptides in the decoy are forbidden sequences
+            sequencesToScramble = sequencesToScramble ?? originalDecoyProtein
+                .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .Select(pep => pep.FullSequence)
+                .Where(forbiddenSequences.Contains);
+            if(sequencesToScramble.Count() == 0)
+            {
+                return originalDecoyProtein;
+            }
+
+            string scrambledProteinSequence = originalDecoyProtein.BaseSequence;
+            foreach(string peptideSequence in sequencesToScramble)
+            {
+                if(scrambledProteinSequence.Contains(peptideSequence))
+                {
+                    string scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs);
+                    int scrambleAttempts = 1;
+                    // Try five times to scramble the peptide sequence without creating a forbidden sequence
+                    while(forbiddenSequences.Contains(scrambledPeptideSequence) & scrambleAttempts <= 5)
+                    {
+                        scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs);
+                        scrambleAttempts++;
+                    }
+                    scrambledProteinSequence = scrambledProteinSequence.Replace(peptideSequence, scrambledPeptideSequence);
+                }
+            }
+
+            return new Protein(originalDecoyProtein, scrambledProteinSequence);
+        }
+
+        private static Random rng = new Random();
+
+        /// <summary>
+        /// Scrambles a peptide sequence, preserving the position of any cleavage sites.
+        /// </summary>
+        public static string ScrambleSequence(string sequence, List<DigestionMotif> motifs)
+        {
+            // First, find the location of every cleavage motif. These sites shouldn't be scrambled.
+            HashSet<int> zeroBasedCleavageSitesLocations = new();
+            foreach (var motif in motifs)
+            {
+                for (int i = 0; i < sequence.Length; i++)
+                {
+                    (bool fits, bool prevents) = motif.Fits(sequence, i);
+                    if (fits && !prevents)
+                    {
+                        zeroBasedCleavageSitesLocations.Add(i);
+                    }
+                }
+            }
+
+            // Next, scramble the sequence using the Fisher-Yates shuffle algorithm.
+            char[] sequenceArray = sequence.ToCharArray();
+            int n = sequenceArray.Length;
+            while(n > 1)
+            {
+                n--;
+                if(zeroBasedCleavageSitesLocations.Contains(n))
+                {
+                    // Leave the cleavage array in place
+                    continue;
+                }
+                int k = rng.Next(n + 1);
+                while(zeroBasedCleavageSitesLocations.Contains(k))
+                {
+                    k = rng.Next(n + 1);
+                }
+                char temp = sequenceArray[k];
+                sequenceArray[k] = sequenceArray[n];
+                sequenceArray[n] = temp;
+            }
+
+            return new string(sequenceArray);
         }
 
         public int CompareTo(Protein other)
