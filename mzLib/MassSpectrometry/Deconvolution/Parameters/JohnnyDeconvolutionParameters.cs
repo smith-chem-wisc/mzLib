@@ -10,9 +10,10 @@ namespace MassSpectrometry
     {
         public override DeconvolutionType DeconvolutionType { get; protected set; }
 
-        public JohnnyDeconvolutionParameters(int minCharge, int maxCharge, Polarity polarity = Polarity.Positive) 
-            : base(minCharge, maxCharge, polarity)
+        public JohnnyDeconvolutionParameters(Polarity polarity = Polarity.Positive) 
+            : base(1, 100, polarity)
         {
+
         }
     }
 }
