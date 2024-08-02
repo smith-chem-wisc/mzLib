@@ -850,7 +850,7 @@ namespace Proteomics
             return new Protein(originalDecoyProtein, scrambledProteinSequence);
         }
 
-        private static Random rng = new Random();
+        private static Random rng = new Random(42);
 
         /// <summary>
         /// Scrambles a peptide sequence, preserving the position of any cleavage sites.
