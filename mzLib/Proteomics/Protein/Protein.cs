@@ -810,7 +810,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="originalDecoyProtein"> A Decoy protein to be cloned </param>
         /// <param name="digestionParams"> Digestion parameters </param>
-        /// <param name="forbiddenSequences"> A HashSet of forbidden sequences that the decoy protein should not contain </param>
+        /// <param name="forbiddenSequences"> A HashSet of forbidden sequences that the decoy protein should not contain. Typically, a set of target base sequences </param>
         /// <param name="sequencesToScramble"> Optional IEnumberable of sequences within the decoy protein that need to be replaced.
         ///                                     If this is passed, only sequences within the IEnumerable will be replaced!!! </param>
         /// <returns> A cloned copy of the decoy protein with a scrambled sequence </returns>
@@ -832,7 +832,9 @@ namespace Proteomics
             }
 
             string scrambledProteinSequence = originalDecoyProtein.BaseSequence;
-            foreach(string peptideSequence in sequencesToScramble)
+            // Start small and then go big. If we scramble a zero-missed cleavage peptide, but the missed cleavage peptide contains the previously scrambled peptide
+            // Then we can avoid unnecessary operations as the scrambledProteinSequence will no longer contain the longer sequence of the missed cleavage peptide
+            foreach(string peptideSequence in sequencesToScramble.OrderBy(seq => seq.Length))
             {
                 if(scrambledProteinSequence.Contains(peptideSequence))
                 {
