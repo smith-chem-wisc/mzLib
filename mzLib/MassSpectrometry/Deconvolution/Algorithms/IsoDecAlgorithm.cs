@@ -18,7 +18,7 @@ namespace MassSpectrometry
         private static string _phaseModelPath;
         static IsoDecAlgorithm()
         {
-            _phaseModelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Deconvolution", "Algorithms", "phase_model.bin");
+            _phaseModelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Deconvolution", "Algorithms", "IsoDecResources",  "phase_model.bin");
         }
 
         [StructLayout(LayoutKind.Sequential, Pack =1)]
@@ -45,7 +45,7 @@ namespace MassSpectrometry
             public int endindex;
         }
 
-        [DllImport("isodeclib.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("Deconvolution/Algorithms/IsoDecResources/isodeclib.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern int process_spectrum(float[] mz, float[] intensity, int len, string modelpath, IntPtr matchedpeaks);
 
         public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
