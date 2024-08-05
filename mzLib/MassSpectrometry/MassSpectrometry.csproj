@@ -20,4 +20,19 @@
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="isodeclib.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Deconvolution\Resources\libmmd.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Deconvolution\Resources\phase_model.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Deconvolution\Resources\svml_dispmd.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

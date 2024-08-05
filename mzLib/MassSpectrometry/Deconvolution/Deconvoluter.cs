@@ -40,6 +40,10 @@ namespace MassSpectrometry
                     deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
                     break;
 
+                case DeconvolutionType.IsoDecDeconvolution:
+                    deconAlgorithm = new IsoDecAlgorithm(deconvolutionParameters);
+                    break;
+
                 default: throw new MzLibException("DeconvolutionType not yet supported");
             }
 

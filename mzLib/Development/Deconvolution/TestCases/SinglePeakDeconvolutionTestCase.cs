@@ -23,7 +23,7 @@ namespace Development.Deconvolution
         public SinglePeakDeconvolutionTestCase(DeconvolutionParameters deconParameters, string sampleInformation, string spectrumPath, int scanNumber,
             double expectedMostAbundantObservedIsotopicMass, int expectedIonChargeState, double selectedIonMz, double precursorPpmMassTolerance)
         {
-            
+            DeconvolutionParameters = deconParameters;
             SampleInformation = sampleInformation;
             ExpectedMostAbundantObservedIsotopicMass = expectedMostAbundantObservedIsotopicMass;
             ExpectedIonChargeState = expectedIonChargeState;
