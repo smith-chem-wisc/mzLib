@@ -1,22 +1,23 @@
 ﻿using Chemistry;
+using Easy.Common.Extensions;
 using FlashLFQ;
 using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Test.FileReadingTests;
-using UsefulProteomicsDatabases;
-using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
-using Stopwatch = System.Diagnostics.Stopwatch;
 using TopDownProteomics;
+using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
@@ -487,15 +488,15 @@ namespace Test
         public static void TestFlashLfqMatchBetweenRuns()
         {
             List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> 
-                { 
-                "PEPTIDE", 
-                "PEPTIDEV", 
-                "PEPTIDEVV", 
+            List<string> pepSequences = new List<string>
+                {
+                "PEPTIDE",
+                "PEPTIDEV",
+                "PEPTIDEVV",
                 "TARGETPEP",
                 "PEPTIDEVVV",
-                "PEPTIDEVVVV", 
-                "PEPTIDEVVVVA", 
+                "PEPTIDEVVVV",
+                "PEPTIDEVVVVA",
                 "PEPTIDEVVVVAA"
             };
             double intensity = 1e6;
@@ -1210,7 +1211,7 @@ namespace Test
             var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, useSharedPeptidesForProteinQuant: true, maxThreads: -1);
             var results = engine.Run();
 
-            results.WriteResults(Path.Combine(outputDirectory,"peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"),true);
+            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
 
             var peaks = results.Peaks.Values.ToList();
             var peptides = results.PeptideModifiedSequences.Values.ToList();
@@ -1286,12 +1287,12 @@ namespace Test
         [Test]
         public static void TestMedianPolish()
         {
-            double[][] array2D = new double[][] { 
+            double[][] array2D = new double[][] {
                 new double[] { 0, 0, 0 },
-                new double[] { 0, 1, 2 }, 
-                new double[] { 0, 3, 4 }, 
-                new double[] { 0, 5, 6 }, 
-                new double[] { 0, 7, 8 } 
+                new double[] { 0, 1, 2 },
+                new double[] { 0, 3, 4 },
+                new double[] { 0, 5, 6 },
+                new double[] { 0, 7, 8 }
             };
 
             FlashLfqResults.MedianPolish(array2D);
@@ -1659,7 +1660,7 @@ namespace Test
             peak2.CalculateIntensityForThisFeature(false);
 
             FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 },
-                new HashSet<string> { "peptide1", "peptide2"});
+                new HashSet<string> { "peptide1", "peptide2" });
             res.Peaks[fraction1].Add(peak1);
             res.Peaks[fraction2].Add(peak2);
             res.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
@@ -2007,7 +2008,7 @@ namespace Test
         [Test]
         public static void TestPairedSamplesQuantificationEngineThrowsNotImplemented()
         {
-                        ProteinGroup pg = new ProteinGroup("Accession", "Gene", "Organism");
+            ProteinGroup pg = new ProteinGroup("Accession", "Gene", "Organism");
             var p = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { pg });
 
             var files = new List<SpectraFileInfo>
@@ -2039,11 +2040,11 @@ namespace Test
 
             Assert.Throws<NotImplementedException>(() =>
             {
-                var engine = new ProteinQuantificationEngine(res, maxThreads: 1, 
-                    controlCondition: "a", randomSeed: 0, foldChangeCutoff: 0.1, pairedSamples:true);
+                var engine = new ProteinQuantificationEngine(res, maxThreads: 1,
+                    controlCondition: "a", randomSeed: 0, foldChangeCutoff: 0.1, pairedSamples: true);
                 engine.Run();
             });
         }
-        
+
     }
 }
