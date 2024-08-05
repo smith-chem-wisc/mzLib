@@ -15,34 +15,10 @@ namespace MassSpectrometry
     public class IsoDecAlgorithm(DeconvolutionParameters deconParameters)
         : DeconvolutionAlgorithm(deconParameters)
     {
-        public static string _isoDecDllPath;
-        private static string _libmmDllPath;
         private static string _phaseModelPath;
-        private static string _scmlDispMdDllPath;
         static IsoDecAlgorithm()
         {
-            
-            _isoDecDllPath = Path.Combine(new[]
-            {
-                AppDomain.CurrentDomain.BaseDirectory, "MassSpectrometry", "Deconvolution", "Resources", "isodeclib.dll"
-            });
-
-            _libmmDllPath = Path.Combine(new[]
-            {
-                AppDomain.CurrentDomain.BaseDirectory, "MassSpectrometry", "Deconvolution", "Resources", "libmm.dll"
-            });
-
-            _phaseModelPath = Path.Combine(new[]
-            {
-                AppDomain.CurrentDomain.BaseDirectory, "MassSpectrometry", "Deconvolution", "Resources",
-                "phase_model.bin"
-            });
-
-            _scmlDispMdDllPath = Path.Combine(new[]
-            {
-                AppDomain.CurrentDomain.BaseDirectory, "MassSpectrometry", "Deconvolution", "Resources",
-                "scml_disp_md.dll"
-            });
+            _phaseModelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Deconvolution", "Algorithms", "phase_model.bin");
         }
 
         [StructLayout(LayoutKind.Sequential, Pack =1)]
@@ -69,11 +45,8 @@ namespace MassSpectrometry
             public int endindex;
         }
 
-
-        
-        [DllImport(@"C:\Users\Nic\Downloads\isodeclib.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("isodeclib.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern int process_spectrum(float[] mz, float[] intensity, int len, string modelpath, IntPtr matchedpeaks);
-
 
         public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
@@ -88,7 +61,7 @@ namespace MassSpectrometry
                 .ToArray();
 
             IntPtr matchedPeaksPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(MatchedPeak)) * intensities.Length);
-            int result = process_spectrum(mzs, intensities, intensities.Length, @"C:\Users\Nic\Downloads\phase_model.bin", matchedPeaksPtr);
+            int result = process_spectrum(mzs, intensities, intensities.Length, _phaseModelPath , matchedPeaksPtr);
             if(result > 0)
             {
                 MatchedPeak[] matchedpeaks = new MatchedPeak[result];

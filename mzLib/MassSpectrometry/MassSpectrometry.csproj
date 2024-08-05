@@ -9,6 +9,16 @@
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <None Remove="Deconvolution\Algorithms\phase_model.bin" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Resource Include="Deconvolution\Algorithms\phase_model.bin">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="32.0.3" />
@@ -21,18 +31,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="isodeclib.dll">
+    <None Update="Deconvolution\Algorithms\isodeclib.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Deconvolution\Resources\libmmd.dll">
+    <None Update="Deconvolution\Algorithms\libmmd.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Deconvolution\Resources\phase_model.bin">
+    <None Update="Deconvolution\Algorithms\svml_dispmd.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Deconvolution\Resources\svml_dispmd.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Deconvolution\Algorithms\Resources\" />
   </ItemGroup>
 
 </Project>
