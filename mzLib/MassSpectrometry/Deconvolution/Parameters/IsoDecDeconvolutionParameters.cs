@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
-    public class JohnnyDeconvolutionParameters : DeconvolutionParameters
+    public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     {
         public override DeconvolutionType DeconvolutionType { get; protected set; } =
-            DeconvolutionType.JohnnyDeconvolution;
+            DeconvolutionType.IsoDecDeconvolution;
 
-        public JohnnyDeconvolutionParameters(Polarity polarity = Polarity.Positive) 
+        public IsoDecDeconvolutionParameters(Polarity polarity = Polarity.Positive) 
             : base(1, 100, polarity)
         {
 

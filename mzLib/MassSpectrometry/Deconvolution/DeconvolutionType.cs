@@ -10,6 +10,6 @@ namespace MassSpectrometry
     {
         ClassicDeconvolution,
         ExampleNewDeconvolutionTemplate,
-        JohnnyDeconvolution,
+        IsoDecDeconvolution,
     }
 }
