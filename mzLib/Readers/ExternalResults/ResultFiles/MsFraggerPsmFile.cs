@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CsvHelper;
+using Readers.ExternalResults.BaseClasses;
 
 namespace Readers
 {
-    public class MsFraggerPsmFile : ResultFile<MsFraggerPsm>, IResultFile
+    public class MsFraggerPsmFile : ResultFile<MsFraggerPsm>, IResultFile, IQuantifiable
     {
         public override SupportedFileType FileType => SupportedFileType.MsFraggerPsm;
         public override Software Software { get; set; }
@@ -38,5 +39,12 @@ namespace Readers
                 csv.WriteRecord(result);
             }
         }
+
+        public IEnumerable<IQuantifiableRecord> GetQuantifiableResults() => Results;
+
+        public Dictionary<string, string> FileNametoFilePath { get; set; }
+
+
+
     }
 }

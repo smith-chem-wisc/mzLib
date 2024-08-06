@@ -211,7 +211,7 @@ namespace Readers
 
         [Ignore] private List<(string, string, string)> _proteinGroupInfos;
 
-        [Ignore] public string ModifiedSequence => FullSequence;
+        [Ignore] public string ModifiedSequence => FullSequence.IsNullOrEmpty() ? BaseSequence : FullSequence;
 
         [Ignore] public int ChargeState => Charge;
 
