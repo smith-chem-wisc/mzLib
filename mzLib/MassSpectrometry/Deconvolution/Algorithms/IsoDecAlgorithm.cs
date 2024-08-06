@@ -71,7 +71,7 @@ namespace MassSpectrometry
 
 
         
-        [DllImport(@"C:\Users\Nic\Downloads\isodeclib.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"C:\Python\UniDec3\unidec\IsoDec\src\isodec\x64\Release\isodeclib.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern int process_spectrum(float[] mz, float[] intensity, int len, string modelpath, IntPtr matchedpeaks);
 
 
@@ -88,7 +88,7 @@ namespace MassSpectrometry
                 .ToArray();
 
             IntPtr matchedPeaksPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(MatchedPeak)) * intensities.Length);
-            int result = process_spectrum(mzs, intensities, intensities.Length, @"C:\Users\Nic\Downloads\phase_model.bin", matchedPeaksPtr);
+            int result = process_spectrum(mzs, intensities, intensities.Length, @"C:\Python\UniDec3\unidec\IsoDec\phase_model.bin", matchedPeaksPtr);
             if(result > 0)
             {
                 MatchedPeak[] matchedpeaks = new MatchedPeak[result];

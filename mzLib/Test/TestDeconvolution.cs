@@ -231,6 +231,9 @@ namespace Test
 
             DeconvolutionParameters deconParameters = new IsoDecDeconvolutionParameters();
 
+            IsoDecAlgorithm alg  = new IsoDecAlgorithm(deconParameters);
+            List<IsotopicEnvelope> allMasses = alg.Deconvolute(scan.MassSpectrum, new MzRange((double)scan.MassSpectrum.FirstX, (double)scan.MassSpectrum.LastX)).ToList();
+
             List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
             List<IsotopicEnvelope> isolatedMasses2 = scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, deconParameters).ToList();
 
