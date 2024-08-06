@@ -9,6 +9,8 @@
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
+  
+  
 
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="32.0.3" />
@@ -20,19 +22,26 @@
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="isodeclib.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Deconvolution\Resources\libmmd.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Deconvolution\Resources\phase_model.bin">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Deconvolution\Resources\svml_dispmd.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+	<ItemGroup>
+		<None Remove="Deconvolution\Algorithms\isodeclib.dll" />
+		<None Remove="Deconvolution\Algorithms\libmmd.dll" />
+		<None Remove="Deconvolution\Algorithms\phase_model.bin" />
+		<None Remove="Deconvolution\Algorithms\svml_dispmd.dll" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="Deconvolution\Algorithms\IsoDecResources\isodeclib.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Deconvolution\Algorithms\IsoDecResources\libmmd.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Deconvolution\Algorithms\IsoDecResources\phase_model.bin">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Deconvolution\Algorithms\IsoDecResources\svml_dispmd.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
 
 </Project>
