@@ -9,11 +9,7 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public enum DeconvolutionType
-    {
-        ClassicDeconvolution,
-        ExampleNewDeconvolutionTemplate,
-    }
+    
 
     /// <summary>
     /// Context class for all deconvolution
@@ -44,6 +40,10 @@ namespace MassSpectrometry
                     deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
                     break;
 
+                case DeconvolutionType.IsoDecDeconvolution:
+                    deconAlgorithm = new IsoDecAlgorithm(deconvolutionParameters);
+                    break;
+
                 default: throw new MzLibException("DeconvolutionType not yet supported");
             }
 
@@ -65,19 +65,13 @@ namespace MassSpectrometry
             rangeToGetPeaksFrom ??= spectrum.Range;
 
             // set deconvolution algorithm 
-            DeconvolutionAlgorithm deconAlgorithm;
-            switch (deconvolutionParameters.DeconvolutionType)
+            DeconvolutionAlgorithm deconAlgorithm = deconvolutionParameters.DeconvolutionType switch
             {
-                case DeconvolutionType.ClassicDeconvolution:
-                    deconAlgorithm = new ClassicDeconvolutionAlgorithm(deconvolutionParameters);
-                    break;
-
-                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
-                    deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
-                    break;
-
-                default: throw new MzLibException("DeconvolutionType not yet supported");
-            }
+                DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(deconvolutionParameters),
+                DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters),
+                DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(deconvolutionParameters),
+                _ => throw new MzLibException("DeconvolutionType not yet supported")
+            };
 
             return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
         }
