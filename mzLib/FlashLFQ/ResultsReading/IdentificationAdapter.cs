@@ -10,7 +10,7 @@ namespace FlashLFQ.ResultsReading
 {
     public static class IdentificationAdapter
     {
-        public static List<Identification> MakeIdentifications(IQuantifiable quantifiable)
+        public static List<Identification> MakeIdentifications(IQuantifiableResultFile quantifiable)
         {
             IEnumerable<IQuantifiableRecord> quantifiableRecords = quantifiable.GetQuantifiableResults();
             List<Identification> identifications = new List<Identification>();

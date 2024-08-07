@@ -4,11 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CsvHelper;
+using MassSpectrometry;
 using Readers.ExternalResults.BaseClasses;
 
 namespace Readers
 {
-    public class MsFraggerPsmFile : ResultFile<MsFraggerPsm>, IResultFile, IQuantifiable
+    public class MsFraggerPsmFile : ResultFile<MsFraggerPsm>, IResultFile, IQuantifiableResultFile
     {
         public override SupportedFileType FileType => SupportedFileType.MsFraggerPsm;
         public override Software Software { get; set; }
@@ -42,7 +43,37 @@ namespace Readers
 
         public IEnumerable<IQuantifiableRecord> GetQuantifiableResults() => Results;
 
-        public Dictionary<string, string> FileNametoFilePath { get; set; }
+        /// <summary>
+        /// creates a dictionary linking a shortened file name to its corresponding full file path
+        /// </summary>
+        /// <param name="fullFilePath"> list of all full file paths associted with a given result </param>
+        /// <returns> dictionary with key fileName and value fullFilePath </returns>
+        public Dictionary<string, string> FileNametoFilePath (List<string> fullFilePath)
+        {
+            List<string> rawFileNames = Results.Select(psm => psm.FileName).Distinct().ToList();
+            fullFilePath = fullFilePath.Distinct().ToList();
+            Dictionary<string, string> allFiles = new Dictionary<string, string>();
+
+            foreach(var fileName in rawFileNames)
+            {
+                string shortFileName = Path.GetFileNameWithoutExtension(fileName);
+                if (shortFileName.Contains("."))
+                {
+                    shortFileName = Path.GetFileNameWithoutExtension(shortFileName);
+                }
+
+                foreach(var file in fullFilePath)
+                {
+                    if (file.Contains(shortFileName) && !allFiles.ContainsKey(fileName))
+                    {
+                        allFiles.Add(fileName, file);
+                        break;
+                    }
+                }
+            }
+
+            return allFiles;
+        }
 
 
 

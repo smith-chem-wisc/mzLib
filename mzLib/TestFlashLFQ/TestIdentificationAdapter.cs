@@ -32,7 +32,6 @@ namespace TestFlashLFQ
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
-            var allResults = file.ToList();
 
             List<Identification> identifications = new List<Identification>();
             identifications = IdentificationAdapter.MakeIdentifications(file);
@@ -63,6 +62,27 @@ namespace TestFlashLFQ
             Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(19.114));
             Assert.That(identification5.MonoisotopicMass, Is.EqualTo(724.398));
             Assert.That(identification5.PrecursorChargeState, Is.EqualTo(2));
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
+        public void TestFileNametoFilePath(string path)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
+            string fileName = file.First().FileName;
+
+            List<string> fullFilePath = new List<string>();
+            string fullFilePath1 = @"D:\Projects\Chimeras\Mann_11cell_analysis\RawData\interact-20100611_Velos1_TaGe_SA_Hela_1.raw";
+            string fullFilePath2 = @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv";
+            fullFilePath.Add(fullFilePath1);
+            fullFilePath.Add(fullFilePath2);
+
+            Dictionary<string, string> allFiles = file.FileNametoFilePath(fullFilePath);
+
+            Assert.That(allFiles.TryGetValue(fileName, out var output));
+            Assert.AreEqual(output, fullFilePath1);
+            Assert.That(!allFiles.ContainsValue(fullFilePath2));
         }
     }
 }
