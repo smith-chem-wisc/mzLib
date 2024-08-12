@@ -1,24 +1,27 @@
-﻿using System;
+﻿using CsvHelper;
+using Readers.ExternalResults.BaseClasses;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using CsvHelper;
-using MassSpectrometry;
-using Readers.ExternalResults.BaseClasses;
 
-namespace Readers
+namespace Readers.ExternalResults.ResultFiles
 {
-    public class MsFraggerPsmFile : ResultFile<MsFraggerPsm>, IResultFile, IQuantifiableResultFile
+    public class MsFraggerCombinedResults : ResultFile<MsFraggerPsm>, IResultFile, IQuantifiableResultFile
     {
+        public string fullFolderPath;
+        public List<MsFraggerPsmFile> allFiles;
+        private List<string> allFilePaths;
+
         public override SupportedFileType FileType => SupportedFileType.MsFraggerPsm;
         public override Software Software { get; set; }
-        public MsFraggerPsmFile(string filePath) : base(filePath, Software.MsFragger) { }
+        public MsFraggerCombinedResults(string filePath) : base(filePath, Software.MsFragger) { }
 
         /// <summary>
         /// Constructor used to initialize from the factory method
         /// </summary>
-        public MsFraggerPsmFile() : base() { }
+        public MsFraggerCombinedResults() : base() { }
 
         public override void LoadResults()
         {
@@ -43,18 +46,13 @@ namespace Readers
 
         public IEnumerable<IQuantifiableRecord> GetQuantifiableResults() => Results;
 
-        /// <summary>
-        /// creates a dictionary linking a shortened file name to its corresponding full file path
-        /// </summary>
-        /// <param name="fullFilePath"> list of all full file paths associted with a given result </param>
-        /// <returns> dictionary with key fileName and value fullFilePath </returns>
-        public Dictionary<string, string> FileNameToFilePath (List<string> fullFilePath)
+        public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePath)
         {
             List<string> rawFileNames = Results.Select(psm => psm.FileName).Distinct().ToList();
             fullFilePath = fullFilePath.Distinct().ToList();
             Dictionary<string, string> allFiles = new Dictionary<string, string>();
 
-            foreach(var fileName in rawFileNames)
+            foreach (var fileName in rawFileNames)
             {
                 string shortFileName = Path.GetFileNameWithoutExtension(fileName);
                 if (shortFileName.Contains("."))
@@ -62,7 +60,7 @@ namespace Readers
                     shortFileName = Path.GetFileNameWithoutExtension(shortFileName);
                 }
 
-                foreach(var file in fullFilePath)
+                foreach (var file in fullFilePath)
                 {
                     if (file.Contains(shortFileName) && !allFiles.ContainsKey(fileName))
                     {
@@ -75,6 +73,26 @@ namespace Readers
             return allFiles;
         }
 
+        public Dictionary<string, string> FileNameToFilePath()
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// Adds all the MSFragger files of each sample to AllFiles
+        /// </summary>
+        public void FindAllFiles()
+        {
+
+        }
+
+        /// <summary>
+        /// Adds the path to each MSFragger file to AllFilePaths
+        /// </summary>
+        private void FindAllFilesPaths()
+        {
+
+        }
 
 
     }
