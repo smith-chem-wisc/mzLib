@@ -5,66 +5,89 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
+using MathNet.Numerics;
 
-namespace Readers.ExternalResults.ResultFiles
+namespace Readers
 {
     public class MsFraggerCombinedResults : ResultFile<MsFraggerPsm>, IResultFile, IQuantifiableResultFile
     {
-        public string fullFolderPath;
-        public List<MsFraggerPsmFile> allFiles;
-        private List<string> allFilePaths;
+        #region Properties/Fields
+
+        public string FullFolderPath => FilePath;
+        private List<string> allPsmFilePaths;
+        public List<MsFraggerPsmFile> AllPsmFiles { get; private set; }
+        public ExperimentAnnotationFile ExperimentAnnotations { get; private set; }
+
+        #endregion
+
+        #region IResultFile Implementatation
 
         public override SupportedFileType FileType => SupportedFileType.MsFraggerPsm;
         public override Software Software { get; set; }
         public MsFraggerCombinedResults(string filePath) : base(filePath, Software.MsFragger) { }
 
-        /// <summary>
-        /// Constructor used to initialize from the factory method
-        /// </summary>
-        public MsFraggerCombinedResults() : base() { }
-
         public override void LoadResults()
         {
-            using var csv = new CsvReader(new StreamReader(FilePath), MsFraggerPsm.CsvConfiguration);
-            Results = csv.GetRecords<MsFraggerPsm>().ToList();
-        }
+            LoadExperimentAnnotationResults();
+            FindAllFilePaths();
+            LoadPsmResults();
 
+            List<MsFraggerPsm> concatList = new List<MsFraggerPsm>();
+            foreach (var file in AllPsmFiles)
+            {
+                concatList.AddRange(file);
+            }
+
+            Results = concatList;
+        }
         public override void WriteResults(string outputPath)
         {
-            if (!CanRead(outputPath))
-                outputPath += FileType.GetFileExtension();
+            throw new Exception("Method not yet implemented.");
+        }
 
-            using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), MsFraggerPsm.CsvConfiguration);
+        #endregion
 
-            csv.WriteHeader<MsFraggerPsm>();
-            foreach (var result in Results)
+        public void LoadExperimentAnnotationResults()
+        {
+            string combinedFilePath = Path.Combine(FullFolderPath, "experiment_annotation.tsv");
+            if (!File.Exists(combinedFilePath)) { throw new FileNotFoundException("The experiment_annotation.tsv file was not found"); }
+
+            ExperimentAnnotations = new ExperimentAnnotationFile(combinedFilePath);
+        }
+
+        public void LoadPsmResults()
+        {
+            AllPsmFiles = new List<MsFraggerPsmFile>();
+
+            foreach(var path in allPsmFilePaths)
             {
-                csv.NextRecord();
-                csv.WriteRecord(result);
+                MsFraggerPsmFile file = new MsFraggerPsmFile(path);
+                AllPsmFiles.Add(file);
             }
         }
 
         public IEnumerable<IQuantifiableRecord> GetQuantifiableResults() => Results;
 
-        public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePath)
+        public Dictionary<string, string> FileNameToFilePath(List<string> filePaths)
         {
-            List<string> rawFileNames = Results.Select(psm => psm.FileName).Distinct().ToList();
-            fullFilePath = fullFilePath.Distinct().ToList();
+            filePaths = filePaths.Distinct().ToList();
+            List<string> fileNames = Results.Select(psm => psm.FileName).Distinct().ToList();
             Dictionary<string, string> allFiles = new Dictionary<string, string>();
 
-            foreach (var fileName in rawFileNames)
+            foreach (var name in fileNames)
             {
-                string shortFileName = Path.GetFileNameWithoutExtension(fileName);
-                if (shortFileName.Contains("."))
+                string fileName = Path.GetFileNameWithoutExtension(name);
+                if (fileName.Contains("."))
                 {
-                    shortFileName = Path.GetFileNameWithoutExtension(shortFileName);
+                    fileName = Path.GetFileNameWithoutExtension(fileName);
                 }
 
-                foreach (var file in fullFilePath)
+                foreach (var path in filePaths)
                 {
-                    if (file.Contains(shortFileName) && !allFiles.ContainsKey(fileName))
+                    if (path.Contains(fileName) && !allFiles.ContainsKey(name))
                     {
-                        allFiles.Add(fileName, file);
+                        allFiles.Add(name, path);
                         break;
                     }
                 }
@@ -75,25 +98,54 @@ namespace Readers.ExternalResults.ResultFiles
 
         public Dictionary<string, string> FileNameToFilePath()
         {
-            return null;
+            List<string> filePaths = ExperimentAnnotations.Select(psm => psm.File).Distinct().ToList();
+            List<string> fileNames = Results.Select(psm => psm.FileName).Distinct().ToList();
+            Dictionary<string, string> allFiles = new Dictionary<string, string>();
+
+            foreach (var name in fileNames)
+            {
+                string fileName = Path.GetFileNameWithoutExtension(name);
+                if (fileName.Contains("."))
+                {
+                    fileName = Path.GetFileNameWithoutExtension(fileName);
+                }
+
+                foreach (var path in filePaths)
+                {
+                    if (path.Contains(fileName) && !allFiles.ContainsKey(name))
+                    {
+                        allFiles.Add(name, path);
+                        break;
+                    }
+                }
+            }
+
+            return allFiles;
         }
 
-        /// <summary>
-        /// Adds all the MSFragger files of each sample to AllFiles
-        /// </summary>
-        public void FindAllFiles()
+        private void FindAllFilePaths()
         {
+            allPsmFilePaths = new List<string>();
 
+            List<string> sampleNames = ExperimentAnnotations.Select(psm => psm.SampleName).Distinct().ToList();
+            string[] directoryEntries = Directory.GetDirectories(FullFolderPath);
+
+            foreach (var directoryEntry in directoryEntries)
+            {
+                string directoryName = Path.GetFileName(directoryEntry.TrimEnd(Path.DirectorySeparatorChar));
+
+                foreach (var sample in sampleNames)
+                {
+                    if (directoryName.Equals(sample))
+                    {
+                        string psmFile = Path.Combine(directoryEntry, "psm.tsv");
+                        if (!File.Exists(psmFile)) { throw new FileNotFoundException("This psm.tsv file was not found"); }
+
+                        allPsmFilePaths.Add(psmFile);
+                    }
+                }
+            }
         }
-
-        /// <summary>
-        /// Adds the path to each MSFragger file to AllFilePaths
-        /// </summary>
-        private void FindAllFilesPaths()
-        {
-
-        }
-
 
     }
 }

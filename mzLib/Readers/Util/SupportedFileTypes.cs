@@ -26,7 +26,8 @@ namespace Readers
         MsPathFinderTTargets,
         MsPathFinderTDecoys,
         MsPathFinderTAllResults,
-        CruxResult
+        CruxResult,
+        ExperimentAnnotation
     }
 
     public static class SupportedFileTypeExtensions

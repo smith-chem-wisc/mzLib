@@ -18,6 +18,7 @@ using Readers.ExternalResults.BaseClasses;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
+using Optional = CsvHelper.Configuration.Attributes.OptionalAttribute;
 
 namespace Readers
 {
@@ -95,6 +96,7 @@ namespace Readers
         public double NextScore { get; set; }
 
         [Name("PeptideProphet Probability")]
+        [Optional]
         public double PeptideProphetProbability { get; set; }
 
         [Name("Number of Enzymatic Termini")]
