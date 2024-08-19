@@ -789,10 +789,8 @@ namespace FlashLFQ
 
             if (!nearbyCalibrationPoints.Any())
             {
-                // If there are no nearby calibration points, return the donor peak's RT and a width of 0
-                // A width of 0 means than no peak will be found in the first iteration, but as the search window is iteratively
-                // expanded, an acceptor peak could be found
-                return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime, width: 0);
+                // If there are no nearby calibration points, return the donor peak's RT and a width of 15 seconds
+                return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime, width: 0.25);
             }
 
             // calculate difference between acceptor and donor RTs for these RT region
@@ -803,10 +801,8 @@ namespace FlashLFQ
             double medianRtDiff = rtDiffs.Median();
             if(rtDiffs.Count == 1)
             {
-                // If there is only one nearby calibration point, return the donor peak's RT and a width of 0
-                // A width of 0 means than no peak will be found in the first iteration, but as the search window is iteratively
-                // expanded, an acceptor peak could be found
-                return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime - medianRtDiff, width: 0);
+                // If there are no nearby calibration points, return the donor peak's RT and a width of 15 seconds
+                return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime - medianRtDiff, width: 0.25);
             }
 
             double rtRange = rtDiffs.StandardDeviation() * 6;
@@ -1039,7 +1035,7 @@ namespace FlashLFQ
                                 randomRt: decoyRtInfo.PredictedRt);
                             AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestDecoy, donorPeak.Identifications.First());
 
-                            double windowWidth = 0.5;
+                            double windowWidth = Math.Max(0.5, rtInfo.Width);
                             // If the search turned up empty, try again with a wider search window
                             while (bestAcceptor == null && bestDecoy == null)
                             {
