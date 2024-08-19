@@ -789,7 +789,10 @@ namespace FlashLFQ
 
             if (!nearbyCalibrationPoints.Any())
             {
-                return null;
+                // If there are no nearby calibration points, return the donor peak's RT and a width of 0
+                // A width of 0 means than no peak will be found in the first iteration, but as the search window is iteratively
+                // expanded, an acceptor peak could be found
+                return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime, width: 0);
             }
 
             // calculate difference between acceptor and donor RTs for these RT region
@@ -798,9 +801,15 @@ namespace FlashLFQ
                 .ToList();
 
             double medianRtDiff = rtDiffs.Median();
+            if(rtDiffs.Count == 1)
+            {
+                // If there is only one nearby calibration point, return the donor peak's RT and a width of 0
+                // A width of 0 means than no peak will be found in the first iteration, but as the search window is iteratively
+                // expanded, an acceptor peak could be found
+                return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime - medianRtDiff, width: 0);
+            }
+
             double rtRange = rtDiffs.StandardDeviation() * 6;
-            // IQR * 4.5 is roughly equivalent to 6 StdDevs, so search window extends ~3 std.devs from either side of predicted RT
-            // IQR is less affected by outliers than StdDev
 
             rtRange = Math.Min(rtRange, MbrRtWindow);
 

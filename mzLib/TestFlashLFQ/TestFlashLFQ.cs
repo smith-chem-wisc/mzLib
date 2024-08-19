@@ -901,6 +901,15 @@ namespace Test
         }
 
         [Test]
+        public static void NanTest()
+        {
+            var nan = Double.NaN;
+            var test = nan / 2;
+            var test2 = nan - 2;
+            int placeholder = 0;
+        }
+
+        [Test]
         public static void TestAmbiguous()
         {
             // get the raw file paths
