@@ -96,16 +96,16 @@ namespace Readers
 
         [Name("PeptideProphet Probability")]
         [CsvHelper.Configuration.Attributes.Optional]
-        private double? _peptideProphetProbability;
+        public double? PeptideProphetProbabilityAsRead { get; set; }
 
         /// <summary>
-        /// New MsFragger output renames the header "PeptideProphet Probability" as just "Probability".
+        /// MsFragger v22.0 output renames the header "PeptideProphet Probability" as just "Probability".
         /// Headers are mutually exclusive, will not both occur in the same file. 
         /// As such, both instances need to be accounted for seperately as optional fields. 
         /// </summary>
         [Name("Probability")]
         [CsvHelper.Configuration.Attributes.Optional]
-        private double? _probability;
+        public double? ProbabilityAsRead { get; set; }
 
         [Name("Number of Enzymatic Termini")]
         public int NumberOfEnzymaticTermini { get; set; }
@@ -169,9 +169,11 @@ namespace Readers
         public int OneBasedScanNumber => _oneBasedScanNumber ??= int.Parse(Spectrum.Split('.')[1]);
 
         /// <summary>
-        /// Ensures Probabilty is asscociated either the Probability or PeptideProphet Probability header or 0
+        /// Assigns PeptideProphetProbability with either ProbabilityAsRead or PeptideProphetProbabilityAsRead
+        /// depending on which header ("Probability" or "PeptideProphetProbability", respectively) is in the psm file. 
+        /// Assigns to 0 if psm has niether field, 
         /// </summary>
-        [Ignore] public double PeptideProphetProbability => _probability ?? _peptideProphetProbability ?? 0;
+        [Ignore] public double PeptideProphetProbability => ProbabilityAsRead ?? PeptideProphetProbabilityAsRead ?? 0;
 
         #endregion
 
