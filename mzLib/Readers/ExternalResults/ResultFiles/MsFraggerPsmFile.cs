@@ -56,11 +56,10 @@ namespace Readers
 
             foreach(var fileName in rawFileNames)
             {
-                string shortFileName = Path.GetFileNameWithoutExtension(fileName);
-                if (shortFileName.Contains("."))
-                {
-                    shortFileName = Path.GetFileNameWithoutExtension(shortFileName);
-                }
+                string shortFileName = Path.GetFileName(fileName);
+                // MSFragger results append the raw file with "interact-" and replace .raw with .pep.xml
+                // In order to correctly match the file names, these changes must be removed
+                shortFileName = shortFileName.Replace("interact-", "").Replace(".pep.xml", "");
 
                 foreach(var file in fullFilePath)
                 {

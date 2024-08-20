@@ -95,7 +95,17 @@ namespace Readers
         public double NextScore { get; set; }
 
         [Name("PeptideProphet Probability")]
-        public double PeptideProphetProbability { get; set; }
+        [CsvHelper.Configuration.Attributes.Optional]
+        private double? _peptideProphetProbability;
+
+        /// <summary>
+        /// New MsFragger output renames the header "PeptideProphet Probability" as just "Probability".
+        /// Headers are mutually exclusive, will not both occur in the same file. 
+        /// As such, both instances need to be accounted for seperately as optional fields. 
+        /// </summary>
+        [Name("Probability")]
+        [CsvHelper.Configuration.Attributes.Optional]
+        private double? _probability;
 
         [Name("Number of Enzymatic Termini")]
         public int NumberOfEnzymaticTermini { get; set; }
@@ -157,6 +167,11 @@ namespace Readers
 
         [Ignore]
         public int OneBasedScanNumber => _oneBasedScanNumber ??= int.Parse(Spectrum.Split('.')[1]);
+
+        /// <summary>
+        /// Ensures Probabilty is asscociated either the Probability or PeptideProphet Probability header or 0
+        /// </summary>
+        [Ignore] public double PeptideProphetProbability => _probability ?? _peptideProphetProbability ?? 0;
 
         #endregion
 

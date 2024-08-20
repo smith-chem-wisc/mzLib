@@ -28,6 +28,7 @@ namespace FlashLFQ.ResultsReading
                 SpectraFileInfo file = null;
                 if (allFiles.TryGetValue(record.FileName, out var fileInfo))
                 {
+                    // placeholder values for SpectraFileInfo that will be edited later
                     file = new SpectraFileInfo(record.FileName, "", 1, 1, 1);
                 }
                 else

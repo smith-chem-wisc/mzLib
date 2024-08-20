@@ -84,5 +84,23 @@ namespace TestFlashLFQ
             Assert.AreEqual(output, fullFilePath1);
             Assert.That(!allFiles.ContainsValue(fullFilePath2));
         }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\SmallCalibratibleYeastFragger_psm.tsv")]
+        public void TestFileNametoFilePathLocalPath(string path)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
+            string fileName = file.First().FileName;
+
+            List<string> fullFilePath = new List<string>();
+            string rawFilePath = @"DataFiles\SmallCalibratibleYeast.mzml";
+            fullFilePath.Add(rawFilePath);
+
+            Dictionary<string, string> allFiles = file.FileNametoFilePath(fullFilePath);
+
+            Assert.That(allFiles.TryGetValue(fileName, out var output));
+            Assert.AreEqual(output, rawFilePath);
+        }
     }
 }
