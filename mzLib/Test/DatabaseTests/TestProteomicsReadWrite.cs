@@ -41,6 +41,20 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public void xyz()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            List<Protein> x = ProteinDbLoader.LoadProteinXML(@"C:\Users\Alex\Documents\Proteomes\MBR_Proteomes_March_2024\MetaMorpheusContaminants.xml", true, DecoyType.None, uniprotPtms, false, null, out Dictionary<string, Modification> un);
+
+            Protein gtpase = x.First(p => p.Accession.Contains("P01112"));
+
+            int placeholder = 0;
+        }
+
+        [Test]
         public void Test_readUniProtXML_writeProteinXml()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
