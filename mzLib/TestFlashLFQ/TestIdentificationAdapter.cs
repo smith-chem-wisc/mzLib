@@ -20,7 +20,6 @@ using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using TopDownProteomics;
-using FlashLFQ.ResultsReading;
 
 namespace TestFlashLFQ
 {
@@ -34,7 +33,7 @@ namespace TestFlashLFQ
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
 
             List<Identification> identifications = new List<Identification>();
-            identifications = IdentificationAdapter.MakeIdentifications(file);
+            identifications = MzLibExtensions.MakeIdentifications(file);
 
             // list should contain five elements
             Assert.That(identifications.Count, Is.EqualTo(5));

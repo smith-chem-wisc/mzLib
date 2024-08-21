@@ -6,7 +6,12 @@ using System.Threading.Tasks;
 
 namespace Readers.ExternalResults.BaseClasses
 {
-    public interface IQuantifiableResultFile
+    /// <summary>
+    /// Outlines behavior to turn results into an IEnumerable of IQuantifiableRecords 
+    /// and to create the dictionary linking file names from the external result files 
+    /// to their local file paths which are used to make the identification object
+    /// </summary>
+    public interface IQuantifiableResultFile : IResultFile
     {
         /// <summary>
         /// Returns every result in the result file as an IQuantifiableRecord
@@ -17,8 +22,7 @@ namespace Readers.ExternalResults.BaseClasses
         /// <summary>
         /// Links the file name associated with the protein to the raw file path of MassSpec data
         /// </summary>
-        /// <param name="fileNames"> file name associated with each distinct record </param>
-        /// <param name="filePath"> file path associated with each distinct record </param>
+        /// <param name="fullFilePath"> list of file paths associated with each distinct record </param>
         /// <returns> Dictionary of file names and their associted full paths </returns>
         public Dictionary<string, string> FileNametoFilePath(List<string> fullFilePath);
     }

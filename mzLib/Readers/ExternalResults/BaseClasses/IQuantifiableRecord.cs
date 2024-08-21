@@ -6,15 +6,19 @@ using System.Threading.Tasks;
 
 namespace Readers.ExternalResults.BaseClasses
 {
+    /// <summary>
+    /// Defines the information needed to create the identification object usable by FlashLFQ
+    /// </summary>
     public interface IQuantifiableRecord
     {
         /// <summary>
-        /// The full file path to the MS Data file in which the identification was made
+        /// The file name in the MS Data file in which the identification was made
         /// </summary>
         public string FileName { get; }
 
         /// <summary>
-        /// A list of tuples, each of which represent a protein. Each tuple contains the accession number, gene name, and organism associated with the given result
+        /// A list of tuples, each of which represent a protein. 
+        /// Each tuple contains the accession number, gene name, and organism associated with the given result.
         /// </summary>
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos { get; }
 
@@ -29,7 +33,7 @@ namespace Readers.ExternalResults.BaseClasses
         public string ModifiedSequence { get; }
 
         /// <summary>
-        /// the retention time (in minutes) associated with the result
+        /// The retention time (in minutes) associated with the result
         /// </summary>
         public double RetentionTime { get; }
 
@@ -47,7 +51,5 @@ namespace Readers.ExternalResults.BaseClasses
         /// The mass of the monoisotopic peptide (i.e., no c13 or n15 atoms are present, the lowest possible mass)
         /// </summary>
         public double MonoisotopicMass { get; }
-
-     
     }
 }
