@@ -901,6 +901,7 @@ namespace Proteomics
         /// <summary>
         /// Scrambles a peptide sequence, preserving the position of any cleavage sites.
         /// </summary>
+        /// <param name="swappedPositionArray">An array that maps the previous position (index) to the new position (value)</param>
         public static string ScrambleSequence(string sequence, List<DigestionMotif> motifs, out int[] swappedPositionArray)
         {
             // First, find the location of every cleavage motif. These sites shouldn't be scrambled.
