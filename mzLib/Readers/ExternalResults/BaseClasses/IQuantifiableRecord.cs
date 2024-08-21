@@ -12,7 +12,7 @@ namespace Readers.ExternalResults.BaseClasses
     public interface IQuantifiableRecord
     {
         /// <summary>
-        /// The file name in the MS Data file in which the identification was made
+        /// The file name of the MS Data file in which the identification was made
         /// </summary>
         public string FileName { get; }
 

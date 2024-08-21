@@ -97,7 +97,6 @@ namespace Readers
         /// <summary>
         /// MsFragger v22.0 output renames the header "PeptideProphet Probability" as just "Probability".
         /// Headers are mutually exclusive, will not both occur in the same file. 
-        /// As such, both instances need to be accounted for seperately as optional fields. 
         /// </summary>
         [Name("PeptideProphet Probability", "Probability")]
         public double PeptideProphetProbability { get; set; }
