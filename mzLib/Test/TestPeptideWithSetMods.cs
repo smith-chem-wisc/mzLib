@@ -55,7 +55,8 @@ namespace Test
             Assert.That(pep1.Parent.Equals(pep2.Parent));
             Assert.That(!pep1.DigestionParams.DigestionAgent.Equals(pep2.DigestionParams.DigestionAgent));
             Assert.That(!pep1.Equals(pep2));
-            Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
+            // HashCode is only concerned with the full sequence, not the protease. Only the equals method is interested in the protease used
+            Assert.That(pep1.GetHashCode().Equals(pep2.GetHashCode()));
         }
 
         [Test]
@@ -765,8 +766,8 @@ namespace Test
             int testTargetHash = p.GetHashCode();
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
             int testDecoyHash = reverse.GetHashCode(); 
-            Assert.AreEqual(reverse.PairedTargetDecoyHash, testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoyHash, testDecoyHash);
+            Assert.AreEqual(reverse.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
+            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
@@ -841,8 +842,8 @@ namespace Test
             int testMirrorTargetHash = p_tryp.GetHashCode();
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
             int testMirrorDecoyHash = p_tryp_reverse.GetHashCode();
-            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoyHash);
-            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoyHash);
+            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoySequence.GetHashCode());
+            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoySequence.GetHashCode());
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
@@ -871,8 +872,8 @@ namespace Test
             int testTargetHash = p.GetHashCode();
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
             int testDecoyHash = testScrambled.GetHashCode();
-            Assert.AreEqual(testScrambled.PairedTargetDecoyHash, testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoyHash, testDecoyHash);
+            Assert.AreEqual(testScrambled.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
+            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
             Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
             Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
             // Check n-term acetyl

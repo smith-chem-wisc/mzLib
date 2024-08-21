@@ -20,7 +20,6 @@ using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using TopDownProteomics;
-using FlashLFQ.ResultsReading;
 
 namespace TestFlashLFQ
 {
@@ -34,7 +33,7 @@ namespace TestFlashLFQ
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
 
             List<Identification> identifications = new List<Identification>();
-            identifications = IdentificationAdapter.MakeIdentifications(file);
+            identifications = MzLibExtensions.MakeIdentifications(file);
 
             // list should contain five elements
             Assert.That(identifications.Count, Is.EqualTo(5));
@@ -83,6 +82,24 @@ namespace TestFlashLFQ
             Assert.That(allFiles.TryGetValue(fileName, out var output));
             Assert.AreEqual(output, fullFilePath1);
             Assert.That(!allFiles.ContainsValue(fullFilePath2));
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\SmallCalibratibleYeastFragger_psm.tsv")]
+        public void TestFileNametoFilePathLocalPath(string path)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
+            string fileName = file.First().FileName;
+
+            List<string> fullFilePath = new List<string>();
+            string rawFilePath = @"DataFiles\SmallCalibratibleYeast.mzml";
+            fullFilePath.Add(rawFilePath);
+
+            Dictionary<string, string> allFiles = file.FileNametoFilePath(fullFilePath);
+
+            Assert.That(allFiles.TryGetValue(fileName, out var output));
+            Assert.AreEqual(output, rawFilePath);
         }
     }
 }

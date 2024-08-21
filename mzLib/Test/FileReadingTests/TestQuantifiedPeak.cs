@@ -46,19 +46,6 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public static void TestFileLoadsAndCountCorrect2()
-        {
-            String localpath = @"C:\Users\Madeleine\Downloads\FlashLFQVignette\FlashLFQVignette\2024-07-23-13-21-53\Task1-SearchTask\AllQuantifiedPeaks.tsv";
-            QuantifiedPeakFile file = new QuantifiedPeakFile(localpath);
-            Assert.That(file.Count(), Is.GreaterThan(4));
-            Assert.That(file.CanRead(localpath));
-
-            file = FileReader.ReadFile<QuantifiedPeakFile>(localpath);
-            Assert.That(file.Count(), Is.GreaterThan(4));
-            Assert.That(file.CanRead(localpath));
-        }
-
-        [Test]
         public static void TestFileFirstAndLastAreCorrect()
         {
             QuantifiedPeakFile file = new QuantifiedPeakFile(TestFilePath);

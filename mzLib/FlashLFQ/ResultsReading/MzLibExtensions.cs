@@ -6,11 +6,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FlashLFQ.ResultsReading
+namespace FlashLFQ
 {
-    public static class IdentificationAdapter
+    public static class MzLibExtensions
     {
-        public static List<Identification> MakeIdentifications(IQuantifiableResultFile quantifiable)
+        /// <summary>
+        /// Makes a list of identification objects usable by FlashLFQ from an IQuantifiableResultFile
+        /// </summary>
+        public static List<Identification> MakeIdentifications(this IQuantifiableResultFile quantifiable)
         {
             IEnumerable<IQuantifiableRecord> quantifiableRecords = quantifiable.GetQuantifiableResults();
             List<Identification> identifications = new List<Identification>();
@@ -28,6 +31,7 @@ namespace FlashLFQ.ResultsReading
                 SpectraFileInfo file = null;
                 if (allFiles.TryGetValue(record.FileName, out var fileInfo))
                 {
+                    // placeholder values for SpectraFileInfo that will be edited later
                     file = new SpectraFileInfo(record.FileName, "", 1, 1, 1);
                 }
                 else

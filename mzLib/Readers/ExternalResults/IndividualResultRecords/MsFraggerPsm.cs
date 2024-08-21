@@ -95,8 +95,11 @@ namespace Readers
         [Name("Nextscore")]
         public double NextScore { get; set; }
 
-        [Name("PeptideProphet Probability")]
-        [Optional]
+        /// <summary>
+        /// MsFragger v22.0 output renames the header "PeptideProphet Probability" as just "Probability".
+        /// Headers are mutually exclusive, will not both occur in the same file. 
+        /// </summary>
+        [Name("PeptideProphet Probability", "Probability")]
         public double PeptideProphetProbability { get; set; }
 
         [Name("Number of Enzymatic Termini")]
@@ -166,7 +169,6 @@ namespace Readers
 
         [Ignore] public string FileName => SpectrumFilePath;
 
-        // sp|O60814|H2B1K_HUMAN
         [Ignore] public List<(string, string, string)> ProteinGroupInfos
         {
             get 
@@ -175,6 +177,14 @@ namespace Readers
                 return _proteinGroupInfos;
             }
         }
+
+        /// <summary>
+        /// Creates a list of tuples, each of which represents a protein.
+        /// Each tuple contains the accession number, gene name, and organism.
+        /// These parameters are used to create a ProteinGroup object, 
+        /// which is needed to make an identification.
+        /// </summary>
+        /// <returns></returns>
         private List<(string, string, string)> AddProteinGroupInfos ()
         {
             _proteinGroupInfos = new List<(string, string, string)> ();
@@ -186,7 +196,11 @@ namespace Readers
             string proteinAccessions;
             string geneName;
             string organism;
-           
+
+            // Fasta header is parsed to separate the accession number, gene name, and organism.
+            // If the protein does not have this information, it will be assigned an empty string.
+            // Ideally, a future refactor would create a method for parsing fasta headers
+            // that is shared by Readers and UsefulProteomicsDatabases.
             proteinAccessions = proteinInfo.Length >= 2 ? proteinInfo[1] : "";
             geneName = proteinInfo.Length >= 3 ? proteinInfo[2] : "";
             organism = proteinInfo.Length >= 4 ? proteinInfo[3] : ""; ;
@@ -217,17 +231,11 @@ namespace Readers
 
         [Ignore] public int ChargeState => Charge;
 
+        // decoy reading isn't currently supported for MsFragger psms, this will be revisited later
         [Ignore] public bool IsDecoy => false;
 
         [Ignore] public double MonoisotopicMass => CalculatedPeptideMass;
 
         #endregion
-
-
-
-
-
-
     }
-
 }
