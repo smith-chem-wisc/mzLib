@@ -869,7 +869,6 @@ namespace Proteomics
                         // Modify the dictionary to reflect the new positions of the modifications
                         foreach (var kvp in relevantMods)
                         {
-                            int idxInSwappedArray = kvp.Key - index - 1;
                             int newKey = swappedArray[kvp.Key - 1 - index] + 1 + index;
                             // To prevent collisions, we have to check if mods already exist at the new idx.
                             if(scrambledModificationDictionary.TryGetValue(newKey, out var modsToSwap))
