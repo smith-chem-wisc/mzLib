@@ -407,12 +407,6 @@ namespace Test
             Modification modG = new Modification("myMod", null, "myModType", null, motifG, "Anywhere.", null, 10, null, null, null, null, null, null);
             Modification modF = new Modification("myMod", null, "myModType", null, motifF, "Anywhere.", null, 10, null, null, null, null, null, null);
 
-            //IDictionary<int, List<Modification>> modDictTarget = new Dictionary<int, List<Modification>>
-            //{
-            //    {9, new List<Modification> { modG } },
-            //    {7, new List<Modification> { modF } }
-            //};
-
             IDictionary<int, List<Modification>> modDictDecoy = new Dictionary<int, List<Modification>>
             {
                 {8, new List<Modification> { modG } },

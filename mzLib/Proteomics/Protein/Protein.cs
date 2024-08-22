@@ -857,7 +857,7 @@ namespace Proteomics
 
                     scrambledProteinSequence = scrambledProteinSequence.Replace(peptideSequence, scrambledPeptideSequence);
 
-                    if (!scrambledModificationDictionary.IsNotNullOrEmpty()) continue;
+                    if (!scrambledModificationDictionary.Any()) continue;
 
                     // rearrange the modifications 
                     foreach (int index in scrambledProteinSequence.IndexOfAll(scrambledPeptideSequence))
