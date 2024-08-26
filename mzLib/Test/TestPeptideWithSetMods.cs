@@ -1181,5 +1181,54 @@ namespace Test
             Assert.AreEqual('-', last.NextAminoAcid);
             Assert.AreEqual('-', last.NextResidue);
         }
+
+        [Test]
+        public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
+        {
+            //Just making sure there are no snafus when creating decoy peptides from an xml,which will have mods in various places, etc.
+            //sequence variants, modifications
+            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
+                true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            var allKnownModDict = UniProtPtms.ToDictionary(p => p.IdWithMotif, p => p);
+
+           foreach (Protein p in proteins)
+           {
+                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), [], [], null, null).ToList();
+                foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
+                {
+                    // Pull our expected modifications based upon parent protein object
+                    var expectedModCount = p.OneBasedPossibleLocalizedModifications.Count(mod =>
+                        mod.Key >= targetPeptide.OneBasedStartResidue &&
+                        mod.Key < targetPeptide.OneBasedEndResidue);
+                    var expectedModifications = p.OneBasedPossibleLocalizedModifications.Where(mod =>
+                        mod.Key >= targetPeptide.OneBasedStartResidue &&
+                        mod.Key < targetPeptide.OneBasedEndResidue).SelectMany(mod => mod.Value).ToList();
+
+                    // Parse modifications from PWSM and two IBioPolymerWithSetMods methods
+                    var pwsmModDict = targetPeptide.AllModsOneIsNterminus;
+                    var bpwsmModDict = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
+                    var bpwsmModList = IBioPolymerWithSetMods.GetModificationsFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
+
+                    // Ensure all methods are in agreement by modification count
+                    Assert.AreEqual(pwsmModDict.Count, expectedModCount);
+                    Assert.AreEqual(bpwsmModDict.Count, expectedModCount);
+                    Assert.AreEqual(bpwsmModList.Count, expectedModCount);
+
+                    // Ensure all methods are in agreement by modification identify
+                    List<Modification> pwsmModList = pwsmModDict.Values.ToList();
+                    foreach (var expectedMod in expectedModifications)
+                    {
+                        Assert.Contains(expectedMod, pwsmModDict);
+                        Assert.Contains(expectedMod, pwsmModList);
+                        Assert.Contains(expectedMod, bpwsmModDict);
+                        Assert.Contains(expectedMod, bpwsmModList);
+                    }
+                }
+           }
+        }
     }
 }
