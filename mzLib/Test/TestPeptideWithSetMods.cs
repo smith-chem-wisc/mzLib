@@ -1186,26 +1186,26 @@ namespace Test
         [Test]
         public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
         {
-            //Just making sure there are no snafus when creating decoy peptides from an xml,which will have mods in various places, etc.
-            //sequence variants, modifications
             Dictionary<string, Modification> un = new Dictionary<string, Modification>();
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"),
+                    formalChargesDictionary).ToList();
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
                 true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
             var allKnownModDict = UniProtPtms.ToDictionary(p => p.IdWithMotif, p => p);
             var digestionParameters = new DigestionParams(maxModsForPeptides: 3);
 
-           foreach (Protein p in proteins)
-           {
-                List<PeptideWithSetModifications> digestedPeptides = p.Digest(digestionParameters, [], [], null, null).ToList();
+            foreach (Protein p in proteins)
+            {
+                List<PeptideWithSetModifications> digestedPeptides =
+                    p.Digest(digestionParameters, [], [], null, null).ToList();
                 // take the most modified peptide by base sequence and ensure all methods function properly
                 foreach (var targetPeptide in digestedPeptides
                              .Where(pep => pep.FullSequence.Contains('['))
                              .GroupBy(pep => pep.BaseSequence)
                              .Select(pepGroup => pepGroup.MaxBy(pep => pep.AllModsOneIsNterminus.Count)))
-                { 
+                {
                     var startResidue = targetPeptide.OneBasedStartResidue;
                     var endResidue = targetPeptide.OneBasedEndResidue;
 
@@ -1227,7 +1227,8 @@ namespace Test
                                     expectedModCount++;
                             }
                             else if (modDictEntry.Value.Select(mod => mod.LocationRestriction).Contains("Anywhere.")
-                                     && modDictEntry.Value.Select(mod => mod.LocationRestriction).Contains("N-terminal."))
+                                     && modDictEntry.Value.Select(mod => mod.LocationRestriction)
+                                         .Contains("N-terminal."))
                             {
                                 expectedModCount++;
                                 if (modDictEntry.Key == startResidue)
@@ -1245,13 +1246,13 @@ namespace Test
                             }
                         }
                     }
+
                     expectedModCount = Math.Min(expectedModCount, digestionParameters.MaxMods);
 
                     var expectedModifications = p.OneBasedPossibleLocalizedModifications.Where(mod =>
                         mod.Key >= startResidue &&
                         mod.Key <= endResidue).SelectMany(mod => mod.Value).ToList();
 
-                    
                     // Parse modifications from PWSM and two IBioPolymerWithSetMods methods
                     var pwsmModDict = targetPeptide.AllModsOneIsNterminus;
                     var bpwsmModDict = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
@@ -1270,7 +1271,7 @@ namespace Test
                     foreach (var pwsmModification in bpwsmModList)
                         Assert.Contains(pwsmModification, expectedModifications);
                 }
-           }
+            }
         }
     }
 }
