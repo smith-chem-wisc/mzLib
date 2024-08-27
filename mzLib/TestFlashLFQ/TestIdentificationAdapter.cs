@@ -1,25 +1,10 @@
 ﻿using NUnit.Framework;
 using Readers;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Chemistry;
 using FlashLFQ;
-using MassSpectrometry;
-using MathNet.Numerics.Distributions;
-using MathNet.Numerics.Statistics;
-using MzLibUtil;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
-using Proteomics.AminoAcidPolymer;
 using System.IO;
-using Test.FileReadingTests;
-using UsefulProteomicsDatabases;
-using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
-using Stopwatch = System.Diagnostics.Stopwatch;
-using TopDownProteomics;
 
 namespace TestFlashLFQ
 {

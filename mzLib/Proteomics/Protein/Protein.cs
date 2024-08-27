@@ -7,6 +7,8 @@ using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using MzLibUtil;
+using Easy.Common.Extensions;
 
 namespace Proteomics
 {
@@ -832,25 +834,66 @@ namespace Proteomics
             }
 
             string scrambledProteinSequence = originalDecoyProtein.BaseSequence;
+            // Clone the original protein's modifications
+            var scrambledModificationDictionary = originalDecoyProtein.OriginalNonVariantModifications.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
             // Start small and then go big. If we scramble a zero-missed cleavage peptide, but the missed cleavage peptide contains the previously scrambled peptide
             // Then we can avoid unnecessary operations as the scrambledProteinSequence will no longer contain the longer sequence of the missed cleavage peptide
             foreach(string peptideSequence in sequencesToScramble.OrderBy(seq => seq.Length))
             {
                 if(scrambledProteinSequence.Contains(peptideSequence))
                 {
-                    string scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs);
+                    string scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs, 
+                        out var swappedArray);
                     int scrambleAttempts = 1;
+
                     // Try five times to scramble the peptide sequence without creating a forbidden sequence
                     while(forbiddenSequences.Contains(scrambledPeptideSequence) & scrambleAttempts <= 5)
                     {
-                        scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs);
+                        scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs,
+                            out swappedArray);
                         scrambleAttempts++;
                     }
+
                     scrambledProteinSequence = scrambledProteinSequence.Replace(peptideSequence, scrambledPeptideSequence);
+
+                    if (!scrambledModificationDictionary.Any()) continue;
+
+                    // rearrange the modifications 
+                    foreach (int index in scrambledProteinSequence.IndexOfAll(scrambledPeptideSequence))
+                    {
+                        // Get mods that were affected by the scramble
+                        var relevantMods = scrambledModificationDictionary.Where(kvp => 
+                            kvp.Key >= index + 1 && kvp.Key < index + peptideSequence.Length + 1).ToList();
+
+                        // Modify the dictionary to reflect the new positions of the modifications
+                        foreach (var kvp in relevantMods)
+                        {
+                            int newKey = swappedArray[kvp.Key - 1 - index] + 1 + index;
+                            // To prevent collisions, we have to check if mods already exist at the new idx.
+                            if(scrambledModificationDictionary.TryGetValue(newKey, out var modsToSwap))
+                            {
+                                // If there are mods at the new idx, we swap the mods
+                                scrambledModificationDictionary[newKey] = kvp.Value;
+                                scrambledModificationDictionary[kvp.Key] = modsToSwap;
+                            }
+                            else
+                            {
+                                scrambledModificationDictionary.Add(newKey, kvp.Value);
+                                scrambledModificationDictionary.Remove(kvp.Key);
+                            }
+                        }
+                    }
                 }
             }
 
-            return new Protein(originalDecoyProtein, scrambledProteinSequence);
+            Protein newProtein = new Protein(originalDecoyProtein, scrambledProteinSequence);
+
+            // Update the modifications using the scrambledModificationDictionary
+            newProtein.OriginalNonVariantModifications = scrambledModificationDictionary;
+            newProtein.OneBasedPossibleLocalizedModifications = newProtein.SelectValidOneBaseMods(scrambledModificationDictionary);
+            
+            return newProtein;
         }
 
         private static Random rng = new Random(42);
@@ -858,7 +901,8 @@ namespace Proteomics
         /// <summary>
         /// Scrambles a peptide sequence, preserving the position of any cleavage sites.
         /// </summary>
-        public static string ScrambleSequence(string sequence, List<DigestionMotif> motifs)
+        /// <param name="swappedPositionArray">An array that maps the previous position (index) to the new position (value)</param>
+        public static string ScrambleSequence(string sequence, List<DigestionMotif> motifs, out int[] swappedPositionArray)
         {
             // First, find the location of every cleavage motif. These sites shouldn't be scrambled.
             HashSet<int> zeroBasedCleavageSitesLocations = new();
@@ -876,6 +920,10 @@ namespace Proteomics
 
             // Next, scramble the sequence using the Fisher-Yates shuffle algorithm.
             char[] sequenceArray = sequence.ToCharArray();
+            // We're going to keep track of the positions of the characters in the original sequence,
+            // This will enable us to adjust the location of modifications that are present in the original sequence
+            // to the new scrambled sequence.
+            int[] tempPositionArray = Enumerable.Range(0, sequenceArray.Length).ToArray();
             int n = sequenceArray.Length;
             while(n > 1)
             {
@@ -891,9 +939,23 @@ namespace Proteomics
                 {
                     k = rng.Next(n + 1);
                 }
-                char temp = sequenceArray[k];
+
+                // rearrange the sequence array
+                char tempResidue = sequenceArray[k];
                 sequenceArray[k] = sequenceArray[n];
-                sequenceArray[n] = temp;
+                sequenceArray[n] = tempResidue;
+
+                // update the position array to represent the swaps
+                int tempPosition = tempPositionArray[k];
+                tempPositionArray[k] = tempPositionArray[n];
+                tempPositionArray[n] = tempPosition;
+            }
+
+            // This maps the previous position (index) to the new position (value)
+            swappedPositionArray = new int[tempPositionArray.Length];
+            for (int i = 0; i < tempPositionArray.Length; i++)
+            {
+                swappedPositionArray[tempPositionArray[i]] = i;
             }
 
             return new string(sequenceArray);

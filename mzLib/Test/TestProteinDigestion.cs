@@ -16,6 +16,7 @@ using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using MzLibUtil;
 using System.Runtime.CompilerServices;
 
 namespace Test
@@ -393,6 +394,55 @@ namespace Test
             Assert.IsFalse(scrambledPep.Any(p => offendingDecoys.Contains(p.FullSequence)));
         }
 
+        [Test]
+        public static void TestDecoyScramblerModificationHandling()
+        {
+            DigestionParams d = new DigestionParams(
+                        maxMissedCleavages: 1,
+                        minPeptideLength: 5,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            ModificationMotif.TryGetMotif("G", out ModificationMotif motifG);
+            ModificationMotif.TryGetMotif("F", out ModificationMotif motifF);
+            Modification modG = new Modification("myMod", null, "myModType", null, motifG, "Anywhere.", null, 10, null, null, null, null, null, null);
+            Modification modF = new Modification("myMod", null, "myModType", null, motifF, "Anywhere.", null, 10, null, null, null, null, null, null);
+
+            IDictionary<int, List<Modification>> modDictDecoy = new Dictionary<int, List<Modification>>
+            {
+                {8, new List<Modification> { modG } },
+                {10, new List<Modification> { modF } }
+            };
+
+            Protein target = new Protein("MEDEEKFVGYKYGVFK", "target"); //, oneBasedModifications: modDictTarget);
+            Protein decoy = new Protein("EEDEMKYGVFKFVGYK", "decoy", oneBasedModifications: modDictDecoy);
+
+            var targetPep = target.Digest(d, new List<Modification>(), new List<Modification>());
+            var decoyPep = decoy.Digest(d, new List<Modification>(), new List<Modification>());
+
+            HashSet<string> targetPepSeqs = targetPep.Select(p => p.FullSequence).ToHashSet();
+            var offendingDecoys = decoyPep.Where(p => targetPepSeqs.Contains(p.FullSequence)).Select(d => d.FullSequence).ToList();
+            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs, offendingDecoys);
+
+            var fIndex = scrambledDecoy.BaseSequence.IndexOf("F");
+            var gIndex = scrambledDecoy.BaseSequence.IndexOf("G"); // We modified the first residue, so we don't need all locations, just the first
+            var fIndices = scrambledDecoy.BaseSequence.IndexOfAll("F");
+            var gIndices = scrambledDecoy.BaseSequence.IndexOfAll("G");
+
+            Assert.AreEqual(2, gIndices.Count());
+            Assert.AreEqual(2, fIndices.Count());
+            Assert.AreEqual(fIndices.First(), fIndex);
+
+            Assert.True(scrambledDecoy.OneBasedPossibleLocalizedModifications.ContainsKey(fIndex + 1));
+            Assert.True(scrambledDecoy.OneBasedPossibleLocalizedModifications[fIndex+1].Contains(modF));
+
+            Assert.True(scrambledDecoy.OneBasedPossibleLocalizedModifications.ContainsKey(gIndex + 1));
+            Assert.True(scrambledDecoy.OneBasedPossibleLocalizedModifications[gIndex + 1].Contains(modG));
+
+            Assert.AreEqual(scrambledDecoy.OneBasedPossibleLocalizedModifications.Count, 2);
+        }
+
+        
+
         [Test, Timeout(5000)]
         public static void TestDecoyScramblerNoInfiniteLoops()
         {
@@ -429,7 +479,6 @@ namespace Test
             scrambledDecoy = Protein.ScrambleDecoyProteinSequence(impossibleDecoy, d, offendingDecoys, offendingDecoys);
 
             Assert.AreEqual("KEK", scrambledDecoy.BaseSequence);
-            
         }
 
         [Test]
