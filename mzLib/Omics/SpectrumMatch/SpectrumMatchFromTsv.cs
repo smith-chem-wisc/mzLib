@@ -107,27 +107,32 @@ namespace Omics.SpectrumMatch
             //int patternMatches = regex.Matches(fullSeq).Count;
             Dictionary<int, List<string>> modDict = new();
 
+
+            // If there is a missed cleavage, then there will be a label on K and a Label on X modification.
+            // It'll be like [label]|[label] which complicates the positional stuff a little bit. Therefore, 
+            // RemoveSpecialCharacters will remove the "|", to ease things later on. 
             RemoveSpecialCharacters(ref fullSeq);
             MatchCollection matches = regex.Matches(fullSeq);
-            int currentPosition = 0;
+            int captureLengthSum = 0; 
             foreach (Match match in matches)
             {
                 GroupCollection group = match.Groups;
                 string val = group[1].Value;
                 int startIndex = group[0].Index;
                 int captureLength = group[0].Length;
-                int position = group["(.+?)"].Index;
 
                 List<string> modList = new List<string>();
                 modList.Add(val);
+                
+                // The position of the amino acids is tracked by the positionToAddToDict variable. It takes the 
+                // startIndex of the modification Match and removes the cumulative length of the modifications
+                // found (including the brackets). The difference will be the number of nonmodification characters, 
+                // or the number of amino acids prior to the startIndex in the sequence. 
+                int positionToAddToDict = startIndex - captureLengthSum;
+
                 // check to see if key already exist
-                // if there is a missed cleavage, then there will be a label on K and a Label on X modification.
-                // And, it'll be like [label]|[label] which complicates the positional stuff a little bit.
                 // if the already key exists, update the current position with the capture length + 1.
                 // otherwise, add the modification to the dict.
-
-                // int to add is startIndex - current position
-                int positionToAddToDict = startIndex - currentPosition;
                 if (modDict.ContainsKey(positionToAddToDict))
                 {
                     modDict[positionToAddToDict].Add(val);
@@ -136,7 +141,7 @@ namespace Omics.SpectrumMatch
                 {
                     modDict.Add(positionToAddToDict, modList);
                 }
-                currentPosition += startIndex + captureLength;
+                captureLengthSum += captureLength;
             }
             return modDict;
         }
