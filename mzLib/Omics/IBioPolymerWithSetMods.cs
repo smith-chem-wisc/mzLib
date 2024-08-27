@@ -80,6 +80,7 @@ namespace Omics
         /// <param name="fullSequence">Full sequence</param>
         /// <param name="allModsKnown">All known modifications</param>
         /// <returns></returns>
+        /// <exception cref="MzLibUtil.MzLibException">When a full sequence is not in the correct format or a mod is not found in the allModsKnown dictionary</exception>
         public static Dictionary<int, Modification> GetModificationDictionaryFromFullSequence(string fullSequence,
             Dictionary<string, Modification> allModsKnown)
         {
@@ -119,7 +120,8 @@ namespace Omics
                         catch (Exception e)
                         {
                             throw new MzLibUtil.MzLibException(
-                                "Error while trying to parse string into peptide: " + e.Message);
+                                "Error while trying to parse string into peptide: " + e.Message, e);
+
                         }
                         if (!allModsKnown.TryGetValue(modId, out var mod))
                         {
