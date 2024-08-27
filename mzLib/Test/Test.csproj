@@ -318,9 +318,6 @@
     <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\psm.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="FileReadingTests\ExternalFileTypes\SmallCalibratibleYeastFragger_psm.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
