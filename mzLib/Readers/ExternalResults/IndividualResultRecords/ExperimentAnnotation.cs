@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 
 namespace Readers
 {
+    /// <summary>
+    /// A class representing a single entry in an experiment_annotation.tsv file
+    /// </summary>
     public class ExperimentAnnotation
     {
         public static CsvConfiguration CsvConfiguration = new CsvConfiguration(CultureInfo.InvariantCulture)

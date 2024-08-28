@@ -81,7 +81,7 @@ namespace TestFlashLFQ
             string rawFilePath = @"DataFiles\SmallCalibratibleYeast.mzml";
             fullFilePath.Add(rawFilePath);
 
-            Dictionary<string, string> allFiles = file.FileNametoFilePath(fullFilePath);
+            Dictionary<string, string> allFiles = file.FileNameToFilePath(fullFilePath);
 
             Assert.That(allFiles.TryGetValue(fileName, out var output));
             Assert.AreEqual(output, rawFilePath);
