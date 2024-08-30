@@ -788,47 +788,5 @@ namespace Test
             Assert.That(noMods[6] == (float)0);
 
         }
-
-        [Test]
-        public void SpeedTest()
-        {
-            var allPsms =
-                new Readers.SpectrumMatchFromTsvFile(
-                    @"E:\Analyzed\A549_Full_Chronologer_2\Task4SearchTask\AllPSMs.psmtsv");
-            allPsms.LoadResults();
-
-            var psms = allPsms.Where(x => x.AmbiguityLevel == "1" & x.DecoyContamTarget == "T").ToList();
-
-            List<double?> predictions = new();
-            for (int i = 0; i < psms.Count; i++)
-            {
-                predictions.Add(
-                    ChronologerEstimator.PredictRetentionTime(
-                        psms[i].BaseSeq,
-                        psms[i].FullSequence));
-            }
-
-            int zero = 0;
-        }
-
-        [Test]
-        public void SpeedTestMultithreaded()
-        {
-            var allPsms =
-                new Readers.SpectrumMatchFromTsvFile(
-                    @"S:\Analyzed\A549_Full_Chronologer_2\Task4SearchTask\AllPSMs.psmtsv");
-            allPsms.LoadResults();
-
-            var psms = allPsms.Where(x => x.AmbiguityLevel == "1" & x.DecoyContamTarget == "T").ToList();
-
-            string[] baseSequences = psms.Select(x => x.BaseSeq).ToArray();
-            string[] fullSequences = psms.Select(x => x.FullSequence).ToArray();
-            List<float> predictions = new();
-
-            predictions.AddRange(
-                    ChronologerEstimator.PredictRetentionTime(baseSequences, fullSequences, false));
-
-            int zero = 0;
-        }
     }
 }

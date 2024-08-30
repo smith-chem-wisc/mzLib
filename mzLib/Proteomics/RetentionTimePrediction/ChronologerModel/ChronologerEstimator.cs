@@ -25,7 +25,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
         /// "Phosphorylation on S"
         /// "Phosphorylation on T"
         /// "Phosphorylation on Y"
-        /// "Accetylation on K"
+        /// "Acetylation on K"
         /// "Succinylation on K"
         /// "Ubiquitination on K"
         /// "Methylation on K"
@@ -334,14 +334,14 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
                 { ('Y', ""), 20 }, //'Tyrosine
                 { ('C', "Carbamidomethyl on C"), 21 }, //'Carbamidomethyl
                 { ('M', "Oxidation on M"), 22 }, //'Oxidized
-                { ('E', "Glu to PyroGlu"), 24 }, //'Pyroglutamate
+                { ('E', "Glu to PyroGlu"), 24 }, //'Pyro-glutamate
                 { ('S', "Phosphorylation on S"), 25 }, //'Phosphoserine
                 { ('T', "Phosphorylation on T"), 26 }, //'Phosphothreonine
                 { ('Y', "Phosphorylation on Y"), 27 }, //'Phosphotyrosine
-                { ('K', "Accetylation on K"), 28 }, //'Acetylated
+                { ('K', "Accetylation on K"), 28 }, //acetylation
                 { ('K', "Succinylation on K"), 29 }, //'Succinylated
                 { ('K', "Ubiquitination on K"), 30 }, //'Ubiquitinated
-                { ('K', "Methylation on K"), 31 }, //'Monomethyl
+                { ('K', "Methylation on K"), 31 }, //'Mono-methyl
                 { ('K', "Dimethylation on K"), 32 }, //'Dimethyl
                 { ('K', "Trimethylation on K"), 33 }, //'Trimethyl
                 { ('R', "Methylation on R"), 34 }, //'Monomethyl
