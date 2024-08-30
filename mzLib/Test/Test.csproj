@@ -19,6 +19,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
     <PackageReference Include="TopDownProteomics" Version="0.0.297" />
+    <PackageReference Include="TorchSharp" Version="0.103.0" />
+    <PackageReference Include="TorchSharp-cuda-windows" Version="0.103.0" />
   </ItemGroup>
 
   <ItemGroup>
