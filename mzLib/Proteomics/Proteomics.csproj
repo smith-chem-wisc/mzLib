@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Platforms>x64</Platforms>
   </PropertyGroup>
   
@@ -11,14 +11,14 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="libtorch-cpu" Version="2.1.0.1" />
-    <PackageReference Include="TorchSharp" Version="0.101.2" />
+    <PackageReference Include="TorchSharp" Version="0.103.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+    <ProjectReference Include="..\Omics\Omics.csproj" />
     <ProjectReference Include="..\PepXML\PepXML.csproj" />
   </ItemGroup>
 

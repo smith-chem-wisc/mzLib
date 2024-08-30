@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using TorchSharp;
 using TorchSharp.Modules;
 
-namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
+namespace Proteomics.RetentionTimePrediction.Chronologer
 {
     public static class ChronologerEstimator
     {
@@ -110,7 +110,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
                 {
                     preds[outputIndex] = predictionHolder[outputIndex];
                 });
-            
+
                 //change to -1 if same index in compatibleTracker is false, else leave as is
                 //predictions = preds.SelectMany(x => x).ToArray();
                 // return vstacked tensors as a matrix => float?[]
@@ -267,6 +267,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
                     //if mod, enter
                     if (nTerminalMod)
                     {
+                        if (subString.Contains("Acetyl"))
                             tensor[0][0] = 39;
                         else
                         {
@@ -297,6 +298,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
                 return tensor;
             }
 
+            return torch.zeros(1, 52, torch.ScalarType.Int64);
 
         }
 

@@ -21,12 +21,14 @@ namespace Proteomics.RetentionTimePrediction.ChronologerModel
     /// Licensed under Apache License 2.0
     /// 
     /// </summary>
-    public class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>
+    internal class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>
     {
         public Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
             "RetentionTimePrediction",
-            "Chronologer_20220601193755_TorchSharp.dat"))
-        { }
+            "Chronologer", "Chronologer_20220601193755_TorchSharp.dat"))
+        {
+            RegisterComponents();
+        }
 
         /// <summary>
         /// Initializes a new instance of the Chronologer model class with pre-trained weights from the paper
@@ -38,7 +40,7 @@ namespace Proteomics.RetentionTimePrediction.ChronologerModel
         /// </summary>
         /// <param name="weightsPath"></param>
         /// <param name="evalMode"></param>
-        public Chronologer(string weightsPath, bool evalMode = true) : base(nameof(Chronologer))
+        private Chronologer(string weightsPath, bool evalMode = true) : base(nameof(Chronologer))
         {
             RegisterComponents();
 
@@ -46,13 +48,13 @@ namespace Proteomics.RetentionTimePrediction.ChronologerModel
 
             if (evalMode)
             {
-                eval();
+                eval(); //evaluation mode doesn't update the weights
                 train(false);
             }
         }
 
         /// <summary>
-        /// Do not use for inferring. Use .Predict() instead.
+        /// Do not use for inferring. Use .Predict() instead. Why forward() is not used when predicting outside the training method? -> https://stackoverflow.com/questions/58508190/in-pytorch-what-is-the-difference-between-forward-and-an-ordinary-method
         /// </summary>
         /// <param name="x"></param>
         /// <returns></returns>
@@ -60,43 +62,43 @@ namespace Proteomics.RetentionTimePrediction.ChronologerModel
         {
             var input = seq_embed.forward(x).transpose(1, -1);
 
-            var residual = input.clone();
+            var residual = input.clone();  //clones the tensor, later will be added to the input (residual connection)
             input = conv_layer_1.forward(input); //renet_block
-            input = norm_layer_1.forward(input);
-            input = relu.forward(input);
-            input = conv_layer_2.forward(input);
-            input = norm_layer_2.forward(input);
-            input = relu.forward(input);
-            input = term_block.forward(input);
-            input = residual + input;
-            input = relu.forward(input);
+            input = norm_layer_1.forward(input); //batch normalization
+            input = relu.forward(input);         //relu activation
+            input = conv_layer_2.forward(input); //convolutional layer
+            input = norm_layer_2.forward(input); //batch normalization
+            input = relu.forward(input);         //relu activation
+            input = term_block.forward(input);   //identity block
+            input = residual + input;            //residual connection
+            input = relu.forward(input);         //relu activation
 
-            residual = input.clone();
-            input = conv_layer_4.forward(input);//renet_block
-            input = norm_layer_4.forward(input);
-            input = relu.forward(input);
-            input = conv_layer_5.forward(input);
-            input = norm_layer_5.forward(input);
-            input = relu.forward(input);
-            input = term_block.forward(input);
-            input = residual + input;
-            input = relu.forward(input);
+            residual = input.clone();            //clones the tensor, later will be added to the input (residual connection)
+            input = conv_layer_4.forward(input); //renet_block
+            input = norm_layer_4.forward(input); //batch normalization 
+            input = relu.forward(input);         //relu activation
+            input = conv_layer_5.forward(input); //convolutional layer
+            input = norm_layer_5.forward(input); //batch normalization
+            input = relu.forward(input);         //relu activation
+            input = term_block.forward(input);   //identity block
+            input = residual + input;            //residual connection
+            input = relu.forward(input);         //relu activation
 
-            residual = input.clone();
-            input = conv_layer_7.forward(input);//renet_block
-            input = norm_layer_7.forward(input);
-            input = term_block.forward(input);
-            input = relu.forward(input);
-            input = conv_layer_8.forward(input);
-            input = norm_layer_8.forward(input);
-            input = relu.forward(input);
-            input = term_block.forward(input);
-            input = residual + input;
-            input = relu.forward(input);
+            residual = input.clone();            //clones the tensor, later will be added to the input (residual connection)
+            input = conv_layer_7.forward(input); //renet_block
+            input = norm_layer_7.forward(input); //batch normalization
+            input = term_block.forward(input);   //identity block
+            input = relu.forward(input);         //relu activation
+            input = conv_layer_8.forward(input); //convolutional layer
+            input = norm_layer_8.forward(input); //batch normalization
+            input = relu.forward(input);         //relu activation
+            input = term_block.forward(input);   //identity block
+            input = residual + input;            //residual connection
+            input = relu.forward(input);         //relu activation
 
-            input = dropout.forward(input);
-            input = flatten.forward(input);
-            input = output.forward(input);
+            input = dropout.forward(input);      //dropout layer
+            input = flatten.forward(input);      //flatten layer
+            input = output.forward(input);       //output layer
 
             return input;
         }
@@ -116,12 +118,12 @@ namespace Proteomics.RetentionTimePrediction.ChronologerModel
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
-        public torch.Tensor Predict(torch.Tensor input)
+        internal torch.Tensor Predict(torch.Tensor input)
         {
             return call(input);
         }
 
-        //All Modules (shortcut modules are for loading the weights only)
+        //All Modules (shortcut modules are for loading the weights only, not used but required for the weights)
         private Embedding seq_embed = torch.nn.Embedding(55, 64, 0);
         private torch.nn.Module<torch.Tensor, torch.Tensor> conv_layer_1 = torch.nn.Conv1d(64, 64, 1, Padding.Same, dilation: 1);
         private torch.nn.Module<torch.Tensor, torch.Tensor> conv_layer_2 = torch.nn.Conv1d(64, 64, 7, Padding.Same, dilation: 1);
