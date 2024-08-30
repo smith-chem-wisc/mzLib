@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Proteomics.RetentionTimePrediction.ChronologerModel;
 using TorchSharp;
 using Stopwatch = System.Diagnostics.Stopwatch;
 

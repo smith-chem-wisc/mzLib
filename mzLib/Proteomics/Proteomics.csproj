@@ -26,7 +26,7 @@
     <None Update="ProteolyticDigestion\proteases.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="RetentionTimePrediction\Chronologer_20220601193755_TorchSharp.dat">
+    <None Update="RetentionTimePrediction\ChronologerModel\Chronologer_20220601193755_TorchSharp.dat">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

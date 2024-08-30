@@ -3,7 +3,7 @@ using System.IO;
 using TorchSharp;
 using TorchSharp.Modules;
 
-namespace Proteomics.RetentionTimePrediction
+namespace Proteomics.RetentionTimePrediction.ChronologerModel
 {
     /// <summary>
     /// Chronologer is a deep learning model for highly accurate prediction of peptide C18 retention times (reported in % ACN).
@@ -25,7 +25,8 @@ namespace Proteomics.RetentionTimePrediction
     {
         public Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
             "RetentionTimePrediction",
-            "Chronologer_20220601193755_TorchSharp.dat")) { }
+            "Chronologer_20220601193755_TorchSharp.dat"))
+        { }
 
         /// <summary>
         /// Initializes a new instance of the Chronologer model class with pre-trained weights from the paper
@@ -45,8 +46,8 @@ namespace Proteomics.RetentionTimePrediction
 
             if (evalMode)
             {
-                this.eval();
-                this.train(false);
+                eval();
+                train(false);
             }
         }
 
@@ -92,11 +93,11 @@ namespace Proteomics.RetentionTimePrediction
             input = term_block.forward(input);
             input = residual + input;
             input = relu.forward(input);
-            
+
             input = dropout.forward(input);
             input = flatten.forward(input);
             input = output.forward(input);
-            
+
             return input;
         }
 
@@ -107,7 +108,7 @@ namespace Proteomics.RetentionTimePrediction
         private void LoadWeights(string weightsPath)
         {
             //load weights from the file
-            this.load(weightsPath, true);
+            load(weightsPath, true);
         }
 
         /// <summary>
@@ -117,7 +118,7 @@ namespace Proteomics.RetentionTimePrediction
         /// <returns></returns>
         public torch.Tensor Predict(torch.Tensor input)
         {
-            return this.call(input);
+            return call(input);
         }
 
         //All Modules (shortcut modules are for loading the weights only)
