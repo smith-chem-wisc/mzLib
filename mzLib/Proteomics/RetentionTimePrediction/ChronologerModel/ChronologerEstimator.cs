@@ -3,11 +3,11 @@ using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using TorchSharp;
 
-namespace Proteomics.RetentionTimePrediction.Chronologer
+namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
 {
     public static class ChronologerEstimator
     {
-        private static Chronologer ChronologerModel = new Chronologer();
+        private static ChronologerModel.Chronologer ChronologerModel = new ChronologerModel.Chronologer();
 
         /// <summary>
         /// Uses the Chronologer model to predict C18 retention times (reported in % ACN).
