@@ -267,7 +267,6 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
                     //if mod, enter
                     if (nTerminalMod)
                     {
-                        if (subString.Contains("Acetyl"))
                             tensor[0][0] = 39;
                         else
                         {
@@ -298,7 +297,6 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
                 return tensor;
             }
 
-            return torch.zeros(1, 52, torch.ScalarType.Int64);
 
         }
 
