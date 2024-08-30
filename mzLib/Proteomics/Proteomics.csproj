@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <Platforms>x64</Platforms>
   </PropertyGroup>
   
@@ -19,7 +19,6 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
-    <ProjectReference Include="..\Omics\Omics.csproj" />
     <ProjectReference Include="..\PepXML\PepXML.csproj" />
   </ItemGroup>
 
@@ -27,17 +26,9 @@
     <None Update="ProteolyticDigestion\proteases.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat">
+    <None Update="RetentionTimePrediction\ChronologerModel\Chronologer_20220601193755_TorchSharp.dat">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Fragmentation\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="CsvHelper" Version="32.0.3" />
   </ItemGroup>
 
 </Project>

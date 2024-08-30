@@ -1,7 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
+using System.Threading.Tasks;
 using TorchSharp;
+using TorchSharp.Modules;
 
 namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
 {
@@ -43,6 +46,106 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
             return prediction[0].ToDouble();
         }
 
+        public static float[] PredictRetentionTime(string[] baseSequences, string[] fullSequences, bool gpu)
+        {
+            // TODO try catch here
+            torch.InitializeDeviceType(DeviceType.CUDA);
+            // if cuda is available, then use it bro
+            var device = torch.cuda_is_available()
+                ? new torch.Device(DeviceType.CUDA)
+                : new torch.Device(DeviceType.CPU);
+
+            ChronologerModel.to(device);
+
+            List<(Task<(torch.Tensor, bool)>, bool)> tasksRunning = new();
+
+            if (baseSequences.Length != fullSequences.Length)
+                return null; // mayber throw exception here?
+
+            //vstack tensors and then batch predict to avoid running out of vRAM, I think system RAM transfer has big latency so keep em small
+
+            float[] predictions = new float[baseSequences.Length];
+
+            if (gpu)
+            {
+                // tensorize all
+                torch.Tensor[] tensorsArray = new torch.Tensor[baseSequences.Length];
+                bool[] compatibleTracker = new bool[baseSequences.Length];
+
+                Parallel.For(0, baseSequences.Length, (i, state) =>
+                {
+                    var baseSeq = baseSequences[i];
+                    var fullSeq = fullSequences[i];
+
+                    var (tensor, compatible) = Tensorize(baseSeq, fullSeq, out bool chronologerCompatible);
+                    if (compatible)
+                    {
+                        tensorsArray[i] = tensor;
+                        compatibleTracker[i] = compatible;
+                    }
+                    else
+                    {
+                        tensorsArray[i] = torch.zeros(1, 52, torch.ScalarType.Int64);
+                        compatibleTracker[i] = compatible;
+                    }
+                });
+                // vstack and split
+                var stackedTensors = torch.vstack(tensorsArray);
+
+                float[] preds = new float[stackedTensors.size(0)];
+
+                // make batches
+                using var dataset = torch.utils.data.TensorDataset(stackedTensors);
+                using var dataLoader = torch.utils.data.DataLoader(dataset, 2048);
+
+                var predictionHolder = new List<float>();
+                foreach (var batch in dataLoader)
+                {
+                    var output = ChronologerModel.Predict(torch.vstack(batch).to(device));
+                    predictionHolder.AddRange(output.to(DeviceType.CPU).data<float>());
+                    output.Dispose();
+                }
+
+                Parallel.For(0, preds.Length, outputIndex =>
+                {
+                    preds[outputIndex] = predictionHolder[outputIndex];
+                });
+            
+                //change to -1 if same index in compatibleTracker is false, else leave as is
+                //predictions = preds.SelectMany(x => x).ToArray();
+                // return vstacked tensors as a matrix => float?[]
+
+                for (var predictionsIndex = 0; predictionsIndex < predictions.Length; predictionsIndex++)
+                {
+                    if (compatibleTracker[predictionsIndex])
+                    {
+                        predictions[predictionsIndex] = predictionHolder[predictionsIndex];
+                        continue;
+                    }
+
+                    predictions[predictionsIndex] = -1;
+                }
+            }
+            else
+            {
+                Parallel.For(0, baseSequences.Length, (i, state) =>
+                {
+                    var baseSeq = baseSequences[i];
+                    var fullSeq = fullSequences[i];
+
+                    var (tensor, compatible) = Tensorize(baseSeq, fullSeq, out bool chronologerCompatible);
+                    if (compatible)
+                    {
+                        var chronologerPrediction = ChronologerModel.Predict(tensor).data<float>().ToArray()[0];
+                        predictions[i] = chronologerPrediction;
+                    }
+                    else
+                        predictions[i] = -1;
+                });
+            }
+
+            return predictions;
+        }
         /// <summary>
         /// Takes the base sequence and the full peptide sequence and returns a tensor for the Chronologer model.
         /// The base sequence is the sequence without modifications and the full peptide sequence is the sequence with modifications.
@@ -52,6 +155,81 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
         /// <param name="baseSequence"></param>
         /// <param name="fullSequence"></param>
         /// <returns></returns>
+        private static (torch.Tensor, bool) Tensorize(string baseSequence, string fullSequence, out bool chronologerCompatible)
+        {
+            // Chronologer does not support metals
+            if (fullSequence.Contains("Metal") || baseSequence.Contains("U") || baseSequence.Length > 50)
+            {
+                chronologerCompatible = false;
+                return (torch.zeros(1, 52, torch.ScalarType.Int64), chronologerCompatible);
+            }
+
+            var fullSeq = fullSequence.Split(new[] { '[', ']' })
+                .Where(x => !x.Equals("")).ToArray();
+
+
+            //section to remove type of mod from the sequence
+            //e.g. Common Fixed:Carbamidomethyl and only stay with the target aa after the mod
+            for (int i = 0; i < fullSeq.Length; i++)
+            {
+                if (fullSeq[i].Contains(" "))
+                {
+                    var tempSeq = fullSeq[i].Split(':');
+                    fullSeq[i] = tempSeq[1];
+                }
+            }
+
+            if (baseSequence.Length <= 50) //Chronologer only takes sequences of length 50 or less
+            {
+                var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
+
+                var tensorCounter = 1; //skips the first element which is the C-terminus in the tensor
+                char modID = ' '; //takes the target aa from inside the loop to hold it for the next loop
+
+                bool nTerminalMod = fullSequence[0] == '['; // true if the first loop is a mod
+
+                foreach (var subString in fullSeq)
+                {
+                    //if mod, enter
+                    if (nTerminalMod)
+                    {
+                        if (subString.Contains("Acetyl"))
+                            tensor[0][0] = 39;
+                        else
+                        {
+                            tensor[0][0] = 38;
+                        }
+                        nTerminalMod = false; //next iteration is not a mod
+                        continue;
+                    }
+
+                    if (!subString.Contains(" "))
+                    {
+                        //without mods
+                        for (int i = 0; i < subString.Length; i++)
+                        {
+                            tensor[0][tensorCounter] = ChronologerDictionary[(subString[i], "")];
+                            tensorCounter++;
+                        }
+
+                        //save target aa for next loop
+                        modID = subString[subString.Length - 1];
+                    }
+
+                    nTerminalMod = true;
+                }
+
+                tensor[0][tensorCounter] = 44; //C-terminus
+
+                chronologerCompatible = true;
+                return (tensor, chronologerCompatible);
+            }
+
+            chronologerCompatible = false;
+            return (torch.zeros(1, 52, torch.ScalarType.Int64), chronologerCompatible);
+
+        }
+
         private static torch.Tensor Tensorize(string baseSequence, string fullSequence)
         {
             // Chronologer does not support metals
@@ -89,11 +267,11 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
                     //if mod, enter
                     if (nTerminalMod)
                     {
-                        if(subString.Contains("Acetyl"))
-                            tensor[0][0] = 39; 
+                        if (subString.Contains("Acetyl"))
+                            tensor[0][0] = 39;
                         else
                         {
-                            tensor[0][0] = 38; 
+                            tensor[0][0] = 38;
                         }
                         nTerminalMod = false; //next iteration is not a mod
                         continue;
@@ -120,7 +298,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer.Chronologer
                 return tensor;
             }
 
-            return null;
+            return torch.zeros(1, 52, torch.ScalarType.Int64);
 
         }
 

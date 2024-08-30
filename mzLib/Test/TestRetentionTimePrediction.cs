@@ -1,11 +1,18 @@
-﻿using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
+﻿using CsvHelper;
+using CsvHelper.Configuration;
+using CsvHelper.Configuration.Attributes;
+using CsvHelper.TypeConversion;
+using NUnit.Framework;
+using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Proteomics.RetentionTimePrediction;
-using Proteomics.RetentionTimePrediction.Chronologer;
 using System;
 using System.Collections.Generic;
-using Omics.Modifications;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using Proteomics.RetentionTimePrediction.ChronologerModel;
+using TorchSharp;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -661,7 +668,6 @@ namespace Test
                 object obj = _peptides100A[i, 1];
                 double expected = (double)_peptides100A[i, 1];
                 double actual = calc.ScoreSequence(peptide);
-                double actualString = calc.ScoreSequence(peptide.BaseSequence);
 
                 // Round the returned value to match the values presented
                 // in the supporting information of the SSRCalc 3 publication.
@@ -670,13 +676,11 @@ namespace Test
                 // instead of 12.81.  When diffed with 12.81 the result was
                 // 0.005000000000002558.
                 double actualRound = Math.Round((float)actual, 2);
-                double actualStringRound = Math.Round((float)actualString, 2);
 
                 // Extra conditional added to improve debugging of issues.
                 if (Math.Abs(expected - actual) > 0.005)
                 {
                     Assert.AreEqual(expected, actualRound, "Peptide {0}", peptide);
-                    Assert.AreEqual(expected, actualStringRound, "Peptide {0}", peptide);
                 }
             }
         }
@@ -721,44 +725,112 @@ namespace Test
 
         //Chronologer Tests
         [Test]
-        public void TestChronologerPredictions()
+        public void TestChronologerConstructorAndPredictions()
         {
-            var testingData = new List<(string, string)>()
+            var model = new Chronologer();
+
+            var data = Mapper.Read(Path.Combine(Directory.GetCurrentDirectory(),
+                "DataFiles", "ChronologerTest.tsv"));
+
+            foreach (var datum in data)
             {
-                ("GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK", "GGSGGSHGGGSGFGGESGGSYGGGEEASGSGGGYGGGSGK"),
-                ("FASDDEHDEHDENGATGPVK", "FAS[Common Biological:Phosphorylation on S]DDEHDEHDENGATGPVK"),
-                ("AETLSGLGDSGAAGAAALSSASSETGTR", "[Common Biological:Acetylation on X]AETLSGLGDSGAAGAAALSSASSETGTR"),
-                ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
-                ("ASASSSACSSDSDS", "ASASSSA[Unimod:Pyro-carbamidomethyl on C]CSSDSDS"),
-                ("GAGTGGLGLAVEGPSEAK", "GAGTGGLGLAVE[Metal:Sodium on E]GPSEAK"),
-                ("UUUUUUU", "UUUUUUU")
+                var prediction = model.Predict(datum.tensor);
+                
+                var hiFromFile = datum.Pred_HI;
+
+                Assert.AreEqual(Math.Round(prediction.item<float>(), 3),
+                    Math.Round(float.Parse(hiFromFile), 3));
+            }
+        }
+
+        internal class Mapper
+        {
+            internal static CsvConfiguration MapperConfig => new CsvConfiguration(CultureInfo.InvariantCulture)
+            {
+                HasHeaderRecord = true,
+                Delimiter = "\t",
+                HeaderValidated = null,
             };
 
-            var noMods =
-                ChronologerEstimator.PredictRetentionTime(testingData[0].Item1, testingData[0].Item2);
-            Assert.That(noMods.HasValue);
+            [Name("Scan Retention Time")] public string ScanRetentionTime { get; set; }
+            public string PeptideModSeq { get; set; }
+            public string Length { get; set; }
+            public string CodedPeptideSeq { get; set; }
+            public string PeptideLength { get; set; }
+            public string Pred_HI { get; set; }
 
-            var withMiddleMods =
-                ChronologerEstimator.PredictRetentionTime(testingData[1].Item1, testingData[1].Item2);
-            Assert.That(withMiddleMods.HasValue);
+            [TypeConverter(typeof(TensorConverter))]
+            public torch.Tensor tensor { get; set; }
 
-            var withBegginingMods =
-                ChronologerEstimator.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
-            Assert.That(withBegginingMods.HasValue);
+            internal static void Write(IEnumerable<Mapper> toWrite, string filepath)
+            {
+                using var csv = new CsvWriter(new StreamWriter(filepath), MapperConfig);
+                csv.WriteHeader<Mapper>();
+                csv.NextRecord();
+                csv.WriteRecords(toWrite);
+                csv.Dispose();
+            }
 
-            var invalidSequence = ChronologerEstimator.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2);
-            Assert.That(invalidSequence.HasValue == false);
+            internal static List<Mapper> Read(string path)
+            {
+                return new CsvReader(new StreamReader(path), MapperConfig).GetRecords<Mapper>().ToList();
+            }
 
-            var pyroCarbamidomethyl =
-                ChronologerEstimator.PredictRetentionTime(testingData[4].Item1, testingData[4].Item2);
-            Assert.That(pyroCarbamidomethyl.HasValue);
+            internal class TensorConverter : DefaultTypeConverter
+            {
+                public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
+                {
+                    var tensor = torch.zeros(1, 52, torch.ScalarType.Int64);
+                    text = text.Replace("\n", "").Replace(")", "");
+                    var values = text.Split(',').Select(x => int.Parse(x)).ToArray();
+                    tensor[0] = values;
+                    return tensor;
+                }
 
-            var metals = ChronologerEstimator.PredictRetentionTime(testingData[5].Item1, testingData[5].Item2);
-            Assert.That(metals.HasValue == false);
+                public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
+                {
+                    var tensor = value as torch.Tensor ?? throw new ArgumentException("Value is not a tensor");
+                    var temp2 = tensor.ToString(TensorStringStyle.Julia);
+                    temp2 = temp2.TrimStart().TrimEnd().Replace("\n", "").Replace(")", "").Replace("\r", "")
+                        .Replace("[[", "").Replace("]]", "");
+                    var temp3 = tensor.data<long>().ToArray();
+                    return string.Join(',', temp3);
+                }
+            }
 
-            var uAminoAcid = ChronologerEstimator.PredictRetentionTime(testingData[6].Item1, testingData[6].Item2);
-            Assert.That(uAminoAcid.HasValue == false);
+            //[Test]
+            //public void CompareNoMods()
+            //{
+            //    var data = Mapper.Read(@"F:\Research\Data\Hela\predictedExample - Copy2.tsv");
 
+            //    var model = new nnModules.RawChronologer();
+            //    model.load(@"C:\Users\Edwin\Documents\GitHub\RT-DP\model_weights_Chronologer_new_module_names.dat");
+            //    model.eval();
+            //    model.train(false);
+
+            //    var chronologerPredictions = new List<float>();
+            //    var ssRCalcPredictions = new List<double>();
+            //    var realRT = new List<double>();
+
+            //    foreach (var datum in data)
+            //    {
+            //        //chronologer
+            //        var prediction = model.call(datum.tensor);
+            //        chronologerPredictions.Add(prediction.data<float>().ToArray()[0]);
+
+            //        //ssrcalc
+            //        SSRCalc3 ssrCalc3 = new SSRCalc3("SSRCalc 3.0 (300A)", SSRCalc3.Column.A300);
+
+            //        var peptide =
+            //            new PeptideWithSetModifications(datum.PeptideModSeq, new Dictionary<string, Modification>());
+            //        var ssrcalcOutput = ssrCalc3.ScoreSequence(peptide);
+            //        ssRCalcPredictions.Add(ssrcalcOutput);
+
+            //        //Read RT
+            //        realRT.Add(double.Parse(datum.ScanRetentionTime));
+
+            //    }
+            //}
         }
     }
 }
