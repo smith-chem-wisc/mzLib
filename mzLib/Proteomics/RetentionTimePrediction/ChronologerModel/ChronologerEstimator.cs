@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Data;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
@@ -48,8 +50,14 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
 
         public static float[] PredictRetentionTime(string[] baseSequences, string[] fullSequences, bool gpu)
         {
-            // TODO try catch here
-            torch.InitializeDeviceType(DeviceType.CUDA);
+            try
+            {
+                torch.InitializeDeviceType(DeviceType.CUDA);
+            }
+            catch
+            {
+                Console.WriteLine(new Exception("This device does not support CUDA"));
+            }
             // if cuda is available, then use it bro
             var device = torch.cuda_is_available()
                 ? new torch.Device(DeviceType.CUDA)
