@@ -42,7 +42,6 @@ namespace FlashLFQ
         public readonly double MbrPpmTolerance;
         public readonly double MbrDetectionQValueThreshold;
         private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
-        public double MbrDonorExclusionWindow { get; set; }
 
         // New MBR Settings
         public readonly double RtWindowIncrease = 0;
@@ -116,7 +115,6 @@ namespace FlashLFQ
             double maxMbrWindow = 1.0,
             bool requireMsmsIdInCondition = false,
             double matchBetweenRunsFdrThreshold = 0.05,
-            double mbrDonorExclusionWindow = -1,
 
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
@@ -169,7 +167,6 @@ namespace FlashLFQ
             DonorCriterion = donorCriterion;
             DonorQValueThreshold = donorQValueThreshold;
             MbrDetectionQValueThreshold = matchBetweenRunsFdrThreshold;
-            MbrDonorExclusionWindow = mbrDonorExclusionWindow;
 
             RequireMsmsIdInCondition = requireMsmsIdInCondition;
             Normalize = normalize;
@@ -872,12 +869,6 @@ namespace FlashLFQ
             double minDiff = 5 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
             double maxDiff = 11 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
             double donorPeakPeakfindingMass = donorIdentification.PeakfindingMass;
-
-
-            if(MbrDonorExclusionWindow >= 0)
-            {
-                retentionTimeMinDiff = MbrDonorExclusionWindow;
-            }
 
             // Theoretically we could do a binary search but we're just going to iterate through the whole list of donor peaks
             List<ChromatographicPeak> randomPeakCandidates = peaksOrderedByMass
