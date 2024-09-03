@@ -59,7 +59,7 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
             return prediction.data<float>()[0];
         }
 
-        public static float[] PredictRetentionTime(string[] baseSequences, string[] fullSequences, bool gpu=true, int batch_size = 512)
+        public static float[] PredictRetentionTime(string[] baseSequences, string[] fullSequences, bool gpu = true, int batch_size = 512)
         {
             torch.Device device;
             try
@@ -82,83 +82,64 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
 
             float[] predictions = new float[baseSequences.Length];
 
-            if (gpu)
+            // tensorize all
+            torch.Tensor[] tensorsArray = new torch.Tensor[baseSequences.Length];
+            bool[] compatibleTracker = new bool[baseSequences.Length];
+
+            Parallel.For(0, baseSequences.Length, (i, state) =>
             {
-                // tensorize all
-                torch.Tensor[] tensorsArray = new torch.Tensor[baseSequences.Length];
-                bool[] compatibleTracker = new bool[baseSequences.Length];
+                var baseSeq = baseSequences[i];
+                var fullSeq = fullSequences[i];
 
-                Parallel.For(0, baseSequences.Length, (i, state) =>
+                var (tensor, compatible) = Tensorize(baseSeq, fullSeq, out bool chronologerCompatible);
+                if (compatible)
                 {
-                    var baseSeq = baseSequences[i];
-                    var fullSeq = fullSequences[i];
-
-                    var (tensor, compatible) = Tensorize(baseSeq, fullSeq, out bool chronologerCompatible);
-                    if (compatible)
-                    {
-                        tensorsArray[i] = tensor;
-                        compatibleTracker[i] = compatible;
-                    }
-                    else
-                    {
-                        tensorsArray[i] = torch.zeros(1, 52, torch.ScalarType.Int64);
-                        compatibleTracker[i] = compatible;
-                    }
-                });
-                // vstack and split
-                var stackedTensors = torch.vstack(tensorsArray);
-
-                float[] preds = new float[stackedTensors.size(0)];
-
-                // make batches
-                using var dataset = torch.utils.data.TensorDataset(stackedTensors);
-                using var dataLoader = torch.utils.data.DataLoader(dataset, 2048);
-
-                var predictionHolder = new List<float>();
-                foreach (var batch in dataLoader)
+                    tensorsArray[i] = tensor;
+                    compatibleTracker[i] = compatible;
+                }
+                else
                 {
-                    var output = ChronologerModel.Predict(torch.vstack(batch).to(device));
-                    predictionHolder.AddRange(output.to(DeviceType.CPU).data<float>());
-                    output.Dispose();
+                    tensorsArray[i] = torch.zeros(1, 52, torch.ScalarType.Int64);
+                    compatibleTracker[i] = compatible;
+                }
+            });
+            // vstack and split
+            var stackedTensors = torch.vstack(tensorsArray);
+
+            float[] preds = new float[stackedTensors.size(0)];
+
+            // make batches
+            using var dataset = torch.utils.data.TensorDataset(stackedTensors);
+            using var dataLoader = torch.utils.data.DataLoader(dataset, 2048);
+
+            var predictionHolder = new List<float>();
+            foreach (var batch in dataLoader)
+            {
+                var output = ChronologerModel.Predict(torch.vstack(batch).to(device));
+                predictionHolder.AddRange(output.to(DeviceType.CPU).data<float>());
+                output.Dispose();
+            }
+
+            Parallel.For(0, preds.Length, outputIndex =>
+            {
+                preds[outputIndex] = predictionHolder[outputIndex];
+            });
+
+            //change to -1 if same index in compatibleTracker is false, else leave as is
+            //predictions = preds.SelectMany(x => x).ToArray();
+            // return vstacked tensors as a matrix => float?[]
+
+            for (var predictionsIndex = 0; predictionsIndex < predictions.Length; predictionsIndex++)
+            {
+                if (compatibleTracker[predictionsIndex])
+                {
+                    predictions[predictionsIndex] = predictionHolder[predictionsIndex];
+                    continue;
                 }
 
-                Parallel.For(0, preds.Length, outputIndex =>
-                {
-                    preds[outputIndex] = predictionHolder[outputIndex];
-                });
-
-                //change to -1 if same index in compatibleTracker is false, else leave as is
-                //predictions = preds.SelectMany(x => x).ToArray();
-                // return vstacked tensors as a matrix => float?[]
-
-                for (var predictionsIndex = 0; predictionsIndex < predictions.Length; predictionsIndex++)
-                {
-                    if (compatibleTracker[predictionsIndex])
-                    {
-                        predictions[predictionsIndex] = predictionHolder[predictionsIndex];
-                        continue;
-                    }
-
-                    predictions[predictionsIndex] = -1;
-                }
+                predictions[predictionsIndex] = -1;
             }
-            else
-            {
-                Parallel.For(0, baseSequences.Length, (i, state) =>
-                {
-                    var baseSeq = baseSequences[i];
-                    var fullSeq = fullSequences[i];
 
-                    var (tensor, compatible) = Tensorize(baseSeq, fullSeq, out bool chronologerCompatible);
-                    if (compatible)
-                    {
-                        var chronologerPrediction = ChronologerModel.Predict(tensor).data<float>().ToArray()[0];
-                        predictions[i] = chronologerPrediction;
-                    }
-                    else
-                        predictions[i] = -1;
-                });
-            }
 
             return predictions;
         }
