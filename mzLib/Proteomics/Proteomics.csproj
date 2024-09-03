@@ -9,10 +9,12 @@
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="TorchSharp" Version="0.103.0" />
-  </ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="TorchSharp" Version="0.103.0" />
+		<PackageReference Include="TorchSharp-cuda-windows" Version="0.103.0" Condition="'$(OS)' == 'Windows_NT'"/>
+		<PackageReference Include="TorchSharp-cuda-linux" Version="0.103.0" Condition="'$(OS)' == 'Linux'"/>
+	</ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />

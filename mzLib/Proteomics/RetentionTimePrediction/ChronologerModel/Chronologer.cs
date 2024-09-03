@@ -24,7 +24,7 @@ internal class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>
 {
     internal Chronologer() : this(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
         "RetentionTimePrediction",
-        "Chronologer", "Chronologer_20220601193755_TorchSharp.dat"))
+        "ChronologerModel", "Chronologer_20220601193755_TorchSharp.dat"))
     {
         RegisterComponents();
     }

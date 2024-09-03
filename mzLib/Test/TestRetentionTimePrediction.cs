@@ -739,28 +739,28 @@ namespace Test
 
             var noMods =
                 ChronologerEstimator.PredictRetentionTime(testingData[0].Item1, testingData[0].Item2);
-            Assert.That(noMods.HasValue);
+            Assert.That(noMods > 0);
 
             var withMiddleMods =
                 ChronologerEstimator.PredictRetentionTime(testingData[1].Item1, testingData[1].Item2);
-            Assert.That(withMiddleMods.HasValue);
+            Assert.That(withMiddleMods > 0);
 
             var withBegginingMods =
                 ChronologerEstimator.PredictRetentionTime(testingData[2].Item1, testingData[2].Item2);
-            Assert.That(withBegginingMods.HasValue);
+            Assert.That(withBegginingMods > 0);
 
             var invalidSequence = ChronologerEstimator.PredictRetentionTime(testingData[3].Item1, testingData[3].Item2);
-            Assert.That(invalidSequence.HasValue == false);
+            Assert.That(invalidSequence < 0);
 
             var pyroCarbamidomethyl =
                 ChronologerEstimator.PredictRetentionTime(testingData[4].Item1, testingData[4].Item2);
-            Assert.That(pyroCarbamidomethyl.HasValue);
+            Assert.That(pyroCarbamidomethyl > 0);
 
             var metals = ChronologerEstimator.PredictRetentionTime(testingData[5].Item1, testingData[5].Item2);
-            Assert.That(metals.HasValue == false);
+            Assert.That(metals < 0);
 
             var uAminoAcid = ChronologerEstimator.PredictRetentionTime(testingData[6].Item1, testingData[6].Item2);
-            Assert.That(uAminoAcid.HasValue == false);
+            Assert.That(uAminoAcid < 0);
 
         }
 
@@ -782,10 +782,10 @@ namespace Test
             string[] testingDataFullSequence = testingData.Select(x => x.Item2);
 
             var noMods =
-                ChronologerEstimator.PredictRetentionTime(testingDataBaseSequence, testingDataFullSequence, false);
-            Assert.That(noMods[3] == (float)0);
-            Assert.That(noMods[5] == (float)0);
-            Assert.That(noMods[6] == (float)0);
+                ChronologerEstimator.PredictRetentionTime(testingDataBaseSequence, testingDataFullSequence);
+            Assert.That(noMods[3] == -1);
+            Assert.That(noMods[5] == -1);
+            Assert.That(noMods[6] == -1);
 
         }
     }
