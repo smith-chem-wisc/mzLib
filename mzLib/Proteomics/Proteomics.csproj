@@ -14,6 +14,7 @@
 		<PackageReference Include="TorchSharp" Version="0.103.0" />
 		<PackageReference Include="TorchSharp-cuda-windows" Version="0.103.0" Condition="'$(OS)' == 'Windows_NT'"/>
 		<PackageReference Include="TorchSharp-cuda-linux" Version="0.103.0" Condition="'$(OS)' == 'Linux'"/>
+		<PackageReference Include="TorchSharp-cpu" Version="0.103.0" Condition="'$(OS)' == 'OSX'"/>
 	</ItemGroup>
 
   <ItemGroup>
