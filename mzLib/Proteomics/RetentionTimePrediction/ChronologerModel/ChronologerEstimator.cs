@@ -75,9 +75,6 @@ namespace Proteomics.RetentionTimePrediction.Chronologer
 
             ChronologerModel.to(device);
 
-            if (baseSequences.Length != fullSequences.Length)
-                return null; // mayber throw exception here?
-
             //vstack tensors and then batch predict to avoid running out of vRAM, I think system RAM transfer has big latency so keep em small
 
             float[] predictions = new float[baseSequences.Length];
