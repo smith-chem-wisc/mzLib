@@ -40,6 +40,32 @@ namespace Test
 
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults")]
+        public void TestFileNameToFilePathWithParameter(string path)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            MsFraggerCombinedResults ms = new MsFraggerCombinedResults(filePath);
+            ms.LoadResults();
+
+            List<string> fullFilePath = new List<string>();
+            // these local files are not actually accessed, they are fillers to test the method
+            string fullFilePath1 = @"E:\MadeleineH\Raw_Files\Ex_AuLC1_30m_2D19_3_20um30cm_SPE50_15118120_OTOT_11860_1x02nguL_8.raw";
+            string fullFilePath2 = @"E:\MadeleineH\Raw_Files\Ex_AuLC1_30m_2D19_3_20um30cm_SPE50_15118120_OTOT_2215_HeYe_1.raw";
+            fullFilePath.Add(fullFilePath1);
+            fullFilePath.Add(fullFilePath2);
+
+            List<string> results = ms.Results.Select(psm => psm.FileName).ToList();
+            Dictionary<string, string> allFiles = ms.FileNameToFilePath(fullFilePath);
+            List<string> filePaths = ms.ExperimentAnnotations.Select(psm => psm.File).ToList();
+
+            foreach (var fileName in results)
+            {
+                Assert.That(allFiles.TryGetValue(fileName, out var output));
+                Assert.That(filePaths.Contains(output));
+            }
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults")]
         public void TestFileNameToFilePathWithoutParameter(string path)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);

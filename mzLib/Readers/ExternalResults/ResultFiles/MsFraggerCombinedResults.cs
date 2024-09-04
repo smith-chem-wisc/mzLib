@@ -98,7 +98,7 @@ namespace Readers
         {
             Dictionary<string, string> allFiles = new Dictionary<string, string>();
 
-            allFiles = AllPsmFiles.Select(file => file.FileNameToFilePath(allPsmFilePaths))
+            allFiles = AllPsmFiles.Select(file => file.FileNameToFilePath(filePaths))
                                   .SelectMany(dictionary => dictionary)
                                   .GroupBy(x => x.Key)
                                   .Select(keyValuePair => keyValuePair.First())
