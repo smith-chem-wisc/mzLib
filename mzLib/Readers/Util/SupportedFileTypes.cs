@@ -65,6 +65,7 @@ namespace Readers
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
+                SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }

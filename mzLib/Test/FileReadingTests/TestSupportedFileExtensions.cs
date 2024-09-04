@@ -56,6 +56,7 @@ namespace Test.FileReadingTests
         [Test]
         public static void TestSupportedFileTypeExtension_Errors()
         {
+
             string badTest = "badFile.taco";
             Exception e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"File type not supported"));
