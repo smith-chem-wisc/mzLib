@@ -7,9 +7,11 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
 using TopDownProteomics;
 using OxyPlot;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Test
 {
+    [ExcludeFromCodeCoverage]
     internal class TestMsFraggerCombinedResults
     {
         [Test]
@@ -81,6 +83,18 @@ namespace Test
                 Assert.That(allFiles.TryGetValue(fileName, out var output));
                 Assert.That(filePaths.Contains(output));
             }
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv")]
+        public void TestExperimentAnnotationFile(string path)
+        {
+            var testFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+
+            ExperimentAnnotationFile experimentAnnotation = FileReader.ReadFile<ExperimentAnnotationFile>(testFilePath);
+
+            experimentAnnotation.WriteResults(testFilePath);
+            Assert.That(File.Exists(testFilePath));
         }
     }
 }
