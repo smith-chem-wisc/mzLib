@@ -18,7 +18,10 @@ using Readers.ExternalResults.BaseClasses;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
+<<<<<<< HEAD
 using Optional = CsvHelper.Configuration.Attributes.OptionalAttribute;
+=======
+>>>>>>> master
 
 namespace Readers
 {
