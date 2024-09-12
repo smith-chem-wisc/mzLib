@@ -46,6 +46,21 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
+        public void TestAddProteinGroupInfoCountCorrect (string path)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
+            var allResults = file.ToList();
+
+            // one protein associated with given results, list should only contain this one element 
+            Assert.That(allResults[0].ProteinGroupInfos.Count, Is.EqualTo(1));
+            // two proteins associated with given results, list should contain two elements
+            Assert.That(allResults[2].ProteinGroupInfos.Count, Is.EqualTo(2));
+
+        }
+
+        [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1individual_peptide.tsv", 7)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv", 6)]
         public static void TestMsFraggerPeptideLoadsAndCountCorrect(string path, int count)

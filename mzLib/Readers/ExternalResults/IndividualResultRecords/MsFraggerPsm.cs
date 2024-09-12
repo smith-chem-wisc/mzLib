@@ -14,10 +14,14 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics;
 using static System.Net.Mime.MediaTypeNames;
 using ThermoFisher.CommonCore.Data.Interfaces;
+using Readers.ExternalResults.BaseClasses;
+using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
+using Easy.Common.Extensions;
 
 namespace Readers
 {
-    public class MsFraggerPsm
+    public class MsFraggerPsm : IQuantifiableRecord
     {
         public static CsvConfiguration CsvConfiguration = new CsvConfiguration(CultureInfo.InvariantCulture)
         {
@@ -59,7 +63,7 @@ namespace Readers
 
         [Name("Retention")]
         public double RetentionTime { get; set; }
-        
+
         [Name("Observed Mass")]
         public double ObservedMass { get; set; }
 
@@ -90,7 +94,11 @@ namespace Readers
         [Name("Nextscore")]
         public double NextScore { get; set; }
 
-        [Name("PeptideProphet Probability")]
+        /// <summary>
+        /// MsFragger v22.0 output renames the header "PeptideProphet Probability" as just "Probability".
+        /// Headers are mutually exclusive, will not both occur in the same file. 
+        /// </summary>
+        [Name("PeptideProphet Probability", "Probability")]
         public double PeptideProphetProbability { get; set; }
 
         [Name("Number of Enzymatic Termini")]
@@ -153,6 +161,79 @@ namespace Readers
 
         [Ignore]
         public int OneBasedScanNumber => _oneBasedScanNumber ??= int.Parse(Spectrum.Split('.')[1]);
+
+        #endregion
+
+        #region IQuantifiableRecord Implementation
+
+        [Ignore] public string FileName => SpectrumFilePath;
+
+        [Ignore] public List<(string, string, string)> ProteinGroupInfos
+        {
+            get 
+            {
+                _proteinGroupInfos ??= AddProteinGroupInfos();
+                return _proteinGroupInfos;
+            }
+        }
+
+        /// <summary>
+        /// Creates a list of tuples, each of which represents a protein.
+        /// Each tuple contains the accession number, gene name, and organism.
+        /// These parameters are used to create a ProteinGroup object, 
+        /// which is needed to make an identification.
+        /// </summary>
+        /// <returns></returns>
+        private List<(string, string, string)> AddProteinGroupInfos ()
+        {
+            _proteinGroupInfos = new List<(string, string, string)> ();
+            string protein = Protein;
+
+            char[] delimiterChars = { '|', '_'};
+            string[] proteinInfo = protein.Split(delimiterChars);
+
+            string proteinAccessions;
+            string geneName;
+            string organism;
+
+            // Fasta header is parsed to separate the accession number, gene name, and organism.
+            // If the protein does not have this information, it will be assigned an empty string.
+            // Ideally, a future refactor would create a method for parsing fasta headers
+            // that is shared by Readers and UsefulProteomicsDatabases.
+            proteinAccessions = proteinInfo.Length >= 2 ? proteinInfo[1] : "";
+            geneName = proteinInfo.Length >= 3 ? proteinInfo[2] : "";
+            organism = proteinInfo.Length >= 4 ? proteinInfo[3] : ""; ;
+
+            _proteinGroupInfos.Add((proteinAccessions, geneName, organism));
+
+            if (MappedProteins.IsNullOrEmpty()) return _proteinGroupInfos;
+
+            string mappedProteins = MappedProteins;
+            string[] allMappedProteinInfo = mappedProteins.Split(',');
+            foreach (var singleMappedProteinInfo in allMappedProteinInfo)
+            {
+                string[] mappedProteinInfo = singleMappedProteinInfo.Split(delimiterChars);
+
+                proteinAccessions = mappedProteinInfo.Length >= 2 ? mappedProteinInfo[1] : "";
+                geneName = mappedProteinInfo.Length >= 3 ? mappedProteinInfo[2] : "";
+                organism = mappedProteinInfo.Length >= 4 ? mappedProteinInfo[3] : "";
+
+                _proteinGroupInfos.Add((proteinAccessions, geneName, organism));
+            }
+
+            return _proteinGroupInfos;
+        }
+
+        [Ignore] private List<(string, string, string)> _proteinGroupInfos;
+
+        [Ignore] public string ModifiedSequence => FullSequence.IsNullOrEmpty() ? BaseSequence : FullSequence;
+
+        [Ignore] public int ChargeState => Charge;
+
+        // decoy reading isn't currently supported for MsFragger psms, this will be revisited later
+        [Ignore] public bool IsDecoy => false;
+
+        [Ignore] public double MonoisotopicMass => CalculatedPeptideMass;
 
         #endregion
     }
