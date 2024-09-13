@@ -362,6 +362,63 @@ namespace Test
         }
 
         [Test]
+        [TestCase("cRAP_databaseGPTMD.xml")]
+        [TestCase("uniprot_aifm1.fasta")]
+        public static void TestDecoyScramblingIsReproducible(string fileName)
+        {
+            // Load in proteins
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", fileName);
+            DecoyType decoyType = DecoyType.Reverse;
+            List<Protein> proteins1 = null;
+            List<Protein> proteins2 = null;
+            if (fileName.Contains(".xml"))
+            {
+                proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out var unknownModifications);
+                proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out unknownModifications);
+            }
+            else if (fileName.Contains(".fasta"))
+            {
+                proteins1 = ProteinDbLoader.LoadProteinFasta(dbPath, true, decoyType, false, out var unknownModifications);
+                proteins2 = ProteinDbLoader.LoadProteinFasta(dbPath, true, decoyType, false, out unknownModifications);
+            }
+            else
+            {
+                Assert.Fail("Unknown file type");
+            }
+
+            DigestionParams d = new DigestionParams(
+                        maxMissedCleavages: 1,
+                        minPeptideLength: 5,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            // Digest target proteins
+            var targetsPeptides = proteins1.Where(p => !p.IsDecoy)
+                .SelectMany(p => p.Digest(d, new List<Modification>(), new List<Modification>()).ToList())
+                .Select(pep => pep.BaseSequence)
+                .ToHashSet();
+
+            // Scramble every decoy from db1
+            List<Protein> decoys1 = new();
+            foreach (var protein in proteins1.Where(p => p.IsDecoy))
+            {
+                decoys1.Add(Protein.ScrambleDecoyProteinSequence(protein, d, targetsPeptides));
+            }
+            // Scramble every decoy from db2
+            List<Protein> decoys2 = new();
+            foreach (var protein in proteins2.Where(p => p.IsDecoy))
+            {
+                decoys2.Add(Protein.ScrambleDecoyProteinSequence(protein, d, targetsPeptides));
+            }
+
+            // check are equivalent lists of proteins
+            Assert.AreEqual(decoys1.Count, decoys2.Count);
+            foreach (var decoyPair in decoys1.Concat(decoys2).GroupBy(p => p.Accession))
+            {
+                Assert.AreEqual(2, decoyPair.Count());
+                Assert.AreEqual(decoyPair.First().BaseSequence, decoyPair.Last().BaseSequence);
+            }
+        }
+
+        [Test]
         public static void TestDecoyScramblerReplacesPeptides()
         {
             DigestionParams d = new DigestionParams(
