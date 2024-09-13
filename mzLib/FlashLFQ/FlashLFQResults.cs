@@ -14,6 +14,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
+        private readonly Dictionary<string, Dictionary<int, string>>(); // protein -> amino acid position -> occupancy results at that position
         private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }
