@@ -391,22 +391,32 @@ namespace Test
                         minPeptideLength: 5,
                         initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             // Digest target proteins
-            var targetsPeptides = proteins1.Where(p => !p.IsDecoy)
+            var pepsToReplace = proteins1.Where(p => !p.IsDecoy)
                 .SelectMany(p => p.Digest(d, new List<Modification>(), new List<Modification>()).ToList())
                 .Select(pep => pep.BaseSequence)
                 .ToHashSet();
+
+            // Ensure at least one decoy peptide from each protein is problematic and must be replaced
+            var singleDecoyPeptides = proteins1
+                .Where(p => p.IsDecoy)
+                .Select(p => p.Digest(d, new List<Modification>(), new List<Modification>()).Skip(2).Take(1))
+                .Select(pwsm => pwsm.First().BaseSequence)
+                .ToHashSet();
+
+            //modify targetpeptides in place
+            pepsToReplace.UnionWith(singleDecoyPeptides);
 
             // Scramble every decoy from db1
             List<Protein> decoys1 = new();
             foreach (var protein in proteins1.Where(p => p.IsDecoy))
             {
-                decoys1.Add(Protein.ScrambleDecoyProteinSequence(protein, d, targetsPeptides));
+                decoys1.Add(Protein.ScrambleDecoyProteinSequence(protein, d, pepsToReplace));
             }
             // Scramble every decoy from db2
             List<Protein> decoys2 = new();
             foreach (var protein in proteins2.Where(p => p.IsDecoy))
             {
-                decoys2.Add(Protein.ScrambleDecoyProteinSequence(protein, d, targetsPeptides));
+                decoys2.Add(Protein.ScrambleDecoyProteinSequence(protein, d, pepsToReplace));
             }
 
             // check are equivalent lists of proteins
