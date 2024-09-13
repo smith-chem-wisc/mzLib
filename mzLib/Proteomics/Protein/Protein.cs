@@ -836,6 +836,7 @@ namespace Proteomics
             string scrambledProteinSequence = originalDecoyProtein.BaseSequence;
             // Clone the original protein's modifications
             var scrambledModificationDictionary = originalDecoyProtein.OriginalNonVariantModifications.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            Random rng = new Random(42);
 
             // Start small and then go big. If we scramble a zero-missed cleavage peptide, but the missed cleavage peptide contains the previously scrambled peptide
             // Then we can avoid unnecessary operations as the scrambledProteinSequence will no longer contain the longer sequence of the missed cleavage peptide
@@ -843,14 +844,14 @@ namespace Proteomics
             {
                 if(scrambledProteinSequence.Contains(peptideSequence))
                 {
-                    string scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs, 
+                    string scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs, rng,
                         out var swappedArray);
                     int scrambleAttempts = 1;
 
                     // Try five times to scramble the peptide sequence without creating a forbidden sequence
                     while(forbiddenSequences.Contains(scrambledPeptideSequence) & scrambleAttempts <= 5)
                     {
-                        scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs,
+                        scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs, rng,
                             out swappedArray);
                         scrambleAttempts++;
                     }
@@ -896,13 +897,11 @@ namespace Proteomics
             return newProtein;
         }
 
-        private static Random rng = new Random(42);
-
         /// <summary>
         /// Scrambles a peptide sequence, preserving the position of any cleavage sites.
         /// </summary>
         /// <param name="swappedPositionArray">An array that maps the previous position (index) to the new position (value)</param>
-        public static string ScrambleSequence(string sequence, List<DigestionMotif> motifs, out int[] swappedPositionArray)
+        public static string ScrambleSequence(string sequence, List<DigestionMotif> motifs, Random rng, out int[] swappedPositionArray)
         {
             // First, find the location of every cleavage motif. These sites shouldn't be scrambled.
             HashSet<int> zeroBasedCleavageSitesLocations = new();
