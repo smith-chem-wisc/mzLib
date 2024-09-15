@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Readers.Bruker.TimsTofReader
+namespace Readers.Bruker
 {
 
     internal enum ConversionFunctions
@@ -83,22 +83,22 @@ namespace Readers.Bruker.TimsTofReader
             return transformedValues;
         }
 
-        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern void tims_index_to_mz
               (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
-        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern void tims_mz_to_index
               (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
-        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern void tims_scannum_to_oneoverk0
               (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
-        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern void tims_oneoverk0_to_scannum
               (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
-        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern void tims_scannum_to_voltage
               (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
-        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern void tims_voltage_to_scannum
               (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
     }

@@ -1,5 +1,5 @@
 ﻿using MzLibUtil;
-using Readers.Bruker.TimsTofReader;
+using Readers.Bruker;
 using System;
 using System.Collections.Generic;
 using System.Linq;

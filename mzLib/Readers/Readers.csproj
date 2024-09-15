@@ -57,10 +57,10 @@
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Bruker\TimsTofReader\timsdata.dll">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Bruker\TimsTofReader\timsdata.lib">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Bruker\vcomp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>

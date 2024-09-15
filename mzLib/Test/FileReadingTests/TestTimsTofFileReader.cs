@@ -5,7 +5,7 @@ using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Readers;
 using Readers.Bruker;
-using Readers.Bruker.TimsTofReader;
+using Readers.Bruker;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

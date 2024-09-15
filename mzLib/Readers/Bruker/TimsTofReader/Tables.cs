@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using static UsefulProteomicsDatabases.ProteinDbRetriever;
 
-namespace Readers.Bruker.TimsTofReader
+namespace Readers.Bruker
 {
     internal enum TimsTofMsMsType
     {

@@ -7,7 +7,7 @@ using Easy.Common.Extensions;
 using MzLibUtil;
 using UsefulProteomicsDatabases;
 using System.Data.Common;
-using Readers.Bruker.TimsTofReader;
+using Readers.Bruker;
 using System.Data.SqlClient;
 using System.Data;
 using ThermoFisher.CommonCore.Data.Business;
@@ -470,14 +470,14 @@ namespace Readers
         /// <param name="analysis_directory_name_utf8"></param>
         /// <param name="use_recalibrated_state"></param>
         /// <returns></returns>
-        [DllImport("Bruker/TimsTofReader/timsdata.dll")]
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         public static extern UInt64 tims_open
               (byte[] analysis_directory_name_utf8, UInt32 use_recalibrated_state);
 
         /// <summary>
         /// Closes a file connection to a .tdf binary file
         /// </summary>
-        [DllImport("Bruker/TimsTofReader/timsdata.dll")]
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         public static extern void tims_close
               (UInt64 fileHandle);
 

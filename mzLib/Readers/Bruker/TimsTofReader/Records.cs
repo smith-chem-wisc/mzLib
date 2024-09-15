@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Readers.Bruker.TimsTofReader
+namespace Readers.Bruker
 {
     internal class Ms1Record
     {

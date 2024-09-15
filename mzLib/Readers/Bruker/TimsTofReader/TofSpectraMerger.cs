@@ -2,7 +2,7 @@
 using MassSpectrometry;
 using MzLibUtil;
 
-namespace Readers.Bruker.TimsTofReader
+namespace Readers.Bruker
 {
     // The TofSpectraMerger implements an algorithm that merges an arbitray number of ordered lists.
     // The implementation is based off the code found here: https://leetcode.com/problems/merge-k-sorted-lists/solutions/3286058/image-explanation-5-methods-divide-conquer-priority-queue-complete-intuition/

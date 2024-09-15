@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ThermoFisher.CommonCore.Data.Interfaces;
 
-namespace Readers.Bruker.TimsTofReader
+namespace Readers.Bruker
 {
     internal class FrameProxyFactory
     {
@@ -155,7 +155,7 @@ namespace Readers.Bruker.TimsTofReader
             return new MzSpectrum(mzArray, areaDoubleArray, shouldCopy: false);
         }
 
-        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern UInt32 tims_extract_centroided_spectrum_for_frame_v2
               (UInt64 handle, Int64 frame_id, UInt32 scan_begin, UInt32 scan_end, IntPtr callback, IntPtr user_data);
     }
@@ -362,7 +362,7 @@ namespace Readers.Bruker.TimsTofReader
         /// <returns> 0 on error, otherwise the number of buffer bytes necessary for the output
         /// of this call (if this is larger than the provided buffer length, the result is not
         /// complete). </returns>
-        [DllImport("Bruker/TimsTofReader/timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern UInt32 tims_read_scans_v2
               (UInt64 handle, Int64 frame_id, UInt32 scan_begin, UInt32 scan_end, IntPtr buffer, UInt32 length);
 
