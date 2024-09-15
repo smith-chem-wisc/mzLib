@@ -15,7 +15,7 @@ jobs:
     - name: Set up .NET
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: 8.0.x
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     - name: Build
@@ -25,15 +25,16 @@ jobs:
     - name: Build (TestFlashLFQ)
       run: cd mzLib && dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj
     - name: Add coverlet collector (Test)
-      run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.0
+      run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Add coverlet collector (TestFlashLFQ)
-      run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector -v 6.0.0
+      run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector -v 6.0.2
     - name: Test
       run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
     - name: TestFlashLFQ
       run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./TestFlashLFQ/TestFlashLFQ.csproj
-    - name: Codecov
-      uses: codecov/codecov-action@v2
-      with:
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml

@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
-using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Readers;
 
 namespace Test.FileReadingTests
