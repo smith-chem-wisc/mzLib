@@ -17,7 +17,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Permissions;
 
-namespace Readers.Bruker
+namespace Readers
 { 
     public class TimsTofFileReader : MsDataFile
     {
@@ -50,10 +50,6 @@ namespace Readers.Bruker
 
         public override void InitiateDynamicConnection()
         {
-            if (!File.Exists(FilePath + @"\analysis.tdf") | !File.Exists(FilePath + @"\analysis.tdf_bin"))
-            {
-                throw new FileNotFoundException();
-            }
             OpenSqlConnection();
             OpenBinaryFileConnection();
             _fileLock = new();
@@ -126,38 +122,6 @@ namespace Readers.Bruker
             }
         }
 
-        //public List<long> PasefFrameIds { get; private set; }
-
-        //internal void CountPasefFrames()
-        //{
-        //    if (_sqlConnection == null) return;
-        //    using var command = new SQLiteCommand(_sqlConnection);
-        //    command.CommandText = @"SELECT f.Id FROM Frames f WHERE f.MsMsType = 8;";
-        //    using var sqliteReader = command.ExecuteReader();
-        //    PasefFrameIds = new();
-        //    var columns = Enumerable.Range(0, sqliteReader.FieldCount)
-        //        .Select(sqliteReader.GetName).ToList();
-        //    while (sqliteReader.Read())
-        //    {
-        //        PasefFrameIds.Add(sqliteReader.GetInt64(0));
-        //    }
-        //}
-
-        //internal void BuildPrecursorToOneBasedParentScanDict()
-        //{
-        //    PrecursorToOneBasedParentScanIndex = new();
-        //    if (_sqlConnection == null) return;
-        //    using var command = new SQLiteCommand(_sqlConnection);
-        //    command.CommandText = @"SELECT p.Id FROM Precursors p";
-        //    using var sqliteReader = command.ExecuteReader();
-        //    var columns = Enumerable.Range(0, sqliteReader.FieldCount)
-        //        .Select(sqliteReader.GetName).ToList();
-        //    while (sqliteReader.Read())
-        //    {
-        //        PrecursorToOneBasedParentScanIndex.Add(sqliteReader.GetInt32(0), 0);
-        //    }
-        //}
-
         /// <summary>
         /// Builds a new FrameProxyFactory to pull frames from the timsTOF data file
         /// and sets the FrameProxyFactory property 
@@ -176,85 +140,32 @@ namespace Readers.Bruker
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
+            if (!File.Exists(FilePath + @"\analysis.tdf") | !File.Exists(FilePath + @"\analysis.tdf_bin"))
+            {
+                throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
+            }
+
             InitiateDynamicConnection();
             if (_fileHandle == null || _fileHandle == 0)
                 throw new MzLibException("Could not open the analysis.tdf_bin file");
             CountFrames();
             CountMS1Frames();
-            //CountPasefFrames();
-            //BuildPrecursorToOneBasedParentScanDict(); // This only needs to be done for DDA data
             BuildProxyFactory();
             
             _maxThreads = maxThreads;
-
-            if (false)
+            List<TimsDataScan> scanList = new();
+            for (int i = 0; i < Ms1FrameIds.Count; i++)
             {
-                ConcurrentDictionary<int, List<MsDataScan>> scanListDictionary = new();
-                //Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count),
-                Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count),
-                        new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (range, loopState) =>
-                        {
-                            //Debugger.Break();
-                            List<MsDataScan> scansInRange = new();
-                            //var newConnection = new SQLiteConnection("Data Source=" +
-                            //    Path.Combine(FilePath, "analysis.tdf") +
-                            //    "; Version=3");
-                            //newConnection.Open();
-                            for (int i = range.Item1; i < range.Item2; i++)
-                            {
-                                long frameId = Ms1FrameIds[i];
-                                //Debugger.Break();
-
-                                //BuildMS1Scans(scansInRange, frameId, newConnection);
-                                //BuildMS1Scans(scansInRange, frameId);
-                            }
-                            //Debugger.Break();
-                            scanListDictionary[range.Item1] = scansInRange;
-                            //newConnection.Close();
-                        });
-                List<MsDataScan> combinedScanList = new();
-                foreach (var kvp in scanListDictionary.OrderBy(kvp => kvp.Key))
-                {
-                    combinedScanList.AddRange(kvp.Value);
-                }
-
-                CloseDynamicConnection();
-
-                Scans = combinedScanList.ToArray();
-                SourceFile = GetSourceFile();
-                return this;
+                long frameId = Ms1FrameIds[i];
+                long nextFrameId = i < (Ms1FrameIds.Count -1) ? Ms1FrameIds[i+1] : long.MaxValue;
+                BuildMS1Scans(scanList, frameId, nextFrameId, filteringParams);
             }
-            else
-            {
-                List<TimsDataScan> scanList = new();
-                for (int i = 0; i < Ms1FrameIds.Count; i++)
-                {
-                    long frameId = Ms1FrameIds[i];
-                    long nextFrameId = i < (Ms1FrameIds.Count -1) ? Ms1FrameIds[i+1] : long.MaxValue;
-                    BuildMS1Scans(scanList, frameId, nextFrameId, filteringParams);
-
-                    //if (FramesTable.MsMsType[i].ToEnum<TimsTofMsMsType>(out var msMsType))
-                    //{
-                    //    switch (msMsType)
-                    //    {
-                    //        case TimsTofMsMsType.MS:
-                    //            BuildMS1Scans(scanList, currentFrame, i);
-                    //            break;
-                    //        case TimsTofMsMsType.PASEF:
-                    //            BuildPasefScans(scanList, currentFrame, i);
-                    //            break;
-                    //        default:
-                    //            throw new NotImplementedException("Only PASEF data is currently supported");
-                    //    }
-                    //}
-
-                }
-                CloseDynamicConnection();
-                AssignOneBasedPrecursorsToPasefScans(scanList);
-                Scans = scanList.ToArray();
-                SourceFile = GetSourceFile();
-                return this;
-            }
+            CloseDynamicConnection();
+            AssignOneBasedPrecursorsToPasefScans(scanList);
+            Scans = scanList.ToArray();
+            SourceFile = GetSourceFile();
+            return this;
+            
         }
 
         internal void AssignOneBasedPrecursorsToPasefScans(List<TimsDataScan> scanList)
@@ -357,7 +268,6 @@ namespace Readers.Bruker
             // Step 3: Make an MsDataScan bby
             var dataScan = new TimsDataScan(
                 massSpectrum: averagedSpectrum,
-                //massSpectrum: null,
                 oneBasedScanNumber: oneBasedScanNumber,
                 msnOrder: 1,
                 isCentroid: true,
@@ -436,7 +346,7 @@ namespace Readers.Bruker
                             totalIonCurrent: -1, // Will be set later
                             injectionTime: FrameProxyFactory.GetInjectionTimeSum(frameList.First(), frameList.Last()),
                             noiseData: null,
-                            nativeId: "frame=" + frameList.First().ToString() + "-" + frameList.Last().ToString() +
+                            nativeId: "frames=" + frameList.First().ToString() + "-" + frameList.Last().ToString() +
                                 ";scans=" + scanStart.ToString() + "-" + scanEnd.ToString(),
                             frameId: frameList.First(),
                             scanNumberStart: scanStart,
@@ -448,12 +358,8 @@ namespace Readers.Bruker
                             selectedIonIntensity: precursorIntensity,
                             isolationMZ: isolationMz,
                             isolationWidth: isolationWidth,
-                            dissociationType: DissociationType.CID, // I think? Not totally sure about this
-                                                                    // We don't really have one based precursors in timsTOF data, so it's not immediately clear how to handle this field
-                                                                    //oneBasedPrecursorScanNumber: PrecursorIdToZeroBasedScanIndex.TryGetValue(precursorId, out int precursorScanIdx)
-                                                                    //    ? precursorScanIdx
-                                                                    //    : null,
-                            oneBasedPrecursorScanNumber: null,
+                            dissociationType: DissociationType.CID,
+                            oneBasedPrecursorScanNumber: PrecursorToOneBasedParentScanIndex[precursorId],
                             selectedIonMonoisotopicGuessMz: precursorMonoisotopicMz,
                             hcdEnergy: collisionEnergy.ToString(),
                             frames: frameList.ToList());

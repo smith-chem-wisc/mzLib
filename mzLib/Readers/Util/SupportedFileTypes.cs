@@ -25,8 +25,7 @@ namespace Readers
         MsPathFinderTTargets,
         MsPathFinderTDecoys,
         MsPathFinderTAllResults,
-        CruxResult
-
+        CruxResult,
         BrukerD,
         BrukerTimsTof
     }
@@ -78,7 +77,8 @@ namespace Readers
                 case ".mzml": return SupportedFileType.MzML;
                 case ".mgf": return SupportedFileType.Mgf;
                 case ".d":
-                    var fileList = Directory.GetFiles(filePath);
+                    if(!Directory.Exists(filePath)) throw new FileNotFoundException();
+                    var fileList = Directory.GetFiles(filePath).Select(p => Path.GetFileName(p));
                     if (fileList.Any(file => file == "analysis.baf"))
                         return SupportedFileType.BrukerD;
                     if (fileList.Any(file => file == "analysis.tdf"))

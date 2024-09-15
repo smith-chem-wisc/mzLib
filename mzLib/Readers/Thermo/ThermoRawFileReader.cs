@@ -526,8 +526,6 @@ namespace Readers
             }
         }
 
-
-
         /// <summary>
         /// Gets all the MS orders of all scans in a dynamic connection. This is useful if you want to open all MS1 scans
         /// without loading all of the other MSn scans.
