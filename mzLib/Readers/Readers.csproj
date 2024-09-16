@@ -35,6 +35,18 @@
 		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
 			<HintPath>Thermo\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
 		</Reference>
+		<Reference Include="msvcp110.dll">
+			<HintPath>Bruker\msvcp110.dll</HintPath>
+		</Reference>
+		<Reference Include="msvcr110.dll">
+			<HintPath>Bruker\msvcr110.dll</HintPath>
+		</Reference>
+		<Reference Include="timsdata.dll">
+			<HintPath>Bruker\timsdata.dll</HintPath>
+		</Reference>
+		<Reference Include="timsdata.lib">
+			<HintPath>Bruker\timsdata.lib</HintPath>
+		</Reference>
 	</ItemGroup>
 
 	<ItemGroup>
