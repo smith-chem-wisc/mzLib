@@ -34,11 +34,17 @@
 		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
 			<HintPath>Thermo\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
 		</Reference>
-		<Reference Include="msvcp110.dll">
-			<HintPath>Bruker\msvcp110.dll</HintPath>
+		<Reference Include="msvcp140.dll">
+			<HintPath>Bruker\msvcp140.dll</HintPath>
 		</Reference>
-		<Reference Include="msvcr110.dll">
-			<HintPath>Bruker\msvcr110.dll</HintPath>
+		<Reference Include="vcomp140.dll">
+			<HintPath>Bruker\vcomp140.dll</HintPath>
+		</Reference>
+		<Reference Include="vcruntime140.dll">
+			<HintPath>Bruker\vcruntime140.dll</HintPath>
+		</Reference>
+		<Reference Include="vcruntime140_1.dll">
+			<HintPath>Bruker\vcruntime140_1.dll</HintPath>
 		</Reference>
 		<Reference Include="timsdata.dll">
 			<HintPath>Bruker\timsdata.dll</HintPath>
@@ -64,6 +70,9 @@
 		<None Update="Bruker\msvcp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
+		<None Update="Bruker\msvcp140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="Bruker\msvcr110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
@@ -74,6 +83,15 @@
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Bruker\vcomp110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcomp140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcruntime140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcruntime140_1.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
