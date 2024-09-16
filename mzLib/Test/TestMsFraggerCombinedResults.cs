@@ -89,12 +89,21 @@ namespace Test
         [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv")]
         public void TestExperimentAnnotationFile(string path)
         {
-            var testFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            string fileToWrite = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\copy_experiment_annotation.tsv");
+            if (File.Exists(fileToWrite))
+            {
+                File.Delete(fileToWrite);
+            }
 
-            ExperimentAnnotationFile experimentAnnotation = FileReader.ReadFile<ExperimentAnnotationFile>(testFilePath);
+            string fileToRead = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
 
-            experimentAnnotation.WriteResults(testFilePath);
-            Assert.That(File.Exists(testFilePath));
+            ExperimentAnnotationFile experimentAnnotation = FileReader.ReadFile<ExperimentAnnotationFile>(fileToRead);
+
+            experimentAnnotation.WriteResults(fileToWrite);
+            Assert.That(File.Exists(fileToWrite));
+
+            File.Delete(fileToWrite);
         }
     }
 }

@@ -118,6 +118,8 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTDecoys;
                     if (filePath.EndsWith(SupportedFileType.MsPathFinderTAllResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsPathFinderTAllResults;
+                    if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ExperimentAnnotation;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm

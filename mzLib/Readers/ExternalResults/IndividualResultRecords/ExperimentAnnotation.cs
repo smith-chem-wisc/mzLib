@@ -20,7 +20,7 @@ namespace Readers
             HasHeaderRecord = true,
             IgnoreBlankLines = true,
             TrimOptions = TrimOptions.Trim,
-            BadDataFound = null,
+            //BadDataFound = null,
         };
 
         #region experiment_annotation Fields
