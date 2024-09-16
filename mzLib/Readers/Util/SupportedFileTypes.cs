@@ -26,7 +26,8 @@ namespace Readers
         MsPathFinderTTargets,
         MsPathFinderTDecoys,
         MsPathFinderTAllResults,
-        CruxResult
+        CruxResult,
+        ExperimentAnnotation
     }
 
     public static class SupportedFileTypeExtensions
@@ -64,6 +65,7 @@ namespace Readers
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
+                SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -116,6 +118,8 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTDecoys;
                     if (filePath.EndsWith(SupportedFileType.MsPathFinderTAllResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsPathFinderTAllResults;
+                    if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ExperimentAnnotation;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
