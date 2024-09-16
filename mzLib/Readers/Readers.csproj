@@ -22,7 +22,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	
 		<Reference Include="ThermoFisher.CommonCore.BackgroundSubtraction">
 			<HintPath>Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
 		</Reference>

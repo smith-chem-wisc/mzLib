@@ -16,6 +16,7 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 8.0.x
+    - uses: ilammy/msvc-dev-cmd@v1
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     - name: Build
