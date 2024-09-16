@@ -78,14 +78,14 @@ namespace Proteomics
 
         /// <summary>
         /// Protein construction that clones a protein but assigns a different base sequence
-        /// For use in SILAC experiments and in decoy construction
+        /// For use in SILAC experiments
         /// </summary>
         /// <param name="originalProtein"></param>
-        /// <param name="newBaseSequence"></param>
+        /// <param name="silacSequence"></param>
         /// <param name="silacAccession"></param>
-        public Protein(Protein originalProtein, string newBaseSequence)
+        public Protein(Protein originalProtein, string silacSequence)
         {
-            BaseSequence = newBaseSequence;
+            BaseSequence = silacSequence;
             Accession = originalProtein.Accession;
             NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
@@ -158,7 +158,7 @@ namespace Proteomics
         /// <summary>
         /// Base sequence, which may contain applied sequence variations.
         /// </summary>
-        public string BaseSequence { get; private set; }
+        public string BaseSequence { get; }
 
         public string Organism { get; }
         public bool IsDecoy { get; }
@@ -208,7 +208,6 @@ namespace Proteomics
         {
             var n = GeneNames.FirstOrDefault();
             string geneName = n == null ? "" : n.Item2;
-
             return string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
         }
 

@@ -14,7 +14,7 @@
     <dependencies>
       <group targetFramework="net8.0">
         <!--net8.0 target-->
-        <dependency id="Easy.Common" version="6.7.0" />
+        <dependency id="Easy.Common" version="4.3.0" />
         <dependency id="MathNet.Numerics" version="5.0.0" />
         <dependency id="Microsoft.Win32.Registry" version="5.0.0" />
         <dependency id="NetSerializer" version="4.1.1" />
@@ -24,7 +24,7 @@
       </group>
       <group targetFramework="net8.0-windows7.0">
         <!--net8.0 target with OxyPlot-->
-        <dependency id="Easy.Common" version="6.7.0" />
+        <dependency id="Easy.Common" version="4.3.0" />
         <dependency id="MathNet.Numerics" version="5.0.0" />
         <dependency id="Microsoft.Win32.Registry" version="5.0.0" />
         <dependency id="NetSerializer" version="4.1.1" />
