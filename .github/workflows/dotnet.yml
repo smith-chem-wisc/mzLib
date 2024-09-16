@@ -21,7 +21,7 @@ jobs:
     - name: Install Visual c++ build tools
       uses: crazy-max/ghaction-chocolatey@v3
       with:
-        args: choco install visualcpp-build-tools
+        args: install visualcpp-build-tools
     - name: Build
       run: cd mzLib && dotnet build --no-restore
     - name: Build (Test)
