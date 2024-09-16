@@ -59,8 +59,8 @@
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net8.0" />
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net8.0" />
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net8.0" />
-	<file src="Readers\bin\x64\Release\net8.0\Bruker\TimsTofReader\timsdata.dll" target="lib\net8.0" />
-	<file src="Readers\bin\x64\Release\net8.0\Bruker\TimsTofReader\timsdata.lib" target="lib\net8.0" />
+	<file src="Readers\bin\x64\Release\net8.0\Bruker\timsdata.dll" target="lib\net8.0" />
+	<file src="Readers\bin\x64\Release\net8.0\Bruker\timsdata.lib" target="lib\net8.0" />
 	<file src="Readers\bin\x64\Release\net8.0\Bruker\msvcp110.dll" target="lib\net8.0" />
 	<file src="Readers\bin\x64\Release\net8.0\Bruker\msvcr110.dll" target="lib\net8.0" />
     <file src="UsefulProteomicsDatabases\bin\x64\Release\net8.0\UsefulProteomicsDatabases.dll" target="lib\net8.0" />
@@ -85,8 +85,8 @@
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net8.0-windows7.0" />
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net8.0-windows7.0" />
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net8.0-windows7.0" />
-	<file src="Readers\bin\x64\Release\net8.0\Bruker\TimsTofReader\timsdata.dll" target="lib\net8.0-windows7.0" />
-	<file src="Readers\bin\x64\Release\net8.0\Bruker\TimsTofReader\timsdata.lib" target="lib\net8.0-windows7.0" />
+	<file src="Readers\bin\x64\Release\net8.0\Bruker\timsdata.dll" target="lib\net8.0-windows7.0" />
+	<file src="Readers\bin\x64\Release\net8.0\Bruker\timsdata.lib" target="lib\net8.0-windows7.0" />
 	<file src="Readers\bin\x64\Release\net8.0\Bruker\msvcp110.dll" target="lib\net8.0-windows7.0" />
 	<file src="Readers\bin\x64\Release\net8.0\Bruker\msvcr110.dll" target="lib\net8.0-windows7.0" />
     <file src="UsefulProteomicsDatabases\bin\x64\Release\net8.0\UsefulProteomicsDatabases.dll" target="lib\net8.0-windows7.0" />
