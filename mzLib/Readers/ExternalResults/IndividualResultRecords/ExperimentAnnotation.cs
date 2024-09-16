@@ -19,8 +19,7 @@ namespace Readers
             Delimiter = "\t",
             HasHeaderRecord = true,
             IgnoreBlankLines = true,
-            TrimOptions = TrimOptions.Trim,
-            //BadDataFound = null,
+            TrimOptions = TrimOptions.Trim
         };
 
         #region experiment_annotation Fields
