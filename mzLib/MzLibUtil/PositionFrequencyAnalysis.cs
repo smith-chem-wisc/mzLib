@@ -124,7 +124,7 @@ namespace MzLibUtil
 
                         // If the peptide's base sequence has not been seen, add it to the protein's dictionary
                         if (!protein.Peptides.ContainsKey(baseSeq))
-                        {
+    {
                             protein.Peptides[baseSeq] = new UtilPeptide(fullSeq);
                             protein.Peptides[baseSeq].Intensity = 0;
                         }
@@ -137,20 +137,20 @@ namespace MzLibUtil
                         Dictionary<int, List<string>> peptideMods = fullSeq.ParseModifications(IncludeNTerminus, IncludeCTerminus);
                         // Go through the modified positions found froum the full sequence
                         foreach (var modpos in peptideMods)
-                        {
+        {
                             // If that position has not been recorded as containing a modification, add it to the base sequence's dictonary
                             if (!peptide.ModifiedAminoAcidPositions.ContainsKey(modpos.Key))
                             {
                                 peptide.ModifiedAminoAcidPositions[modpos.Key] = new Dictionary<string, UtilModification>();
                             }
                             var modifiedPosition = peptide.ModifiedAminoAcidPositions[modpos.Key];
-
+            
                             // Go through the modifications found at a modified amino acid index
                             foreach (var mod in modpos.Value)
                             {
                                 //If the name of that modification has not been seen, record that modification in the index's dictionary with an intensity of 0
                                 if (!modifiedPosition.ContainsKey(mod))
-                                {
+            {
                                     modifiedPosition[mod] = new UtilModification(mod, modpos.Key, 0);
                                 }
                                 // Increase the intensity of the modification by the intensity of the peptide
