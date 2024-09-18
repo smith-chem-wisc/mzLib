@@ -30,6 +30,8 @@ namespace Readers
             PrecursorToOneBasedParentScanIndex = new();
         }
 
+        public static int maxIdx = 394534;
+
         private UInt64? _fileHandle;
         private Object _fileLock;
         private SQLiteConnection? _sqlConnection;
@@ -256,7 +258,7 @@ namespace Readers
             List<int[]> intensityArrays = new();
             for (int scan = record.ScanStart; scan < record.ScanEnd; scan++)
             {
-                mzArrays.Add(frame.GetScanMzs(scan));
+                mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, scan)); // frame.GetScanMzs(scan));
                 intensityArrays.Add(frame.GetScanIntensities(scan));
             }
             // Step 2: Average those suckers
@@ -285,7 +287,7 @@ namespace Readers
                 frameId: frame.FrameId,
                 scanNumberStart: record.ScanStart,
                 scanNumberEnd: record.ScanEnd,
-                medianOneOverK0: frame.GetOneOverK0((double)record.ScanMedian),
+                medianOneOverK0: 0,//frame.GetOneOverK0((double)record.ScanMedian),
                 precursorId: record.PrecursorId);
 
             return dataScan;
@@ -383,7 +385,8 @@ namespace Readers
                         List<int[]> intensityArrays = new();
                         for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
                         {
-                            mzArrays.Add(frame.GetScanMzs(mobilityScanIdx));
+                            mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, mobilityScanIdx));
+                            //mzArrays.Add( frame.GetScanMzs(mobilityScanIdx));
                             intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx));
                         }
                         // Step 2: Average those suckers
@@ -409,7 +412,8 @@ namespace Readers
             // I don't know if scans are zero-indexed or one-based and at this point I'm too afraid to ask
             for (int scan = 1; scan < frame.NumberOfScans; scan++)
             {
-                mzArrays.Add(frame.GetScanMzs(scan));
+                mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, scan));
+                //mzArrays.Add(frame.GetScanMzs(scan));
                 intensityArrays.Add(frame.GetScanIntensities(scan));
             }
             // Step 2: Average those suckers
@@ -434,7 +438,7 @@ namespace Readers
                 frameId: frame.FrameId,
                 scanNumberStart: 1,
                 scanNumberEnd: frame.NumberOfScans,
-                medianOneOverK0: frame.GetOneOverK0(frame.NumberOfScans/2),
+                medianOneOverK0: 0,//frame.GetOneOverK0(frame.NumberOfScans/2),
                 precursorId: null);
 
             scanList.Add(dataScan);

@@ -23,11 +23,17 @@ namespace Test.FileReadingTests
         public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
         public TimsTofFileReader _testReader;
 
-        [OneTimeSetUp]
+        [Test]
         public void SetUp()
         {
+            DateTime time = DateTime.Now;
+
             _testReader = new TimsTofFileReader(_testDataPath);
             _testReader.LoadAllStaticData();
+
+            DateTime time2 = DateTime.Now;
+            var timeDiff = time2 - time;
+            int placeholder = 0;
         }
 
         [Test]

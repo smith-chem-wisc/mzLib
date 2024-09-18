@@ -18,18 +18,56 @@ namespace Readers.Bruker
         internal Object FileLock { get; }
         internal TimsConversion Converter { get; }
 
+        public static int maxIdx = 394534;
+        public Dictionary<uint, double> mzLookup { get; set; }
+
+        public double[] MzLookupArray { get; set; }
+
         internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock)
         {
             FramesTable = table;
             FileHandle = fileHandle;
             FileLock = fileLock;
             Converter = new TimsConversion(fileHandle, fileLock);
+            InitializeLookup(fileHandle);
         }   
 
         internal FrameProxy GetFrameProxy(long frameId)
         {
             return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
         }
+
+        internal double[] GetScanMzs(FrameProxy frame, int zeroIndexedScanNumber)
+        {
+            //if (mzLookup == null || mzLookup.Count == 0)
+            //{
+            //    InitializeLookup(FileHandle);
+            //}
+
+            uint[] mzLookupIndices = frame._rawData[frame.GetXRange(zeroIndexedScanNumber)];
+            double[] mzValues = new double[mzLookupIndices.Length];
+
+            for(int idx = 0; idx < mzLookupIndices.Length; idx++)
+            {
+                mzValues[idx] = MzLookupArray[mzLookupIndices[idx]];
+            }
+            return mzValues;
+        }
+
+        internal void InitializeLookup(ulong handle)
+        {
+
+            uint[] lArray = new uint[maxIdx];
+            for (uint i = 0; i < maxIdx; i++)
+            {
+                lArray[i] = i;
+            }
+
+            double[] mzLookupIndices = Array
+                .ConvertAll(lArray, entry => (double)entry);
+            MzLookupArray = Converter.DoTransformation(handle, 1, mzLookupIndices, ConversionFunctions.IndexToMz);
+        }
+
 
         internal Polarity GetPolarity(long frameId)
         {
@@ -116,23 +154,23 @@ namespace Readers.Bruker
         [MarshalAs(UnmanagedType.FunctionPtr)]
         private static msms_spectrum_function? callback;
 
-        public static unsafe UInt32 GetSpectrumTest(UInt64 handle, Int64 frame_id, UInt32 scan_begin, UInt32 scan_end)
-        {
-            CentroidedSpectrum spectrum = new CentroidedSpectrum();
-            IntPtr spectrumPointer = Marshal.AllocHGlobal(Marshal.SizeOf<CentroidedSpectrum>());
-            Marshal.StructureToPtr(spectrum, spectrumPointer, false);
+        //public static unsafe UInt32 GetSpectrumTest(UInt64 handle, Int64 frame_id, UInt32 scan_begin, UInt32 scan_end)
+        //{
+        //    CentroidedSpectrum spectrum = new CentroidedSpectrum();
+        //    IntPtr spectrumPointer = Marshal.AllocHGlobal(Marshal.SizeOf<CentroidedSpectrum>());
+        //    Marshal.StructureToPtr(spectrum, spectrumPointer, false);
 
-            callback = new msms_spectrum_function(GetCentroidedSpectrumCallback);
-            //IntPtr callbackPtr = GCHandle.ToIntPtr(GCHandle.Alloc(callback));
-            var fPtr = Marshal.GetFunctionPointerForDelegate(callback);
+        //    callback = new msms_spectrum_function(GetCentroidedSpectrumCallback);
+        //    //IntPtr callbackPtr = GCHandle.ToIntPtr(GCHandle.Alloc(callback));
+        //    var fPtr = Marshal.GetFunctionPointerForDelegate(callback);
 
 
-            UInt32 returnCode = tims_extract_centroided_spectrum_for_frame_v2(handle, frame_id, scan_begin, scan_end, fPtr, spectrumPointer);
+        //    UInt32 returnCode = tims_extract_centroided_spectrum_for_frame_v2(handle, frame_id, scan_begin, scan_end, fPtr, spectrumPointer);
 
-            CentroidedSpectrum testSpec = Marshal.PtrToStructure<CentroidedSpectrum>(spectrumPointer);
+        //    CentroidedSpectrum testSpec = Marshal.PtrToStructure<CentroidedSpectrum>(spectrumPointer);
 
-            return returnCode;
-        }
+        //    return returnCode;
+        //}
 
 
         public static MzSpectrum GetMzSpectrum(CentroidedSpectrum spectrum)
@@ -163,13 +201,15 @@ namespace Readers.Bruker
     internal class FrameProxy
     {
         private int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
-        private uint[] _rawData;
+        public uint[] _rawData;
         private const int _defaultBufferSize = 4096;
         internal UInt64 FileHandle { get; }
         internal long FrameId { get; }
         internal int NumberOfScans { get; }
         internal int TotalNumberOfPeaks => _scanOffsets[NumberOfScans - 1];
         internal TimsConversion Converter { get; }
+        
+        public static Dictionary<uint, double> mzLookup { get; set; }
 
         internal FrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter)
         {
@@ -177,16 +217,10 @@ namespace Readers.Bruker
             FileHandle = fileHandle;
             FrameId = frameId;
             Converter = converter;
+
+
             _rawData = GetScanRawData(fileHandle, frameId, (uint)numScans, fileLock);
             _scanOffsets = PartialSum(_rawData, 0, numScans);
-        }
-
-        internal double[] GetScanMzs(int zeroIndexedScanNumber)
-        {
-            double[] mzLookupIndices = Array
-                .ConvertAll(_rawData[GetXRange(zeroIndexedScanNumber)], entry => (double)entry);
-
-            return Converter.DoTransformation(FileHandle, FrameId, mzLookupIndices, ConversionFunctions.IndexToMz);
         }
 
         internal int[] GetScanIntensities(int zeroIndexedScanNumber)
