@@ -1,5 +1,4 @@
 ﻿using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Proteomics.ProteolyticDigestion;
@@ -16,7 +15,7 @@ namespace Test.Transcriptomics
         public void TestRnaseDictionaryLoading()
         {
             var rnaseCountFromTsv = File.ReadAllLines(rnaseTsvpath).Length - 1;
-            Assert.AreEqual(RnaseDictionary.Dictionary.Count, rnaseCountFromTsv);
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(rnaseCountFromTsv));
         }
 
         [Test]

@@ -16,7 +16,6 @@ namespace Transcriptomics
     /// </summary>
     public abstract class NucleicAcid : INucleicAcid, IBioPolymer, IEquatable<NucleicAcid>
     {
-
         #region Static Properties
 
         /// <summary>
@@ -43,21 +42,40 @@ namespace Transcriptomics
 
         #region Constuctors
 
+        /// <summary>
+        /// For creating an RNA programatically
+        /// </summary>
+        /// <param name="sequence"></param>
+        /// <param name="fivePrimeTerm"></param>
+        /// <param name="threePrimeTerm"></param>
+        /// <param name="oneBasedPossibleLocalizedModifications"></param>
         protected NucleicAcid(string sequence, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null)
         {
             MonoisotopicMass = 0;
-            Length = sequence.Length;
-            _nucleicAcids = new Nucleotide[Length];
+            _nucleicAcids = new Nucleotide[sequence.Length];
             ThreePrimeTerminus = threePrimeTerm ??= DefaultThreePrimeTerminus;
             FivePrimeTerminus = fivePrimeTerm ??= DefaultFivePrimeTerminus;
             _oneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
             GeneNames = new List<Tuple<string, string>>();
 
-
             ParseSequence(sequence);
         }
 
+        /// <summary>
+        /// For Reading in from rna database
+        /// </summary>
+        /// <param name="sequence"></param>
+        /// <param name="name"></param>
+        /// <param name="identifier"></param>
+        /// <param name="organism"></param>
+        /// <param name="databaseFilePath"></param>
+        /// <param name="fivePrimeTerm"></param>
+        /// <param name="threePrimeTerm"></param>
+        /// <param name="oneBasedPossibleLocalizedModifications"></param>
+        /// <param name="isContaminant"></param>
+        /// <param name="isDecoy"></param>
+        /// <param name="additionalDatabaseFields"></param>
         protected NucleicAcid(string sequence, string name, string identifier, string organism, string databaseFilePath,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
@@ -126,10 +144,8 @@ namespace Transcriptomics
         /// <summary>
         /// Gets the number of nucleic acids in this nucleic acid polymer
         /// </summary>
-        public int Length { get; private set; }
+        public int Length => BaseSequence.Length;
 
-
-        // TODO: These interface members
         public string Name { get; }
         public string FullName => Name; // TODO: Consider if this needs to be different from the name
         public string DatabaseFilePath { get; }
@@ -257,7 +273,7 @@ namespace Transcriptomics
 
         #region Private Methods
 
-        bool ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
+        private bool ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
         {
             if (Equals(value, terminus))
                 return false;
@@ -319,7 +335,6 @@ namespace Transcriptomics
             }
 
             _sequence = sb.ToString();
-            Length = index;
             MonoisotopicMass += monoMass;
             Array.Resize(ref _nucleicAcids, Length);
 
