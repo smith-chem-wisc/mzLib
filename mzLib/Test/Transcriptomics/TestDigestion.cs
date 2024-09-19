@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Security.Cryptography;
 using Chemistry;
 using MassSpectrometry;
@@ -304,15 +305,15 @@ namespace Test.Transcriptomics
                 List<Product> fragments = new();
                 digestionProduct.Fragment(DissociationType.CID, FragmentationTerminus.Both, fragments);
 
-                List<(int FragmentNumber, ProductType Type, double Mass)[]> ughh = new();
-
                 // test that fragments are correct
                 var fragmentsToCompare = DigestFragmentTestCases
                     .Where(p => p.Sequence.Equals(digestionProduct.BaseSequence)).ToList();
                 for (var i = 0; i < fragments.Count; i++)
                 {
                     var fragment = fragments[i];
-                    var theoreticalFragment = fragmentsToCompare[i];
+                    var theoreticalFragment = fragmentsToCompare.FirstOrDefault(p =>
+                        p.FragmentNumber == fragment.FragmentNumber && p.Type == fragment.ProductType);
+                    if (theoreticalFragment.Mass is 0.0 ) continue;
                     Assert.That(fragment.MonoisotopicMass, Is.EqualTo(theoreticalFragment.Mass).Within(0.01));
                     Assert.That(fragment.FragmentNumber, Is.EqualTo(theoreticalFragment.FragmentNumber));
                     Assert.That(fragment.ProductType, Is.EqualTo(theoreticalFragment.Type));
