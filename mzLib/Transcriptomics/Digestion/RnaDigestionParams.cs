@@ -1,10 +1,5 @@
 ﻿using Omics.Digestion;
 using Omics.Fragmentation;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Transcriptomics.Digestion
 {
@@ -12,7 +7,6 @@ namespace Transcriptomics.Digestion
     {
 
         // this parameterless constructor needs to exist to read the toml.
-        // if you can figure out a way to get rid of it, feel free...
         public RnaDigestionParams() : this("top-down")
         {
         }
