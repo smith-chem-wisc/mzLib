@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
 		<Platforms>x64</Platforms>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -21,7 +22,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	
 		<Reference Include="ThermoFisher.CommonCore.BackgroundSubtraction">
 			<HintPath>Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
 		</Reference>
@@ -33,6 +33,24 @@
 		</Reference>
 		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
 			<HintPath>Thermo\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
+		</Reference>
+		<Reference Include="msvcp140.dll">
+			<HintPath>Bruker\msvcp140.dll</HintPath>
+		</Reference>
+		<Reference Include="vcomp140.dll">
+			<HintPath>Bruker\vcomp140.dll</HintPath>
+		</Reference>
+		<Reference Include="vcruntime140.dll">
+			<HintPath>Bruker\vcruntime140.dll</HintPath>
+		</Reference>
+		<Reference Include="vcruntime140_1.dll">
+			<HintPath>Bruker\vcruntime140_1.dll</HintPath>
+		</Reference>
+		<Reference Include="timsdata.dll">
+			<HintPath>Bruker\timsdata.dll</HintPath>
+		</Reference>
+		<Reference Include="timsdata.lib">
+			<HintPath>Bruker\timsdata.lib</HintPath>
 		</Reference>
 	</ItemGroup>
 
@@ -52,10 +70,28 @@
 		<None Update="Bruker\msvcp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
+		<None Update="Bruker\msvcp140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="Bruker\msvcr110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
+		<None Update="Bruker\timsdata.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\timsdata.lib">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
 		<None Update="Bruker\vcomp110.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcomp140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcruntime140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Bruker\vcruntime140_1.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">

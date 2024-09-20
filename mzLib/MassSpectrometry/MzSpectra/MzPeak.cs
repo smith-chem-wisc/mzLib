@@ -1,4 +1,6 @@
-﻿namespace MassSpectrometry
+﻿using System;
+
+namespace MassSpectrometry
 {
     public class MzPeak
     {
