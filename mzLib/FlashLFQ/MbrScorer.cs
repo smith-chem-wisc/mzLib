@@ -38,7 +38,6 @@ namespace FlashLFQ
             Normal ppmDistribution, 
             Normal logIntensityDistribution)
         {
-            AcceptorFile = acceptorPeaks.First().SpectraFileInfo;
             ApexToAcceptorFilePeakDict = apexToAcceptorFilePeakDict;
             UnambiguousMsMsAcceptorPeaks = acceptorFileMsmsPeaks.Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1).ToList();
             MaxNumberOfScansObserved = acceptorFileMsmsPeaks.Max(peak => peak.ScanCount);
