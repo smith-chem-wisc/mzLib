@@ -18,7 +18,7 @@ namespace Readers.Bruker
         internal Object FileLock { get; }
         internal TimsConversion Converter { get; }
 
-        public static int maxIdx = 394534;
+        public static int maxIdx = 396861;
         public Dictionary<uint, double> mzLookup { get; set; }
 
         public double[] MzLookupArray { get; set; }
@@ -209,7 +209,6 @@ namespace Readers.Bruker
         internal int TotalNumberOfPeaks => _scanOffsets[NumberOfScans - 1];
         internal TimsConversion Converter { get; }
         
-        public static Dictionary<uint, double> mzLookup { get; set; }
 
         internal FrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter)
         {

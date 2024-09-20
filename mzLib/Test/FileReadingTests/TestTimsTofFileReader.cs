@@ -52,6 +52,41 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public static void TestThreeMinuteReader()
+        {
+            Stopwatch watch = Stopwatch.StartNew();
+            var memoryBeforeReading = GC.GetTotalMemory(true) / 1000;
+
+            FilteringParams filter = new FilteringParams(
+                numberOfPeaksToKeepPerWindow: 200,
+                minimumAllowedIntensityRatioToBasePeak: 0.005,
+                windowWidthThomsons: null,
+                numberOfWindows: null,
+                normalizePeaksAcrossAllWindows: false,
+                applyTrimmingToMs1: false,
+                applyTrimmingToMsMs: true);
+
+            string filePath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d";
+            var test = new TimsTofFileReader(filePath).LoadAllStaticData(filteringParams: filter, maxThreads: 10);
+            //TimsTofFileReader testAsTimmyReader = (TimsTofFileReader)test;
+            watch.Stop();
+            var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
+
+            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\new_version_release_no_MS1centroiding.txt");
+            using (output)
+            {
+                output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
+                output.WriteLine(test.Scans.Length + " scans read from file.");
+                output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
+                GC.Collect();
+                output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
+            }
+
+            //test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min_10ppm_Centroid.mzML", writeIndexed: true);
+            //Assert.Pass();
+        }
+
+        [Test]
         public void TestLoadAllStaticData()
         {
             Assert.That(_testReader.NumSpectra, Is.EqualTo(4096));

@@ -446,7 +446,8 @@ namespace Readers
 
         internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
         {
-            return TofSpectraMerger.MergesMs1Spectra(mzArrays, intensityArrays, filteringParams: filteringParams);
+            //return TofSpectraMerger.MergesMs1Spectra(mzArrays, intensityArrays, filteringParams: filteringParams);
+            return new MzSpectrum(new double[1], new double[1], false);
         }
 
         internal ListNode<TofPeak> SumScansToLinkedList(List<double[]> mzArrays, List<int[]> intensityArrays, out int listLength)
