@@ -555,6 +555,32 @@ namespace Test.Transcriptomics
             Assert.That(digestionProducts.Count(), Is.EqualTo(testCase.DigestionProductCount));
         }
 
+        [Test]
+        public void TestDigestionParamsClone()
+        {
+            var digestionParams = new RnaDigestionParams("top-down", 0, 3, 20000);
+            var cloned = digestionParams.Clone(FragmentationTerminus.C);
+
+            // set new terminus, all values except terminus are retained
+            Assert.That(digestionParams.DigestionAgent, Is.EqualTo(cloned.DigestionAgent));
+            Assert.That(digestionParams.MaxMissedCleavages, Is.EqualTo(cloned.MaxMissedCleavages));
+            Assert.That(digestionParams.MinLength, Is.EqualTo(cloned.MinLength));
+            Assert.That(digestionParams.MaxLength, Is.EqualTo(cloned.MaxLength));
+            Assert.That(digestionParams.MaxMods, Is.EqualTo(cloned.MaxMods));
+            Assert.That(digestionParams.FragmentationTerminus, Is.Not.EqualTo(cloned.FragmentationTerminus));
+            Assert.That(cloned.FragmentationTerminus, Is.EqualTo(FragmentationTerminus.C));
+
+            // do not set new terminus, all values are retained
+            cloned = digestionParams.Clone();
+            Assert.That(digestionParams.DigestionAgent, Is.EqualTo(cloned.DigestionAgent));
+            Assert.That(digestionParams.MaxMissedCleavages, Is.EqualTo(cloned.MaxMissedCleavages));
+            Assert.That(digestionParams.MinLength, Is.EqualTo(cloned.MinLength));
+            Assert.That(digestionParams.MaxLength, Is.EqualTo(cloned.MaxLength));
+            Assert.That(digestionParams.MaxMods, Is.EqualTo(cloned.MaxMods));
+            Assert.That(digestionParams.FragmentationTerminus, Is.EqualTo(cloned.FragmentationTerminus));
+            Assert.That(cloned.FragmentationTerminus, Is.EqualTo(FragmentationTerminus.Both));
+        }
+
         #endregion
 
         #region NucleicAcid

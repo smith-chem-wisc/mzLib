@@ -15,10 +15,10 @@ namespace Test.Transcriptomics
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    internal class TestFragmentation
+    public class TestFragmentation
     {
 
-        internal static IEnumerable<TestNucleicAcid.SixmerTestCase> GetSixMerIndividualFragmentTypeTestCases() =>
+        public static IEnumerable<TestNucleicAcid.SixmerTestCase> GetSixMerIndividualFragmentTypeTestCases() =>
             TestNucleicAcid.GetSixmerIndividualFragmentTypeTestCases();
 
         [Test]

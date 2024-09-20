@@ -16,11 +16,11 @@ namespace Test.Transcriptomics
     /// </summary>
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    internal class TestNucleicAcid
+    public class TestNucleicAcid
     {
-        internal record SixmerTestCase(string Sequence, ProductType Type, double[] NeutralMasses, string[] ChemicalFormulas);
+        public record SixmerTestCase(string Sequence, ProductType Type, double[] NeutralMasses, string[] ChemicalFormulas);
 
-        internal static IEnumerable<SixmerTestCase> GetSixmerIndividualFragmentTypeTestCases()
+        public static IEnumerable<SixmerTestCase> GetSixmerIndividualFragmentTypeTestCases()
         {
             Loaders.LoadElements();
 
