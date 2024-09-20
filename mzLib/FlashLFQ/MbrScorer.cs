@@ -196,7 +196,7 @@ namespace FlashLFQ
             var acceptorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
 
             // get the best (most intense) peak for each peptide in the acceptor file
-            foreach (ChromatographicPeak acceptorPeak in UnambiguousMsMsPeaks)
+            foreach (ChromatographicPeak acceptorPeak in UnambiguousMsMsAcceptorPeaks)
             {
                 if (acceptorFileBestMsmsPeaks.TryGetValue(acceptorPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
                 {
