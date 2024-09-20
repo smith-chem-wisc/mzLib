@@ -38,6 +38,7 @@ namespace FlashLFQ
             Normal ppmDistribution, 
             Normal logIntensityDistribution)
         {
+            AcceptorFile = acceptorPeaks.First().SpectraFileInfo;
             ApexToAcceptorFilePeakDict = apexToAcceptorFilePeakDict;
             UnambiguousMsMsAcceptorPeaks = acceptorFileMsmsPeaks.Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1).ToList();
             MaxNumberOfScansObserved = acceptorFileMsmsPeaks.Max(peak => peak.ScanCount);
@@ -115,7 +116,9 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Scores a MBR peak based on it's retention time, ppm error, and intensity
+        /// Takes in a list of retention time differences for anchor peptides (donor RT - acceptor RT) and uses
+        /// this list to calculate the distribution of prediction errors of the local RT alignment strategy employed by
+        /// match-between-runs for the specified donor file
         /// </summary>
         /// <returns> An MBR Score ranging between 0 and 100. Higher scores are better. </returns>
         internal double ScoreMbr(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak, double predictedRt)
@@ -194,7 +197,7 @@ namespace FlashLFQ
             var acceptorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
 
             // get the best (most intense) peak for each peptide in the acceptor file
-            foreach (ChromatographicPeak acceptorPeak in UnambiguousMsMsAcceptorPeaks)
+            foreach (ChromatographicPeak acceptorPeak in UnambiguousMsMsPeaks)
             {
                 if (acceptorFileBestMsmsPeaks.TryGetValue(acceptorPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
                 {

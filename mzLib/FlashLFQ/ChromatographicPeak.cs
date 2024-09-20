@@ -1,10 +1,9 @@
-﻿using Chemistry;
-using FlashLFQ.PEP;
-using MathNet.Numerics;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using ClassExtensions = Chemistry.ClassExtensions;
+using FlashLFQ.PEP;
 
 namespace FlashLFQ
 {
@@ -75,6 +74,7 @@ namespace FlashLFQ
                 && Identifications.First().ModifiedSequence.Equals(peak.Identifications.First().ModifiedSequence)
                 && ApexRetentionTime == peak.ApexRetentionTime;
         }
+
 
         public IsotopicEnvelope Apex { get; private set; }
         public List<Identification> Identifications { get; private set; }
@@ -207,6 +207,7 @@ namespace FlashLFQ
             this.NumIdentificationsByFullSeq = Identifications.Select(v => v.ModifiedSequence).Distinct().Count();
         }
 
+      
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();

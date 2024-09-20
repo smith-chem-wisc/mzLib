@@ -58,6 +58,7 @@ namespace FlashLFQ
         public readonly double DonorQValueThreshold;
 
         public readonly bool RequireMsmsIdInCondition;
+        private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
 
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
@@ -72,7 +73,6 @@ namespace FlashLFQ
 
         // structures used in the FlashLFQ engine
         private List<SpectraFileInfo> _spectraFileInfo;
-
         private Stopwatch _globalStopwatch;
         private List<Identification> _allIdentifications;
         /// <summary>
@@ -533,6 +533,69 @@ namespace FlashLFQ
 
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
         }
+
+        /// <summary>
+        /// Used by the match-between-runs algorithm to determine systematic retention time drifts between
+        /// chromatographic runs.
+        /// </summary>
+        private RetentionTimeCalibDataPoint[] GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor, MbrScorer scorer)
+        { 
+            Dictionary<string, ChromatographicPeak> donorFileBestMsmsPeaks = new();
+            Dictionary<string, ChromatographicPeak> acceptorFileBestMsmsPeaks = new();
+            List<RetentionTimeCalibDataPoint> rtCalibrationCurve = new();
+            List<double> anchorPeptideRtDiffs = new(); // anchor peptides are peptides that were MS2 detected in both the donor and acceptor runs
+
+
+            // get all peaks, not counting ambiguous peaks
+            IEnumerable<ChromatographicPeak> donorPeaks = _results.Peaks[donor].Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1);
+            IEnumerable<ChromatographicPeak> acceptorPeaks = _results.Peaks[acceptor].Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1);
+
+            // get the best (most intense) peak for each peptide in the acceptor file
+            foreach (ChromatographicPeak acceptorPeak in acceptorPeaks)
+            {
+                if (acceptorFileBestMsmsPeaks.TryGetValue(acceptorPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
+                {
+                    if (currentBestPeak.Intensity > acceptorPeak.Intensity)
+                    {
+                        acceptorFileBestMsmsPeaks[acceptorPeak.Identifications.First().ModifiedSequence] = acceptorPeak;
+                    }
+                }
+                else
+                {
+                    acceptorFileBestMsmsPeaks.Add(acceptorPeak.Identifications.First().ModifiedSequence, acceptorPeak);
+                }
+            }
+
+            // get the best (most intense) peak for each peptide in the donor file
+            foreach (ChromatographicPeak donorPeak in donorPeaks)
+            {
+                if (donorFileBestMsmsPeaks.TryGetValue(donorPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
+                {
+                    if (currentBestPeak.Intensity > donorPeak.Intensity)
+                    {
+                        donorFileBestMsmsPeaks[donorPeak.Identifications.First().ModifiedSequence] = donorPeak;
+                    }
+                }
+                else
+                {
+                    donorFileBestMsmsPeaks.Add(donorPeak.Identifications.First().ModifiedSequence, donorPeak);
+                }
+            }
+
+            // create RT calibration curve
+            foreach (var peak in acceptorFileBestMsmsPeaks)
+            {
+                ChromatographicPeak acceptorFilePeak = peak.Value;
+
+                if (donorFileBestMsmsPeaks.TryGetValue(peak.Key, out ChromatographicPeak donorFilePeak))
+                {
+                    rtCalibrationCurve.Add(new RetentionTimeCalibDataPoint(donorFilePeak, acceptorFilePeak));
+                    if(donorFilePeak.ApexRetentionTime > 0 && acceptorFilePeak.ApexRetentionTime > 0)
+                    {
+                        anchorPeptideRtDiffs.Add(donorFilePeak.ApexRetentionTime - acceptorFilePeak.ApexRetentionTime);
+                    }
+                }
+            }
 
         #region PeptideIdentityPropagation
         internal ChromatographicPeak ChooseBestPeak(List<ChromatographicPeak> peaks)
@@ -1138,6 +1201,7 @@ namespace FlashLFQ
                     _results.Peaks[idAcceptorFile].Add(best);
                 }
             }
+
 
             RunErrorChecking(idAcceptorFile);
         }

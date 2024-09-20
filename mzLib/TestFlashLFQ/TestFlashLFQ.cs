@@ -5,12 +5,13 @@ using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Easy.Common.Extensions;
 using Test.FileReadingTests;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
@@ -616,7 +617,6 @@ namespace Test
 
             Assert.That(results.Peaks[file1].Count == 5);
             Assert.That(!results.Peaks[file1].Any(p => p.IsMbrPeak));
-            Assert.That(!results.Peaks[file1].Any(p => p.RtHypothesis.HasValue));
 
             results = interquartileEngine.Run();
             peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
@@ -626,6 +626,15 @@ namespace Test
                 if (i == 2) continue; // exclude the mbr peak from the calculation
                 rtDiffs.Add(Math.Abs(file1Rt[i] - file2Rt[i]));
             }
+
+            // The ambiguous engine tests that a non-confident ID (i.e., a PSM that didn't make the peptide level fdr cutoff) 
+            // gets overwritten by a MBR transfer of a confident ID, and that non-confident IDs are overwriteen by confident MS2 ids
+            results = engineAmbiguous.Run();
+            Assert.False(results.PeptideModifiedSequences.Select(kvp => kvp.Key).Contains("DECOYPEP"));
+            Assert.False(results.Peaks[file1].Any(peak => peak.Identifications.Any(id => id.ModifiedSequence.Contains("DECOYPEP"))));
+            Assert.That(results.Peaks[file2].Any(peak => peak.Identifications.First().ModifiedSequence == "TARGETPEP"));
+            Assert.AreEqual(results.Peaks[file2].Count(peak => peak.IsMbrPeak), 2);
+
         }
 
         [Test]
