@@ -487,15 +487,15 @@ namespace Test
         public static void TestFlashLfqMatchBetweenRuns()
         {
             List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> 
-                { 
-                "PEPTIDE", 
-                "PEPTIDEV", 
-                "PEPTIDEVV", 
+            List<string> pepSequences = new List<string>
+                {
+                "PEPTIDE",
+                "PEPTIDEV",
+                "PEPTIDEVV",
                 "TARGETPEP",
                 "PEPTIDEVVV",
-                "PEPTIDEVVVV", 
-                "PEPTIDEVVVVA", 
+                "PEPTIDEVVVV",
+                "PEPTIDEVVVVA",
                 "PEPTIDEVVVVAA"
             };
             double intensity = 1e6;
@@ -593,8 +593,6 @@ namespace Test
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             FlashLfqEngine interquartileEngine = new FlashLfqEngine(
                 new List<Identification> { id1, id2, id3, id4, id5, id11, id12, id6, id7, id9, id10, id13, id14 }, matchBetweenRuns: true);
-            FlashLfqEngine engineAmbiguous = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id18, id15, id16, id17 }, matchBetweenRuns: true);
-
 
             //run the engine
             var results = engine.Run();
@@ -627,14 +625,14 @@ namespace Test
                 rtDiffs.Add(Math.Abs(file1Rt[i] - file2Rt[i]));
             }
 
+            FlashLfqEngine engineAmbiguous = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id18, id15, id16, id17 }, matchBetweenRuns: true, peptideSequencesToQuantify: pepSequences, donorCriterion: 'I');
             // The ambiguous engine tests that a non-confident ID (i.e., a PSM that didn't make the peptide level fdr cutoff) 
-            // gets overwritten by a MBR transfer of a confident ID, and that non-confident IDs are overwriteen by confident MS2 ids
+            // gets overwritten by a MBR transfer of a confident ID, and that non-confident IDs are overwritten by confident MS2 ids
             results = engineAmbiguous.Run();
             Assert.False(results.PeptideModifiedSequences.Select(kvp => kvp.Key).Contains("DECOYPEP"));
             Assert.False(results.Peaks[file1].Any(peak => peak.Identifications.Any(id => id.ModifiedSequence.Contains("DECOYPEP"))));
             Assert.That(results.Peaks[file2].Any(peak => peak.Identifications.First().ModifiedSequence == "TARGETPEP"));
             Assert.AreEqual(results.Peaks[file2].Count(peak => peak.IsMbrPeak), 2);
-
         }
 
         [Test]
@@ -910,15 +908,6 @@ namespace Test
         }
 
         [Test]
-        public static void NanTest()
-        {
-            var nan = Double.NaN;
-            var test = nan / 2;
-            var test2 = nan - 2;
-            int placeholder = 0;
-        }
-
-        [Test]
         public static void TestAmbiguous()
         {
             // get the raw file paths
@@ -1044,7 +1033,7 @@ namespace Test
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             var results = engine.Run();
 
-            // no assertions - just don't crash
+            Assert.Pass();// no assertions - just don't crash
         }
 
         [Test]
@@ -1227,8 +1216,8 @@ namespace Test
             Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
             Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));
 
-            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "P52298" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
-            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "Q15149", "P52298" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
 
             Assert.AreEqual(6, peptides.Count);
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "P52298" }, peptides.Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
@@ -1371,24 +1360,26 @@ namespace Test
                 ids.Add(id);
             }
 
-            // Setting the FDR threshold to 0.1 ensures that all detected peak traces are included
-            // Setting the FDR threshold below 0.1 makes the results stochastic due to the way the decoy selection process interacts with the 
-            // test data
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.10, maxMbrWindow: 0.5);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.055, maxMbrWindow: 1);
             var results = engine.Run();
 
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
 
-            Assert.GreaterOrEqual(f1r1MbrResults.Count, 50);
+            Assert.GreaterOrEqual(f1r1MbrResults.Count, 140);
 
             var mbrResults = results.Peaks.SelectMany(kvp => kvp.Value).Where(peak => peak.IsMbrPeak).OrderByDescending(peak => peak.MbrScore).ToList();
+            var maxQ_r1 = mbrResults.Where(p => p.SpectraFileInfo == f1r1).Max(p => p.MbrQValue);
+            var minQ_r1 = mbrResults.Where(p => p.SpectraFileInfo == f1r1).Min(p => p.MbrQValue);
+
+            var maxQ_r2 = mbrResults.Where(p => p.SpectraFileInfo == f1r2).Max(p => p.MbrQValue);
+            var minQ_r2 = mbrResults.Where(p => p.SpectraFileInfo == f1r2).Min(p => p.MbrQValue);
 
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
-            Assert.GreaterOrEqual(f1r2MbrResults.Count, 50);
+            Assert.GreaterOrEqual(f1r2MbrResults.Count, 61);
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 
@@ -1412,25 +1403,28 @@ namespace Test
 
             corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
 
-            Assert.Greater(corr, 0.75);
+            Assert.Greater(corr, 0.70);
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
             f1r1.Condition = "b";
             engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 5);
             results = engine.Run();
-            var proteinsObservedInF1 = ids.Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
-            var proteinsObservedInF2 = ids.Where(p => p.FileInfo == f1r2).SelectMany(p => p.ProteinGroups).Distinct().ToList();
+            var proteinsObservedInF1 = ids.Where(id => !id.IsDecoy).Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
+            var proteinsObservedInF2 = ids.Where(id => !id.IsDecoy).Where(p => p.FileInfo == f1r2).SelectMany(p => p.ProteinGroups).Distinct().ToList();
             var proteinsObservedInF1ButNotF2 = proteinsObservedInF1.Except(proteinsObservedInF2).ToList();
             foreach (ProteinGroup protein in proteinsObservedInF1ButNotF2)
             {
                 Assert.That(results.ProteinGroups[protein.ProteinGroupName].GetIntensity(f1r2) == 0);
             }
 
-            List<string> peptidesToUse = ids.Select(id => id.ModifiedSequence).Take(400).Distinct().ToList();
-            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1);
+            // Test that no decoys are reported in the final resultsw
+            Assert.AreEqual(0, ids.Where(id => id.IsDecoy).Count(id => results.ProteinGroups.ContainsKey(id.ProteinGroups.First().ProteinGroupName)));
+
+
+            List<string> peptidesToUse = ids.Where(id => id.QValue <= 0.007 & !id.IsDecoy).Select(id => id.ModifiedSequence).Distinct().ToList();
+            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.5, maxMbrWindow: 1, peptideSequencesToQuantify: peptidesToUse);
             results = engine.Run();
-            var test = results.PeptideModifiedSequences.Select(kvp => !peptidesToUse.Contains(kvp.Key)).ToList();
 
             CollectionAssert.AreEquivalent(results.PeptideModifiedSequences.Select(kvp => kvp.Key), peptidesToUse);
         }

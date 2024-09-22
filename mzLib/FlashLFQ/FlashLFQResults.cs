@@ -14,30 +14,29 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
-        public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DoubleCheckPeaks;
+        private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
         public string PepResultString { get; set; }
         public  IEnumerable<ChromatographicPeak> DecoyPeaks { get; set; }
 
         public double MbrQValueThreshold { get; set; }
 
-        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05)
+        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05,
+            HashSet<string> peptideModifiedSequencesToQuantify = null)
         {
             SpectraFiles = spectraFiles;
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
-            DoubleCheckPeaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
             MbrQValueThreshold = mbrQValueThreshold;
+            _peptideModifiedSequencesToQuantify = peptideModifiedSequencesToQuantify ?? identifications.Where(id => !id.IsDecoy).Select(id => id.ModifiedSequence).ToHashSet();
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
                 Peaks.Add(file, new List<ChromatographicPeak>());
-                DoubleCheckPeaks.Add(file, new List<ChromatographicPeak>());
             }
 
-
             // Only quantify peptides within the set of valid peptide modified (full) sequences. This is done to enable pepitde-level FDR control of reported results
-            foreach (Identification id in identifications)
+            foreach (Identification id in identifications.Where(id => !id.IsDecoy & _peptideModifiedSequencesToQuantify.Contains(id.ModifiedSequence)))
             {
                 if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
                 {
@@ -137,8 +136,10 @@ namespace FlashLFQ
             {
                 var groupedPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
+                    .Where(p => !p.Identifications.First().IsDecoy)
                     .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .GroupBy(p => p.Identifications.First().ModifiedSequence)
+                    .Where(group => _peptideModifiedSequencesToQuantify.Contains(group.Key))
                     .ToList();
 
                 foreach (var sequenceWithPeaks in groupedPeaks)
@@ -172,12 +173,15 @@ namespace FlashLFQ
                 // report ambiguous quantification
                 var ambiguousPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq > 1)
+                    .Where(p => !p.Identifications.First().IsDecoy)
                     .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .ToList();
                 foreach (ChromatographicPeak ambiguousPeak in ambiguousPeaks)
                 {
-                    foreach (Identification id in ambiguousPeak.Identifications)
+                    foreach (Identification id in ambiguousPeak.Identifications.Where(id => !id.IsDecoy))
                     {
+                        if (!_peptideModifiedSequencesToQuantify.Contains(id.ModifiedSequence)) continue; // Ignore the ids/sequences we don't want to quantify
+
                         string sequence = id.ModifiedSequence;
 
                         double alreadyRecordedIntensity = PeptideModifiedSequences[sequence].GetIntensity(filePeaks.Key);
@@ -559,7 +563,7 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent, string decoyPath = null)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
         {
             if (!silent)
             {
@@ -575,36 +579,6 @@ namespace FlashLFQ
                     foreach (var peak in Peaks.SelectMany(p => p.Value)
                         .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
                         .ThenByDescending(p => p.Intensity))
-                    {
-                        output.WriteLine(peak.ToString());
-                    }
-                }
-
-                string[] pathSplit = peaksOutputPath.Split(Path.DirectorySeparatorChar);
-                pathSplit[^1] = "DoubleCheckedPeaks.tsv";
-
-                using (var output = new StreamWriter(String.Join(Path.DirectorySeparatorChar, pathSplit)))
-                {
-                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
-
-                    foreach (var peak in DoubleCheckPeaks.SelectMany(p => p.Value)
-                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
-                        .ThenByDescending(p => p.Collision))
-                    {
-                        output.WriteLine(peak.ToString());
-                    }
-                }
-            }
-
-            if (decoyPath != null & DecoyPeaks.IsNotNullOrEmpty())
-            {
-                using (StreamWriter output = new StreamWriter(decoyPath))
-                {
-                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
-
-                    foreach (var peak in DecoyPeaks
-                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
-                        .ThenByDescending(p => p.MbrScore))
                     {
                         output.WriteLine(peak.ToString());
                     }

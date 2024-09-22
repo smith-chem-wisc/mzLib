@@ -51,7 +51,6 @@ namespace FlashLFQ
             List<double> scanList = acceptorFileMsmsPeaks.Select(peak => (double)peak.ScanCount).ToList();
             // build a normal distribution for the scan list of the acceptor peaks
             _scanCountDistribution = new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
-            GetIsotopicEnvelopeCorrDistribution();
         }
 
         /// <summary>
@@ -61,6 +60,7 @@ namespace FlashLFQ
         private Gamma GetIsotopicEnvelopeCorrDistribution()
         {
             var pearsonCorrs = UnambiguousMsMsAcceptorPeaks.Select(p => 1 - p.IsotopicPearsonCorrelation).Where(p => p > 0).ToList();
+            if (pearsonCorrs.Count <= 1) return null;
             double mean = pearsonCorrs.Mean();
             double variance = pearsonCorrs.Variance();
             var alpha = Math.Pow(mean, 2) / variance;
@@ -153,7 +153,7 @@ namespace FlashLFQ
 
         internal double CalculateScore(Gamma distribution, double value)
         {
-            if (value < 0)
+            if (value < 0 || distribution == null)
             {
                 return _minScore;
             }

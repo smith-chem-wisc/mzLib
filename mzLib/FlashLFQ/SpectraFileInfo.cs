@@ -39,5 +39,9 @@
         {
             return FullFilePathWithExtension.GetHashCode();
         }
+        public override string ToString()
+        {
+            return FilenameWithoutExtension;
+        }
     }
 }
