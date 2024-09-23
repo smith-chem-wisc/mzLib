@@ -46,7 +46,6 @@ namespace FlashLFQ.PEP
 
     }
 
-
     public class PepAnalysisEngine
     {
         public double PipScoreCutoff;
@@ -69,7 +68,8 @@ namespace FlashLFQ.PEP
                 FeatureColumnName = "Features",
                 Seed = _randomSeed,
                 FeatureSelectionSeed = _randomSeed,
-                RandomStart = false
+                RandomStart = false,
+                UnbalancedSets = true
             };
         
         public List<ChromatographicPeak> Peaks { get;  }
@@ -586,8 +586,6 @@ namespace FlashLFQ.PEP
                     }
                 });
         }
-
-        
 
         public static string AggregateMetricsForOutput(List<CalibratedBinaryClassificationMetrics> allMetrics)
         {

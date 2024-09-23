@@ -1376,8 +1376,8 @@ namespace Test
             var maxQ_r2 = mbrResults.Where(p => p.SpectraFileInfo == f1r2).Max(p => p.MbrQValue);
             var minQ_r2 = mbrResults.Where(p => p.SpectraFileInfo == f1r2).Min(p => p.MbrQValue);
 
-            Console.WriteLine("Max Q r1: " + maxQ_r1);
-            Console.WriteLine("Min Q r1: " + minQ_r1);
+            Console.WriteLine("Max Q r2: " + maxQ_r2);
+            Console.WriteLine("Min Q r2: " + minQ_r2);
 
             var r2MbrResults = mbrResults.Where(p => p.SpectraFileInfo == f1r2).OrderBy(p => p.MbrQValue).ToList();
 
@@ -1410,6 +1410,7 @@ namespace Test
             corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
 
             Assert.Greater(corr, 0.70);
+            Console.WriteLine("Run 2 corr: " + corr);
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
