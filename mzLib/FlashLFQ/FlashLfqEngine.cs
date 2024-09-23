@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
 using FlashLFQ.PEP;
 using System.IO;
+using System.Threading;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -839,7 +840,7 @@ namespace FlashLFQ
             double donorPeakRetentionTime,
             double retentionTimeMinDiff,
             Identification donorIdentification,
-            Random rng)
+            ThreadLocal<Random> rng)
         {
             double minDiff = 5 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
             double maxDiff = 11 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
@@ -874,7 +875,7 @@ namespace FlashLFQ
                 return null;
             }
 
-            return randomPeakCandidates[rng.Next(randomPeakCandidates.Count)];
+            return randomPeakCandidates[rng.Value.Next(randomPeakCandidates.Count)];
         }
 
         /// <summary>
@@ -972,7 +973,7 @@ namespace FlashLFQ
                     new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                     (range, loopState) =>
                     {
-                        Random rng = new Random(_randomSeed); // Create a new random number generator for each thread so that the results are reproducible
+                        var rng = new ThreadLocal<Random>(() => new Random(_randomSeed)); // Create a new random number generator for each thread so that the results are reproducible
                         for (int i = range.Item1; i < range.Item2; i++)
                         {
                             ChromatographicPeak donorPeak = idDonorPeaks[i];
