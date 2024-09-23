@@ -47,9 +47,9 @@ namespace FlashLFQ.PEP
     }
 
 
-    public static class PEP_Analysis_Cross_Validation
+    public class PepAnalysisEngine
     {
-        public static double PipScoreCutoff;
+        public double PipScoreCutoff;
 
         private static int _randomSeed = 42;
 
@@ -57,7 +57,7 @@ namespace FlashLFQ.PEP
         /// This method contains the hyper-parameters that will be used when training the machine learning model
         /// </summary>
         /// <returns> Options object to be passed in to the FastTree constructor </returns>
-        public static Microsoft.ML.Trainers.FastTree.FastTreeBinaryTrainer.Options BGDTreeOptions =>
+        public Microsoft.ML.Trainers.FastTree.FastTreeBinaryTrainer.Options BGDTreeOptions =>
             new Microsoft.ML.Trainers.FastTree.FastTreeBinaryTrainer.Options
             {
                 NumberOfThreads = 1,
@@ -71,15 +71,29 @@ namespace FlashLFQ.PEP
                 FeatureSelectionSeed = _randomSeed,
                 RandomStart = false
             };
+        
+        public List<ChromatographicPeak> Peaks { get;  }
+        public string OutputFolder { get; set; }
+        public int MaxThreads { get; set; }
+        public double PepTrainingFraction { get; set; }
 
-        public static string ComputePEPValuesForAllPeaks(ref List<ChromatographicPeak> peaks, string outputFolder, int maxThreads, double pepTrainingFraction = 0.25)
+        public PepAnalysisEngine(List<ChromatographicPeak> peaks, string outputFolder, int maxThreads, double pepTrainingFraction = 0.25)
+        {
+            Peaks = peaks;
+            OutputFolder = outputFolder;
+            MaxThreads = maxThreads;
+            PepTrainingFraction = pepTrainingFraction;
+        }
+
+
+        public string ComputePEPValuesForAllPeaks()
         {
             string[] trainingVariables = ChromatographicPeakData.trainingInfos["standard"];
 
             #region Construct Donor Groups
             // this is target peak not target peptide
             List<DonorGroup> donors= new();
-            foreach(var donorGroup in peaks.Where(peak => peak.IsMbrPeak).GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
+            foreach(var donorGroup in Peaks.Where(peak => peak.IsMbrPeak).GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
             {
                 var donorId = donorGroup.Key;
                 var targetAcceptors = donorGroup.Where(peak => !peak.RandomRt).ToList();
@@ -94,7 +108,7 @@ namespace FlashLFQ.PEP
                 .ToList();
 
             var peakScores = donors.SelectMany(donor => donor.Select(p => p.MbrScore)).OrderByDescending(score => score).ToList();
-            PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * pepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
+            PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * PepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
 
             MLContext mlContext = new MLContext();
             //the number of groups used for cross-validation is hard-coded at four. Do not change this number without changing other areas of effected code.
@@ -108,7 +122,7 @@ namespace FlashLFQ.PEP
             IEnumerable<ChromatographicPeakData>[] ChromatographicPeakDataGroups = new IEnumerable<ChromatographicPeakData>[numGroups];
             for (int i = 0; i < numGroups; i++)
             {
-                ChromatographicPeakDataGroups[i] = CreateChromatographicPeakData(donors, donorGroupIndices[i], maxThreads);
+                ChromatographicPeakDataGroups[i] = CreateChromatographicPeakData(donors, donorGroupIndices[i], MaxThreads);
 
                 if (!ChromatographicPeakDataGroups[i].Any(p => p.Label == true) 
                     || !ChromatographicPeakDataGroups[i].Any(p => p.Label == false))
@@ -147,12 +161,12 @@ namespace FlashLFQ.PEP
 
                 //Parallel operation of the following code requires the method to be stored and then read, once for each thread
                 //if not output directory is specified, the model cannot be stored, and we must force single-threaded operation
-                if (outputFolder != null)
+                if (OutputFolder != null)
                 {
-                    mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(outputFolder, "model.zip"));
+                    mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(OutputFolder, "model.zip"));
                 }
 
-                Compute_PEP_For_All_Peaks(donors, donorGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
+                Compute_PEP_For_All_Peaks(donors, donorGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], OutputFolder, MaxThreads);
 
                 allMetrics.Add(metrics);
             }
@@ -165,7 +179,7 @@ namespace FlashLFQ.PEP
                 ChromatographicPeakDataGroups = new IEnumerable<ChromatographicPeakData>[numGroups];
                 for (int i = 0; i < numGroups; i++)
                 {
-                    ChromatographicPeakDataGroups[i] = CreateChromatographicPeakDataIteration(donors, donorGroupIndices[i], maxThreads);
+                    ChromatographicPeakDataGroups[i] = CreateChromatographicPeakDataIteration(donors, donorGroupIndices[i], MaxThreads);
 
                     if (!ChromatographicPeakDataGroups[i].Any(p => p.Label == true)
                         || !ChromatographicPeakDataGroups[i].Any(p => p.Label == false))
@@ -189,12 +203,12 @@ namespace FlashLFQ.PEP
 
                     //Parallel operation of the following code requires the method to be stored and then read, once for each thread
                     //if not output directory is specified, the model cannot be stored, and we must force single-threaded operation
-                    if (outputFolder != null)
+                    if (OutputFolder != null)
                     {
-                        mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(outputFolder, "model.zip"));
+                        mlContext.Model.Save(trainedModels[groupIndexNumber], dataView.Schema, Path.Combine(OutputFolder, "model.zip"));
                     }
 
-                    Compute_PEP_For_All_Peaks(donors, donorGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], outputFolder, maxThreads);
+                    Compute_PEP_For_All_Peaks(donors, donorGroupIndices[groupIndexNumber], mlContext, trainedModels[groupIndexNumber], OutputFolder, MaxThreads);
 
                     allMetrics.Add(metrics);
                 }
@@ -206,7 +220,7 @@ namespace FlashLFQ.PEP
 
         //we add the indexes of the targets and decoys to the groups separately in the hope that we'll get at least one target and one decoy in each group.
         //then training can possibly be more successful.
-        public static List<int>[] Get_Donor_Group_Indices(List<DonorGroup> donors, int numGroups)
+        public List<int>[] Get_Donor_Group_Indices(List<DonorGroup> donors, int numGroups)
         {
             List<int>[] groupsOfIndices = new List<int>[numGroups];
             for (int i = 0; i < numGroups; i++)
@@ -430,18 +444,7 @@ namespace FlashLFQ.PEP
             return groupsOfIndices;
         }
 
-        /// <summary>
-        /// Negative friendly modulo function
-        /// </summary>
-        /// <param name="a"></param>
-        /// <param name="b"></param>
-        /// <returns></returns>
-        public static int nfmod(int a, int b)
-        {
-            return a - b * (a / b);
-        }
-
-        public static IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
+        public IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
         {
             object ChromatographicPeakDataListLock = new object();
             List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
@@ -489,7 +492,7 @@ namespace FlashLFQ.PEP
             return pda.AsEnumerable();
         }
 
-        public static IEnumerable<ChromatographicPeakData> CreateChromatographicPeakDataIteration(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
+        public IEnumerable<ChromatographicPeakData> CreateChromatographicPeakDataIteration(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
         {
             object ChromatographicPeakDataListLock = new object();
             List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();

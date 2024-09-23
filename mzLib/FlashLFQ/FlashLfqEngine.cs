@@ -1117,8 +1117,8 @@ namespace FlashLFQ
                         foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
                         {
                             if (peak.Apex.IndexedPeak.RetentionTime >= start
-                                && peak.Apex.IndexedPeak.RetentionTime <= end
-                                && Math.Abs(peak.MbrScore - best.MbrScore) / best.MbrScore < 0.25)// 25% difference is a rough heuristic, but I don't want super shitty peaks being able to supercede the intensity of a good peak!
+                                && peak.Apex.IndexedPeak.RetentionTime <= end)
+                                //&& Math.Abs(peak.MbrScore - best.MbrScore) / best.MbrScore < 0.25)// 25% difference is a rough heuristic, but I don't want super shitty peaks being able to supercede the intensity of a good peak!
                             {
                                 if (msmsImsPeaks.TryGetValue(peak.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList) && peakList.Contains(peak.Apex.IndexedPeak))
                                 {
@@ -1415,10 +1415,11 @@ namespace FlashLFQ
             List<double> tempQs = new();
             if (mbrPeaks.Count > 100 && decoyPeakTotal > 20)
             {
-                var pepOutput = PEP_Analysis_Cross_Validation.ComputePEPValuesForAllPeaks(ref mbrPeaks,
+                PepAnalysisEngine pepAnalysisEngine = new PepAnalysisEngine(mbrPeaks,
                     outputFolder: Path.GetDirectoryName(_spectraFileInfo.First().FullFilePathWithExtension),
                     maxThreads: MaxThreads,
                     pepTrainingFraction: PepTrainingFraction);
+                var pepOutput = pepAnalysisEngine.ComputePEPValuesForAllPeaks();
 
                 _results.PepResultString = pepOutput;
 
