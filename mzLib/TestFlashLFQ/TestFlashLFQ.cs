@@ -1379,7 +1379,7 @@ namespace Test
             Console.WriteLine("Max Q r2: " + maxQ_r2);
             Console.WriteLine("Min Q r2: " + minQ_r2);
 
-            var r2MbrResults = mbrResults.Where(p => p.SpectraFileInfo == f1r2).OrderBy(p => p.MbrQValue).ToList();
+            var r2MbrResults = mbrResults.Where(p => p.SpectraFileInfo == f1r2).OrderByDescending(p => p.MbrScore).ToList();
 
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
