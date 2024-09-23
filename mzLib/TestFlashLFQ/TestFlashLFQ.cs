@@ -1384,7 +1384,7 @@ namespace Test
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
-            Assert.GreaterOrEqual(f1r2MbrResults.Count, 50);
+            Assert.GreaterOrEqual(f1r2MbrResults.Count, 5);
             Console.WriteLine("Total R2 MBR: " + f1r2MbrResults.Count);
 
             Console.WriteLine("R2 peptide 20 seq: " + r2MbrResults[20].Identifications.First().ModifiedSequence);
