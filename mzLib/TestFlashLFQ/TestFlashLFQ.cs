@@ -1379,7 +1379,7 @@ namespace Test
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
-            Assert.GreaterOrEqual(f1r2MbrResults.Count, 50);
+            Assert.GreaterOrEqual(f1r2MbrResults.Count, 60);
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 
