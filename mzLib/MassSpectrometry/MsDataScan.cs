@@ -59,7 +59,7 @@ namespace MassSpectrometry
         /// <summary>
         /// The mass spectrum associated with the scan
         /// </summary>
-        public MzSpectrum MassSpectrum { get; set; }
+        public MzSpectrum MassSpectrum { get; protected set; }
 
         public int OneBasedScanNumber { get; private set; }
         public int MsnOrder { get; }

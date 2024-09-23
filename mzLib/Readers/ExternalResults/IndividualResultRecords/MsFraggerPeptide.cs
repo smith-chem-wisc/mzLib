@@ -25,7 +25,6 @@ namespace Readers
         };
 
         [Name("Peptide", "Sequence")] public string BaseSequence { get; set; }
-        [Name("Modified Sequence")] [Optional] public string FullSequence { get; set; }
 
         [Name("Prev AA")] [Optional] public char PreviousAminoAcid { get; set; }
 
@@ -93,18 +92,5 @@ namespace Readers
         [Optional]
         [TypeConverter(typeof(CommaDelimitedToStringArrayTypeConverter))]
         public string[] MappedProteins { get; set; }
-
-        [NotMapped]
-        [Optional]
-        public Dictionary<string, int> FileToPsmCount { get; set; }
-        [NotMapped]
-        [Optional]
-        public Dictionary<string, double> IntensityByFile { get; set; }
-
-        public MsFraggerPeptide()
-        {
-            FileToPsmCount = new();
-            IntensityByFile = new();
-        }
     }
 }
