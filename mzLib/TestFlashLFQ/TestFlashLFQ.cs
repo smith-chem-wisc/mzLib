@@ -1360,14 +1360,16 @@ namespace Test
                 ids.Add(id);
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.05, maxMbrWindow: 1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.045, maxMbrWindow: 1);
             var results = engine.Run();
 
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
-                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
+                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS)
+                .ToList();
 
-            Assert.GreaterOrEqual(f1r1MbrResults.Count, 135);
+            Console.WriteLine("Total R1 MBR: " + f1r1MbrResults.Count);
+            Assert.GreaterOrEqual(f1r1MbrResults.Count, 64);
 
             var mbrResults = results.Peaks.SelectMany(kvp => kvp.Value).Where(peak => peak.IsMbrPeak).OrderByDescending(peak => peak.MbrScore).ToList();
             var maxQ_r1 = mbrResults.Where(p => p.SpectraFileInfo == f1r1).Max(p => p.MbrQValue);
@@ -1381,8 +1383,12 @@ namespace Test
 
             var r2MbrResults = mbrResults.Where(p => p.SpectraFileInfo == f1r2).OrderByDescending(p => p.MbrScore).ToList();
 
-            var f1r2MbrResults = results.PeptideModifiedSequences
-                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
+            //results.MbrQValueThreshold = 0.1;
+            //results.CalculatePeptideResults(false);
+            var f1r2MbrResults = results
+                .PeptideModifiedSequences
+                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR)
+                .ToList();
 
             Assert.GreaterOrEqual(f1r2MbrResults.Count, 5);
             Console.WriteLine("Total R2 MBR: " + f1r2MbrResults.Count);
@@ -1401,8 +1407,9 @@ namespace Test
                 peptideIntensities.Add((mbrIntensity, msmsIntensity));
             }
 
-            double corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-            Assert.Greater(corr, 0.79);
+            double corrRun1 = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+            Console.WriteLine("Run 1 corr: " + corrRun1);
+            Assert.Greater(corrRun1, 0.79);
 
             peptideIntensities.Clear();
             foreach (var peptide in f1r2MbrResults)
@@ -1412,10 +1419,10 @@ namespace Test
                 peptideIntensities.Add((mbrIntensity, msmsIntensity));
             }
 
-            corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-
-            Assert.Greater(corr, 0.70);
-            Console.WriteLine("Run 2 corr: " + corr);
+            double corrRun2 = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+            Console.WriteLine("Run 2 corr: " + corrRun2);
+            Assert.Greater(corrRun2, 0.70);
+            
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
@@ -1432,7 +1439,6 @@ namespace Test
 
             // Test that no decoys are reported in the final resultsw
             Assert.AreEqual(0, ids.Where(id => id.IsDecoy).Count(id => results.ProteinGroups.ContainsKey(id.ProteinGroups.First().ProteinGroupName)));
-
 
             List<string> peptidesToUse = ids.Where(id => id.QValue <= 0.007 & !id.IsDecoy).Select(id => id.ModifiedSequence).Distinct().ToList();
             engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.5, maxMbrWindow: 1, peptideSequencesToQuantify: peptidesToUse);

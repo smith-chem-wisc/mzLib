@@ -830,7 +830,7 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Returns a randomly selected peak that does not have the same mass as the donor
+        /// Returns a pseudo-randomly selected peak that does not have the same mass as the donor
         /// </summary>
         /// <param name="peaksOrderedByMass"></param>
         /// <param name="donorPeakPeakfindingMass"> Will search for a peak at least 5 Da away from the peakfinding mass </param>
@@ -839,8 +839,7 @@ namespace FlashLFQ
             List<ChromatographicPeak> peaksOrderedByMass,
             double donorPeakRetentionTime,
             double retentionTimeMinDiff,
-            Identification donorIdentification,
-            ThreadLocal<Random> rng)
+            Identification donorIdentification)
         {
             double minDiff = 5 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
             double maxDiff = 11 * PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
@@ -875,7 +874,9 @@ namespace FlashLFQ
                 return null;
             }
 
-            return randomPeakCandidates[rng.Value.Next(randomPeakCandidates.Count)];
+            // Generates a pseudo-random number based on the donor peak finding mass + retention time
+            int pseudoRandomNumber = (int)(1e5 * (donorIdentification.PeakfindingMass % 1.0) * (donorIdentification.Ms2RetentionTimeInMinutes % 1.0)) % randomPeakCandidates.Count;
+            return randomPeakCandidates[pseudoRandomNumber];
         }
 
         /// <summary>
@@ -973,7 +974,6 @@ namespace FlashLFQ
                     new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                     (range, loopState) =>
                     {
-                        var rng = new ThreadLocal<Random>(() => new Random(_randomSeed)); // Create a new random number generator for each thread so that the results are reproducible
                         for (int i = range.Item1; i < range.Item2; i++)
                         {
                             ChromatographicPeak donorPeak = idDonorPeaks[i];
@@ -989,14 +989,13 @@ namespace FlashLFQ
                             ChromatographicPeak randomDonor = GetRandomPeak(donorPeaksMassOrdered,
                                 donorPeak.ApexRetentionTime,
                                 minimumRtDifference,
-                                donorPeak.Identifications.First(),
-                                rng);
+                                donorPeak.Identifications.First());
 
                             ChromatographicPeak bestDecoy = null;
                             RtInfo decoyRtInfo = null;
                             if (randomDonor != null)
                             {
-                                Console.WriteLine("TD Pair: " + donorPeak.Identifications.First().ModifiedSequence + ", " + randomDonor.Identifications.First().ModifiedSequence);
+                                //Console.WriteLine("TD Pair: " + donorPeak.Identifications.First().ModifiedSequence + ", " + randomDonor.Identifications.First().ModifiedSequence);
                                 decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                                 if (decoyRtInfo != null)
                                 {
