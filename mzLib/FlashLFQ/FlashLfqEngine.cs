@@ -995,7 +995,7 @@ namespace FlashLFQ
                             RtInfo decoyRtInfo = null;
                             if (randomDonor != null)
                             {
-                                Console.WriteLine("TD Pair: " + donorPeak.Identifications.First().ModifiedSequence + ", " + randomDonor.Identifications.First().ModifiedSequence);
+                                //Console.WriteLine("TD Pair: " + donorPeak.Identifications.First().ModifiedSequence + ", " + randomDonor.Identifications.First().ModifiedSequence);
                                 decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                                 if (decoyRtInfo != null)
                                 {
@@ -1399,6 +1399,7 @@ namespace FlashLFQ
         {
             List<ChromatographicPeak> mbrPeaks = _results.Peaks.SelectMany(kvp => kvp.Value)
                 .Where(peak => peak.IsMbrPeak)
+                .OrderByDescending(peak => peak.MbrScore)
                 .ToList();
 
             if (!mbrPeaks.IsNotNullOrEmpty()) return false;

@@ -12,6 +12,7 @@ using Omics;
 using Microsoft.FSharp.Collections;
 using System.Collections;
 using System.Security.Policy;
+using System.Text.RegularExpressions;
 
 namespace FlashLFQ.PEP
 {
@@ -92,7 +93,10 @@ namespace FlashLFQ.PEP
             #region Construct Donor Groups
             // this is target peak not target peptide
             List<DonorGroup> donors= new();
-            foreach(var donorGroup in Peaks.Where(peak => peak.IsMbrPeak).GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
+            foreach(var donorGroup in Peaks
+                .Where(peak => peak.IsMbrPeak)
+                .OrderByDescending(peak => peak.MbrScore)
+                .GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
             {
                 var donorId = donorGroup.Key;
                 var targetAcceptors = donorGroup.Where(peak => !peak.RandomRt).ToList();
@@ -437,7 +441,6 @@ namespace FlashLFQ.PEP
                     targets2 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > PipScoreCutoff);
                     decoys2 += donors[index].DecoyAcceptors.Count;
                 }
-                int placeholder = 0;
             }
 
             return groupsOfIndices;
