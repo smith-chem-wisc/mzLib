@@ -995,7 +995,7 @@ namespace FlashLFQ
                             RtInfo decoyRtInfo = null;
                             if (randomDonor != null)
                             {
-                                //Console.WriteLine("TD Pair: " + donorPeak.Identifications.First().ModifiedSequence + ", " + randomDonor.Identifications.First().ModifiedSequence);
+                                Console.WriteLine("TD Pair: " + donorPeak.Identifications.First().ModifiedSequence + ", " + randomDonor.Identifications.First().ModifiedSequence);
                                 decoyRtInfo = PredictRetentionTime(rtCalibrationCurve, randomDonor, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                                 if (decoyRtInfo != null)
                                 {
