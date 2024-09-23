@@ -1387,6 +1387,11 @@ namespace Test
             Assert.GreaterOrEqual(f1r2MbrResults.Count, 50);
             Console.WriteLine("Total R2 MBR: " + f1r2MbrResults.Count);
 
+            Console.WriteLine("R2 peptide 20 seq: " + r2MbrResults[20].Identifications.First().ModifiedSequence);
+            Console.WriteLine("R2 peptide 20 q: " + r2MbrResults[20].MbrQValue);
+            Console.WriteLine("R2 peptide 20 score: " + r2MbrResults[20].MbrScore);
+            Console.WriteLine("R2 peptide 20 PEP: " + r2MbrResults[20].PipPep);
+
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 
             foreach (var peptide in f1r1MbrResults)

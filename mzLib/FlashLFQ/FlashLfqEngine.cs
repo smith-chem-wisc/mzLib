@@ -90,9 +90,6 @@ namespace FlashLFQ
         internal Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
         internal PeakIndexingEngine _peakIndexingEngine;
         internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
-        internal ConcurrentBag<ChromatographicPeak> DecoyPeaks { get; private set; }
-
-        
 
         /// <summary>
         /// Create an instance of FlashLFQ that will quantify peptides based on their precursor intensity in MS1 spectra
@@ -902,11 +899,6 @@ namespace FlashLFQ
             var acceptorFileIdentifiedSequences = new HashSet<string>(acceptorFileIdentifiedPeaks
                 .Where(peak => peak.IsotopicEnvelopes.Any() && peak.Identifications.Min(id => id.QValue) < 0.01)
                 .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence)));
-
-            double medianPeakWidth = acceptorFileIdentifiedPeaks
-                .Select(peak => peak.GetWidth())
-                .Where(x => x != null)
-                .Median();
 
             MbrScorer scorer = BuildMbrScorer(acceptorFileIdentifiedPeaks, out var mbrTol);
             if (scorer == null)
