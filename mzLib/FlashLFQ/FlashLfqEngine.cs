@@ -1080,8 +1080,8 @@ namespace FlashLFQ
                 {
                     continue;
                 }
-                
-               foreach(var peakHypothesisGroup in mbrIdentifiedPeptide.Value.SelectMany(kvp => kvp.Value).OrderByDescending(p => p.MbrScore).GroupBy(p => p.RandomRt))
+
+                foreach (var peakHypothesisGroup in mbrIdentifiedPeptide.Value.SelectMany(kvp => kvp.Value).OrderByDescending(p => p.MbrScore).GroupBy(p => p.RandomRt))
                 {
                     var peakHypotheses = peakHypothesisGroup.ToList();
                     ChromatographicPeak best = peakHypotheses.First();
@@ -1113,11 +1113,12 @@ namespace FlashLFQ
                         double start = best.IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime);
                         double end = best.IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime);
 
+                        _results.Peaks[idAcceptorFile].Add(best);
                         foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
                         {
                             if (peak.Apex.IndexedPeak.RetentionTime >= start
                                 && peak.Apex.IndexedPeak.RetentionTime <= end
-                                && peak.MbrScore > 25) // 25 is a rough heuristic, but I don't want super shitty peaks being able to supercede the intensity of a good peak!
+                                && Math.Abs(peak.MbrScore - best.MbrScore) / best.MbrScore < 0.25)// 25% difference is a rough heuristic, but I don't want super shitty peaks being able to supercede the intensity of a good peak!
                             {
                                 if (msmsImsPeaks.TryGetValue(peak.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList) && peakList.Contains(peak.Apex.IndexedPeak))
                                 {

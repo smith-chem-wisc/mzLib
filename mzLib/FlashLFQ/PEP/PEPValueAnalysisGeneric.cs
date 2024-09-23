@@ -28,31 +28,7 @@ namespace FlashLFQ.PEP
             DecoyAcceptors = decoyAcceptors;
         }
 
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(DonorId.GetHashCode());
-        }
-
-        public int TargetDecoyCountDifference => TargetAcceptors.Count - DecoyAcceptors.Count;
-
-        public ChromatographicPeak BestTargetByScore => TargetAcceptors.Count == 0 ? null : TargetAcceptors.MaxBy(acceptor => acceptor.MbrScore);
-        public ChromatographicPeak BestDecoyByScore => DecoyAcceptors.Count == 0 ? null : DecoyAcceptors.MaxBy(acceptor => acceptor.MbrScore);
-
-        // The null coalescing is kinda bad here, really it should throw an exception if the PipPep is null
-        public ChromatographicPeak BestTargetByPep => TargetAcceptors.Count == 0 ? null : TargetAcceptors.MinBy(acceptor => acceptor.PipPep ?? 1);
-        public ChromatographicPeak BestDecoyByPep => DecoyAcceptors.Count == 0 ? null : DecoyAcceptors.MinBy(acceptor => acceptor.PipPep ?? 1);
-
-
         public double BestTargetMbrScore => TargetAcceptors.Count == 0 ? 0 : TargetAcceptors.Max(acceptor => acceptor.MbrScore);
-        public double BestDecoyMbrScore => DecoyAcceptors.Count == 0 ? 0 : DecoyAcceptors.Max(acceptor => acceptor.MbrScore);
-
-        public double BestTargetPep => TargetAcceptors.Count == 0 ? 1 : TargetAcceptors.Min(acceptor => acceptor.PipPep ?? 1);
-        public double BestDecoyPep => DecoyAcceptors.Count == 0 ? 1 : DecoyAcceptors.Min(acceptor => acceptor.PipPep ?? 1);
-
-        //public IEnumerable<ChromatographicPeak> GetEnumerator()
-        //{
-        //    return TargetAcceptors.Concat(DecoyAcceptors);
-        //}
 
         public IEnumerator<ChromatographicPeak> GetEnumerator()
         {
@@ -74,6 +50,27 @@ namespace FlashLFQ.PEP
     public static class PEP_Analysis_Cross_Validation
     {
         public static double PipScoreCutoff;
+
+        private static int _randomSeed = 42;
+
+        /// <summary>
+        /// This method contains the hyper-parameters that will be used when training the machine learning model
+        /// </summary>
+        /// <returns> Options object to be passed in to the FastTree constructor </returns>
+        public static Microsoft.ML.Trainers.FastTree.FastTreeBinaryTrainer.Options BGDTreeOptions =>
+            new Microsoft.ML.Trainers.FastTree.FastTreeBinaryTrainer.Options
+            {
+                NumberOfThreads = 1,
+                NumberOfTrees = 100,
+                MinimumExampleCountPerLeaf = 10,
+                NumberOfLeaves = 20,
+                LearningRate = 0.2,
+                LabelColumnName = "Label",
+                FeatureColumnName = "Features",
+                Seed = _randomSeed,
+                FeatureSelectionSeed = _randomSeed,
+                RandomStart = false
+            };
 
         public static string ComputePEPValuesForAllPeaks(ref List<ChromatographicPeak> peaks, string outputFolder, int maxThreads, double pepTrainingFraction = 0.25)
         {
@@ -123,7 +120,7 @@ namespace FlashLFQ.PEP
             TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[] trainedModels 
                 = new TransformerChain<BinaryPredictionTransformer<Microsoft.ML.Calibrators.CalibratedModelParametersBase<Microsoft.ML.Trainers.FastTree.FastTreeBinaryModelParameters, Microsoft.ML.Calibrators.PlattCalibrator>>>[numGroups];
 
-            var trainer = mlContext.BinaryClassification.Trainers.FastTree(labelColumnName: "Label", featureColumnName: "Features", numberOfTrees: 100);
+            var trainer = mlContext.BinaryClassification.Trainers.FastTree(BGDTreeOptions);
             var pipeline = mlContext.Transforms.Concatenate("Features", trainingVariables)
                 .Append(trainer);
 
@@ -260,7 +257,7 @@ namespace FlashLFQ.PEP
                 while((Math.Abs(targetSurplus) > 1 | Math.Abs(decoySurplus) > 1) 
                     && !stuck)
                 {
-                    if(totalIterations > 100)
+                    if(totalIterations > 50)
                     {
                         break;
                     }
@@ -270,8 +267,10 @@ namespace FlashLFQ.PEP
 
                     // start from the bottom of group 1, trying to swap peaks.
                     // Lets do targets first
-                    while (Math.Abs(targetSurplus) > 1 & !stuck)
+                    int innerIterations = 0;
+                    while (Math.Abs(targetSurplus) > 1 & !stuck & innerIterations < 25)
                     {
+                        innerIterations++;
                         swapped = false;
                         foreach (int index in groupsOfIndices[i].OrderByDescending(idx => idx))
                         {
@@ -339,13 +338,14 @@ namespace FlashLFQ.PEP
                         }
                     }
 
+                    innerIterations = 0;
                     // Now we'll do the decoys
-                    while (Math.Abs(decoySurplus) > 1 & !stuck)
+                    while (Math.Abs(decoySurplus) > 1 & !stuck & innerIterations < 25)
                     {
+                        innerIterations++;
                         swapped = false;
                         foreach (int index in groupsOfIndices[i].OrderByDescending(idx => idx))
                         {
-
                             if (decoySurplus > 0)
                             {
                                 if (donors[index].DecoyAcceptors.Count > 1) // if we have enough decoys to get rid of
