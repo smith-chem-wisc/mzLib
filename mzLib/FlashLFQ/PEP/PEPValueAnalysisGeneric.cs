@@ -85,7 +85,6 @@ namespace FlashLFQ.PEP
             PepTrainingFraction = pepTrainingFraction;
         }
 
-
         public string ComputePEPValuesForAllPeaks()
         {
             string[] trainingVariables = ChromatographicPeakData.trainingInfos["standard"];
@@ -110,8 +109,8 @@ namespace FlashLFQ.PEP
             var peakScores = donors.SelectMany(donor => donor.Select(p => p.MbrScore)).OrderByDescending(score => score).ToList();
             PipScoreCutoff = peakScores[(int)Math.Floor(peakScores.Count * PepTrainingFraction)]; //Select the top N percent of all peaks, only use those as positive examples
 
-            MLContext mlContext = new MLContext();
-            //the number of groups used for cross-validation is hard-coded at four. Do not change this number without changing other areas of effected code.
+            MLContext mlContext = new MLContext(_randomSeed);
+            //the number of groups used for cross-validation is hard-coded at three. Do not change this number without changing other areas of effected code.
             const int numGroups = 3;
 
             List<int>[] donorGroupIndices = Get_Donor_Group_Indices(donors, numGroups);

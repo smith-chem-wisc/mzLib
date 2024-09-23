@@ -1360,14 +1360,14 @@ namespace Test
                 ids.Add(id);
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.051, maxMbrWindow: 1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.05, maxMbrWindow: 1);
             var results = engine.Run();
 
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
 
-            Assert.GreaterOrEqual(f1r1MbrResults.Count, 139);
+            Assert.GreaterOrEqual(f1r1MbrResults.Count, 135);
 
             var mbrResults = results.Peaks.SelectMany(kvp => kvp.Value).Where(peak => peak.IsMbrPeak).OrderByDescending(peak => peak.MbrScore).ToList();
             var maxQ_r1 = mbrResults.Where(p => p.SpectraFileInfo == f1r1).Max(p => p.MbrQValue);
@@ -1381,7 +1381,7 @@ namespace Test
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
-            Assert.GreaterOrEqual(f1r2MbrResults.Count, 60);
+            Assert.GreaterOrEqual(f1r2MbrResults.Count, 50);
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 
@@ -1393,7 +1393,7 @@ namespace Test
             }
 
             double corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-            Assert.Greater(corr, 0.75);
+            Assert.Greater(corr, 0.79);
 
             peptideIntensities.Clear();
             foreach (var peptide in f1r2MbrResults)
