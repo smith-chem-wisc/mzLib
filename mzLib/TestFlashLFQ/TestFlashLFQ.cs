@@ -1376,12 +1376,16 @@ namespace Test
             var maxQ_r2 = mbrResults.Where(p => p.SpectraFileInfo == f1r2).Max(p => p.MbrQValue);
             var minQ_r2 = mbrResults.Where(p => p.SpectraFileInfo == f1r2).Min(p => p.MbrQValue);
 
+            Console.WriteLine("Max Q r1: " + maxQ_r1);
+            Console.WriteLine("Min Q r1: " + minQ_r1);
+
             var r2MbrResults = mbrResults.Where(p => p.SpectraFileInfo == f1r2).OrderBy(p => p.MbrQValue).ToList();
 
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
             Assert.GreaterOrEqual(f1r2MbrResults.Count, 50);
+            Console.WriteLine("Total R2 MBR: " + f1r2MbrResults.Count);
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 
