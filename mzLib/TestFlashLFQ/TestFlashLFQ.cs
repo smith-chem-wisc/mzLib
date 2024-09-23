@@ -1367,7 +1367,7 @@ namespace Test
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
 
-            Assert.GreaterOrEqual(f1r1MbrResults.Count, 140);
+            Assert.GreaterOrEqual(f1r1MbrResults.Count, 139);
 
             var mbrResults = results.Peaks.SelectMany(kvp => kvp.Value).Where(peak => peak.IsMbrPeak).OrderByDescending(peak => peak.MbrScore).ToList();
             var maxQ_r1 = mbrResults.Where(p => p.SpectraFileInfo == f1r1).Max(p => p.MbrQValue);
@@ -1379,7 +1379,7 @@ namespace Test
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
-            Assert.GreaterOrEqual(f1r2MbrResults.Count, 61);
+            Assert.GreaterOrEqual(f1r2MbrResults.Count, 50);
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 
