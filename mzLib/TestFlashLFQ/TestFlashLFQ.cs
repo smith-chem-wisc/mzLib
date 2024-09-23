@@ -1204,7 +1204,11 @@ namespace Test
                 }
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, useSharedPeptidesForProteinQuant: true, maxThreads: -1);
+            var engine = new FlashLfqEngine(ids, 
+                matchBetweenRuns: true,
+                requireMsmsIdInCondition: false, 
+                useSharedPeptidesForProteinQuant: true, 
+                maxThreads: -1);
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory,"peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"),true);
@@ -1216,7 +1220,7 @@ namespace Test
             Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
             Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));
 
-            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "Q15149", "P52298" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
+            CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
 
             Assert.AreEqual(6, peptides.Count);
@@ -1360,69 +1364,36 @@ namespace Test
                 ids.Add(id);
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.045, maxMbrWindow: 1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.05, maxMbrWindow: 1);
             var results = engine.Run();
 
+            // Count the number of MBR results in each file
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS)
                 .ToList();
-
-            Console.WriteLine("Total R1 MBR: " + f1r1MbrResults.Count);
-            Assert.GreaterOrEqual(f1r1MbrResults.Count, 64);
-
-            var mbrResults = results.Peaks.SelectMany(kvp => kvp.Value).Where(peak => peak.IsMbrPeak).OrderByDescending(peak => peak.MbrScore).ToList();
-            var maxQ_r1 = mbrResults.Where(p => p.SpectraFileInfo == f1r1).Max(p => p.MbrQValue);
-            var minQ_r1 = mbrResults.Where(p => p.SpectraFileInfo == f1r1).Min(p => p.MbrQValue);
-
-            var maxQ_r2 = mbrResults.Where(p => p.SpectraFileInfo == f1r2).Max(p => p.MbrQValue);
-            var minQ_r2 = mbrResults.Where(p => p.SpectraFileInfo == f1r2).Min(p => p.MbrQValue);
-
-            Console.WriteLine("Max Q r2: " + maxQ_r2);
-            Console.WriteLine("Min Q r2: " + minQ_r2);
-
-            var r2MbrResults = mbrResults.Where(p => p.SpectraFileInfo == f1r2).OrderByDescending(p => p.MbrScore).ToList();
-
-            //results.MbrQValueThreshold = 0.1;
-            //results.CalculatePeptideResults(false);
             var f1r2MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR)
                 .ToList();
 
-            Assert.GreaterOrEqual(f1r2MbrResults.Count, 5);
-            Console.WriteLine("Total R2 MBR: " + f1r2MbrResults.Count);
+            // Due to the small number of results in the test data, the counts and correlation values can be quite variable.
+            // Any change to ML.NET or the PEP Analysis engine will cause these to change.
+            Assert.AreEqual(101, f1r1MbrResults.Count);
+            Assert.AreEqual(45, f1r2MbrResults.Count);
 
-            Console.WriteLine("R2 peptide 20 seq: " + r2MbrResults[20].Identifications.First().ModifiedSequence);
-            Console.WriteLine("R2 peptide 20 q: " + r2MbrResults[20].MbrQValue);
-            Console.WriteLine("R2 peptide 20 score: " + r2MbrResults[20].MbrScore);
-            Console.WriteLine("R2 peptide 20 PEP: " + r2MbrResults[20].PipPep);
 
-            List<(double, double)> peptideIntensities = new List<(double, double)>();
-
-            foreach (var peptide in f1r1MbrResults)
-            {
-                double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
-                double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
-                peptideIntensities.Add((mbrIntensity, msmsIntensity));
-            }
-
+            // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
+            List<(double, double)> peptideIntensities = f1r1MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();
             double corrRun1 = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-            Console.WriteLine("Run 1 corr: " + corrRun1);
-            Assert.Greater(corrRun1, 0.79);
-
-            peptideIntensities.Clear();
-            foreach (var peptide in f1r2MbrResults)
-            {
-                double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
-                double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
-                peptideIntensities.Add((mbrIntensity, msmsIntensity));
-            }
-
-            double corrRun2 = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-            Console.WriteLine("Run 2 corr: " + corrRun2);
-            Assert.Greater(corrRun2, 0.70);
             
+            peptideIntensities = f1r2MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();
+            double corrRun2 = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+
+            // These values are also sensitive, changes can cause them to dip as low as 0.6 (specifically the corrRun2 value)
+            // Generally, if the values are above 0.7, then things are working well
+            Assert.Greater(corrRun1, 0.8);
+            Assert.Greater(corrRun2, 0.8);
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
