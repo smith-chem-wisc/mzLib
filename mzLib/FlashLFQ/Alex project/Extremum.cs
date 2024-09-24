@@ -10,7 +10,7 @@ namespace FlashLFQ.Alex_project
 
     public enum ExtremumType { Minimum, Maximum }; //The spectra file the XIC came from
 
-    internal class Extremum : IComparable<Extremum>, IEquatable<Extremum>
+    public class Extremum : IComparable<Extremum>, IEquatable<Extremum>
     {
         public readonly double Intensity;     //The aligned intensity of the Extremum point
         public readonly double RetentionTime; //The interpolated intensity of the Extremum point
@@ -71,6 +71,8 @@ namespace FlashLFQ.Alex_project
             return rtDiff;
         }
 
+
+        
     
     }
 }

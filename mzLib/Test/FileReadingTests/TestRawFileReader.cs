@@ -4,10 +4,27 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Windows.Automation.Peers;
+using Easy.Common.Extensions;
+using FlashLFQ.Alex_project;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using OxyPlot.Axes;
 using Readers;
+using Plotly.NET;
+using Plotly.NET.CSharp;
+using Chart = Plotly.NET.CSharp.Chart;
+using GenericChartExtensions = Plotly.NET.CSharp.GenericChartExtensions;
+using Plotly.NET.LayoutObjects;
+using Plotly.NET.TraceObjects;
+using System.ComponentModel;
+using System.Drawing;
+using Color = Plotly.NET.Color;
+using System.Collections;
+using System.Security.Policy;
+
+
 
 namespace Test.FileReadingTests
 {
@@ -91,6 +108,252 @@ namespace Test.FileReadingTests
             readerMzml.LoadAllStaticData();
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
+
+        // for one ms1 scan pairing
+        public static List<(double,double)> CombinedMassSpectrumWithTolerance(double[] FirstMz, double[] SecondMz, double[]FirstIntensity, double[]SecondIntensity, double ppmTolerance)
+        {
+            int i = 0;
+            int j = 0;
+            List<(double,double)> mzIntensityPairs = new List<(double, double)>();
+            while (i < FirstMz.Length && j < SecondMz.Length)
+            {
+                double diff = Math.Abs((FirstMz[i] - SecondMz[j]) / SecondMz[j] *1000000);
+                if (diff <= ppmTolerance)
+                {
+                    double newMZ = (FirstMz[i]* FirstIntensity[i] + SecondMz[j]* SecondIntensity[j]) / (FirstIntensity[i] + SecondIntensity[j]);
+                    mzIntensityPairs.Add((newMZ, FirstIntensity[i] + SecondIntensity[j]));
+                    i++;
+                    j++;
+                }
+                else if (FirstMz[i] < SecondMz[j])
+                {
+                    mzIntensityPairs.Add(((FirstMz[i]) / 1, (FirstIntensity[i]) / 1));
+                    i++;
+                }
+                else
+                {
+                    mzIntensityPairs.Add(((SecondMz[j]) / 1, (SecondIntensity[j]) / 1));
+                    j++;
+                }
+            }
+            return mzIntensityPairs;
+        }
+
+        public static List<MsDataScan> combinedMS1(List<MsDataScan> first, List<MsDataScan> second) 
+        {
+            List<MsDataScan> combinedScans = new List<MsDataScan>();
+            for (int i = 0; i < first.Count; i++)
+            {
+                bool added = false;
+                for (int j = 0; j < second.Count; j++)
+                {
+                    if (first[i].OneBasedScanNumber == second[j].OneBasedScanNumber)
+                    {
+                        var one = first[i];
+                        var two = second[j];
+                        var newSpectrum = CombinedMassSpectrumWithTolerance(one.MassSpectrum.XArray, two.MassSpectrum.XArray, one.MassSpectrum.YArray, two.MassSpectrum.YArray, 10);
+                        double[] mz = newSpectrum.Select(x => x.Item1).ToArray();
+                        double[] intensities = newSpectrum.Select(x => x.Item2).ToArray();
+                        bool shouldCopy = true;
+                        var combinedMassSpectrum = new MzSpectrum(mz, intensities, shouldCopy);
+                        var combinedMs1 = new MsDataScan(combinedMassSpectrum, one.OneBasedScanNumber, one.MsnOrder, one.IsCentroid, one.Polarity, one.RetentionTime, one.ScanWindowRange,
+                            one.ScanFilter, one.MzAnalyzer, one.TotalIonCurrent, one.InjectionTime, one.NoiseData, one.NativeId, one.SelectedIonMZ, one.SelectedIonChargeStateGuess,
+                            one.SelectedIonIntensity, one.IsolationMz, one.IsolationWidth, one.DissociationType, one.OneBasedPrecursorScanNumber, one.SelectedIonMonoisotopicGuessMz, one.HcdEnergy, one.ScanDescription);
+                        combinedScans.Add(combinedMs1);
+                        added = true;
+                    }
+                }
+
+                if (!added) 
+                {
+                    combinedScans.Add(first[i]);
+                }
+            }
+            return combinedScans;
+        }
+
+        public static List<MsDataScan> buildScans(List<MsDataScan> Ms1scans, List<MsDataScan> Ms2scans, double Shifttime = 0)
+        {
+            List<MsDataScan> scansForTheNewFile = new List<MsDataScan>();
+
+
+            foreach (var scan in Ms1scans)
+            {
+                scansForTheNewFile.Add(scan);
+            }
+            foreach (var scan in Ms2scans)
+            {
+                scansForTheNewFile.Add(scan);
+            }
+            scansForTheNewFile = scansForTheNewFile.OrderBy(x => x.OneBasedScanNumber).ToList();
+
+            if (Shifttime != 0)
+            {
+                scansForTheNewFile = SwitchRetentionTime(scansForTheNewFile, Shifttime);
+            }
+
+            return scansForTheNewFile;
+
+
+        }
+
+
+        public static List<MsDataScan> SwitchRetentionTime(List<MsDataScan> MsScans, double timeShift)
+        {
+            List<MsDataScan> output = new List<MsDataScan>();
+
+            foreach (var one in MsScans)
+            {
+                var modifiedMs1 = new MsDataScan(one.MassSpectrum, one.OneBasedScanNumber, one.MsnOrder, one.IsCentroid, one.Polarity, one.RetentionTime + timeShift, one.ScanWindowRange,
+                one.ScanFilter, one.MzAnalyzer, one.TotalIonCurrent, one.InjectionTime, one.NoiseData, one.NativeId, one.SelectedIonMZ, one.SelectedIonChargeStateGuess,
+                one.SelectedIonIntensity, one.IsolationMz, one.IsolationWidth, one.DissociationType, one.OneBasedPrecursorScanNumber, one.SelectedIonMonoisotopicGuessMz, one.HcdEnergy, one.ScanDescription);
+                output.Add(modifiedMs1);
+            }
+
+            return output;
+        }
+        public static List<MsDataScan> ShiftMs1(List<MsDataScan> Ms1Scans,int crossNumber)
+        {
+            List<MsDataScan> shiftedScans = new List<MsDataScan>();
+            for (int i = 0; i < Ms1Scans.Count; i++)
+            {
+                var one = Ms1Scans[i];
+                if (i + crossNumber >= Ms1Scans.Count || i + crossNumber < 0)
+                {
+                    continue;
+                }
+                int scanNumber_crossed = Ms1Scans[i + crossNumber].OneBasedScanNumber;
+                double retentionTime_crossed = Ms1Scans[i + crossNumber].RetentionTime;
+                var newSpectrum = new MzSpectrum(one.MassSpectrum.XArray, one.MassSpectrum.YArray, true);
+                var shiftedMs1 = new MsDataScan(newSpectrum, scanNumber_crossed, one.MsnOrder, one.IsCentroid, one.Polarity, retentionTime_crossed, one.ScanWindowRange,
+                one.ScanFilter, one.MzAnalyzer, one.TotalIonCurrent, one.InjectionTime, one.NoiseData, one.NativeId, one.SelectedIonMZ, one.SelectedIonChargeStateGuess,
+                one.SelectedIonIntensity, one.IsolationMz, one.IsolationWidth, one.DissociationType, one.OneBasedPrecursorScanNumber, one.SelectedIonMonoisotopicGuessMz, one.HcdEnergy, one.ScanDescription);
+                shiftedScans.Add(shiftedMs1);
+            }
+            return shiftedScans;
+        }
+
+        public static List<(double, double)> XIC_convert(List<MsDataScan> Ms1Scan, double mass)
+        {
+            List<(double, double)> XIC = new List<(double, double)>();
+
+            for (int i = 0; i < Ms1Scan.Count; i++)
+            {
+                var one = Ms1Scan[i];
+                var mz = one.MassSpectrum.XArray;
+                var intensity = one.MassSpectrum.YArray;
+                for (int j = 0; j < mz.Length; j++)
+                {
+                    if (Math.Abs(mz[j] - mass) < 0.2)
+                    {
+                        XIC.Add((one.RetentionTime, intensity[j]));
+                    }
+                }
+            }
+            return XIC;
+        }
+
+
+        [Test]
+        public void test()
+        {
+            string filePath = "E:\\MBR\\testRawFile\\20100604_Velos1_TaGe_SA_A549_3.raw";
+            var outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "out1.mzml");
+            var outfile2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "out2.mzml");
+            var reader = MsDataFileReader.GetDataFile(filePath);
+            reader.LoadAllStaticData(null, maxThreads: 1);
+
+            List<MsDataScan> ms1scans_OriginPeak = reader.GetAllScansList().Where(x => x.MsnOrder == 1).ToList();
+            List<MsDataScan> ms1scans_BackPeak = ShiftMs1(ms1scans_OriginPeak, 50);
+            List<MsDataScan> ms1scans_FrontPeak = ShiftMs1(ms1scans_OriginPeak, -50);
+
+            var ms2scans = reader.GetAllScansList().Where(x => x.MsnOrder == 2).ToList();
+
+            var ms1scans_combined = combinedMS1(ms1scans_OriginPeak, ms1scans_BackPeak);
+            var ms1scans_combined2 = combinedMS1(ms1scans_OriginPeak, ms1scans_FrontPeak);
+            var ms1scans_combined2_forDraw = SwitchRetentionTime(ms1scans_combined2, 3);
+
+           var scansForTheNewFile = buildScans(ms1scans_combined, ms2scans);
+            var scansForTheNewFile2 = buildScans(ms1scans_combined2, ms2scans,3);
+
+            string outPath = filePath.Replace(".raw", "_first.mzML").ToString();
+            string outPath_2 = filePath.Replace(".raw", "_second.mzML").ToString();
+
+            SourceFile sourceFile = new SourceFile(reader.SourceFile.NativeIdFormat,
+                reader.SourceFile.MassSpectrometerFileFormat, reader.SourceFile.CheckSum, reader.SourceFile.FileChecksumType, reader.SourceFile.Uri, reader.SourceFile.Id, reader.SourceFile.FileName);
+
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scansForTheNewFile.ToArray(), sourceFile), outPath, false);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scansForTheNewFile2.ToArray(), sourceFile), outPath_2, false);
+
+
+
+
+
+
+
+
+
+
+
+            // make a chart
+            var XIC_firstRun = XIC_convert(ms1scans_OriginPeak, 1200.0);
+            var XIC_BackPeak = XIC_convert(ms1scans_BackPeak, 1200.0);
+            var XIC_FrontPeak = XIC_convert(ms1scans_FrontPeak, 1200.0);
+            var XIC_combined = XIC_convert(ms1scans_combined, 1200.0);
+            var XIC_combined2 = XIC_convert(ms1scans_combined2_forDraw, 1200.0);
+
+
+
+            var individualPlot = Chart.Combine(new[]
+            {
+                Chart.Scatter<double, double, string>(XIC_firstRun.Select(p=>p.Item1), XIC_firstRun.Select(p=>p.Item2),
+                StyleParam.Mode.Lines_Markers, MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(ColorKeyword.Blue), Name: "original"),
+                Chart.Scatter<double, double, string>(XIC_BackPeak.Select(p=>p.Item1), XIC_BackPeak.Select(p=>p.Item2),
+                StyleParam.Mode.Lines_Markers, MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(ColorKeyword.Red), Name: "original_Back"),
+                Chart.Scatter<double, double, string>(XIC_FrontPeak.Select(p=>p.Item1), XIC_FrontPeak.Select(p=>p.Item2),
+                StyleParam.Mode.Lines_Markers, MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(ColorKeyword.Green), Name: "original_Front"),
+            })
+                .WithTitle("Data XIC")
+                .WithXAxisStyle<double, double, string>(Title: Title.init("Times"))
+                .WithYAxisStyle<double, double, string>(Title: Title.init("Intensities"))
+            .WithSize(1600, 400);
+
+
+            var combinedPlot = Chart.Combine(new[]
+            {
+                Chart.Scatter<double, double, string>(XIC_combined.Select(p=>p.Item1), XIC_combined.Select(p=>p.Item2),
+                StyleParam.Mode.Lines_Markers, MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(ColorKeyword.Black), Name: "original_combined"),
+            })
+                .WithTitle("Data XIC")
+                .WithXAxisStyle<double, double, string>(Title: Title.init("Times"))
+                .WithYAxisStyle<double, double, string>(Title: Title.init("Intensities"))
+            .WithSize(1600, 400);
+
+
+            var combinedPlot2 = Chart.Combine(new[]
+            {
+                Chart.Scatter<double, double, string>(XIC_combined2.Select(p=>p.Item1), XIC_combined2.Select(p=>p.Item2),
+                StyleParam.Mode.Lines_Markers, MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(ColorKeyword.Black), Name: "original_combined2"),
+            })
+                .WithTitle("Data XIC")
+                .WithXAxisStyle<double, double, string>(Title: Title.init("Times"))
+                .WithYAxisStyle<double, double, string>(Title: Title.init("Intensities"))
+            .WithSize(1600, 400);
+
+
+            var stacked = Chart.Grid(new[] { individualPlot, combinedPlot, combinedPlot2 }, 3, 1)
+                .WithSize(1600, 1200);
+            GenericChartExtensions.Show(stacked);
+
+
+            //reader.ExportAsMzML(outfile1, false);
+            //reader.LoadAllStaticData();
+            //reader.ExportAsMzML(outfile2, true);
+            //var readerMzml = MsDataFileReader.GetDataFile(outfile2);
+            //readerMzml.LoadAllStaticData();
+        }
+
 
         [Test]
         public void TestThermoGetSourceFile()

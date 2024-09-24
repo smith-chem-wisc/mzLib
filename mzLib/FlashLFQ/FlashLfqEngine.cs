@@ -13,6 +13,15 @@ using UsefulProteomicsDatabases;
 using System.Runtime.CompilerServices;
 using System.IO;
 using Easy.Common.Extensions;
+using pepXML.Generated;
+using FlashLFQ.Alex_project;
+using MathNet.Numerics.LinearAlgebra.Factorization;
+using System.Data.Entity.Core.Objects.DataClasses;
+using static System.Formats.Asn1.AsnWriter;
+using System.Runtime;
+using System.Collections.Immutable;
+using MathNet.Numerics;
+using System.Diagnostics.Metrics;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -36,11 +45,14 @@ namespace FlashLFQ
         public readonly bool QuantifyAmbiguousPeptides;
 
         // MBR settings
+        public readonly bool IsobaricCase;
         public readonly bool MatchBetweenRuns;
         public readonly double MbrRtWindow;
         public readonly double MbrPpmTolerance;
         public readonly bool RequireMsmsIdInCondition;
         private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
+        public Dictionary<string, Dictionary<int, List<ChromatographicPeak>>> IsobaricPeakInDifferentRun;
+        public Dictionary<SpectraFileInfo, PeakIndexingEngine> IsobaricCaseDict;
 
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
@@ -81,6 +93,7 @@ namespace FlashLFQ
             int maxThreads = -1,
 
             // MBR settings
+            bool isobaricCase = false,
             bool matchBetweenRuns = false,
             double matchBetweenRunsPpmTolerance = 10.0,
             double maxMbrWindow = 2.5,
@@ -119,6 +132,7 @@ namespace FlashLFQ
             Silent = silent;
             IdSpecificChargeState = idSpecificChargeState;
             MbrRtWindow = maxMbrWindow;
+            IsobaricCase = isobaricCase;
 
             RequireMsmsIdInCondition = requireMsmsIdInCondition;
             Normalize = normalize;
@@ -187,6 +201,85 @@ namespace FlashLFQ
                 // some memory-saving stuff
                 _peakIndexingEngine.ClearIndex();
             }
+
+            //Ray's code
+            if (IsobaricCase)
+            {
+                IsobaricPeakInDifferentRun = new Dictionary<string, Dictionary<int, List<ChromatographicPeak>>>();
+                IsobaricCaseDict = new Dictionary<SpectraFileInfo, PeakIndexingEngine>();
+                var IdGroupedbySeq = _allIdentifications.GroupBy(p => p.BaseSequence);
+                
+                Dictionary<int,List<ChromatographicPeak>> ChromPeakInDifferentRun = new Dictionary<int, List<ChromatographicPeak>> ();
+
+                foreach (var spectraFile in _spectraFileInfo)
+                {
+                    IsobaricCaseDict[spectraFile] = new PeakIndexingEngine();
+                    IsobaricCaseDict[spectraFile].IndexMassSpectralPeaks(spectraFile, Silent, _ms1Scans);
+                }
+
+                foreach (var idGroup in IdGroupedbySeq) //Try to interate the all ID in the group
+                {
+                    List<XIC> xicGroup = new List<XIC>();
+
+                    Identification id = idGroup.GroupBy(p=>p.PrecursorChargeState).OrderBy(p=>p.Count()).Last().First(); //Try to get the Id in this group with the most common charge state
+
+                    //genrate XIC from each file
+                    bool isFirstOne = true;    //index just for choosing the first one to be the reference
+                    foreach (var spectraFile in _spectraFileInfo) 
+                    {
+
+                        if (isFirstOne)
+                        {
+                            XIC xic = buildXIC(id, spectraFile, true);
+                            if (xic!=null && xic.Ms1Peaks.Count() > 5)
+                            {
+                                xicGroup.Add(xic);
+                                isFirstOne = false;
+                            }
+                        }
+                        else
+                        {
+                            XIC xic = buildXIC(id, spectraFile, false);
+                            if (xic != null && xic.Ms1Peaks.Count() > 5)
+                            {
+                                xicGroup.Add(xic);
+                            }
+                        } 
+                    }
+                    
+                    // If we have more than one XIC, we can do the MBR
+                    if (xicGroup.Count > 1)
+                    {
+                        
+                        XICGroups xICGroups = new XICGroups(xicGroup); // try to build the XICGroups
+                        Dictionary<int, List<ChromatographicPeak>> peakPairChorm = new Dictionary<int, List<ChromatographicPeak>>();
+                        int PeakIndex = 0; // The index of the peak in the XICGroups
+
+
+                        foreach (var peak in xICGroups.indexedPeaks)   // try to add all of the sharedPeak in the group
+                        {
+                            double PeakWindow = peak.Value.Item2 - peak.Value.Item1;
+                            if (PeakWindow > 0.001)
+                            {
+                                List<ChromatographicPeak> chromPeaksInThisSequence = new List<ChromatographicPeak>();
+                                CollectAllPeakInDifferentRun(peak, chromPeaksInThisSequence, xICGroups, idGroup);
+                                peakPairChorm[PeakIndex] = chromPeaksInThisSequence;
+                                PeakIndex++;
+                            }
+
+                            
+                        }
+
+                            IsobaricPeakInDifferentRun[id.BaseSequence] = peakPairChorm;
+
+                    }
+
+                    
+
+                }
+
+            }
+
 
             // do MBR
             if (MatchBetweenRuns)
@@ -869,7 +962,7 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Finds MBR acceptor peaks by looping  through every possible peak for every possible charge state
+        /// Finds MBR acceptor peaks by looping through every possible peak for every possible charge state
         /// in a given retention time range. Identified peaks are added to the matchBetweenRunsIdentifiedPeaks dictionary.
         /// </summary>
         /// <param name="scorer"> The MbrScorer object used to score acceptor peaks</param>
@@ -890,6 +983,7 @@ namespace FlashLFQ
             Ms1ScanInfo start = ms1ScanInfos[0];
             Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
 
+            // Try to snipped the MS1 scans to the region where the analyte should appear
             for (int j = 0; j < ms1ScanInfos.Length; j++)
             {
                 Ms1ScanInfo scan = ms1ScanInfos[j];
@@ -1163,7 +1257,7 @@ namespace FlashLFQ
                         for (int i = start; i < theoreticalIsotopeAbundances.Length && i >= 0; i += direction)
                         {
                             double isotopeMass = identification.MonoisotopicMass + observedMassError +
-                                                 theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
+                                                 theoreticalIsotopeMassShifts[i] + shift.Key * Chemistry.Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
                             IndexedMassSpectralPeak isotopePeak = _peakIndexingEngine.GetIndexedPeak(isotopeMass,
@@ -1240,7 +1334,7 @@ namespace FlashLFQ
                     continue;
                 }
 
-                double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
+                double unexpectedMass = shift.Value.Min(p => p.theorMass) - Chemistry.Constants.C13MinusC12;
                 IndexedMassSpectralPeak unexpectedPeak = _peakIndexingEngine.GetIndexedPeak(unexpectedMass,
                             peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
@@ -1468,5 +1562,136 @@ namespace FlashLFQ
                 CutPeak(peak, identificationTime);
             }
         }
+
+        internal XIC buildXIC(Identification id, SpectraFileInfo spectraFile, bool isReference)
+        {
+            PeakIndexingEngine peakIndexingEngine = IsobaricCaseDict[spectraFile];
+            PpmTolerance isotopeTolerance = new PpmTolerance(PpmTolerance);
+            Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[spectraFile];
+            Ms1ScanInfo start = ms1ScanInfos[0];
+            Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
+            List<IndexedMassSpectralPeak> peaks = new List<IndexedMassSpectralPeak>();
+
+
+            for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
+            {
+                IndexedMassSpectralPeak peak = peakIndexingEngine.GetIndexedPeak(id.PeakfindingMass, j, isotopeTolerance, id.PrecursorChargeState);
+                if (peak != null)
+                {
+                    peaks.Add(peak);
+                }
+            }
+
+
+            XIC xIC = null;
+
+            if (peaks.Count > 0)
+            {
+                xIC = new XIC(peaks, id.PeakfindingMass, spectraFile, isReference);
+            }
+
+            return xIC;
+        }
+
+        /// <summary>
+        /// Pick a valid peaks in the XIC, and store their region/window information into the ChromatographicPeak object. 
+        /// Besides, we will store data from the corresponding file/Run. Finally output the the whole list of ChromatographicPeak as the result.
+        /// For example, we have four invaild peak in the XIC, then we look at the first peak, generate chormPeak from each file. The dictionary will be like: peak1: [chromPeak (run 1), chromPeak (run 2), chromPeak (run 3)...]
+        /// </summary>
+        /// <param name="peaksInOneXIC"> The time window for the valid peak, format is <time < start, end>> </start></param>
+        /// <param name="chromPeaksInThisSequence"> The resilt will store the inforamtion</param>
+        internal void CollectAllPeakInDifferentRun(KeyValuePair<double,Tuple<double,double>> peaksInOneXIC, List<ChromatographicPeak> chromPeaksInThisSequence, XICGroups xICGroups, IGrouping<string, Identification> idGroup)
+        {
+            int indexForXic = 0;
+
+            foreach (var xic in xICGroups.XICs)
+            {
+                double TimeShift = xICGroups.RTDict[indexForXic];
+                double rt = peaksInOneXIC.Key - TimeShift;
+                double start = peaksInOneXIC.Value.Item1 - TimeShift;
+                double end = peaksInOneXIC.Value.Item2 - TimeShift;
+                double window = end - start;
+                Identification idForThisPeak = idGroup.Where(p => p.FileInfo == xic.SpectraFile && Within(p.Ms2RetentionTimeInMinutes, start, end)).FirstOrDefault();
+                if (idForThisPeak == null)
+                {
+                    idForThisPeak = idGroup.Where(p =>  Within(p.Ms2RetentionTimeInMinutes, start, end)).FirstOrDefault();
+                }
+
+                RtInfo rtInfo = new RtInfo(rt, window);
+
+                ChromatographicPeak peak = BuildChromPeak(rtInfo, xic, idForThisPeak);
+                chromPeaksInThisSequence.Add(peak);
+
+                indexForXic++;
+            }
+        }
+
+        public bool Within(double time, double start, double end)
+        {
+            if (time >= start && time <= end)
+            {
+                return true;
+            } 
+            return false;
+        }
+
+
+        internal ChromatographicPeak BuildChromPeak(RtInfo rtInfo, XIC xic, Identification Id) 
+        {
+            // get the MS1 scan info for this region so we can look up indexed peaks
+
+            List<IndexedMassSpectralPeak> snippedPeaks = new List<IndexedMassSpectralPeak>();
+            double mass = xic.PeakFindingMz;
+            Identification id = Id;
+            PpmTolerance mbrTol = new PpmTolerance(MbrPpmTolerance); //still don'y know what is this
+
+            if (Id == null)
+            {
+                return null;
+            }
+
+
+            // Try to snipped the MS1 scans to the region where the analyte should appear
+            foreach (var peak in xic.Ms1Peaks)
+            {
+                if (peak.RetentionTime >= rtInfo.RtStartHypothesis && peak.RetentionTime <= rtInfo.RtEndHypothesis)
+                {
+                    snippedPeaks.Add(peak);
+                }
+            }
+
+
+            List<IsotopicEnvelope> chargeEnvelopes = GetIsotopicEnvelopes(snippedPeaks, id, id.PrecursorChargeState).OrderBy(env => env.Intensity).ToList();
+
+            if (chargeEnvelopes.Count == 0)
+            {
+                return null;
+            }
+
+            var acceptorPeak = new ChromatographicPeak(id, true, xic.SpectraFile, predictedRetentionTime: rtInfo.PredictedRt);
+
+            IsotopicEnvelope seedEnv = chargeEnvelopes.First();
+
+            var xicForEnve = Peakfind(seedEnv.IndexedPeak.RetentionTime, id.PeakfindingMass, id.PrecursorChargeState, xic.SpectraFile, mbrTol);
+
+            List<IsotopicEnvelope> BestChargeEnve = GetIsotopicEnvelopes(xicForEnve, id, id.PrecursorChargeState);
+
+            acceptorPeak.IsotopicEnvelopes.AddRange(BestChargeEnve);
+
+            acceptorPeak.CalculateIntensityForThisFeature(Integrate);
+
+            CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
+
+            var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak))
+            {
+                seedEnv.IndexedPeak // prevents infinite loops
+            };
+            chargeEnvelopes.RemoveAll(p => claimedPeaks.Contains(p.IndexedPeak));
+
+            return acceptorPeak;
+
+        }
+
     }
+
 }

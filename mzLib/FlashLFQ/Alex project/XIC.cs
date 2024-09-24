@@ -12,25 +12,30 @@ using Omics.Fragmentation;
 using Readers.Generated;
 using System.Threading;
 using Easy.Common.Extensions;
+using System.Timers;
+using CsvHelper.Configuration.Attributes;
+using Chemistry;
 
 namespace FlashLFQ.Alex_project
 {
     public class XIC
     {
-        public  List<IndexedMassSpectralPeak> Ms1Peaks { get; init; }
+        public List<IndexedMassSpectralPeak> Ms1Peaks { get; init; }
         public  double PeakFindingMz { get; init; }
         public  SpectraFileInfo SpectraFile { get; init; }
         public  bool Reference { get; init; }
         public MathNet.Numerics.Interpolation.LinearSpline LinearSpline { get; private set;}
         public CubicSpline SmoothedCubicSpline { get; private set; }
         public double RtShift { get; private set; }
-        List<Extremum> Extrema { get; set; }
+        public List<Extremum> Extrema { get; set; }
 
-        public XIC(List<IndexedMassSpectralPeak> peaks, double peakFindingMass, SpectraFileInfo spectraFile)
+        public XIC(List<IndexedMassSpectralPeak> peaks, double peakFindingMass, SpectraFileInfo spectraFile, bool Isreference = false)
         {
             Ms1Peaks = peaks;
             PeakFindingMz = peakFindingMass;
             SpectraFile = spectraFile;
+            Reference = Isreference;
+            BulidLinearSpline();
         }
 
         private List<IndexedMassSpectralPeak> PadPeaks() 
@@ -74,26 +79,20 @@ namespace FlashLFQ.Alex_project
         }
 
 
-        /// <summary> 
-        /// Aligns two XICs and reports the relative shift in the time using Fast Fourier Transform.
-        /// This function performs better if the XIC contains signal from before and after the last chromatographic peak of the interest (i.em longer XICs are better).
-        /// Alignment will fail if the magnitude of the RT shift is greater then 1/4 the RT span of either XIC.
-        /// The XICs are up-sampled to allow for sub-pixel resolution. (one Peaks datapoint = one pixel).
-        /// @return rtShift: The times shift that needed to move to align to the referenceXICs. Positive values indicate the mins to move forward, negative indicate the mins to move backward.
+        /// <summary>
+        /// calculate the retention time shift between two XICs. Then store the value in the RtShift property
         /// </summary>
-
-        public static double AlignXICs(XIC referenceXic, XIC xicToAlign, int resolution = 100)
+        /// <param name="xicToAlign"> The reference XIC</param>
+        /// <param name="resolution"> The number of the timepoint</param>
+        /// <returns> The retention to shift to align to the reference </returns>
+        public double AlignXICs(XIC referenceXIC, int resolution = 100)
         {
+            var referSpline = referenceXIC.LinearSpline;
+            var toAlignSpline = this.LinearSpline;
 
-
-            referenceXic.BulidLinearSpline();
-            xicToAlign.BulidLinearSpline();
-            var referSpline = referenceXic.LinearSpline;
-            var toAlignSpline = xicToAlign.LinearSpline;
-
-            double timegap = (referenceXic.Ms1Peaks.Last().RetentionTime - referenceXic.Ms1Peaks[0].RetentionTime) / (referenceXic.Ms1Peaks.Count - 1);
-            double initialTime = referenceXic.Ms1Peaks[0].RetentionTime-5.0*timegap; //after the padding, the first peak move ahead 5 timegap
-            double FinalTime = referenceXic.Ms1Peaks.Last().RetentionTime+5.0*timegap; //after the padding, the last peak move back 5 timegap
+            double timegap = (this.Ms1Peaks.Last().RetentionTime - this.Ms1Peaks[0].RetentionTime) / (this.Ms1Peaks.Count - 1);
+            double initialTime = this.Ms1Peaks[0].RetentionTime-5.0*timegap; //after the padding, the first peak move ahead 5 timegap
+            double FinalTime = this.Ms1Peaks.Last().RetentionTime+5.0*timegap; //after the padding, the last peak move back 5 timegap
             double time = initialTime;
 
             // create two arrays to store the interpolated values of the two XICs
@@ -127,6 +126,7 @@ namespace FlashLFQ.Alex_project
             double maxMagnitude = product.Max(p => p.Magnitude);
             int indexForTheMaxValue = Array.FindIndex(product, p => p.Magnitude == maxMagnitude);
             double rtShift = -(product.Length/2 - indexForTheMaxValue) * (1.0 / resolution);
+            RtShift = rtShift;
             return rtShift;
 
             // Example
@@ -143,6 +143,7 @@ namespace FlashLFQ.Alex_project
             {
                 throw new ArgumentException("pointsToAverage must be greater than 0");
             }
+
             double[] intensity = Ms1Peaks.Select(p => p.Intensity).ToArray();
             double[] retentionTime = Ms1Peaks.Select(p => p.RetentionTime + RtShift).ToArray();
             double[] smoothedIntensity = new double[intensity.Length];
@@ -171,7 +172,7 @@ namespace FlashLFQ.Alex_project
                
             }
 
-            this.SmoothedCubicSpline = CubicSpline.InterpolateAkima(retentionTime, smoothedIntensity);
+            this.SmoothedCubicSpline = CubicSpline.InterpolateAkimaSorted(retentionTime, smoothedIntensity);
         }
 
 
@@ -184,21 +185,22 @@ namespace FlashLFQ.Alex_project
             double[] extrePoints = SmoothedCubicSpline.StationaryPoints(); //extrePoint is the retentionTime for the point's first derivative is zero
             foreach (var point in extrePoints) 
             {
-                if (SmoothedCubicSpline.Differentiate2(point) > 0) //Local Maxmun point
+                if (SmoothedCubicSpline.Differentiate2(point) < 0) //Local Maximun point
                 {
-                    Extrema.Add(new Extremum(Ms1Peaks.Where(p => p.RetentionTime == point).First().Intensity, point, ExtremumType.Maximum));
-                    Extrema.Sort();
+                    var intensity_atPoint = LinearSpline.Interpolate(point - RtShift);
+                    Extrema.Add(new Extremum(intensity_atPoint, point, ExtremumType.Maximum));                
                 }
                 if (SmoothedCubicSpline.Differentiate2(point) > 0) //Local Minmun point
                 {
-                    Extrema.Add(new Extremum(Ms1Peaks.Where(p => p.RetentionTime == point).First().Intensity, point, ExtremumType.Minimum));
-                    Extrema.Sort();
+                    var intensity_atPoint = LinearSpline.Interpolate(point - RtShift);
+                    Extrema.Add(new Extremum(intensity_atPoint, point, ExtremumType.Minimum));                   
                 }
-                
             }
 
+            Extrema.Sort();
 
         }
+
 
     }
 }
