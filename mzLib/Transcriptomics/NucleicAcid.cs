@@ -45,10 +45,6 @@ namespace Transcriptomics
         /// <summary>
         /// For creating an RNA programatically
         /// </summary>
-        /// <param name="sequence"></param>
-        /// <param name="fivePrimeTerm"></param>
-        /// <param name="threePrimeTerm"></param>
-        /// <param name="oneBasedPossibleLocalizedModifications"></param>
         protected NucleicAcid(string sequence, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null)
         {
@@ -59,23 +55,12 @@ namespace Transcriptomics
             _oneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
             GeneNames = new List<Tuple<string, string>>();
 
-            ParseSequence(sequence);
+            ParseSequenceString(sequence);
         }
 
         /// <summary>
         /// For Reading in from rna database
         /// </summary>
-        /// <param name="sequence"></param>
-        /// <param name="name"></param>
-        /// <param name="identifier"></param>
-        /// <param name="organism"></param>
-        /// <param name="databaseFilePath"></param>
-        /// <param name="fivePrimeTerm"></param>
-        /// <param name="threePrimeTerm"></param>
-        /// <param name="oneBasedPossibleLocalizedModifications"></param>
-        /// <param name="isContaminant"></param>
-        /// <param name="isDecoy"></param>
-        /// <param name="additionalDatabaseFields"></param>
         protected NucleicAcid(string sequence, string name, string identifier, string organism, string databaseFilePath,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
@@ -119,7 +104,6 @@ namespace Transcriptomics
         private IDictionary<int, List<Modification>> _oneBasedPossibleLocalizedModifications;
 
         #endregion
-
 
         #region Public Properties
 
@@ -216,7 +200,7 @@ namespace Transcriptomics
                          digestionParams.MaxMissedCleavages, digestionParams.MinLength, digestionParams.MaxLength))
             {
                 // add fixed and variable mods to base sequence digestion products
-                foreach (var modifiedOligo in unmodifiedOligo.GetModifiedOligos(allKnownFixedMods, digestionParams,
+                foreach (var modifiedOligo in unmodifiedOligo.GenerateModifiedOligos(allKnownFixedMods, digestionParams,
                              variableModifications))
                 {
                     yield return modifiedOligo;
@@ -273,10 +257,10 @@ namespace Transcriptomics
 
         #region Private Methods
 
-        private bool ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
+        private void ReplaceTerminus(ref IHasChemicalFormula? terminus, IHasChemicalFormula? value)
         {
             if (Equals(value, terminus))
-                return false;
+                return;
 
             if (terminus != null)
                 MonoisotopicMass -= terminus.MonoisotopicMass;
@@ -285,24 +269,20 @@ namespace Transcriptomics
 
             if (value != null)
                 MonoisotopicMass += value.MonoisotopicMass;
-
-            return true;
         }
 
         /// <summary>
-        /// Parses a string sequence of nucleic acids characters into a peptide object
+        /// Parses a string sequence of nucleic acid characters into an array of Nucleotide objects,
+        /// updates the sequence string, and calculates the monoisotopic mass.
         /// </summary>
-        /// <param name="sequence"></param>
-        /// <returns></returns>
-        private bool ParseSequence(string sequence)
+        /// <param name="sequence">The string sequence of nucleic acid characters to parse.</param>
+        private void ParseSequenceString(string sequence)
         {
             if (string.IsNullOrEmpty(sequence))
-                return false;
+                return;
 
             int index = 0;
-
             double monoMass = 0;
-            ChemicalFormula chemFormula = new();
 
             StringBuilder sb = null;
             sb = new StringBuilder(sequence.Length);
@@ -337,8 +317,6 @@ namespace Transcriptomics
             _sequence = sb.ToString();
             MonoisotopicMass += monoMass;
             Array.Resize(ref _nucleicAcids, Length);
-
-            return true;
         }
 
         #endregion
@@ -349,7 +327,8 @@ namespace Transcriptomics
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return _5PrimeTerminus.Equals(other._5PrimeTerminus)
+            return _sequence == other._sequence
+                   && _5PrimeTerminus.Equals(other._5PrimeTerminus)
                    && _3PrimeTerminus.Equals(other._3PrimeTerminus);
         }
 

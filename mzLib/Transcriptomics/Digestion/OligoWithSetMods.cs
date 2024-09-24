@@ -9,6 +9,17 @@ using Omics.Fragmentation.Oligo;
 
 namespace Transcriptomics.Digestion
 {
+
+    /// <summary>
+    /// Represents an oligonucleotide with set modifications, providing properties and methods for
+    /// accessing and manipulating its chemical characteristics.
+    /// </summary>
+    /// <remarks>
+    /// The monoisotopic mass, most abundant mass, and chemical formula are calculated on the fly if the corresponding properties
+    /// (_monoisotopicMass, _thisChemicalFormula, _mostAbundantMonoisotopicMass) are null. This ensures that the most up-to-date values are
+    /// always available based on the current state of the oligonucleotide and its modifications. Therefor, it is important to set those
+    /// properties to null whenever a termini or modification is changed.
+    /// </remarks>
     public class OligoWithSetMods : NucleolyticOligo, IBioPolymerWithSetMods, INucleicAcid
     {
         public OligoWithSetMods(NucleicAcid nucleicAcid, RnaDigestionParams digestionParams, int oneBaseStartResidue,
@@ -83,13 +94,10 @@ namespace Transcriptomics.Digestion
         {
             get
             {
-                if (_monoisotopicMass is null)
-                {
-                    _monoisotopicMass = BaseSequence.Sum(nuc => Nucleotide.GetResidue(nuc).MonoisotopicMass) +
-                                        AllModsOneIsNterminus.Values.Sum(mod => mod.MonoisotopicMass.Value) +
-                                        FivePrimeTerminus.MonoisotopicMass +
-                                        ThreePrimeTerminus.MonoisotopicMass;
-                }
+                _monoisotopicMass ??= BaseSequence.Sum(nuc => Nucleotide.GetResidue(nuc).MonoisotopicMass) +
+                                      AllModsOneIsNterminus.Values.Sum(mod => mod.MonoisotopicMass!.Value) +
+                                      FivePrimeTerminus.MonoisotopicMass +
+                                      ThreePrimeTerminus.MonoisotopicMass;
                 return _monoisotopicMass.Value;
             }
         }
@@ -98,20 +106,19 @@ namespace Transcriptomics.Digestion
         {
             get
             {
-                if (_thisChemicalFormula is null)
+                if (_thisChemicalFormula is not null) return _thisChemicalFormula!;
+
+                var fullFormula = new RNA(BaseSequence, FivePrimeTerminus, ThreePrimeTerminus).GetChemicalFormula();
+                foreach (var mod in AllModsOneIsNterminus.Values)
                 {
-                    var fullFormula = new RNA(BaseSequence, FivePrimeTerminus, ThreePrimeTerminus).GetChemicalFormula();
-                    foreach (var mod in AllModsOneIsNterminus.Values)
+                    if (mod.ChemicalFormula is null)
                     {
-                        if (mod.ChemicalFormula is null)
-                        {
-                            fullFormula = null;
-                            break;
-                        }
-                        fullFormula.Add(mod.ChemicalFormula);
+                        fullFormula = null;
+                        break;
                     }
-                    _thisChemicalFormula = fullFormula;
+                    fullFormula.Add(mod.ChemicalFormula);
                 }
+                _thisChemicalFormula = fullFormula;
                 return _thisChemicalFormula!;
             }
         }
@@ -120,13 +127,12 @@ namespace Transcriptomics.Digestion
         {
             get
             {
-                if (_mostAbundantMonoisotopicMass is null)
-                {
-                    var distribution = IsotopicDistribution.GetDistribution(ThisChemicalFormula);
-                    double maxIntensity = distribution.Intensities.Max();
-                    _mostAbundantMonoisotopicMass = distribution.Masses[distribution.Intensities.IndexOf(maxIntensity)].RoundedDouble();
-                }
-                return _mostAbundantMonoisotopicMass.Value;
+                if (_mostAbundantMonoisotopicMass is not null) return _mostAbundantMonoisotopicMass.Value;
+
+                var distribution = IsotopicDistribution.GetDistribution(ThisChemicalFormula);
+                double maxIntensity = distribution.Intensities.Max();
+                _mostAbundantMonoisotopicMass = distribution.Masses[distribution.Intensities.IndexOf(maxIntensity)].RoundedDouble();
+                return _mostAbundantMonoisotopicMass!.Value;
             }
         }
 

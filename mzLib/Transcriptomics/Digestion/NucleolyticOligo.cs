@@ -32,7 +32,18 @@ namespace Transcriptomics.Digestion
             return BaseSequence;
         }
 
-        internal IEnumerable<OligoWithSetMods> GetModifiedOligos(IEnumerable<Modification> allKnownFixedMods,
+        /// <summary>
+        /// Generates a collection of oligos with set modifications based on the provided fixed and variable modifications,
+        /// digestion parameters, and the nucleic acid sequence.
+        /// </summary>
+        /// <param name="allKnownFixedMods">A collection of all known fixed modifications.</param>
+        /// <param name="digestionParams">Parameters for RNA digestion.</param>
+        /// <param name="variableModifications">A list of variable modifications to consider.</param>
+        /// <returns>An enumerable collection of oligos with set modifications.</returns>
+        /// <remarks>
+        /// Code heavily borrowed from ProteolyticPeptide.GetModifiedPeptides
+        /// </remarks>
+        internal IEnumerable<OligoWithSetMods> GenerateModifiedOligos(IEnumerable<Modification> allKnownFixedMods,
             RnaDigestionParams digestionParams, List<Modification> variableModifications)
         {
             int oligoLength = OneBasedEndResidue - OneBasedStartResidue + 1;
@@ -79,7 +90,7 @@ namespace Transcriptomics.Digestion
                 }
             }
 
-            // LOCALIZED MODS
+            // collect all localized modifications from the database. 
             foreach (var kvp in NucleicAcid.OneBasedPossibleLocalizedModifications)
             {
                 bool inBounds = kvp.Key >= OneBasedStartResidue && kvp.Key <= OneBasedEndResidue;
@@ -127,6 +138,7 @@ namespace Transcriptomics.Digestion
 
             int variable_modification_isoforms = 0;
 
+            // Add the mods to the oligo by return numerous OligoWithSetMods
             foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength))
             {
                 int numFixedMods = 0;
