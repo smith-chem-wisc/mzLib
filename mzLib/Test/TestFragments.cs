@@ -17,18 +17,21 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Omics.Fragmentation;
+using Omics.Fragmentation.Peptide;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
+using Omics.Digestion;
+using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -786,13 +789,47 @@ namespace Test
         {
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Add(ProductType.b);
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Add(ProductType.y);
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Add(ProductType.c);
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Add(ProductType.x);
             Assert.IsTrue(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Contains(ProductType.b));
 
-            var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
+            var productCollection = TerminusSpecificProductTypes
+                .ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N]
+                .Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
             Assert.IsTrue(productCollection.Contains(ProductType.b));
+            Assert.IsTrue(productCollection.Contains(ProductType.c));
 
-            productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
+            productCollection = TerminusSpecificProductTypes
+                .ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C]
+                .Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
             Assert.IsTrue(productCollection.Contains(ProductType.y));
+            Assert.IsTrue(productCollection.Contains(ProductType.x));
+
+            var peptide = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
+            var products = new List<Product>();
+            peptide.Fragment(DissociationType.Custom, FragmentationTerminus.Both, products);
+
+            Assert.That(products.Any(p => p.ProductType == ProductType.b));
+            Assert.That(products.Any(p => p.ProductType == ProductType.y));
+            Assert.That(products.Any(p => p.ProductType == ProductType.c));
+            Assert.That(products.Any(p => p.ProductType == ProductType.x));
+
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Clear();
+            Assert.That(!DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Any());
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].AddRange(new List<ProductType> { ProductType.b, ProductType.y });
+            
+            var secondTimeProducts = new List<Product>();
+            peptide.Fragment(DissociationType.Custom, FragmentationTerminus.Both, secondTimeProducts);
+            Assert.That(secondTimeProducts.Any(p => p.ProductType == ProductType.b));
+            Assert.That(secondTimeProducts.Any(p => p.ProductType == ProductType.y));
+            Assert.That(secondTimeProducts.All(p => p.ProductType != ProductType.c));
+            Assert.That(secondTimeProducts.All(p => p.ProductType != ProductType.x));
+
+            var originalOnlyby = products.Where(p => p.ProductType is ProductType.b or ProductType.y).ToList();
+            Assert.That(originalOnlyby.Count, Is.EqualTo(secondTimeProducts.Count));
+
+            for (int i = 0; i < secondTimeProducts.Count; i++)
+                Assert.That(secondTimeProducts[i].Equals(originalOnlyby[i]));
         }
 
         [Test]
@@ -862,8 +899,39 @@ namespace Test
         public static void Test_MatchedFragmentIonToString()
         {
             Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            MatchedFragmentIon m = new MatchedFragmentIon(ref P, 1, 1, 1);
+            MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
             Assert.AreEqual("b1+1\t;1", m.ToString());
+        }
+        [Test]
+        public static void Test_ProductGetHashCode()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Assert.AreEqual(1072693248, P.GetHashCode());
+        }
+        [Test]
+        public static void Test_ProductMonoisotopicMass()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Assert.That(P.MonoisotopicMass.Equals(P.NeutralMass));
+        }
+        [Test]
+        public static void Test_MatchedFragmentGetHashCode()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product pPrime = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
+            MatchedFragmentIon mPrime = new MatchedFragmentIon(pPrime, 1, 1, 1);
+            Assert.AreEqual(P.GetHashCode(), pPrime.GetHashCode());
+            Assert.AreEqual(mPrime.GetHashCode(), m.GetHashCode());
+        }
+
+        [Test]
+        public static void TestMatchedFragmentIonEquals()
+        {
+            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            MatchedFragmentIon ion1 = new MatchedFragmentIon(P, experMz: 150, experIntensity: 99.99999999999, charge: 2);
+            MatchedFragmentIon ion2 = new MatchedFragmentIon(P, experMz: 149.99999999999, experIntensity: 100, charge: 2);
+            Assert.AreEqual(ion1, ion2);
         }
 
         [Test]
@@ -1057,13 +1125,13 @@ namespace Test
         public static void TestFragmentAnnotations()
         {
             Product p = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f = new MatchedFragmentIon(ref p, 400.0, 1000.0, 3);
+            MatchedFragmentIon f = new MatchedFragmentIon(p, 400.0, 1000.0, 3);
 
             Assert.That(p.Annotation == "b2-30.30");
             Assert.That(f.Annotation == "(b2-30.30)+3");
 
             p = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 0);
-            f = new MatchedFragmentIon(ref p, 400.0, 1000.0, 3);
+            f = new MatchedFragmentIon(p, 400.0, 1000.0, 3);
 
             Assert.That(p.Annotation == "b2");
             Assert.That(f.Annotation == "b2+3");
@@ -1073,7 +1141,7 @@ namespace Test
         public static void TestFragmentErrors()
         {
             Product p = new Product(ProductType.b, FragmentationTerminus.N, 475.205, 2, 3, 30.3);
-            MatchedFragmentIon f = new MatchedFragmentIon(ref p, 159.5, 1000.0, 3);
+            MatchedFragmentIon f = new MatchedFragmentIon(p, 159.5, 1000.0, 3);
 
             double experMass = f.Mz.ToMass(f.Charge);
             double theorMass = p.NeutralMass;
@@ -1087,10 +1155,10 @@ namespace Test
         public static void TestFragmentEquality()
         {
             Product p1 = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f1 = new MatchedFragmentIon(ref p1, 400.0, 1000.0, 3);
+            MatchedFragmentIon f1 = new MatchedFragmentIon(p1, 400.0, 1000.0, 3);
 
             Product p2 = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f2 = new MatchedFragmentIon(ref p2, 400.0, 1000.0, 3);
+            MatchedFragmentIon f2 = new MatchedFragmentIon(p2, 400.0, 1000.0, 3);
 
             Assert.AreEqual(p1, p2);
             Assert.AreEqual(f1, f2);

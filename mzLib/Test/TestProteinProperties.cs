@@ -1,9 +1,11 @@
 ﻿using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test

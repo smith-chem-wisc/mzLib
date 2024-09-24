@@ -19,9 +19,11 @@
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace Chemistry
@@ -31,7 +33,7 @@ namespace Chemistry
     /// Formula can change!!! If isotopes or elements are changed.
     /// </summary>
     [Serializable]
-    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>
+    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>, IHasChemicalFormula
     {
         // Main data stores, the isotopes and elements
 
@@ -59,11 +61,13 @@ namespace Chemistry
             Elements = new Dictionary<Element, int>();
         }
 
-        public ChemicalFormula(ChemicalFormula capFormula)
+        public ChemicalFormula(IHasChemicalFormula capFormula)
         {
-            Isotopes = new Dictionary<Isotope, int>(capFormula.Isotopes);
-            Elements = new Dictionary<Element, int>(capFormula.Elements);
+            Isotopes = new Dictionary<Isotope, int>(capFormula.ThisChemicalFormula.Isotopes);
+            Elements = new Dictionary<Element, int>(capFormula.ThisChemicalFormula.Elements);
         }
+
+        [JsonIgnore] public ChemicalFormula ThisChemicalFormula => this;
 
         /// <summary>
         /// Gets the average mass of this chemical formula
@@ -522,6 +526,45 @@ namespace Chemistry
 
             otherParts.Sort();
             return s + string.Join("", otherParts);
+        }
+
+        public override string ToString()
+        {
+            return $"{ThisChemicalFormula.Formula} : {MonoisotopicMass}";
+        }
+
+        public static ChemicalFormula operator -(ChemicalFormula left, IHasChemicalFormula right)
+        {
+            if (left == null)
+                if (right == null)
+                    return null;
+                else
+                {
+                    var formula = new ChemicalFormula();
+                    formula.Remove(right);
+                    return formula;
+                }
+            if (right == null)
+                return new ChemicalFormula(left);
+            
+
+            ChemicalFormula newFormula = new ChemicalFormula(left);
+            newFormula.Remove(right);
+            return newFormula;
+        }
+
+        public static ChemicalFormula operator +(ChemicalFormula left, IHasChemicalFormula right)
+        {
+            // if left is null, return right. If right is null, return left. If both are null, return null. If both are not null, add them
+            if (left == null)
+                return right == null ? null : new ChemicalFormula(right);
+            if (right == null)
+                return new ChemicalFormula(left);
+
+            ChemicalFormula newFormula = new ChemicalFormula(left);
+            newFormula.Add(right);
+            return newFormula;
+
         }
     }
 }

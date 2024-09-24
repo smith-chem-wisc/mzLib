@@ -19,12 +19,14 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Omics.Digestion;
+using Omics.Fragmentation;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 

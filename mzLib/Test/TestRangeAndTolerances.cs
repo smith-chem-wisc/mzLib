@@ -18,7 +18,9 @@
 
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
+using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -283,6 +285,21 @@ namespace Test
             var range1 = new AbsoluteTolerance(4).GetRange(10);
             var range2 = new AbsoluteTolerance(3).GetRange(10);
             Assert.IsTrue(range1.IsSuperRange(range2));
+        }
+
+        [Test]
+        public static void TestMajorityWithin()
+        {
+            var testArr = new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+            var testList = testArr.ToList();
+
+            var goodRange = new DoubleRange(1, 6);
+            var badRange = new DoubleRange(1, 4);
+            Assert.IsTrue(goodRange.ContainsMajority(testList));
+            Assert.IsFalse(badRange.ContainsMajority(testList));
+
+            Assert.IsTrue(goodRange.ContainsMajority(testArr));
+            Assert.IsFalse(badRange.ContainsMajority(testArr));
         }
 
         [Test]

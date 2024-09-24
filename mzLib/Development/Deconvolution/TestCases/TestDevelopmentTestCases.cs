@@ -1,5 +1,6 @@
 ﻿using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MassSpectrometry;
 using System.Diagnostics.CodeAnalysis;
 using Readers;
@@ -15,8 +16,7 @@ namespace Development.Deconvolution
         [Test]
         public static void TestSinglePeakDeconvolutionTestCase()
         {
-            Deconvoluter classicTopDownDeconvoluter = new Deconvoluter(DeconvolutionType.ClassicDeconvolution,
-                new ClassicDeconvolutionParameters(1, 60, 4, 3));
+            DeconvolutionParameters classicTopDownDeconvoluter = new ClassicDeconvolutionParameters(1, 60, 4, 3);
             const string sampleInformation = "Direct Injection Cytochrome C, Averaged";
             var pathToDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Deconvolution", "TestData",
                 "Averaged_221110_CytoOnly.mzML");
@@ -51,8 +51,7 @@ namespace Development.Deconvolution
         [Test]
         public static void TestWholeSpectrumDeconvolutionTestCase()
         {
-            Deconvoluter classicTopDownDeconvoluter = new Deconvoluter(DeconvolutionType.ClassicDeconvolution,
-                new ClassicDeconvolutionParameters(1, 60, 4, 3));
+            DeconvolutionParameters classicTopDownDeconvoluter = new ClassicDeconvolutionParameters(1, 60, 4, 3);
             const string sampleInformation = "Direct Injection Cytochrome C, Averaged";
             var pathToDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Deconvolution", "TestData",
                 "Averaged_221110_CytoOnly.mzML");

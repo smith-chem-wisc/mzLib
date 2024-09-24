@@ -1,9 +1,10 @@
 ﻿using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.IO;
 using System.Linq;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 

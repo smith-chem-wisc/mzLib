@@ -1,12 +1,17 @@
 ﻿using Chemistry;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Proteomics;
-using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics;
+using Omics.Digestion;
+using Omics.Fragmentation;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -47,10 +52,11 @@ namespace Test
             PeptideWithSetModifications pep2 = myProtein.Digest(digest2, new List<Modification>(), new List<Modification>()).First();
 
             Assert.That(pep1.FullSequence.Equals(pep2.FullSequence));
-            Assert.That(pep1.Protein.Equals(pep2.Protein));
-            Assert.That(!pep1.DigestionParams.Protease.Equals(pep2.DigestionParams.Protease));
+            Assert.That(pep1.Parent.Equals(pep2.Parent));
+            Assert.That(!pep1.DigestionParams.DigestionAgent.Equals(pep2.DigestionParams.DigestionAgent));
             Assert.That(!pep1.Equals(pep2));
-            Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
+            // HashCode is only concerned with the full sequence, not the protease. Only the equals method is interested in the protease used
+            Assert.That(pep1.GetHashCode().Equals(pep2.GetHashCode()));
         }
 
         [Test]
@@ -104,8 +110,8 @@ namespace Test
             DigestionParams semiCParams = new DigestionParams("Asp-N", 3, 7, 50, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C);
             List<PeptideWithSetModifications> nPwsms = Q07065.Digest(semiNParams, null, null).ToList();
             List<PeptideWithSetModifications> cPwsms = Q07065.Digest(semiCParams, null, null).ToList();
-            Assert.IsFalse(nPwsms.Any(x => x.Length > semiNParams.MaxPeptideLength));
-            Assert.IsFalse(cPwsms.Any(x => x.Length > semiCParams.MaxPeptideLength));
+            Assert.IsFalse(nPwsms.Any(x => x.Length > semiNParams.MaxLength));
+            Assert.IsFalse(cPwsms.Any(x => x.Length > semiCParams.MaxLength));
             Assert.IsTrue(nPwsms.Any(x => x.Length == semiNParams.MaxPeptideLength));
             Assert.IsTrue(cPwsms.Any(x => x.Length == semiCParams.MaxPeptideLength));
 
@@ -114,10 +120,10 @@ namespace Test
             DigestionParams nonCParams = new DigestionParams("Asp-N", 3, 7, 50, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
             nPwsms = Q07065.Digest(nonNParams, null, null).ToList();
             cPwsms = Q07065.Digest(nonCParams, null, null).ToList();
-            Assert.IsFalse(nPwsms.Any(x => x.Length > nonNParams.MaxPeptideLength));
-            Assert.IsFalse(cPwsms.Any(x => x.Length > nonCParams.MaxPeptideLength));
-            Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MaxPeptideLength));
-            Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MaxPeptideLength));
+            Assert.IsFalse(nPwsms.Any(x => x.Length > nonNParams.MaxLength));
+            Assert.IsFalse(cPwsms.Any(x => x.Length > nonCParams.MaxLength));
+            Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MaxLength));
+            Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MaxLength));
             Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MinPeptideLength));
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MinPeptideLength));
         }
@@ -168,7 +174,7 @@ namespace Test
             //Check that, when we digested with semi, we made all possible semi sequences, labeled full and semi correctly, and have no duplicates
             foreach (string s in expectedProductsSemiFiveCleavages) //foreach precursor peptide
             {
-                for (int i = 0; i < s.Length - semiDigestionParams.MinPeptideLength; i++) //cleave it to be semi
+                for (int i = 0; i < s.Length - semiDigestionParams.MinLength; i++) //cleave it to be semi
                 {
                     string sToFind = s.Substring(i); //get a peptide from this precursor (fixed C)
                     var peps = fiveCleavageProductsSemiTrypsin.Where(x => x.BaseSequence.Equals(sToFind)).ToArray(); //find the peptide in the digested list
@@ -189,7 +195,7 @@ namespace Test
                     Assert.IsTrue(pwsmRemake.CleavageSpecificityForFdrCategory == pep.CleavageSpecificityForFdrCategory);
 
                     //Repeat the above going from the other direction (fixed N)
-                    sToFind = s.Substring(0, semiDigestionParams.MinPeptideLength + i); //get a peptide from this precursor (fixed N)
+                    sToFind = s.Substring(0, semiDigestionParams.MinLength + i); //get a peptide from this precursor (fixed N)
                     peps = fiveCleavageProductsSemiTrypsin.Where(x => x.BaseSequence.Equals(sToFind)).ToArray();//find the peptide in the digested list
                     Assert.IsTrue(peps.Length == 1);//There should be exactly one! More than that means there are duplicates, fewer means we didn't generate it!
                     pep = peps[0];//get that single peptide
@@ -506,7 +512,7 @@ namespace Test
             List<PeptideWithSetModifications> nPwsms = P56381.Digest(singleN, null, null).ToList();
             List<PeptideWithSetModifications> cPwsms = P56381.Digest(singleC, null, null).ToList();
             Assert.IsTrue(nPwsms.Count == cPwsms.Count);
-            Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinPeptideLength + 1);
+            Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinLength + 1);
         }
 
         [Test]
@@ -760,8 +766,8 @@ namespace Test
             int testTargetHash = p.GetHashCode();
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
             int testDecoyHash = reverse.GetHashCode(); 
-            Assert.AreEqual(reverse.PairedTargetDecoyHash, testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoyHash, testDecoyHash);
+            Assert.AreEqual(reverse.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
+            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
@@ -836,8 +842,8 @@ namespace Test
             int testMirrorTargetHash = p_tryp.GetHashCode();
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
             int testMirrorDecoyHash = p_tryp_reverse.GetHashCode();
-            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoyHash);
-            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoyHash);
+            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoySequence.GetHashCode());
+            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoySequence.GetHashCode());
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
@@ -866,8 +872,8 @@ namespace Test
             int testTargetHash = p.GetHashCode();
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
             int testDecoyHash = testScrambled.GetHashCode();
-            Assert.AreEqual(testScrambled.PairedTargetDecoyHash, testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoyHash, testDecoyHash);
+            Assert.AreEqual(testScrambled.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
+            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
             Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
             Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
             // Check n-term acetyl
@@ -1139,6 +1145,41 @@ namespace Test
 
             var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
             CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
+        }
+
+        [Test]
+        public static void TestPeptideWithSetModsNoParentProtein()
+        {
+            // null parent
+            DigestionParams dParams = new DigestionParams();
+            var pwsm = new PeptideWithSetModifications("P", null,
+                digestionParams: dParams, p: null);
+            Assert.AreEqual('-', pwsm.PreviousAminoAcid);
+            Assert.AreEqual('-', pwsm.PreviousResidue);
+            Assert.AreEqual('-', pwsm.NextAminoAcid);
+            Assert.AreEqual('-', pwsm.NextResidue);
+
+            // non-null parent
+            Protein protein = new("MQLLRCFSIFSVIASVLAQELTTICEQIPSPTLESTPYSLSTTTILANGKAMQGVFEYYKSVTFVSNCGSHPSTTSKGSPINTQYVF", "P32781");
+            var pwsMods = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
+
+            var first = pwsMods.First(p => p.BaseSequence == "MQLLRCFSIFSVIASVLAQELTTICEQIPSPTLESTPYSLSTTTILANGK");
+            Assert.AreEqual('-', first.PreviousAminoAcid);
+            Assert.AreEqual('-', first.PreviousResidue);
+            Assert.AreEqual('A', first.NextAminoAcid);
+            Assert.AreEqual('A', first.NextResidue);
+
+            var middle = pwsMods.First(p => p.BaseSequence == "SVTFVSNCGSHPSTTSK");
+            Assert.AreEqual('K', middle.PreviousAminoAcid);
+            Assert.AreEqual('K',middle.PreviousResidue);
+            Assert.AreEqual('G',middle.NextAminoAcid);
+            Assert.AreEqual('G',middle.NextResidue);
+
+            var last = pwsMods.First(p => p.BaseSequence == "GSPINTQYVF");
+            Assert.AreEqual('K', last.PreviousAminoAcid);
+            Assert.AreEqual('K', last.PreviousResidue);
+            Assert.AreEqual('-', last.NextAminoAcid);
+            Assert.AreEqual('-', last.NextResidue);
         }
     }
 }

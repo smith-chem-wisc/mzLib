@@ -1,5 +1,7 @@
 ﻿using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System;
@@ -7,6 +9,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Omics.Digestion;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -565,16 +569,31 @@ namespace Test
             //check that there are no duplicates
             Assert.IsTrue(pwsms.Count == hashset.Count);
             //Speedy semi specific test
-            DigestionParams speedySemiN = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.N);
-            DigestionParams speedySemiC = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.C);
+            DigestionParams speedySemiN = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Omics.Fragmentation.FragmentationTerminus.N);
+            DigestionParams speedySemiC = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Omics.Fragmentation.FragmentationTerminus.C);
             List<PeptideWithSetModifications> pwsmsN = humanInsulin.Digest(speedySemiN, null, null).ToList();
             List<PeptideWithSetModifications> pwsmsC = humanInsulin.Digest(speedySemiC, null, null).ToList();
             Assert.IsTrue(pwsmsN.Count == 7);
             Assert.IsTrue(pwsmsC.Count == 9);
-            Assert.IsFalse(pwsmsN.Any(x => x.Length > speedySemiN.MaxPeptideLength));
-            Assert.IsFalse(pwsmsC.Any(x => x.Length > speedySemiC.MaxPeptideLength));
-            Assert.IsFalse(pwsmsN.Any(x => x.Length < speedySemiN.MinPeptideLength));
-            Assert.IsFalse(pwsmsC.Any(x => x.Length < speedySemiC.MinPeptideLength));
+            Assert.IsFalse(pwsmsN.Any(x => x.Length > speedySemiN.MaxLength));
+            Assert.IsFalse(pwsmsC.Any(x => x.Length > speedySemiC.MaxLength));
+            Assert.IsFalse(pwsmsN.Any(x => x.Length < speedySemiN.MinLength));
+            Assert.IsFalse(pwsmsC.Any(x => x.Length < speedySemiC.MinLength));
+        }
+
+        [Test]
+        public void TestDigestionParamsMaskedProperties()
+        {
+            var digestionParams = new DigestionParams();
+            digestionParams.MinPeptideLength = 1;
+            Assert.That(digestionParams.MinLength, Is.EqualTo(digestionParams.MinPeptideLength));
+
+            digestionParams.MaxPeptideLength = 2;
+            Assert.That(digestionParams.MaxLength, Is.EqualTo(digestionParams.MaxPeptideLength));
+
+
+            digestionParams.MaxModsForPeptide = 3;
+            Assert.That(digestionParams.MaxMods, Is.EqualTo(digestionParams.MaxModsForPeptide));
         }
     }
 }
