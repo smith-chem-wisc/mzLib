@@ -16,8 +16,6 @@ namespace FlashLFQ
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
         private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
         public string PepResultString { get; set; }
-        public  IEnumerable<ChromatographicPeak> DecoyPeaks { get; set; }
-
         public double MbrQValueThreshold { get; set; }
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05,

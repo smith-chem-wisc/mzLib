@@ -1310,6 +1310,41 @@ namespace Test
         }
 
         [Test]
+        public static void RngTest()
+        {
+            var clock = new Stopwatch();
+            clock.Start();
+
+            int[] rngs = new int[10000];
+            for (int i = 0; i < 10000; i++)
+            {
+                var rng = new Random(0);
+                rngs[i] = rng.Next();
+            }
+
+            clock.Stop();
+
+            Console.WriteLine(clock.ElapsedTicks.ToString());
+        }
+
+        [Test]
+        public static void rngTest2()
+        {
+            var clock = new Stopwatch();
+            clock.Start();
+
+            int[] rngs = new int[10000];
+            for (int i = 0; i < 10000; i++)
+            {
+                rngs[i] = (int)(1e5 * (500.012743 % 1.0) * (52.7832 % 1.0)) % 27;
+            }
+
+            clock.Stop();
+
+            Console.WriteLine(clock.ElapsedTicks.ToString());
+        }
+
+        [Test]
         public static void RealDataMbrTest()
         {
             string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"PSMsForMbrTest.psmtsv");
@@ -1381,6 +1416,8 @@ namespace Test
             // Any change to ML.NET or the PEP Analysis engine will cause these to change.
             Assert.AreEqual(101, f1r1MbrResults.Count);
             Assert.AreEqual(45, f1r2MbrResults.Count);
+            Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
+            Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
 
 
             // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
@@ -1394,6 +1431,8 @@ namespace Test
             // Generally, if the values are above 0.7, then things are working well
             Assert.Greater(corrRun1, 0.8);
             Assert.Greater(corrRun2, 0.8);
+            Console.WriteLine("r1 correlation: " + corrRun1);
+            Console.WriteLine("r2 correlation: " + corrRun2);
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
