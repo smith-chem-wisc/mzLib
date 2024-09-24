@@ -45,6 +45,7 @@ namespace Transcriptomics
                 case OligoWithSetMods oligo:
                 {
                     var oldParent = oligo.Parent as RNA ?? throw new NullReferenceException();
+                    bool newIsDecoy = isDecoy ?? oldParent.IsDecoy;
                     var newParent = new RNA(
                         newSequence,
                         oldParent.Name,
@@ -55,7 +56,7 @@ namespace Transcriptomics
                         oldParent.ThreePrimeTerminus,
                         newModifications,
                         oldParent.IsContaminant,
-                        oldParent.IsDecoy,
+                        newIsDecoy,
                         oldParent.AdditionalDatabaseFields);
 
                     returnObj = new OligoWithSetMods(

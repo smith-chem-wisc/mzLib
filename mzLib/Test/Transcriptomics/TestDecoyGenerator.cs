@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using NUnit.Framework.Interfaces;
 using Transcriptomics;
+using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 
@@ -222,6 +223,43 @@ namespace Test.Transcriptomics
             //var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifiedFastaPath, true, DecoyType.Slide, false, out var errors);
             //Assert.That(errors.Count, Is.EqualTo(0));
             //Assert.That(oligos.Count, Is.EqualTo(10));
+        }
+
+
+        [Test]
+        public void TestCreateNew()
+        {
+            var mods = PtmListLoader.ReadModsFromString(
+                "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//",
+                out List<(Modification, string)> modsOut).ToList();
+            var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
+            var oneBasedPossibleLocalizedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 1, new List<Modification>() { modDict["Sodium on A"] } },
+                { 3, new List<Modification>() { modDict["Sodium on A"] } },
+            };
+
+            var rna = new RNA("GAACUG", "name", "accession", "organism", "databaseFilePath",
+                null, null, oneBasedPossibleLocalizedModifications, false, false,
+                new Dictionary<string, string>());
+            var oligos = rna
+                .Digest(new RnaDigestionParams(maxMods: 1), new List<Modification>(), mods)
+                .ToList();
+
+            var clonedRna = rna.CreateNew(null, null, true);
+            var clonedOligo =  oligos.First().CreateNew(null, null, true);
+
+            // ensure they are identical except for the isDecoy field
+            // ensure they are identical except for the isDecoy field
+            Assert.That(rna.BaseSequence, Is.EqualTo(clonedRna.BaseSequence));
+            Assert.That(rna.OneBasedPossibleLocalizedModifications, Is.EqualTo(clonedRna.OneBasedPossibleLocalizedModifications));
+            Assert.That(rna.IsDecoy, Is.Not.EqualTo(clonedRna.IsDecoy));
+
+            Assert.That(oligos.First().BaseSequence, Is.EqualTo(clonedOligo.BaseSequence));
+            Assert.That(oligos.First().OneBasedPossibleLocalizedModifications, Is.EqualTo(clonedOligo.OneBasedPossibleLocalizedModifications));
+            Assert.That(oligos.First().Parent.IsDecoy, Is.Not.EqualTo(clonedOligo.Parent.IsDecoy));
+
+
         }
     }
 }

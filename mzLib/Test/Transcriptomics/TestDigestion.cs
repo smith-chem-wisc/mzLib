@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Chemistry;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using Omics;
 using Omics.Digestion;
@@ -533,6 +534,11 @@ namespace Test.Transcriptomics
             Assert.That(oligoWithSetMods.MonoisotopicMass, Is.EqualTo(oldMonoMass + deltaMass).Within(0.01));
             Assert.That(oligoWithSetMods.MostAbundantMonoisotopicMass, Is.EqualTo(oldMostAbundantMass + deltaMass).Within(0.01));
             Assert.That(oligoWithSetMods.ThisChemicalFormula, Is.EqualTo(formula + formulaToAdd + formulaToAdd));
+
+            Assert.Throws<MzLibException>(() =>
+            {
+                var oligo = new OligoWithSetMods("GUA|GAUGUC", new Dictionary<string, Modification>());
+            });
         }
 
         #endregion

@@ -49,9 +49,10 @@ namespace Transcriptomics.Digestion
 
             FullSequence = sequence;
             _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
-            GetModsAfterDeserialization(allKnownMods);
+            _allModsOneIsNterminus = GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
+            Description = description;
 
             if (n != null)
                 Parent = n;
@@ -303,9 +304,9 @@ namespace Transcriptomics.Digestion
             return peptideWithLocalizedMass;
         }
 
-        private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
+        private Dictionary<int, Modification> GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
         {
-            _allModsOneIsNterminus = new Dictionary<int, Modification>();
+            var mods = new Dictionary<int, Modification>();
             int currentModStart = 0;
             int currentModificationLocation = 1;
             bool currentlyReadingMod = false;
@@ -355,7 +356,7 @@ namespace Transcriptomics.Digestion
                             currentModificationLocation = BaseSequence.Length + 2;
                         }
 
-                        _allModsOneIsNterminus.Add(currentModificationLocation, mod);
+                        mods.Add(currentModificationLocation, mod);
                         currentlyReadingMod = false;
                     }
                 }
@@ -365,6 +366,8 @@ namespace Transcriptomics.Digestion
                 }
                 //else do nothing
             }
+
+            return mods;
         }
     }
 }

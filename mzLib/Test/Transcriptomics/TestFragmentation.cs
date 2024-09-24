@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Transcriptomics;
 using MassSpectrometry;
+using Omics;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
@@ -130,18 +131,25 @@ namespace Test.Transcriptomics
             ProductType productType, double[] unmodifiedFragmentMass, double[] modifiedFragmentMasses)
         {
             var mods = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).ToList();
+            var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
             var rna = new RNA(sequence);
 
-            var unmodifiedOligo = rna.Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
-                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+            var unmodifiedOligo = new OligoWithSetMods(sequence, new Dictionary<string, Modification>(),
+                 0, new RnaDigestionParams(), rna, 1, rna.Length);
             Assert.That(unmodifiedOligo.AllModsOneIsNterminus.Count, Is.EqualTo(0));
             Assert.That(unmodifiedOligo.FullSequence, Is.EqualTo(sequence));
+            Assert.That(unmodifiedOligo.SequenceWithChemicalFormulas, Is.EqualTo(sequence));
+            Assert.That(unmodifiedOligo.FullSequenceWithMassShift(), Is.EqualTo(sequence));
             Assert.That(unmodifiedOligo.MonoisotopicMass, Is.EqualTo(unmodifiedMass).Within(0.01));
 
-            var modifiedOligo = rna.Digest(new RnaDigestionParams(), mods, new List<Modification>())
-                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+            var modifiedOligo = new OligoWithSetMods(fullSequence, modDict,
+                0, new RnaDigestionParams(), rna, 1, rna.Length);
+            var formulaSequence = fullSequence.Replace("Metal:Sodium on A", "H-1Na");
+            var massShiftSequence = fullSequence.Replace("Metal:Sodium on A", "+21.981944");
             Assert.That(modifiedOligo.AllModsOneIsNterminus.Count, Is.EqualTo(mods.Count));
             Assert.That(modifiedOligo.FullSequence, Is.EqualTo(fullSequence));
+            Assert.That(modifiedOligo.SequenceWithChemicalFormulas, Is.EqualTo(formulaSequence));
+            Assert.That(modifiedOligo.FullSequenceWithMassShift(), Is.EqualTo(massShiftSequence));
             Assert.That(modifiedOligo.MonoisotopicMass, Is.EqualTo(modifiedMass).Within(0.01));
 
             var unmodifiedProducts = unmodifiedOligo.GetNeutralFragments(productType).ToList();
