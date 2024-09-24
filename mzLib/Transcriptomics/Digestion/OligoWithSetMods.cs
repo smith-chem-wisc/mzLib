@@ -6,10 +6,10 @@ using Omics.Modifications;
 using Omics;
 using Easy.Common.Extensions;
 using Omics.Fragmentation.Oligo;
+using System.Text;
 
 namespace Transcriptomics.Digestion
 {
-
     /// <summary>
     /// Represents an oligonucleotide with set modifications, providing properties and methods for
     /// accessing and manipulating its chemical characteristics.
@@ -63,6 +63,7 @@ namespace Transcriptomics.Digestion
         private ChemicalFormula? _thisChemicalFormula;
         private double? _mostAbundantMonoisotopicMass;
         private IDictionary<int, List<Modification>>? _oneBasedPossibleLocalizedModifications;
+        private string? _sequenceWithChemicalFormula;
 
         public string FullSequence { get; private set; }
         public IDigestionParams DigestionParams => _digestionParams;
@@ -136,7 +137,40 @@ namespace Transcriptomics.Digestion
             }
         }
 
-        public string SequenceWithChemicalFormulas => throw new NotImplementedException();
+        public string SequenceWithChemicalFormulas
+        {
+            get
+            {
+                if (_sequenceWithChemicalFormula is not null) return _sequenceWithChemicalFormula;
+
+                var subsequence = new StringBuilder();
+                // variable modification on peptide N-terminus
+                if (AllModsOneIsNterminus.TryGetValue(1, out Modification? pepNTermVariableMod))
+                {
+                    if (pepNTermVariableMod is { } mod)
+                        subsequence.Append('[' + mod.ChemicalFormula.Formula + ']');
+                }
+
+                for (int r = 0; r < Length; r++)
+                {
+                    subsequence.Append(this[r]);
+                    // variable modification on this residue
+                    if (!AllModsOneIsNterminus.TryGetValue(r + 2, out Modification? residueVariableMod)) continue;
+                    if (residueVariableMod is { } mod)
+                        subsequence.Append('[' + mod.ChemicalFormula.Formula + ']');
+                }
+
+                // variable modification on peptide C-terminus
+                if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification? pepCTermVariableMod))
+                {
+                    if (pepCTermVariableMod is { } mod)
+                        subsequence.Append('[' + mod.ChemicalFormula.Formula + ']');
+                }
+
+                _sequenceWithChemicalFormula = subsequence.ToString();
+                return _sequenceWithChemicalFormula;
+            }
+        }
 
         public Dictionary<int, Modification> AllModsOneIsNterminus => _allModsOneIsNterminus;
 

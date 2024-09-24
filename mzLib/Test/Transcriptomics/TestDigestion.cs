@@ -6,6 +6,7 @@ using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
+using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
@@ -368,7 +369,12 @@ namespace Test.Transcriptomics
                 .Select(p => (OligoWithSetMods)p).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(2));
             Assert.That(digestionProducts[0].FullSequence, Is.EqualTo("UAGUCGUUGAUAG"));
+            Assert.That(digestionProducts[0].SequenceWithChemicalFormulas, Is.EqualTo("UAGUCGUUGAUAG"));
+            Assert.That(digestionProducts[0].FullSequenceWithMassShift(), Is.EqualTo("UAGUCGUUGAUAG"));
+            
             Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("UAGUCGUUGAUAG[Digestion Termini:Cyclic Phosphate on X]"));
+            Assert.That(digestionProducts[1].SequenceWithChemicalFormulas, Is.EqualTo("UAGUCGUUGAUAG[H-2O-1]"));
+            Assert.That(digestionProducts[1].FullSequenceWithMassShift(), Is.EqualTo("UAGUCGUUGAUAG[-18.010565]"));
 
             // top-down digestion, 3' oligo terminal modification
             variableMods = new List<Modification> { oligoCyclicPhosphate };
