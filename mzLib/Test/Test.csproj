@@ -513,6 +513,7 @@
 
   <ItemGroup>
     <Folder Include="TestData\" />
+    <Folder Include="Transcriptomics\TestData\" />
   </ItemGroup>
 
 </Project>
