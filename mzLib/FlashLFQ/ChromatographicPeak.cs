@@ -163,7 +163,7 @@ namespace FlashLFQ
                 sb.Append("Peak Split Valley RT" + "\t");
                 sb.Append("Peak Apex Mass Error (ppm)" + "\t");
                 sb.Append("Decoy Peptide" + "\t");
-                sb.Append( "Random RT");
+                sb.Append("Random RT");
                 return sb.ToString();
             }
         }

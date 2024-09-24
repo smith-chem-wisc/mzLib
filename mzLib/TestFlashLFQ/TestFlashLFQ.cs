@@ -1310,41 +1310,6 @@ namespace Test
         }
 
         [Test]
-        public static void RngTest()
-        {
-            var clock = new Stopwatch();
-            clock.Start();
-
-            int[] rngs = new int[10000];
-            for (int i = 0; i < 10000; i++)
-            {
-                var rng = new Random(0);
-                rngs[i] = rng.Next();
-            }
-
-            clock.Stop();
-
-            Console.WriteLine(clock.ElapsedTicks.ToString());
-        }
-
-        [Test]
-        public static void rngTest2()
-        {
-            var clock = new Stopwatch();
-            clock.Start();
-
-            int[] rngs = new int[10000];
-            for (int i = 0; i < 10000; i++)
-            {
-                rngs[i] = (int)(1e5 * (500.012743 % 1.0) * (52.7832 % 1.0)) % 27;
-            }
-
-            clock.Stop();
-
-            Console.WriteLine(clock.ElapsedTicks.ToString());
-        }
-
-        [Test]
         public static void RealDataMbrTest()
         {
             string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"PSMsForMbrTest.psmtsv");
