@@ -228,7 +228,7 @@ namespace Test.Transcriptomics
                         break;
 
                     case ProductType.M:
-                        Assert.That(type.GetRnaTerminusType(), Is.EqualTo(FragmentationTerminus.None));
+                        Assert.That(type.GetRnaTerminusType(), Is.EqualTo(FragmentationTerminus.Both));
                         break;
 
                     case ProductType.aStar:

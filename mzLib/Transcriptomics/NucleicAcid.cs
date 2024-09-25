@@ -2,11 +2,7 @@
 using Omics.Digestion;
 using Omics.Modifications;
 using Omics;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Transcriptomics.Digestion;
 
 namespace Transcriptomics

@@ -1,5 +1,4 @@
 ﻿using Chemistry;
-using Omics;
 using Omics.Modifications;
 
 namespace Transcriptomics

@@ -100,6 +100,12 @@ namespace Omics.Fragmentation.Oligo
                                                                                                                                                                                                                      public static List<ProductType> GetRnaProductTypesFromDissociationType(this DissociationType dissociationType) =>
             ProductsFromDissociationType[dissociationType];
 
+        /// <summary>
+        /// Returns mass shift by product type
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public static double GetRnaMassShiftFromProductType(this ProductType type) => FragmentIonCaps[type].MonoisotopicMass;
 
         /// <summary>
         /// Mass to be added or subtracted
@@ -137,109 +143,6 @@ namespace Omics.Fragmentation.Oligo
 
                 { ProductType.M, new ChemicalFormula() }
             };
-
-        /// <summary>
-        /// Returns mass shift by product type
-        /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        public static double GetRnaMassShiftFromProductType(this ProductType type) => FragmentIonCaps[type].MonoisotopicMass;
-
-        public static FragmentationTerminus GetRnaTerminusType(this ProductType fragmentType)
-        {
-            switch (fragmentType)
-            {
-                case ProductType.a:
-                case ProductType.aWaterLoss:
-                case ProductType.aBaseLoss:
-                case ProductType.b:
-                case ProductType.bWaterLoss:
-                case ProductType.bBaseLoss:
-                case ProductType.c:
-                case ProductType.cWaterLoss:
-                case ProductType.cBaseLoss:
-                case ProductType.d:
-                case ProductType.dWaterLoss:
-                case ProductType.dBaseLoss:
-                    return FragmentationTerminus.FivePrime;
-
-                case ProductType.w:
-                case ProductType.wWaterLoss:
-                case ProductType.wBaseLoss:
-                case ProductType.x:
-                case ProductType.xWaterLoss:
-                case ProductType.xBaseLoss:
-                case ProductType.y:
-                case ProductType.yWaterLoss:
-                case ProductType.yBaseLoss:
-                case ProductType.z:
-                case ProductType.zWaterLoss:
-                case ProductType.zBaseLoss:
-                    return FragmentationTerminus.ThreePrime;
-
-                case ProductType.M:
-                    return FragmentationTerminus.None;
-
-                case ProductType.aStar:
-                case ProductType.aDegree:
-                case ProductType.bAmmoniaLoss:
-                case ProductType.yAmmoniaLoss:
-                case ProductType.zPlusOne:
-                case ProductType.D:
-                case ProductType.Ycore:
-                case ProductType.Y:
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(fragmentType), fragmentType, null);
-            }
-        }
-
-        /// <summary>
-        /// Product ion types by Fragmentation Terminus
-        /// </summary>
-        private static readonly Dictionary<FragmentationTerminus, List<ProductType>>
-            ProductIonTypesFromSpecifiedTerminus = new Dictionary<FragmentationTerminus, List<ProductType>>
-            {
-                {
-                    FragmentationTerminus.FivePrime, new List<ProductType>
-                    {
-                        ProductType.a, ProductType.aWaterLoss, ProductType.aBaseLoss,
-                        ProductType.b, ProductType.bWaterLoss, ProductType.bBaseLoss,
-                        ProductType.c, ProductType.cWaterLoss, ProductType.cBaseLoss,
-                        ProductType.d, ProductType.dWaterLoss, ProductType.dBaseLoss, 
-                    }
-                },
-                {
-                    FragmentationTerminus.ThreePrime, new List<ProductType>
-                    {
-                        ProductType.w, ProductType.wWaterLoss, ProductType.wBaseLoss,
-                        ProductType.x, ProductType.xWaterLoss, ProductType.xBaseLoss,
-                        ProductType.y, ProductType.yWaterLoss, ProductType.yBaseLoss,
-                        ProductType.z, ProductType.zWaterLoss, ProductType.zBaseLoss,
-                    }
-                },
-                {
-                    FragmentationTerminus.Both, new List<ProductType>
-                    {
-
-                        ProductType.a, ProductType.aWaterLoss, ProductType.aBaseLoss,
-                        ProductType.b, ProductType.bWaterLoss, ProductType.bBaseLoss,
-                        ProductType.c, ProductType.cWaterLoss, ProductType.cBaseLoss,
-                        ProductType.d, ProductType.dWaterLoss, ProductType.dBaseLoss, 
-                        ProductType.w, ProductType.wWaterLoss, ProductType.wBaseLoss,
-                        ProductType.x, ProductType.xWaterLoss, ProductType.xBaseLoss,
-                        ProductType.y, ProductType.yWaterLoss, ProductType.yBaseLoss,
-                        ProductType.z, ProductType.zWaterLoss, ProductType.zBaseLoss,
-                        ProductType.M
-                    }
-                }
-            };
-
-
-        public static List<ProductType> GetRnaTerminusSpecificProductTypes(
-            this FragmentationTerminus fragmentationTerminus)
-        {
-            return ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus];
-        }
 
         /// <summary>
         /// Returns all product ion types based upon specified terminus
