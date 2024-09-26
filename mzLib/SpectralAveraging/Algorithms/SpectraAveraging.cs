@@ -57,19 +57,20 @@ public static class SpectraAveraging
 
         // reject outliers and average bins
         List<(double mz, double intensity)> averagedPeaks = new();
-        int maxThreadsPerFile = parameters.MaxThreadsToUsePerFile;
-        int[] threads = Enumerable.Range(0, maxThreadsPerFile).ToArray();
-        Parallel.ForEach(threads, (binIndex) =>
+        Parallel.ForEach(Enumerable.Range(0, parameters.MaxThreadsToUsePerFile), (iterationIndex) =>
         {
-            var keys = bins.Keys.ToList();
-            for (; binIndex < keys.Count; binIndex += maxThreadsPerFile)
+            // each bin index that contains peaks
+            var binIncidences = bins.Keys.ToList();
+
+            // iterate through each bin index which contains peaks
+            for (; iterationIndex < binIncidences.Count; iterationIndex += parameters.MaxThreadsToUsePerFile)
             {
-                bins[keys[binIndex]] = OutlierRejection.RejectOutliers(bins[keys[binIndex]], parameters);
+                var peaksFromBin = bins[binIncidences[iterationIndex]];
+
+                peaksFromBin = OutlierRejection.RejectOutliers(peaksFromBin, parameters);
+                if (!peaksFromBin.Any()) continue;
                 lock (averagedPeaks)
-                {
-                    averagedPeaks.Add(AverageBin(bins[keys[binIndex]], weights));
-                }
-                
+                    averagedPeaks.Add(AverageBin(peaksFromBin, weights));
             }
         });
 

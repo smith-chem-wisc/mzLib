@@ -29,6 +29,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using Omics.Modifications;
 using UsefulProteomicsDatabases.Generated;
 using TopDownProteomics.IO.Obo;
 
@@ -298,7 +299,7 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadUniprot(string uniprotLocation)
         {
-            DownloadContent(@"http://legacy.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
+            DownloadContent(@"http://uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
         }
     }
 }

@@ -4,10 +4,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Readers;
 using SpectralAveraging;
 
 
@@ -39,7 +39,7 @@ namespace Test.AveragingTests
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
-            ActualScans = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory,
+            ActualScans = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"AveragingTestData\TDYeastFractionMS1.mzML")).GetAllScansList();
             double[] xArray = new double[] { 100.1453781, 200, 300, 400, 500, 600, 700, 800, 900.4123745 };
             double[] yArray1 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
@@ -95,6 +95,29 @@ namespace Test.AveragingTests
         }
 
         [Test]
+        public static void TestWhenAllValuesGetRejected()
+        {
+            SpectralAveragingParameters parameters = new()
+            {
+                SpectraFileAveragingType = SpectraFileAveragingType.AverageAll,
+                OutlierRejectionType = OutlierRejectionType.MinMaxClipping,
+                SpectralWeightingType = SpectraWeightingType.WeightEvenly,
+                NormalizationType = NormalizationType.NoNormalization,
+                BinSize = 1,
+            };
+
+            List<MzSpectrum> spectra = new()
+            {
+                new MzSpectrum(new[] { 2.0, 3.0, 3.1, 4.0, 4.1 }, new[] { 1.0, 1.1, 1.2, 1.5, 1.6 }, false),
+                new MzSpectrum(new[] { 2.0, 3.0, 3.1, 4.0, 4.1 }, new[] { 1.0, 1.3, 1.4, 1.7, 1.8 }, false),
+            };
+
+            var averagedSpectra = spectra.AverageSpectra(parameters);
+            Assert.That(averagedSpectra.XArray.SequenceEqual(new [] {3.05, 4.05}));
+            Assert.That(averagedSpectra.YArray.SequenceEqual(new[]{1.25, 1.65}));
+        }
+
+        [Test]
         public static void TestBinningMethod()
         {
             SpectralAveragingParameters parameters = new() { BinSize = 1 };
@@ -136,6 +159,17 @@ namespace Test.AveragingTests
                 DummyMzSpectra.AverageSpectra(parameters);
             });
             Assert.That(exception.Message == "Spectrum Averaging Type Not Yet Implemented");
+        }
+
+        [Test]
+        public static void TestBinnedPeakStruct()
+        {
+            BinnedPeak peak = new(1, 20.0, 25.5, 1);
+            Assert.That(peak.Bin, Is.EqualTo(1));
+            Assert.That(peak.Mz, Is.EqualTo(20.0));
+            Assert.That(peak.Intensity, Is.EqualTo(25.5));
+            Assert.That(peak.SpectraId, Is.EqualTo(1));
+            Assert.That(peak.ToString(), Is.EqualTo("20 : 25.5 : 1"));
         }
 
     }

@@ -7,6 +7,7 @@ namespace SpectralAveraging;
 
 /// <summary>
 ///     Reject outliers from a given set of one dimensional data
+///     Methods are adapted from https://pixinsight.com/doc/tools/ImageIntegration/ImageIntegration.html#description_003
 /// </summary>
 public static class OutlierRejection
 {
@@ -121,7 +122,7 @@ public static class OutlierRejection
         do
         {
             var median = values.Median();
-            var standardDeviation = BasicStatistics.CalculateStandardDeviation(values);
+            var standardDeviation = values.StandardDeviation();
             n = 0;
             for (var i = 0; i < values.Count; i++)
                 if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
@@ -143,6 +144,7 @@ public static class OutlierRejection
     /// <param name="initialValues">list of mz values to evaluate</param>
     /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
     /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
+    /// <remarks>Documentation for winsorized sigma clipping can be found here https://pixinsight.com/doc/tools/ImageIntegration/ImageIntegration.html#description_003</remarks>
     /// <returns></returns>
     private static double[] WinsorizedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
     {
@@ -153,18 +155,20 @@ public static class OutlierRejection
         {
             if (!values.Any())
                 break;
-            var median = BasicStatistics.CalculateNonZeroMedian(values);
-            var standardDeviation = BasicStatistics.CalculateNonZeroStandardDeviation(values);
-            var toProcess = values.ToArray();
+            var median = values.Median();
+            var standardDeviation = values.Where(p => p != 0).StandardDeviation();
+            double[] toProcess = new double[values.Count];
+            values.CopyTo(toProcess, 0);
             double winsorizedStandardDeviation;
+
             do // calculates a new median and standard deviation based on the values to do sigma clipping with (Huber loop)
             {
-                var medianLeftBound = median - 1.5 * standardDeviation;
+                var medianLeftBound = median - 1.5 * standardDeviation; // magic number 1.5: optimized parameter per the documentation this method was adapted from, see link at top of class
                 var medianRightBound = median + 1.5 * standardDeviation;
                 toProcess.Winsorize(medianLeftBound, medianRightBound);
                 median = toProcess.Median();
                 winsorizedStandardDeviation = standardDeviation;
-                standardDeviation = BasicStatistics.CalculateStandardDeviation(toProcess) * 1.134;
+                standardDeviation = toProcess.StandardDeviation() * 1.134; // magic number 1.134: optimized parameter per the documentation this method was adapted from, see link at top of class
             } while (Math.Abs(standardDeviation - winsorizedStandardDeviation) / winsorizedStandardDeviation >
                      iterationLimitForHuberLoop);
 
@@ -187,22 +191,31 @@ public static class OutlierRejection
     /// <param name="initialValues">list of mz values to evaluate</param>
     /// <param name="sValueMin">the lower limit of inclusion in sigma (standard deviation) units</param>
     /// <param name="sValueMax">the higher limit of inclusion in sigma (standard deviation) units</param>
+    /// <remarks>Documentation for averaged sigma clipping can be found here https://pixinsight.com/doc/tools/ImageIntegration/ImageIntegration.html#description_003</remarks>
     /// <returns></returns>
     private static double[] AveragedSigmaClipping(double[] initialValues, double sValueMin, double sValueMax)
     {
         var values = initialValues.ToList();
-        var median = BasicStatistics.CalculateNonZeroMedian(initialValues);
-        var deviation = BasicStatistics.CalculateNonZeroStandardDeviation(initialValues, median);
+        var median = initialValues.Median();
+
+        double sum = 0;
+        for (int i = 0; i < values.Count; i++)
+        {
+            sum += Math.Pow((values[i] - median), 2) / median;
+        }
+
+        double s = Math.Sqrt(sum / (double)(values.Count - 1));
+
         int n;
         do
         {
-            median = BasicStatistics.CalculateNonZeroMedian(values);
-            var standardDeviation = deviation * Math.Sqrt(median) / 10;
+            median = values.Where(p => p != 0).Median();
+            double sigma = s * Math.Sqrt(median);
 
             n = 0;
             for (var i = 0; i < values.Count; i++)
             {
-                if (SigmaClipping(values[i], median, standardDeviation, sValueMin, sValueMax))
+                if (SigmaClipping(values[i], median, sigma, sValueMin, sValueMax))
                 {
                     values.RemoveAt(i);
                     n++;
@@ -241,20 +254,17 @@ public static class OutlierRejection
     private static void Winsorize(this double[] initialValues, double medianLeftBound, double medianRightBound)
     {
         for (var i = 0; i < initialValues.Length; i++)
+        {
             if (initialValues[i] < medianLeftBound)
             {
-                if (i < initialValues.Length && initialValues.Any(p => p > medianLeftBound))
-                    initialValues[i] = initialValues.First(p => p > medianLeftBound);
-                else
-                    initialValues[i] = medianLeftBound;
+                initialValues[i] = medianLeftBound;
             }
-            else if (initialValues[i] > medianRightBound)
+
+            if (initialValues[i] > medianRightBound)
             {
-                if (i != 0 && initialValues.Any(p => p < medianRightBound))
-                    initialValues[i] = initialValues.Last(p => p < medianRightBound);
-                else
-                    initialValues[i] = medianRightBound;
+                initialValues[i] = medianRightBound;
             }
+        }
     }
 
     /// <summary>

@@ -1,13 +1,18 @@
-﻿using Proteomics.Fragmentation;
-using Proteomics.ProteolyticDigestion;
+﻿using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Omics;
+using Omics.Digestion;
+using Omics.Fragmentation;
+using Omics.Modifications;
+using MzLibUtil;
+using Easy.Common.Extensions;
 
 namespace Proteomics
 {
-    public class Protein
+    public class Protein : IBioPolymer
     {
         private List<ProteolysisProduct> _proteolysisProducts;
 
@@ -73,14 +78,14 @@ namespace Proteomics
 
         /// <summary>
         /// Protein construction that clones a protein but assigns a different base sequence
-        /// For use in SILAC experiments
+        /// For use in SILAC experiments and in decoy construction
         /// </summary>
         /// <param name="originalProtein"></param>
-        /// <param name="silacSequence"></param>
+        /// <param name="newBaseSequence"></param>
         /// <param name="silacAccession"></param>
-        public Protein(Protein originalProtein, string silacSequence)
+        public Protein(Protein originalProtein, string newBaseSequence)
         {
-            BaseSequence = silacSequence;
+            BaseSequence = newBaseSequence;
             Accession = originalProtein.Accession;
             NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
@@ -153,7 +158,7 @@ namespace Proteomics
         /// <summary>
         /// Base sequence, which may contain applied sequence variations.
         /// </summary>
-        public string BaseSequence { get; }
+        public string BaseSequence { get; private set; }
 
         public string Organism { get; }
         public bool IsDecoy { get; }
@@ -185,34 +190,15 @@ namespace Proteomics
 
         public double Probability { get; set; } // for protein pep project
 
-        public int Length
-        {
-            get
-            {
-                return BaseSequence.Length;
-            }
-        }
+        public int Length => BaseSequence.Length;
 
-        public string FullDescription
-        {
-            get
-            {
-                return Accession + "|" + Name + "|" + FullName;
-            }
-        }
+        public string FullDescription => Accession + "|" + Name + "|" + FullName;
 
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
         internal IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
-
-        public char this[int zeroBasedIndex]
-        {
-            get
-            {
-                return BaseSequence[zeroBasedIndex];
-            }
-        }
+        public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
@@ -222,6 +208,7 @@ namespace Proteomics
         {
             var n = GeneNames.FirstOrDefault();
             string geneName = n == null ? "" : n.Item2;
+
             return string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
         }
 
@@ -235,32 +222,51 @@ namespace Proteomics
 
         /// <summary>
         /// Gets peptides for digestion of a protein
+        /// Legacy
         /// </summary>
-        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
+        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams,
+            List<Modification> allKnownFixedModifications, List<Modification> variableModifications,
+            List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null,
+            bool topDownTruncationSearch = false) =>
+            Digest((IDigestionParams)digestionParams, allKnownFixedModifications, variableModifications, silacLabels, turnoverLabels, topDownTruncationSearch)
+                .Cast<PeptideWithSetModifications>();
+
+        /// <summary>
+        /// Gets peptides for digestion of a protein
+        /// Implemented with interfaces to allow for use of both Proteomics and Omics classes
+        /// </summary>
+        public IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false)
         {
+
+            if (digestionParams is not DigestionParams digestionParameters)
+                throw new ArgumentException(
+                    "DigestionParameters must be of type DigestionParams for protein digestion");
+
+
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
             // add in any modifications that are caused by protease digestion
-            if (digestionParams.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
+            if (digestionParameters.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParameters.Protease.CleavageMod))
             {
-                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);
+                allKnownFixedModifications.Add(digestionParameters.Protease.CleavageMod);
             }
             variableModifications = variableModifications ?? new List<Modification>();
-            CleavageSpecificity searchModeType = digestionParams.SearchModeType;
+            CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
 
-            ProteinDigestion digestion = new(digestionParams, allKnownFixedModifications, variableModifications);
+            ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
                     digestion.Digestion(this, topDownTruncationSearch);
 
-            if (digestionParams.KeepNGlycopeptide || digestionParams.KeepOGlycopeptide)
+            if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {
-                unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParams.KeepNGlycopeptide, digestionParams.KeepOGlycopeptide);
+                unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParameters.KeepNGlycopeptide, digestionParameters.KeepOGlycopeptide);
             }
 
-            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
+            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => 
+                peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParameters, variableModifications));
 
             //Remove terminal modifications (if needed)
             if (searchModeType == CleavageSpecificity.SingleN ||
@@ -273,7 +279,7 @@ namespace Proteomics
             //add silac labels (if needed)
             if (silacLabels != null)
             {
-                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
+                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParameters.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
             }
 
             return modifiedPeptides;
@@ -796,6 +802,162 @@ namespace Proteomics
                 string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
                 return name + variantTag;
             }
+        }
+
+        /// <summary>
+        /// This function takes in a decoy protein and a list of forbidden sequences that the decoy
+        /// protein should not contain. Optionally, a list of the peptides within the base sequence
+        /// of the decoy protein that need to be scrambled can be passed as well. It will scramble the required sequences,
+        /// leaving cleavage sites intact. 
+        /// </summary>
+        /// <param name="originalDecoyProtein"> A Decoy protein to be cloned </param>
+        /// <param name="digestionParams"> Digestion parameters </param>
+        /// <param name="forbiddenSequences"> A HashSet of forbidden sequences that the decoy protein should not contain. Typically, a set of target base sequences </param>
+        /// <param name="sequencesToScramble"> Optional IEnumberable of sequences within the decoy protein that need to be replaced.
+        ///                                     If this is passed, only sequences within the IEnumerable will be replaced!!! </param>
+        /// <returns> A cloned copy of the decoy protein with a scrambled sequence </returns>
+        public static Protein ScrambleDecoyProteinSequence(
+            Protein originalDecoyProtein,
+            DigestionParams digestionParams,
+            HashSet<string> forbiddenSequences,
+            IEnumerable<string> sequencesToScramble = null)
+        {
+            // If no sequencesToScramble are passed in, we check to see if any 
+            // peptides in the decoy are forbidden sequences
+            sequencesToScramble = sequencesToScramble ?? originalDecoyProtein
+                .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .Select(pep => pep.FullSequence)
+                .Where(forbiddenSequences.Contains);
+            if(sequencesToScramble.Count() == 0)
+            {
+                return originalDecoyProtein;
+            }
+
+            string scrambledProteinSequence = originalDecoyProtein.BaseSequence;
+            // Clone the original protein's modifications
+            var scrambledModificationDictionary = originalDecoyProtein.OriginalNonVariantModifications.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            Random rng = new Random(42);
+
+            // Start small and then go big. If we scramble a zero-missed cleavage peptide, but the missed cleavage peptide contains the previously scrambled peptide
+            // Then we can avoid unnecessary operations as the scrambledProteinSequence will no longer contain the longer sequence of the missed cleavage peptide
+            foreach(string peptideSequence in sequencesToScramble.OrderBy(seq => seq.Length))
+            {
+                if(scrambledProteinSequence.Contains(peptideSequence))
+                {
+                    string scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs, rng,
+                        out var swappedArray);
+                    int scrambleAttempts = 1;
+
+                    // Try five times to scramble the peptide sequence without creating a forbidden sequence
+                    while(forbiddenSequences.Contains(scrambledPeptideSequence) & scrambleAttempts <= 5)
+                    {
+                        scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs, rng,
+                            out swappedArray);
+                        scrambleAttempts++;
+                    }
+
+                    scrambledProteinSequence = scrambledProteinSequence.Replace(peptideSequence, scrambledPeptideSequence);
+
+                    if (!scrambledModificationDictionary.Any()) continue;
+
+                    // rearrange the modifications 
+                    foreach (int index in scrambledProteinSequence.IndexOfAll(scrambledPeptideSequence))
+                    {
+                        // Get mods that were affected by the scramble
+                        var relevantMods = scrambledModificationDictionary.Where(kvp => 
+                            kvp.Key >= index + 1 && kvp.Key < index + peptideSequence.Length + 1).ToList();
+
+                        // Modify the dictionary to reflect the new positions of the modifications
+                        foreach (var kvp in relevantMods)
+                        {
+                            int newKey = swappedArray[kvp.Key - 1 - index] + 1 + index;
+                            // To prevent collisions, we have to check if mods already exist at the new idx.
+                            if(scrambledModificationDictionary.TryGetValue(newKey, out var modsToSwap))
+                            {
+                                // If there are mods at the new idx, we swap the mods
+                                scrambledModificationDictionary[newKey] = kvp.Value;
+                                scrambledModificationDictionary[kvp.Key] = modsToSwap;
+                            }
+                            else
+                            {
+                                scrambledModificationDictionary.Add(newKey, kvp.Value);
+                                scrambledModificationDictionary.Remove(kvp.Key);
+                            }
+                        }
+                    }
+                }
+            }
+
+            Protein newProtein = new Protein(originalDecoyProtein, scrambledProteinSequence);
+
+            // Update the modifications using the scrambledModificationDictionary
+            newProtein.OriginalNonVariantModifications = scrambledModificationDictionary;
+            newProtein.OneBasedPossibleLocalizedModifications = newProtein.SelectValidOneBaseMods(scrambledModificationDictionary);
+            
+            return newProtein;
+        }
+
+        /// <summary>
+        /// Scrambles a peptide sequence, preserving the position of any cleavage sites.
+        /// </summary>
+        /// <param name="swappedPositionArray">An array that maps the previous position (index) to the new position (value)</param>
+        public static string ScrambleSequence(string sequence, List<DigestionMotif> motifs, Random rng, out int[] swappedPositionArray)
+        {
+            // First, find the location of every cleavage motif. These sites shouldn't be scrambled.
+            HashSet<int> zeroBasedCleavageSitesLocations = new();
+            foreach (var motif in motifs)
+            {
+                for (int i = 0; i < sequence.Length; i++)
+                {
+                    (bool fits, bool prevents) = motif.Fits(sequence, i);
+                    if (fits && !prevents)
+                    {
+                        zeroBasedCleavageSitesLocations.Add(i);
+                    }
+                }
+            }
+
+            // Next, scramble the sequence using the Fisher-Yates shuffle algorithm.
+            char[] sequenceArray = sequence.ToCharArray();
+            // We're going to keep track of the positions of the characters in the original sequence,
+            // This will enable us to adjust the location of modifications that are present in the original sequence
+            // to the new scrambled sequence.
+            int[] tempPositionArray = Enumerable.Range(0, sequenceArray.Length).ToArray();
+            int n = sequenceArray.Length;
+            while(n > 1)
+            {
+                n--;
+                if(zeroBasedCleavageSitesLocations.Contains(n))
+                {
+                    // Leave the cleavage site in place
+                    continue;
+                }
+                int k = rng.Next(n + 1);
+                // don't swap the position of a cleavage site
+                while(zeroBasedCleavageSitesLocations.Contains(k))
+                {
+                    k = rng.Next(n + 1);
+                }
+
+                // rearrange the sequence array
+                char tempResidue = sequenceArray[k];
+                sequenceArray[k] = sequenceArray[n];
+                sequenceArray[n] = tempResidue;
+
+                // update the position array to represent the swaps
+                int tempPosition = tempPositionArray[k];
+                tempPositionArray[k] = tempPositionArray[n];
+                tempPositionArray[n] = tempPosition;
+            }
+
+            // This maps the previous position (index) to the new position (value)
+            swappedPositionArray = new int[tempPositionArray.Length];
+            for (int i = 0; i < tempPositionArray.Length; i++)
+            {
+                swappedPositionArray[tempPositionArray[i]] = i;
+            }
+
+            return new string(sequenceArray);
         }
 
         public int CompareTo(Protein other)

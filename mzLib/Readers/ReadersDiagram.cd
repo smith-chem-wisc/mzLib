@@ -1,0 +1,157 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1" MembersFormat="NameAndType">
+  <Class Name="Readers.ResultFile&lt;TResult&gt;">
+    <Position X="8.75" Y="1.75" Width="3" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAEAABAAgAAAAAAACAAAAYQEAQBAAAAIAAA=</HashCode>
+      <FileName>ExternalResults\BaseClasses\ResultFile.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Readers.Ms1FeatureFile">
+    <Position X="8.5" Y="6.5" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAEAAAAAAAAAAAAAAAAAAQAAAQAAAAAAAAA=</HashCode>
+      <FileName>ExternalResults\ResultFiles\Ms1FeatureFile.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Readers.Ms2FeatureFile">
+    <Position X="5.75" Y="6.5" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAEAAAAAAAAAAAAAAAAAAQAAAQAAAAAAAAA=</HashCode>
+      <FileName>ExternalResults\ResultFiles\Ms2FeatureFile.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.1" />
+  </Class>
+  <Class Name="Readers.FlashDeconvMs1TsvFile">
+    <Position X="14" Y="6.5" Width="2.75" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAEAAAAAAAAAAAAAAAAAAQAAAQAAAAAAAAA=</HashCode>
+      <FileName>ExternalResults\ResultFiles\FlashDeconvMs1TsvFile.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Readers.TopFDMzrtFile">
+    <Position X="3.25" Y="6.5" Width="2.25" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAEAAAAAAAAAAAAAAAAAAQAAAQAAAAAAAAA=</HashCode>
+      <FileName>ExternalResults\ResultFiles\TopFDMzrtFile.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Readers.FlashDeconvTsvFile">
+    <Position X="11.25" Y="6.5" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAEAAAAAAAAAAAAAAAAAAQAAAQAAAAAAAAA=</HashCode>
+      <FileName>ExternalResults\ResultFiles\FlashDeconvTsvFile.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Readers.FlashDeconvMs1Tsv" BaseTypeListCollapsed="true">
+    <Position X="14" Y="9" Width="2.25" />
+    <TypeIdentifier>
+      <HashCode>gAAAAAIEAAAQBACAANEBARBEICkIQCAAAAEAMAAAAgA=</HashCode>
+      <FileName>ExternalResults\IndividualResultRecords\FlashDeconvMs1TsvRecord.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Readers.FlashDeconvTsv" BaseTypeListCollapsed="true">
+    <Position X="11.25" Y="9" Width="2.25" />
+    <TypeIdentifier>
+      <HashCode>AAAIAAAAAAACA4CAIAAAABAAByAoAAAQAAADEBgAAAA=</HashCode>
+      <FileName>ExternalResults\IndividualResultRecords\FlashDeconvTsvRecord.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Readers.Ms1Feature" BaseTypeListCollapsed="true">
+    <Position X="8.5" Y="9" Width="2" />
+    <TypeIdentifier>
+      <HashCode>AAACAAAAAAACAAAAAAAAAAQIAiAIAAAQAAgAADCACAA=</HashCode>
+      <FileName>ExternalResults\IndividualResultRecords\Ms1Feature.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Readers.Ms2Feature" BaseTypeListCollapsed="true">
+    <Position X="5.75" Y="9" Width="2" />
+    <TypeIdentifier>
+      <HashCode>AAIQCQAACAABABAAAAAAgAAEEAAIAAAAQAAAABBAACA=</HashCode>
+      <FileName>ExternalResults\IndividualResultRecords\Ms2Feature.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Readers.TopFdMzrt" BaseTypeListCollapsed="true">
+    <Position X="3.25" Y="9" Width="2" />
+    <TypeIdentifier>
+      <HashCode>ABQCEAACAAQIABCAAAAAAAAMAgAIAAAAAAAAABCAAAA=</HashCode>
+      <FileName>ExternalResults\IndividualResultRecords\TopFDMzrtRecord.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="IO.MzML.Mzml" Collapsed="true">
+    <Position X="20.75" Y="7.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>MzML\Mzml.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Readers.Mzml" Collapsed="true">
+    <Position X="20.75" Y="6.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>hGgABACMiIKGQRIBBjQIBAJAoBAAAAAEEIAEABARUAE=</HashCode>
+      <FileName>MzML\Mzml.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="IO.Mgf.Mgf" Collapsed="true">
+    <Position X="22.75" Y="7.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Mgf\Mgf.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Readers.Mgf" Collapsed="true">
+    <Position X="22.75" Y="6.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAIAAAAAAACEQgQABAAAAACAAAAAAAAAEAACAAAACAA=</HashCode>
+      <FileName>Mgf\Mgf.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="IO.ThermoRawFileReader.ThermoRawFileReader" Collapsed="true">
+    <Position X="24.75" Y="7.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Thermo\ThermoRawFileReader.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Readers.ThermoRawFileReader" Collapsed="true">
+    <Position X="24.75" Y="6.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>QAAAAgAAAAiEQAAABAAAQAJQABAgAAAAEAAAAAAAAAA=</HashCode>
+      <FileName>Thermo\ThermoRawFileReader.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Readers.BrukerFileReader" Collapsed="true">
+    <Position X="26.75" Y="6.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>YDAAQACCCmbEQIAETaIAgBQAACJAAEAAEEhQQAACJAA=</HashCode>
+      <FileName>Bruker\BrukerFileReader.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Readers.MsDataFileToResultFileAdapter">
+    <Position X="17.5" Y="6.5" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAGEQAAABAAAIAAACAAAAQAAEQBAAAAAAAA=</HashCode>
+      <FileName>ExternalResults\ResultFiles\MsDataFileToResultFileAdapter.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="MassSpectrometry.MsDataFile">
+    <Position X="22" Y="1" Width="1.5" />
+    <TypeIdentifier />
+  </Class>
+  <Interface Name="Readers.IResultFile">
+    <Position X="0.5" Y="6.5" Width="2.25" />
+    <TypeIdentifier>
+      <HashCode>AAAAAgAAAAEAAAAAAAAAAAAAAAAAAQAAAQBAAAAAAAA=</HashCode>
+      <FileName>ExternalResults\BaseClasses\IResultFile.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

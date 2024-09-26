@@ -19,6 +19,7 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -94,6 +95,18 @@ namespace Test
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H2O");
             ChemicalFormula formulaC = ChemicalFormula.ParseFormula("C2H5NO2");
+
+            formulaA.Add(formulaB);
+
+            Assert.AreEqual(formulaA, formulaC);
+        }
+
+        [Test]
+        public static void AddFormulasWithNegativeIsotopeValues()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("H-1N-1O");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H-1N-1O");
+            ChemicalFormula formulaC = ChemicalFormula.ParseFormula("H-2N-2O2");
 
             formulaA.Add(formulaB);
 
@@ -994,6 +1007,42 @@ namespace Test
         }
 
         [Test]
+        public static void TestAddChemicalFormulaOperator()
+        {
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{12}");
+
+            var addedFormula = formulaA + formulaB;
+            formulaB.Add(formulaA);
+
+            Assert.AreEqual("CC{12}", formulaB.Formula);
+            Assert.AreEqual("CC{12}", addedFormula.Formula);
+
+            var leftNull = null + formulaB;
+            Assert.AreEqual(formulaB, leftNull);
+
+            var rightNull = formulaB + null;
+            Assert.AreEqual(formulaB, rightNull);
+
+            ChemicalFormula nullFormula = null;
+            var bothNull = nullFormula + nullFormula;
+            Assert.AreEqual(null, bothNull);
+        }
+
+        [Test]
+        [TestCase("C", "N", "CN-1")]
+        [TestCase(null, "N", "N-1")]
+        [TestCase("C", null, "C")]
+        public static void TestSubtractChemicalFormulaOperator(string formA, string formB, string expected)
+        {
+            ChemicalFormula formulaA = formA == null ? null : ChemicalFormula.ParseFormula(formA);
+            ChemicalFormula formulaB = formB == null ? null : ChemicalFormula.ParseFormula(formB);
+
+            var subtractedFormula = formulaA - formulaB;
+            Assert.AreEqual(expected, subtractedFormula.Formula);
+        }
+
+        [Test]
         public static void NotEqual()
         {
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C15O15H15S15N15");
@@ -1045,9 +1094,9 @@ namespace Test
         {
             ChemicalFormula f = ChemicalFormula.ParseFormula("CO");
             f.Add("O", -10);
-            Assert.That(f.Formula == "C");
-            Assert.That(f.NumberOfUniqueElementsByAtomicNumber == 1);
-            Assert.That(f.MonoisotopicMass == 12);
+            Assert.That(f.Formula == "CO-9");
+            Assert.That(f.NumberOfUniqueElementsByAtomicNumber == 2);
+            Assert.That(f.MonoisotopicMass, Is.EqualTo(-131.95423157613).Within(0.001));
         }
 
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula

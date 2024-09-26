@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics.Statistics;
+﻿using Easy.Common.Extensions;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,20 +14,28 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
+        private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
 
-        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)
+        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, HashSet<string> peptides = null)
         {
             SpectraFiles = spectraFiles;
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
+            if(peptides == null || !peptides.Any())
+            {
+                peptides = identifications.Select(id => id.ModifiedSequence).ToHashSet();
+            }
+            _peptideModifiedSequencesToQuantify = peptides;
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
                 Peaks.Add(file, new List<ChromatographicPeak>());
             }
 
-            foreach (Identification id in identifications)
+
+            // Only quantify peptides within the set of valid peptide modified (full) sequences. This is done to enable pepitde-level FDR control of reported results
+            foreach (Identification id in identifications.Where(id => peptides.Contains(id.ModifiedSequence)))
             {
                 if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
                 {
@@ -104,7 +113,7 @@ namespace FlashLFQ
             }
         }
 
-        public void CalculatePeptideResults()
+        public void CalculatePeptideResults(bool quantifyAmbiguousPeptides)
         {
             foreach (var sequence in PeptideModifiedSequences)
             {
@@ -117,8 +126,11 @@ namespace FlashLFQ
 
             foreach (var filePeaks in Peaks)
             {
-                var groupedPeaks = filePeaks.Value.Where(p => p.NumIdentificationsByFullSeq == 1)
-                    .GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
+                var groupedPeaks = filePeaks.Value
+                    .Where(p => p.NumIdentificationsByFullSeq == 1)
+                    .GroupBy(p => p.Identifications.First().ModifiedSequence)
+                    .Where(group => _peptideModifiedSequencesToQuantify.Contains(group.Key))
+                    .ToList();
 
                 foreach (var sequenceWithPeaks in groupedPeaks)
                 {
@@ -149,7 +161,9 @@ namespace FlashLFQ
                 }
 
                 // report ambiguous quantification
-                var ambiguousPeaks = filePeaks.Value.Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
+                var ambiguousPeaks = filePeaks.Value
+                    .Where(p => p.NumIdentificationsByFullSeq > 1)
+                    .ToList();
                 foreach (ChromatographicPeak ambiguousPeak in ambiguousPeaks)
                 {
                     foreach (Identification id in ambiguousPeak.Identifications)
@@ -159,16 +173,34 @@ namespace FlashLFQ
                         double alreadyRecordedIntensity = PeptideModifiedSequences[sequence].GetIntensity(filePeaks.Key);
                         double fractionAmbiguous = ambiguousPeak.Intensity / (alreadyRecordedIntensity + ambiguousPeak.Intensity);
 
-                        if (fractionAmbiguous > 0.3)
+                        if (quantifyAmbiguousPeptides)
                         {
-                            PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, 0);
+                            // If the peptide intensity hasn't been recorded, the intensity is set equal to the intensity of the ambiguous peak
+                            if (Math.Abs(alreadyRecordedIntensity) < 0.01)
+                            {
+                                PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
+                                PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, ambiguousPeak.Intensity);
+                            }
+                            // If the peptide intensity has already been recorded, that value is retained. 
+                            else if (fractionAmbiguous > 0.3)
+                            {
+                                PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
+                            }
+                        }
+                        else if (fractionAmbiguous > 0.3)
+                        {
                             PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
+                            PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, 0);
                         }
                     }
                 }
+                
             }
 
-            HandleAmbiguityInFractions();
+            if (!quantifyAmbiguousPeptides)
+            {
+                HandleAmbiguityInFractions();
+            }
         }
 
         private void HandleAmbiguityInFractions()
@@ -517,7 +549,7 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent = true)
         {
             if (!silent)
             {

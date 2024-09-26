@@ -26,7 +26,7 @@ public static class MassSpectrometryExtensions
     }
 
     /// <summary>
-    ///     Average an enumerable of MsDataScans objects
+    /// Average an enumerable of MsDataScans objects
     /// </summary>
     /// <param name="scansToAverage">Scans to average</param>
     /// <param name="parameters">Options for how to average scans</param>
@@ -39,7 +39,7 @@ public static class MassSpectrometryExtensions
 
 
     /// <summary>
-    ///     Normalize a group of MzSpectrum
+    /// Normalize a group of MzSpectrum
     /// </summary>
     /// <param name="spectraToNormalize">spectra to normalize</param>
     /// <param name="type">normalization type</param>
@@ -50,7 +50,7 @@ public static class MassSpectrometryExtensions
     }
 
     /// <summary>
-    ///     Normalize a group of MsDataScans
+    /// Normalize a group of MsDataScans
     /// </summary>
     /// <param name="scansToNormalize">spectra to normalize</param>
     /// <param name="type">normalization type</param>
@@ -60,21 +60,41 @@ public static class MassSpectrometryExtensions
     }
 
     /// <summary>
-    ///     Absolute normalization of a MzSpectrum
+    /// Normalize MzSpectrum
     /// </summary>
-    /// <param name="spectrum"></param>
-    public static void NormalizeSpectrum(this MzSpectrum spectrum)
+    /// <param name="spectrum">Spectrum to normalized</param>
+    /// <param name="normalizationType">How To Normalize</param>
+    public static void NormalizeSpectrum(this MzSpectrum spectrum, NormalizationType normalizationType)
     {
         var yArrays = new[] { spectrum.YArray };
-        SpectraNormalization.NormalizeSpectra(yArrays, NormalizationType.AbsoluteToTic);
+        SpectraNormalization.NormalizeSpectra(yArrays, normalizationType);
     }
 
     /// <summary>
-    ///     Absolute normalization of a MsDataScan
+    /// Normalize a MsDataScan
     /// </summary>
-    /// <param name="scan"></param>
-    public static void NormalizeSpectrum(this MsDataScan scan)
+    /// <param name="scan">Scan to normalize</param>
+    /// <param name="normalizationType">How To Normalize</param>
+    public static void NormalizeSpectrum(this MsDataScan scan, NormalizationType normalizationType)
     {
-        scan.MassSpectrum.NormalizeSpectrum();
+        scan.MassSpectrum.NormalizeSpectrum(normalizationType);
+    }
+
+    /// <summary>
+    /// Converts an MzSpectrum y array to relative intensity
+    /// </summary>
+    /// <param name="spectrum">spectrum to convert</param>
+    public static void ToRelativeIntensity(this MzSpectrum spectrum)
+    {
+        spectrum.NormalizeSpectrum(NormalizationType.RelativeIntensity);
+    }
+
+    /// <summary>
+    /// Converts a MsDataScan to relative intensity
+    /// </summary>
+    /// <param name="scan">scan to convert</param>
+    public static void ToRelativeIntensity(this MsDataScan scan)
+    {
+        scan.MassSpectrum.ToRelativeIntensity();
     }
 }

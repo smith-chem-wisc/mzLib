@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Omics.Modifications;
 
 namespace Proteomics
 {
@@ -137,16 +138,17 @@ namespace Proteomics
         {
             return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
         }
-
+        // Commented out by AVC on 4/5/23. Unused and untested in current code base,
+        // but can't rule out that it could be useful in the future.  
         /// <summary>
         /// Determines whether this interval includes the queried interval
         /// </summary>
         /// <param name="segment"></param>
         /// <returns></returns>
-        internal bool Includes(ProteolysisProduct segment)
-        {
-            return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
-        }
+        // internal bool Includes(ProteolysisProduct segment)
+        // {
+        //     return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
+        // }
 
         /// <summary>
         /// Determines whether this interval overlaps the queried position

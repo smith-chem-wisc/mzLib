@@ -5,10 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using IO.MzML;
 using MassSpectrometry;
 using NUnit.Framework;
 using MzLibUtil;
+using Readers;
 using SpectralAveraging;
 
 namespace Test.AveragingTests
@@ -35,7 +35,8 @@ namespace Test.AveragingTests
         [OneTimeSetUp]
         public static void OneTimeSetup()
         {
-            ActualScans = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory,
+
+            ActualScans = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"AveragingTestData\TDYeastFractionMS1.mzML")).GetAllScansList().Take(25).ToList();
             double[] xArray = new double[] { 100.1453781, 200, 300, 400, 500, 600, 700, 800, 900.4123745 };
             double[] yArray1 = new double[] { 0, 5, 0, 0, 0, 0, 0, 10, 0, 0 };
@@ -128,8 +129,8 @@ namespace Test.AveragingTests
             foreach (var scan in scans)
             {
                 var spectra = new MzSpectrum(scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, true);
-                scan.NormalizeSpectrum();
-                spectra.NormalizeSpectrum();
+                scan.NormalizeSpectrum(NormalizationType.AbsoluteToTic);
+                spectra.NormalizeSpectrum(NormalizationType.AbsoluteToTic);
                 Assert.That(Math.Abs(scan.MassSpectrum.SumOfAllY - 1) < 0.0001);
                 Assert.That(Math.Abs(spectra.SumOfAllY - 1) < 0.0001);
             }

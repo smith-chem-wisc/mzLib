@@ -1,4 +1,4 @@
-﻿// opyright 2016 Stefan Solntsev
+﻿// Copyright 2016 Stefan Solntsev
 //
 // This file (ChemicalFormula.cs) is part of Chemistry Library.
 //
@@ -15,17 +15,20 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using NUnit.Framework.Legacy;
 
 namespace Test.DatabaseTests
 {
@@ -51,8 +54,8 @@ namespace Test.DatabaseTests
         [Test]
         public static void LoadIsoforms()
         {
-            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, 
-                false, out var errors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, 
+            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None,
+                false, out var errors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
             Assert.AreEqual("Q13409", protein[0].Accession);
             Assert.AreEqual("Q13409-2", protein[1].Accession);
@@ -77,6 +80,39 @@ namespace Test.DatabaseTests
             Assert.AreEqual("Q14103-2", proteinXml[7].Accession);
             Assert.AreEqual("Q14103-3", proteinXml[8].Accession);
             Assert.AreEqual("Q14103-4", proteinXml[9].Accession);
+        }
+
+        [Test]
+        [TestCase("cRAP_databaseGPTMD.xml", DecoyType.None)]
+        [TestCase("uniprot_aifm1.fasta", DecoyType.None)]
+        [TestCase("cRAP_databaseGPTMD.xml", DecoyType.Reverse)]
+        [TestCase("uniprot_aifm1.fasta", DecoyType.Reverse)]
+        public void LoadingIsReproducible(string fileName, DecoyType decoyType)
+        {
+            // Load in proteins
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", fileName);
+            List<Protein> proteins1 = null;
+            List<Protein> proteins2 = null;
+            if(fileName.Contains(".xml"))
+            {
+                proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out var unknownModifications);
+                proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out unknownModifications);
+            }
+            else if (fileName.Contains(".fasta"))
+            {
+                proteins1 = ProteinDbLoader.LoadProteinFasta(dbPath, true, decoyType, false, out var unknownModifications);
+                proteins2 = ProteinDbLoader.LoadProteinFasta(dbPath, true, decoyType, false, out unknownModifications);
+            }
+            else
+            {
+                Assert.Fail("Unknown file type");
+            }
+
+            // check are equivalent lists of proteins
+            Assert.AreEqual(proteins1.Count, proteins2.Count);
+            // Because decoys are written in a parallel environment, there is no guarantee that the orders will be the same
+            CollectionAssert.AreEquivalent(proteins1.Select(p => p.Accession), proteins2.Select(p => p.Accession));
+            CollectionAssert.AreEquivalent(proteins1.Select(p => p.BaseSequence), proteins2.Select(p => p.BaseSequence));
         }
 
         [Test]
@@ -144,7 +180,7 @@ namespace Test.DatabaseTests
 
                 string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
                 Assert.AreEqual(expected, sw.ToString());
-                sw.Close ();
+                sw.Close();
             }
 
             //create and empty obo that will be seen as different from the downloaded file and then be updated.
@@ -220,18 +256,18 @@ namespace Test.DatabaseTests
 
             // N6,N6,N6-trimethyllysine
             var trimethylLysine = psiMods.First(b => b.Id.Equals("MOD:00083"));
-            Assert.AreEqual("1+", 
+            Assert.AreEqual("1+",
                 trimethylLysine.ValuePairs
                     .First(b => b.Value.Contains("FormalCharge")).GetFormalChargeString());
 
             // Phosphoserine
             bool resultBool = psiMods.First(b => b.Id.Equals("MOD:00046"))
-                .ValuePairs.Any(i => i.Value.Contains("FormalCharge")); 
+                .ValuePairs.Any(i => i.Value.Contains("FormalCharge"));
             Assert.IsFalse(resultBool);
 
             // ensure that there are negative numbers in the formal charges
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiMods);
-            bool anyNegativeValue = formalChargesDictionary.Values.Any(i => i < 0); 
+            bool anyNegativeValue = formalChargesDictionary.Values.Any(i => i < 0);
             Assert.IsTrue(anyNegativeValue);
         }
 
@@ -744,7 +780,7 @@ namespace Test.DatabaseTests
             Assert.That(targetProtein.FullName == "Apoptosis-inducing factor 1, mitochondrial");
             Assert.That(targetProtein.Name == "AIFM1_MOUSE");
             Assert.That(targetProtein.Organism == "Mus musculus");
-                
+
             // gencode database
             fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "gencode_mmp20.fa");
             proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out errors);

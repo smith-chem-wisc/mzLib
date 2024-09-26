@@ -3,6 +3,7 @@ using Proteomics;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
+using Omics.Modifications;
 using UsefulProteomicsDatabases.Generated;
 
 namespace UsefulProteomicsDatabases

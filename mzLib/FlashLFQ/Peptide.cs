@@ -40,7 +40,7 @@ namespace FlashLFQ
             {
                 sb.Append("Detection Type_" + rawfile.FilenameWithoutExtension + "\t");
             }
-            return sb.ToString();
+            return sb.ToString().TrimEnd('\t');
         }
 
         public double GetIntensity(SpectraFileInfo fileInfo)

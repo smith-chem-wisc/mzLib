@@ -70,7 +70,7 @@ namespace FlashLFQ
                 }
             }
 
-            return sb.ToString();
+            return sb.ToString().TrimEnd('\t');
         }
 
         public string ToString(List<SpectraFileInfo> spectraFiles)

@@ -1,5 +1,5 @@
 ﻿using Chemistry;
-using IO.MzML;
+using Readers;
 using MassSpectrometry;
 using MzLibUtil;
 using NetSerializer;
@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using IO.ThermoRawFileReader;
 
 namespace FlashLFQ
 {
@@ -37,109 +36,15 @@ namespace FlashLFQ
             MsDataScan[] msDataScans = null;
 
             // read spectra file
-            var ext = Path.GetExtension(fileInfo.FullFilePathWithExtension).ToUpperInvariant();
-            if (ext == ".MZML")
-            {
-                try
-                {
-                    msDataScans = Mzml.LoadAllStaticData(fileInfo.FullFilePathWithExtension).GetAllScansList()
-                        .OrderBy(p => p.OneBasedScanNumber).ToArray();
-                }
-                catch (FileNotFoundException)
-                {
-                    if (!silent)
-                    {
-                        Console.WriteLine("\nCan't find .mzML file" + fileInfo.FullFilePathWithExtension + "\n");
-                    }
-
-                    return false;
-                }
-                catch (Exception e)
-                {
-                    if (!silent)
-                    {
-                        Console.WriteLine("Problem opening .mzML file " + fileInfo.FullFilePathWithExtension + "; " +
-                                          e.Message);
-                    }
-
-                    return false;
-                }
-
-                for (int i = 0; i < msDataScans.Length; i++)
-                {
-                    if (msDataScans[i].MsnOrder > 1)
-                    {
-                        msDataScans[i] = null;
-                    }
-                }
-            }
-            else if (ext == ".RAW")
-            {
-                var tempList = new List<MsDataScan>();
-                ThermoDynamicData dynamicConnection = null;
-
-                try
-                {
-                    dynamicConnection = new ThermoDynamicData(fileInfo.FullFilePathWithExtension);
-
-                    // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
-                    for (int i = 0; i < dynamicConnection.MsOrdersByScan.Length; i++)
-                    {
-                        if (dynamicConnection.MsOrdersByScan[i] == 1)
-                        {
-                            tempList.Add(dynamicConnection.GetOneBasedScanFromDynamicConnection(i + 1));
-                        }
-                        else
-                        {
-                            tempList.Add(null);
-                        }
-                    }
-
-                    dynamicConnection.CloseDynamicConnection();
-                }
-                catch (FileNotFoundException)
-                {
-                    if (dynamicConnection != null)
-                    {
-                        dynamicConnection.CloseDynamicConnection();
-                    }
-
-                    if (!silent)
-                    {
-                        Console.WriteLine("\nCan't find .raw file" + fileInfo.FullFilePathWithExtension + "\n");
-                    }
-
-                    return false;
-                }
-                catch (Exception e)
-                {
-                    if (dynamicConnection != null)
-                    {
-                        dynamicConnection.CloseDynamicConnection();
-                    }
-
-                    if (!silent)
-                    {
-                        throw new MzLibException("FlashLFQ Error: Problem opening .raw file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
-                    }
-                }
-
-                msDataScans = tempList.ToArray();
-            }
-            else
-            {
-                if (!silent)
-                {
-                    Console.WriteLine("Unsupported file type " + ext);
-                    return false;
-                }
-            }
-
-            if (!silent)
-            {
-                Console.WriteLine("Indexing MS1 peaks");
-            }
-
+            string fileName = fileInfo.FullFilePathWithExtension;
+            var reader = MsDataFileReader.GetDataFile(fileName); 
+            reader.LoadAllStaticData();
+            // retrieve only the ms1s. 
+            msDataScans = reader.GetMS1Scans().Where(i => i.MsnOrder == 1)
+                .Select(i => i)
+                .OrderBy(i => i.OneBasedScanNumber)
+                .ToArray(); 
+            
             if (!msDataScans.Any(p => p != null))
             {
                 _indexedPeaks = new List<IndexedMassSpectralPeak>[0];

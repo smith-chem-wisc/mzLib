@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using System.Collections.Generic;
+using System.Linq;
+
 namespace MzLibUtil
 {
     public class DoubleRange
@@ -134,6 +137,16 @@ namespace MzLibUtil
         public bool Contains(double item)
         {
             return CompareTo(item).Equals(0);
+        }
+
+        /// <summary>
+        /// Determines if a majority of the items are within the range of values
+        /// </summary>
+        /// <param name="items"></param>
+        /// <returns></returns>
+        public bool ContainsMajority(IEnumerable<double> items)
+        {
+            return items.Count(Contains) > items.Count() / 2;
         }
     }
 }
