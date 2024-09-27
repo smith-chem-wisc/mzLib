@@ -248,7 +248,7 @@ namespace UsefulProteomicsDatabases
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Name, Accession, Organism, rnaDbLocation, null,
-                    null, OneBasedModifications, isContaminant, false, null);
+                    null, OneBasedModifications, isContaminant, false, GeneNames, null);
             }
             Clear();
             return result;
