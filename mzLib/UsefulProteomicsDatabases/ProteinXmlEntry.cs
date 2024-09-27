@@ -406,19 +406,6 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static ModificationMotif GetMotif(string proteinSequence, int position)
-        {
-            string aminoAcid = proteinSequence.Substring(position - 1, 1);
-            if (ModificationMotif.TryGetMotif(aminoAcid, out ModificationMotif motif))
-            {
-                return motif;
-            }
-            else
-            {
-                return null;
-            }
-        }
-
         /// <summary>
         /// Finish parsing a database reference element
         /// </summary>
