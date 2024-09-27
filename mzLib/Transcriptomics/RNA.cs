@@ -35,10 +35,10 @@ namespace Transcriptomics
         public RNA(string sequence, string name, string identifier, string organism, string databaseFilePath,
             IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleModifications = null,
-            bool isContaminant = false, bool isDecoy = false,
+            bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>> geneNames = null,
             Dictionary<string, string>? databaseAdditionalFields = null)
             : base(sequence, name, identifier, organism, databaseFilePath, fivePrimeTerminus, threePrimeTerminus,
-                oneBasedPossibleModifications, isContaminant, isDecoy, databaseAdditionalFields)
+                oneBasedPossibleModifications, isContaminant, isDecoy, geneNames, databaseAdditionalFields)
         {
 
         }

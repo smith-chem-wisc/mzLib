@@ -240,7 +240,7 @@ namespace Test.Transcriptomics
             };
 
             var rna = new RNA("GAACUG", "name", "accession", "organism", "databaseFilePath",
-                null, null, oneBasedPossibleLocalizedModifications, false, false,
+                null, null, oneBasedPossibleLocalizedModifications, false, false, new List<Tuple<string, string>>(),
                 new Dictionary<string, string>());
             var oligos = rna
                 .Digest(new RnaDigestionParams(maxMods: 1), new List<Modification>(), mods)
