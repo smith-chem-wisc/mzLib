@@ -248,7 +248,7 @@ namespace UsefulProteomicsDatabases
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Name, Accession, Organism, rnaDbLocation, null,
-                    null, OneBasedModifications, isContaminant, false, null);
+                    null, OneBasedModifications, isContaminant, false, GeneNames, null);
             }
             Clear();
             return result;
@@ -403,19 +403,6 @@ namespace UsefulProteomicsDatabases
                         unknownModifications.Add(annotatedId, new Modification(annotatedId));
                     }
                 }
-            }
-        }
-
-        private static ModificationMotif GetMotif(string proteinSequence, int position)
-        {
-            string aminoAcid = proteinSequence.Substring(position - 1, 1);
-            if (ModificationMotif.TryGetMotif(aminoAcid, out ModificationMotif motif))
-            {
-                return motif;
-            }
-            else
-            {
-                return null;
             }
         }
 

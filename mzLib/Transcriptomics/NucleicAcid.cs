@@ -61,7 +61,7 @@ namespace Transcriptomics
         protected NucleicAcid(string sequence, string name, string identifier, string organism, string databaseFilePath,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
-            bool isContaminant = false, bool isDecoy = false,
+            bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>>? geneNames = null,
             Dictionary<string, string>? additionalDatabaseFields = null)
             : this(sequence, fivePrimeTerm, threePrimeTerm, oneBasedPossibleLocalizedModifications)
         {
@@ -72,6 +72,7 @@ namespace Transcriptomics
             Organism = organism;
             Accession = identifier;
             AdditionalDatabaseFields = additionalDatabaseFields;
+            GeneNames = geneNames ?? new List<Tuple<string, string>>();
         }
 
         #endregion
