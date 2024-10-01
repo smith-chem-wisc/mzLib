@@ -26,8 +26,8 @@ namespace FlashLFQ.PEP
         /// This method contains the hyper-parameters that will be used when training the machine learning model
         /// </summary>
         /// <returns> Options object to be passed in to the FastTree constructor </returns>
-        public Microsoft.ML.Trainers.FastTree.FastTreeBinaryTrainer.Options BGDTreeOptions =>
-            new Microsoft.ML.Trainers.FastTree.FastTreeBinaryTrainer.Options
+        public FastTreeBinaryTrainer.Options BGDTreeOptions =>
+            new FastTreeBinaryTrainer.Options
             {
                 NumberOfThreads = 1,
                 NumberOfTrees = 100,
@@ -415,6 +415,11 @@ namespace FlashLFQ.PEP
             return groupsOfIndices;
         }
 
+        /// <summary>
+        /// Takes in a list of donor groups and a list of indices for each group, and swaps two groups of indices
+        /// Updates the targetSurplus and decoySurplus variables
+        /// Updates the swappedDonors hash set to keep track of which donors have been swapped
+        /// </summary>
         public static void GroupSwap(
             List<DonorGroup> donors, 
             List<int>[] groupsOfIndices, 
@@ -422,12 +427,15 @@ namespace FlashLFQ.PEP
             int donorIndexB,
             int groupsOfIndicesIndex,
             double scoreCutoff,
+            HashSet<int> swappedDonors,
             ref int targetSurplus,
             ref int decoySurplus)
         {
+            // Multiply by two because the surplus is the difference between the two groups
+            // So removing one peak from one group and adding it to the other group is a difference of two
             targetSurplus += 2 * (
-                donors[donorIndexB].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) -
-                donors[donorIndexA].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff));
+                donors[donorIndexB].TargetAcceptors.Count(peak => peak.MbrScore >= scoreCutoff) -
+                donors[donorIndexA].TargetAcceptors.Count(peak => peak.MbrScore >= scoreCutoff));
             decoySurplus += 2 * (
                 donors[donorIndexB].DecoyAcceptors.Count -
                 donors[donorIndexA].DecoyAcceptors.Count);
@@ -438,34 +446,42 @@ namespace FlashLFQ.PEP
             groupsOfIndices[groupsOfIndicesIndex + 1].Remove(donorIndexB);
         }
 
-        public static void EqualizeDonorGroupIndices(List<DonorGroup> donors, int numGroups, List<int>[] groupsOfIndices, double scoreCutoff)
+        /// <summary>
+        /// Equalizes partitions used for cross-validation. The goal is to have the same number of targets and decoys in each partition
+        /// </summary>
+        /// <param name="donors"> List of all DonorGroups to be classified</param>
+        /// <param name="groupsOfIndices">An array of lists. Each list contains the indices of donor groups for a given partition </param>
+        /// <param name="scoreCutoff"> The MBR Score cutoff that determines which MBR target peaks will be used as positive training examples</param>
+        /// /// <param name="numGroups">Number of groups used for cross-validation, default = 3 </param>
+        public static void EqualizeDonorGroupIndices(List<DonorGroup> donors, List<int>[] groupsOfIndices, double scoreCutoff, int numGroups = 3)
         {
-            // We're trying to equalize the number of targets and decoys in each group
-            // This is going to be extremely cursed
+            // Outer loop iterates over the groups of indices (partitions)
             for (int i = 0; i < numGroups - 1; i++)
             {
-                int targets1 = 0;
-                int targets2 = 0;
-                int decoys1 = 0;
-                int decoys2 = 0;
+                int targetsA = 0;
+                int targetsB = 0;
+                int decoysA = 0;
+                int decoysB = 0;
                 foreach (int index in groupsOfIndices[i])
                 {
-                    targets1 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff);
-                    decoys1 += donors[index].DecoyAcceptors.Count;
+                    targetsA += donors[index].TargetAcceptors.Count(peak => peak.MbrScore >= scoreCutoff);
+                    decoysA += donors[index].DecoyAcceptors.Count;
                 }
                 foreach (int index in groupsOfIndices[i + 1])
                 {
-                    targets2 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff);
-                    decoys2 += donors[index].DecoyAcceptors.Count;
+                    targetsB += donors[index].TargetAcceptors.Count(peak => peak.MbrScore >= scoreCutoff);
+                    decoysB += donors[index].DecoyAcceptors.Count;
                 }
 
                 bool stuck = false;
                 int minIndex = groupsOfIndices[i].Min();
-
                 int totalIterations = 0;
 
-                int targetSurplus = targets1 - targets2;
-                int decoySurplus = decoys1 - decoys2;
+                // Calculate the difference in targets and decoys between the two groups
+                int targetSurplus = targetsA - targetsB;
+                int decoySurplus = decoysA - decoysB;
+
+                HashSet<int> swappedDonors = new HashSet<int>(); // Keep track of everything we've swapped so we don't swap it again
                 while ((Math.Abs(targetSurplus) > 1 | Math.Abs(decoySurplus) > 1)
                     && !stuck)
                 {
@@ -476,169 +492,118 @@ namespace FlashLFQ.PEP
                     totalIterations++;
                     bool swapped = false;
 
-
                     // start from the bottom of group 1, trying to swap peaks.
-                    // Lets do targets first
-                    int innerIterations = 0;
-                    while (Math.Abs(targetSurplus) > 1 & !stuck & innerIterations < 25)
+                    // If group 1 has more targets than group 2, we want to swap groups to equalize the number of targets in each group
+                    while (Math.Abs(targetSurplus) > 1 & !stuck)
                     {
-                        innerIterations++;
                         swapped = false;
-                        foreach (int index in groupsOfIndices[i].OrderByDescending(idx => idx))
+                        // Traverse the list of donor indices in descending order, looking for a good candidate to swap
+                        foreach (int donorIndexA in groupsOfIndices[i].Where(idx => !swappedDonors.Contains(idx)).OrderByDescending(idx => idx))
                         {
-                            if (targetSurplus > 0)
+                            int donorIndexATargetCount = donors[donorIndexA].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff);
+                            switch (targetSurplus > 0)
                             {
-                                if (donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) > 1)  // if we have a positive number of targets
-                                {
-                                    foreach (int jndex in groupsOfIndices[i + 1].OrderByDescending(idx => idx))
+                                case true: // i.e., too many targets
+                                    if (donorIndexATargetCount < 1) break; // No targets to swap
+                                    foreach (int donorIndexB in groupsOfIndices[i + 1].Where(idx => !swappedDonors.Contains(idx)).OrderByDescending(idx => idx))
                                     {
-                                        if (donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) < donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff))
+                                        if (donors[donorIndexB].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) < donorIndexATargetCount)
                                         {
-                                            // Multiply by two because the surplus is the difference between the two groups
-                                            // So removing one peak from one group and adding it to the other group is a difference of two
-                                            targetSurplus += 2 * (
-                                                donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) -
-                                                donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff));
-                                            decoySurplus += 2 * (
-                                                donors[jndex].DecoyAcceptors.Count -
-                                                donors[index].DecoyAcceptors.Count);
-
-                                            groupsOfIndices[i].Add(jndex);
-                                            groupsOfIndices[i].Remove(index);
-
-                                            groupsOfIndices[i + 1].Add(index);
-                                            groupsOfIndices[i + 1].Remove(jndex);
-
+                                            GroupSwap(donors, groupsOfIndices, donorIndexA, donorIndexB, i, scoreCutoff, swappedDonors, ref targetSurplus, ref decoySurplus);
                                             swapped = true;
                                             break;
                                         }
                                     }
-                                }
-                            }
-                            else if (targetSurplus < 0)
-                            {
-                                foreach (int jndex in groupsOfIndices[i + 1].OrderByDescending(idx => idx))
-                                {
-                                    if (donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) > donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff))
+                                    break;
+                                case false: // i.e., too few targets
+                                    foreach (int donorIndexB in groupsOfIndices[i + 1].Where(idx => !swappedDonors.Contains(idx)).OrderByDescending(idx => idx))
                                     {
-                                        targetSurplus += 2 * (
-                                                donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) -
-                                                donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff));
-                                        decoySurplus += 2 * (
-                                            donors[jndex].DecoyAcceptors.Count -
-                                            donors[index].DecoyAcceptors.Count);
-
-                                        groupsOfIndices[i].Add(jndex);
-                                        groupsOfIndices[i].Remove(index);
-                                        groupsOfIndices[i + 1].Add(index);
-                                        groupsOfIndices[i + 1].Remove(jndex);
-
-                                        swapped = true;
-                                        break;
+                                        if (donors[donorIndexB].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) > donorIndexATargetCount)
+                                        {
+                                            GroupSwap(donors, groupsOfIndices, donorIndexA, donorIndexB, i, scoreCutoff, swappedDonors, ref targetSurplus, ref decoySurplus);
+                                            swapped = true;
+                                            break;
+                                        }
                                     }
-                                }
+                                    break;
                             }
-                            if (swapped == true)
-                            {
-                                break;
-                            }
-                            if (index == minIndex)
+
+                            // If we reach the index of the list of donorGroups, set stuck to true so that the outer loop will break
+                            if (donorIndexA == minIndex)
                             {
                                 stuck = true;
                                 break;
                             }
+                            if (swapped)
+                                break;
+                            
                         }
                     }
 
-                    innerIterations = 0;
                     // Now we'll do the decoys
-                    while (Math.Abs(decoySurplus) > 1 & !stuck & innerIterations < 25)
+                    while (Math.Abs(decoySurplus) > 1 & !stuck)
                     {
-                        innerIterations++;
                         swapped = false;
-                        foreach (int index in groupsOfIndices[i].OrderByDescending(idx => idx))
+                        foreach (int donorIndexA in groupsOfIndices[i].Where(idx => !swappedDonors.Contains(idx)).OrderByDescending(idx => idx))
                         {
-                            if (decoySurplus > 0)
+                            int donorIndexADecoyCount = donors[donorIndexA].DecoyAcceptors.Count();
+                            switch (decoySurplus > 0)
                             {
-                                if (donors[index].DecoyAcceptors.Count > 1) // if we have enough decoys to get rid of
-                                {
-                                    foreach (int jndex in groupsOfIndices[i + 1].OrderByDescending(idx => idx))
+                                case true: // i.e., too many decoys
+                                    if (donorIndexADecoyCount < 1) break; // No decoys to swap
+                                    foreach (int donorIndexB in groupsOfIndices[i + 1].Where(idx => !swappedDonors.Contains(idx)).OrderByDescending(idx => idx))
                                     {
-                                        if (donors[jndex].DecoyAcceptors.Count < donors[index].DecoyAcceptors.Count
-                                            && donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) == donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff))
+                                        if (donors[donorIndexB].DecoyAcceptors.Count() < donorIndexADecoyCount)
                                         {
-                                            targetSurplus += 2 * (
-                                                donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) -
-                                                donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff));
-                                            decoySurplus += 2 * (
-                                                donors[jndex].DecoyAcceptors.Count -
-                                                donors[index].DecoyAcceptors.Count);
-
-                                            groupsOfIndices[i].Add(jndex);
-                                            groupsOfIndices[i].Remove(index);
-                                            groupsOfIndices[i + 1].Add(index);
-                                            groupsOfIndices[i + 1].Remove(jndex);
-
+                                            GroupSwap(donors, groupsOfIndices, donorIndexA, donorIndexB, i, scoreCutoff, swappedDonors, ref targetSurplus, ref decoySurplus);
                                             swapped = true;
                                             break;
                                         }
                                     }
-                                }
-                            }
-                            else if (decoySurplus < 0)
-                            {
-                                foreach (int jndex in groupsOfIndices[i + 1].OrderByDescending(idx => idx))
-                                {
-                                    if (donors[jndex].DecoyAcceptors.Count > donors[index].DecoyAcceptors.Count
-                                        && donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) == donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff))
+                                    break;
+                                case false: // i.e., too few decoys
+                                    foreach (int donorIndexB in groupsOfIndices[i + 1].Where(idx => !swappedDonors.Contains(idx)).OrderByDescending(idx => idx))
                                     {
-                                        targetSurplus += 2 * (
-                                                donors[jndex].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff) -
-                                                donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff));
-                                        decoySurplus += 2 * (
-                                            donors[jndex].DecoyAcceptors.Count -
-                                            donors[index].DecoyAcceptors.Count);
-
-                                        groupsOfIndices[i].Add(jndex);
-                                        groupsOfIndices[i].Remove(index);
-                                        groupsOfIndices[i + 1].Add(index);
-                                        groupsOfIndices[i + 1].Remove(jndex);
-
-                                        swapped = true;
-                                        break;
+                                        if (donors[donorIndexB].DecoyAcceptors.Count() > donorIndexADecoyCount)
+                                        {
+                                            GroupSwap(donors, groupsOfIndices, donorIndexA, donorIndexB, i, scoreCutoff, swappedDonors, ref targetSurplus, ref decoySurplus);
+                                            swapped = true;
+                                            break;
+                                        }
                                     }
-                                }
+                                    break;
                             }
-                            if (swapped)
-                            {
-                                break;
-                            }
-                            if (index == minIndex)
+
+                            // If we reach the index of the list of donorGroups, set stuck to true so that the outer loop will break
+                            if (donorIndexA == minIndex)
                             {
                                 stuck = true;
                                 break;
                             }
+                            if (swapped)
+                                break;
                         }
                     }
                 }
 
-                targets1 = 0;
-                targets2 = 0;
-                decoys1 = 0;
-                decoys2 = 0;
+                // this is for testing only
+                targetsA = 0;
+                targetsB = 0;
+                decoysA = 0;
+                decoysB = 0;
                 foreach (int index in groupsOfIndices[i])
                 {
-                    targets1 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff);
-                    decoys1 += donors[index].DecoyAcceptors.Count;
+                    targetsA += donors[index].TargetAcceptors.Count(peak => peak.MbrScore >= scoreCutoff);
+                    decoysA += donors[index].DecoyAcceptors.Count;
                 }
                 foreach (int index in groupsOfIndices[i + 1])
                 {
-                    targets2 += donors[index].TargetAcceptors.Count(peak => peak.MbrScore > scoreCutoff);
-                    decoys2 += donors[index].DecoyAcceptors.Count;
+                    targetsB += donors[index].TargetAcceptors.Count(peak => peak.MbrScore >= scoreCutoff);
+                    decoysB += donors[index].DecoyAcceptors.Count;
                 }
+                decoysB += 1;
+                // end testing only code
             }
-
-            return new List<int>[numGroups];
         }
 
         public IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)

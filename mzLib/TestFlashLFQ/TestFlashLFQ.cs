@@ -1384,7 +1384,6 @@ namespace Test
             Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
             Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
 
-
             // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
             List<(double, double)> peptideIntensities = f1r1MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();
             double corrRun1 = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
