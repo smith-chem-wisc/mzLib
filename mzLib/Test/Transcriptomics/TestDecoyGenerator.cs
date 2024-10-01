@@ -250,7 +250,6 @@ namespace Test.Transcriptomics
             var clonedOligo =  oligos.First().CreateNew(null, null, true);
 
             // ensure they are identical except for the isDecoy field
-            // ensure they are identical except for the isDecoy field
             Assert.That(rna.BaseSequence, Is.EqualTo(clonedRna.BaseSequence));
             Assert.That(rna.OneBasedPossibleLocalizedModifications, Is.EqualTo(clonedRna.OneBasedPossibleLocalizedModifications));
             Assert.That(rna.IsDecoy, Is.Not.EqualTo(clonedRna.IsDecoy));
@@ -260,6 +259,22 @@ namespace Test.Transcriptomics
             Assert.That(oligos.First().Parent.IsDecoy, Is.Not.EqualTo(clonedOligo.Parent.IsDecoy));
 
 
+            var newMods = new Dictionary<int, List<Modification>>()
+            {
+                { 1, new List<Modification>() { modDict["Sodium on A"] } },
+                { 2, new List<Modification>() { modDict["Sodium on A"] } },
+                { 3, new List<Modification>() { modDict["Sodium on A"] } },
+            };
+            clonedRna = rna.CreateNew("AAAAAA", newMods, null);
+            clonedOligo = oligos.First().CreateNew("AAAAAA", newMods, null);
+
+            Assert.That(rna.BaseSequence, Is.Not.EqualTo(clonedRna.BaseSequence));
+            Assert.That(rna.OneBasedPossibleLocalizedModifications, Is.Not.EqualTo(clonedRna.OneBasedPossibleLocalizedModifications));
+            Assert.That(rna.IsDecoy, Is.EqualTo(clonedRna.IsDecoy));
+
+            Assert.That(oligos.First().BaseSequence, Is.Not.EqualTo(clonedOligo.BaseSequence));
+            Assert.That(oligos.First().OneBasedPossibleLocalizedModifications, Is.Not.EqualTo(clonedOligo.OneBasedPossibleLocalizedModifications));
+            Assert.That(oligos.First().Parent.IsDecoy, Is.EqualTo(clonedOligo.Parent.IsDecoy));
         }
     }
 }

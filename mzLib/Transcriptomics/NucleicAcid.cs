@@ -3,6 +3,7 @@ using Omics.Digestion;
 using Omics.Modifications;
 using Omics;
 using System.Text;
+using MzLibUtil;
 using Transcriptomics.Digestion;
 
 namespace Transcriptomics
@@ -186,8 +187,8 @@ namespace Transcriptomics
             bool topDownTruncationSearch = false)
         {
             if (digestionParameters is not RnaDigestionParams digestionParams)
-                throw new ArgumentException(
-                    "DigestionParameters must be of type DigestionParams for protein digestion");
+                throw new MzLibException(
+                    "DigestionParameters must be of type DigestionParams for protein digestion", new ArgumentException());
             allKnownFixedMods ??= new();
             variableModifications ??= new();
 
@@ -220,10 +221,11 @@ namespace Transcriptomics
 
         public IEnumerable<double> GetElectrospraySeries(int minCharge, int maxCharge)
         {
-            for (int i = minCharge; i < maxCharge; i++)
-            {
-                yield return this.ToMz(i);
-            }
+            if (minCharge > maxCharge)
+                (minCharge, maxCharge) = (maxCharge, minCharge);
+            
+            for (int i = maxCharge; i > minCharge - 1; i--)
+                yield return this.ToMz(i); 
         }
 
         #endregion

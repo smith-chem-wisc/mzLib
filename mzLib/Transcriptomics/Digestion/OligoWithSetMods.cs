@@ -342,7 +342,7 @@ namespace Transcriptomics.Digestion
                         catch (Exception e)
                         {
                             throw new MzLibUtil.MzLibException(
-                                "Error while trying to parse string into peptide: " + e.Message);
+                                "Error while trying to parse string into peptide: " + e.Message, e);
                         }
 
                         if (!idToMod.TryGetValue(modId, out Modification mod))
@@ -351,7 +351,7 @@ namespace Transcriptomics.Digestion
                                 "Could not find modification while reading string: " + FullSequence);
                         }
 
-                        if (mod.LocationRestriction.Contains("C-terminal.") && r == FullSequence.Length - 1)
+                        if (mod.LocationRestriction.Contains("3'-terminal.") && r == FullSequence.Length - 1)
                         {
                             currentModificationLocation = BaseSequence.Length + 2;
                         }

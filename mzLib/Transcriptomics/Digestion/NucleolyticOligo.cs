@@ -46,7 +46,7 @@ namespace Transcriptomics.Digestion
         /// <remarks>
         /// Code heavily borrowed from ProteolyticPeptide.GetModifiedPeptides
         /// </remarks>
-        internal IEnumerable<OligoWithSetMods> GenerateModifiedOligos(IEnumerable<Modification> allKnownFixedMods,
+        internal IEnumerable<OligoWithSetMods> GenerateModifiedOligos(List<Modification> allKnownFixedMods,
             RnaDigestionParams digestionParams, List<Modification> variableModifications)
         {
             int oligoLength = OneBasedEndResidue - OneBasedStartResidue + 1;
@@ -63,7 +63,7 @@ namespace Transcriptomics.Digestion
             // collect all possible variable mods, skipping if there is a database annotated modification
             foreach (Modification variableModification in variableModifications)
             {
-                // Check if can be a n-term mod
+                // Check if can be a 5'-term mod
                 if (CanBeFivePrime(variableModification, oligoLength) && !ModificationLocalization.UniprotModExists(NucleicAcid, 1, variableModification))
                 {
                     fivePrimeVariableMods.Add(variableModification);
@@ -86,7 +86,7 @@ namespace Transcriptomics.Digestion
                         }
                     }
                 }
-                // Check if can be a c-term mod
+                // Check if can be a 3'-term mod
                 if (CanBeThreePrime(variableModification, oligoLength) && !ModificationLocalization.UniprotModExists(NucleicAcid, oligoLength, variableModification))
                 {
                     threePrimeVariableMods.Add(variableModification);
@@ -107,7 +107,7 @@ namespace Transcriptomics.Digestion
                 {
                     if (modWithMass is Modification variableModification)
                     {
-                        // Check if can be a n-term mod
+                        // Check if can be a 5'-term mod
                         if (locInPeptide == 1 && CanBeFivePrime(variableModification, oligoLength) && !NucleicAcid.IsDecoy)
                         {
                             fivePrimeVariableMods.Add(variableModification);
@@ -130,7 +130,7 @@ namespace Transcriptomics.Digestion
                             }
                         }
 
-                        // Check if can be a c-term mod
+                        // Check if can be a 3'-term mod
                         if (locInPeptide == oligoLength && CanBeThreePrime(variableModification, oligoLength) && !NucleicAcid.IsDecoy)
                         {
                             threePrimeVariableMods.Add(variableModification);
@@ -139,24 +139,24 @@ namespace Transcriptomics.Digestion
                 }
             }
 
-            int variable_modification_isoforms = 0;
+            int variableModificationIsoforms = 0;
 
             // Add the mods to the oligo by return numerous OligoWithSetMods
-            foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength))
+            foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength))
             {
                 int numFixedMods = 0;
-                foreach (var ok in GetFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods))
+                foreach (var fixedModPattern in GetFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods))
                 {
-                    if (!kvp.ContainsKey(ok.Key))
+                    if (!variableModPattern.ContainsKey(fixedModPattern.Key))
                     {
                         numFixedMods++;
-                        kvp.Add(ok.Key, ok.Value);
+                        variableModPattern.Add(fixedModPattern.Key, fixedModPattern.Value);
                     }
                 }
                 yield return new OligoWithSetMods(NucleicAcid, digestionParams, OneBasedStartResidue, OneBasedEndResidue, MissedCleavages,
-                    CleavageSpecificityForFdrCategory, kvp, numFixedMods, _fivePrimeTerminus, _threePrimeTerminus);
-                variable_modification_isoforms++;
-                if (variable_modification_isoforms == maximumVariableModificationIsoforms)
+                    CleavageSpecificityForFdrCategory, variableModPattern, numFixedMods, _fivePrimeTerminus, _threePrimeTerminus);
+                variableModificationIsoforms++;
+                if (variableModificationIsoforms == maximumVariableModificationIsoforms)
                 {
                     yield break;
                 }

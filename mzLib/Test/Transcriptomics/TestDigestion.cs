@@ -512,6 +512,7 @@ namespace Test.Transcriptomics
             Assert.That(oligoWithSetMods.NumMods, Is.EqualTo(1));
             Assert.That(oligoWithSetMods.NumFixedMods, Is.EqualTo(1));
             Assert.That(oligoWithSetMods.NumVariableMods, Is.EqualTo(0));
+            Assert.That(oligoWithSetMods.CleavageSpecificityForFdrCategory, Is.EqualTo(CleavageSpecificity.Full));
 
             var formula = oligoWithSetMods.ThisChemicalFormula;
             Assert.That(formula, Is.EqualTo(rnaFormula + sodiumAdduct.ChemicalFormula));
@@ -580,6 +581,7 @@ namespace Test.Transcriptomics
             Assert.That(digestionParams.MaxLength, Is.EqualTo(cloned.MaxLength));
             Assert.That(digestionParams.MaxMods, Is.EqualTo(cloned.MaxMods));
             Assert.That(digestionParams.FragmentationTerminus, Is.Not.EqualTo(cloned.FragmentationTerminus));
+            Assert.That(digestionParams.SearchModeType, Is.EqualTo(CleavageSpecificity.Full));
             Assert.That(cloned.FragmentationTerminus, Is.EqualTo(FragmentationTerminus.C));
 
             // do not set new terminus, all values are retained
@@ -590,6 +592,7 @@ namespace Test.Transcriptomics
             Assert.That(digestionParams.MaxLength, Is.EqualTo(cloned.MaxLength));
             Assert.That(digestionParams.MaxMods, Is.EqualTo(cloned.MaxMods));
             Assert.That(digestionParams.FragmentationTerminus, Is.EqualTo(cloned.FragmentationTerminus));
+            Assert.That(digestionParams.SearchModeType, Is.EqualTo(CleavageSpecificity.Full));
             Assert.That(cloned.FragmentationTerminus, Is.EqualTo(FragmentationTerminus.Both));
         }
 
@@ -651,25 +654,53 @@ namespace Test.Transcriptomics
             }
         }
 
+        [Test]
+        public static void TestNucleicAcid_Digestion_Exception()
+        {
+            IDigestionParams digestionParams = new Proteomics.ProteolyticDigestion.DigestionParams();
+            var rna = new RNA("GUACUGGUACUG");
+
+            try
+            {
+                var result = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>());
+            }
+            catch (Exception e)
+            {
+                Assert.That(e, Is.TypeOf<MzLibException>());
+                Assert.That(e.InnerException, Is.TypeOf<ArgumentException>());
+            }
+        }
+
         #endregion
 
         #region Digestion with Modifications
 
+        public static List<Modification> SodiumAdducts =>
+            PtmListLoader.ReadModsFromString("ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//",
+                    out List<(Modification, string)> mods).ToList();
+
+        public static List<Modification> PotassiumAdducts =>
+            PtmListLoader.ReadModsFromString("ID   Potassium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   K1H-1\r\n" + @"//",
+                    out List<(Modification, string)> mods).ToList();
+
+        public static List<Modification> TerminalSodiumAdducts =>
+            PtmListLoader.ReadModsFromString("ID   Sodium\r\nMT   Metal\r\nPP   3'-terminal.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//",
+            out List<(Modification, string)> mods).ToList();
+
+        public static List<Modification> TerminalPotassiumAdducts =>
+            PtmListLoader.ReadModsFromString("ID   Potassium\r\nMT   Metal\r\nPP   5'-terminal.\r\nTG   A or C or G or U\r\nCF   K1H-1\r\n" + @"//",
+            out List<(Modification, string)> mods).ToList();
+
         [Test]
         public static void TestVariableModsCountCorrect()
         {
-            string modText = "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//";
-            var sodiumAdducts = PtmListLoader.ReadModsFromString(modText, out List<(Modification, string)> mods)
-                .ToList();
-            Assert.That(sodiumAdducts.Count, Is.EqualTo(4));
-
             var rna = new RNA("GUACUG");
             var rnaDigestionParams = new RnaDigestionParams()
             {
                 MaxMods = 1,
             };
 
-            var precursors = rna.Digest(rnaDigestionParams, new List<Modification>(), sodiumAdducts)
+            var precursors = rna.Digest(rnaDigestionParams, new List<Modification>(), SodiumAdducts)
                 .ToList();
             Assert.That(precursors.Count, Is.EqualTo(7));
             var fullSequences = precursors.Select(p => p.FullSequence).ToList();
@@ -682,7 +713,7 @@ namespace Test.Transcriptomics
             Assert.That(fullSequences.Contains("GUACUG[Metal:Sodium on G]"));
 
             rnaDigestionParams.MaxMods = 2;
-            precursors = rna.Digest(rnaDigestionParams, new List<Modification>(), sodiumAdducts)
+            precursors = rna.Digest(rnaDigestionParams, new List<Modification>(), SodiumAdducts)
                 .ToList();
             Assert.That(precursors.Count, Is.EqualTo(22));
             fullSequences = precursors.Select(p => p.FullSequence).ToList();
@@ -713,9 +744,7 @@ namespace Test.Transcriptomics
         [Test]
         public static void TestFixedModsCountCorrect()
         {
-            string modText = "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//";
-            var sodiumAdduct = PtmListLoader.ReadModsFromString(modText, out List<(Modification, string)> mods)
-                .ToList();
+            var sodiumAdduct = new List<Modification>() { SodiumAdducts[0] };
 
             var rna = new RNA("GUACUG");
             var rnaDigestionParams = new RnaDigestionParams()
@@ -729,9 +758,7 @@ namespace Test.Transcriptomics
             Assert.That(precursors.First().FullSequence, Is.EqualTo("GUA[Metal:Sodium on A]CUG"));
             Assert.That(precursors.First().MonoisotopicMass, Is.EqualTo(1896.26).Within(0.01));
 
-            modText = "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   G\r\nCF   Na1H-1\r\n" + @"//";
-            sodiumAdduct = PtmListLoader.ReadModsFromString(modText, out mods)
-                .ToList();
+            sodiumAdduct = new List<Modification>() { SodiumAdducts[2] };
 
             precursors = rna.Digest(rnaDigestionParams, sodiumAdduct, new List<Modification>())
                 .ToList();
@@ -744,22 +771,12 @@ namespace Test.Transcriptomics
         [Test]
         public static void TestFixedAndVariableMods()
         {
-            string modText = "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//";
-            string modText2 = "ID   Potassium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   K1H-1\r\n" + @"//";
-            var sodiumAdducts = PtmListLoader.ReadModsFromString(modText, out List<(Modification, string)> mods)
-                .ToList();
-            var potassiumAdducts = PtmListLoader.ReadModsFromString(modText2, out mods)
-                .ToList();
-
-            Assert.That(sodiumAdducts.Count, Is.EqualTo(4));
-            Assert.That(potassiumAdducts.Count, Is.EqualTo(4));
-
             var rna = new RNA("GUACUG");
             var rnaDigestionParams = new RnaDigestionParams();
 
             rnaDigestionParams.MaxMods = 1;
-            var fixedMods = new List<Modification> { potassiumAdducts[0] }; // A
-            var variableMods = new List<Modification> { sodiumAdducts[1] }; // C
+            var fixedMods = new List<Modification> { PotassiumAdducts[0] }; // A
+            var variableMods = new List<Modification> { SodiumAdducts[1] }; // C
             var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
                 .ToList();
 
@@ -774,8 +791,8 @@ namespace Test.Transcriptomics
             Assert.That(oneOfEach.NumVariableMods, Is.EqualTo(1));
             Assert.That(oneOfEach.NumMods, Is.EqualTo(2));
 
-            fixedMods = new List<Modification> { potassiumAdducts[2] }; // G
-            variableMods = new List<Modification> { sodiumAdducts[1] }; // C
+            fixedMods = new List<Modification> { PotassiumAdducts[2] }; // G
+            variableMods = new List<Modification> { SodiumAdducts[1] }; // C
             precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
                 .ToList();
             fullSequences = precursors.Select(p => p.FullSequence).ToList();
@@ -784,8 +801,8 @@ namespace Test.Transcriptomics
             Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Potassium on G]"));
             Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UAC[Metal:Sodium on C]UG[Metal:Potassium on G]"));
 
-            fixedMods = new List<Modification> { potassiumAdducts[2] }; // G
-            variableMods = new List<Modification> { sodiumAdducts[1], sodiumAdducts[3] }; // C, U
+            fixedMods = new List<Modification> { PotassiumAdducts[2] }; // G
+            variableMods = new List<Modification> { SodiumAdducts[1], SodiumAdducts[3] }; // C, U
             precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
                 .ToList();
             fullSequences = precursors.Select(p => p.FullSequence).ToList();
@@ -810,6 +827,349 @@ namespace Test.Transcriptomics
             Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UAC[Metal:Sodium on C]U[Metal:Sodium on U]G[Metal:Potassium on G]"));
             Assert.That(fullSequences.Contains("G[Metal:Potassium on G]U[Metal:Sodium on U]AC[Metal:Sodium on C]UG[Metal:Potassium on G]"));
         }
+
+        /// <summary>
+        /// Test when one fixed and one variable mod are used and share a localization
+        /// expect two results, one with the fixed, and one with the variable
+        /// </summary>
+        [Test]
+        public static void TestFixedAndVariableMods_LocalizationOverlap()
+        {
+            var rna = new RNA("GUACUG");
+            var rnaDigestionParams = new RnaDigestionParams();
+
+            for (int i = 1; i < 3; i++)
+            {
+                rnaDigestionParams.MaxMods = i;
+                var fixedMods = new List<Modification> { PotassiumAdducts[1] }; // C
+                var variableMods = new List<Modification> { SodiumAdducts[1] }; // C
+                var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
+                    .ToList();
+
+                var fullSequences = precursors.Select(p => p.FullSequence).ToList();
+                Assert.That(precursors.Count, Is.EqualTo(2));
+                Assert.That(precursors.Any(p => p.NumFixedMods == 1));
+                Assert.That(precursors.Any(p => p.NumVariableMods == 1));
+                Assert.That(precursors.Any(p => p.NumFixedMods == 0));
+                Assert.That(precursors.Any(p => p.NumVariableMods == 0));
+                Assert.That(precursors.All(p => p.NumMods == 1));
+                Assert.That(fullSequences.Contains("GUAC[Metal:Potassium on C]UG"));
+                Assert.That(fullSequences.Contains("GUAC[Metal:Sodium on C]UG"));
+            }
+        }
+
+        /// <summary>
+        /// Test when two variable mods are used and share a localization
+        /// expect three results, one unmodified, and two singly modified
+        /// </summary>
+        [Test]
+        public static void TestVariableMods_LocalizationOverlap()
+        {
+            var rna = new RNA("GUACUG");
+            var rnaDigestionParams = new RnaDigestionParams();
+
+            for (int i = 1; i < 3; i++)
+            {
+                rnaDigestionParams.MaxMods = i;
+                var fixedMods = new List<Modification> { }; // C
+                var variableMods = new List<Modification> { PotassiumAdducts[1], SodiumAdducts[1] };
+                var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
+                    .ToList();
+
+                // expect three results, one unmodified, and two singly modified
+                var fullSequences = precursors.Select(p => p.FullSequence).ToList();
+                Assert.That(precursors.Count, Is.EqualTo(3));
+                Assert.That(precursors.Any(p => p.NumFixedMods == 0));
+                Assert.That(precursors.Any(p => p.NumVariableMods == 1));
+                Assert.That(fullSequences.Contains("GUACUG"));
+                Assert.That(fullSequences.Contains("GUAC[Metal:Potassium on C]UG"));
+                Assert.That(fullSequences.Contains("GUAC[Metal:Sodium on C]UG"));
+            }
+        }
+
+        /// <summary>
+        /// Test when one modification is annotated in the database, out of bounds
+        /// expect two results, one with the fixed, and one with the variable
+        /// </summary>
+        [Test]
+        public static void TestDatabaseAnnotatedMods_OutOfBounds()
+        {
+            var rnaDigestionParams = new RnaDigestionParams();
+            var oneBasedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 23, new List<Modification>() { PotassiumAdducts[1] } }
+            };
+            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+            
+            for (int i = 1; i < 3; i++)
+            {
+                rnaDigestionParams.MaxMods = i;
+                var fixedMods = new List<Modification> {  }; // C
+                var variableMods = new List<Modification> { }; // C
+                var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
+                    .ToList();
+
+                var fullSequences = precursors.Select(p => p.FullSequence).ToList();
+                Assert.That(precursors.Count, Is.EqualTo(1));
+                Assert.That(precursors.All(p => p.NumFixedMods == 0));
+                Assert.That(precursors.All(p => p.NumVariableMods == 0));
+                Assert.That(precursors.All(p => p.NumMods == 0));
+                Assert.That(fullSequences.Contains("GUACUG"));
+            }
+        }
+
+        /// <summary>
+        /// Test when one modification is annotated in the database
+        /// expect two results, one unmodified, and one singly modified
+        /// </summary>
+        [Test]
+        public static void TestDatabaseAnnotatedMods_SingleModification()
+        {
+            var rnaDigestionParams = new RnaDigestionParams();
+            var oneBasedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 4, new List<Modification>() { PotassiumAdducts[1] } }
+            };
+            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+
+            
+            for (int i = 1; i < 3; i++)
+            {
+                rnaDigestionParams.MaxMods = i;
+                var fixedMods = new List<Modification> { }; // C
+                var variableMods = new List<Modification> { };
+                var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
+                    .ToList();
+
+                
+                var fullSequences = precursors.Select(p => p.FullSequence).ToList();
+                Assert.That(precursors.Count, Is.EqualTo(2));
+                Assert.That(precursors[0].NumMods, Is.EqualTo(0));
+                Assert.That(precursors[1].NumMods, Is.EqualTo(1));
+                Assert.That(precursors[1].NumVariableMods, Is.EqualTo(1));
+                Assert.That(fullSequences.Contains("GUACUG"));
+                Assert.That(fullSequences.Contains("GUAC[Metal:Potassium on C]UG"));
+            }
+        }
+
+        /// <summary>
+        /// Test when two modifications are annotated in the database at the same location
+        /// expect three results, one unmodified, and two singly modified
+        /// </summary>
+        [Test]
+        public static void TestDatabaseAnnotatedMods_LocalizationOverlap()
+        {
+            var rnaDigestionParams = new RnaDigestionParams();
+            var oneBasedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 4, new List<Modification>() { PotassiumAdducts[1], SodiumAdducts[1] } }
+            };
+            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+
+            for (int i = 1; i < 3; i++)
+            {
+                rnaDigestionParams.MaxMods = i;
+                var fixedMods = new List<Modification> { };
+                var variableMods = new List<Modification> { };
+                var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
+                    .ToList();
+
+                var fullSequences = precursors.Select(p => p.FullSequence).ToList();
+                Assert.That(precursors.Count, Is.EqualTo(3));
+                Assert.That(precursors.Any(p => p.NumFixedMods == 0));
+                Assert.That(precursors.Any(p => p.NumVariableMods == 1));
+                Assert.That(fullSequences.Contains("GUACUG"));
+                Assert.That(fullSequences.Contains("GUAC[Metal:Potassium on C]UG"));
+                Assert.That(fullSequences.Contains("GUAC[Metal:Sodium on C]UG"));
+            }
+        }
+
+        /// <summary>
+        /// Test when two terminal modifications are annotated in the database
+        /// MaxMods 1: expect three results, one unmodified, and two singly modified
+        /// MaxMods 2: expect four results, one unmodified, and two singly modified, and one double modified
+        /// </summary>
+        [Test]
+        public static void TestDatabaseAnnotatedMods_TerminalMods()
+        {
+            var rnaDigestionParams = new RnaDigestionParams();
+            var oneBasedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 1, new List<Modification>() { TerminalPotassiumAdducts[2]} },
+                { 6, new List<Modification>() { TerminalSodiumAdducts[2]} }
+            };
+            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+
+            // Test when two terminal modifications are annotated in the database
+            for (int i = 1; i < 3; i++)
+            {
+                rnaDigestionParams.MaxMods = i;
+                var fixedMods = new List<Modification> { };
+                var variableMods = new List<Modification> { };
+                var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
+                    .ToList();
+
+                // expect three results, one unmodified, and two singly modified
+                var fullSequences = precursors.Select(p => p.FullSequence).ToList();
+                Assert.That(precursors.Count, Is.EqualTo(2 + i));
+                Assert.That(precursors.Any(p => p.NumFixedMods == 0));
+                Assert.That(precursors.Any(p => p.NumVariableMods == 1));
+                Assert.That(fullSequences.Contains("GUACUG"));
+                Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG"));
+                Assert.That(fullSequences.Contains("GUACUG[Metal:Sodium on G]"));
+
+                if (rnaDigestionParams.MaxMods != 2) continue;
+                Assert.That(precursors.Any(p => p.NumVariableMods == 2));
+                Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Sodium on G]"));
+            }
+        }
+
+        /// <summary>
+        /// Test when two terminal modifications are annotated in the database and one database mod on first residue
+        /// MaxMods 1: expect four results, one unmodified, and three singly modified
+        /// MaxMods 2: expect seven results, one unmodified, and three singly modified, and three double modified
+        /// MaxMods 3: expect eight results, one unmodified, and three singly modified, and three double modified, and one triply modified
+        /// </summary>
+        [Test]
+        public static void TestDatabaseAnnotatedMods_TerminalMods_WithFirstResidueDatabaseMod()
+        {
+            var rnaDigestionParams = new RnaDigestionParams();
+            var oneBasedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 1, new List<Modification>() { TerminalPotassiumAdducts[2], PotassiumAdducts[2] } },
+                { 6, new List<Modification>() { TerminalSodiumAdducts[2]} }
+            };
+            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+
+            // Test when two terminal modifications are annotated in the database and one database mod on first residue
+            for (int i = 1; i < 4; i++)
+            {
+                rnaDigestionParams.MaxMods = i;
+                var fixedMods = new List<Modification> { };
+                var variableMods = new List<Modification> { };
+
+                var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
+                    .ToList();
+
+                var fullSequences = precursors.Select(p => p.FullSequence).ToList();
+                Assert.That(precursors.All(p => p.NumFixedMods == 0));
+
+                switch (rnaDigestionParams.MaxMods)
+                {
+                    case 1:
+                        Assert.That(precursors.Count(), Is.EqualTo(4));
+                        Assert.That(precursors.Skip(1).All(p => p.NumVariableMods == 1));
+                        break;
+                    case 2:
+                        Assert.That(precursors.Count(), Is.EqualTo(7));
+                        Assert.That(precursors.Skip(1).All(p => p.NumVariableMods >= 1));
+                        break;
+
+                    case 3:
+                        Assert.That(precursors.Count(), Is.EqualTo(8));
+                        Assert.That(precursors.Skip(1).All(p => p.NumVariableMods >= 1));
+                        break;
+                }
+
+                if (rnaDigestionParams.MaxMods >= 1)
+                {
+                    
+                    Assert.That(fullSequences.Contains("GUACUG"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG"));
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG"));
+                    Assert.That(fullSequences.Contains("GUACUG[Metal:Sodium on G]"));
+                }
+                else if (rnaDigestionParams.MaxMods >= 2)
+                {
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG"));
+                }
+                else if (rnaDigestionParams.MaxMods >= 3)
+                {
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG[Metal:Sodium on G]"));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Test when two terminal modifications are annotated in the database and one database mod on first residue
+        /// MaxMods 1: expect five results, one unmodified, and four singly modified
+        /// MaxMods 2: expect eleven results, one unmodified, and four singly modified, and six double modified
+        /// MaxMods 3: expect fifteen results, one unmodified, and four singly modified, and six double modified, and four triply modified
+        /// </summary>
+        [Test]
+        public static void TestDatabaseAnnotatedMods_TerminalMods_WithFirstResidueVariableMod()
+        {
+            var rnaDigestionParams = new RnaDigestionParams();
+            var oneBasedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 1, new List<Modification>() { TerminalPotassiumAdducts[2] } },
+                { 6, new List<Modification>() { TerminalSodiumAdducts[2]} }
+            };
+            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+
+            // Test when two terminal modifications are annotated in the database and one database mod on first residue
+            for (int i = 1; i < 4; i++)
+            {
+                rnaDigestionParams.MaxMods = i;
+                var fixedMods = new List<Modification> { };
+                var variableMods = new List<Modification> { PotassiumAdducts[2] };
+
+                var precursors = rna.Digest(rnaDigestionParams, fixedMods, variableMods)
+                    .ToList();
+
+                var fullSequences = precursors.Select(p => p.FullSequence).ToList();
+                Assert.That(precursors.All(p => p.NumFixedMods == 0));
+
+                switch (rnaDigestionParams.MaxMods)
+                {
+                    case 1:
+                        Assert.That(precursors.Count(), Is.EqualTo(5));
+                        Assert.That(precursors.Skip(1).All(p => p.NumVariableMods == 1));
+                        break;
+                    case 2:
+                        Assert.That(precursors.Count(), Is.EqualTo(11));
+                        Assert.That(precursors.Skip(1).All(p => p.NumVariableMods >= 1));
+                        break;
+
+                    case 3:
+                        Assert.That(precursors.Count(), Is.EqualTo(15));
+                        Assert.That(precursors.Skip(1).All(p => p.NumVariableMods >= 1));
+                        break;
+                }
+
+                if (rnaDigestionParams.MaxMods >= 1)
+                {
+
+                    Assert.That(fullSequences.Contains("GUACUG"));
+                    Assert.That(fullSequences.Contains("GUACUG[Metal:Potassium on G]"));
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG"));
+                    Assert.That(fullSequences.Contains("GUACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG"));
+                }
+                else if (rnaDigestionParams.MaxMods >= 2)
+                {
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Potassium on G]"));
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("GUACUG[Metal:Potassium on G][Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Potassium on G]"));
+                }
+                else if (rnaDigestionParams.MaxMods >= 3)
+                {
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG[Metal:Potassium on G]"));
+
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Potassium on G][Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Potassium on G][Metal:Sodium on G]"));
+                }
+            }
+        }
+
+
+
 
         #endregion
     }

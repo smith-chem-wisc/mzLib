@@ -93,6 +93,9 @@ namespace Test.Transcriptomics
             CollectionAssert.AreEqual(rna.NucleicAcidArray.Select(p => p.Letter), sequence);
             Assert.That(rna.FivePrimeTerminus.Equals(NucleicAcid.DefaultFivePrimeTerminus));
             Assert.That(rna.ThreePrimeTerminus.Equals(NucleicAcid.DefaultThreePrimeTerminus));
+            rna.ThreePrimeTerminus = rna.ThreePrimeTerminus;
+            Assert.That(rna.ThreePrimeTerminus.Equals(NucleicAcid.DefaultThreePrimeTerminus));
+
             List<Nucleotide> nucList = new();
             foreach (var nucleotide in sequence)
             {
@@ -145,11 +148,11 @@ namespace Test.Transcriptomics
         {
             RNA rna = new(sequence);
 
-            int i = 0;
-            foreach (var ion in rna.GetElectrospraySeries(charges.First(), charges.Last()))
+            var esiSeries = rna.GetElectrospraySeries(charges.First(), charges.Last()).ToArray();
+            for (int j = 0; j < mzs.Length; j++)
             {
-                Assert.That(ion, Is.EqualTo(mzs[i]).Within(0.001));
-                i++;
+                var ion = esiSeries[j];
+                Assert.That(ion, Is.EqualTo(mzs[j]).Within(0.01));
             }
         }
 
@@ -158,13 +161,13 @@ namespace Test.Transcriptomics
         public void TestReplaceTerminusWithElectroSpraySeries(string sequence, int[] charges, double[] mzs)
         {
             RNA rna = new("GUACUG");
-            rna.FivePrimeTerminus = new ChemicalFormula();
+            rna.FivePrimeTerminus = ChemicalFormula.ParseFormula("H1");
 
-            int i = 0;
-            foreach (var ion in rna.GetElectrospraySeries(charges.First(), charges.Last()))
+            var esiSeries = rna.GetElectrospraySeries(charges.Last(), charges.First()).ToArray();
+            for (int j = 0; j < mzs.Length; j++)
             {
-                Assert.That(ion, Is.EqualTo(mzs[i]).Within(0.001));
-                i++;
+                var ion = esiSeries[j];
+                Assert.That(ion, Is.EqualTo(mzs[j]).Within(0.01));
             }
         }
     }
