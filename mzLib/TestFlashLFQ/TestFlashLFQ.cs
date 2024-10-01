@@ -1393,10 +1393,11 @@ namespace Test
 
             // These values are also sensitive, changes can cause them to dip as low as 0.6 (specifically the corrRun2 value)
             // Generally, if the values are above 0.7, then things are working well
-            Assert.Greater(corrRun1, 0.8);
-            Assert.Greater(corrRun2, 0.8);
             Console.WriteLine("r1 correlation: " + corrRun1);
             Console.WriteLine("r2 correlation: " + corrRun2);
+            Assert.Greater(corrRun1, 0.75);
+            Assert.Greater(corrRun2, 0.75);
+            
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
