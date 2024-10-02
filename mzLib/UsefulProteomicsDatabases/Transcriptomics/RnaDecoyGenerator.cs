@@ -19,6 +19,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
     /// The <c>GenerateDecoys</c> method serves as the main entry point, delegating to specific decoy generation methods based on the specified <see cref="DecoyType"/>.
     /// TODO: Implement Shuffle and Slide Decoys
     /// TODO: Consider passing digestion motif as optional parameter to leave digestion sites intact. Currently leaving the 3' intact as it is the predominant cleavage motif.
+    /// TODO: Consider palindromic sequences and the result they have on fragment ions (d/z are identical, c/y are identical). This will be particularly important for slided decoys
     /// </remarks>
     public static class RnaDecoyGenerator
     {

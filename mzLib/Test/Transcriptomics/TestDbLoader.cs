@@ -145,5 +145,27 @@ namespace Test.Transcriptomics
         {
             Assert.That(input.Transcribe(isCodingStrand), Is.EqualTo(expected));
         }
+
+        [Test]
+        [TestCase("20mer1.fasta")]
+        [TestCase("20mer1.fasta.gz")]
+        [TestCase("20mer1.xml")]
+        [TestCase("20mer1.xml.gz")]
+        public static void TestDbReadingDifferentExtensions(string databaseFileName)
+        {
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData",
+                databaseFileName);
+
+            List<RNA> rna;
+            if (dbPath.Contains("fasta"))
+                rna = RnaDbLoader.LoadRnaFasta(dbPath, true, DecoyType.None, false,
+                    out var errors);
+            else
+                rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.None, false,
+                    new List<Modification>(), new List<string>(), out _);
+            
+            Assert.That(rna.Count, Is.EqualTo(1));
+            Assert.That(rna.First().BaseSequence, Is.EqualTo("GUACUGCCUCUAGUGAAGCA"));
+        }
     }
 }

@@ -1168,8 +1168,18 @@ namespace Test.Transcriptomics
             }
         }
 
+        [Test]
+        public static void TestDigestionMaxIsoforms()
+        {
+            var rna = new RNA("GUACUAGACUACAUGGUACAUCA");
+            var rnaDigestionParams = new RnaDigestionParams();
+            var variableMods = SodiumAdducts.Concat(PotassiumAdducts)
+                .Concat(TerminalPotassiumAdducts).Concat(TerminalSodiumAdducts).ToList();
 
-
+            var digestionProducts = rna.Digest(rnaDigestionParams, new List<Modification>(), variableMods)
+                .ToList();
+            Assert.That(digestionProducts.Count, Is.EqualTo(rnaDigestionParams.MaxModificationIsoforms));
+        }
 
         #endregion
     }

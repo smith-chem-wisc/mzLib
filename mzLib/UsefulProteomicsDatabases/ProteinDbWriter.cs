@@ -37,6 +37,10 @@ namespace UsefulProteomicsDatabases
         /// <param name="nucleicAcidList">A list of nucleic acid sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
         /// <returns>A dictionary of new modification residue entries.</returns>
+        /// <remarks>
+        /// Several chunks of code are commented out. These are blocks that are intended to be implmented in the future, but
+        /// are not necessary for the bare bones implementation of Transcriptomics
+        /// </remarks>
         private static Dictionary<string, int> WriteNucleicAcidXmlDatabase(
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
             List<NucleicAcid> nucleicAcidList, string outputFileName)
