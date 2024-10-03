@@ -1,4 +1,6 @@
-﻿namespace FlashLFQ
+﻿using System.IO;
+
+namespace FlashLFQ
 {
     public class SpectraFileInfo
     {
@@ -41,7 +43,7 @@
         }
         public override string ToString()
         {
-            return FilenameWithoutExtension;
+            return Path.GetFileName(FullFilePathWithExtension);
         }
     }
 }

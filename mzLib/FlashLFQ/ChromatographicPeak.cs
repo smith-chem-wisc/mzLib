@@ -30,7 +30,7 @@ namespace FlashLFQ
         public List<int> ChargeList { get; set; }
         internal double MbrQValue { get; set; }
         public ChromatographicPeakData PepPeakData { get; set; }
-        public double? PipPep { get; set; }
+        public double? MbrPep { get; set; }
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -250,7 +250,7 @@ namespace FlashLFQ
             }
 
             sb.Append("" + (IsMbrPeak ? MbrQValue.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? PipPep.ToString() : "") + "\t");
+            sb.Append("" + (IsMbrPeak ? MbrPep.ToString() : "") + "\t");
 
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");

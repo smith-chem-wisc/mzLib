@@ -259,20 +259,13 @@ namespace FlashLFQ.PEP
 
                 bool stuck = false;
                 int minIndex = groupsOfIndices[groupA].Min();
-                int totalIterations = 0;
 
                 // Calculate the difference in targets and decoys between the two groups
                 int targetSurplus = targetsA - targetsB;
                 int decoySurplus = decoysA - decoysB;
 
-                while ((Math.Abs(targetSurplus) > 1 | Math.Abs(decoySurplus) > 1)
-                    && !stuck)
+                while ((Math.Abs(targetSurplus) > 1 | Math.Abs(decoySurplus) > 1) && !stuck)
                 {
-                    if (totalIterations > 50)
-                    {
-                        break;
-                    }
-                    totalIterations++;
                     bool swapped = false;
 
                     // start from the bottom of group 1, trying to swap peaks.
@@ -372,24 +365,6 @@ namespace FlashLFQ.PEP
                         }
                     }
                 }
-
-                // this is for testing only
-                targetsA = 0;
-                targetsB = 0;
-                decoysA = 0;
-                decoysB = 0;
-                foreach (int index in groupsOfIndices[groupA])
-                {
-                    targetsA += donors[index].TargetAcceptors.Count(peak => peak.MbrScore >= scoreCutoff);
-                    decoysA += donors[index].DecoyAcceptors.Count;
-                }
-                foreach (int index in groupsOfIndices[groupB])
-                {
-                    targetsB += donors[index].TargetAcceptors.Count(peak => peak.MbrScore >= scoreCutoff);
-                    decoysB += donors[index].DecoyAcceptors.Count;
-                }
-                decoysB += 1;
-                // end testing only code
             }
         }
 
@@ -483,7 +458,7 @@ namespace FlashLFQ.PEP
             List<double> peps = new();
             foreach (int i in donorIndices)
             {
-                peps.AddRange(donors[i].Select(peak => peak.PipPep ?? 1));
+                peps.AddRange(donors[i].Select(peak => peak.MbrPep ?? 1));
             }
             peps.Sort();
             double groupSpecificPepCutoff = peps[(int)Math.Floor(peps.Count * 0.25)];
@@ -504,7 +479,7 @@ namespace FlashLFQ.PEP
                                 newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: false);
                                 localChromatographicPeakDataList.Add(newChromatographicPeakData);
                             }
-                            else if (!peak.RandomRt & peak.PipPep <= groupSpecificPepCutoff)
+                            else if (!peak.RandomRt & peak.MbrPep <= groupSpecificPepCutoff)
                             {
                                 newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: true);
                                 localChromatographicPeakDataList.Add(newChromatographicPeakData);
@@ -564,7 +539,7 @@ namespace FlashLFQ.PEP
                         {
                             ChromatographicPeakData pd = CreateOneChromatographicPeakDataEntry(peak, label: !peak.RandomRt);
                             var pepValuePrediction = threadPredictionEngine.Predict(pd);
-                            peak.PipPep = 1 - pepValuePrediction.Probability;
+                            peak.MbrPep = 1 - pepValuePrediction.Probability;
                         }
                     }
                 });

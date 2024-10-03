@@ -1435,8 +1435,8 @@ namespace FlashLFQ
                 mbrPeaks = _results.Peaks[acceptorFile]
                     .Where(peak => peak.IsMbrPeak)
                     .GroupBy(peak => peak.Identifications.First())
-                    .Select(group => group.OrderBy(peak => peak.PipPep).ThenByDescending(peak => peak.MbrScore).First())
-                    .OrderBy(peak => peak.PipPep)
+                    .Select(group => group.OrderBy(peak => peak.MbrPep).ThenByDescending(peak => peak.MbrScore).First())
+                    .OrderBy(peak => peak.MbrPep)
                     .ThenByDescending(peak => peak.MbrScore)
                     .ToList();
 
