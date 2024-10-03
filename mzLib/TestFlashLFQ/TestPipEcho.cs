@@ -8,6 +8,10 @@ using System.IO;
 using FlashLFQ.PEP;
 using System;
 using Chemistry;
+using MassSpectrometry;
+using MzLibUtil;
+using Test.FileReadingTests;
+using UsefulProteomicsDatabases;
 
 
 namespace TestFlashLFQ
@@ -85,8 +89,8 @@ namespace TestFlashLFQ
 
             IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak((idMass + 0.001).ToMz(1), 1.1, 1, 25);
             IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak((idMass - 0.001).ToMz(1), 1, 2, 26);
-            var iso1 = new IsotopicEnvelope(imsPeak, 1, 1, 0.98);
-            var iso2 = new IsotopicEnvelope(imsPeak2, 1, 1, 0.9);
+            var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1, 0.98);
+            var iso2 = new FlashLFQ.IsotopicEnvelope(imsPeak2, 1, 1, 0.9);
 
             peak1.IsotopicEnvelopes.Add(iso1);
             peak1.IsotopicEnvelopes.Add(iso2);
@@ -147,8 +151,8 @@ namespace TestFlashLFQ
 
             IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak(1, 1, 1, 25);
             IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak(1, 1, 1, 50);
-            var iso1 = new IsotopicEnvelope(imsPeak, 1, 1, 1);
-            var iso2 = new IsotopicEnvelope(imsPeak2, 1, 1, 1);
+            var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1, 1);
+            var iso2 = new FlashLFQ.IsotopicEnvelope(imsPeak2, 1, 1, 1);
 
             peak1.IsotopicEnvelopes.Add(iso1);
             peak1.CalculateIntensityForThisFeature(false);
@@ -167,5 +171,149 @@ namespace TestFlashLFQ
             Assert.That(!peak1.Equals(peak4));
 
         }
+
+        /// <summary>
+        /// This test MatchBetweenRuns by creating two fake mzML files and a list of fake IDs. 
+        /// There are multiple sets of IDs, where most are shared between the two runs but one+ is/are missing
+        /// MBR is tested by ensuring that IDs are transferred between runs
+        /// </summary>
+        [Test]
+        public static void TestFlashLfqMatchBetweenRunsNearestNeighborDonors()
+        {
+            List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2", "mzml_3" };
+            List<string> pepSequences = new List<string>
+                {
+                "PEPTIDE",
+                "PEPTIDEV",
+                "PEPTIDEVV",
+                "TARGETPEP",
+                "PEPTIDEVVV",
+                "PEPTIDEVVVV",
+                "PEPTIDEVVVVA",
+                "PEPTIDEVVVVAA"
+            };
+            double intensity = 1e6;
+
+            double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.033, 1.035, 1.04, 1.045, 1.05 };
+            double[] file2Rt = new double[] { 1.00, 1.025, 1.03, 1.031, 1.035, 1.04, 1.055, 1.07 };
+
+            Loaders.LoadElements();
+
+            // generate mzml files (5 peptides each)
+            for (int f = 0; f < filesToWrite.Count; f++)
+            {
+                // 1 MS1 scan per peptide
+                MsDataScan[] scans = new MsDataScan[8];
+
+                for (int p = 0; p < pepSequences.Count; p++)
+                {
+                    ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
+                    IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+                    double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
+                    double[] intensities = dist.Intensities.Select(v => v * intensity).ToArray();
+                    if(f == 2)
+                    {
+                        // Make file 3 the most intense
+                        intensities = intensities.Select(v => v * 5).ToArray();
+                    }
+                    double rt;
+                    if (f == 1)
+                    {
+                        rt = file2Rt[p];
+                    }
+                    else
+                    {
+                        rt = file1Rt[p];
+                    }
+
+                    // add the scan
+                    scans[p] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: p + 1, msnOrder: 1, isCentroid: true,
+                        polarity: Polarity.Positive, retentionTime: rt, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                        mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (p + 1));
+                }
+
+                // write the .mzML
+                Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                    Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[f] + ".mzML"), false);
+            }
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
+            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "a", 1, 0, 0);
+            SpectraFileInfo file3 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[2] + ".mzML"), "a", 2, 0, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            Identification id1 = new Identification(file1, "PEPTIDE", "PEPTIDE",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file1Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id2 = new Identification(file1, "PEPTIDEV", "PEPTIDEV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id3 = new Identification(file1, "PEPTIDEVV", "PEPTIDEVV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id4 = new Identification(file1, "PEPTIDEVVV", "PEPTIDEVVV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id5 = new Identification(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
+
+            Identification id6 = new Identification(file2, "PEPTIDE", "PEPTIDE",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id7 = new Identification(file2, "PEPTIDEV", "PEPTIDEV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
+            // missing ID 8 - MBR feature - "PEPTIDEVV"
+
+            Identification id9 = new Identification(file2, "PEPTIDEVVV", "PEPTIDEVVV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id10 = new Identification(file2, "PEPTIDEVVVV", "PEPTIDEVVVV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[5] + 0.001, 1, new List<ProteinGroup> { pg });
+
+
+            Identification id11 = new Identification(file3, "PEPTIDEV", "PEPTIDEV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg }); // same as peak 2
+            Identification id12 = new Identification(file3, "PEPTIDEVV", "PEPTIDEVV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { pg }); // same as peak 3, but higher intensity
+            Identification id13 = new Identification(file3, "PEPTIDEVVV", "PEPTIDEVVV",
+                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg }); // same as peak 4
+
+
+            // create the FlashLFQ engine
+            FlashLfqEngine neighborsEngine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id11, id12, id13 }, 
+                matchBetweenRuns: true, donorCriterion: DonorCriterion.Neighbors);
+
+            //run the engine
+            var results = neighborsEngine.Run();
+
+            Assert.That(results.Peaks[file2].Count == 5);
+            Assert.That(results.Peaks[file2].Where(p => p.IsMbrPeak).Count() == 1);
+
+            var peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
+            var otherFilePeak = results.Peaks[file1].Where(p => p.Identifications.First().BaseSequence ==
+                peak.Identifications.First().BaseSequence).First();
+
+
+            Assert.That(peak.Intensity > 0);
+            Assert.That(peak.Intensity == otherFilePeak.Intensity);
+            Assert.That(peak.Identifications.First().FileInfo == file1); // assure that the ID came from file 1, ie, the donor with the most neighboring peaks
+
+            // create the FlashLFQ engine
+            FlashLfqEngine intensityEngine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id11, id12, id13 },
+                matchBetweenRuns: true, donorCriterion: DonorCriterion.Intensity);
+
+            //run the engine
+            results = intensityEngine.Run();
+
+            Assert.That(results.Peaks[file2].Count == 5);
+            Assert.That(results.Peaks[file2].Where(p => p.IsMbrPeak).Count() == 1);
+
+            peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
+            otherFilePeak = results.Peaks[file3].Where(p => p.Identifications.First().BaseSequence ==
+                peak.Identifications.First().BaseSequence).First();
+
+
+            Assert.That(peak.Intensity > 0);
+            Assert.That(peak.Intensity, Is.EqualTo(otherFilePeak.Intensity/5).Within(1)); // file 3 is five times more intense than file 2
+            Assert.That(peak.Identifications.First().FileInfo == file3); // assure that the ID came from file 3, ie, the most intense donor peaks
+
+        }
+
     }
 }

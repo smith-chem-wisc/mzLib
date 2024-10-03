@@ -427,12 +427,18 @@ namespace Test
             var id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             var id4 = new Identification(mzml2, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
-            results = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true).Run();
+            results = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, integrate: false).Run();
 
             int int7 = (int)System.Math.Round(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw2));
             int int8 = (int)System.Math.Round(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
             Assert.That(int7 > 0);
             Assert.That(int7 == int8);
+
+            results.ReNormalizeResults(true);
+            int int9 = (int)System.Math.Round(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw2));
+            int int10 = (int)System.Math.Round(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
+            Assert.That(int9 > int7);
+            Assert.That(int9, Is.EqualTo(int10).Within(1));
         }
 
         [Test]
@@ -625,7 +631,7 @@ namespace Test
                 rtDiffs.Add(Math.Abs(file1Rt[i] - file2Rt[i]));
             }
 
-            FlashLfqEngine engineAmbiguous = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id18, id15, id16, id17 }, matchBetweenRuns: true, peptideSequencesToQuantify: pepSequences, donorCriterion: 'I');
+            FlashLfqEngine engineAmbiguous = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10, id18, id15, id16, id17 }, matchBetweenRuns: true, peptideSequencesToQuantify: pepSequences, donorCriterion: DonorCriterion.Intensity);
             // The ambiguous engine tests that a non-confident ID (i.e., a PSM that didn't make the peptide level fdr cutoff) 
             // gets overwritten by a MBR transfer of a confident ID, and that non-confident IDs are overwritten by confident MS2 ids
             results = engineAmbiguous.Run();

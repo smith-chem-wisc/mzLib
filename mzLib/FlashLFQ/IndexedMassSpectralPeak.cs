@@ -29,7 +29,7 @@ namespace FlashLFQ
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Mz.GetHashCode(), ZeroBasedMs1ScanIndex.GetHashCode());
+            return HashCode.Combine(Mz, ZeroBasedMs1ScanIndex);
         }
 
         public override string ToString()

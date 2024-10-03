@@ -20,6 +20,13 @@ using System.Threading;
 
 namespace FlashLFQ
 {
+    public enum DonorCriterion
+    {
+        Score,
+        Intensity,
+        Neighbors
+    }
+
     public class FlashLfqEngine
     {
         // settings
@@ -50,11 +57,11 @@ namespace FlashLFQ
         public readonly double PepTrainingFraction = 0.25;
         /// <summary>
         /// Specifies how the donor peak for MBR is selected. 
-        /// 'S' selects the donor peak associated with the highest scoring PSM
-        /// 'I' selects the donor peak with the max intensity
-        /// 'N' selects the donor peak with the most neighboring peaks
+        /// 'Score' selects the donor peak associated with the highest scoring PSM
+        /// 'Intensity' selects the donor peak with the max intensity
+        /// 'Neighbors' selects the donor peak with the most neighboring peaks
         /// </summary>
-        public char DonorCriterion { get; init; }
+        public DonorCriterion DonorCriterion { get; init; }
         public readonly double DonorQValueThreshold;
         public readonly bool RequireMsmsIdInCondition;
         private int _randomSeed = 42;
@@ -127,7 +134,7 @@ namespace FlashLFQ
             bool useSharedPeptidesForProteinQuant = false,
             bool pairedSamples = false,
             int? randomSeed = null,
-            char donorCriterion = 'S',
+            DonorCriterion donorCriterion = DonorCriterion.Score,
             double donorQValueThreshold = 0.01,
             List<string> peptideSequencesToQuantify = null)
         {
@@ -525,7 +532,7 @@ namespace FlashLFQ
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
         }
 
-        #region PeptideIdentityPropagation
+        #region MatchBetweenRuns
         /// <summary>
         /// Used by the match-between-runs algorithm to determine systematic retention time drifts between
         /// chromatographic runs.
@@ -646,13 +653,13 @@ namespace FlashLFQ
             ChromatographicPeak bestPeak = null;
             switch (DonorCriterion)
             {
-                case 'S': // Select best peak by the PSM score
+                case DonorCriterion.Score: // Select best peak by the PSM score
                     bestPeak = peaks.MaxBy(peak => peak.Identifications.Max(id => id.PsmScore));
                     if (bestPeak.Identifications.First().PsmScore > 0)
                         break;
                     else // if every ID has a score of zero, let it fall through to the default case
                         goto default;
-                case 'N': // Select peak with the most neighboring peaks
+                case DonorCriterion.Neighbors: // Select peak with the most neighboring peaks
                     int maxPeaks = 0;
                     foreach (var donorPeak in peaks)
                     {
@@ -670,7 +677,7 @@ namespace FlashLFQ
                         }
                     }
                     break;
-                case 'I': // Select the peak with the highest intensity
+                case DonorCriterion.Intensity: // Select the peak with the highest intensity
                 default:
                     bestPeak = peaks.MaxBy(peak => peak.Intensity);
                     break;

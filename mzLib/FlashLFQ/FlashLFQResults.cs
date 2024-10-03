@@ -60,6 +60,10 @@ namespace FlashLFQ
 
         public void ReNormalizeResults(bool integrate = false, int maxThreads = 10, bool useSharedPeptides = false)
         {
+            foreach(var peak in Peaks.SelectMany(p => p.Value))
+            {
+                peak.CalculateIntensityForThisFeature(integrate);
+            }
             new IntensityNormalizationEngine(this, integrate, silent: true, maxThreads).NormalizeResults();
             CalculatePeptideResults(quantifyAmbiguousPeptides: false);
             CalculateProteinResultsMedianPolish(useSharedPeptides: useSharedPeptides);
