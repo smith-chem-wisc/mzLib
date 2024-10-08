@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Diagnostics.CodeAnalysis;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
-using pepXML.Generated;
 using Readers;
 
 namespace Test.FileReadingTests
