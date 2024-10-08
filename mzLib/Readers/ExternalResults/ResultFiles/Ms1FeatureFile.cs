@@ -16,14 +16,17 @@ namespace Readers
         public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath,
             deconSoftware)
         {
-            using (var sr = new StreamReader(filePath))
-            {
-                string firstLine = sr.ReadLine() ?? "";
-                if (firstLine.Contains("\tApex_intensity\t") || firstLine.Contains("\tIntensity_Apex\t"))
-                    Software = Software.TopFD;
-                else
-                    Software = Software.FLASHDeconv;
-            }
+            if (File.Exists(filePath))
+                using (var sr = new StreamReader(filePath))
+                {
+                    string firstLine = sr.ReadLine() ?? "";
+                    if (firstLine.Contains("\tApex_intensity\t") || firstLine.Contains("\tIntensity_Apex\t"))
+                        Software = Software.TopFD;
+                    else
+                        Software = Software.FLASHDeconv;
+                }
+            else
+                Software = Software.Unspecified;
         }
 
         /// <summary>

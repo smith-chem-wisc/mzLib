@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
+using pepXML.Generated;
 using Readers;
 
 namespace Test.FileReadingTests
@@ -63,6 +66,37 @@ namespace Test.FileReadingTests
             {
                 Assert.That(feature.GetType() == typeof(Ms1Feature));
             }
+        }
+
+        [Test]
+        public static void TestResultAutoLoading_ExistingFile()
+        {
+            string filePath = @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature";
+            Ms1FeatureFile ms1FeatureFile = new Ms1FeatureFile(filePath);
+
+            // Automatically reading an existing file should not throw an exception
+            var features = ms1FeatureFile.Results;
+
+            // A second call should return the exact same list by reference
+            var features2 = ms1FeatureFile.Results;
+            CollectionAssert.AreEqual(features, features2);
+        }
+
+        [Test]
+        public static void TestResultAutoLoading_NewFile()
+        {
+            string filePath = @"FileReadingTests\ExternalFileTypes\NotARealFile_ms1.feature";
+            Ms1FeatureFile ms1FeatureFile = new Ms1FeatureFile(filePath);
+
+            // Automatically reading an existing file should not throw an exception
+            var features = ms1FeatureFile.Results;
+
+            // The result should be an empty collection
+            CollectionAssert.IsEmpty(features);
+
+            // A second call should return the exact same list by reference
+            var features2 = ms1FeatureFile.Results;
+            CollectionAssert.AreEqual(features, features2);
         }
     }
 }

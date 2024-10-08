@@ -12,14 +12,26 @@ namespace Readers
         #region Base Properties
         public string FilePath { get; set; }
 
-        private List<TResult> _results;
+        private List<TResult>? _results;
         public List<TResult> Results
         {
             get
             {
-                if (!_results.Any())
+                // if the results have already been read in or set
+                if (_results is not null) 
+                    return _results;
+
+                // if the results have not been read, and the file exists, read the results
+                if (File.Exists(FilePath)) 
                     LoadResults();
-                return _results;
+
+                // if the results have not been read, and the file does not exist, return a new collection
+                else 
+                   _results = [];
+
+                // added null ignoring operator as the LoadResults will set the _results field
+                // and thus there is no chance of the _result being null by the time of this return
+                return _results!;
             }
             set => _results = value;
         }
@@ -31,7 +43,7 @@ namespace Readers
         protected ResultFile(string filePath, Software software = Software.Unspecified)
         {
             FilePath = filePath;
-            _results = new List<TResult>();
+            _results = null;
             Software = software;
         }
 
