@@ -31,6 +31,7 @@ namespace Transcriptomics
         /// <param name="oneBasedPossibleModifications"></param>
         /// <param name="isContaminant"></param>
         /// <param name="isDecoy"></param>
+        /// <param name="geneNames"></param>
         /// <param name="databaseAdditionalFields"></param>
         public RNA(string sequence, string name, string identifier, string organism, string databaseFilePath,
             IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null,
