@@ -19,8 +19,10 @@ public abstract class MsAlign : MsDataFile
     #region Optional MsAlign Header 
 
     protected Dictionary<string, string> _parsedHeader { get; set; }
-   
-
+    
+    public string? FileName { get; private set; }
+    public bool? FaimsData { get; private set; }
+    public double? FailsVoltage { get; private set; }
     public DissociationType? DissociationType { get; private set; }
     public int? Ms1ScanCount { get; private set; }
     public int? Ms2ScanCount { get; private set; }
@@ -36,10 +38,11 @@ public abstract class MsAlign : MsDataFile
     public bool? MissMs1Spectra { get; private set; }
     public string? SoftwareVersion { get; private set; }
     public Software? Software { get; private set; }
+    public bool? UseMsDeconvScore { get; private set; }
 
     #endregion
 
-    protected abstract int DefaultMsnOrder { get; }
+    public abstract int DefaultMsnOrder { get; }
 
     protected MsAlign(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
     {
@@ -118,20 +121,102 @@ public abstract class MsAlign : MsDataFile
     }
     protected void ParseHeaderLines(List<string> headerLines)
     {
-        foreach (var line in headerLines.Where(p => p.Contains('\t')))
+        _parsedHeader = new Dictionary<string, string>();
+
+        foreach (var line in headerLines)
         {
-            var splits = line.Split('\t');
-            _parsedHeader.Add(splits[0].Trim(), splits[1].Trim());
+            if (line.StartsWith("#"))
+            {
+                var keyValue = line.TrimStart('#').Split(':');
+                if (keyValue.Length == 2)
+                {
+                    var key = keyValue[0].Trim();
+                    var value = keyValue[1].Trim();
+                    _parsedHeader[key] = value;
+                }
+            }
         }
 
-        // TODO: Parse the rest of the _parsedHeader Object into Header Properties
-        string? precursorWindowSize = _parsedHeader.FirstOrDefault(p =>
-            p.Key.Contains("precursor window", StringComparison.CurrentCultureIgnoreCase))!.Value;
-        if (precursorWindowSize is not null)
-            PrecursorWindowSize = double.Parse(precursorWindowSize.Replace("m/z", "").Trim());
+        // Set the parsed header values to the corresponding properties
+        foreach (var key in _parsedHeader.Keys)
+        {
+            switch (key)
+            {
+                case "File name":
+                    FileName = _parsedHeader[key];
+                    break;
+                case "Faims data":
+                    FaimsData = _parsedHeader[key] == "Yes";
+                    break;
+                case "Faims voltage":
+                    FailsVoltage = _parsedHeader[key]?.ToNullableDouble();
+                    break;
+                case "Activation Type":
+                    DissociationType = Enum.TryParse(_parsedHeader[key], out DissociationType dissType) 
+                        ? dissType 
+                        : MassSpectrometry.DissociationType.Autodetect;
+                    break;
+                case "Number of MS1 scans":
+                    Ms1ScanCount = _parsedHeader[key]?.ToNullableInt();
+                    break;
+                case "Number of MS2 scans":
+                case "Number of MS/MS scan":
+                    Ms2ScanCount = _parsedHeader[key]?.ToNullableInt();
+                    break;
+                case "Spectral data type":
+                    SpectralDataType = _parsedHeader[key];
+                    break;
+                case "Maximum charge":
+                    MaxAssumedChargeState = _parsedHeader[key]?.ToNullableInt();
+                    break;
+                case "Maximum monoisotopic mass":
+                    MaxAssumedMonoisotopicMass = _parsedHeader[key]?.ToNullableDouble();
+                    break;
+                case "Peak error tolerance":
+                    PeakErrorTolerance = _parsedHeader[key];
+                    break;
+                case "MS1 signal/noise ratio":
+                    Ms1SnRRatio = _parsedHeader[key]?.ToNullableDouble();
+                    break;
+                case "MS/MS signal/noise ratio":
+                    Ms2SnRRatio = _parsedHeader[key]?.ToNullableDouble();
+                    break;
+                case "Thread number":
+                    MaxThreadsToUse = _parsedHeader[key]?.ToNullableDouble();
+                    break;
+                case "Default precursor window":
+                    PrecursorWindowSize = _parsedHeader[key]?.ToNullableDouble();
+                    break;
+                case "Use MS-Deconv score":
+                    UseMsDeconvScore = _parsedHeader[key] == "Yes";
+                    break;
+                case "Use Env CNN model":
+                    UseEnvCnnModel = _parsedHeader[key] == "Yes";
+                    break;
+                case "Miss MS1 spectra":
+                    MissMs1Spectra = _parsedHeader[key] == "Yes";
+                    break;
+                case "Version":
+                    SoftwareVersion = _parsedHeader[key];
+                    break;
+                case "Software":
+                    if (Enum.TryParse(_parsedHeader[key], out Software software))
+                        Software = software;
+                    else if (_parsedHeader.Keys.Contains("IsoDec", StringComparer.InvariantCultureIgnoreCase))
+                        Software = Readers.Software.IsoDec;
+                    else if (_parsedHeader.Keys.Contains("TopFD", StringComparer.InvariantCultureIgnoreCase))
+                        Software = Readers.Software.TopFD;
+                    else
+                        Software = Readers.Software.Unspecified;
+                    break;
+                default:
+                    break;
+            }
+        }
     }
+
     protected MsDataScan ParseEntryLines(List<string> entryLines, IFilteringParams? filteringParams = null,
-        double isolationWidth = 3)
+        double? isolationWidth = 3)
     {
         // all
         int id;
@@ -149,6 +234,8 @@ public abstract class MsAlign : MsDataFile
         int? precursorCharge = null;
         double? precursorMass = null;
         double? precursorIntensity = null;
+        double? precursorMzStart = null;
+        double? precursorMzEnd = null;
 
         // This switch has all scan header properties that I have seen, including those which are not currently added to the MsDataScan
         foreach (var headerLine in entryLines.Where(p => p.Contains('=')))
@@ -170,7 +257,8 @@ public abstract class MsAlign : MsDataFile
                     oneBasedScanNumber = int.TryParse(splits[1], out int scanNumberValue) ? scanNumberValue : -1;
                     break;
                 case "RETENTION_TIME":
-                    retentionTime = double.TryParse(splits[1], out double retentionTimeValue) ? retentionTimeValue : -1;
+                    // Divide by sixty as msAligns are in seconds and MsDataScan is in minutes
+                    retentionTime = double.TryParse(splits[1], out double retentionTimeValue) ? retentionTimeValue / 60.0 : -1;
                     break;
                 case "LEVEL":
                     msnOrder = int.TryParse(splits[1], out int msnOrderValue) ? msnOrderValue : DefaultMsnOrder;
@@ -197,6 +285,13 @@ public abstract class MsAlign : MsDataFile
                 case "PRECURSOR_INTENSITY":
                     precursorIntensity = double.TryParse(splits[1], out double intensityValue) ? intensityValue : -1;
                     break;
+                case "PRECURSOR_WINDOW_BEGIN":
+                    precursorMzStart = double.TryParse(splits[1], out double mzStartValue) ? mzStartValue : -1;
+                    break;
+                case "PRECURSOR_WINDOW_END":
+                    precursorMzEnd = double.TryParse(splits[1], out double mzEndValue) ? mzEndValue : -1;
+                    break;
+
             }
         }
 
@@ -214,8 +309,8 @@ public abstract class MsAlign : MsDataFile
             intensities[i] = double.Parse(splits[1]);
         }
 
-        double minMz = mzs.Min();
-        double maxMz = mzs.Max();
+        double minMz = mzs.Length == 0 ? 0 : mzs.Min();
+        double maxMz = mzs.Length == 0 ? 2000 : mzs.Max();
 
         // peak filtering
         if (filteringParams != null && intensities.Length > 0 &&
@@ -224,15 +319,19 @@ public abstract class MsAlign : MsDataFile
             WindowModeHelper.Run(ref intensities, ref mzs, filteringParams, minMz, maxMz);
         }
 
+        if (msnOrder == 1)
+            isolationWidth = null;
+        else if (precursorMzStart is not null && precursorMzEnd is not null)
+                isolationWidth = precursorMzEnd.Value - precursorMzStart.Value;
+        
         var spectrum = new MzSpectrum(mzs, intensities, true);
-        var t = new MsDataScan(spectrum, oneBasedScanNumber, msnOrder, true, Polarity.Positive, retentionTime,
+        var dataScan = new MsDataScan(spectrum, oneBasedScanNumber, msnOrder, true, Polarity.Positive, retentionTime,
             mzs.Any() ? new MzRange(minMz, maxMz) : new MzRange(0, 2000), null, MZAnalyzerType.Orbitrap,
             intensities.Sum(), null, null, $"scan={oneBasedScanNumber}", precursorMz,
             precursorCharge, precursorIntensity, precursorMz, isolationWidth,
             dissociationType, oneBasedPrecursorScanNumber, precursorMass);
 
-        //_parsedHeader.TryGetValue("Precursor window size:", out string value) ? double.Parse(value) : 3
-        return t;
+        return dataScan;
     }
 
 
@@ -260,10 +359,8 @@ public abstract class MsAlign : MsDataFile
 
     #endregion
 
-    public override SourceFile GetSourceFile()
-    {
-        return new SourceFile("no nativeID format", $"ms{DefaultMsnOrder}.msalign format", null, null, null);
-    }
+    private SourceFile? _sourceFile;
+    public override SourceFile GetSourceFile() => _sourceFile ??= new SourceFile("no nativeID format", $"ms{DefaultMsnOrder}.msalign format", null, null, null);
 
     /// <summary>
     /// Enum is required as there are several different ways an msAlign header information is written

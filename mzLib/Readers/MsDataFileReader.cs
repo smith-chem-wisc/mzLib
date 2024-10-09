@@ -20,6 +20,8 @@ namespace Readers
                 SupportedFileType.MzML => new Mzml(filePath),
                 SupportedFileType.Mgf => new Mgf(filePath),
                 SupportedFileType.BrukerD => new BrukerFileReader(filePath), 
+                SupportedFileType.Ms1Align => new Ms1Align(filePath),
+                SupportedFileType.Ms2Align => new Ms2Align(filePath),
                 _ => throw new MzLibException("File type not supported"),
             };
         }

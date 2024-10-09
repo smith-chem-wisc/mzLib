@@ -25,6 +25,12 @@ namespace MzLibUtil
 {
     public static class ClassExtensions
     {
+        /// <summary>
+        /// Applies a boxcar smoothing algorithm to the input data.
+        /// </summary>
+        /// <param name="data">The input data.</param>
+        /// <param name="points">The number of points to use for smoothing. Must be an odd number.</param>
+        /// <returns>The smoothed data.</returns>
         public static double[] BoxCarSmooth(this double[] data, int points)
         {
             // Force to be odd
@@ -50,6 +56,14 @@ namespace MzLibUtil
             return smoothedData;
         }
 
+        /// <summary>
+        /// Returns a subarray of the input array.
+        /// </summary>
+        /// <typeparam name="T">The type of the array elements.</typeparam>
+        /// <param name="data">The input array.</param>
+        /// <param name="index">The starting index of the subarray.</param>
+        /// <param name="length">The length of the subarray.</param>
+        /// <returns>The subarray.</returns>
         public static T[] SubArray<T>(this T[] data, int index, int length)
         {
             T[] result = new T[length];
@@ -58,8 +72,12 @@ namespace MzLibUtil
         }
 
         /// <summary>
-        /// Checks if two collections are equivalent, regardless of the order of their contents
+        /// Checks if two collections are equivalent, regardless of the order of their contents.
         /// </summary>
+        /// <typeparam name="T">The type of the collection elements.</typeparam>
+        /// <param name="list1">The first collection.</param>
+        /// <param name="list2">The second collection.</param>
+        /// <returns>True if the collections are equivalent, false otherwise.</returns>
         public static bool ScrambledEquals<T>(this IEnumerable<T> list1, IEnumerable<T> list2)
         {
             var cnt = new Dictionary<T, int>();
@@ -81,11 +99,11 @@ namespace MzLibUtil
         }
 
         /// <summary>
-        /// Determines if all items in collection are equal
+        /// Determines if all items in the collection are equal.
         /// </summary>
-        /// <typeparam name="T">type to check</typeparam>
-        /// <param name="list">collection to check</param>
-        /// <returns></returns>
+        /// <typeparam name="T">The type of the collection elements.</typeparam>
+        /// <param name="list">The collection to check.</param>
+        /// <returns>True if all items in the collection are equal, false otherwise.</returns>
         public static bool AllSame<T>(this IEnumerable<T> list)
         {
             var enumerable = list.ToList();
@@ -104,24 +122,51 @@ namespace MzLibUtil
 
         /// <summary>
         /// Finds the index of all instances of a specified substring within the source string.
-        /// The index returned is the position of the first character of the substring within the source tring
         /// </summary>
-        /// <param name="sourceString">Haystack: string to be searched</param>
-        /// <param name="subString">Needle: substring to be located</param>
+        /// <param name="sourceString">The source string to be searched.</param>
+        /// <param name="subString">The substring to be located.</param>
+        /// <returns>An enumerable of the indices of the substring.</returns>
         public static IEnumerable<int> IndexOfAll(this string sourceString, string subString)
         {
             return Regex.Matches(sourceString, subString).Cast<Match>().Select(m => m.Index);
         }
 
         /// <summary>
-        /// Extension method to invoke the GetPeriodTolerantFileNameWithoutExtension method
+        /// Gets the filename without extension in a period-tolerant manner.
         /// </summary>
-        /// <param name="filePath"></param>
-        /// <returns></returns>
+        /// <param name="filePath">The file path.</param>
+        /// <returns>The filename without extension.</returns>
         public static string GetPeriodTolerantFilenameWithoutExtension(this string filePath)
         {
             return PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(filePath);
         }
 
+        /// <summary>
+        /// Converts a string to a nullable double.
+        /// </summary>
+        /// <param name="value">The string value.</param>
+        /// <returns>The nullable double value, or null if the conversion fails.</returns>
+        public static double? ToNullableDouble(this string value)
+        {
+            if (double.TryParse(value, out var result))
+            {
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Converts a string to a nullable integer.
+        /// </summary>
+        /// <param name="value">The string value.</param>
+        /// <returns>The nullable integer value, or null if the conversion fails.</returns>
+        public static int? ToNullableInt(this string value)
+        {
+            if (int.TryParse(value, out var result))
+            {
+                return result;
+            }
+            return null;
+        }
     }
 }

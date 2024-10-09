@@ -5,11 +5,12 @@
         Unspecified,
         MassSpecFile,
 
-        // Deconvolution Results
+        // Deconvolution
         FLASHDeconv, // files tested were outputted from OpenMs3.0.0
         TopFD,       // files tested were outputted from v1.6.2
+        IsoDec,
 
-        // Search Results
+        // Search
         MetaMorpheus,
         MaxQuant,
         Toppic,
@@ -20,7 +21,7 @@
         ProsightPD,
         Chimerys,
 
-        // Quantification Results
+        // Quantification
         FlashLFQ,
     }
 }

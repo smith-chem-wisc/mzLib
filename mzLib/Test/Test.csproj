@@ -321,7 +321,7 @@
     <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_IsoDec1.0.0_ms2 .msalign">
+    <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_IsoDec1.0.0_ms2.msalign">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_TopFDv1.6.2_ms2.msalign">
