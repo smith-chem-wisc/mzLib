@@ -1,26 +1,135 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
+using System.Text.RegularExpressions;
 
 namespace Readers;
 
+/// <summary>
+/// Parent class to define the shared behavior of MsAlign spectra file types
+/// </summary>
 public abstract class MsAlign : MsDataFile
 {
+    // TODO: Add header properties from IsoDec and Ms1 Align from TopFD
     /// <summary>
-    /// Enum is required as there are several different ways an msAlign header information is written
+    /// Ms2Align will sometimes have a header which states many parameters.
+    /// Not all software output a parameters header in their MsAlign. 
+    /// Not all of these are required for the MsAlign object, but they are stored here for reference.
     /// </summary>
-    protected enum ReadingProgress
-    {
-        NotFound,
-        Found,
-        Finished
-    }
+    #region Optional MsAlign Header 
+
+    protected Dictionary<string, string> _parsedHeader { get; set; }
+   
+
+    public DissociationType? DissociationType { get; private set; }
+    public int? Ms1ScanCount { get; private set; }
+    public int? Ms2ScanCount { get; private set; }
+    public string? SpectralDataType { get; private set; }
+    public int? MaxAssumedChargeState { get; private set; }
+    public double? MaxAssumedMonoisotopicMass { get; private set; }
+    public string? PeakErrorTolerance { get; private set; }
+    public double? Ms1SnRRatio { get; private set; }
+    public double? Ms2SnRRatio { get; private set; }
+    public double? MaxThreadsToUse { get; private set; }
+    public double? PrecursorWindowSize { get; private set; }
+    public bool? UseEnvCnnModel { get; private set; }
+    public bool? MissMs1Spectra { get; private set; }
+    public string? SoftwareVersion { get; private set; }
+    public Software? Software { get; private set; }
+
+    #endregion
 
     protected abstract int DefaultMsnOrder { get; }
-    protected MsAlign(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile) { }
-    protected MsAlign(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile) { }
-    protected MsAlign(string filePath) : base(filePath) { }
 
+    protected MsAlign(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
+    {
+        _parsedHeader = [];
+    }
+
+    protected MsAlign(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+    {
+        _parsedHeader = [];
+    }
+
+    protected MsAlign(string filePath) : base(filePath)
+    {
+        _parsedHeader = [];
+    }
+
+    public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
+    {
+        List<MsDataScan> scans = [];
+        var headerProgress = ReadingProgress.NotFound;
+        var entryProgress = ReadingProgress.NotFound;
+        using (var sr = new StreamReader(FilePath))
+        {
+            List<string> linesToProcess = [];
+            while (sr.ReadLine() is { } line)
+            {
+                if (line.Contains("BEGIN IONS"))
+                    headerProgress = ReadingProgress.Finished;
+
+                // get header
+                if (headerProgress != ReadingProgress.Finished)
+                {
+                    switch (headerProgress)
+                    {
+                        case ReadingProgress.NotFound when line.Contains("##### Parameters #####"):
+                            headerProgress = ReadingProgress.Found;
+                            break;
+                        case ReadingProgress.Found when line.Contains("##### Parameters #####"):
+                            headerProgress = ReadingProgress.Finished;
+                            ParseHeaderLines(linesToProcess);
+                            linesToProcess.Clear();
+                            break;
+                        default:
+                            linesToProcess.Add(line);
+                            continue;
+                    }
+                }
+                else
+                {
+                    switch (entryProgress)
+                    {
+                        // each entry after header
+                        case ReadingProgress.NotFound when line.Contains("BEGIN IONS"):
+                            entryProgress = ReadingProgress.Found;
+                            break;
+                        case ReadingProgress.Found when line.Contains("END IONS"):
+                            {
+                                entryProgress = ReadingProgress.NotFound;
+                                var scan = PrecursorWindowSize is null
+                                    ? ParseEntryLines(linesToProcess, filteringParams)
+                                    : ParseEntryLines(linesToProcess, filteringParams, PrecursorWindowSize.Value);
+                                scans.Add(scan);
+                                linesToProcess.Clear();
+                                break;
+                            }
+                        default:
+                            linesToProcess.Add(line);
+                            break;
+                    }
+                }
+            }
+        }
+
+        Scans = scans.ToArray();
+        return this;
+    }
+    protected void ParseHeaderLines(List<string> headerLines)
+    {
+        foreach (var line in headerLines.Where(p => p.Contains('\t')))
+        {
+            var splits = line.Split('\t');
+            _parsedHeader.Add(splits[0].Trim(), splits[1].Trim());
+        }
+
+        // TODO: Parse the rest of the _parsedHeader Object into Header Properties
+        string? precursorWindowSize = _parsedHeader.FirstOrDefault(p =>
+            p.Key.Contains("precursor window", StringComparison.CurrentCultureIgnoreCase))!.Value;
+        if (precursorWindowSize is not null)
+            PrecursorWindowSize = double.Parse(precursorWindowSize.Replace("m/z", "").Trim());
+    }
     protected MsDataScan ParseEntryLines(List<string> entryLines, IFilteringParams? filteringParams = null,
         double isolationWidth = 3)
     {
@@ -126,8 +235,15 @@ public abstract class MsAlign : MsDataFile
         return t;
     }
 
+
     // TODO: Dynamic connection for MsAlign Types
     // Current approach is to have the dynamic methods call the static methods. 
+    #region Dynamic Connection
+
+    private StreamReader _streamReader;
+    private Dictionary<int, long> _scanByteOffset;
+    private static Regex _scanNumberparser = new Regex(@"(^|\s)SCANS=(.*?)($|\D)");
+
     public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
     {
         // TODO: Apply the filtering params
@@ -141,8 +257,21 @@ public abstract class MsAlign : MsDataFile
         if (!CheckIfScansLoaded())
             LoadAllStaticData();
     }
+
+    #endregion
+
     public override SourceFile GetSourceFile()
     {
-        throw new NotImplementedException();
+        return new SourceFile("no nativeID format", $"ms{DefaultMsnOrder}.msalign format", null, null, null);
+    }
+
+    /// <summary>
+    /// Enum is required as there are several different ways an msAlign header information is written
+    /// </summary>
+    protected enum ReadingProgress
+    {
+        NotFound,
+        Found,
+        Finished
     }
 }
