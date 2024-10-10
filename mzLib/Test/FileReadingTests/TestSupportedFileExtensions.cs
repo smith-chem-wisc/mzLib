@@ -74,6 +74,10 @@ namespace Test.FileReadingTests
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"Tsv file type not supported"));
 
+            badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "Codswallop_ms3.msalign");
+            e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
+            Assert.That(e?.Message, Is.EqualTo($"MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2"));
+
             var emptyFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "emptyFile.tsv");
             File.Create(emptyFile).Close();
             e = Assert.Throws<MzLibException>(() => emptyFile.ParseFileType());
