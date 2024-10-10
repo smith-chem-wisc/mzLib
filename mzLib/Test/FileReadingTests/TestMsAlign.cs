@@ -392,5 +392,25 @@ namespace Test.FileReadingTests
             Assert.That(msAlign.Software, Is.EqualTo(Software.IsoDec));
         }
 
+
+        [Test]
+        public static void PeakFiltering()
+        {
+            int peaksToKeep = 10;
+            var msAlign = MsAlignTestFiles["Ms2Align_IsoDec1.0.0_ms2.msalign"];
+            var filteringParams = new FilteringParams(peaksToKeep, numberOfWindows: 1);
+            msAlign = new Ms2Align(msAlign.FilePath);
+
+            msAlign.InitiateDynamicConnection();
+            var dynaScan = msAlign.GetOneBasedScanFromDynamicConnection(1383, filteringParams);
+            Assert.That(dynaScan.MassSpectrum.Size, Is.EqualTo(peaksToKeep));
+            msAlign.CloseDynamicConnection();
+
+            msAlign.LoadAllStaticData(filteringParams);
+            foreach (var dataScan in msAlign)
+            {
+                Assert.That(dataScan.MassSpectrum.Size, Is.LessThanOrEqualTo(peaksToKeep));
+            }
+        }
     }
 }
