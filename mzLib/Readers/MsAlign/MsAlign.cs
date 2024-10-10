@@ -106,9 +106,7 @@ public abstract class MsAlign : MsDataFile
                         case ReadingProgress.Found when line.Contains("END IONS"):
                             {
                                 entryProgress = ReadingProgress.NotFound;
-                                var scan = PrecursorWindowSize is null
-                                    ? ParseEntryLines(linesToProcess, filteringParams)
-                                    : ParseEntryLines(linesToProcess, filteringParams, PrecursorWindowSize);
+                                var scan = ParseEntryLines(linesToProcess, filteringParams, PrecursorWindowSize);
                                 scans.Add(scan);
                                 linesToProcess.Clear();
                                 break;
@@ -177,7 +175,7 @@ public abstract class MsAlign : MsDataFile
                     Ms1ScanCount = _parsedHeader[key]?.ToNullableInt();
                     break;
                 case "Number of MS2 scans":
-                case "Number of MS/MS scan":
+                case "Number of MS/MS scans":
                     Ms2ScanCount = _parsedHeader[key]?.ToNullableInt();
                     break;
                 case "Spectral data type":
@@ -202,7 +200,8 @@ public abstract class MsAlign : MsDataFile
                     MaxThreadsToUse = _parsedHeader[key]?.ToNullableDouble();
                     break;
                 case "Default precursor window":
-                    PrecursorWindowSize = _parsedHeader[key]?.ToNullableDouble();
+                case "Precursor window size":
+                    PrecursorWindowSize = _parsedHeader[key].Replace("m/z", "").Trim().ToNullableDouble();
                     break;
                 case "Use MS-Deconv score":
                     UseMsDeconvScore = _parsedHeader[key] == "Yes";
@@ -352,7 +351,7 @@ public abstract class MsAlign : MsDataFile
             WindowModeHelper.Run(ref intensities, ref mzs, filteringParams, minMz, maxMz);
         }
 
-        double? isolationMz = null;
+        double? isolationMz = precursorMz;
         if (msnOrder == 1)
         {
             isolationWidth = null;
@@ -360,7 +359,11 @@ public abstract class MsAlign : MsDataFile
         else if (precursorMzStart is not null && precursorMzEnd is not null)
         {
             isolationWidth = precursorMzEnd.Value - precursorMzStart.Value;
-            isolationMz = (precursorMzStart.Value + isolationWidth.Value) / 2.0;
+            isolationMz = precursorMzStart.Value + isolationWidth.Value / 2.0;
+        }
+        else
+        {
+            isolationWidth ??= 3;
         }
         
         var spectrum = new MzSpectrum(mzs, intensities, true);
@@ -483,9 +486,7 @@ public abstract class MsAlign : MsDataFile
 
         FoundAllLines:
 
-        return PrecursorWindowSize is null
-            ? ParseEntryLines(linesToProcess, filterParams)
-            : ParseEntryLines(linesToProcess, filterParams, PrecursorWindowSize);
+        return ParseEntryLines(linesToProcess, filterParams, PrecursorWindowSize);
     }
 
     #endregion
