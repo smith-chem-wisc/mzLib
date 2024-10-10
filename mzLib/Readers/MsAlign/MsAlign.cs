@@ -10,7 +10,7 @@ namespace Readers;
 /// </summary>
 public abstract class MsAlign : MsDataFile
 {
-    // TODO: Add header properties from IsoDec and Ms1 Align from TopFD
+
     /// <summary>
     /// Ms2Align will sometimes have a header which states many parameters.
     /// Not all software output a parameters header in their MsAlign. 
@@ -18,11 +18,11 @@ public abstract class MsAlign : MsDataFile
     /// </summary>
     #region Optional MsAlign Header 
 
-    protected Dictionary<string, string> _parsedHeader { get; set; }
+    private Dictionary<string, string> ParsedHeader { get; set; }
     
     public string? FileName { get; private set; }
     public bool? FaimsData { get; private set; }
-    public double? FailsVoltage { get; private set; }
+    public double? FaimsVoltage { get; private set; }
     public DissociationType? DissociationType { get; private set; }
     public int? Ms1ScanCount { get; private set; }
     public int? Ms2ScanCount { get; private set; }
@@ -46,17 +46,17 @@ public abstract class MsAlign : MsDataFile
 
     protected MsAlign(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
     {
-        _parsedHeader = [];
+        ParsedHeader = [];
     }
 
     protected MsAlign(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
     {
-        _parsedHeader = [];
+        ParsedHeader = [];
     }
 
     protected MsAlign(string filePath) : base(filePath)
     {
-        _parsedHeader = [];
+        ParsedHeader = [];
     }
 
     public override MsDataScan GetOneBasedScan(int scanNumber)
@@ -131,12 +131,13 @@ public abstract class MsAlign : MsDataFile
 
         IndexedScans = indexedScans;
         Scans = orderedScans;
+        Software ??= Readers.Software.Unspecified;
         return this;
     }
 
-    protected void ParseHeaderLines(List<string> headerLines)
+    private void ParseHeaderLines(List<string> headerLines)
     {
-        _parsedHeader = new Dictionary<string, string>();
+        ParsedHeader = new Dictionary<string, string>();
 
         foreach (var line in headerLines)
         {
@@ -147,83 +148,77 @@ public abstract class MsAlign : MsDataFile
                 {
                     var key = keyValue[0].Trim();
                     var value = keyValue[1].Trim();
-                    _parsedHeader[key] = value;
+                    ParsedHeader[key] = value;
                 }
+                else if (line.Contains("IsoDec", StringComparison.InvariantCultureIgnoreCase))
+                    Software = Readers.Software.IsoDec;
+                else if (line.Contains("TopFD", StringComparison.InvariantCultureIgnoreCase))
+                    Software = Readers.Software.TopFD;
             }
         }
 
         // Set the parsed header values to the corresponding properties
-        foreach (var key in _parsedHeader.Keys)
+        foreach (var key in ParsedHeader.Keys)
         {
             switch (key)
             {
                 case "File name":
-                    FileName = _parsedHeader[key];
+                    FileName = ParsedHeader[key];
                     break;
                 case "Faims data":
-                    FaimsData = _parsedHeader[key] == "Yes";
+                    FaimsData = ParsedHeader[key] == "Yes";
                     break;
                 case "Faims voltage":
-                    FailsVoltage = _parsedHeader[key]?.ToNullableDouble();
+                    FaimsVoltage = ParsedHeader[key]?.ToNullableDouble();
                     break;
-                case "Activation Type":
-                    DissociationType = Enum.TryParse(_parsedHeader[key], out DissociationType dissType) 
+                case "Activation type":
+                    DissociationType = Enum.TryParse(ParsedHeader[key], out DissociationType dissType) 
                         ? dissType 
                         : MassSpectrometry.DissociationType.Autodetect;
                     break;
                 case "Number of MS1 scans":
-                    Ms1ScanCount = _parsedHeader[key]?.ToNullableInt();
+                    Ms1ScanCount = ParsedHeader[key]?.ToNullableInt();
                     break;
                 case "Number of MS2 scans":
                 case "Number of MS/MS scans":
-                    Ms2ScanCount = _parsedHeader[key]?.ToNullableInt();
+                    Ms2ScanCount = ParsedHeader[key]?.ToNullableInt();
                     break;
                 case "Spectral data type":
-                    SpectralDataType = _parsedHeader[key];
+                    SpectralDataType = ParsedHeader[key];
                     break;
                 case "Maximum charge":
-                    MaxAssumedChargeState = _parsedHeader[key]?.ToNullableInt();
+                    MaxAssumedChargeState = ParsedHeader[key]?.ToNullableInt();
                     break;
                 case "Maximum monoisotopic mass":
-                    MaxAssumedMonoisotopicMass = _parsedHeader[key]?.ToNullableDouble();
+                    MaxAssumedMonoisotopicMass = ParsedHeader[key].Split(" ")[0].ToNullableDouble();
                     break;
                 case "Peak error tolerance":
-                    PeakErrorTolerance = _parsedHeader[key];
+                    PeakErrorTolerance = ParsedHeader[key];
                     break;
                 case "MS1 signal/noise ratio":
-                    Ms1SnRRatio = _parsedHeader[key]?.ToNullableDouble();
+                    Ms1SnRRatio = ParsedHeader[key]?.ToNullableDouble();
                     break;
                 case "MS/MS signal/noise ratio":
-                    Ms2SnRRatio = _parsedHeader[key]?.ToNullableDouble();
+                    Ms2SnRRatio = ParsedHeader[key]?.ToNullableDouble();
                     break;
                 case "Thread number":
-                    MaxThreadsToUse = _parsedHeader[key]?.ToNullableDouble();
+                    MaxThreadsToUse = ParsedHeader[key]?.ToNullableDouble();
                     break;
                 case "Default precursor window":
                 case "Precursor window size":
-                    PrecursorWindowSize = _parsedHeader[key].Replace("m/z", "").Trim().ToNullableDouble();
+                    PrecursorWindowSize = ParsedHeader[key].Replace("m/z", "").Trim().ToNullableDouble();
                     break;
                 case "Use MS-Deconv score":
-                    UseMsDeconvScore = _parsedHeader[key] == "Yes";
+                    UseMsDeconvScore = ParsedHeader[key] == "Yes";
                     break;
                 case "Use Env CNN model":
-                    UseEnvCnnModel = _parsedHeader[key] == "Yes";
+                    UseEnvCnnModel = ParsedHeader[key] == "Yes";
                     break;
                 case "Miss MS1 spectra":
-                    MissMs1Spectra = _parsedHeader[key] == "Yes";
+                    MissMs1Spectra = ParsedHeader[key] == "Yes";
                     break;
                 case "Version":
-                    SoftwareVersion = _parsedHeader[key];
-                    break;
-                case "Software":
-                    if (Enum.TryParse(_parsedHeader[key], out Software software))
-                        Software = software;
-                    else if (_parsedHeader.Keys.Contains("IsoDec", StringComparer.InvariantCultureIgnoreCase))
-                        Software = Readers.Software.IsoDec;
-                    else if (_parsedHeader.Keys.Contains("TopFD", StringComparer.InvariantCultureIgnoreCase))
-                        Software = Readers.Software.TopFD;
-                    else
-                        Software = Readers.Software.Unspecified;
+                    SoftwareVersion = ParsedHeader[key];
                     break;
                 default:
                     break;
@@ -231,7 +226,7 @@ public abstract class MsAlign : MsDataFile
         }
     }
 
-    protected MsDataScan ParseEntryLines(List<string> entryLines, IFilteringParams? filteringParams = null,
+    private MsDataScan ParseEntryLines(List<string> entryLines, IFilteringParams? filteringParams = null,
         double? isolationWidth = 3)
     {
         // all
