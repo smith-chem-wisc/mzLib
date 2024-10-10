@@ -59,6 +59,11 @@ public abstract class MsAlign : MsDataFile
         _parsedHeader = [];
     }
 
+    public override MsDataScan GetOneBasedScan(int scanNumber)
+    {
+        return IndexedScans[scanNumber - 1];
+    }
+
     public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
     {
         List<MsDataScan> scans = [];
@@ -103,7 +108,7 @@ public abstract class MsAlign : MsDataFile
                                 entryProgress = ReadingProgress.NotFound;
                                 var scan = PrecursorWindowSize is null
                                     ? ParseEntryLines(linesToProcess, filteringParams)
-                                    : ParseEntryLines(linesToProcess, filteringParams, PrecursorWindowSize.Value);
+                                    : ParseEntryLines(linesToProcess, filteringParams, PrecursorWindowSize);
                                 scans.Add(scan);
                                 linesToProcess.Clear();
                                 break;
@@ -119,6 +124,7 @@ public abstract class MsAlign : MsDataFile
         Scans = scans.ToArray();
         return this;
     }
+
     protected void ParseHeaderLines(List<string> headerLines)
     {
         _parsedHeader = new Dictionary<string, string>();
@@ -309,6 +315,22 @@ public abstract class MsAlign : MsDataFile
             intensities[i] = double.Parse(splits[1]);
         }
 
+        Array.Sort(mzs, intensities);
+
+        //Remove Zero Intensity Peaks
+        double zeroEquivalentIntensity = 0.01;
+        int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
+        int intensityValueCount = intensities.Count();
+        if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
+        {
+            Array.Sort(intensities, mzs);
+            double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
+            double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
+            intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+            mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+            Array.Sort(mzs, intensities);
+        }
+
         double minMz = mzs.Length == 0 ? 0 : mzs.Min();
         double maxMz = mzs.Length == 0 ? 2000 : mzs.Max();
 
@@ -319,17 +341,23 @@ public abstract class MsAlign : MsDataFile
             WindowModeHelper.Run(ref intensities, ref mzs, filteringParams, minMz, maxMz);
         }
 
+        double? isolationMz = null;
         if (msnOrder == 1)
+        {
             isolationWidth = null;
+        }
         else if (precursorMzStart is not null && precursorMzEnd is not null)
-                isolationWidth = precursorMzEnd.Value - precursorMzStart.Value;
+        {
+            isolationWidth = precursorMzEnd.Value - precursorMzStart.Value;
+            isolationMz = (precursorMzStart.Value + isolationWidth.Value) / 2.0;
+        }
         
         var spectrum = new MzSpectrum(mzs, intensities, true);
         var dataScan = new MsDataScan(spectrum, oneBasedScanNumber, msnOrder, true, Polarity.Positive, retentionTime,
             mzs.Any() ? new MzRange(minMz, maxMz) : new MzRange(0, 2000), null, MZAnalyzerType.Orbitrap,
-            intensities.Sum(), null, null, $"scan={oneBasedScanNumber}", precursorMz,
-            precursorCharge, precursorIntensity, precursorMz, isolationWidth,
-            dissociationType, oneBasedPrecursorScanNumber, precursorMass);
+            intensities.Sum(), null, null, $"scan={oneBasedScanNumber}",
+            precursorMz, precursorCharge, precursorIntensity, isolationMz, 
+            isolationWidth, dissociationType, oneBasedPrecursorScanNumber, precursorMz);
 
         return dataScan;
     }
@@ -339,22 +367,117 @@ public abstract class MsAlign : MsDataFile
     // Current approach is to have the dynamic methods call the static methods. 
     #region Dynamic Connection
 
-    private StreamReader _streamReader;
-    private Dictionary<int, long> _scanByteOffset;
+    protected MsDataScan[] IndexedScans { get; set; }
+
+    private StreamReader? _streamReader;
+    private Dictionary<int, long>? _scanByteOffset;
     private static Regex _scanNumberparser = new Regex(@"(^|\s)SCANS=(.*?)($|\D)");
 
     public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
     {
-        // TODO: Apply the filtering params
-        return GetOneBasedScan(oneBasedScanNumber);
+        if (_streamReader == null)
+        {
+            throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
+        }
+
+        if (_scanByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))
+        {
+            // seek to the byte of the scan
+            _streamReader.BaseStream.Position = byteOffset;
+            _streamReader.DiscardBufferedData();
+
+            return GetNextMsDataOneBasedScanFromConnection(_streamReader, filterParams);
+        }
+        else
+        {
+            throw new MzLibException("The specified scan number: " + oneBasedScanNumber + " does not exist in " + FilePath);
+        }
     }
 
-    public override void CloseDynamicConnection() { }
+    public override void CloseDynamicConnection() => _streamReader?.Dispose();
 
     public override void InitiateDynamicConnection()
     {
-        if (!CheckIfScansLoaded())
-            LoadAllStaticData();
+        if (!File.Exists(FilePath))
+            throw new FileNotFoundException();
+        if (_streamReader is not null && _streamReader.BaseStream.CanRead && _scanByteOffset is not null)
+            return;
+
+        _streamReader = new StreamReader(FilePath);
+
+        BuildIndex();
+    }
+
+    private void BuildIndex()
+    {
+        _scanByteOffset = new Dictionary<int, long>();
+        int oneBasedScanNumber = 0;
+        long oneBasedScanByteOffset = 0;
+        bool scanHasAScanNumber = false;
+
+        while (_streamReader != null && _streamReader.Peek() > 0)
+        {
+            var currentPositionByteOffset = TextFileReading.GetByteOffsetAtCurrentPosition(_streamReader);
+
+            string? line = _streamReader.ReadLine();
+
+            if (line != null && line.StartsWith("BEGIN IONS", StringComparison.InvariantCultureIgnoreCase))
+            {
+                oneBasedScanByteOffset = currentPositionByteOffset;
+                scanHasAScanNumber = false;
+            }
+            else if (line != null && line.StartsWith("SCANS=", StringComparison.InvariantCultureIgnoreCase))
+            {
+                scanHasAScanNumber = true;
+
+                Match result = _scanNumberparser.Match(line);
+                var scanString = result.Groups[2].Value;
+                oneBasedScanNumber = int.Parse(scanString);
+            }
+            else if (line != null && line.StartsWith("END IONS", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!scanHasAScanNumber)
+                {
+                    oneBasedScanNumber++;
+                }
+
+                if (!_scanByteOffset.TryAdd(oneBasedScanNumber, oneBasedScanByteOffset))
+                {
+                    throw new MzLibException("Scan number " + oneBasedScanNumber.ToString() +
+                                             " appeared multiple times in " + FilePath + ", which is not allowed because we assume all scan numbers are unique.");
+                }
+            }
+        }
+    }
+
+    private MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, IFilteringParams filterParams = null)
+    {
+        var entryProgress = ReadingProgress.NotFound;
+        List<string> linesToProcess = [];
+        // read the scan data
+        while (sr.ReadLine() is { } line)
+        {
+            switch (entryProgress)
+            {
+                // each entry after header
+                case ReadingProgress.NotFound when line.Contains("BEGIN IONS"):
+                    entryProgress = ReadingProgress.Found;
+                    break;
+                case ReadingProgress.Found when line.Contains("END IONS"):
+                {
+                    goto FoundAllLines;
+                }
+                default:
+                    linesToProcess.Add(line);
+                    break;
+            }
+        }
+
+        FoundAllLines:
+
+        return PrecursorWindowSize is null
+            ? ParseEntryLines(linesToProcess, filterParams)
+            : ParseEntryLines(linesToProcess, filterParams, PrecursorWindowSize);
     }
 
     #endregion
