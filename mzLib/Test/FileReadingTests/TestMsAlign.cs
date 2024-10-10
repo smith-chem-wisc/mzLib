@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using Readers;
 
@@ -128,9 +129,12 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [TestCase(@"Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", 1, 1, 0.0035, 190, null, null, null, null, null, null, null)]
-        [TestCase(@"Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", 23, 1, 0.4035, 172, null, null, null, null, null, null, null)]
-        [TestCase(@"Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", 26, 1, 0.4412, 181, null, null, null, null, null, null, null)]
+        [TestCase(@"Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", 1, 1, 0.0035, 190, null, null, null, null, null, null,
+            null)]
+        [TestCase(@"Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", 23, 1, 0.4035, 172, null, null, null, null, null,
+            null, null)]
+        [TestCase(@"Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", 26, 1, 0.4412, 181, null, null, null, null, null,
+            null, null)]
         public void TestMsAlign_DynamnicConnectionAndHeaderComponents(string path, int oneBasedScanNumber, int msnOrder,
             double retentionTime,
             int peakCount, int? oneBasePrecursorScanNumber, double? precursorMz, int? precursorCharge,
@@ -165,5 +169,57 @@ namespace Test.FileReadingTests
 
             file.CloseDynamicConnection();
         }
+
+        [Test]
+        public void GetOneBasedScanFromDynamicConnection_ExistingScanNumber_ReturnsMsDataScan()
+        {
+            // Arrange
+            var msAlign = MsAlignTestFiles.First().Value;
+            msAlign.InitiateDynamicConnection();
+
+            // Act
+            var scan = msAlign.GetOneBasedScanFromDynamicConnection(1);
+
+            // Assert
+            Assert.That(scan, Is.Not.Null);
+            Assert.That(1, Is.EqualTo(scan.OneBasedScanNumber));
+        }
+
+        [Test]
+        public void GetOneBasedScanFromDynamicConnection_NonExistingScanNumber_ThrowsException()
+        {
+            // Arrange
+            var msAlign = MsAlignTestFiles.First().Value;
+            msAlign.InitiateDynamicConnection();
+
+            // Act and Assert
+            Assert.Throws<MzLibException>(() => msAlign.GetOneBasedScanFromDynamicConnection(100));
+        }
+
+        [Test]
+        public void CloseDynamicConnection_ConnectionOpen_ClosesConnection()
+        {
+            // Arrange
+            var msAlign = MsAlignTestFiles.First().Value;
+            msAlign.InitiateDynamicConnection();
+
+            // Act
+            msAlign.CloseDynamicConnection();
+
+            // Assert
+            Assert.Throws<MzLibException>(() => msAlign.GetOneBasedScanFromDynamicConnection(14560790));
+        }
+
+        [Test]
+        public void InitiateDynamicConnection_FileDoesNotExist_FileNotFoundExceptionThrown()
+        {
+            // Arrange
+            var msAlign = new Ms2Align("NonExistentFile.mzML");
+
+            // Act & Assert
+            Assert.Throws<FileNotFoundException>(() => msAlign.InitiateDynamicConnection());
+        }
+
+        
     }
 }
