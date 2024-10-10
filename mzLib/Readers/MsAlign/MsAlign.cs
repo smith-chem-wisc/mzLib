@@ -121,7 +121,18 @@ public abstract class MsAlign : MsDataFile
             }
         }
 
-        Scans = scans.ToArray();
+        SourceFile = GetSourceFile();
+
+        // ensures that if a scan (OneBasedScanNumber) does not exist,
+        // the final scans array will contain a null value  
+        // this unique case is due to the nature of loading MGF files
+        var orderedScans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
+        var indexedScans = new MsDataScan[orderedScans[^1].OneBasedScanNumber];
+        foreach (var scan in orderedScans)
+            indexedScans[scan.OneBasedScanNumber - 1] = scan;
+
+        IndexedScans = indexedScans;
+        Scans = orderedScans;
         return this;
     }
 
@@ -362,16 +373,13 @@ public abstract class MsAlign : MsDataFile
         return dataScan;
     }
 
-
-    // TODO: Dynamic connection for MsAlign Types
-    // Current approach is to have the dynamic methods call the static methods. 
     #region Dynamic Connection
 
     protected MsDataScan[] IndexedScans { get; set; }
 
     private StreamReader? _streamReader;
-    private Dictionary<int, long>? _scanByteOffset;
-    private static Regex _scanNumberparser = new Regex(@"(^|\s)SCANS=(.*?)($|\D)");
+    private Dictionary<int, long> _scanByteOffset;
+    private static readonly Regex ScanNumberParser = new Regex(@"(^|\s)SCANS=(.*?)($|\D)");
 
     public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
     {
@@ -400,7 +408,7 @@ public abstract class MsAlign : MsDataFile
     {
         if (!File.Exists(FilePath))
             throw new FileNotFoundException();
-        if (_streamReader is not null && _streamReader.BaseStream.CanRead && _scanByteOffset is not null)
+        if (_streamReader is not null && _streamReader.BaseStream.CanRead)
             return;
 
         _streamReader = new StreamReader(FilePath);
@@ -430,7 +438,7 @@ public abstract class MsAlign : MsDataFile
             {
                 scanHasAScanNumber = true;
 
-                Match result = _scanNumberparser.Match(line);
+                Match result = ScanNumberParser.Match(line);
                 var scanString = result.Groups[2].Value;
                 oneBasedScanNumber = int.Parse(scanString);
             }
@@ -488,7 +496,7 @@ public abstract class MsAlign : MsDataFile
     /// <summary>
     /// Enum is required as there are several different ways an msAlign header information is written
     /// </summary>
-    protected enum ReadingProgress
+    private enum ReadingProgress
     {
         NotFound,
         Found,
