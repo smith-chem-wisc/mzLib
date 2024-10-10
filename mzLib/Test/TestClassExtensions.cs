@@ -135,7 +135,7 @@ namespace Test
         [TestCase("-16.345.364", null)]
         public static void TestToNullableDouble(string input, double? expected)
         {
-            double? result = input.ToNullableInt();
+            double? result = input.ToNullableDouble();
             NUnit.Framework.Assert.That(result, Is.EqualTo(expected));
         }
     }
