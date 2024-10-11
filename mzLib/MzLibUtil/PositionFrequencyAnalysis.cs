@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -28,7 +29,14 @@ namespace MzLibUtil
             foreach (var peptide in peptides)
             {
                 double peptideIntensity = peptide.Item4;
-                string baseSeq = peptide.Item2;
+                
+                string baseSeq;
+                if (!peptide.Item2.IsNotNullOrEmpty())
+                {
+                    baseSeq = new string(peptide.Item1.ToCharArray());
+                    ClassExtensions.RemoveSpecialCharacters(ref baseSeq, @"", @"[.*?]");
+                }
+                else { baseSeq = peptide.Item2; }
 
                 // Go through the peptide's protein groups
                 foreach(var pg in peptide.Item3)
