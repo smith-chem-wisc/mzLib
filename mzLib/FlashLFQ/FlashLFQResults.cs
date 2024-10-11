@@ -372,6 +372,17 @@ namespace FlashLFQ
             ModInfo = PositionFrequencyAnalysis.PeptidePTMOccupancy(peptides, IncludeNTerminus, IncludeCTerminus);
         }
 
+        public void CalculatePTMOccupancy(Dictionary<string, double> quantifiedPeptides=null, bool IncludeNTerminus=true, bool IncludeCTerminus=true)
+        {
+            var peptides = _peptideModifiedSequencesToQuantify.Select(pep => Tuple.Create(
+                PeptideModifiedSequences[pep].Sequence,
+                PeptideModifiedSequences[pep].BaseSequence,
+                PeptideModifiedSequences[pep].ProteinGroups.Select(pg => pg.ProteinGroupName).ToList(),
+                quantifiedPeptides.GetValueOrDefault(pep, PeptideModifiedSequences[pep].GetTotalIntensity()))).ToList();
+
+            ModInfo = PositionFrequencyAnalysis.PeptidePTMOccupancy(peptides, IncludeNTerminus, IncludeCTerminus);
+        }
+
         /// <summary>
         /// This method uses the median polish algorithm to calculate protein quantities in each biological replicate.
         /// See https://mgimond.github.io/ES218/Week11a.html for an example of the median polish algorithm.
