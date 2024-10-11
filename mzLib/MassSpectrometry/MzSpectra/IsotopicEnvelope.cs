@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
+using System.Runtime.InteropServices;
 
 namespace MassSpectrometry
 {
@@ -26,17 +27,12 @@ namespace MassSpectrometry
         {
             Peaks = bestListOfPeaks;
             MonoisotopicMass = bestMonoisotopicMass;
-            MostAbundantObservedIsotopicMass = GetMostAbundantObservedIsotopicMass(bestListOfPeaks, bestChargeState);
+            MostAbundantObservedIsotopicMass = bestListOfPeaks.MaxBy(p => p.intensity).mz * Math.Abs(bestChargeState)
             Charge = bestChargeState;
             TotalIntensity = bestTotalIntensity;
             StDev = bestStDev;
             MassIndex = bestMassIndex;
             Score = ScoreIsotopeEnvelope();
-        }
-
-        public double GetMostAbundantObservedIsotopicMass(List<(double mz, double intensity)> peaks, int charge)
-        {
-            return peaks.MaxBy(p => p.intensity).mz * Math.Abs(charge);
         }
 
         public override string ToString()
