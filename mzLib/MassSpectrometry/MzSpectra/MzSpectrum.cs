@@ -22,10 +22,8 @@ using MzLibUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 
 namespace MassSpectrometry
 {
@@ -796,7 +794,12 @@ namespace MassSpectrometry
             return peakList[index];
         }
 
-        private MzPeak GeneratePeak(int index)
+        /// <summary>
+        /// The source of all peaks which populate the peakList
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        protected virtual MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
         }

@@ -14,12 +14,15 @@ namespace MassSpectrometry
         /// <summary>
         /// Mass of most abundant observed isotopic peak, not accounting for addition or subtraction or protons due to ESI charge state induction
         /// </summary>
-        public double MostAbundantObservedIsotopicMass { get; private set; }
+        internal double MostAbundantObservedIsotopicMass { get; private set; }
         public readonly int Charge;
         public readonly double TotalIntensity;
 
         public double Score { get; private set; }
 
+        /// <summary>
+        /// Used for an isotopic envelope that mzLib deconvoluted (e.g., from a mass spectrum)
+        /// </summary>
         public IsotopicEnvelope(List<(double mz, double intensity)> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev)
         {
             Peaks = bestListOfPeaks;
@@ -28,6 +31,18 @@ namespace MassSpectrometry
             Charge = bestChargeState;
             TotalIntensity = bestTotalIntensity;
             Score = ScoreIsotopeEnvelope(bestStDev);
+        }
+
+        /// <summary>
+        /// Used for a neutral mass read in from a deconvoluted file
+        /// Assumes the mass is correct: score is max value
+        /// </summary>
+        public IsotopicEnvelope(double monoisotopicMass, double intensity, int charge)
+        {
+            MonoisotopicMass = monoisotopicMass;
+            Charge = charge;
+            TotalIntensity = intensity;
+            Score = double.MaxValue;
         }
 
         public override string ToString()
@@ -51,6 +66,5 @@ namespace MassSpectrometry
         {
             MonoisotopicMass = monoisotopicMassPredictions.Median();
         }
-
     }
 }
