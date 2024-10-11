@@ -357,20 +357,7 @@ namespace FlashLFQ
         /// <param name="IncludeNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
         /// <param name="IncludeCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public void CalculatePTMOccupancy(Dictionary<string, double> quantifiedPeptides = null, bool IncludeNTerminus = true, bool IncludeCTerminus = true)
-        {
-            if (quantifiedPeptides == null) quantifiedPeptides = new Dictionary<string, double>();
 
-            var peptides = _peptideModifiedSequencesToQuantify
-                .Where(pep => PeptideModifiedSequences.ContainsKey(pep))
-                .Select(pep => Tuple.Create(
-                    PeptideModifiedSequences[pep].Sequence,
-                    PeptideModifiedSequences[pep].BaseSequence,
-                    PeptideModifiedSequences[pep].ProteinGroups.Select(pg => pg.ProteinGroupName).ToList(),
-                    quantifiedPeptides.GetValueOrDefault(pep, PeptideModifiedSequences[pep].GetTotalIntensity()))).ToList();
-
-            ModInfo = PositionFrequencyAnalysis.PeptidePTMOccupancy(peptides, IncludeNTerminus, IncludeCTerminus);
-        }
 
         public void CalculatePTMOccupancy(Dictionary<string, double> quantifiedPeptides=null, bool IncludeNTerminus=true, bool IncludeCTerminus=true)
         {
