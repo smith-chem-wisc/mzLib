@@ -37,6 +37,8 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv", SupportedFileType.MsPathFinderTDecoys)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv", SupportedFileType.MsPathFinderTAllResults)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\crux.txt", SupportedFileType.CruxResult)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", SupportedFileType.Ms1Align)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign", SupportedFileType.Ms2Align)]
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();
@@ -71,6 +73,10 @@ namespace Test.FileReadingTests
             badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"Tsv file type not supported"));
+
+            badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "Codswallop_ms3.msalign");
+            e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
+            Assert.That(e?.Message, Is.EqualTo($"MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2"));
 
             var emptyFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "emptyFile.tsv");
             File.Create(emptyFile).Close();

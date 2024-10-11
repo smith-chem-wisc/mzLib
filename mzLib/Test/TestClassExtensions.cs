@@ -113,5 +113,30 @@ namespace Test
             Assert.That(mass, Is.EqualTo(mz.ToMass(charge)).Within(0.01));
             Assert.That(mz, Is.EqualTo(mass.ToMz(charge)).Within(0.01));
         }
+
+        [Test]
+        [TestCase("tacos", null)]
+        [TestCase("1", 1)]
+        [TestCase("-16", -16)]
+        [TestCase("1.25", null)]
+        [TestCase("-16.345", null)]
+        public static void TestToNullableInt(string input, int? expected)
+        {
+            int? result = input.ToNullableInt();
+            NUnit.Framework.Assert.That(result, Is.EqualTo(expected));
+        }
+
+        [Test]
+        [TestCase("tacos", null)]
+        [TestCase("1", 1)]
+        [TestCase("-16", -16)]
+        [TestCase("1.25", 1.25)]
+        [TestCase("-16.345", -16.345)]
+        [TestCase("-16.345.364", null)]
+        public static void TestToNullableDouble(string input, double? expected)
+        {
+            double? result = input.ToNullableDouble();
+            NUnit.Framework.Assert.That(result, Is.EqualTo(expected));
+        }
     }
 }
