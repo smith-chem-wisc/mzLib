@@ -1,4 +1,4 @@
-﻿// opyright 2016 Stefan Solntsev
+﻿// Copyright 2016 Stefan Solntsev
 //
 // This file (ChemicalFormula.cs) is part of Chemistry Library.
 //
@@ -28,6 +28,7 @@ using System.Linq;
 using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using NUnit.Framework.Legacy;
 
 namespace Test.DatabaseTests
 {
@@ -79,6 +80,39 @@ namespace Test.DatabaseTests
             Assert.AreEqual("Q14103-2", proteinXml[7].Accession);
             Assert.AreEqual("Q14103-3", proteinXml[8].Accession);
             Assert.AreEqual("Q14103-4", proteinXml[9].Accession);
+        }
+
+        [Test]
+        [TestCase("cRAP_databaseGPTMD.xml", DecoyType.None)]
+        [TestCase("uniprot_aifm1.fasta", DecoyType.None)]
+        [TestCase("cRAP_databaseGPTMD.xml", DecoyType.Reverse)]
+        [TestCase("uniprot_aifm1.fasta", DecoyType.Reverse)]
+        public void LoadingIsReproducible(string fileName, DecoyType decoyType)
+        {
+            // Load in proteins
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", fileName);
+            List<Protein> proteins1 = null;
+            List<Protein> proteins2 = null;
+            if(fileName.Contains(".xml"))
+            {
+                proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out var unknownModifications);
+                proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out unknownModifications);
+            }
+            else if (fileName.Contains(".fasta"))
+            {
+                proteins1 = ProteinDbLoader.LoadProteinFasta(dbPath, true, decoyType, false, out var unknownModifications);
+                proteins2 = ProteinDbLoader.LoadProteinFasta(dbPath, true, decoyType, false, out unknownModifications);
+            }
+            else
+            {
+                Assert.Fail("Unknown file type");
+            }
+
+            // check are equivalent lists of proteins
+            Assert.AreEqual(proteins1.Count, proteins2.Count);
+            // Because decoys are written in a parallel environment, there is no guarantee that the orders will be the same
+            CollectionAssert.AreEquivalent(proteins1.Select(p => p.Accession), proteins2.Select(p => p.Accession));
+            CollectionAssert.AreEquivalent(proteins1.Select(p => p.BaseSequence), proteins2.Select(p => p.BaseSequence));
         }
 
         [Test]
