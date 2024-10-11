@@ -23,9 +23,6 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    // TODO: Define scope of class 
-    // Class scope is to provide to the data loaded from the DataFile. 
-
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
@@ -35,6 +32,7 @@ namespace MassSpectrometry
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans.Length;
         public string FilePath { get; }
+        public virtual bool IsNeutralMassFile { get; protected set; } = false;
 
         protected MsDataFile(int numSpectra, SourceFile sourceFile)
         {
