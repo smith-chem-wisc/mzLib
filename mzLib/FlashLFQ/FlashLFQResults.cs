@@ -1,5 +1,7 @@
 ﻿using Easy.Common.Extensions;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
+using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +16,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
-        private readonly Dictionary<string, Dictionary<int, string>>(); // protein -> amino acid position -> occupancy results at that position
+        public Dictionary<string, Dictionary<string, Dictionary<string, Dictionary<int, Dictionary<string, double>>>>> ModInfo { get;  private set; }
         private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }
@@ -347,6 +349,17 @@ namespace FlashLFQ
                     }
                 }
             }
+        }
+
+        public void CalculatePTMOccupancy(Dictionary<string, double> quantifiedPeptides=null, bool IncludeNTerminus=true, bool IncludeCTerminus=true)
+        {
+            var peptides = _peptideModifiedSequencesToQuantify.Select(pep => Tuple.Create(
+                PeptideModifiedSequences[pep].Sequence,
+                PeptideModifiedSequences[pep].BaseSequence,
+                PeptideModifiedSequences[pep].ProteinGroups.Select(pg => pg.ProteinGroupName).ToList(),
+                quantifiedPeptides.GetValueOrDefault(pep, PeptideModifiedSequences[pep].GetTotalIntensity()))).ToList();
+
+            ModInfo = PositionFrequencyAnalysis.PeptidePTMOccupancy(peptides, IncludeNTerminus, IncludeCTerminus);
         }
 
         /// <summary>
