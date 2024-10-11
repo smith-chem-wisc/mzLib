@@ -373,7 +373,7 @@ namespace MassSpectrometry
                 }
             }
 
-            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, Statistics.StandardDeviation(listOfRatios), massIndex);
+            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, listOfRatios.StandardDeviation());
         }
 
         [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]

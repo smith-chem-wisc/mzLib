@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Easy.Common.Extensions;
-using Easy.Common.Interfaces;
+﻿using System.Collections.Generic;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -30,24 +24,9 @@ namespace MassSpectrometry
         public static IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan,
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
-            rangeToGetPeaksFrom ??= scan.MassSpectrum.Range;
-
-            // set deconvolution algorithm and any specific deconvolution parameters found in the MsDataScan
-            DeconvolutionAlgorithm deconAlgorithm;
-            switch (deconvolutionParameters.DeconvolutionType)
-            {
-                case DeconvolutionType.ClassicDeconvolution:
-                    deconAlgorithm = new ClassicDeconvolutionAlgorithm(deconvolutionParameters);
-                    break;
-
-                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
-                    deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
-                    break;
-
-                default: throw new MzLibException("DeconvolutionType not yet supported");
-            }
-
-            return deconAlgorithm.Deconvolute(scan.MassSpectrum, rangeToGetPeaksFrom);
+            // set any specific deconvolution parameters found only in the MsDataScan
+            
+            return Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
         }
                     
 
