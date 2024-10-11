@@ -43,6 +43,7 @@ namespace MassSpectrometry
             Charge = charge;
             TotalIntensity = intensity;
             Score = double.MaxValue;
+            Peaks = [(monoisotopicMass.ToMz(charge), intensity)];
         }
 
         public override string ToString()
