@@ -42,21 +42,22 @@ public abstract class MsAlign : MsDataFile
 
     #endregion
 
+    public override bool IsNeutralMassFile { get; protected set; } = true;
     public abstract int DefaultMsnOrder { get; }
 
     protected MsAlign(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
     {
-        ParsedHeader = [];
+        ParsedHeader = new();
     }
 
     protected MsAlign(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
     {
-        ParsedHeader = [];
+        ParsedHeader = new();
     }
 
     protected MsAlign(string filePath) : base(filePath)
     {
-        ParsedHeader = [];
+        ParsedHeader = new();
     }
 
     public override MsDataScan GetOneBasedScan(int scanNumber)
@@ -66,12 +67,12 @@ public abstract class MsAlign : MsDataFile
 
     public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
     {
-        List<MsDataScan> scans = [];
+        List<MsDataScan> scans = new();
         var headerProgress = ReadingProgress.NotFound;
         var entryProgress = ReadingProgress.NotFound;
         using (var sr = new StreamReader(FilePath))
         {
-            List<string> linesToProcess = [];
+            List<string> linesToProcess = new();
             while (sr.ReadLine() is { } line)
             {
                 if (line.Contains("BEGIN IONS"))
@@ -459,7 +460,7 @@ public abstract class MsAlign : MsDataFile
     private MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, IFilteringParams filterParams = null)
     {
         var entryProgress = ReadingProgress.NotFound;
-        List<string> linesToProcess = [];
+        List<string> linesToProcess = new();
         // read the scan data
         while (sr.ReadLine() is { } line)
         {
