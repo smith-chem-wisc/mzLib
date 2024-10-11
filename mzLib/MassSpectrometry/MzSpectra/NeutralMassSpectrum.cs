@@ -1,12 +1,12 @@
 ﻿using System;
 using Chemistry;
 
-namespace MassSpectrometry.MzSpectra
+namespace MassSpectrometry
 {
-    public class NeutralMzSpectrum : MzSpectrum
+    public class NeutralMassSpectrum : MzSpectrum
     {
         public int[] Charges { get; init; }
-        public NeutralMzSpectrum(double[,] monoisotopicMassesIntensities, int[] charges) : base(monoisotopicMassesIntensities)
+        public NeutralMassSpectrum(double[,] monoisotopicMassesIntensities, int[] charges) : base(monoisotopicMassesIntensities)
         {
             if (monoisotopicMassesIntensities.Length != charges.Length || monoisotopicMassesIntensities.Length != monoisotopicMassesIntensities.Rank)
                 throw new ArgumentException("The lengths of monoisotopicMasses, intensities, and charges must be the same.");
@@ -14,7 +14,7 @@ namespace MassSpectrometry.MzSpectra
             Charges = charges;
         }
 
-        public NeutralMzSpectrum(double[] monoisotopicMasses, double[] intensities, int[] charges, bool shouldCopy)
+        public NeutralMassSpectrum(double[] monoisotopicMasses, double[] intensities, int[] charges, bool shouldCopy)
             : base(monoisotopicMasses, intensities, shouldCopy)
         {
             if (monoisotopicMasses.Length != intensities.Length || monoisotopicMasses.Length != charges.Length)

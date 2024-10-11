@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Chemistry;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -28,8 +29,6 @@ namespace MassSpectrometry
             
             return Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
         }
-                    
-
 
         /// <summary>
         /// Static deconvolution of an MzSpectrum that does not require Deconvoluter construction
@@ -58,7 +57,22 @@ namespace MassSpectrometry
                 default: throw new MzLibException("DeconvolutionType not yet supported");
             }
 
-            return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
+            // Short circuit deconvolution if it is called on a neutral mass spectrum
+            if (spectrum is NeutralMassSpectrum newt)
+            {
+                for (int i = 0; i < newt.XArray.Length; i++)
+                {
+                    // skip this peak if it's outside the range of interest (e.g. if we're only interested in deconvoluting a small m/z range)
+                    if (!rangeToGetPeaksFrom.Contains(newt.XArray[i].ToMz(newt.Charges[i])))
+                        continue; 
+                    yield return new IsotopicEnvelope(newt.XArray[i], newt.YArray[i], newt.Charges[i]);
+                }
+            }
+            else
+            {
+                foreach (var isotopicEnvelope in deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom)) 
+                    yield return isotopicEnvelope;
+            }
         }
     }
 }
