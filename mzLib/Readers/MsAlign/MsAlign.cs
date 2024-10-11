@@ -41,7 +41,7 @@ public abstract class MsAlign : MsDataFile
     public bool? UseMsDeconvScore { get; private set; }
 
     #endregion
-
+    
     public override bool IsNeutralMassFile { get; protected set; } = true;
     public abstract int DefaultMsnOrder { get; }
 
@@ -308,6 +308,7 @@ public abstract class MsAlign : MsDataFile
         }
 
         var peakLines = entryLines.Where(p => p.Contains('\t')).ToArray();
+        var monoMasses = new double[peakLines.Length];
         var mzs = new double[peakLines.Length];
         var intensities = new double[peakLines.Length];
         var charges = new int[peakLines.Length];
@@ -317,35 +318,27 @@ public abstract class MsAlign : MsDataFile
             var splits = peakLines[i].Split('\t');
 
             charges[i] = int.Parse(splits[2]);
+            monoMasses[i] = double.Parse(splits[0]);
             mzs[i] = double.Parse(splits[0]).ToMz(charges[i]);
             intensities[i] = double.Parse(splits[1]);
         }
 
-        Array.Sort(mzs, intensities);
+        Array.Sort(monoMasses, intensities);
 
         //Remove Zero Intensity Peaks
         double zeroEquivalentIntensity = 0.01;
         int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
-        int intensityValueCount = intensities.Count();
+        int intensityValueCount = intensities.Length;
         if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
         {
-            Array.Sort(intensities, mzs);
-            double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
-            double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
+            Array.Sort(intensities, monoMasses);
             intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-            mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-            Array.Sort(mzs, intensities);
+            monoMasses = monoMasses.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+            Array.Sort(monoMasses, intensities);
         }
 
         double minMz = mzs.Length == 0 ? 0 : mzs.Min();
         double maxMz = mzs.Length == 0 ? 2000 : mzs.Max();
-
-        // peak filtering
-        if (filteringParams != null && intensities.Length > 0 &&
-            ((filteringParams.ApplyTrimmingToMs1 && msnOrder == 1) || (filteringParams.ApplyTrimmingToMsMs && msnOrder > 1)))
-        {
-            WindowModeHelper.Run(ref intensities, ref mzs, filteringParams, minMz, maxMz);
-        }
 
         double? isolationMz = precursorMz;
         if (msnOrder == 1)
@@ -362,9 +355,9 @@ public abstract class MsAlign : MsDataFile
             isolationWidth ??= 3;
         }
         
-        var spectrum = new MzSpectrum(mzs, intensities, true);
+        var spectrum = new NeutralMassSpectrum(monoMasses, intensities, charges, true);
         var dataScan = new MsDataScan(spectrum, oneBasedScanNumber, msnOrder, true, Polarity.Positive, retentionTime,
-            mzs.Any() ? new MzRange(minMz, maxMz) : new MzRange(0, 2000), null, MZAnalyzerType.Orbitrap,
+            new MzRange(minMz, maxMz), null, MZAnalyzerType.Orbitrap,
             intensities.Sum(), null, null, $"scan={oneBasedScanNumber}",
             precursorMz, precursorCharge, precursorIntensity, isolationMz, 
             isolationWidth, dissociationType, oneBasedPrecursorScanNumber, precursorMz);
