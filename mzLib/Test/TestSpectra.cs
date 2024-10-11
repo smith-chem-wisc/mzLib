@@ -22,6 +22,7 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Chemistry;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -341,6 +342,81 @@ namespace Test
             Assert.That(!_mzSpectrumA.Equals((object)null));
             Assert.That(!_mzSpectrumA.Equals(2));
             Assert.That(!_mzSpectrumA.Equals((object)2));
+        }
+
+
+        [Test]
+        public void NeutralMassSpectrum_Constructor_ValidArguments_InitializesProperties()
+        {
+            double[] monoisotopicMasses = { 100.0, 200.0, 300.0 };
+            double[] intensities = { 0.5, 0.8, 1.0 };
+            int[] charges = { 1, 2, 3 };
+
+            var spectrum = new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, true);
+
+            Assert.That(monoisotopicMasses.Length, Is.EqualTo(spectrum.XArray.Length));
+            Assert.That(intensities.Length, Is.EqualTo(spectrum.YArray.Length));
+            Assert.That(charges.Length, Is.EqualTo(spectrum.Charges.Length));
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_Constructor_InvalidArguments_ThrowsArgumentException()
+        {
+            double[] monoisotopicMasses = { 100.0, 200.0, 300.0 };
+            double[] intensities = { 0.5, 0.8 };
+            int[] charges = { 1, 2, 3 };
+            bool shouldCopy = true;
+
+            Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, shouldCopy));
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_MzPeak()
+        {
+            double[] monoisotopicMasses = { 100.0, 200.0, 300.0 };
+            double[] intensities = { 0.5, 0.8, 1.0 };
+            int[] charges = { 1, 2, 3 };
+            var spectrum = new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, true);
+
+
+            var peak = spectrum.Extract(50, 210).ToArray();
+            Assert.That(peak.Length, Is.EqualTo(2));
+
+            for (int i = 0; i < peak.Length; i++)
+            {
+                double mono = monoisotopicMasses[i];
+                int charge = charges[i];
+                double intensity = intensities[i];
+                double mz = mono.ToMz(charge);
+
+                Assert.That(peak[i].Mz, Is.EqualTo(mz));
+                Assert.That(peak[i].Intensity, Is.EqualTo(intensity));
+            }
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_Constructor_ValidArguments_InitializesCharges()
+        {
+            // Arrange
+            double[,] monoisotopicMassesIntensities = new double[,] { { 100.0, 200.0 }, { 300.0, 400.0 } };
+            int[] charges = new int[] { 1, 2 };
+
+            // Act
+            var spectrum = new NeutralMassSpectrum(monoisotopicMassesIntensities, charges);
+
+            // Assert
+            Assert.AreEqual(charges, spectrum.Charges);
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_Constructor2_InvalidArguments_ThrowsArgumentException()
+        {
+            // Arrange
+            double[,] monoisotopicMassesIntensities = new double[,] { { 100.0, 200.0 }, { 300.0, 400.0 } };
+            int[] charges = new int[] { 1, 2, 3 };
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMassesIntensities, charges));
         }
     }
 }

@@ -10,7 +10,7 @@ namespace MassSpectrometry
         public int[] Charges { get; init; }
         public NeutralMassSpectrum(double[,] monoisotopicMassesIntensities, int[] charges) : base(monoisotopicMassesIntensities)
         {
-            if (monoisotopicMassesIntensities.Length != charges.Length || monoisotopicMassesIntensities.Length != monoisotopicMassesIntensities.Rank)
+            if (monoisotopicMassesIntensities.GetLength(0) != charges.Length)
                 throw new ArgumentException("The lengths of monoisotopicMasses, intensities, and charges must be the same.");
 
             Charges = charges;
@@ -19,7 +19,7 @@ namespace MassSpectrometry
         public NeutralMassSpectrum(double[] monoisotopicMasses, double[] intensities, int[] charges, bool shouldCopy)
             : base(monoisotopicMasses, intensities, shouldCopy)
         {
-            if (monoisotopicMasses.Length != intensities.Length || monoisotopicMasses.Length != charges.Length)
+            if (monoisotopicMasses.GetLength(0) != intensities.Length || monoisotopicMasses.Length != charges.Length)
                 throw new ArgumentException("The lengths of monoisotopicMasses, intensities, and charges must be the same.");
 
             Charges = charges;
