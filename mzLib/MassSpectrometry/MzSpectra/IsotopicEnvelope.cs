@@ -27,7 +27,7 @@ namespace MassSpectrometry
         {
             Peaks = bestListOfPeaks;
             MonoisotopicMass = bestMonoisotopicMass;
-            MostAbundantObservedIsotopicMass = bestListOfPeaks.MaxBy(p => p.intensity).mz * Math.Abs(bestChargeState)
+            MostAbundantObservedIsotopicMass = bestListOfPeaks.MaxBy(p => p.intensity).mz * Math.Abs(bestChargeState);
             Charge = bestChargeState;
             TotalIntensity = bestTotalIntensity;
             StDev = bestStDev;
