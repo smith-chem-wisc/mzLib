@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using Easy.Common.Extensions;
+using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace FlashLFQ
@@ -66,6 +68,18 @@ namespace FlashLFQ
                 Intensities.Add(fileInfo, intensity);
             }
         }
+
+        public double GetTotalIntensity()
+        {
+            if (!Intensities.IsNotNullOrEmpty())
+            {
+                return Intensities.Sum(i => i.Value);
+            }
+            else
+            {
+                return 0;
+            }
+        } 
 
         public DetectionType GetDetectionType(SpectraFileInfo fileInfo)
         {
