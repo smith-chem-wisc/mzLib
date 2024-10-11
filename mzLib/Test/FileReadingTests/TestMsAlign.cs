@@ -1,10 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
+using Proteomics;
 using Readers;
 
 namespace Test.FileReadingTests
@@ -394,23 +398,59 @@ namespace Test.FileReadingTests
 
 
         [Test]
-        public static void PeakFiltering()
+        public void NeutralMassSpectrum_FromMsAlign()
         {
-            int peaksToKeep = 10;
-            var msAlign = MsAlignTestFiles["Ms2Align_IsoDec1.0.0_ms2.msalign"];
-            var filteringParams = new FilteringParams(peaksToKeep, numberOfWindows: 1);
-            msAlign = new Ms2Align(msAlign.FilePath);
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes", "Ms2Align_IsoDec1.0.0_ms2.msalign");
 
-            msAlign.InitiateDynamicConnection();
-            var dynaScan = msAlign.GetOneBasedScanFromDynamicConnection(1383, filteringParams);
-            Assert.That(dynaScan.MassSpectrum.Size, Is.EqualTo(peaksToKeep));
-            msAlign.CloseDynamicConnection();
+            var msAlign = new Ms2Align(path);
+            msAlign.LoadAllStaticData();
 
-            msAlign.LoadAllStaticData(filteringParams);
-            foreach (var dataScan in msAlign)
+            int firstScanNumber = 1366;
+            int lastScanNumber = 1398;
+            int peakCount = 24;
+            int ms2ScansPresent = 22;
+
+            string scanIonText =
+                "5020.7255859375\t432147.2\t5\t1\r\n5022.744140625\t73592.586\t3\t1\r\n5021.72802734375\t279469.47\t4\t1\r\n4648.5078125\t18255.004\t3\t1\r\n1673.0023193359375\t2019.978\t2\t1\r\n5004.7060546875\t58158.74\t4\t1\r\n4520.5087890625\t8129.425\t3\t1\r\n5005.7216796875\t14691.099\t3\t1\r\n559.2601318359375\t820.32465\t1\t1\r\n4804.61083984375\t7133.3687\t4\t1\r\n4977.7041015625\t36881.18\t4\t1\r\n4121.30615234375\t5057.6055\t3\t1\r\n4463.48291015625\t6635.46\t3\t1\r\n4577.5322265625\t6578.043\t3\t1\r\n4771.61474609375\t6805.8135\t3\t1\r\n4978.716796875\t8181.794\t3\t1\r\n3674.077880859375\t7278.764\t3\t1\r\n4963.6884765625\t22462.277\t4\t1\r\n4994.73974609375\t6223.2183\t4\t1\r\n2578.2978515625\t1839.8989\t2\t1\r\n4492.3974609375\t6426.9375\t3\t1\r\n4634.5498046875\t5513.514\t3\t1\r\n4963.689453125\t3275.681\t3\t1\r\n1675.367431640625\t2546.7227\t1\t1";
+            (double Mono, double Intensity, int Charge, double Mz)[] ions = scanIonText.Split("\r\n").Select(p =>
             {
-                Assert.That(dataScan.MassSpectrum.Size, Is.LessThanOrEqualTo(peaksToKeep));
+                var items = p.Split("\t");
+                return (double.Parse(items[0]), double.Parse(items[1]), int.Parse(items[2]), double.Parse(items[0]).ToMz(int.Parse(items[2])));
+            }).ToArray();
+
+            Assert.That(msAlign.Scans.Length, Is.EqualTo(ms2ScansPresent));
+
+            // Check that isolation range was read correctly
+            var firstScan = msAlign.GetOneBasedScan(firstScanNumber);
+            Assert.That(firstScan.OneBasedPrecursorScanNumber, Is.EqualTo(1365));
+            Assert.That(firstScan.IsolationRange.Minimum, Is.EqualTo(1005.1555541753769));
+            Assert.That(firstScan.IsolationRange.Maximum, Is.EqualTo(1006.3555542230606));
+
+            // test the neutral mass spectrum
+            Assert.That(firstScan.MassSpectrum, Is.TypeOf<NeutralMassSpectrum>());
+            NeutralMassSpectrum firstSpectrum = (NeutralMassSpectrum)firstScan.MassSpectrum;
+            Assert.That(firstSpectrum.Size, Is.EqualTo(peakCount));
+            Assert.That(firstSpectrum.XArray.Length, Is.EqualTo(peakCount));
+            Assert.That(firstSpectrum.YArray.Length, Is.EqualTo(peakCount));
+            Assert.That(firstSpectrum.Charges.Length, Is.EqualTo(peakCount));
+
+            for (int i = 0; i < firstSpectrum.Size; i++)
+            {
+                double mass = firstSpectrum.XArray[i];
+                double intensity = firstSpectrum.YArray[i];
+                int charge = firstSpectrum.Charges[i];
+
+                double expectedMass = ions[i].Mono;
+                double expectedIntensity = ions[i].Intensity;
+                int expectedCharge = ions[i].Charge;
+
+                Assert.That(mass, Is.EqualTo(expectedMass));
+                Assert.That(intensity, Is.EqualTo(expectedIntensity));
+                Assert.That(charge, Is.EqualTo(expectedCharge));
             }
         }
+
+
     }
 }

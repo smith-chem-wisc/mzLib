@@ -42,7 +42,6 @@ public abstract class MsAlign : MsDataFile
 
     #endregion
     
-    public override bool IsNeutralMassFile { get; protected set; } = true;
     public abstract int DefaultMsnOrder { get; }
 
     protected MsAlign(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
@@ -309,7 +308,6 @@ public abstract class MsAlign : MsDataFile
 
         var peakLines = entryLines.Where(p => p.Contains('\t')).ToArray();
         var monoMasses = new double[peakLines.Length];
-        var mzs = new double[peakLines.Length];
         var intensities = new double[peakLines.Length];
         var charges = new int[peakLines.Length];
 
@@ -319,26 +317,11 @@ public abstract class MsAlign : MsDataFile
 
             charges[i] = int.Parse(splits[2]);
             monoMasses[i] = double.Parse(splits[0]);
-            mzs[i] = double.Parse(splits[0]).ToMz(charges[i]);
             intensities[i] = double.Parse(splits[1]);
         }
 
-        Array.Sort(monoMasses, intensities);
-
-        //Remove Zero Intensity Peaks
-        double zeroEquivalentIntensity = 0.01;
-        int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
-        int intensityValueCount = intensities.Length;
-        if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
-        {
-            Array.Sort(intensities, monoMasses);
-            intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-            monoMasses = monoMasses.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-            Array.Sort(monoMasses, intensities);
-        }
-
-        double minMz = mzs.Length == 0 ? 0 : mzs.Min();
-        double maxMz = mzs.Length == 0 ? 2000 : mzs.Max();
+        double minMass = monoMasses.Length == 0 ? 0 : monoMasses.Min();
+        double maxMass = monoMasses.Length == 0 ? 2000 : monoMasses.Max();
 
         double? isolationMz = precursorMz;
         if (msnOrder == 1)
@@ -357,7 +340,7 @@ public abstract class MsAlign : MsDataFile
         
         var spectrum = new NeutralMassSpectrum(monoMasses, intensities, charges, true);
         var dataScan = new MsDataScan(spectrum, oneBasedScanNumber, msnOrder, true, Polarity.Positive, retentionTime,
-            new MzRange(minMz, maxMz), null, MZAnalyzerType.Orbitrap,
+            new MzRange(minMass, maxMass), null, MZAnalyzerType.Orbitrap,
             intensities.Sum(), null, null, $"scan={oneBasedScanNumber}",
             precursorMz, precursorCharge, precursorIntensity, isolationMz, 
             isolationWidth, dissociationType, oneBasedPrecursorScanNumber, precursorMz);
