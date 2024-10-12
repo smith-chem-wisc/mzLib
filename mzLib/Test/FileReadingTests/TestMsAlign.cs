@@ -149,8 +149,12 @@ namespace Test.FileReadingTests
             double? precursorIsolationMzStart, double? precursorIsolationMzEnd)
         {
             var file = MsAlignTestFiles[path];
-            file.InitiateDynamicConnection();
+            Assert.That(file.GetSourceFile().Id, Is.EqualTo(msnOrder.ToString()));
+            Assert.That(file.GetSourceFile().FileName, Is.EqualTo(path.GetPeriodTolerantFilenameWithoutExtension().Replace("_ms1", "").Replace("_ms2", "")));
+            Assert.That(file.SourceFile.NativeIdFormat, Is.EqualTo("no nativeID format"));
+            Assert.That(file.SourceFile.MassSpectrometerFileFormat, Is.EqualTo($"ms{msnOrder}.msalign format"));
 
+            file.InitiateDynamicConnection();
             var scanToTest = file.GetOneBasedScanFromDynamicConnection(oneBasedScanNumber);
 
             Assert.That(scanToTest.OneBasedScanNumber, Is.EqualTo(oneBasedScanNumber));
@@ -198,6 +202,11 @@ namespace Test.FileReadingTests
            double? precursorIsolationMzStart, double? precursorIsolationMzEnd)
         {
             var file = MsAlignTestFiles[path];
+            Assert.That(file.GetSourceFile().Id, Is.EqualTo(msnOrder.ToString()));
+            Assert.That(file.GetSourceFile().FileName, Is.EqualTo(path.GetPeriodTolerantFilenameWithoutExtension().Replace("_ms1", "").Replace("_ms2", "")));
+            Assert.That(file.GetSourceFile().NativeIdFormat, Is.EqualTo("no nativeID format"));
+            Assert.That(file.GetSourceFile().MassSpectrometerFileFormat, Is.EqualTo($"ms{msnOrder}.msalign format"));
+
             var scanToTest = file.GetOneBasedScan(oneBasedScanNumber);
 
             Assert.That(scanToTest.OneBasedScanNumber, Is.EqualTo(oneBasedScanNumber));
@@ -453,6 +462,29 @@ namespace Test.FileReadingTests
             }
         }
 
+        [Test]
+        public void CombineMsAlign_ShouldCombineMs1AndMs2Align()
+        {
+            Ms1Align ms1Align = (Ms1Align)MsAlignTestFiles["Ms1Align_IsoDec1.0.0_ms1.msalign"];
+            Ms2Align ms2Align = (Ms2Align)MsAlignTestFiles["Ms2Align_IsoDec1.0.0_ms2.msalign"];
+            var expectedScansCount = ms1Align.Scans.Length + ms2Align.Scans.Length;
+            
+            var combinedMsAlign = MsAlign.CombineMsAlign(ms1Align, ms2Align);
+            
+            Assert.That(expectedScansCount, Is.EqualTo(combinedMsAlign.Scans.Length));
+            
+            int previousScanNumber = -1;
+            foreach(var scan in combinedMsAlign)
+            {
+                Assert.That(scan.OneBasedScanNumber, Is.GreaterThanOrEqualTo(previousScanNumber));
+                previousScanNumber = scan.OneBasedScanNumber;
+            }
+        }
+
+
+
+
+        
 
         [Test]
         public static void TESTNAME()

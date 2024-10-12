@@ -8,9 +8,8 @@ namespace Readers;
 /// <summary>
 /// Parent class to define the shared behavior of MsAlign spectra file types
 /// </summary>
-public abstract class MsAlign : MsDataFile
+public class MsAlign : MsDataFile
 {
-
     /// <summary>
     /// Ms2Align will sometimes have a header which states many parameters.
     /// Not all software output a parameters header in their MsAlign. 
@@ -41,8 +40,14 @@ public abstract class MsAlign : MsDataFile
     public bool? UseMsDeconvScore { get; private set; }
 
     #endregion
-    
-    public abstract int DefaultMsnOrder { get; }
+
+    /// <summary>
+    /// An easy way to distinguish the different types of MsAlign files
+    /// 0: Combined file (Exists only in our code)
+    /// 1: ms1.msalign deconvolution output
+    /// 2: ms2.msalign deconvolution output
+    /// </summary>
+    public virtual int DefaultMsnOrder { get; private set; }
 
     protected MsAlign(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
     {
@@ -52,6 +57,15 @@ public abstract class MsAlign : MsDataFile
     protected MsAlign(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
     {
         ParsedHeader = new();
+
+        // Sort the scans by OneBasedScanNumber
+        var orderedScans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
+        var indexedScans = new MsDataScan[orderedScans[^1].OneBasedScanNumber];
+        foreach (var scan in orderedScans)
+            indexedScans[scan.OneBasedScanNumber - 1] = scan;
+
+        IndexedScans = indexedScans;
+        Scans = orderedScans;
     }
 
     protected MsAlign(string filePath) : base(filePath)
@@ -123,7 +137,7 @@ public abstract class MsAlign : MsDataFile
 
         // ensures that if a scan (OneBasedScanNumber) does not exist,
         // the final scans array will contain a null value  
-        // this unique case is due to the nature of loading MGF files
+        // this unique case is due to the nature of loading msalign files
         var orderedScans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
         var indexedScans = new MsDataScan[orderedScans[^1].OneBasedScanNumber];
         foreach (var scan in orderedScans)
@@ -134,6 +148,137 @@ public abstract class MsAlign : MsDataFile
         Software ??= Readers.Software.Unspecified;
         return this;
     }
+
+    private SourceFile? _sourceFile;
+
+    public override SourceFile GetSourceFile()
+    {
+        if (_sourceFile is not null)
+            return _sourceFile;
+
+        string trimmedFilePath = FilePath.GetPeriodTolerantFilenameWithoutExtension()
+            .Replace("_ms1", "")
+            .Replace("_ms2", "");
+        return _sourceFile = 
+            new SourceFile("no nativeID format", $"ms{DefaultMsnOrder}.msalign format", null, null, trimmedFilePath, DefaultMsnOrder.ToString());
+    }
+
+    #region Dynamic Connection
+
+    protected MsDataScan[] IndexedScans { get; set; }
+
+    private StreamReader? _streamReader;
+    private Dictionary<int, long> _scanByteOffset;
+    private static readonly Regex ScanNumberParser = new Regex(@"(^|\s)SCANS=(.*?)($|\D)");
+
+    public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+    {
+        if (_streamReader == null)
+        {
+            throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
+        }
+
+        if (_scanByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))
+        {
+            // seek to the byte of the scan
+            _streamReader.BaseStream.Position = byteOffset;
+            _streamReader.DiscardBufferedData();
+
+            return GetNextMsDataOneBasedScanFromConnection(_streamReader, filterParams);
+        }
+        else
+        {
+            throw new MzLibException("The specified scan number: " + oneBasedScanNumber + " does not exist in " + FilePath);
+        }
+    }
+
+    public override void CloseDynamicConnection() => _streamReader?.Dispose();
+
+    public override void InitiateDynamicConnection()
+    {
+        if (!File.Exists(FilePath))
+            throw new FileNotFoundException();
+        if (_streamReader is not null && _streamReader.BaseStream.CanRead)
+            return;
+
+        _streamReader = new StreamReader(FilePath);
+
+        BuildIndex();
+    }
+
+    private void BuildIndex()
+    {
+        _scanByteOffset = new Dictionary<int, long>();
+        int oneBasedScanNumber = 0;
+        long oneBasedScanByteOffset = 0;
+        bool scanHasAScanNumber = false;
+
+        while (_streamReader != null && _streamReader.Peek() > 0)
+        {
+            var currentPositionByteOffset = TextFileReading.GetByteOffsetAtCurrentPosition(_streamReader);
+
+            string? line = _streamReader.ReadLine();
+
+            if (line != null && line.StartsWith("BEGIN IONS", StringComparison.InvariantCultureIgnoreCase))
+            {
+                oneBasedScanByteOffset = currentPositionByteOffset;
+                scanHasAScanNumber = false;
+            }
+            else if (line != null && line.StartsWith("SCANS=", StringComparison.InvariantCultureIgnoreCase))
+            {
+                scanHasAScanNumber = true;
+
+                Match result = ScanNumberParser.Match(line);
+                var scanString = result.Groups[2].Value;
+                oneBasedScanNumber = int.Parse(scanString);
+            }
+            else if (line != null && line.StartsWith("END IONS", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!scanHasAScanNumber)
+                {
+                    oneBasedScanNumber++;
+                }
+
+                if (!_scanByteOffset.TryAdd(oneBasedScanNumber, oneBasedScanByteOffset))
+                {
+                    throw new MzLibException("Scan number " + oneBasedScanNumber.ToString() +
+                                             " appeared multiple times in " + FilePath + ", which is not allowed because we assume all scan numbers are unique.");
+                }
+            }
+        }
+    }
+
+    private MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, IFilteringParams filterParams = null)
+    {
+        var entryProgress = ReadingProgress.NotFound;
+        List<string> linesToProcess = new();
+        // read the scan data
+        while (sr.ReadLine() is { } line)
+        {
+            switch (entryProgress)
+            {
+                // each entry after header
+                case ReadingProgress.NotFound when line.Contains("BEGIN IONS"):
+                    entryProgress = ReadingProgress.Found;
+                    break;
+                case ReadingProgress.Found when line.Contains("END IONS"):
+                {
+                    goto FoundAllLines;
+                }
+                default:
+                    linesToProcess.Add(line);
+                    break;
+            }
+        }
+
+        FoundAllLines:
+
+        return ParseEntryLines(linesToProcess, filterParams, PrecursorWindowSize);
+    }
+
+    #endregion
+
+    #region Scan Infomration Parsing
 
     private void ParseHeaderLines(List<string> headerLines)
     {
@@ -172,8 +317,8 @@ public abstract class MsAlign : MsDataFile
                     FaimsVoltage = ParsedHeader[key]?.ToNullableDouble();
                     break;
                 case "Activation type":
-                    DissociationType = Enum.TryParse(ParsedHeader[key], out DissociationType dissType) 
-                        ? dissType 
+                    DissociationType = Enum.TryParse(ParsedHeader[key], out DissociationType dissType)
+                        ? dissType
                         : MassSpectrometry.DissociationType.Autodetect;
                     break;
                 case "Number of MS1 scans":
@@ -322,7 +467,7 @@ public abstract class MsAlign : MsDataFile
             mzs[i] = monoMasses[i].ToMz(charges[i]);
         }
 
-        
+
 
         double minmz = mzs.Length == 0 ? 0 : mzs.Min();
         double maxmz = mzs.Length == 0 ? 2000 : mzs.Max();
@@ -361,129 +506,48 @@ public abstract class MsAlign : MsDataFile
         var dataScan = new MsDataScan(spectrum, oneBasedScanNumber, msnOrder, true, Polarity.Positive, retentionTime,
             new MzRange(minmz - 1, maxmz + 1), null, MZAnalyzerType.Orbitrap,
             intensities.Sum(), null, null, $"scan={oneBasedScanNumber}",
-            precursorMz, precursorCharge, precursorIntensity, isolationMz, 
+            precursorMz, precursorCharge, precursorIntensity, isolationMz,
             isolationWidth, dissociationType, oneBasedPrecursorScanNumber, precursorMz);
 
         return dataScan;
     }
 
-    #region Dynamic Connection
+    #endregion
 
-    protected MsDataScan[] IndexedScans { get; set; }
+    #region Combine Ms1 and Ms2 Align
 
-    private StreamReader? _streamReader;
-    private Dictionary<int, long> _scanByteOffset;
-    private static readonly Regex ScanNumberParser = new Regex(@"(^|\s)SCANS=(.*?)($|\D)");
-
-    public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+    public static bool TryCombineMsAlign(Ms1Align? ms1Align, Ms2Align? ms2Align, out MsAlign? combinedMsAlign)
     {
-        if (_streamReader == null)
+        if (ms1Align == null || ms2Align == null)
         {
-            throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
+            combinedMsAlign = null;
+            return false;
         }
+        
 
-        if (_scanByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))
-        {
-            // seek to the byte of the scan
-            _streamReader.BaseStream.Position = byteOffset;
-            _streamReader.DiscardBufferedData();
-
-            return GetNextMsDataOneBasedScanFromConnection(_streamReader, filterParams);
-        }
-        else
-        {
-            throw new MzLibException("The specified scan number: " + oneBasedScanNumber + " does not exist in " + FilePath);
-        }
+        combinedMsAlign = CombineMsAlign(ms1Align, ms2Align);
+        return true;
+        
     }
 
-    public override void CloseDynamicConnection() => _streamReader?.Dispose();
-
-    public override void InitiateDynamicConnection()
+    internal static MsAlign CombineMsAlign(Ms1Align ms1Align, Ms2Align ms2Align)
     {
-        if (!File.Exists(FilePath))
-            throw new FileNotFoundException();
-        if (_streamReader is not null && _streamReader.BaseStream.CanRead)
-            return;
+        var scans = new List<MsDataScan>();
+        scans.AddRange(ms1Align.Scans);
+        scans.AddRange(ms2Align.Scans);
+        scans.Sort((scan1, scan2) => scan1.OneBasedScanNumber.CompareTo(scan2.OneBasedScanNumber)); // Sort the scans by scan number
 
-        _streamReader = new StreamReader(FilePath);
+        var sourceFile = ms1Align.GetSourceFile();
+        var combinedFile =  new MsAlign(scans.ToArray(), sourceFile);
 
-        BuildIndex();
-    }
+        //TODO: transfer over any important header properties
+        
+        combinedFile.DefaultMsnOrder = 0;
 
-    private void BuildIndex()
-    {
-        _scanByteOffset = new Dictionary<int, long>();
-        int oneBasedScanNumber = 0;
-        long oneBasedScanByteOffset = 0;
-        bool scanHasAScanNumber = false;
-
-        while (_streamReader != null && _streamReader.Peek() > 0)
-        {
-            var currentPositionByteOffset = TextFileReading.GetByteOffsetAtCurrentPosition(_streamReader);
-
-            string? line = _streamReader.ReadLine();
-
-            if (line != null && line.StartsWith("BEGIN IONS", StringComparison.InvariantCultureIgnoreCase))
-            {
-                oneBasedScanByteOffset = currentPositionByteOffset;
-                scanHasAScanNumber = false;
-            }
-            else if (line != null && line.StartsWith("SCANS=", StringComparison.InvariantCultureIgnoreCase))
-            {
-                scanHasAScanNumber = true;
-
-                Match result = ScanNumberParser.Match(line);
-                var scanString = result.Groups[2].Value;
-                oneBasedScanNumber = int.Parse(scanString);
-            }
-            else if (line != null && line.StartsWith("END IONS", StringComparison.InvariantCultureIgnoreCase))
-            {
-                if (!scanHasAScanNumber)
-                {
-                    oneBasedScanNumber++;
-                }
-
-                if (!_scanByteOffset.TryAdd(oneBasedScanNumber, oneBasedScanByteOffset))
-                {
-                    throw new MzLibException("Scan number " + oneBasedScanNumber.ToString() +
-                                             " appeared multiple times in " + FilePath + ", which is not allowed because we assume all scan numbers are unique.");
-                }
-            }
-        }
-    }
-
-    private MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, IFilteringParams filterParams = null)
-    {
-        var entryProgress = ReadingProgress.NotFound;
-        List<string> linesToProcess = new();
-        // read the scan data
-        while (sr.ReadLine() is { } line)
-        {
-            switch (entryProgress)
-            {
-                // each entry after header
-                case ReadingProgress.NotFound when line.Contains("BEGIN IONS"):
-                    entryProgress = ReadingProgress.Found;
-                    break;
-                case ReadingProgress.Found when line.Contains("END IONS"):
-                {
-                    goto FoundAllLines;
-                }
-                default:
-                    linesToProcess.Add(line);
-                    break;
-            }
-        }
-
-        FoundAllLines:
-
-        return ParseEntryLines(linesToProcess, filterParams, PrecursorWindowSize);
+        return combinedFile;
     }
 
     #endregion
-
-    private SourceFile? _sourceFile;
-    public override SourceFile GetSourceFile() => _sourceFile ??= new SourceFile("no nativeID format", $"ms{DefaultMsnOrder}.msalign format", null, null, null);
 
     /// <summary>
     /// Enum is required as there are several different ways an msAlign header information is written
