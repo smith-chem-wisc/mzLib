@@ -124,7 +124,7 @@ namespace MassSpectrometry
             }
         }
 
-        public double? FirstX
+        public virtual double? FirstX
         {
             get
             {
@@ -136,7 +136,7 @@ namespace MassSpectrometry
             }
         }
 
-        public double? LastX
+        public virtual double? LastX
         {
             get
             {

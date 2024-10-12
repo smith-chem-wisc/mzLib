@@ -395,6 +395,37 @@ namespace Test
         }
 
         [Test]
+        public void NeutralMassSpectrum_MzRange()
+        {
+            double[] monoisotopicMasses = { 100.0, 200.0, 300.0 };
+            double[] intensities = { 0.5, 0.8, 1.0 };
+            int[] charges = { 1, 2, 3 };
+            var spectrum = new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, true);
+
+
+            var peak = spectrum.Extract(50, 2100).ToArray();
+            Assert.That(peak.Length, Is.EqualTo(3));
+            var minPeak = peak.MinBy(p => p.Mz);
+            var maxPeak = peak.MaxBy(p => p.Mz);
+
+            Assert.That(minPeak.Mz, Is.EqualTo(spectrum.Range.Minimum));
+            Assert.That(minPeak.Mz, Is.EqualTo(spectrum.FirstX));
+            Assert.That(maxPeak.Mz, Is.EqualTo(spectrum.Range.Maximum));
+            Assert.That(maxPeak.Mz, Is.EqualTo(spectrum.LastX));
+
+            for (int i = 0; i < peak.Length; i++)
+            {
+                double mono = monoisotopicMasses[i];
+                int charge = charges[i];
+                double intensity = intensities[i];
+                double mz = mono.ToMz(charge);
+
+                Assert.That(peak[i].Mz, Is.EqualTo(mz));
+                Assert.That(peak[i].Intensity, Is.EqualTo(intensity));
+            }
+        }
+
+        [Test]
         public void NeutralMassSpectrum_Constructor_ValidArguments_InitializesCharges()
         {
             // Arrange

@@ -308,6 +308,7 @@ public abstract class MsAlign : MsDataFile
 
         var peakLines = entryLines.Where(p => p.Contains('\t')).ToArray();
         var monoMasses = new double[peakLines.Length];
+        var mzs = new double[peakLines.Length];
         var intensities = new double[peakLines.Length];
         var charges = new int[peakLines.Length];
 
@@ -318,10 +319,11 @@ public abstract class MsAlign : MsDataFile
             charges[i] = int.Parse(splits[2]);
             monoMasses[i] = double.Parse(splits[0]);
             intensities[i] = double.Parse(splits[1]);
+            mzs[i] = monoMasses[i].ToMz(charges[i]);
         }
 
-        double minMass = monoMasses.Length == 0 ? 0 : monoMasses.Min();
-        double maxMass = monoMasses.Length == 0 ? 2000 : monoMasses.Max();
+        double minmz = mzs.Length == 0 ? 0 : mzs.Min();
+        double maxmz = mzs.Length == 0 ? 2000 : mzs.Max();
 
         double? isolationMz = precursorMz;
         if (msnOrder == 1)
@@ -340,7 +342,7 @@ public abstract class MsAlign : MsDataFile
         
         var spectrum = new NeutralMassSpectrum(monoMasses, intensities, charges, true);
         var dataScan = new MsDataScan(spectrum, oneBasedScanNumber, msnOrder, true, Polarity.Positive, retentionTime,
-            new MzRange(minMass, maxMass), null, MZAnalyzerType.Orbitrap,
+            new MzRange(minmz - 1, maxmz + 1), null, MZAnalyzerType.Orbitrap,
             intensities.Sum(), null, null, $"scan={oneBasedScanNumber}",
             precursorMz, precursorCharge, precursorIntensity, isolationMz, 
             isolationWidth, dissociationType, oneBasedPrecursorScanNumber, precursorMz);
