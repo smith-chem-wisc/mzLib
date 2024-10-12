@@ -26,8 +26,9 @@ namespace MassSpectrometry
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
             // set any specific deconvolution parameters found only in the MsDataScan
-            
-            return Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
+
+            foreach (var isotopicEnvelope in Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom)) 
+                yield return isotopicEnvelope;
         }
 
         /// <summary>
