@@ -322,6 +322,8 @@ public abstract class MsAlign : MsDataFile
             mzs[i] = monoMasses[i].ToMz(charges[i]);
         }
 
+        
+
         double minmz = mzs.Length == 0 ? 0 : mzs.Min();
         double maxmz = mzs.Length == 0 ? 2000 : mzs.Max();
 
@@ -339,8 +341,23 @@ public abstract class MsAlign : MsDataFile
         {
             isolationWidth ??= 3;
         }
-        
-        var spectrum = new NeutralMassSpectrum(monoMasses, intensities, charges, true);
+
+        var sorted =
+            monoMasses
+                .Select((_, i) => new
+                {
+                    MonoMass = monoMasses[i],
+                    Intensity = intensities[i],
+                    Charge = charges[i]
+                })
+                .OrderBy(x => x.MonoMass)
+                .ToArray();
+        var spectrum = new NeutralMassSpectrum(
+            sorted.Select(p => p.MonoMass).ToArray(),
+            sorted.Select(p => p.Intensity).ToArray(),
+            sorted.Select(p => p.Charge).ToArray(),
+            true);
+
         var dataScan = new MsDataScan(spectrum, oneBasedScanNumber, msnOrder, true, Polarity.Positive, retentionTime,
             new MzRange(minmz - 1, maxmz + 1), null, MZAnalyzerType.Orbitrap,
             intensities.Sum(), null, null, $"scan={oneBasedScanNumber}",

@@ -417,7 +417,7 @@ namespace Test.FileReadingTests
             {
                 var items = p.Split("\t");
                 return (double.Parse(items[0]), double.Parse(items[1]), int.Parse(items[2]), double.Parse(items[0]).ToMz(int.Parse(items[2])));
-            }).ToArray();
+            }).OrderBy(p => p.Item1).ToArray();
 
             Assert.That(msAlign.Scans.Length, Is.EqualTo(ms2ScansPresent));
 
@@ -434,6 +434,8 @@ namespace Test.FileReadingTests
             Assert.That(firstSpectrum.XArray.Length, Is.EqualTo(peakCount));
             Assert.That(firstSpectrum.YArray.Length, Is.EqualTo(peakCount));
             Assert.That(firstSpectrum.Charges.Length, Is.EqualTo(peakCount));
+            Assert.That(firstSpectrum.FirstX, Is.EqualTo(ions.Min(p => p.Mz)));
+            Assert.That(firstSpectrum.LastX, Is.EqualTo(ions.Max(p => p.Mz)));
 
             for (int i = 0; i < firstSpectrum.Size; i++)
             {
@@ -451,6 +453,17 @@ namespace Test.FileReadingTests
             }
         }
 
+
+        [Test]
+        public static void TESTNAME()
+        {
+            var path =
+                @"B:\Users\Nic\Chimeras\TopDown_Analysis\Jurkat\DeconResults\TopFD\02-17-20_jurkat_td_rep2_fract4_ms2.msalign";
+   
+            var dataFile = MsDataFileReader.GetDataFile(path);
+            dataFile.LoadAllStaticData();
+
+        }
 
     }
 }
