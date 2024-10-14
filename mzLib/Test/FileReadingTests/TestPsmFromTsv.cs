@@ -8,23 +8,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
-using Proteomics;
 using Readers;
-using UsefulProteomicsDatabases;
-using MathNet.Numerics.Distributions;
-using static UsefulProteomicsDatabases.ProteinDbRetriever;
-using System.Windows.Input;
-using Readers.QuantificationResults;
-using Easy.Common.Extensions;
-using MzIdentML;
-using Proteomics.ProteolyticDigestion;
-using Omics.Modifications;
-using Proteomics.AminoAcidPolymer;
-using FlashLFQ;
-using System.Printing.IndexedProperties;
-using pepXML.Generated;
-using System.Diagnostics.Eventing.Reader;
-using Omics;
 
 namespace Test.FileReadingTests
 {

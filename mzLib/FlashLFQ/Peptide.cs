@@ -71,7 +71,7 @@ namespace FlashLFQ
 
         public double GetTotalIntensity()
         {
-            if (!Intensities.IsNotNullOrEmpty())
+            if (Intensities.IsNotNullOrEmpty())
             {
                 return Intensities.Sum(i => i.Value);
             }
