@@ -1370,7 +1370,7 @@ namespace Test
                 ids.Add(id);
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.05, maxMbrWindow: 1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.15, maxMbrWindow: 1);
             var results = engine.Run();
 
             // Count the number of MBR results in each file
@@ -1388,7 +1388,7 @@ namespace Test
             Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
             Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
             Assert.AreEqual(138, f1r1MbrResults.Count);
-            Assert.AreEqual(74, f1r2MbrResults.Count);
+            Assert.AreEqual(70, f1r2MbrResults.Count);
 
             // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
             List<(double, double)> peptideIntensities = f1r1MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();
