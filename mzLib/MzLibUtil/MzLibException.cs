@@ -3,11 +3,6 @@
 namespace MzLibUtil
 {
     [Serializable]
-    public class MzLibException : Exception
-    {
-        public MzLibException(string message)
-            : base(message)
-        {
-        }
-    }
+    public class MzLibException(string message, Exception innerException = null) 
+        : Exception(message, innerException);
 }
