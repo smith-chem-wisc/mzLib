@@ -7,6 +7,12 @@ using System.Threading.Tasks;
 
 namespace FlashLFQ.PEP
 {
+    /// <summary>
+    /// This class represents a group of chromatographic peaks that are associated with a donor identification.
+    /// During MBR, one donor identification is associated with multiple acceptor identifications, with both 
+    /// predicted retention times (good MBR transfers) and random retention times (decoy MBR transfers).
+    /// This class groups them together for the purpose of cross-validation/PEP scoring
+    /// </summary>
     public class DonorGroup : IEnumerable<ChromatographicPeak>
     {
         public Identification DonorId { get; }

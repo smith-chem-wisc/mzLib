@@ -1137,6 +1137,12 @@ namespace FlashLFQ
             RunErrorChecking(idAcceptorFile);
         }
 
+        /// <summary>
+        /// A concurrent dictionary is used to keep track of MBR peaks that have been identified in the acceptor file. This function updates that dictionary
+        /// </summary>
+        /// <param name="matchBetweenRunsIdentifiedPeaks"> concurrent dictionary. Key = Peptide sequence. Value = ConcurrentDictionary mapping where keys are isotopic envelopes and values are list of associated peaks</param>
+        /// <param name="peakToSave">Peak to add to the dictionary</param>
+        /// <param name="donorIdentification">The donor ID associated with the MBR peaks</param>
         private void AddPeakToConcurrentDict(ConcurrentDictionary<string, ConcurrentDictionary<IsotopicEnvelope, List<ChromatographicPeak>>> matchBetweenRunsIdentifiedPeaks,
             ChromatographicPeak peakToSave,
             Identification donorIdentification)

@@ -372,6 +372,7 @@ namespace FlashLFQ.PEP
         /// Takes in a list of donor groups and a list of indices for each group, and swaps two groups of indices
         /// Updates the targetSurplus and decoySurplus variables
         /// Updates the swappedDonors hash set to keep track of which donors have been swapped
+        /// This is done to equalize the number of targets and decoys in each paritition for cross validation
         /// </summary>
         public static void GroupSwap(
             List<DonorGroup> donors, 
@@ -400,7 +401,16 @@ namespace FlashLFQ.PEP
             groupsOfIndices[groupsOfIndicesIndexB].Remove(donorIndexB);
         }
 
-
+        /// <summary>
+        /// Creates chromatographic peak data that will be used to train the machine learning model
+        /// Classifies peaks as positive or negative training examples
+        /// Positive training examples are peaks with MBR scores above the 25th percentile,
+        /// Negative training examples are peaks with random retention times
+        /// </summary>
+        /// <param name="donors">The list of donor groups.</param>
+        /// <param name="donorIndices">The list of donor indices.</param>
+        /// <param name="maxThreads">The maximum number of threads.</param>
+        /// <returns>The enumerable of chromatographic peak data.</returns>
         public IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
         {
             object ChromatographicPeakDataListLock = new object();
@@ -449,6 +459,13 @@ namespace FlashLFQ.PEP
             return pda.AsEnumerable();
         }
 
+        /// <summary>
+        /// Creates chromatographic peak data, but uses PEP values instead of MBR scores to select the positive training examples
+        /// </summary>
+        /// <param name="donors">The list of donor groups.</param>
+        /// <param name="donorIndices">The list of donor indices.</param>
+        /// <param name="maxThreads">The maximum number of threads.</param>
+        /// <returns>The enumerable of chromatographic peak data.</returns>
         public IEnumerable<ChromatographicPeakData> CreateChromatographicPeakDataIteration(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
         {
             object ChromatographicPeakDataListLock = new object();

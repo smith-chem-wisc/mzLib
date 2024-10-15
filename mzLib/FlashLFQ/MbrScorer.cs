@@ -48,7 +48,7 @@ namespace FlashLFQ
             _rtPredictionErrorDistributionDictionary = new();
 
             // This is kludgey, because scan counts are discrete
-            List<double> scanList = acceptorFileMsmsPeaks.Select(peak => (double)peak.ScanCount).ToList();
+            List<double> scanList = UnambiguousMsMsAcceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
             // build a normal distribution for the scan list of the acceptor peaks
             _scanCountDistribution = new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
         }
