@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using MzLibUtil;
 using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
@@ -1180,6 +1181,97 @@ namespace Test
             Assert.AreEqual('K', last.PreviousResidue);
             Assert.AreEqual('-', last.NextAminoAcid);
             Assert.AreEqual('-', last.NextResidue);
+        }
+
+        [Test]
+        public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
+        {
+            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"),
+                    formalChargesDictionary).ToList();
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
+                true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            var allKnownModDict = UniProtPtms.ToDictionary(p => p.IdWithMotif, p => p);
+            var digestionParameters = new DigestionParams(maxModsForPeptides: 3);
+
+            foreach (Protein p in proteins)
+            {
+                List<PeptideWithSetModifications> digestedPeptides =
+                    p.Digest(digestionParameters, [], [], null, null).ToList();
+                // take the most modified peptide by base sequence and ensure all methods function properly
+                foreach (var targetPeptide in digestedPeptides
+                             .Where(pep => pep.FullSequence.Contains('['))
+                             .GroupBy(pep => pep.BaseSequence)
+                             .Select(pepGroup => pepGroup.MaxBy(pep => pep.AllModsOneIsNterminus.Count)))
+                {
+                    var startResidue = targetPeptide.OneBasedStartResidue;
+                    var endResidue = targetPeptide.OneBasedEndResidue;
+
+                    // Pull our expected modifications based upon parent protein object with a maximum value of DigestionParameters.MaxMods
+                    // A bunch of logic to count the number of expected modifications based upon the xml database entries
+                    int expectedModCount = 0;
+                    foreach (var modDictEntry in p.OneBasedPossibleLocalizedModifications
+                                 .Where(mod => mod.Key >= startResidue && mod.Key <= endResidue))
+                    {
+                        if (modDictEntry.Value.Count > 1)
+                        {
+                            var locRestrictions = modDictEntry.Value.Select(mod => mod.LocationRestriction).ToList();
+
+                            if (locRestrictions.AllSame())
+                            {
+                                if (locRestrictions.First() == "Anywhere.")
+                                    expectedModCount++;
+                                else if (locRestrictions.First() == "N-terminal." && modDictEntry.Key == startResidue)
+                                    expectedModCount++;
+                            }
+                            else if (modDictEntry.Value.Select(mod => mod.LocationRestriction).Contains("Anywhere.")
+                                     && modDictEntry.Value.Select(mod => mod.LocationRestriction)
+                                         .Contains("N-terminal."))
+                            {
+                                expectedModCount++;
+                                if (modDictEntry.Key == startResidue)
+                                    expectedModCount++;
+                            }
+                        }
+                        else
+                        {
+                            switch (modDictEntry.Value.First().LocationRestriction)
+                            {
+                                case "Anywhere.":
+                                case "N-terminal." when modDictEntry.Key == startResidue:
+                                    expectedModCount++;
+                                    break;
+                            }
+                        }
+                    }
+
+                    expectedModCount = Math.Min(expectedModCount, digestionParameters.MaxMods);
+
+                    var expectedModifications = p.OneBasedPossibleLocalizedModifications.Where(mod =>
+                        mod.Key >= startResidue &&
+                        mod.Key <= endResidue).SelectMany(mod => mod.Value).ToList();
+
+                    // Parse modifications from PWSM and two IBioPolymerWithSetMods methods
+                    var pwsmModDict = targetPeptide.AllModsOneIsNterminus;
+                    var bpwsmModDict = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
+                    var bpwsmModList = IBioPolymerWithSetMods.GetModificationsFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
+
+                    // Ensure all methods are in agreement by modification count
+                    Assert.AreEqual(pwsmModDict.Count, expectedModCount);
+                    Assert.AreEqual(bpwsmModDict.Count, expectedModCount);
+                    Assert.AreEqual(bpwsmModList.Count, expectedModCount);
+
+                    // Ensure all methods are in agreement by modification identify
+                    foreach (var pwsmModification in pwsmModDict.Values)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                    foreach (var pwsmModification in bpwsmModDict.Values)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                    foreach (var pwsmModification in bpwsmModList)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                }
+            }
         }
     }
 }

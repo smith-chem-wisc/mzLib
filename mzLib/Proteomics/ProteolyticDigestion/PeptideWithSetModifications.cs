@@ -69,7 +69,7 @@ namespace Proteomics.ProteolyticDigestion
 
             FullSequence = sequence;
             _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
-            GetModsAfterDeserialization(allKnownMods);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
             PairedTargetDecoySequence = pairedTargetDecoySequence; 
@@ -910,7 +910,7 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein, DigestionParams dp)
         {
-            GetModsAfterDeserialization(idToMod);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, idToMod);
             GetProteinAfterDeserialization(accessionToProtein);
             _digestionParams = dp;
         }
@@ -918,66 +918,6 @@ namespace Proteomics.ProteolyticDigestion
         public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod,
             Dictionary<string, Protein> accessionToProtein, IDigestionParams dp) => 
             SetNonSerializedPeptideInfo(idToMod, accessionToProtein, (DigestionParams)dp);
-
-        private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
-        {
-            _allModsOneIsNterminus = new Dictionary<int, Modification>();
-            int currentModStart = 0;
-            int currentModificationLocation = 1;
-            bool currentlyReadingMod = false;
-            int bracketCount = 0;
-
-            for (int r = 0; r < FullSequence.Length; r++)
-            {
-                char c = FullSequence[r];
-                if (c == '[')
-                {
-                    currentlyReadingMod = true;
-                    if (bracketCount == 0)
-                    {
-                        currentModStart = r + 1;
-                    }
-                    bracketCount++;
-                }
-                else if (c == ']')
-                {
-                    string modId = null;
-                    bracketCount--;
-                    if (bracketCount == 0)
-                    {
-                        try
-                        {
-                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
-                            string modString = FullSequence.Substring(currentModStart, r - currentModStart);
-                            int splitIndex = modString.IndexOf(':');
-                            string modType = modString.Substring(0, splitIndex);
-                            modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
-                        }
-                        catch (Exception e)
-                        {
-                            throw new MzLibUtil.MzLibException(
-                                "Error while trying to parse string into peptide: " + e.Message);
-                        }
-                        if (!idToMod.TryGetValue(modId, out Modification mod))
-                        {
-                            throw new MzLibUtil.MzLibException(
-                                "Could not find modification while reading string: " + FullSequence);
-                        }
-                        if (mod.LocationRestriction.Contains("C-terminal.") && r == FullSequence.Length - 1)
-                        {
-                            currentModificationLocation = BaseSequence.Length + 2;
-                        }
-                        _allModsOneIsNterminus.Add(currentModificationLocation, mod);
-                        currentlyReadingMod = false;
-                    }
-                }
-                else if (!currentlyReadingMod)
-                {
-                    currentModificationLocation++;
-                }
-                //else do nothing
-            }
-        }
 
         private void GetProteinAfterDeserialization(Dictionary<string, Protein> idToProtein)
         {
