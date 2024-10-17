@@ -20,4 +20,8 @@
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
   </ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Development" />
+		<InternalsVisibleTo Include="Test" />
+	</ItemGroup>
 </Project>
