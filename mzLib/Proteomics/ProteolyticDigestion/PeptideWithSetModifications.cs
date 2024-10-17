@@ -613,17 +613,17 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public IBioPolymerWithSetMods Localize(int j, double massToLocalize)
+        public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize)
         {
             var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
             double massOfExistingMod = 0;
-            if (dictWithLocalizedMass.TryGetValue(j + 2, out Modification modToReplace))
+            if (dictWithLocalizedMass.TryGetValue(indexOfMass + 2, out Modification modToReplace))
             {
                 massOfExistingMod = (double)modToReplace.MonoisotopicMass;
-                dictWithLocalizedMass.Remove(j + 2);
+                dictWithLocalizedMass.Remove(indexOfMass + 2);
             }
 
-            dictWithLocalizedMass.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
+            dictWithLocalizedMass.Add(indexOfMass + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
 
             var peptideWithLocalizedMass = new PeptideWithSetModifications(Protein, _digestionParams, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein,
                 CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, dictWithLocalizedMass, NumFixedMods);
