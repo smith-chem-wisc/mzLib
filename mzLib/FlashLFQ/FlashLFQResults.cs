@@ -16,7 +16,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
-        public Dictionary<string, Dictionary<string, Dictionary<string, Dictionary<int, Dictionary<string, double>>>>> ModInfo { get;  private set; }
+        public Dictionary<string, MzLibUtil.UtilProteinGroup> ModInfo { get;  private set; }
         private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }

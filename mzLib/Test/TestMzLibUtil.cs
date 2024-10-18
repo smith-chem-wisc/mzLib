@@ -5,6 +5,7 @@ using Readers;
 using System.Windows.Documents;
 using System.Collections.Generic;
 using System;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Test
 {
@@ -37,32 +38,36 @@ namespace Test
             Assert.AreEqual(expectedResult, extensionResult);
         }
         [Test]
-        public static void TestParseModifications()
+        public static void TestParseModificationsOneMod()
         {
-            // sequence with one mod
             string fullSeq = "DM[Common Variable:Oxidation on M]MELVQPSISGVDLDK";
             var mods = fullSeq.ParseModifications();
             Assert.That(mods.Count == 1);
             Assert.That(mods.ContainsKey(2));
-            Assert.That(mods[2].Count ==1);
+            Assert.That(mods[2].Count == 1);
             Assert.That(mods[2].Contains("Common Variable:Oxidation on M"));
-
+        }
+        public static void TestParseModificationsTwoModsZeroIndexing()
+        {
             // sequence with two terminal mods with indexed termini (zero-based indexing)
-            fullSeq = "[UniProt:N-acetylglutamate on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            mods = fullSeq.ParseModifications(true, true);
+            string fullSeq = "[UniProt:N-acetylglutamate on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
+            var mods = fullSeq.ParseModifications(true, true);
             Assert.That(mods.Count == 3);
-            //Assert.That(mods.ContainsKey(0));
+            Assert.That(mods.ContainsKey(0));
             Assert.That(mods.ContainsKey(10));
             Assert.That(mods.ContainsKey(17));
-            //Assert.That(mods[0].Count == 1);
+            Assert.That(mods[0].Count == 1);
             Assert.That(mods[10].Count == 1);
             Assert.That(mods[17].Count == 1);
-            //Assert.That(mods[0].Contains("UniProt:N-acetylglutamate on E"));
+            Assert.That(mods[0].Contains("UniProt:N-acetylglutamate on E"));
             Assert.That(mods[10].Contains("Metal:Calcium on D"));
             Assert.That(mods[17].Contains("Common Fixed:Carbamidomethyl on C"));
-
+        }
+        public static void TestParseModificationsTwoModsOneIndexing()
+        {
             // sequence with two terminal mods with termini indexed at amino acid positions (one-based indexing)
-            mods = fullSeq.ParseModifications();
+            string fullSeq = "[UniProt:N-acetylglutamate on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
+            var mods = fullSeq.ParseModifications();
             Assert.That(mods.Count == 3);
             Assert.That(mods.ContainsKey(1));
             Assert.That(mods.ContainsKey(10));
@@ -73,10 +78,12 @@ namespace Test
             Assert.That(mods[1].Contains("UniProt:N-acetylglutamate on E"));
             Assert.That(mods[10].Contains("Metal:Calcium on D"));
             Assert.That(mods[16].Contains("Common Fixed:Carbamidomethyl on C"));
-
+        }
+        public static void TestParseModificationsTwoModsSameTerminusZeroIndexing()
+        {
             // sequence with two mods on same terminus with with indexed termini  (zero-based indexing)
-            fullSeq = "[UniProt:N-acetylglutamate on E]|[Common Artifact:Water Loss on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            mods = fullSeq.ParseModifications(true, true);
+            string fullSeq = "[UniProt:N-acetylglutamate on E]|[Common Artifact:Water Loss on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
+            var mods = fullSeq.ParseModifications(true, true);
             Assert.That(mods.Count == 3);
             Assert.That(mods.ContainsKey(0));
             Assert.That(mods.ContainsKey(10));
@@ -88,9 +95,12 @@ namespace Test
             Assert.That(mods[0].Contains("Common Artifact:Water Loss on E"));
             Assert.That(mods[10].Contains("Metal:Calcium on D"));
             Assert.That(mods[17].Contains("Common Fixed:Carbamidomethyl on C"));
-
+        }
+        public static void TestParseModificationsTwoModsSameTerminusOneIndexing()
+        {
             // sequence with two mods on same terminus with termini indexed at amino acid positions (one-based indexing)
-            mods = fullSeq.ParseModifications();
+            string fullSeq = "[UniProt:N-acetylglutamate on E]|[Common Artifact:Water Loss on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
+            var mods = fullSeq.ParseModifications();
             Assert.That(mods.Count == 3);
             Assert.That(mods.ContainsKey(1));
             Assert.That(mods.ContainsKey(10));
@@ -102,10 +112,12 @@ namespace Test
             Assert.That(mods[1].Contains("Common Artifact:Water Loss on E"));
             Assert.That(mods[10].Contains("Metal:Calcium on D"));
             Assert.That(mods[16].Contains("Common Fixed:Carbamidomethyl on C"));
-
+        }
+        public static void TestParseModificationsTwoModsTerminusAndSideChain()
+        {
             // sequence with mod on N terminus and mod on first amino acid side chain
-            fullSeq = "[UniProt:N-acetylglutamate on E]E[Metal:Sodium on E]EEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            mods = fullSeq.ParseModifications();
+            string fullSeq = "[UniProt:N-acetylglutamate on E]E[Metal:Sodium on E]EEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
+            var mods = fullSeq.ParseModifications();
             Assert.That(mods.Count == 3);
             Assert.That(mods.ContainsKey(1));
             Assert.That(mods.ContainsKey(10));
@@ -117,7 +129,6 @@ namespace Test
             Assert.That(mods[1].Contains("Metal:Sodium on E"));
             Assert.That(mods[10].Contains("Metal:Calcium on D"));
             Assert.That(mods[16].Contains("Common Fixed:Carbamidomethyl on C"));
-
         }
 
         [Test]
@@ -145,24 +156,23 @@ namespace Test
 
             var occupancy = PositionFrequencyAnalysis.PeptidePTMOccupancy(peptides);
 
-            Assert.That(occupancy["pg1"]["pg1"][baseSeq][0]["UniProt: N - acetylglutamate on E"] == 6.0);
-            Assert.That(occupancy["pg1"]["pg1"][baseSeq][10]["Metal: Calcium on D"] == 1.0);
-            Assert.That(occupancy["pg1"]["pg1"][baseSeq][10]["Metal: Sodium on D"] == 1.0);
-            Assert.That(occupancy["pg1"]["pg1"][baseSeq][11]["Common Artifact: Ammonia loss on N"] == 1.0);
-            Assert.That(occupancy["pg1"]["pg1"][baseSeq][11]["Common Biological: Hydroxylation on N"] == 1.0);
-            Assert.That(occupancy["pg1"]["pg1"][baseSeq][15]["Common Variable: Oxidation on M"] == 1.0);
-            Assert.That(occupancy["pg1"]["pg1"][baseSeq][16]["Common Fixed: Carbamidomethyl on C"] == 6.0);
-            Assert.That(occupancy["pg1"]["pg1"][baseSeq][-1]["Total"] == 6.0);
+            Assert.That(6.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[0]["UniProt: N - acetylglutamate on E"].Intensity);
+            Assert.That(1.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[10]["Metal: Calcium on D"].Intensity);
+            Assert.That(1.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[10]["Metal: Sodium on D"].Intensity);
+            Assert.That(1.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[11]["Common Artifact: Ammonia loss on N"].Intensity);
+            Assert.That(1.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[11]["Common Biological: Hydroxylation on N"].Intensity);
+            Assert.That(1.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[15]["Common Variable: Oxidation on M"].Intensity);
+            Assert.That(6.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[16]["Common Fixed: Carbamidomethyl on C"].Intensity);
+            Assert.That(6.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].Intensity);
 
-            Assert.That(occupancy["pg2|pg3"]["pg2"][baseSeq][0]["UniProt: N - acetylglutamate on E"] == 6.0);
-            Assert.That(occupancy["pg2|pg3"]["pg2"][baseSeq][10]["Metal: Calcium on D"] == 1.0);
-            Assert.That(occupancy["pg2|pg3"]["pg2"][baseSeq][10]["Metal: Sodium on D"] == 1.0);
-            Assert.That(occupancy["pg2|pg3"]["pg2"][baseSeq][11]["Common Artifact: Ammonia loss on N"] == 1.0);
-            Assert.That(occupancy["pg2|pg3"]["pg2"][baseSeq][11]["Common Biological: Hydroxylation on N"] == 1.0);
-            Assert.That(occupancy["pg2|pg3"]["pg2"][baseSeq][15]["Common Variable: Oxidation on M"] == 1.0);
-            Assert.That(occupancy["pg2|pg3"]["pg2"][baseSeq][16]["Common Fixed: Carbamidomethyl on C"] == 6.0);
-            Assert.That(occupancy["pg2|pg3"]["pg2"][baseSeq][-1]["Total"] == 6.0);
-
+            Assert.That(6.0 == occupancy["pg2|pg3"].Proteins["pg2"].Peptides[baseSeq].ModifiedAminoAcidPositions[0]["UniProt: N - acetylglutamate on E"].Intensity);
+            Assert.That(1.0 == occupancy["pg2|pg3"].Proteins["pg2"].Peptides[baseSeq].ModifiedAminoAcidPositions[10]["Metal: Calcium on D"].Intensity);
+            Assert.That(1.0 == occupancy["pg2|pg3"].Proteins["pg2"].Peptides[baseSeq].ModifiedAminoAcidPositions[10]["Metal: Sodium on D"].Intensity);
+            Assert.That(1.0 == occupancy["pg2|pg3"].Proteins["pg2"].Peptides[baseSeq].ModifiedAminoAcidPositions[11]["Common Artifact: Ammonia loss on N"].Intensity);
+            Assert.That(1.0 == occupancy["pg2|pg3"].Proteins["pg2"].Peptides[baseSeq].ModifiedAminoAcidPositions[11]["Common Biological: Hydroxylation on N"].Intensity);
+            Assert.That(1.0 == occupancy["pg2|pg3"].Proteins["pg2"].Peptides[baseSeq].ModifiedAminoAcidPositions[15]["Common Variable: Oxidation on M"].Intensity);
+            Assert.That(6.0 == occupancy["pg2|pg3"].Proteins["pg2"].Peptides[baseSeq].ModifiedAminoAcidPositions[16]["Common Fixed: Carbamidomethyl on C"].Intensity);
+            Assert.That(6.0 == occupancy["pg2|pg3"].Proteins["pg2"].Peptides[baseSeq].Intensity);
         }
 
         [Test]
