@@ -54,8 +54,6 @@ namespace Readers
                 {
                     switch (filePath.ParseFileType())
                     {
-                        
-
                         case SupportedFileType.osmtsv:
                             psms.Add(new OsmFromTsv(line, Split, parsedHeader));
                             break;
@@ -134,8 +132,8 @@ namespace Readers
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.Name, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Name));
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.Description, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Description));
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence));
-                parsedHeader.Add(SpectrumMatchFromTsvHeader.NextResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousResidue));
-                parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NumExperimentalPeaks));
+                parsedHeader.Add(SpectrumMatchFromTsvHeader.NextResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NextResidue));
+                parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousResidue));
             }
             else
             {
@@ -145,8 +143,8 @@ namespace Readers
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.Name, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ProteinName));
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.Description, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PeptideDescription));
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.StartAndEndResiduesInProtein));
-                parsedHeader.Add(SpectrumMatchFromTsvHeader.NextResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousAminoAcid));
-                parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NextAminoAcid));
+                parsedHeader.Add(SpectrumMatchFromTsvHeader.NextResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NextAminoAcid));
+                parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousAminoAcid));
             }
 
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GeneName, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GeneName));

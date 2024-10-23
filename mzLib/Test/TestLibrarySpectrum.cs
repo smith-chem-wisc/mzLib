@@ -1,11 +1,9 @@
 ﻿using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
-using NUnit.Framework.Legacy;
 using Proteomics.PSM;
 using Readers;
 
