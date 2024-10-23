@@ -65,40 +65,53 @@ namespace Readers
                 case ".psmtsv": return SupportedFileType.psmtsv;
                 case ".osmtsv": return SupportedFileType.osmtsv;
                 case ".feature":
-                    if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;
-                    if (filePath.EndsWith(SupportedFileType.Ms2Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Ms2Feature.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms2Feature;
                     throw new MzLibException("Feature file type not supported");
 
                 case ".csv":
-                    if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Mzrt_TopFd;
                     throw new MzLibException("Csv file type not supported");
 
                 case ".tsv":
-                    if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Tsv_FlashDeconv;
-                    if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicPrsm;
-                    if (filePath.EndsWith(SupportedFileType.ToppicProteoform.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.ToppicProteoform.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicProteoform;
-                    if (filePath.EndsWith(SupportedFileType.ToppicPrsmSingle.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.ToppicPrsmSingle.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicPrsmSingle;
-                    if (filePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicProteoformSingle;
-                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.IntralinkResults;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
-                    using var sw = new StreamReader(filePath);
-                    var firstLine = sw.ReadLine() ?? "";
-                    if (firstLine == "") throw new MzLibException("Tsv file is empty");
-
+                    using (var sw = new StreamReader(filePath))
+                    {
+                        var firstLine = sw.ReadLine() ?? "";
+                        if (firstLine == "") throw new MzLibException("Tsv file is empty");
+                    }
+                    
                     // catchall for other tsv types, one one implemented right now
-                    if (filePath.EndsWith(SupportedFileType.Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase) &&
-                        !filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Tsv_FlashDeconv.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase) &&
+                        !filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(),
+                            StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Tsv_FlashDeconv;
                     throw new MzLibException("Tsv file type not supported");
 
@@ -107,4 +120,5 @@ namespace Readers
             }
         }
     }
+    
 }
