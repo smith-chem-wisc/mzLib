@@ -9,12 +9,12 @@ using UsefulProteomicsDatabases;
 namespace Test.Transcriptomics
 {
     [ExcludeFromCodeCoverage]
-    internal class TestNucleotide
+    public class TestNucleotide
     {
-        internal record NucleotideTestCase(Nucleotide Nucleotide, string Name, char OneLetterCode, string Symbol, ChemicalFormula Formula, double Mass,
+        public record NucleotideTestCase(Nucleotide Nucleotide, string Name, char OneLetterCode, string Symbol, ChemicalFormula Formula, double Mass,
             ChemicalFormula nucleosideFormula);
 
-        internal static IEnumerable<NucleotideTestCase> GetNucleotideTestCases()
+        public static IEnumerable<NucleotideTestCase> GetNucleotideTestCases()
         {
             Loaders.LoadElements();
 
