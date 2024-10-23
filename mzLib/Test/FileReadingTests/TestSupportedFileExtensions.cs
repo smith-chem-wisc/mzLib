@@ -25,6 +25,8 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv", SupportedFileType.ToppicProteoform)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv", SupportedFileType.ToppicProteoformSingle)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv", SupportedFileType.ToppicPrsmSingle)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\XL_Intralinks.tsv", SupportedFileType.IntralinkResults)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\XLink.psmtsv", SupportedFileType.psmtsv)]
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();

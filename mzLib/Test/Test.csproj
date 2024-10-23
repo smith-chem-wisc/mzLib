@@ -422,6 +422,9 @@
     <None Update="FileReadingTests\SearchResults\XLink.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\SearchResults\XL_Intralinks.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="ModificationTests\CommonArtifacts.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

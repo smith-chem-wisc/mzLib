@@ -55,6 +55,7 @@ namespace Readers
                     switch (filePath.ParseFileType())
                     {
                         case SupportedFileType.psmtsv:
+                        case SupportedFileType.IntralinkResults:
                             psms.Add(new PsmFromTsv(line, Split, parsedHeader));
                             break;
 

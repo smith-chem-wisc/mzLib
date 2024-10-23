@@ -14,6 +14,7 @@ namespace Readers
         Mgf,
         BrukerD,
         psmtsv,
+        IntralinkResults,
         osmtsv,
         ToppicPrsm,
         ToppicPrsmSingle,
@@ -44,6 +45,7 @@ namespace Readers
                 SupportedFileType.BrukerD => ".d",
                 SupportedFileType.psmtsv => ".psmtsv",
                 SupportedFileType.osmtsv => ".osmtsv",
+                SupportedFileType.IntralinkResults => "Intralinks.tsv",
                 SupportedFileType.ToppicPrsm => "_prsm.tsv",
                 SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
                 SupportedFileType.ToppicProteoform => "_proteoform.tsv",
@@ -85,6 +87,14 @@ namespace Readers
                         return SupportedFileType.ToppicPrsmSingle;
                     if (filePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicProteoformSingle;
+                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.IntralinkResults;
+
+                    // these tsv cases are just .tsv and need an extra step to determine the type
+                    // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
+                    using var sw = new StreamReader(filePath);
+                    var firstLine = sw.ReadLine() ?? "";
+                    if (firstLine == "") throw new MzLibException("Tsv file is empty");
 
                     // catchall for other tsv types, one one implemented right now
                     if (filePath.EndsWith(SupportedFileType.Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase) &&
