@@ -1,13 +1,5 @@
 ﻿namespace Omics.SpectrumMatch
 {
-    //for glcyo
-    public enum LocalizationLevel
-    {
-        Level1,
-        Level1b,
-        Level2,
-        Level3
-    }
     public class SpectrumMatchFromTsvHeader
     {
         public static readonly string[] AcceptedSpectraFormats = { ".raw", ".mzML", ".mgf" };
