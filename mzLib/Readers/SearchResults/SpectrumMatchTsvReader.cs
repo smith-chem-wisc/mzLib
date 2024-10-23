@@ -54,10 +54,12 @@ namespace Readers
                     switch (filePath.ParseFileType())
                     {
                         case SupportedFileType.psmtsv:
+                        case SupportedFileType.IntralinkResults:
                             psms.Add(new PsmFromTsv(line, Split, parsedHeader));
                             break;
-
-                        // TODO: Create an osmtsv case when transcriptomics is merged
+                        //case SupportedFileType.osmtsv:
+                        //    psms.Add(new OsmFromTsv(line, Split, parsedHeader));
+                        //    break;
 
                         default:
                             throw new ArgumentOutOfRangeException();
