@@ -34,10 +34,6 @@ namespace Proteomics.PSM
         public int? BetaPeptideRank { get; }
         public List<MatchedFragmentIon> BetaPeptideMatchedIons { get; }
         public Dictionary<int, List<MatchedFragmentIon>> BetaPeptideChildScanMatchedIons { get; }
-        /// <summary>
-        /// If Crosslink, this contains the alpha and beta sequences. Otherwise, it contains the full sequence
-        /// </summary>
-        public string UniqueSequence { get; }
         public double? XLTotalScore { get; }
         public string ParentIons { get; }
 
