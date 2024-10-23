@@ -365,7 +365,7 @@ namespace Omics.SpectrumMatch
         {
             return FullSequence;
         }
-        public LibrarySpectrum ToLibrarySpectrum()
+        public virtual LibrarySpectrum ToLibrarySpectrum()
         {
             bool isDecoy = this.DecoyContamTarget == "D";
 
