@@ -37,6 +37,11 @@ namespace Proteomics.PSM
         public double? XLTotalScore { get; }
         public string ParentIons { get; }
 
+        /// <summary>
+        /// If Crosslink, this contains the alpha and beta sequences. Otherwise, it contains the full sequence
+        /// </summary>
+        public string UniqueSequence { get; }
+
         //For Glyco
         public string GlycanStructure { get; set; }
         public double? GlycanMass { get; set; }
@@ -258,7 +263,5 @@ namespace Proteomics.PSM
             GlycanLocalizationLevel = psm.GlycanLocalizationLevel;
             LocalizedGlycan = psm.LocalizedGlycan;
         }
-
-        
     }
 }
