@@ -75,8 +75,82 @@ namespace Transcriptomics
             PEP = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
             PEP_QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
             VariantCrossingIons = FindVariantCrossingIons();
-            SpectralAngle = (parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle]].Trim(), CultureInfo.InvariantCulture);
+            SpectralAngle = (parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle] < 0)
+                ? null
+                : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle]].Trim(),
+                    CultureInfo.InvariantCulture);
+        }
 
+        /// <summary>
+        /// Constructor used to disambiguate PsmFromTsv to a single psm object
+        /// </summary>
+        /// <param name="psm">psm to disambiguate</param>
+        /// <param name="fullSequence">sequence of ambiguous psm to use</param>
+        public OsmFromTsv(OsmFromTsv psm, string fullSequence, int index = 0, string baseSequence = "")
+        {
+            // psm is not ambiguous
+            if (!psm.FullSequence.Contains("|"))
+            {
+                FullSequence = fullSequence;
+                EssentialSeq = psm.EssentialSeq;
+                BaseSeq = baseSequence == "" ? psm.BaseSeq : baseSequence;
+                StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence;
+                Accession = psm.Accession;
+                Name = psm.Name;
+                GeneName = psm.GeneName;
+                MonoisotopicMass = psm.MonoisotopicMass;
+                MassDiffDa = psm.MassDiffDa;
+                MassDiffPpm = psm.MassDiffPpm;
+            }
+            // potentially ambiguous fields
+            else
+            {
+                FullSequence = fullSequence;
+                EssentialSeq = psm.EssentialSeq.Split("|")[index];
+                BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
+                StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
+                Accession = psm.Accession.Split("|")[index];
+                Name = psm.Name.Split("|")[index];
+                GeneName = psm.GeneName.Split("|")[index];
+
+                if (psm.MonoisotopicMass.Split("|").Count() == 1)
+                {
+                    MonoisotopicMass = psm.MonoisotopicMass.Split("|")[0];
+                    MassDiffDa = psm.MassDiffDa.Split("|")[0];
+                    MassDiffPpm = psm.MassDiffPpm.Split("|")[0];
+                }
+                else
+                {
+                    MonoisotopicMass = psm.MonoisotopicMass.Split("|")[index];
+                    MassDiffDa = psm.MassDiffDa.Split("|")[index];
+                    MassDiffPpm = psm.MassDiffPpm.Split("|")[index];
+                }
+            }
+
+            // non ambiguous fields
+            Ms2ScanNumber = psm.Ms2ScanNumber;
+            FileNameWithoutExtension = psm.FileNameWithoutExtension;
+            PrecursorScanNum = psm.PrecursorScanNum;
+            PrecursorCharge = psm.PrecursorCharge;
+            Score = psm.Score;
+            MatchedIons = psm.MatchedIons.ToList();
+            ChildScanMatchedIons = psm.ChildScanMatchedIons;
+            QValue = psm.QValue;
+            PEP = psm.PEP;
+            PEP_QValue = psm.PEP_QValue;
+            TotalIonCurrent = psm.TotalIonCurrent;
+            DeltaScore = psm.DeltaScore;
+            AmbiguityLevel = psm.AmbiguityLevel;
+            MissedCleavage = psm.MissedCleavage;
+            OrganismName = psm.OrganismName;
+            IntersectingSequenceVariations = psm.IntersectingSequenceVariations;
+            SpliceSites = psm.SpliceSites;
+            Description = psm.Description;
+            PreviousResidue = psm.PreviousResidue;
+            NextResidue = psm.NextResidue;
+            DecoyContamTarget = psm.DecoyContamTarget;
+            QValueNotch = psm.QValueNotch;
+            RetentionTime = psm.RetentionTime;
         }
     }
 }
