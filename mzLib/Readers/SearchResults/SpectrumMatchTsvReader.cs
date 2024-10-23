@@ -53,16 +53,15 @@ namespace Readers
                 {
                     switch (filePath.ParseFileType())
                     {
-                        case SupportedFileType.psmtsv:
-                        case SupportedFileType.IntralinkResults:
-                            psms.Add(new PsmFromTsv(line, Split, parsedHeader));
-                            break;
                         //case SupportedFileType.osmtsv:
                         //    psms.Add(new OsmFromTsv(line, Split, parsedHeader));
                         //    break;
 
+                        case SupportedFileType.psmtsv:
+                        case SupportedFileType.IntralinkResults:
                         default:
-                            throw new ArgumentOutOfRangeException();
+                            psms.Add(new PsmFromTsv(line, Split, parsedHeader));
+                            break;
                     }
                 }
                 catch (Exception e)
