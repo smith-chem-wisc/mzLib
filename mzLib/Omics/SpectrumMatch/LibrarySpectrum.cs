@@ -15,7 +15,7 @@ namespace Omics.SpectrumMatch
         public List<MatchedFragmentIon> MatchedFragmentIons { get; set; }
         public bool IsDecoy { get; set; }
 
-        public string Name
+        public virtual string Name
         {
             get { return Sequence + "/" + ChargeState; }
         }
