@@ -550,7 +550,7 @@ namespace FlashLFQ
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
                     && !peak.IsMbrPeak
                     && peak.IsotopicEnvelopes.Any()
-                    && PeptideModifiedSequencesToQuantify.Contains(peak.Identifications.First().ModifiedSequence))
+                    && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                 .ToDictionary(group => group.Key, group => group.ToList());
 
@@ -571,7 +571,7 @@ namespace FlashLFQ
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
                     && !peak.IsMbrPeak
                     && peak.IsotopicEnvelopes.Any()
-                    && PeptideModifiedSequencesToQuantify.Contains(peak.Identifications.First().ModifiedSequence))
+                    && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                 .ToDictionary(group => group.Key, group => group.ToList());
 
@@ -623,9 +623,9 @@ namespace FlashLFQ
                     .SelectMany(kvp => kvp.Value)
                     .Where(peak => peak.NumIdentificationsByFullSeq == 1
                         && peak.IsotopicEnvelopes.Any()
-                        && PeptideModifiedSequencesToQuantify.Contains(peak.Identifications.First().ModifiedSequence))
+                        && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
                     .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
-                    //.Where(group => PeptideModifiedSequencesToQuantify.Contains(group.Key))
+                    .Where(group => PeptideModifiedSequencesToQuantify.Contains(group.Key))
                     .ToDictionary(group => group.Key, group => group.ToList());
 
             // iterate through each unique sequence

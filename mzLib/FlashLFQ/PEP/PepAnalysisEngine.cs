@@ -234,7 +234,6 @@ namespace FlashLFQ.PEP
         public static void EqualizeDonorGroupIndices(List<DonorGroup> donors, List<int>[] groupsOfIndices, double scoreCutoff, int numGroups = 3)
         {
             HashSet<int> swappedDonors = new HashSet<int>(); // Keep track of everything we've swapped so we don't swap it again
-            Console.WriteLine("Equalizing donor group indices");
             // Outer loop iterates over the groups of indices (partitions) three times
             // after each inner loop iterations, the number of ttargtes and decoys in each adjacent group is equal, but commonly group 1 and 3 will have a different number
             // of targets and decoys. Looping three times should resolve this
@@ -372,7 +371,6 @@ namespace FlashLFQ.PEP
                     }
                 }
             }
-            Console.WriteLine("Finished equalizing donor group indices");
         }
 
         /// <summary>
