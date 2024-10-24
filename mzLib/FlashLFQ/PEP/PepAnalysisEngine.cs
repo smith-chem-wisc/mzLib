@@ -234,7 +234,7 @@ namespace FlashLFQ.PEP
         public static void EqualizeDonorGroupIndices(List<DonorGroup> donors, List<int>[] groupsOfIndices, double scoreCutoff, int numGroups = 3)
         {
             HashSet<int> swappedDonors = new HashSet<int>(); // Keep track of everything we've swapped so we don't swap it again
-
+            Console.WriteLine("Equalizing donor group indices");
             // Outer loop iterates over the groups of indices (partitions) three times
             // after each inner loop iterations, the number of ttargtes and decoys in each adjacent group is equal, but commonly group 1 and 3 will have a different number
             // of targets and decoys. Looping three times should resolve this
@@ -258,20 +258,24 @@ namespace FlashLFQ.PEP
                 }
 
                 bool stuck = false;
+                int outerIterations = 0;
                 int minIndex = groupsOfIndices[groupA].Min();
 
                 // Calculate the difference in targets and decoys between the two groups
                 int targetSurplus = targetsA - targetsB;
                 int decoySurplus = decoysA - decoysB;
 
-                while ((Math.Abs(targetSurplus) > 1 | Math.Abs(decoySurplus) > 1) && !stuck)
+                while ((Math.Abs(targetSurplus) > 1 | Math.Abs(decoySurplus) > 1) && !stuck && outerIterations < 3)
                 {
                     bool swapped = false;
+                    outerIterations++;
 
+                    int innerIterations = 0;
                     // start from the bottom of group 1, trying to swap peaks.
                     // If group 1 has more targets than group 2, we want to swap groups to equalize the number of targets in each group
-                    while (Math.Abs(targetSurplus) > 1 & !stuck)
+                    while (Math.Abs(targetSurplus) > 1 & !stuck & innerIterations < 3)
                     {
+                        innerIterations++;
                         swapped = false;
                         // Traverse the list of donor indices in descending order, looking for a good candidate to swap
                         foreach (int donorIndexA in groupsOfIndices[groupA].Where(idx => !swappedDonors.Contains(idx)).OrderByDescending(idx => idx))
@@ -318,9 +322,11 @@ namespace FlashLFQ.PEP
                         }
                     }
 
+                    innerIterations = 0;
                     // Now we'll do the decoys
-                    while (Math.Abs(decoySurplus) > 1 & !stuck)
+                    while (Math.Abs(decoySurplus) > 1 & !stuck & innerIterations < 3)
                     {
+                        innerIterations++;
                         swapped = false;
                         foreach (int donorIndexA in groupsOfIndices[groupA].Where(idx => !swappedDonors.Contains(idx)).OrderByDescending(idx => idx))
                         {
@@ -366,6 +372,7 @@ namespace FlashLFQ.PEP
                     }
                 }
             }
+            Console.WriteLine("Finished equalizing donor group indices");
         }
 
         /// <summary>

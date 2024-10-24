@@ -151,8 +151,9 @@ namespace FlashLFQ
                 .ThenBy(p => p.TechnicalReplicate).ToList();
 
             _allIdentifications = allIdentifications;
-            PeptideModifiedSequencesToQuantify = peptideSequencesToQuantify.IsNotNullOrEmpty() ? new HashSet<string>(peptideSequencesToQuantify)
-    :           allIdentifications.Select(id => id.ModifiedSequence).ToHashSet();
+            PeptideModifiedSequencesToQuantify = peptideSequencesToQuantify.IsNotNullOrEmpty() 
+                ? new HashSet<string>(peptideSequencesToQuantify) 
+                : allIdentifications.Select(id => id.ModifiedSequence).ToHashSet();
             PpmTolerance = ppmTolerance;
             IsotopePpmTolerance = isotopeTolerancePpm;
             
@@ -549,7 +550,7 @@ namespace FlashLFQ
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
                     && !peak.IsMbrPeak
                     && peak.IsotopicEnvelopes.Any()
-                    && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
+                    && PeptideModifiedSequencesToQuantify.Contains(peak.Identifications.First().ModifiedSequence))
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                 .ToDictionary(group => group.Key, group => group.ToList());
 
@@ -570,7 +571,7 @@ namespace FlashLFQ
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
                     && !peak.IsMbrPeak
                     && peak.IsotopicEnvelopes.Any()
-                    && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
+                    && PeptideModifiedSequencesToQuantify.Contains(peak.Identifications.First().ModifiedSequence))
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                 .ToDictionary(group => group.Key, group => group.ToList());
 
@@ -622,9 +623,9 @@ namespace FlashLFQ
                     .SelectMany(kvp => kvp.Value)
                     .Where(peak => peak.NumIdentificationsByFullSeq == 1
                         && peak.IsotopicEnvelopes.Any()
-                        && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
+                        && PeptideModifiedSequencesToQuantify.Contains(peak.Identifications.First().ModifiedSequence))
                     .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
-                    .Where(group => PeptideModifiedSequencesToQuantify.Contains(group.Key))
+                    //.Where(group => PeptideModifiedSequencesToQuantify.Contains(group.Key))
                     .ToDictionary(group => group.Key, group => group.ToList());
 
             // iterate through each unique sequence
@@ -806,7 +807,8 @@ namespace FlashLFQ
             var apexToAcceptorFilePeakDict = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
             List<double> ppmErrors = new List<double>();
             foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null
-                && PeptideModifiedSequencesToQuantify.Contains(p.Identifications.First().ModifiedSequence))) 
+                && PeptideModifiedSequencesToQuantify.Contains(p.Identifications.First().ModifiedSequence)
+                && p.Identifications.First().QValue < DonorQValueThreshold)) 
             {
                 if (!apexToAcceptorFilePeakDict.ContainsKey(peak.Apex.IndexedPeak))
                 {
