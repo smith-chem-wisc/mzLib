@@ -2,18 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using MassSpectrometry.MzSpectra;
 using MzLibUtil;
-using MathNet.Numerics.Statistics;
-using System.Reflection.Metadata.Ecma335;
 
 namespace MassSpectrometry
 {
-    public class IsoDecAlgorithm(IsoDecDeconvolutionParameters deconParameters)
+    public class IsoDecAlgorithm(DeconvolutionParameters deconParameters)
         : DeconvolutionAlgorithm(deconParameters)
     {
         private static string _phaseModelPath;
@@ -96,7 +90,7 @@ namespace MassSpectrometry
                 .ToArray();
 
             IntPtr matchedPeaksPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(MatchedPeak)) * intensities.Length);
-            IsoSettings settings = DeconParametersToIsoSettings(deconParameters);
+            IsoSettings settings = DeconParametersToIsoSettings(DeconvolutionParameters as IsoDecDeconvolutionParameters);
             int result = process_spectrum(mzs, intensities, intensities.Length, _phaseModelPath , matchedPeaksPtr, settings);
             if(result > 0)
             {
@@ -105,7 +99,7 @@ namespace MassSpectrometry
                 {
                     matchedpeaks[i] = Marshal.PtrToStructure<MatchedPeak>(matchedPeaksPtr + i * Marshal.SizeOf(typeof(MatchedPeak)));
                 }
-                return ConvertToIsotopicEnvelopes(deconParameters, matchedpeaks, spectrum);
+                return ConvertToIsotopicEnvelopes(DeconvolutionParameters as IsoDecDeconvolutionParameters, matchedpeaks, spectrum);
             }
 
             else return new List<IsotopicEnvelope>();
