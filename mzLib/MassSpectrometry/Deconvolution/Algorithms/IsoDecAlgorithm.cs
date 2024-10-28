@@ -13,7 +13,7 @@ using System.Reflection.Metadata.Ecma335;
 
 namespace MassSpectrometry
 {
-    public class IsoDecAlgorithm(DeconvolutionParameters deconParameters)
+    public class IsoDecAlgorithm(IsoDecDeconvolutionParameters deconParameters)
         : DeconvolutionAlgorithm(deconParameters)
     {
         private static string _phaseModelPath;
@@ -105,19 +105,19 @@ namespace MassSpectrometry
                 {
                     matchedpeaks[i] = Marshal.PtrToStructure<MatchedPeak>(matchedPeaksPtr + i * Marshal.SizeOf(typeof(MatchedPeak)));
                 }
-                return ConvertToIsotopicEnvelopes(matchedpeaks, spectrum);
+                return ConvertToIsotopicEnvelopes(deconParameters, matchedpeaks, spectrum);
             }
 
             else return new List<IsotopicEnvelope>();
         }
 
-        private List<IsotopicEnvelope> ConvertToIsotopicEnvelopes(MatchedPeak[] matchedpeaks, MzSpectrum spectrum)
+        private List<IsotopicEnvelope> ConvertToIsotopicEnvelopes(IsoDecDeconvolutionParameters parameters, MatchedPeak[] matchedpeaks, MzSpectrum spectrum)
         {
             List<IsotopicEnvelope> result = new List<IsotopicEnvelope>();
+            int currentId = 0;
             foreach(MatchedPeak peak in matchedpeaks)
             {
                 List<(double,double)> peaks = new List<(double,double)> ();
-                List<double> listofratios = new List<double>();
                 for (int i = 0; i < peak.realisolength; i++)
                 {
 
@@ -130,35 +130,38 @@ namespace MassSpectrometry
                     }
                     if (maxIndex >= 0)
                     {
-                        listofratios.Add(peak.isodist[i] / spectrum.YArray[maxIndex]);
                         peaks.Add((spectrum.XArray[maxIndex], spectrum.YArray[maxIndex]));
                     }
                     else
                     {
-                        listofratios.Add(0);
                         peaks.Add((peak.isomz[i], 0));
                     }
 
                 }
-                //One of the features of our algorithm is that it reports multiple possible monoisotopics if they score highly enough.
-                //This should do away with having to allow missed monoisotopics randomly.
-                foreach (float monoiso in peak.monoisos)
+
+                if(parameters.ReportMulitpleMonoisos)
                 {
-                    if(monoiso > 0) { result.Add(new IsotopicEnvelope(peaks, (double)monoiso, peak.z, peak.peakint, Statistics.StandardDeviation(listofratios), 0)); }
-                    
-                }                
+                    foreach (float monoiso in peak.monoisos)
+                    {
+                        if (monoiso > 0) { result.Add(new IsotopicEnvelope(currentId, peaks, (double)monoiso, peak.z, peak.peakint, peak.score)); }
+                        else break;
+
+                    }
+                }
+                else { result.Add(new IsotopicEnvelope(currentId, peaks, (double)peak.monoiso, peak.z, peak.peakint, peak.score)); }
+                currentId++;
             }
             return result;
         }
 
-        public IsoSettings DeconParametersToIsoSettings(DeconvolutionParameters parameters)
+        public IsoSettings DeconParametersToIsoSettings(IsoDecDeconvolutionParameters parameters)
         {
             IsoSettings result = new IsoSettings();
-            result.phaseres = 8;
-            result.verbose = 1;
-            result.peakwindow = 80;
-            result.peakthresh = (float)0.0001;
-            result.minpeaks = 3;
+            result.phaseres = parameters.PhaseRes;
+            result.verbose = parameters.Verbose;
+            result.peakwindow = parameters.PeakWindow;
+            result.peakthresh = parameters.PeakThreshold;
+            result.minpeaks = parameters.MinPeaks;
             result.css_thresh = (float)0.7;
             result.matchtol = 5;
             result.maxshift = 3;

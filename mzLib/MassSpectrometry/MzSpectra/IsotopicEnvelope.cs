@@ -19,6 +19,7 @@ namespace MassSpectrometry
         public readonly double TotalIntensity;
         public readonly double StDev;
         public readonly int MassIndex;
+        public readonly int PrecursorID;
 
         public double Score { get; private set; }
 
@@ -32,6 +33,16 @@ namespace MassSpectrometry
             StDev = bestStDev;
             MassIndex = bestMassIndex;
             Score = ScoreIsotopeEnvelope();
+        }
+
+        public IsotopicEnvelope(int id, List<(double mz, double intensity)> peaks, double monoisotopicmass, int chargestate, double intensity, double score)
+        {
+            PrecursorID = id;
+            Peaks = peaks;
+            MonoisotopicMass = monoisotopicmass;
+            Charge = chargestate;
+            TotalIntensity= intensity;
+            Score = score;
         }
 
         public double GetMostAbundantObservedIsotopicMass(List<(double mz, double intensity)> peaks, int charge)
