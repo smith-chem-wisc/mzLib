@@ -54,7 +54,7 @@ public static class SpectraFileAveraging
         // create output
         MsDataScan averagedScan = new(averagedSpectrum, 1, representativeScan.OneBasedScanNumber,
             representativeScan.IsCentroid, representativeScan.Polarity, scans.Select(p => p.RetentionTime).Average(),
-            averagedSpectrum.Range, null, representativeScan.MzAnalyzer, scans.Select(p => p.TotalIonCurrent).Average(),
+            averagedSpectrum.Range, representativeScan.ScanFilter, representativeScan.MzAnalyzer, scans.Select(p => p.TotalIonCurrent).Average(),
             representativeScan.InjectionTime, null, representativeScan.NativeId);
         MsDataScan[] msDataScans = { averagedScan };
         return msDataScans;
@@ -129,7 +129,8 @@ public static class SpectraFileAveraging
             centralScan.IsCentroid,
             centralScan.Polarity,
             centralScan.RetentionTime,
-            averagedSpectrum.Range, null,
+            averagedSpectrum.Range,
+            centralScan.ScanFilter,
             centralScan.MzAnalyzer,
             averagedSpectrum.SumOfAllY,
             centralScan.InjectionTime,
