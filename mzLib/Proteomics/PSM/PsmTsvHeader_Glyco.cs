@@ -2,10 +2,10 @@
 {
     public enum LocalizationLevel
     {
-        Level1,
-        Level1b,
-        Level2,
-        Level3
+        Level1 = 0,
+        Level1b = 1,
+        Level2 = 2,
+        Level3 = 3
     }
     public class PsmTsvHeader_Glyco
     {

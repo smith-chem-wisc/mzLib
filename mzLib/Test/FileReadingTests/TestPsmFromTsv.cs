@@ -22,6 +22,8 @@ namespace Test.FileReadingTests
         [TestCase("oglycoSinglePsms.psmtsv", 2)] // oglyco
         [TestCase("nglyco_f5.psmtsv", 5)] // nglyco
         [TestCase("VariantCrossTest.psmtsv", 15)] // variant crossing
+        [TestCase("XL_Intralinks.tsv", 6)] // variant crossing
+        [TestCase("XLink.psmtsv", 19)] // variant crossing
         public static void TestPsmReaderWithMultipleEntryPoints(string path, int expected)
         {
             string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults",

@@ -14,7 +14,8 @@ namespace Readers
         Mgf,
         BrukerD,
         psmtsv,
-        //osmtsv
+        IntralinkResults,
+        //osmtsv,
         ToppicPrsm,
         ToppicPrsmSingle,
         ToppicProteoform,
@@ -51,6 +52,7 @@ namespace Readers
                 SupportedFileType.Mgf => ".mgf",
                 SupportedFileType.BrukerD => ".d",
                 SupportedFileType.psmtsv => ".psmtsv",
+                SupportedFileType.IntralinkResults => "Intralinks.tsv",
                 //SupportedFileType.osmtsv => ".osmtsv",
                 SupportedFileType.ToppicPrsm => "_prsm.tsv",
                 SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
@@ -116,6 +118,8 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTDecoys;
                     if (filePath.EndsWith(SupportedFileType.MsPathFinderTAllResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsPathFinderTAllResults;
+                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.IntralinkResults;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
