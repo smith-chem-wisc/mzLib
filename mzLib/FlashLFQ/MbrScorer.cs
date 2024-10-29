@@ -147,6 +147,8 @@ namespace FlashLFQ
             // new method
             double absoluteDiffFromMean = Math.Abs(distribution.Mean - value);
             // Returns a value between (0, 1] where 1 means the value was equal to the distribution mean
+            // The score represents the fraction of the distribution that lies absoluteDiffFromMean away from the mean or further
+            // i.e., what fraction of the distribution is more extreme than value
             double score = 2 * distribution.CumulativeDistribution(distribution.Mean - absoluteDiffFromMean);
             return (double.IsNaN(score) || score == 0) ? _minScore : score;
         }

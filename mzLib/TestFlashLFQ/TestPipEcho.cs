@@ -96,12 +96,6 @@ namespace TestFlashLFQ
             peak1.IsotopicEnvelopes.Add(iso2);
             peak1.CalculateIntensityForThisFeature(false);
 
-            //peak2.IsotopicEnvelopes.Add(iso1);
-            //peak2.CalculateIntensityForThisFeature(false);
-
-            //peak3.IsotopicEnvelopes.Add(iso1);
-            //peak3.CalculateIntensityForThisFeature(false);
-
             peak4.IsotopicEnvelopes.Add(iso2);
             peak4.CalculateIntensityForThisFeature(false);
 
