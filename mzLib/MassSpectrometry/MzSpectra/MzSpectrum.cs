@@ -22,10 +22,8 @@ using MzLibUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 
 namespace MassSpectrometry
 {
@@ -126,7 +124,7 @@ namespace MassSpectrometry
             }
         }
 
-        public double? FirstX
+        public virtual double? FirstX
         {
             get
             {
@@ -138,7 +136,7 @@ namespace MassSpectrometry
             }
         }
 
-        public double? LastX
+        public virtual double? LastX
         {
             get
             {
@@ -373,7 +371,7 @@ namespace MassSpectrometry
                 }
             }
 
-            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, Statistics.StandardDeviation(listOfRatios), massIndex);
+            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, listOfRatios.StandardDeviation());
         }
 
         [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
@@ -611,6 +609,36 @@ namespace MassSpectrometry
             return XArray.GetClosestIndex(x);
         }
 
+        public List<int> GetPeakIndicesWithinTolerance(double x, PpmTolerance tolerance)
+        {
+            List<int> indices = new List<int>();
+            int nearestIdx = XArray.GetClosestIndex(x);
+            if (tolerance.Within(XArray[nearestIdx], x)) { indices.Add(nearestIdx); }
+            int shift = 1;
+
+            bool findingUpper = true;
+            bool findingLower = true;
+
+            while(findingLower || findingLower)
+            {
+                int upperIdx = nearestIdx+ shift;
+                int lowerIdx = nearestIdx-shift;
+                if(findingUpper && upperIdx < XArray.Length)
+                {
+                    if(tolerance.Within(XArray[upperIdx], x)) {indices.Add(upperIdx); }
+                    else { findingUpper = false; }
+                }
+
+                if(findingLower && lowerIdx >= 0)
+                {
+                    if (tolerance.Within(XArray[lowerIdx], x)) { indices.Add(lowerIdx); }
+                    else { findingLower = false; }
+                }
+                shift++;
+            }
+            return indices;
+        }
+
         public void ReplaceXbyApplyingFunction(Func<MzPeak, double> convertor)
         {
             for (int i = 0; i < Size; i++)
@@ -796,7 +824,12 @@ namespace MassSpectrometry
             return peakList[index];
         }
 
-        private MzPeak GeneratePeak(int index)
+        /// <summary>
+        /// The source of all peaks which populate the peakList
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        protected virtual MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
