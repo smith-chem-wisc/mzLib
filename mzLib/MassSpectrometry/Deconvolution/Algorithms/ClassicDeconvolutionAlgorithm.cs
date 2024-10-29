@@ -1,19 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
-using Easy.Common.Extensions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public class ClassicDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
-        : DeconvolutionAlgorithm(deconParameters)
+    internal class ClassicDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
         private MzSpectrum spectrum;
+
+        internal ClassicDeconvolutionAlgorithm(DeconvolutionParameters deconParameters) : base(deconParameters)
+        {
+
+        }
 
         /// <summary>
         /// Override to deconvolute the spectra using the Classic Deconvolution algorithm
@@ -21,7 +22,7 @@ namespace MassSpectrometry
         /// <param name="spectrumToDeconvolute">spectrum to deconvolute</param>
         /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
-        public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
+        internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
         {
             var deconParams = DeconvolutionParameters as ClassicDeconvolutionParameters ?? throw new MzLibException("Deconvolution params and algorithm do not match");
             spectrum = spectrumToDeconvolute;
@@ -201,7 +202,7 @@ namespace MassSpectrometry
                 }
             }
 
-            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, Statistics.StandardDeviation(listOfRatios), massIndex);
+            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, listOfRatios.StandardDeviation());
         }
 
         private int ObserveAdjacentChargeStates(IsotopicEnvelope originalEnvelope, double mostIntensePeakMz, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, double minChargeToLookFor, double maxChargeToLookFor, List<double> monoisotopicMassPredictions)

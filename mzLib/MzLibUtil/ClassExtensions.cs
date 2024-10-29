@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace MzLibUtil
 {
@@ -99,6 +100,17 @@ namespace MzLibUtil
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Finds the index of all instances of a specified substring within the source string.
+        /// The index returned is the position of the first character of the substring within the source tring
+        /// </summary>
+        /// <param name="sourceString">Haystack: string to be searched</param>
+        /// <param name="subString">Needle: substring to be located</param>
+        public static IEnumerable<int> IndexOfAll(this string sourceString, string subString)
+        {
+            return Regex.Matches(sourceString, subString).Cast<Match>().Select(m => m.Index);
         }
 
         /// <summary>

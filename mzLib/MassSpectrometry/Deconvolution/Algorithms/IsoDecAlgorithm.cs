@@ -77,7 +77,7 @@ namespace MassSpectrometry
         [DllImport("Deconvolution/Algorithms/IsoDecResources/isodeclib.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern int process_spectrum(double[] mz, float[] intensity, int len, string modelpath, IntPtr matchedpeaks, IsoSettings settings);
 
-        public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
+        internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
             var firstIndex = spectrum.GetClosestPeakIndex(range.Minimum);
             var lastIndex = spectrum.GetClosestPeakIndex(range.Maximum);

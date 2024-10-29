@@ -44,4 +44,8 @@
 		</Content>
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Development" />
+		<InternalsVisibleTo Include="Test" />
+	</ItemGroup>
 </Project>
