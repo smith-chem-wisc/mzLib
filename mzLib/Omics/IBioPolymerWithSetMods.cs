@@ -50,7 +50,16 @@ namespace Omics
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
             List<Product> products);
 
-        public IBioPolymerWithSetMods Localize(int j, double massToLocalize);
+        /// <summary>
+        /// Outputs a duplicate IBioPolymerWithSetMods with a localized mass shift, replacing a modification when present
+        /// <remarks>
+        /// Used to localize an unknown mass shift in the MetaMorpheus Localization Engine
+        /// </remarks>
+        /// </summary>
+        /// <param name="indexOfMass">The index of the modification in the AllModOneIsNTerminus Dictionary - 2 (idk why -2)</param>
+        /// <param name="massToLocalize">The mass to add to the BioPolymer</param>
+        /// <returns></returns>
+        public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize);
 
         public static string GetBaseSequenceFromFullSequence(string fullSequence)
         {
