@@ -10,11 +10,50 @@ namespace MassSpectrometry
     {
         public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.IsoDecDeconvolution;
 
+        #region User-Accessible Parameters
         /// <summary>
         /// Precision of encoding matrix
         /// </summary>
         public int PhaseRes { get; protected set; } = 8;
+        /// <summary>
+        /// Minimum cosine similarity score for isotope distribution
+        /// </summary>
+        public float CssThreshold { get; set; } = (float)0.7;
 
+        /// <summary>
+        /// Match Tolerance for peak detection in ppm
+        /// </summary>
+        public float MatchTolerance { get; set; } = (float)5;
+
+        /// <summary>
+        /// Maximum shift allowed for isotope distribution
+        /// </summary>
+        public int MaxShift { get; protected set; } = 3;
+
+        /// <summary>
+        /// MZ Window for isotope distribution
+        /// </summary>
+        public float[] MzWindow { get; set; } = new float[] { (float)-1.05, (float)2.05 };
+        /// <summary>
+        /// Number of knockdown rounds
+        /// </summary>
+        public int KnockdownRounds { get; set; } = 5;
+        /// <summary>
+        /// Minimum area covered by isotope distribution. Use in or with css_thresh
+        /// </summary>
+        public float MinAreaCovered { get; set; } = (float)0.20;
+        /// <summary>
+        /// Threshold for data. Will remove relative intensities below this relative to max intensity in each cluster
+        /// </summary>
+        public float DataThreshold { get; set; } = (float)0.05;
+        /// <summary>
+        /// Report multiple monoisotopic peaks
+        /// </summary>
+        public bool ReportMulitpleMonoisos { get; set; } = true;
+        #endregion User-Accessible Parameters
+
+
+        #region Hard-Coded Parameters
         /// <summary>
         /// Verbose output
         /// </summary>
@@ -36,44 +75,14 @@ namespace MassSpectrometry
         public int MinPeaks { get; protected set; } = 3;
 
         /// <summary>
-        /// Minimum cosine similarity score for isotope distribution
-        /// </summary>
-        public float CssThreshold { get; set; } = (float)0.7;
-
-        /// <summary>
-        /// Match Tolerance for peak detection in ppm
-        /// </summary>
-        public float MatchTolerance { get; set; } = (float)5;
-
-        /// <summary>
-        /// Maximum shift allowed for isotope distribution
-        /// </summary>
-        public int MaxShift { get; protected set; } = 3;
-
-        /// <summary>
-        /// MZ Window for isotope distribution
-        /// </summary>
-        public float[] MzWindow { get; set; } = new float[] { (float)-1.05, (float)2.05 };
-
-        /// <summary>
         /// Plus One Intensity range. Will be used for charge state 1
         /// </summary>
         public float[] PlusOneIntWindow { get; protected set; } = new float[] { (float)0.1, (float)0.6 };
 
         /// <summary>
-        /// Number of knockdown rounds
-        /// </summary>
-        public int KnockdownRounds { get; set; } = 5;
-
-        /// <summary>
         /// Minimum score difference for isotope distribution to allow missed monoisotopic peaks
         /// </summary>
         public float MinScoreDiff { get; set; } = (float)0.1;
-
-        /// <summary>
-        /// Minimum area covered by isotope distribution. Use in or with css_thresh
-        /// </summary>
-        public float MinAreaCovered { get; set; } = (float)0.15;
 
         /// <summary>
         /// Isotope Distribution Length
@@ -101,21 +110,16 @@ namespace MassSpectrometry
         public float IsotopeThreshold { get; set; } = (float)0.01;
 
         /// <summary>
-        /// Threshold for data. Will remove relative intensities below this relative to max intensity in each cluster
-        /// </summary>
-        public float DataThreshold { get; set; } = (float)0.05;
-
-        /// <summary>
         /// Ratio above which a secondary charge state prediction will be returned.
         /// </summary>
         public float ZScoreThreshold { get; protected set; } = (float)0.95;
+        #endregion Hard-Coded Parameters
 
-        /// <summary>
-        /// Report multiple monoisotopic peaks
-        /// </summary>
-        public bool ReportMulitpleMonoisos { get; set; } = true;
+
+
 
         public IsoDecDeconvolutionParameters(
+            Polarity polarity = Polarity.Positive,
             int phaseRes = 8,
             bool reportMultipleMonoisos = true,
             float cssThreshold = (float)0.7,
@@ -125,7 +129,7 @@ namespace MassSpectrometry
             int knockdownRounds = 5,
             float minAreaCovered = (float)0.20,
             float relativedatathreshold = (float)0.05)
-            : base(1, 50, Polarity.Positive)
+            : base(1, 50, polarity)
         {
             this.PhaseRes = phaseRes;
             this.ReportMulitpleMonoisos = reportMultipleMonoisos;
@@ -137,6 +141,8 @@ namespace MassSpectrometry
             else this.MzWindow = new float[] { (float)-1.05, (float)2.05 };
             this.KnockdownRounds = knockdownRounds;
             this.MinAreaCovered = minAreaCovered;
+            if (this.Polarity == Polarity.Negative)
+                this.AdductMass = (float)-1.00727276467;
         }
     }
 }

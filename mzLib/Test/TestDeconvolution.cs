@@ -348,7 +348,7 @@ namespace Test
             var tolerance = new PpmTolerance(20);
 
             // set up deconvolution
-            DeconvolutionParameters deconParams = new IsoDecDeconvolutionParameters();
+            DeconvolutionParameters deconParams = new IsoDecDeconvolutionParameters(Polarity.Negative);
 
             List<IsotopicEnvelope> deconvolutionResults = Deconvoluter.Deconvolute(scan, deconParams).ToList();
             // ensure each expected result is found, with correct mz, charge, and monoisotopic mass

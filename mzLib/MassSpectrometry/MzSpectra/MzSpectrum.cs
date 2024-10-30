@@ -613,6 +613,7 @@ namespace MassSpectrometry
         {
             List<int> indices = new List<int>();
             int nearestIdx = XArray.GetClosestIndex(x);
+            if(nearestIdx == 0) { return indices; }
             if (tolerance.Within(XArray[nearestIdx], x)) { indices.Add(nearestIdx); }
             int shift = 1;
 

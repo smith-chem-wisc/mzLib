@@ -132,17 +132,16 @@ namespace MassSpectrometry
                     }
 
                 }
-
+                int charge = peak.z;
+                if(parameters.Polarity == Polarity.Negative) { charge = -peak.z; }
                 if(parameters.ReportMulitpleMonoisos)
                 {
                     foreach (float monoiso in peak.monoisos)
                     {
-                        if (monoiso > 0) { result.Add(new IsotopicEnvelope(currentId, peaks, (double)monoiso, peak.z, peak.peakint, peak.score)); }
-                        else break;
-
+                        if (monoiso > 0) { result.Add(new IsotopicEnvelope(currentId, peaks, (double)monoiso, charge, peak.peakint, peak.score)); }
                     }
                 }
-                else { result.Add(new IsotopicEnvelope(currentId, peaks, (double)peak.monoiso, peak.z, peak.peakint, peak.score)); }
+                else { result.Add(new IsotopicEnvelope(currentId, peaks, (double)peak.monoiso, charge, peak.peakint, peak.score)); }
                 currentId++;
             }
             return result;
@@ -156,23 +155,21 @@ namespace MassSpectrometry
             result.peakwindow = parameters.PeakWindow;
             result.peakthresh = parameters.PeakThreshold;
             result.minpeaks = parameters.MinPeaks;
-            result.css_thresh = (float)0.7;
-            result.matchtol = 5;
-            result.maxshift = 3;
-            result.mzwindow = [(float)-1.05, (float)2.05];
-            result.plusoneintwindow = [(float)0.1, (float)0.6];
-            result.knockdown_rounds = 5;
-            result.min_score_diff = (float)0.1;
-            result.minareacovered = (float)0.15;
-            result.isolength = 64;
-            result.mass_diff_c = 1.0033;
-            //If polarity is positive, adduct is a proton, if negative, it's the loss of a proton.
-            if(parameters.Polarity == Polarity.Positive) { result.adductmass = (float)1.007276467; }
-            else { result.adductmass = (float)-1.007276467; }
-            result.minusoneaszero = 1;
-            result.isotopethreshold = (float)0.01;
-            result.datathreshold = (float)0.05;
-            result.zscore_threshold = (float)0.95;
+            result.css_thresh = parameters.CssThreshold;
+            result.matchtol = parameters.MatchTolerance;
+            result.maxshift = parameters.MaxShift;
+            result.mzwindow = parameters.MzWindow;
+            result.plusoneintwindow = parameters.PlusOneIntWindow;
+            result.knockdown_rounds = parameters.KnockdownRounds;
+            result.min_score_diff = parameters.MinScoreDiff;
+            result.minareacovered = parameters.MinAreaCovered;
+            result.isolength = parameters.IsoLength;
+            result.mass_diff_c = parameters.MassDiffC;
+            result.adductmass = parameters.AdductMass;
+            result.minusoneaszero = parameters.MinusOneAreasZero;
+            result.isotopethreshold = parameters.IsotopeThreshold;
+            result.datathreshold = parameters.DataThreshold;
+            result.zscore_threshold = parameters.ZScoreThreshold;
             return result;
         }
     }

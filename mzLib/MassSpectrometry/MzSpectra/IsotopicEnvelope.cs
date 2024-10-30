@@ -65,6 +65,7 @@ namespace MassSpectrometry
             Charge = chargestate;
             TotalIntensity = intensity;
             Score = score;
+            MostAbundantObservedIsotopicMass = peaks.MaxBy(p => p.intensity).mz * Math.Abs(chargestate);
         }
 
         public override string ToString()
