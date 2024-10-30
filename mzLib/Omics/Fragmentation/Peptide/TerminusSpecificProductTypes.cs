@@ -1,5 +1,6 @@
+
 ﻿namespace Omics.Fragmentation.Peptide
-{
+ {
     public class TerminusSpecificProductTypes
     {
         /// <summary>
