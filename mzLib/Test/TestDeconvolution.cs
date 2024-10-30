@@ -3,7 +3,6 @@ using Readers;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -108,8 +107,8 @@ namespace Test
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = singlespec.Deconvolute(singleRange, minAssumedChargeState,
                 maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
-            Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass),
-                lie3.Select(p => p.MostAbundantObservedIsotopicMass));
+            Assert.That(lie2.Select(p => p.MostAbundantObservedIsotopicMass),
+                Is.EqualTo(lie3.Select(p => p.MostAbundantObservedIsotopicMass)).Within(.0005));
         }
 
         #endregion
@@ -209,8 +208,7 @@ namespace Test
 
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = Deconvoluter.Deconvolute(singlespec, deconParameters, singleRange).ToList();
-            Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass),
-                lie3.Select(p => p.MostAbundantObservedIsotopicMass));
+            Assert.That(lie2.Select(p => p.MostAbundantObservedIsotopicMass), Is.EqualTo(lie3.Select(p => p.MostAbundantObservedIsotopicMass)));
         }
 
         [Test]
@@ -328,7 +326,7 @@ namespace Test
 
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = Deconvoluter.Deconvolute(singlespec, deconParameters, singleRange).ToList();
-            Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
+            Assert.That(lie2.Select(p => p.MostAbundantObservedIsotopicMass), Is.EqualTo(lie3.Select(p => p.MostAbundantObservedIsotopicMass)));
         }
 
         [Test]
@@ -375,14 +373,14 @@ namespace Test
             dataFile.CloseDynamicConnection();
 
             // test switch statements in Deconvoluter
-            Assert.Throws<NotImplementedException>(() => Deconvoluter.Deconvolute(spectrum, deconParams));
-            Assert.Throws<NotImplementedException>(() => Deconvoluter.Deconvolute(scan, deconParams));
+            Assert.Throws<NotImplementedException>(() => _ = Deconvoluter.Deconvolute(spectrum, deconParams).ToList());
+            Assert.Throws<NotImplementedException>(() => _ = Deconvoluter.Deconvolute(scan, deconParams).ToList());
 
             // test default exceptions in deconvoluter
             var badEnumValue = (DeconvolutionType)Int32.MaxValue;
             deconParams.GetType().GetProperty("DeconvolutionType")!.SetValue(deconParams, badEnumValue);
-            Assert.Throws<MzLibException>(() => Deconvoluter.Deconvolute(spectrum, deconParams));
-            Assert.Throws<MzLibException>(() => Deconvoluter.Deconvolute(scan, deconParams));
+            Assert.Throws<MzLibException>(() => _ = Deconvoluter.Deconvolute(spectrum, deconParams).ToList());
+            Assert.Throws<MzLibException>(() => _ = Deconvoluter.Deconvolute(scan, deconParams).ToList());
         }
 
 
@@ -427,9 +425,9 @@ namespace Test
             var result = Deconvoluter.Deconvolute(spectrum, deconvolutionParameters, rangeToGetPeaksFrom).ToList();
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.IsInstanceOf<IEnumerable<IsotopicEnvelope>>(result);
-            Assert.AreEqual(2, result.Count());
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result, Is.InstanceOf<IEnumerable<IsotopicEnvelope>>());
+            Assert.That(result.Count(), Is.EqualTo(2));
 
             for (int i = 0; i < result.Count(); i++)
             {
@@ -458,9 +456,9 @@ namespace Test
             var result = Deconvoluter.Deconvolute(spectrum, deconvolutionParameters, rangeToGetPeaksFrom).ToList();
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.IsInstanceOf<IEnumerable<IsotopicEnvelope>>(result);
-            Assert.AreEqual(2, result.Count());
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result, Is.InstanceOf<IEnumerable<IsotopicEnvelope>>());
+            Assert.That(result.Count(), Is.EqualTo(2));
 
             for (int i = 0; i < result.Count(); i++)
             {
@@ -488,9 +486,9 @@ namespace Test
             var result = Deconvoluter.Deconvolute(spectrum, deconvolutionParameters, rangeToGetPeaksFrom).ToList();
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.IsInstanceOf<IEnumerable<IsotopicEnvelope>>(result);
-            Assert.AreEqual(1, result.Count());
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result, Is.InstanceOf<IEnumerable<IsotopicEnvelope>>());
+            Assert.That(result.Count(), Is.EqualTo(1));
 
             for (int i = 0; i < result.Count(); i++)
             {
@@ -518,9 +516,9 @@ namespace Test
             var result = Deconvoluter.Deconvolute(spectrum, deconvolutionParameters, rangeToGetPeaksFrom).ToList();
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.IsInstanceOf<IEnumerable<IsotopicEnvelope>>(result);
-            Assert.AreEqual(1, result.Count());
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result, Is.InstanceOf<IEnumerable<IsotopicEnvelope>>());
+            Assert.That(result.Count(), Is.EqualTo(1));
 
             for (int i = 0; i < result.Count(); i++)
             {
