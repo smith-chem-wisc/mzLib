@@ -28,7 +28,7 @@ namespace Readers
             }
             catch (Exception e)
             {
-                throw new MzLibException("Could not read file: " + e.Message);
+                throw new MzLibException("Could not read file: " + e.Message, e);
             }
 
             int lineCount = 0;
