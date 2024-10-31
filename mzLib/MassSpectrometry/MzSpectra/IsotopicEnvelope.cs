@@ -17,8 +17,7 @@ namespace MassSpectrometry
         internal double MostAbundantObservedIsotopicMass { get; private set; }
         public readonly int Charge;
         public readonly double TotalIntensity;
-        public readonly int MassIndex;
-        public readonly int PrecursorID;
+        public readonly int PrecursorId;
 
         public double Score { get; private set; }
 
@@ -59,7 +58,7 @@ namespace MassSpectrometry
         /// <param name="score"></param>
         public IsotopicEnvelope(int id, List<(double mz, double intensity)> peaks, double monoisotopicmass, int chargestate, double intensity, double score)
         {
-            PrecursorID = id;
+            PrecursorId = id;
             Peaks = peaks;
             MonoisotopicMass = monoisotopicmass;
             Charge = chargestate;
