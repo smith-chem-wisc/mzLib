@@ -10,6 +10,7 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     /// Precision of encoding matrix
     /// </summary>
     public int PhaseRes { get; set; } 
+
     /// <summary>
     /// Minimum cosine similarity score for isotope distribution
     /// </summary>
@@ -129,16 +130,16 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
         float relativeDataThreshold = (float)0.05)
         : base(1, 50, polarity)
     {
-        this.PhaseRes = phaseRes;
-        this.ReportMulitpleMonoisos = reportMultipleMonoisos;
-        this.CssThreshold = cssThreshold;
-        this.MatchTolerance = matchTolerance;
-        this.MaxShift = maxShift;
-        this.MzWindow = mzWindow ?? new float[] { (float)-1.05, (float)2.05 };
-        this.KnockdownRounds = knockdownRounds;
-        this.MinAreaCovered = minAreaCovered;
-        this.DataThreshold = relativeDataThreshold;
-        if (this.Polarity == Polarity.Negative)
-            this.AdductMass = (float)-1.00727276467;
+        PhaseRes = phaseRes;
+        ReportMulitpleMonoisos = reportMultipleMonoisos;
+        CssThreshold = cssThreshold;
+        MatchTolerance = matchTolerance;
+        MaxShift = maxShift;
+        MzWindow = mzWindow ?? new float[] { (float)-1.05, (float)2.05 };
+        KnockdownRounds = knockdownRounds;
+        MinAreaCovered = minAreaCovered;
+        DataThreshold = relativeDataThreshold;
+        if (Polarity == Polarity.Negative)
+            AdductMass = (float)-1.00727276467;
     }
 }
