@@ -79,6 +79,8 @@ namespace MassSpectrometry
 
         internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
+            var deconParams = DeconvolutionParameters as IsoDecDeconvolutionParameters ?? throw new MzLibException("Deconvolution params and algorithm do not match");
+
             var firstIndex = spectrum.GetClosestPeakIndex(range.Minimum);
             var lastIndex = spectrum.GetClosestPeakIndex(range.Maximum);
 
@@ -90,7 +92,7 @@ namespace MassSpectrometry
                 .ToArray();
 
             IntPtr matchedPeaksPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(MatchedPeak)) * intensities.Length);
-            IsoSettings settings = DeconParametersToIsoSettings(DeconvolutionParameters as IsoDecDeconvolutionParameters);
+            IsoSettings settings = DeconParametersToIsoSettings(deconParams);
             int result = process_spectrum(mzs, intensities, intensities.Length, _phaseModelPath , matchedPeaksPtr, settings);
             if(result > 0)
             {
@@ -99,7 +101,7 @@ namespace MassSpectrometry
                 {
                     matchedpeaks[i] = Marshal.PtrToStructure<MatchedPeak>(matchedPeaksPtr + i * Marshal.SizeOf(typeof(MatchedPeak)));
                 }
-                return ConvertToIsotopicEnvelopes(DeconvolutionParameters as IsoDecDeconvolutionParameters, matchedpeaks, spectrum);
+                return ConvertToIsotopicEnvelopes(deconParams, matchedpeaks, spectrum);
             }
 
             else return new List<IsotopicEnvelope>();
