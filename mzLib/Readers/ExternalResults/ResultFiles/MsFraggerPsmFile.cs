@@ -48,7 +48,7 @@ namespace Readers
         /// </summary>
         /// <param name="fullFilePath"> list of all full file paths associted with a given result </param>
         /// <returns> dictionary with key fileName and value fullFilePath </returns>
-        public Dictionary<string, string> FileNametoFilePath (List<string> fullFilePath)
+        public Dictionary<string, string> FileNameToFilePath (List<string> fullFilePath)
         {
             List<string> rawFileNames = Results.Select(psm => psm.FileName).Distinct().ToList();
             fullFilePath = fullFilePath.Distinct().ToList();
