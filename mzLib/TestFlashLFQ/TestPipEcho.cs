@@ -38,7 +38,7 @@ namespace TestFlashLFQ
             {
                 int numberTargets = random.Next(0, 10);
                 int numberDecoys = random.Next(0, 10);
-                donorGroups.Add(new DonorGroup(id, Enumerable.Repeat(targetPeak, numberTargets).ToList(), Enumerable.Repeat(targetPeak, numberDecoys).ToList()));
+                donorGroups.Add(new DonorGroup(id, Enumerable.Repeat(targetPeak, numberTargets).ToList(), Enumerable.Repeat(decoyPeak, numberDecoys).ToList()));
             }
             
             donorGroups = PepAnalysisEngine.OrderDonorGroups(donorGroups);

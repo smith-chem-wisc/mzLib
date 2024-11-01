@@ -259,7 +259,7 @@ namespace FlashLFQ
                     }
                 }
 
-                Console.WriteLine("Computing PEP for PIP Transfers");
+                Console.WriteLine("Computing PEP for MBR Transfers");
                 bool pepSuccesful = RunPEPAnalysis();
 
                 foreach (var spectraFile in _spectraFileInfo)
@@ -990,6 +990,7 @@ namespace FlashLFQ
                             RtInfo rtInfo = PredictRetentionTime(rtCalibrationCurve, donorPeak, idAcceptorFile, acceptorSampleIsFractionated, donorSampleIsFractionated);
                             if (rtInfo == null) continue;
 
+                            // Look for MBR target (predicted-RT peak)
                             FindAllAcceptorPeaks(idAcceptorFile, scorer, rtInfo, mbrTol, donorPeak, out var bestAcceptor);
                             AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestAcceptor, donorPeak.Identifications.First());
 
@@ -1000,6 +1001,7 @@ namespace FlashLFQ
                                 minimumRtDifference,
                                 donorPeak.Identifications.First());
 
+                            // Look for MBR decoy (random-RT peak) 
                             ChromatographicPeak bestDecoy = null;
                             RtInfo decoyRtInfo = null;
                             if (randomDonor != null)
