@@ -23,29 +23,22 @@
   </ItemGroup>
 
 	<ItemGroup>
-		<None Remove="Deconvolution\Algorithms\isodeclib.dll" />
-		<None Remove="Deconvolution\Algorithms\libmmd.dll" />
-		<None Remove="Deconvolution\Algorithms\phase_model.bin" />
-		<None Remove="Deconvolution\Algorithms\svml_dispmd.dll" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Content Include="Deconvolution\Algorithms\IsoDecResources\isodeclib.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Include="Deconvolution\Algorithms\IsoDecResources\libmmd.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Include="Deconvolution\Algorithms\IsoDecResources\phase_model.bin">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-		<Content Include="Deconvolution\Algorithms\IsoDecResources\svml_dispmd.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</Content>
-	</ItemGroup>
-
-	<ItemGroup>
 		<InternalsVisibleTo Include="Development" />
 		<InternalsVisibleTo Include="Test" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="Deconvolution\Algorithms\IsoDecResources\isodeclib.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Deconvolution\Algorithms\IsoDecResources\libmmd.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Deconvolution\Algorithms\IsoDecResources\phase_model.bin">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="Deconvolution\Algorithms\IsoDecResources\svml_dispmd.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 </Project>
