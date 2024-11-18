@@ -1,8 +1,78 @@
-﻿namespace MassSpectrometry;
+﻿using System.Runtime.InteropServices;
+
+namespace MassSpectrometry;
 
 public class IsoDecDeconvolutionParameters : DeconvolutionParameters
 {
     public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.IsoDecDeconvolution;
+
+    #region Interop Parameters 
+
+    /// <summary>
+    /// The struct that is passed into the isodec.dll
+    /// </summary>
+    public struct IsoSettings
+    {
+        public int phaseres; // Precision of encoding matrix
+        public int verbose; // Verbose output
+        public int peakwindow; // Peak Detection Window
+        public float peakthresh; // Peak Detection Threshold
+        public int minpeaks; // Minimum Peaks for an allowed peak
+        public float css_thresh; // Minimum cosine similarity score for isotope distribution
+        public float matchtol; // Match Tolerance for peak detection in ppm
+        public int maxshift; // Maximum shift allowed for isotope distribution
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+        public float[] mzwindow; // MZ Window for isotope distribution
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+        public float[] plusoneintwindow; // Plus One Intensity range. Will be used for charge state 1
+        public int knockdown_rounds; // Number of knockdown rounds
+        public float min_score_diff; // Minimum score difference for isotope distribution to allow missed monoisotopic peaks
+        public float minareacovered; // Minimum area covered by isotope distribution. Use in or with css_thresh
+        public int isolength; // Isotope Distribution Length
+        public double mass_diff_c; // Mass difference between isotopes
+        public float adductmass; // Adduct Mass
+        public int minusoneaszero; // Use set the -1 isotope as 0 to help force better alignments
+        public float isotopethreshold; // Threshold for isotope distribution. Will remove relative intensities below this.
+        public float datathreshold; // Threshold for data. Will remove relative intensities below this relative to max intensity in each cluster
+        public float zscore_threshold; //Ratio above which a secondary charge state prediction will be returned.
+    }
+
+    private IsoSettings? _isoSettings;
+    
+    internal IsoSettings ToIsoSettings()
+    {
+        if (_isoSettings != null)
+            return _isoSettings.Value;
+
+        IsoSettings result = new IsoSettings
+        {
+            phaseres = PhaseRes,
+            verbose = Verbose,
+            peakwindow = PeakWindow,
+            peakthresh = PeakThreshold,
+            minpeaks = MinPeaks,
+            css_thresh = CssThreshold,
+            matchtol = MatchTolerance,
+            maxshift = MaxShift,
+            mzwindow = MzWindow,
+            plusoneintwindow = PlusOneIntWindow,
+            knockdown_rounds = KnockdownRounds,
+            min_score_diff = MinScoreDiff,
+            minareacovered = MinAreaCovered,
+            isolength = IsoLength,
+            mass_diff_c = MassDiffC,
+            adductmass = AdductMass,
+            minusoneaszero = MinusOneAreasZero,
+            isotopethreshold = IsotopeThreshold,
+            datathreshold = DataThreshold,
+            zscore_threshold = ZScoreThreshold
+        };
+
+        _isoSettings = result;
+        return result;
+    }
+
+    #endregion
 
     #region User-Accessible Parameters
 

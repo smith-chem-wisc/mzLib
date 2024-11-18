@@ -40,40 +40,12 @@ namespace MassSpectrometry
             public float[] monoisos;
             int startindex;
             int endindex;
-            public float startmz;
-            public float endmz;
             public float score;
             public int realisolength;
         }
 
-        public struct IsoSettings
-        {
-            public int phaseres; // Precision of encoding matrix
-            public int verbose; // Verbose output
-            public int peakwindow; // Peak Detection Window
-            public float peakthresh; // Peak Detection Threshold
-            public int minpeaks; // Minimum Peaks for an allowed peak
-            public float css_thresh; // Minimum cosine similarity score for isotope distribution
-            public float matchtol; // Match Tolerance for peak detection in ppm
-            public int maxshift; // Maximum shift allowed for isotope distribution
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst =2)]
-            public float[] mzwindow; // MZ Window for isotope distribution
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
-            public float[] plusoneintwindow; // Plus One Intensity range. Will be used for charge state 1
-            public int knockdown_rounds; // Number of knockdown rounds
-            public float min_score_diff; // Minimum score difference for isotope distribution to allow missed monoisotopic peaks
-            public float minareacovered; // Minimum area covered by isotope distribution. Use in or with css_thresh
-            public int isolength; // Isotope Distribution Length
-            public double mass_diff_c; // Mass difference between isotopes
-            public float adductmass; // Adduct Mass
-            public int minusoneaszero; // Use set the -1 isotope as 0 to help force better alignments
-            public float isotopethreshold; // Threshold for isotope distribution. Will remove relative intensities below this.
-            public float datathreshold; // Threshold for data. Will remove relative intensities below this relative to max intensity in each cluster
-            public float zscore_threshold; //Ratio above which a secondary charge state prediction will be returned.
-        }
-
-        [DllImport("Deconvolution/Algorithms/IsoDecResources/isodeclib.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int process_spectrum(double[] mz, float[] intensity, int len, string modelpath, IntPtr matchedpeaks, IsoSettings settings);
+        [DllImport("Deconvolution/Algorithms/IsoDecResources/isodeclib.dll", EntryPoint = "process_spectrum", CallingConvention = CallingConvention.Cdecl)]
+        protected static extern int process_spectrum(double[] cmz, float[] cintensity, int c, string fname, IntPtr matchedpeaks, IsoDecDeconvolutionParameters.IsoSettings settings);
 
         internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
@@ -93,9 +65,9 @@ namespace MassSpectrometry
             try
             {
                 matchedPeaksPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(MatchedPeak)) * intensities.Length);
-                IsoSettings settings = DeconParametersToIsoSettings(deconParams);
+                IsoDecDeconvolutionParameters.IsoSettings settings = deconParams.ToIsoSettings();
                 int result = process_spectrum(mzs, intensities, intensities.Length, _phaseModelPath, matchedPeaksPtr, settings);
-                if (result <= 0)
+                    if (result <= 0)
                     return Enumerable.Empty<IsotopicEnvelope>();
 
                 // Handle results
@@ -104,7 +76,8 @@ namespace MassSpectrometry
                 {
                     matchedpeaks[i] = Marshal.PtrToStructure<MatchedPeak>(matchedPeaksPtr + i * Marshal.SizeOf(typeof(MatchedPeak)));
                 }
-                return ConvertToIsotopicEnvelopes(deconParams, matchedpeaks, spectrum);
+                var envelopes = ConvertToIsotopicEnvelopes(deconParams, matchedpeaks, spectrum).ToList();
+                return envelopes;
             }
             finally
             {
@@ -154,32 +127,6 @@ namespace MassSpectrometry
                 else { result.Add(new IsotopicEnvelope(currentId, peaks, (double)peak.monoiso, charge, peak.peakint, peak.score)); }
                 currentId++;
             }
-            return result;
-        }
-
-        public IsoSettings DeconParametersToIsoSettings(IsoDecDeconvolutionParameters parameters)
-        {
-            IsoSettings result = new IsoSettings();
-            result.phaseres = parameters.PhaseRes;
-            result.verbose = parameters.Verbose;
-            result.peakwindow = parameters.PeakWindow;
-            result.peakthresh = parameters.PeakThreshold;
-            result.minpeaks = parameters.MinPeaks;
-            result.css_thresh = parameters.CssThreshold;
-            result.matchtol = parameters.MatchTolerance;
-            result.maxshift = parameters.MaxShift;
-            result.mzwindow = parameters.MzWindow;
-            result.plusoneintwindow = parameters.PlusOneIntWindow;
-            result.knockdown_rounds = parameters.KnockdownRounds;
-            result.min_score_diff = parameters.MinScoreDiff;
-            result.minareacovered = parameters.MinAreaCovered;
-            result.isolength = parameters.IsoLength;
-            result.mass_diff_c = parameters.MassDiffC;
-            result.adductmass = parameters.AdductMass;
-            result.minusoneaszero = parameters.MinusOneAreasZero;
-            result.isotopethreshold = parameters.IsotopeThreshold;
-            result.datathreshold = parameters.DataThreshold;
-            result.zscore_threshold = parameters.ZScoreThreshold;
             return result;
         }
     }

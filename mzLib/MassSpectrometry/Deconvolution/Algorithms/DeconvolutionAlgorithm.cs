@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
 using MzLibUtil;
 
@@ -83,5 +81,7 @@ namespace MassSpectrometry
         /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
         internal abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range);
-    }
+
+
+       }
 }

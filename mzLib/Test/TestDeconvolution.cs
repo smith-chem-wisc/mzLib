@@ -288,6 +288,7 @@ namespace Test
 
             List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
             List<double> monoIsotopicMasses2 = isolatedMasses2.Select(m => m.MonoisotopicMass).ToList();
+            Assert.That(monoIsotopicMasses2.Count, Is.EqualTo(monoIsotopicMasses.Count));
 
             //The primary monoisotopic mass should be the same regardless of which peak in which charge state was selected for isolation.
             //this case is interesting because other monoisotopic mass may have a sodium adduct. The unit test could be expanded to consider this.
