@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
 using Chemistry;
 using MzLibUtil;
 
@@ -22,7 +25,6 @@ namespace MassSpectrometry
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
             // set any specific deconvolution parameters found only in the MsDataScan
-
             foreach (var isotopicEnvelope in Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom)) 
                 yield return isotopicEnvelope;
         }
@@ -38,7 +40,6 @@ namespace MassSpectrometry
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
             rangeToGetPeaksFrom ??= spectrum.Range;
-
             // set deconvolution algorithm 
             DeconvolutionAlgorithm deconAlgorithm = deconvolutionParameters.DeconvolutionType switch
             {
@@ -61,7 +62,7 @@ namespace MassSpectrometry
             }
             else
             {
-                foreach (var isotopicEnvelope in deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom)) 
+                foreach (var isotopicEnvelope in deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom).ToList()) 
                     yield return isotopicEnvelope;
             }
         }
