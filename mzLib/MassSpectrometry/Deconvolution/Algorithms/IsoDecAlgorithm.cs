@@ -3,17 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public class IsoDecAlgorithm(DeconvolutionParameters deconParameters)
-        : DeconvolutionAlgorithm(deconParameters)
+    internal class IsoDecAlgorithm : DeconvolutionAlgorithm
     {
-        private static readonly string _phaseModelPath;
-        static IsoDecAlgorithm()
+
+        internal IsoDecAlgorithm(DeconvolutionParameters deconParameters) : base(deconParameters)
         {
-            _phaseModelPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Deconvolution", "Algorithms", "IsoDecResources",  "phase_model.bin");
+
         }
 
         [StructLayout(LayoutKind.Sequential, Pack =1)]
@@ -61,13 +61,14 @@ namespace MassSpectrometry
                 .Select(p => (float)p)
                 .ToArray();
 
-            IntPtr matchedPeaksPtr = IntPtr.Zero;
+            var mpArray = new byte[intensities.Length * Marshal.SizeOf(typeof(MatchedPeak))];
+            GCHandle handle = GCHandle.Alloc(mpArray, GCHandleType.Pinned);
             try
             {
-                matchedPeaksPtr = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(MatchedPeak)) * intensities.Length);
-                IsoDecDeconvolutionParameters.IsoSettings settings = deconParams.ToIsoSettings();
-                int result = process_spectrum(mzs, intensities, intensities.Length, _phaseModelPath, matchedPeaksPtr, settings);
-                    if (result <= 0)
+                IntPtr matchedPeaksPtr = (IntPtr)handle.AddrOfPinnedObject();
+                IsoSettings settings = deconParams.ToIsoSettings();
+                int result = process_spectrum(mzs, intensities, intensities.Length, null, matchedPeaksPtr, settings);
+                if (result <= 0)
                     return Enumerable.Empty<IsotopicEnvelope>();
 
                 // Handle results
@@ -76,15 +77,12 @@ namespace MassSpectrometry
                 {
                     matchedpeaks[i] = Marshal.PtrToStructure<MatchedPeak>(matchedPeaksPtr + i * Marshal.SizeOf(typeof(MatchedPeak)));
                 }
-                var envelopes = ConvertToIsotopicEnvelopes(deconParams, matchedpeaks, spectrum).ToList();
-                return envelopes;
+
+                return ConvertToIsotopicEnvelopes(deconParams, matchedpeaks, spectrum);
             }
             finally
             {
-                if (matchedPeaksPtr != IntPtr.Zero)
-                {
-                    Marshal.FreeHGlobal(matchedPeaksPtr);
-                }
+                handle.Free();
             }
         }
 
