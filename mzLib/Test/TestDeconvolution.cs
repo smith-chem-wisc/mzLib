@@ -68,7 +68,7 @@ namespace Test
 
             //The primary monoisotopic mass should be the same regardless of which peak in which charge state was selected for isolation.
             //this case is interesting because other monoisotopic mass may have a sodium adduct. The unit test could be expanded to consider this.
-            NUnit.Framework.Assert.That(monoIsotopicMasses[0], Is.EqualTo(14037.926829).Within(.0005));
+            Assert.That(monoIsotopicMasses[0], Is.EqualTo(14037.926829).Within(.0005));
         }
 
         [Test]
@@ -102,7 +102,7 @@ namespace Test
             List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState,
                 maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
-            NUnit.Framework.Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
 
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = singlespec.Deconvolute(singleRange, minAssumedChargeState,
@@ -165,8 +165,8 @@ namespace Test
 
             //The primary monoisotopic mass should be the same regardless of which peak in which charge state was selected for isolation.
             //this case is interesting because other monoisotopic mass may have a sodium adduct. The unit test could be expanded to consider this.
-            NUnit.Framework.Assert.That(monoIsotopicMasses[0], Is.EqualTo(14037.926829).Within(.0005));
-            NUnit.Framework.Assert.That(monoIsotopicMasses2[0], Is.EqualTo(14037.926829).Within(.0005));
+            Assert.That(monoIsotopicMasses[0], Is.EqualTo(14037.926829).Within(.0005));
+            Assert.That(monoIsotopicMasses2[0], Is.EqualTo(14037.926829).Within(.0005));
         }
 
         [Test]
@@ -204,7 +204,7 @@ namespace Test
 
             List<IsotopicEnvelope> lie2 = Deconvoluter.Deconvolute(singlespec, deconParameters, singleRange).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
-            NUnit.Framework.Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
 
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = Deconvoluter.Deconvolute(singlespec, deconParameters, singleRange).ToList();
@@ -234,10 +234,10 @@ namespace Test
             // ensure each expected result is found, with correct mz, charge, and monoisotopic mass
             var resultsWithPeakOfInterest = deconvolutionResults.FirstOrDefault(envelope =>
                 envelope.Peaks.Any(peak => tolerance.Within(peak.mz, expectedMz)));
-            if (resultsWithPeakOfInterest is null) NUnit.Framework.Assert.Fail();
+            if (resultsWithPeakOfInterest is null) Assert.Fail();
 
-            NUnit.Framework.Assert.That(expectedMonoMass, Is.EqualTo(resultsWithPeakOfInterest.MonoisotopicMass).Within(0.01));
-            NUnit.Framework.Assert.That(expectedCharge, Is.EqualTo(resultsWithPeakOfInterest.Charge));
+            Assert.That(expectedMonoMass, Is.EqualTo(resultsWithPeakOfInterest.MonoisotopicMass).Within(0.01));
+            Assert.That(expectedCharge, Is.EqualTo(resultsWithPeakOfInterest.Charge));
         }
 
         #endregion
@@ -296,8 +296,8 @@ namespace Test
             double ppmwidth = (14037.926829 / 1e6) * 5;
             bool isAnyEqual1 = monoIsotopicMasses.Any(m =>  m >= 14037.926829 - ppmwidth && m <= 14037.926826 + ppmwidth);
             bool isAnyEqual2 = monoIsotopicMasses2.Any(m => m >= 14037.926829 - ppmwidth && m <= 14037.926826 + ppmwidth);
-            NUnit.Framework.Assert.That(isAnyEqual1);
-            NUnit.Framework.Assert.That(isAnyEqual2);
+            Assert.That(isAnyEqual1);
+            Assert.That(isAnyEqual2);
         }
 
         [Test]
@@ -323,7 +323,7 @@ namespace Test
             //check assigned correctly
             List<IsotopicEnvelope> lie2 = Deconvoluter.Deconvolute(singlespec, deconParameters, singleRange).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
-            NUnit.Framework.Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
 
             //check that if already assigned, skips assignment and just recalls same value
             List<IsotopicEnvelope> lie3 = Deconvoluter.Deconvolute(singlespec, deconParameters, singleRange).ToList();
@@ -354,10 +354,10 @@ namespace Test
             /*var resultsWithPeakOfInterest = deconvolutionResults.FirstOrDefault(envelope => tolerance.Within(envelope.MonoisotopicMass, expectedMonoMass));*/
             var resultsWithPeakOfInterest = deconvolutionResults.FirstOrDefault(envelope =>
                 envelope.Peaks.Any(peak => tolerance.Within(peak.mz, expectedMz)));
-            if (resultsWithPeakOfInterest is null) NUnit.Framework.Assert.Fail();
+            if (resultsWithPeakOfInterest is null) Assert.Fail();
 
-            NUnit.Framework.Assert.That(expectedMonoMass, Is.EqualTo(resultsWithPeakOfInterest.MonoisotopicMass).Within(0.01));
-            NUnit.Framework.Assert.That(expectedCharge, Is.EqualTo(resultsWithPeakOfInterest.Charge));
+            Assert.That(expectedMonoMass, Is.EqualTo(resultsWithPeakOfInterest.MonoisotopicMass).Within(0.01));
+            Assert.That(expectedCharge, Is.EqualTo(resultsWithPeakOfInterest.Charge));
         }
 
         #endregion
@@ -400,15 +400,15 @@ namespace Test
             
             // get isolated masses and charges on an MS1 scan. This means the isolation window is null.
             var ms1Result = precursorScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams).ToList();
-            NUnit.Framework.Assert.That(ms1Result.Count, Is.EqualTo(0));
+            Assert.That(ms1Result.Count, Is.EqualTo(0));
             ms1Result = precursorScan.GetIsolatedMassesAndCharges(precursorScan, deconParams).ToList();
-            NUnit.Framework.Assert.That(ms1Result.Count, Is.EqualTo(0));
+            Assert.That(ms1Result.Count, Is.EqualTo(0));
 
             // get isolated masses and charges on an MS2 scan. This should work correctly
             var ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams).ToList();
-            NUnit.Framework.Assert.That(ms2Result.Count, Is.EqualTo(1));
+            Assert.That(ms2Result.Count, Is.EqualTo(1));
             ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan, deconParams).ToList();
-            NUnit.Framework.Assert.That(ms2Result.Count, Is.EqualTo(1));
+            Assert.That(ms2Result.Count, Is.EqualTo(1));
         }
 
         [Test]

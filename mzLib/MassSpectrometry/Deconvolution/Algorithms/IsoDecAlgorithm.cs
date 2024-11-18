@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -66,7 +64,7 @@ namespace MassSpectrometry
             try
             {
                 IntPtr matchedPeaksPtr = (IntPtr)handle.AddrOfPinnedObject();
-                IsoSettings settings = deconParams.ToIsoSettings();
+                IsoDecDeconvolutionParameters.IsoSettings settings = deconParams.ToIsoSettings();
                 int result = process_spectrum(mzs, intensities, intensities.Length, null, matchedPeaksPtr, settings);
                 if (result <= 0)
                     return Enumerable.Empty<IsotopicEnvelope>();
