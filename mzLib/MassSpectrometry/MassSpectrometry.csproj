@@ -28,23 +28,15 @@
 	<ItemGroup>
 	  <None Update="Deconvolution\Algorithms\IsoDecResources\isodeclib.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	    <HintPath>isodeclib.dll</HintPath>
-	    <PackagePath>lib\$(TargetFramework)</PackagePath>
 	  </None>
 	  <None Update="Deconvolution\Algorithms\IsoDecResources\isogenmass.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		<HintPath>isogenmass.dll</HintPath>
-		<PackagePath>lib\$(TargetFramework)</PackagePath>
 	  </None>
 	  <None Update="Deconvolution\Algorithms\IsoDecResources\libmmd.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	    <HintPath>libmmd.dll</HintPath>
-	    <PackagePath>lib\$(TargetFramework)</PackagePath>
 	  </None>
 	  <None Update="Deconvolution\Algorithms\IsoDecResources\svml_dispmd.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	    <HintPath>svml_dispmd.dll</HintPath>
-	    <PackagePath>lib\$(TargetFramework)</PackagePath>
 	  </None>
 	</ItemGroup>
 
