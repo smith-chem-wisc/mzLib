@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Chemistry;
+﻿using System.Collections.Generic;
 using MassSpectrometry.Deconvolution;
 using MzLibUtil;
 
@@ -25,7 +20,7 @@ namespace MassSpectrometry
         protected DeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
         {
             DeconvolutionParameters = deconParameters;
-            AverageResidueModel = new Averagine();
+            AverageResidueModel = deconParameters.Polarity == Polarity.Positive ? new Averagine() : new Averatide();
         }
 
         /// <summary>

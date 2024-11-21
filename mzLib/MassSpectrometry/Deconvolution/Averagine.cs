@@ -16,10 +16,10 @@ namespace MassSpectrometry.Deconvolution
     }
     public sealed class Averagine : AverageResidue
     {
-        static readonly double[][] AllMasses = new double[NumAveraginesToGenerate][];
-        static readonly double[][] AllIntensities = new double[NumAveraginesToGenerate][];
-        static readonly double[] MostIntenseMasses = new double[NumAveraginesToGenerate];
-        static readonly double[] DiffToMonoisotopic = new double[NumAveraginesToGenerate];
+        public static readonly double[][] AllMasses = new double[NumAveraginesToGenerate][];
+        public static readonly double[][] AllIntensities = new double[NumAveraginesToGenerate][];
+        public static readonly double[] MostIntenseMasses = new double[NumAveraginesToGenerate];
+        public static readonly double[] DiffToMonoisotopic = new double[NumAveraginesToGenerate];
         static Averagine() 
         {
             double averageC = 4.9384;
@@ -65,7 +65,6 @@ namespace MassSpectrometry.Deconvolution
         {
             return AllIntensities[index];
         }
-
         public override double GetDiffToMonoisotopic(int index)
         {
             return DiffToMonoisotopic[index];
@@ -74,10 +73,10 @@ namespace MassSpectrometry.Deconvolution
 
     public sealed class Averatide : AverageResidue
     {
-        static readonly double[][] AllMasses = new double[NumAveraginesToGenerate][];
-        static readonly double[][] AllIntensities = new double[NumAveraginesToGenerate][];
-        static readonly double[] MostIntenseMasses = new double[NumAveraginesToGenerate];
-        static readonly double[] DiffToMonoisotopic = new double[NumAveraginesToGenerate];
+        public static readonly double[][] AllMasses = new double[NumAveraginesToGenerate][];
+        public static readonly double[][] AllIntensities = new double[NumAveraginesToGenerate][];
+        public static readonly double[] MostIntenseMasses = new double[NumAveraginesToGenerate];
+        public static readonly double[] DiffToMonoisotopic = new double[NumAveraginesToGenerate];
         static Averatide()
         {
             double averageC = 9.5;
@@ -87,7 +86,7 @@ namespace MassSpectrometry.Deconvolution
 
             for (int i = 0; i < NumAveraginesToGenerate; i++)
             {
-                double averagineMultiplier = (i + 1) / 2.0;
+                double averagineMultiplier = (i + 1) / 4.0;
                 //Console.Write("numAveragines = " + numAveragines);
                 ChemicalFormula chemicalFormula = new ChemicalFormula();
                 chemicalFormula.Add("C", Convert.ToInt32(averageC * averagineMultiplier));
@@ -123,7 +122,6 @@ namespace MassSpectrometry.Deconvolution
         {
             return AllIntensities[index];
         }
-
         public override double GetDiffToMonoisotopic(int index)
         {
             return DiffToMonoisotopic[index];

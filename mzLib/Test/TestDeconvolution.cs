@@ -12,9 +12,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using MassSpectrometry.Deconvolution;
 using Omics.Digestion;
 using Omics.Modifications;
 using Test.FileReadingTests;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -22,6 +24,102 @@ namespace Test
     [ExcludeFromCodeCoverage]
     public sealed class TestDeconvolution
     {
+
+        #region Averagine
+
+        [Test]
+        public static void GetAveragineShit()
+        {
+            string dbPath = @"D:\Proteomes\Ecoli_uniprotkb_proteome_UP000000625_AND_revi_2024_04_04.fasta";
+            var averagineMasses = Averagine.MostIntenseMasses/*.Where((value, index) => index % 2 == 1).ToArray()*/;
+            var averagineDeltaIsos = CalculateWeightedAverageDifferences(Averagine.AllMasses, Averagine.AllIntensities);
+            var averagineDifToMono = Averagine.DiffToMonoisotopic;
+
+
+            var averatideMasses = Averatide.MostIntenseMasses/*.Where((value, index) => index % 2 == 1).ToArray()*/;
+            var averatideDeltaIsos = CalculateWeightedAverageDifferences(Averatide.AllMasses, Averatide.AllIntensities);
+            var averatideDifToMono = Averatide.DiffToMonoisotopic;
+
+
+        }
+ 
+        static string GenerateRandomRNAString(int x)
+        {
+            if (x <= 0)
+            {
+                throw new ArgumentException("Length must be a positive integer.", nameof(x));
+            }
+
+            char[] characters = { 'C', 'G', 'A', 'U' };
+            Random random = new Random();
+            char[] result = new char[x];
+
+            for (int i = 0; i < x; i++)
+            {
+                result[i] = characters[random.Next(characters.Length)];
+            }
+
+            return new string(result);
+        }
+
+        static string GenerateRandomProteinString(int x)
+        {
+            if (x <= 0)
+            {
+                throw new ArgumentException("Length must be a positive integer.", nameof(x));
+            }
+
+            char[] aminoAcids = { 'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V' };
+            Random random = new Random();
+            char[] result = new char[x];
+
+            for (int i = 0; i < x; i++)
+            {
+                result[i] = aminoAcids[random.Next(aminoAcids.Length)];
+            }
+
+            return new string(result);
+        }
+        static double[] CalculateAverageDifferences(double[][] input)
+        {
+            return input.Select(subArray =>
+            {
+                if (subArray.Length < 2)
+                    return 0; // No differences to calculate
+
+                // Calculate differences
+                double[] differences = subArray.Skip(1).Zip(subArray, (current, previous) => current - previous).ToArray();
+
+                // Compute average
+                return differences.Average();
+            }).ToArray();
+        }
+        static double[] CalculateWeightedAverageDifferences(double[][] values, double[][] intensityArrays)
+        {
+            return values.Select((subArray, index) =>
+            {
+                double[] intensities = intensityArrays[index];
+
+                if (subArray.Length < 2)
+                    return 0; // No differences to calculate
+
+                // Calculate differences and weights manually
+                double sum = 0;
+                double count = 0;
+
+                for (int i = 1; i < subArray.Length; i++)
+                {
+                    if (intensities[i] < 0.1)
+                        continue;
+
+                    double difference = subArray[i] - subArray[i - 1];
+                    sum += difference;
+                    count++;
+                }
+                return  sum / count; // Avoid division by zero
+            }).ToArray();
+        }
+        #endregion
 
         #region Old Deconvolution
 
