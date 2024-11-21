@@ -26,19 +26,17 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Update="Deconvolution\Algorithms\IsoDecResources\isodeclib.dll">
+	  <None Update="isodeclib.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Deconvolution\Algorithms\IsoDecResources\isogenmass.dll">
+	  <None Update="isogenmass.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Deconvolution\Algorithms\IsoDecResources\libmmd.dll">
+	  <None Update="libmmd.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
-	  <None Update="Deconvolution\Algorithms\IsoDecResources\svml_dispmd.dll">
+	  <None Update="svml_dispmd.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
 	</ItemGroup>
-
-
 </Project>

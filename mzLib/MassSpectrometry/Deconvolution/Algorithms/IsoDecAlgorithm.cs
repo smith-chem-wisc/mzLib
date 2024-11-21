@@ -42,7 +42,7 @@ namespace MassSpectrometry
             public int realisolength;
         }
 
-        [DllImport("Deconvolution/Algorithms/IsoDecResources/isodeclib.dll", EntryPoint = "process_spectrum", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("isodeclib.dll", EntryPoint = "process_spectrum", CallingConvention = CallingConvention.Cdecl)]
         protected static extern int process_spectrum(double[] cmz, float[] cintensity, int c, string fname, IntPtr matchedpeaks, IsoDecDeconvolutionParameters.IsoSettings settings);
 
         internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)

@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>mzLib</id>
-    <version>5.2.36</version>
+    <version>5.2.43</version>
     <title>mzLib</title>
     <authors>Stef S.</authors>
     <owners>Stef S.</owners>
@@ -42,10 +42,10 @@
     <file src="Chemistry\bin\x64\Release\net8.0\Chemistry.dll" target="lib\net8.0" />
     <file src="FlashLFQ\bin\x64\Release\net8.0\FlashLFQ.dll" target="lib\net8.0" />
     <file src="MassSpectrometry\bin\x64\Release\net8.0\MassSpectrometry.dll" target="lib\net8.0" />
-    <file src="MassSpectrometry\bin\x64\Release\net8.0\Deconvolution\Algorithms\IsoDecResources\isodeclib.dll" target="lib\net8.0\Deconvolution\Algorithms\IsoDecResources" />
-    <file src="MassSpectrometry\bin\x64\Release\net8.0\Deconvolution\Algorithms\IsoDecResources\libmmd.dll" target="lib\net8.0\Deconvolution\Algorithms\IsoDecResources" />
-    <file src="MassSpectrometry\bin\x64\Release\net8.0\Deconvolution\Algorithms\IsoDecResources\svml_dispmd.dll" target="lib\net8.0\Deconvolution\Algorithms\IsoDecResources" />
-    <file src="MassSpectrometry\bin\x64\Release\net8.0\Deconvolution\Algorithms\IsoDecResources\isogenmass.dll" target="lib\net8.0\Deconvolution\Algorithms\IsoDecResources" />
+    <file src="MassSpectrometry\bin\x64\Release\net8.0\isodeclib.dll" target="lib\net8.0" />
+    <file src="MassSpectrometry\bin\x64\Release\net8.0\libmmd.dll" target="lib\net8.0" />
+    <file src="MassSpectrometry\bin\x64\Release\net8.0\svml_dispmd.dll" target="lib\net8.0" />
+    <file src="MassSpectrometry\bin\x64\Release\net8.0\isogenmass.dll" target="lib\net8.0" />
     <file src="MzIdentML\bin\x64\Release\net8.0\MzIdentML.dll" target="lib\net8.0" />
     <file src="SpectralAveraging\bin\x64\Release\net8.0\SpectralAveraging.dll" target="lib\net8.0" />
     <file src="MzLibUtil\bin\x64\Release\net8.0\MzLibUtil.dll" target="lib\net8.0" />
@@ -68,10 +68,10 @@
     <file src="Chemistry\bin\x64\Release\net8.0\Chemistry.dll" target="lib\net8.0-windows7.0" />
     <file src="FlashLFQ\bin\x64\Release\net8.0\FlashLFQ.dll" target="lib\net8.0-windows7.0" />
     <file src="MassSpectrometry\bin\x64\Release\net8.0\MassSpectrometry.dll" target="lib\net8.0-windows7.0" />
-    <file src="MassSpectrometry\bin\x64\Release\net8.0\Deconvolution\Algorithms\IsoDecResources\isodeclib.dll" target="lib\net8.0-windows7.0\Deconvolution\Algorithms\IsoDecResources" />
-    <file src="MassSpectrometry\bin\x64\Release\net8.0\Deconvolution\Algorithms\IsoDecResources\libmmd.dll" target="lib\net8.0-windows7.0\Deconvolution\Algorithms\IsoDecResources" />
-    <file src="MassSpectrometry\bin\x64\Release\net8.0\Deconvolution\Algorithms\IsoDecResources\svml_dispmd.dll" target="lib\net8.0-windows7.0\Deconvolution\Algorithms\IsoDecResources" />
-    <file src="MassSpectrometry\bin\x64\Release\net8.0\Deconvolution\Algorithms\IsoDecResources\isogenmass.dll" target="lib\net8.0-windows7.0\Deconvolution\Algorithms\IsoDecResources" />
+    <file src="MassSpectrometry\bin\x64\Release\net8.0\isodeclib.dll" target="lib\net8.0-windows7.0" />
+    <file src="MassSpectrometry\bin\x64\Release\net8.0\libmmd.dll" target="lib\net8.0-windows7.0" />
+    <file src="MassSpectrometry\bin\x64\Release\net8.0\svml_dispmd.dll" target="lib\net8.0-windows7.0" />
+    <file src="MassSpectrometry\bin\x64\Release\net8.0\isogenmass.dll" target="lib\net8.0-windows7.0" />
     <file src="MzIdentML\bin\x64\Release\net8.0\MzIdentML.dll" target="lib\net8.0-windows7.0" />
     <file src="SpectralAveraging\bin\x64\Release\net8.0\SpectralAveraging.dll" target="lib\net8.0-windows7.0" />
     <file src="MzLibUtil\bin\x64\Release\net8.0\MzLibUtil.dll" target="lib\net8.0-windows7.0" />
