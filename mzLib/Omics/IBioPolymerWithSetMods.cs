@@ -167,5 +167,6 @@ namespace Omics
         public bool Equals(IBioPolymerWithSetMods other);
 
         public int GetHashCode();
+
     }
 }
