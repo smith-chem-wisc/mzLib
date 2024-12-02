@@ -226,8 +226,9 @@ namespace Transcriptomics.Digestion
         {
             return FullSequence == other.FullSequence
                 && OneBasedStartResidue == other.OneBasedStartResidue
-                && Parent.Equals(other.Parent)
-                && DigestionParams.Equals(other.DigestionParams);
+                && ((Parent != null && Parent.Equals(other.Parent)) || (Parent == null & other.Parent == null))
+                && ((DigestionParams?.DigestionAgent != null && DigestionParams.DigestionAgent.Equals(other.DigestionParams?.DigestionAgent))
+                    || (DigestionParams?.DigestionAgent == null & other.DigestionParams?.DigestionAgent == null));
         }
 
         public override int GetHashCode()
