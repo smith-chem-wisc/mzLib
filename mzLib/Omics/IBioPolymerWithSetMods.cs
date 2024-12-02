@@ -14,7 +14,7 @@ namespace Omics
     /// Proteins -> PeptideWithSetModifications : ProteolyticPeptide
     /// Nucleic Acids -> OligoWithSetMods : NucleolyticOligo
     /// </remarks>
-    public interface IBioPolymerWithSetMods : IHasChemicalFormula
+    public interface IBioPolymerWithSetMods : IHasChemicalFormula, IEquatable<object>
     {
         string BaseSequence { get; }
         string FullSequence { get; }
@@ -163,5 +163,30 @@ namespace Omics
         /// <returns></returns>
         public static List<Modification> GetModificationsFromFullSequence(string fullSequence,
             Dictionary<string, Modification> allModsKnown) => [.. GetModificationDictionaryFromFullSequence(fullSequence, allModsKnown).Values];
+
+        public bool Equals(object obj)
+        {
+            var q = obj as IBioPolymerWithSetMods;
+            if (q == null) return false;
+            return q.GetHashCode() == this.GetHashCode();
+        }
+
+        public int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(FullSequence);
+            hash.Add(OneBasedStartResidue);
+            if (Parent != null)
+            {
+                hash.Add(Parent);
+                if (Parent.Accession != null)
+                    hash.Add(Parent.Accession);
+            }
+            if (DigestionParams?.DigestionAgent != null)
+            {
+                hash.Add(DigestionParams.DigestionAgent);
+            }
+            return hash.ToHashCode();
+        }
     }
 }

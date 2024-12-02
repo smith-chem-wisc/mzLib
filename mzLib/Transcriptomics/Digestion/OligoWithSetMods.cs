@@ -215,6 +215,31 @@ namespace Transcriptomics.Digestion
                     products.AddRange(GetNeutralFragments(type, sequence));
         }
 
+        public override bool Equals(object obj)
+        {
+            var q = obj as OligoWithSetMods;
+            if (q == null) return false;
+            return q.GetHashCode() == this.GetHashCode();
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(FullSequence);
+            hash.Add(OneBasedStartResidue);
+            if (Parent != null)
+            {
+                hash.Add(Parent);
+                if (Parent.Accession != null)
+                    hash.Add(Parent.Accession);
+            }
+            if (DigestionParams?.DigestionAgent != null)
+            {
+                hash.Add(DigestionParams.DigestionAgent);
+            }
+            return hash.ToHashCode();
+        }
+
         /// <summary>
         /// Generates theoretical internal fragments for given dissociation type for this peptide. 
         /// The "products" parameter is filled with these fragments.

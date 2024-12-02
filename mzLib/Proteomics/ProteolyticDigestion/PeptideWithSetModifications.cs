@@ -887,22 +887,26 @@ namespace Proteomics.ProteolyticDigestion
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
-
-            if (Protein == null && q.Protein == null)
-            {
-                return q.FullSequence.Equals(this.FullSequence);
-            }
-
-            return q != null
-                && q.FullSequence.Equals(this.FullSequence)
-                && q.OneBasedStartResidue == this.OneBasedStartResidue
-                && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.DigestionAgent.Equals(this.DigestionParams.DigestionAgent);
+            if (q == null) return false;
+            return q.GetHashCode() == this.GetHashCode();
         }
 
         public override int GetHashCode()
         {
-            return FullSequence.GetHashCode();
+            var hash = new HashCode();
+            hash.Add(FullSequence);
+            hash.Add(OneBasedStartResidue);
+            if (Protein != null)
+            {
+                hash.Add(Protein);
+                if(Protein.Accession != null)
+                    hash.Add(Protein.Accession);  
+            }  
+            if (DigestionParams?.DigestionAgent != null)
+            {
+                hash.Add(DigestionParams.DigestionAgent);
+            }
+            return hash.ToHashCode();
         }
 
         /// <summary>
