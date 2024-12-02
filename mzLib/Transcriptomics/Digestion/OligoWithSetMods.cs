@@ -233,7 +233,20 @@ namespace Transcriptomics.Digestion
 
         public override int GetHashCode()
         {
-            return FullSequence.GetHashCode();
+            var hash = new HashCode();
+            hash.Add(FullSequence);
+            hash.Add(OneBasedStartResidue);
+            if (Parent != null)
+            {
+                hash.Add(Parent);
+                if (Parent.Accession != null)
+                    hash.Add(Parent.Accession);
+            }
+            if (DigestionParams?.DigestionAgent != null)
+            {
+                hash.Add(DigestionParams.DigestionAgent);
+            }
+            return hash.ToHashCode();
         }
 
         /// <summary>

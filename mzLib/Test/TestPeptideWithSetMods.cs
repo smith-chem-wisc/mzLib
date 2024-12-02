@@ -763,12 +763,11 @@ namespace Test
 
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testDecoyHash = reverse.GetHashCode(); 
-            Assert.AreEqual(reverse.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
+
+            string targetSequence = p.FullSequence;
+            string decoySequence = reverse.FullSequence; 
+            Assert.AreEqual(reverse.PairedTargetDecoySequence, targetSequence);
+            Assert.AreEqual(p.PairedTargetDecoySequence, decoySequence);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
@@ -840,11 +839,11 @@ namespace Test
             PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, VTIRTVR_modsDictionary, 0, null);
             PeptideWithSetModifications p_tryp_reverse = p_tryp.GetReverseDecoyFromTarget(newAminoAcidPositions);
             // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testMirrorTargetHash = p_tryp.GetHashCode();
+            string mirrorTarget = p_tryp.FullSequence;
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testMirrorDecoyHash = p_tryp_reverse.GetHashCode();
-            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoySequence.GetHashCode());
-            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoySequence.GetHashCode());
+            string mirrorDecoy = p_tryp_reverse.FullSequence;
+            Assert.AreEqual(mirrorTarget, p_tryp_reverse.PairedTargetDecoySequence);
+            Assert.AreEqual(mirrorDecoy, p_tryp.PairedTargetDecoySequence);
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
@@ -869,12 +868,11 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications testScrambled = p.GetScrambledDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testDecoyHash = testScrambled.GetHashCode();
-            Assert.AreEqual(testScrambled.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
+
+            string targetSequence = p.FullSequence;
+            string decoySequence = testScrambled.FullSequence;
+            Assert.AreEqual(testScrambled.PairedTargetDecoySequence, targetSequence);
+            Assert.AreEqual(p.PairedTargetDecoySequence, decoySequence);
             Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
             Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
             // Check n-term acetyl
