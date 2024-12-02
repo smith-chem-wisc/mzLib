@@ -37,6 +37,72 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestTwoPointerMerge()
+        {
+            uint[] indices1 = new uint[] { 1, 3, 5, 7, 9, 11 };
+            uint[] indices2 = new uint[] { 0, 2, 4, 6, 8, 10 };
+
+            int[] intensities1 = new int[] { 1, 3, 5, 7, 9, 11 };
+            int[] intensities2 = new int[] { 0, 2, 4, 6, 8, 10 };
+
+            int[] intendedOutput = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+
+            var mergerOutput = TofSpectraMerger.TwoPointerMerge(indices1, indices2, intensities1, intensities2);
+
+            Assert.That(mergerOutput.Intensities, Is.EqualTo(intendedOutput));
+            Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
+
+            indices2 = new uint[] { 0, 2, 4, 6, 8, 10, 12, 13, 14, 15, 16 };
+
+            intensities2 = new int[] { 0, 2, 4, 6, 8, 10, 12, 13, 14, 15, 16 };
+
+            intendedOutput = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+            mergerOutput = TofSpectraMerger.TwoPointerMerge(indices1, indices2, intensities1, intensities2);
+
+            Assert.That(mergerOutput.Intensities, Is.EqualTo(intendedOutput));
+            Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
+        }
+
+        [Test]
+        public void TestCollapse()
+        {
+            uint[] indices = new uint[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+            int[] intensities = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+
+            List<int> intendedIdx = new List<int> { 1, 4, 7, 10 };
+            List<int> intendedIntensities = new List<int> { 3, 12, 21, 30 };
+
+            var collapsedOutput = TofSpectraMerger.CollapseArrays(indices, intensities);
+
+            Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
+            Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
+
+
+            indices = new uint[] { 0, 1, 2, 3, 4, 5, 6, 7,  9, 11 };
+            intensities = new int[] { 0, 1, 2, 3, 4, 5, 6, 7,  9, 11 };
+
+            intendedIdx = new List<int> { 1, 4, 6, 9 };
+            intendedIntensities = new List<int> { 3, 12, 13, 20 };
+
+            collapsedOutput = TofSpectraMerger.CollapseArrays(indices, intensities);
+
+            Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
+            Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
+
+            indices = new uint[] { 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 11, 18, 523, 1000, 1000, 1000 };
+            intensities = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 11, 18, 523, 1000, 1000, 1000 };
+
+            intendedIdx = new List<int> { 1, 4, 6, 11, 18, 523, 1000 };
+            intendedIntensities = new List<int> { 3, 12, 13, 31, 18, 523, 3000 };
+
+            collapsedOutput = TofSpectraMerger.CollapseArrays(indices, intensities);
+
+            Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
+            Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
+        }
+
+        [Test]
         public void TestConstructor()
         {
             var reader = MsDataFileReader.GetDataFile(_testDataPath);

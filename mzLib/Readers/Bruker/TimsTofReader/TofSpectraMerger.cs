@@ -8,8 +8,69 @@ namespace Readers.Bruker
     // The implementation is based off the code found here: https://leetcode.com/problems/merge-k-sorted-lists/solutions/3286058/image-explanation-5-methods-divide-conquer-priority-queue-complete-intuition/
     public static class TofSpectraMerger
     {
-
         public static readonly double DefaultPpmTolerance = 5;
+
+        internal static MzSpectrum MergeMs1Spectra(List<uint[]> indexArrays, List<int[]> intensityArrays, FrameProxyFactory proxyFactory,
+            FilteringParams filteringParams = null)
+        {
+            if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
+                return null;
+
+            // Merge all index arrays and intensity arrays into a single array
+            uint[] combinedIndices = indexArrays[0];
+            int[] combinedIntensities = intensityArrays[0];
+            for(int i = 1; i < indexArrays.Count(); i++)
+            {
+                var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
+                combinedIndices = mergeResults.Indices;
+                combinedIntensities = mergeResults.Intensities;
+            }
+
+            // Collapse the combined arrays into a single array (centroiding, more or less)
+            var centroidedResults = CollapseArrays(combinedIndices, combinedIntensities);
+
+            return ConvertAndFilterSpectrum(centroidedResults.Indices, centroidedResults.Intensities, proxyFactory, filteringParams);
+        }
+
+        internal static MzSpectrum ConvertAndFilterSpectrum(IList<int> indices, IList<int> intensities,
+            FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
+        {
+            // Convert the indices to m/z values
+            double[] mzsArray = proxyFactory.ConvertIndicesToMz(indices);
+
+            // Convert the intensities to an array
+            double[] intensitiesArray = intensities.Select(intensity => (double)intensity).ToArray();
+
+            if (filteringParams != null
+                && mzsArray.Length > 0
+                && filteringParams.ApplyTrimmingToMs1)
+            {
+                WindowModeHelper.Run(ref intensitiesArray,
+                    ref mzsArray, filteringParams,
+                    mzsArray[0], mzsArray[^0]);
+            }
+            // TODO: This would be more performant if we kept the intensities as ints
+            return new MzSpectrum(mzsArray, intensitiesArray, shouldCopy: false);
+        }
+
+        internal static (IList<int> Indices, IList<int> Intensities) MergeSpectraToLists(List<uint[]> indexArrays, List<int[]> intensityArrays)
+        {
+            if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
+                return (new List<int>(), new List<int>());
+
+            // Merge all index arrays and intensity arrays into a single array
+            uint[] combinedIndices = indexArrays[0];
+            int[] combinedIntensities = intensityArrays[0];
+            for (int i = 1; i < indexArrays.Count(); i++)
+            {
+                var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
+                combinedIndices = mergeResults.Indices;
+                combinedIntensities = mergeResults.Intensities;
+            }
+
+            // Collapse the combined arrays into a single array (centroiding, more or less)
+            return CollapseArrays(combinedIndices, combinedIntensities);
+        }
 
         public static MzSpectrum MergesMs1Spectra(List<double[]> mzArrays, List<int[]> intensityArrays,
             FilteringParams filteringParams = null, Tolerance tolerance = null) 
@@ -58,6 +119,101 @@ namespace Readers.Bruker
                     mzs[0], mzs[^0]);
             }
             return new MzSpectrum(mzs, intensities, shouldCopy: false);
+        }
+
+        internal static MzSpectrum MergeMs1SpectraByIndices(List<uint[]> indexArrays, List<int[]> intensityArrays, FrameProxyFactory proxyFactory,
+            FilteringParams filteringParams = null, Tolerance tolerance = null)
+        {
+
+
+            return null;
+        }
+
+        public static (uint[] Indices, int[] Intensities) TwoPointerMerge(uint[] indexArray1, uint[] indexArray2, int[] intensityArray1, int[] intensityArray2)
+        {
+            int p1 = 0;
+            int p2 = 0;
+
+            uint[] mergedIndices = new uint[indexArray1.Length + indexArray2.Length];
+            int[] mergedIntensities = new int[intensityArray1.Length + intensityArray2.Length];
+
+            while(p1 < indexArray1.Length || p2 < indexArray2.Length)
+            {
+                if (p1 == indexArray1.Length)
+                {
+                    while (p2 < indexArray2.Length)
+                    {
+                        mergedIndices[p1 + p2] = indexArray2[p2];
+                        mergedIntensities[p1 + p2] = intensityArray2[p2];
+                        p2++;
+                    }
+                }
+                else if (p2 == indexArray2.Length)
+                {
+                    while (p1 < indexArray1.Length)
+                    {
+                        mergedIndices[p1 + p2] = indexArray1[p1];
+                        mergedIntensities[p1 + p2] = intensityArray1[p1];
+                        p1++;
+                    }
+                }
+                else if (indexArray1[p1] < indexArray2[p2])
+                {
+                    mergedIndices[p1 + p2] = indexArray1[p1];
+                    mergedIntensities[p1 + p2] = intensityArray1[p1];
+                    p1++;
+                }
+                else
+                {
+                    mergedIndices[p1 + p2] = indexArray2[p2];
+                    mergedIntensities[p1 + p2] = intensityArray2[p2];
+                    p2++;
+                }
+            }
+            
+            return (mergedIndices, mergedIntensities);
+        }
+
+        public static (List<int> Indices, List<int> Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray)
+        {
+            // This is a quick and dirty implementation of the collapse function. There are some edge cases that are not handled here.
+
+            // Define lists to store the collapsed indices and intensities
+            List<int> collapsedIndices = new();
+            List<int> collapsedIntensities = new();
+
+            // Initialize pointers to the first two elements in the index array
+            int p1 = 0;
+            int p2 = 1;
+            while(p1 < indexArray.Length)
+            {
+                uint currentIdx = indexArray[p1];
+
+                // Find clusters of indices that are close together
+                // increment pointer 2 until the cluster ends and we're further than 3 indices away
+                while (p2 < indexArray.Length && (2 + currentIdx) >= indexArray[p2])
+                {
+                        p2++;
+                }
+                p2--; // Move the pointer back by one
+                int medianPointer = (p1 + p2) / 2;
+                // Use the median index in each cluster as the collapsed index
+                collapsedIndices.Add((int)indexArray[medianPointer]);
+
+                // Sum the intensities in each cluster to get the collapsed intensity
+                int summedIntensity = 0;
+                for (int i = p1; i <= p2; i++)
+                {
+                    summedIntensity += intensityArray[i];
+                }
+                collapsedIntensities.Add(summedIntensity);
+
+                // Move the pointers forward
+                p1 = p2 + 1;
+                p2 = p1 + 1;
+            }
+
+            return (collapsedIndices, collapsedIntensities);
         }
 
         internal static MzSpectrum MergeMsmsSpectra(List<ListNode<TofPeak>> spectrumHeadNodes,

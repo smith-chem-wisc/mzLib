@@ -83,6 +83,18 @@ namespace MassSpectrometry
             ComponentSpectraListNodes.Clear();
         }
 
+        public void BuildSpectrumFromComponentArrays(FrameProxyFactory frameProxyFactory)
+        {
+            if(indexArrays == null || intensityArrays == null)
+            {
+                return;
+            }
+            MassSpectrum = TofSpectraMerger.MergeMsmsSpectra(indexArrays, intensityArrays);
+            TotalIonCurrent = (double)MassSpectrum.SumOfAllY;
+            indexArrays.Clear();
+            intensityArrays.Clear();
+        }
+
         //public void AddComponentSpectrum(MzSpectrum spectrum)
         //{
         //    if (ComponentSpectra == null) return;
@@ -94,6 +106,20 @@ namespace MassSpectrometry
             if (ComponentSpectraListNodes == null) return;
             ComponentSpectraListNodes.Add(spectrumHead);
             ComponentSpectraTotalPeaks += spectrumLength;
+        }
+
+        internal List<IList<int>> indexArrays;
+        internal List<IList<int>> intensityArrays;
+
+        internal void AddComponentArrays(IList<int> indices, IList<int> intensities)
+        {
+            if(indexArrays == null)
+            {
+                indexArrays = new();
+                intensityArrays = new();
+            }
+            indexArrays.Add(indices);
+            intensityArrays.Add(intensities);
         }
 
     }

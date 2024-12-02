@@ -254,15 +254,15 @@ namespace Readers
 
         internal TimsDataScan GetMs1Scan(Ms1Record record, FrameProxy frame, int oneBasedScanNumber, FilteringParams filteringParams)
         {
-            List<double[]> mzArrays = new();
+            List<uint[]> indexArrays = new();
             List<int[]> intensityArrays = new();
             for (int scan = record.ScanStart; scan < record.ScanEnd; scan++)
             {
-                mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, scan)); // frame.GetScanMzs(scan));
+                indexArrays.Add(FrameProxyFactory.GetScanIndices(frame, scan));
                 intensityArrays.Add(frame.GetScanIntensities(scan));
             }
             // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays, filteringParams);
+            MzSpectrum averagedSpectrum = SumScans(indexArrays, intensityArrays, filteringParams);
             if(averagedSpectrum.Size < 1)
             {
                 return null;
@@ -381,17 +381,21 @@ namespace Readers
                 {
                     if (scan.FrameIds.Contains(frameId))
                     {
-                        List<double[]> mzArrays = new();
+                        //List<double[]> mzArrays = new();
+                        List<uint[]> indexArrays = new();
                         List<int[]> intensityArrays = new();
                         for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
                         {
-                            mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, mobilityScanIdx));
-                            //mzArrays.Add( frame.GetScanMzs(mobilityScanIdx));
+                            //mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, mobilityScanIdx));
+                            indexArrays.Add(FrameProxyFactory.GetScanIndices(frame, mobilityScanIdx));
                             intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx));
                         }
                         // Step 2: Average those suckers
-                        ListNode<TofPeak> spectrumHeadNode = SumScansToLinkedList(mzArrays, intensityArrays, out int listLength);
-                        scan.AddComponentSpectrum(spectrumHeadNode, listLength);
+                        // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
+                        (IList<int> Indices, IList<int> Intensities) summedArrays = SumScansToLists(indexArrays, intensityArrays);
+                        scan.AddComponentArrays(summedArrays.Indices, summedArrays.Intensities);
+                        //ListNode<TofPeak> spectrumHeadNode = SumScansToLinkedList(mzArrays, intensityArrays, out int listLength);
+                        //scan.AddComponentSpectrum(spectrumHeadNode, listLength);
                     }
                 }); 
             }
@@ -446,13 +450,24 @@ namespace Readers
 
         internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
         {
+
             //return TofSpectraMerger.MergesMs1Spectra(mzArrays, intensityArrays, filteringParams: filteringParams);
             return new MzSpectrum(new double[1], new double[1], false);
+        }
+
+        internal MzSpectrum SumScans(List<uint[]> indexArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
+        {
+            return TofSpectraMerger.MergeMs1Spectra(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
         }
 
         internal ListNode<TofPeak> SumScansToLinkedList(List<double[]> mzArrays, List<int[]> intensityArrays, out int listLength)
         {
             return TofSpectraMerger.MergeSpectraToLinkedList(mzArrays, intensityArrays, out listLength);
+        }
+
+        internal (IList<int> Indices, IList<int> Intensities) SumScansToLists(List<uint[]> indexArrays, List<int[]> intensityArrays)
+        {
+            return TofSpectraMerger.MergeSpectraToLists(indexArrays, intensityArrays);
         }
         
 
