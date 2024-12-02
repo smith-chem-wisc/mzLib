@@ -217,9 +217,14 @@ namespace Transcriptomics.Digestion
 
         public override bool Equals(object obj)
         {
-            var q = obj as OligoWithSetMods;
+            var q = obj as IBioPolymerWithSetMods;
             if (q == null) return false;
-            return q.GetHashCode() == this.GetHashCode();
+            else return this.Equals(q);
+        }
+
+        public bool Equals(IBioPolymerWithSetMods other)
+        {
+            return GetHashCode() == other.GetHashCode();
         }
 
         public override int GetHashCode()
