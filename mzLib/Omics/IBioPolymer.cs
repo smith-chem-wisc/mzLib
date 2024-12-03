@@ -3,7 +3,7 @@ using Omics.Modifications;
 
 namespace Omics
 {
-    public interface IBioPolymer 
+    public interface IBioPolymer : IEquatable<IBioPolymer>
     {
         string Name { get; }
         string FullName { get; }

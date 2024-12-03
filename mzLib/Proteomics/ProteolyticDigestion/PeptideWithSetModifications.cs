@@ -887,22 +887,35 @@ namespace Proteomics.ProteolyticDigestion
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
+            if (q == null) return false;
+            return Equals(q);
+        }
 
-            if (Protein == null && q.Protein == null)
-            {
-                return q.FullSequence.Equals(this.FullSequence);
-            }
-
-            return q != null
-                && q.FullSequence.Equals(this.FullSequence)
-                && q.OneBasedStartResidue == this.OneBasedStartResidue
-                && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.DigestionAgent.Equals(this.DigestionParams.DigestionAgent);
+        public bool Equals(IBioPolymerWithSetMods other)
+        {
+            return FullSequence == other.FullSequence
+                && OneBasedStartResidue == other.OneBasedStartResidue
+                && ((Parent != null && Parent.Equals(other.Parent)) || (Parent == null & other.Parent == null))
+                && ((DigestionParams?.DigestionAgent != null && DigestionParams.DigestionAgent.Equals(other.DigestionParams?.DigestionAgent))
+                    || (DigestionParams?.DigestionAgent == null & other.DigestionParams?.DigestionAgent == null)); 
         }
 
         public override int GetHashCode()
         {
-            return FullSequence.GetHashCode();
+            var hash = new HashCode();
+            hash.Add(FullSequence);
+            hash.Add(OneBasedStartResidue);
+            if (Parent != null)
+            {
+                hash.Add(Parent);
+                if (Parent.Accession != null)
+                    hash.Add(Parent.Accession);
+            }
+            if (DigestionParams?.DigestionAgent != null)
+            {
+                hash.Add(DigestionParams.DigestionAgent);
+            }
+            return hash.ToHashCode();
         }
 
         /// <summary>

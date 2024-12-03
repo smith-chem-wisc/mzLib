@@ -973,6 +973,12 @@ namespace Proteomics
             return otherProtein != null && otherProtein.Accession.Equals(Accession) && otherProtein.BaseSequence.Equals(BaseSequence);
         }
 
+        public bool Equals(IBioPolymer other)
+        {
+            Protein otherProtein = (Protein)other;
+            return otherProtein != null && otherProtein.Accession.Equals(Accession) && otherProtein.BaseSequence.Equals(BaseSequence);
+        }
+
         /// <summary>
         /// The protein object uses the default hash code method for speed,
         /// but note that two protein objects with the same information will give two different hash codes.
