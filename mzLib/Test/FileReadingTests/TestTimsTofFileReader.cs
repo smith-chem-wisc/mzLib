@@ -29,7 +29,7 @@ namespace Test.FileReadingTests
             DateTime time = DateTime.Now;
 
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData();
+            _testReader.LoadAllStaticData(maxThreads: 12);
 
             DateTime time2 = DateTime.Now;
             var timeDiff = time2 - time;

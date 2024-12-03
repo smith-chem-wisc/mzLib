@@ -45,6 +45,9 @@ namespace Readers
         public MzRange ScanWindow => _scanWindow ??= new MzRange(20, 2000);
         public const string ScanFilter = "f";
 
+        internal ConcurrentBag<TimsDataScan> Ms1ScanBag { get; private set; }
+        internal ConcurrentBag<TimsDataScan> PasefScanBag { get; private set; }
+
         /// <summary>
         /// Each precursor is uniquely linked to one MS1 scan
         /// </summary>
@@ -155,31 +158,72 @@ namespace Readers
             BuildProxyFactory();
             
             _maxThreads = maxThreads;
-            List<TimsDataScan> scanList = new();
-            for (int i = 0; i < Ms1FrameIds.Count; i++)
+            //List<TimsDataScan> scanList = new();
+            Ms1ScanBag = new();
+            PasefScanBag = new();
+            Parallel.ForEach(
+                Partitioner.Create(0, Ms1FrameIds.Count),
+                new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
+                (range) =>
             {
-                long frameId = Ms1FrameIds[i];
-                long nextFrameId = i < (Ms1FrameIds.Count -1) ? Ms1FrameIds[i+1] : long.MaxValue;
-                BuildMS1Scans(scanList, frameId, nextFrameId, filteringParams);
-            }
+                for (int i = range.Item1; i < range.Item2; i++)
+                {
+                    BuildMS1Scans(Ms1FrameIds[i], filteringParams);
+                }
+            });
+            //for (int i = 0; i < Ms1FrameIds.Count; i++)
+            //{
+            //    long frameId = Ms1FrameIds[i];
+                
+            //    BuildMS1Scans(frameId, filteringParams);
+            //}
             CloseDynamicConnection();
-            AssignOneBasedPrecursorsToPasefScans(scanList);
-            Scans = scanList.ToArray();
+            AssignOneBasedPrecursorsToPasefScans();
+            //Scans = scanList.ToArray();
             SourceFile = GetSourceFile();
             return this;
         }
 
-        internal void AssignOneBasedPrecursorsToPasefScans(List<TimsDataScan> scanList)
+        internal void AssignOneBasedPrecursorsToPasefScans()
         {
-            var pasefScans = scanList.Where(scan => scan.MsnOrder > 1);
-            foreach (var scan in pasefScans)
+            var ms1Scans = Ms1ScanBag.OrderBy(scan => scan.FrameId).ThenBy(scan => scan.PrecursorId).ToList();
+            var pasefScans = PasefScanBag.OrderBy(scan => scan.PrecursorId).ToList();
+            TimsDataScan[] scanArray = new TimsDataScan[ms1Scans.Count + pasefScans.Count];
+
+            int oneBasedScanIndex = 1;
+            int pasefScanIndex = 0;
+            //Write the scans to the scanArray and assign scan indices
+            for (int i = 0; i < ms1Scans.Count; i++)
             {
-                if (scan.PrecursorId != null 
-                    && PrecursorToOneBasedParentScanIndex.TryGetValue((int)scan.PrecursorId, out int oneBasedParentScanIndex))
+                var ms1Scan = ms1Scans[i];
+                ms1Scan.SetOneBasedScanNumber(oneBasedScanIndex);
+                scanArray[oneBasedScanIndex - 1] = ms1Scan;
+                oneBasedScanIndex++;
+                if (ms1Scan.PrecursorId == -1) continue; // Continue if the scan didn't have any precursors (as there will be no MS2 scans)
+                
+                // This assumes that there is a one to one correspondence between the MS1 scans and the PASEF scans
+                var pasefScan = pasefScans[pasefScanIndex];
+                while(pasefScan.PrecursorId < ms1Scan.PrecursorId)
                 {
-                    scan.SetOneBasedPrecursorScanNumber(oneBasedParentScanIndex);
+                    pasefScanIndex++;
+                    pasefScan = pasefScans[pasefScanIndex];
+                }
+                if(pasefScan.PrecursorId == ms1Scan.PrecursorId)
+                {
+                    pasefScan.SetOneBasedPrecursorScanNumber(ms1Scan.OneBasedScanNumber);
+                    pasefScan.SetOneBasedScanNumber(oneBasedScanIndex);
+                    scanArray[oneBasedScanIndex - 1] = pasefScan;
+                    pasefScanIndex++;
+                    oneBasedScanIndex++;
                 }
             }
+
+            if(oneBasedScanIndex < scanArray.Length)
+            {
+                throw new Exception("Not all scans were written to the final scan array");
+            }
+
+            Scans = scanArray;
         }
 
         /// <summary>
@@ -190,7 +234,7 @@ namespace Readers
         /// <param name="frameId"></param>
         /// <param name="filteringParams"></param>
         /// <param name="sqLiteConnection"></param>
-        internal void BuildMS1Scans(List<TimsDataScan> scanList, long frameId, long nextFrameId, FilteringParams filteringParams)
+        internal void BuildMS1Scans(long frameId, FilteringParams filteringParams)
         {
             FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
             List<Ms1Record> records = new();
@@ -218,47 +262,32 @@ namespace Readers
                     records.Add(new Ms1Record(precursorId, scanStart, scanEnd, (double)scanMedian));
                 }
             }
-            ConcurrentBag<TimsDataScan> scanBag = new();
+
             if (records.Count == 0)
             {
                 Ms1Record noPrecursorRecord = new Ms1Record(-1, 1, frame.NumberOfScans, frame.NumberOfScans / 2);
-                TimsDataScan dataScan = GetMs1Scan(noPrecursorRecord, frame, scanList.Count + 1, filteringParams);
+                TimsDataScan dataScan = GetMs1Scan(noPrecursorRecord, frame, filteringParams);
                 if (dataScan != null)
                 {
-                    scanBag.Add(dataScan);
+                    Ms1ScanBag.Add(dataScan);
                 }
+                return;
             }
-            else
+
+            foreach (var record in records)
             {
-                Parallel.ForEach(records, record =>
+                TimsDataScan dataScan = GetMs1Scan(record, frame,  filteringParams);
+                if (dataScan != null)
                 {
-                    TimsDataScan dataScan = GetMs1Scan(record, frame, scanList.Count + 1, filteringParams);
-                    if (dataScan != null)
-                    {
-                        scanBag.Add(dataScan);
-                    }
-                });
+                    Ms1ScanBag.Add(dataScan);
+                }
             }
             
-
-            foreach (TimsDataScan scan in scanBag.OrderBy(scan => scan.PrecursorId))
-            {
-                scan.SetOneBasedScanNumber(scanList.Count + 1);
-                if(scan.PrecursorId != null)
-                {
-                    PrecursorToOneBasedParentScanIndex[(int)scan.PrecursorId] = scan.OneBasedScanNumber;
-                }
-                scanList.Add(scan);
-            }
-
             // Then, build ONE MS2 scan from every PASEF frame that sampled that precursor
-            BuildPasefScanFromPrecursor(
-                scanList,
-                precursorIds: scanBag.Where(scan => scan.PrecursorId != null).Select(scan => (int)scan.PrecursorId).Distinct(),
-                filteringParams);
+            BuildPasefScanFromPrecursor(precursorIds: records.Select(r => r.PrecursorId), filteringParams);
         }
 
-        internal TimsDataScan GetMs1Scan(Ms1Record record, FrameProxy frame, int oneBasedScanNumber, FilteringParams filteringParams)
+        internal TimsDataScan GetMs1Scan(Ms1Record record, FrameProxy frame, FilteringParams filteringParams)
         {
             List<uint[]> indexArrays = new();
             List<int[]> intensityArrays = new();
@@ -276,7 +305,7 @@ namespace Readers
             // Step 3: Make an MsDataScan bby
             var dataScan = new TimsDataScan(
                 massSpectrum: averagedSpectrum,
-                oneBasedScanNumber: oneBasedScanNumber,
+                oneBasedScanNumber: -1, // This gets adjusted once all data has been read
                 msnOrder: 1,
                 isCentroid: true,
                 polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
@@ -299,46 +328,7 @@ namespace Readers
             return dataScan;
         }
 
-        //internal void BuildMs1ScanNoPrecursor(List<TimsDataScan> scanList, FrameProxy frame, FilteringParams filteringParams)
-        //{
-        //    List<double[]> mzArrays = new();
-        //    List<int[]> intensityArrays = new();
-        //    // I don't know if scans are zero-indexed or one-based and at this point I'm too afraid to ask
-        //    for (int scan = 1; scan < frame.NumberOfScans; scan++)
-        //    {
-        //        mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, scan));
-        //        //mzArrays.Add(frame.GetScanMzs(scan));
-        //        intensityArrays.Add(frame.GetScanIntensities(scan));
-        //    }
-        //    // Step 2: Average those suckers
-        //    MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays, filteringParams);
-        //    // Step 3: Make an MsDataScan bby
-        //    var dataScan = new TimsDataScan(
-        //        massSpectrum: averagedSpectrum,
-        //        oneBasedScanNumber: scanList.Count + 1,
-        //        msnOrder: 1,
-        //        isCentroid: true,
-        //        polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
-        //        retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
-        //        scanWindowRange: ScanWindow,
-        //        scanFilter: ScanFilter,
-        //        mzAnalyzer: MZAnalyzerType.TOF,
-        //        totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
-        //        injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
-        //        noiseData: null,
-        //        nativeId: "frame=" + frame.FrameId.ToString() +
-        //            ";scans=1-" + (frame.NumberOfScans - 1).ToString() +
-        //            ";precursor=NULL",
-        //        frameId: frame.FrameId,
-        //        scanNumberStart: 1,
-        //        scanNumberEnd: frame.NumberOfScans,
-        //        medianOneOverK0: 0,//frame.GetOneOverK0(frame.NumberOfScans/2),
-        //        precursorId: null);
-
-        //    scanList.Add(dataScan);
-        //}
-
-        internal void BuildPasefScanFromPrecursor(List<TimsDataScan> scanList, IEnumerable<int> precursorIds, FilteringParams filteringParams)
+        internal void BuildPasefScanFromPrecursor(IEnumerable<int> precursorIds, FilteringParams filteringParams)
         {
             HashSet<long> allFrames = new();
             List<TimsDataScan> pasefScans = new();
@@ -382,7 +372,7 @@ namespace Readers
                     // Now, we build data scans with null MzSpectra. The MassSpectrum will be constructed later.
                     var dataScan = new TimsDataScan(
                             massSpectrum: null,
-                            oneBasedScanNumber: scanList.Count + pasefScans.Count + 1,
+                            oneBasedScanNumber: -1, // This will be adjusted once all scans have been read
                             msnOrder: 2,
                             isCentroid: true,
                             polarity: FrameProxyFactory.GetPolarity(frameList.First()),
@@ -406,14 +396,13 @@ namespace Readers
                             isolationMZ: isolationMz,
                             isolationWidth: isolationWidth,
                             dissociationType: DissociationType.CID,
-                            oneBasedPrecursorScanNumber: PrecursorToOneBasedParentScanIndex[precursorId],
+                            oneBasedPrecursorScanNumber: -1, // This will be set later
                             selectedIonMonoisotopicGuessMz: precursorMonoisotopicMz,
                             hcdEnergy: collisionEnergy.ToString(),
                             frames: frameList.ToList());
                     pasefScans.Add(dataScan);
                 }
             }
-
 
             // For scan 1, we have 8 unique precursors, each of which is sampled 10-11 times
             // We need a way of iteratively building an mzSpectrum, 
@@ -425,40 +414,28 @@ namespace Readers
                 {
                     if (scan.FrameIds.Contains(frameId))
                     {
-                        //List<double[]> mzArrays = new();
                         List<uint[]> indexArrays = new();
                         List<int[]> intensityArrays = new();
                         for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
                         {
-                            //mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, mobilityScanIdx));
                             indexArrays.Add(FrameProxyFactory.GetScanIndices(frame, mobilityScanIdx));
                             intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx));
                         }
-                        // Step 2: Average those suckers
+                        // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
                         // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
                         (uint[] Indices, int[] Intensities) summedArrays = ConvertScansToArray(indexArrays, intensityArrays);
                         scan.AddComponentArrays(summedArrays.Indices, summedArrays.Intensities);
-                        //ListNode<TofPeak> spectrumHeadNode = SumScansToLinkedList(mzArrays, intensityArrays, out int listLength);
-                        //scan.AddComponentSpectrum(spectrumHeadNode, listLength);
                     }
                 } 
             }
 
+            // Now, we average the merged+centroided arrays across multiple frames so we have one spectrum per precursor
             foreach (TimsDataScan scan in pasefScans)
-            //Parallel.ForEach(pasefScans, scan =>
             {
                 scan.AverageComponentSpectra(FrameProxyFactory, filteringParams);
-            }//);
-
-            scanList.AddRange(pasefScans);
+                PasefScanBag.Add(scan);
+            }
         }
-
-        
-        //internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
-        //{
-        //    //return TofSpectraMerger.MergesMs1Spectra(mzArrays, intensityArrays, filteringParams: filteringParams);
-        //    return new MzSpectrum(new double[1], new double[1], false);
-        //}
 
         // Called by get MS1 Scan 
         internal MzSpectrum ConvertScansToSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
