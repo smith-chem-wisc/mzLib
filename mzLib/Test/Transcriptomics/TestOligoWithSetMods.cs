@@ -92,7 +92,7 @@ namespace Test.Transcriptomics
             Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods2));
             Assert.That(oligoWithSetMods.GetHashCode(), Is.EqualTo(oligoWithSetMods2.GetHashCode()));
 
-            Assert.That(oligoWithSetMods, Is.EqualTo((object)oligoWithSetMods2)); // Test the Equals(Object obj) method
+            Assert.That(oligoWithSetMods.Equals((object)oligoWithSetMods2)); // Test the Equals(Object obj) method
         }
 
         [Test]
@@ -113,7 +113,7 @@ namespace Test.Transcriptomics
             Assert.That(oligo1, Is.Not.EqualTo(oligo2));
             Assert.That(oligo1, Is.Not.EqualTo((object)oligo2));
             Assert.That(oligo1.GetHashCode(), Is.Not.EqualTo(oligo2.GetHashCode()));
-            Assert.That(oligo1, Is.Not.EqualTo(digestionParams)); // Test the Equals(Object obj) method
+            Assert.That(!oligo1.Equals(digestionParams)); // Test the Equals(Object obj) method
         }
     }
 }
