@@ -139,7 +139,7 @@ namespace Test.FileReadingTests
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
-            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\new_version_release_no_MS1centroiding.txt");
+            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\IndexBasedReader.txt");
             using (output)
             {
                 output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
@@ -149,7 +149,7 @@ namespace Test.FileReadingTests
                 output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
             }
 
-            //test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min_10ppm_Centroid.mzML", writeIndexed: true);
+            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min_10ppm_Centroid_12_3_24.mzML", writeIndexed: true);
             //Assert.Pass();
         }
 
