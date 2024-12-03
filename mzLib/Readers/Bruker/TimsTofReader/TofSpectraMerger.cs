@@ -10,7 +10,7 @@ namespace Readers.Bruker
     {
         public static readonly double DefaultPpmTolerance = 5;
 
-        internal static MzSpectrum MergeMs1Spectra(List<uint[]> indexArrays, List<int[]> intensityArrays, FrameProxyFactory proxyFactory,
+        internal static MzSpectrum MergeArraysToSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays, FrameProxyFactory proxyFactory,
             FilteringParams filteringParams = null)
         {
             if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
@@ -32,7 +32,7 @@ namespace Readers.Bruker
             return ConvertAndFilterSpectrum(centroidedResults.Indices, centroidedResults.Intensities, proxyFactory, filteringParams);
         }
 
-        internal static MzSpectrum ConvertAndFilterSpectrum(IList<int> indices, IList<int> intensities,
+        internal static MzSpectrum ConvertAndFilterSpectrum(IList<uint> indices, IList<int> intensities,
             FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
         {
             // Convert the indices to m/z values
@@ -53,10 +53,10 @@ namespace Readers.Bruker
             return new MzSpectrum(mzsArray, intensitiesArray, shouldCopy: false);
         }
 
-        internal static (IList<int> Indices, IList<int> Intensities) MergeSpectraToLists(List<uint[]> indexArrays, List<int[]> intensityArrays)
+        internal static (uint[] Indices, int[] Intensities) MergeArraysToArray(List<uint[]> indexArrays, List<int[]> intensityArrays)
         {
             if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
-                return (new List<int>(), new List<int>());
+                return (new uint[0], new int[0]);
 
             // Merge all index arrays and intensity arrays into a single array
             uint[] combinedIndices = indexArrays[0];
@@ -121,13 +121,6 @@ namespace Readers.Bruker
             return new MzSpectrum(mzs, intensities, shouldCopy: false);
         }
 
-        internal static MzSpectrum MergeMs1SpectraByIndices(List<uint[]> indexArrays, List<int[]> intensityArrays, FrameProxyFactory proxyFactory,
-            FilteringParams filteringParams = null, Tolerance tolerance = null)
-        {
-
-
-            return null;
-        }
 
         public static (uint[] Indices, int[] Intensities) TwoPointerMerge(uint[] indexArray1, uint[] indexArray2, int[] intensityArray1, int[] intensityArray2)
         {
@@ -174,12 +167,12 @@ namespace Readers.Bruker
             return (mergedIndices, mergedIntensities);
         }
 
-        public static (List<int> Indices, List<int> Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray)
+        public static (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray)
         {
             // This is a quick and dirty implementation of the collapse function. There are some edge cases that are not handled here.
 
             // Define lists to store the collapsed indices and intensities
-            List<int> collapsedIndices = new();
+            List<uint> collapsedIndices = new();
             List<int> collapsedIntensities = new();
 
             // Initialize pointers to the first two elements in the index array
@@ -198,7 +191,7 @@ namespace Readers.Bruker
                 p2--; // Move the pointer back by one
                 int medianPointer = (p1 + p2) / 2;
                 // Use the median index in each cluster as the collapsed index
-                collapsedIndices.Add((int)indexArray[medianPointer]);
+                collapsedIndices.Add(indexArray[medianPointer]);
 
                 // Sum the intensities in each cluster to get the collapsed intensity
                 int summedIntensity = 0;
@@ -213,7 +206,7 @@ namespace Readers.Bruker
                 p2 = p1 + 1;
             }
 
-            return (collapsedIndices, collapsedIntensities);
+            return (collapsedIndices.ToArray(), collapsedIntensities.ToArray());
         }
 
         internal static MzSpectrum MergeMsmsSpectra(List<ListNode<TofPeak>> spectrumHeadNodes,

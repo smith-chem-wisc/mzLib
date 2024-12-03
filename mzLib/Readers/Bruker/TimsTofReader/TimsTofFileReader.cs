@@ -167,7 +167,6 @@ namespace Readers
             Scans = scanList.ToArray();
             SourceFile = GetSourceFile();
             return this;
-            
         }
 
         internal void AssignOneBasedPrecursorsToPasefScans(List<TimsDataScan> scanList)
@@ -219,21 +218,28 @@ namespace Readers
                     records.Add(new Ms1Record(precursorId, scanStart, scanEnd, (double)scanMedian));
                 }
             }
-            if(records.Count == 0)
-            {
-                BuildMs1ScanNoPrecursor(scanList, frame, filteringParams);
-                return;
-            }
-
             ConcurrentBag<TimsDataScan> scanBag = new();
-            Parallel.ForEach(records, record =>
+            if (records.Count == 0)
             {
-                TimsDataScan dataScan = GetMs1Scan(record, frame, scanList.Count + 1, filteringParams);
-                if(dataScan != null)
+                Ms1Record noPrecursorRecord = new Ms1Record(-1, 1, frame.NumberOfScans, frame.NumberOfScans / 2);
+                TimsDataScan dataScan = GetMs1Scan(noPrecursorRecord, frame, scanList.Count + 1, filteringParams);
+                if (dataScan != null)
                 {
                     scanBag.Add(dataScan);
                 }
-            });
+            }
+            else
+            {
+                Parallel.ForEach(records, record =>
+                {
+                    TimsDataScan dataScan = GetMs1Scan(record, frame, scanList.Count + 1, filteringParams);
+                    if (dataScan != null)
+                    {
+                        scanBag.Add(dataScan);
+                    }
+                });
+            }
+            
 
             foreach (TimsDataScan scan in scanBag.OrderBy(scan => scan.PrecursorId))
             {
@@ -262,7 +268,7 @@ namespace Readers
                 intensityArrays.Add(frame.GetScanIntensities(scan));
             }
             // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = SumScans(indexArrays, intensityArrays, filteringParams);
+            MzSpectrum averagedSpectrum = ConvertScansToSpectrum(indexArrays, intensityArrays, filteringParams);
             if(averagedSpectrum.Size < 1)
             {
                 return null;
@@ -292,6 +298,45 @@ namespace Readers
 
             return dataScan;
         }
+
+        //internal void BuildMs1ScanNoPrecursor(List<TimsDataScan> scanList, FrameProxy frame, FilteringParams filteringParams)
+        //{
+        //    List<double[]> mzArrays = new();
+        //    List<int[]> intensityArrays = new();
+        //    // I don't know if scans are zero-indexed or one-based and at this point I'm too afraid to ask
+        //    for (int scan = 1; scan < frame.NumberOfScans; scan++)
+        //    {
+        //        mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, scan));
+        //        //mzArrays.Add(frame.GetScanMzs(scan));
+        //        intensityArrays.Add(frame.GetScanIntensities(scan));
+        //    }
+        //    // Step 2: Average those suckers
+        //    MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays, filteringParams);
+        //    // Step 3: Make an MsDataScan bby
+        //    var dataScan = new TimsDataScan(
+        //        massSpectrum: averagedSpectrum,
+        //        oneBasedScanNumber: scanList.Count + 1,
+        //        msnOrder: 1,
+        //        isCentroid: true,
+        //        polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+        //        retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+        //        scanWindowRange: ScanWindow,
+        //        scanFilter: ScanFilter,
+        //        mzAnalyzer: MZAnalyzerType.TOF,
+        //        totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
+        //        injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+        //        noiseData: null,
+        //        nativeId: "frame=" + frame.FrameId.ToString() +
+        //            ";scans=1-" + (frame.NumberOfScans - 1).ToString() +
+        //            ";precursor=NULL",
+        //        frameId: frame.FrameId,
+        //        scanNumberStart: 1,
+        //        scanNumberEnd: frame.NumberOfScans,
+        //        medianOneOverK0: 0,//frame.GetOneOverK0(frame.NumberOfScans/2),
+        //        precursorId: null);
+
+        //    scanList.Add(dataScan);
+        //}
 
         internal void BuildPasefScanFromPrecursor(List<TimsDataScan> scanList, IEnumerable<int> precursorIds, FilteringParams filteringParams)
         {
@@ -376,8 +421,7 @@ namespace Readers
             {
                 FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
                 //Iterate through all the datascans created above with this frame
-                //foreach (TimsDataScan scan in pasefScans)
-                Parallel.ForEach(pasefScans, scan =>
+                foreach(var scan in pasefScans)
                 {
                     if (scan.FrameIds.Contains(frameId))
                     {
@@ -392,82 +436,39 @@ namespace Readers
                         }
                         // Step 2: Average those suckers
                         // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
-                        (IList<int> Indices, IList<int> Intensities) summedArrays = SumScansToLists(indexArrays, intensityArrays);
+                        (uint[] Indices, int[] Intensities) summedArrays = ConvertScansToArray(indexArrays, intensityArrays);
                         scan.AddComponentArrays(summedArrays.Indices, summedArrays.Intensities);
                         //ListNode<TofPeak> spectrumHeadNode = SumScansToLinkedList(mzArrays, intensityArrays, out int listLength);
                         //scan.AddComponentSpectrum(spectrumHeadNode, listLength);
                     }
-                }); 
+                } 
             }
 
-            //foreach (TimsDataScan scan in pasefScans)
-            Parallel.ForEach(pasefScans, scan =>
+            foreach (TimsDataScan scan in pasefScans)
+            //Parallel.ForEach(pasefScans, scan =>
             {
-                scan.AverageComponentSpectra(filteringParams);
-            });
+                scan.AverageComponentSpectra(FrameProxyFactory, filteringParams);
+            }//);
 
             scanList.AddRange(pasefScans);
         }
 
-        internal void BuildMs1ScanNoPrecursor(List<TimsDataScan> scanList, FrameProxy frame, FilteringParams filteringParams)
-        {
-            List<double[]> mzArrays = new();
-            List<int[]> intensityArrays = new();
-            // I don't know if scans are zero-indexed or one-based and at this point I'm too afraid to ask
-            for (int scan = 1; scan < frame.NumberOfScans; scan++)
-            {
-                mzArrays.Add(FrameProxyFactory.GetScanMzs(frame, scan));
-                //mzArrays.Add(frame.GetScanMzs(scan));
-                intensityArrays.Add(frame.GetScanIntensities(scan));
-            }
-            // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = SumScans(mzArrays, intensityArrays, filteringParams);
-            // Step 3: Make an MsDataScan bby
-            var dataScan = new TimsDataScan(
-                massSpectrum: averagedSpectrum,
-                oneBasedScanNumber: scanList.Count + 1,
-                msnOrder: 1,
-                isCentroid: true,
-                polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
-                retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
-                scanWindowRange: ScanWindow,
-                scanFilter: ScanFilter,
-                mzAnalyzer: MZAnalyzerType.TOF,
-                totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
-                injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
-                noiseData: null,
-                nativeId: "frame=" + frame.FrameId.ToString() +
-                    ";scans=1-" + (frame.NumberOfScans - 1).ToString() +
-                    ";precursor=NULL",
-                frameId: frame.FrameId,
-                scanNumberStart: 1,
-                scanNumberEnd: frame.NumberOfScans,
-                medianOneOverK0: 0,//frame.GetOneOverK0(frame.NumberOfScans/2),
-                precursorId: null);
+        
+        //internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
+        //{
+        //    //return TofSpectraMerger.MergesMs1Spectra(mzArrays, intensityArrays, filteringParams: filteringParams);
+        //    return new MzSpectrum(new double[1], new double[1], false);
+        //}
 
-            scanList.Add(dataScan);
+        // Called by get MS1 Scan 
+        internal MzSpectrum ConvertScansToSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
+        {
+            return TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
         }
 
-        internal MzSpectrum SumScans(List<double[]> mzArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
+        internal (uint[] Indices, int[] Intensities) ConvertScansToArray(List<uint[]> indexArrays, List<int[]> intensityArrays)
         {
-
-            //return TofSpectraMerger.MergesMs1Spectra(mzArrays, intensityArrays, filteringParams: filteringParams);
-            return new MzSpectrum(new double[1], new double[1], false);
-        }
-
-        internal MzSpectrum SumScans(List<uint[]> indexArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
-        {
-            return TofSpectraMerger.MergeMs1Spectra(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
-        }
-
-        internal ListNode<TofPeak> SumScansToLinkedList(List<double[]> mzArrays, List<int[]> intensityArrays, out int listLength)
-        {
-            return TofSpectraMerger.MergeSpectraToLinkedList(mzArrays, intensityArrays, out listLength);
-        }
-
-        internal (IList<int> Indices, IList<int> Intensities) SumScansToLists(List<uint[]> indexArrays, List<int[]> intensityArrays)
-        {
-            return TofSpectraMerger.MergeSpectraToLists(indexArrays, intensityArrays);
+            return TofSpectraMerger.MergeArraysToArray(indexArrays, intensityArrays);
         }
         
 

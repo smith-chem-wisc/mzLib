@@ -73,27 +73,26 @@ namespace MassSpectrometry
             }
         }
 
-        public void AverageComponentSpectra(FilteringParams filteringParams = null)
+        internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
         {
             // TODO: Probably need to add, like, checks and stuff. But oh well.
-            //MassSpectrum = TofSpectraMerger.MergeSpectra(ComponentSpectra);
-            //ComponentSpectra.Clear();
-            MassSpectrum = TofSpectraMerger.MergeMsmsSpectra(ComponentSpectraListNodes, ComponentSpectraTotalPeaks, filteringParams: filteringParams);
-            TotalIonCurrent = (double)MassSpectrum.SumOfAllY;
-            ComponentSpectraListNodes.Clear();
-        }
-
-        public void BuildSpectrumFromComponentArrays(FrameProxyFactory frameProxyFactory)
-        {
-            if(indexArrays == null || intensityArrays == null)
-            {
-                return;
-            }
-            MassSpectrum = TofSpectraMerger.MergeMsmsSpectra(indexArrays, intensityArrays);
+            MassSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, proxyFactory, filteringParams);
             TotalIonCurrent = (double)MassSpectrum.SumOfAllY;
             indexArrays.Clear();
             intensityArrays.Clear();
         }
+
+        //public void BuildSpectrumFromComponentArrays(FrameProxyFactory frameProxyFactory)
+        //{
+        //    if(indexArrays == null || intensityArrays == null)
+        //    {
+        //        return;
+        //    }
+        //    MassSpectrum = TofSpectraMerger.MergeMsmsSpectra(indexArrays, intensityArrays);
+        //    TotalIonCurrent = (double)MassSpectrum.SumOfAllY;
+        //    indexArrays.Clear();
+        //    intensityArrays.Clear();
+        //}
 
         //public void AddComponentSpectrum(MzSpectrum spectrum)
         //{
@@ -101,17 +100,17 @@ namespace MassSpectrometry
         //    ComponentSpectra.Add(spectrum);
         //}
 
-        internal void AddComponentSpectrum(ListNode<TofPeak> spectrumHead, int spectrumLength)
-        {
-            if (ComponentSpectraListNodes == null) return;
-            ComponentSpectraListNodes.Add(spectrumHead);
-            ComponentSpectraTotalPeaks += spectrumLength;
-        }
+        //internal void AddComponentSpectrum(ListNode<TofPeak> spectrumHead, int spectrumLength)
+        //{
+        //    if (ComponentSpectraListNodes == null) return;
+        //    ComponentSpectraListNodes.Add(spectrumHead);
+        //    ComponentSpectraTotalPeaks += spectrumLength;
+        //}
 
-        internal List<IList<int>> indexArrays;
-        internal List<IList<int>> intensityArrays;
+        internal List<uint[]> indexArrays;
+        internal List<int[]> intensityArrays;
 
-        internal void AddComponentArrays(IList<int> indices, IList<int> intensities)
+        internal void AddComponentArrays(uint[] indices, int[] intensities)
         {
             if(indexArrays == null)
             {

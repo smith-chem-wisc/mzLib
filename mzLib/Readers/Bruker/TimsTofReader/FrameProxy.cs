@@ -54,7 +54,7 @@ namespace Readers.Bruker
             return frame._rawData[frame.GetXRange(zeroIndexedScanNumber)];
         }
 
-        internal double[] ConvertIndicesToMz(IList<int> indices)
+        internal double[] ConvertIndicesToMz(IList<uint> indices)
         {
             double[] mzArray = new double[indices.Count()];
             for (int idx = 0; idx < indices.Count(); idx++)

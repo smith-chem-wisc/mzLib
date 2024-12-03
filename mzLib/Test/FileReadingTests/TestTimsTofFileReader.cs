@@ -33,6 +33,7 @@ namespace Test.FileReadingTests
 
             DateTime time2 = DateTime.Now;
             var timeDiff = time2 - time;
+            Console.WriteLine(timeDiff);
             int placeholder = 0;
         }
 
