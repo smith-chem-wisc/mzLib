@@ -75,5 +75,46 @@ namespace Test.Transcriptomics
             Assert.That(localizedOligo.AllModsOneIsNterminus.ContainsKey(indexOfMass));
             Assert.That(expectedMass, Is.EqualTo(localizedOligo.AllModsOneIsNterminus[indexOfMass].MonoisotopicMass));
         }
+
+        [Test]
+        public static void TestEquality()
+        {
+            var oligoWithSetMods = new RNA("GUACUG",
+                    oneBasedPossibleLocalizedModifications: new Dictionary<int, List<Modification>> { { 4, [TestDigestion.PotassiumAdducts[1]] } })
+                .Digest(new RnaDigestionParams(), [], [])
+                .ElementAt(1);
+
+            var oligoWithSetMods2 = new RNA("GUACUG",
+                    oneBasedPossibleLocalizedModifications: new Dictionary<int, List<Modification>> { { 4, [TestDigestion.PotassiumAdducts[1]] } })
+                .Digest(new RnaDigestionParams(), [], [])
+                .ElementAt(1);
+
+            Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods2));
+            Assert.That(oligoWithSetMods.GetHashCode(), Is.EqualTo(oligoWithSetMods2.GetHashCode()));
+
+            Assert.That(oligoWithSetMods, Is.Not.EqualTo(new List<double>())); // Test the Equals(Object obj) method
+        }
+
+        [Test]
+        [TestCase("GUACUG", "GUACUGGUACUG", "RNase A", 0, 0)]
+        [TestCase("GUAGGAG", "GUAGCAG", "RNase A", 0, 1)]
+        public static void TestInequality(string sequence1, string sequence2, string enzyme, int digestedOligo1, int digestedOligo2)
+        {
+            var digestionParams = new RnaDigestionParams(rnase: enzyme, minLength: 1, maxMissedCleavages: 0);
+
+            var test = new RNA(sequence1)
+                .Digest(digestionParams, [], []).ToList();
+
+            var oligo1 = new RNA(sequence1)
+                .Digest(digestionParams, [], [])
+                .ElementAt(digestedOligo1);
+
+            var oligo2 = new RNA(sequence2)
+                .Digest(digestionParams, [], [])
+                .ElementAt(digestedOligo2);
+
+            Assert.That(oligo1, Is.Not.EqualTo(oligo2));
+            Assert.That(oligo1.GetHashCode(), Is.Not.EqualTo(oligo2.GetHashCode()));
+        }
     }
 }
