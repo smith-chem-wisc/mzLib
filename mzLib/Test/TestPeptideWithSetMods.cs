@@ -56,8 +56,7 @@ namespace Test
             Assert.That(pep1.Parent.Equals(pep2.Parent));
             Assert.That(!pep1.DigestionParams.DigestionAgent.Equals(pep2.DigestionParams.DigestionAgent));
             Assert.That(!pep1.Equals(pep2));
-            // HashCode is only concerned with the full sequence, not the protease. Only the equals method is interested in the protease used
-            Assert.That(pep1.GetHashCode().Equals(pep2.GetHashCode()));
+            Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
         }
 
         [Test]
