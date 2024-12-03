@@ -102,9 +102,6 @@ namespace Test.Transcriptomics
         {
             var digestionParams = new RnaDigestionParams(rnase: enzyme, minLength: 1, maxMissedCleavages: 0);
 
-            var test = new RNA(sequence1)
-                .Digest(digestionParams, [], []).ToList();
-
             var oligo1 = new RNA(sequence1)
                 .Digest(digestionParams, [], [])
                 .ElementAt(digestedOligo1);
@@ -116,6 +113,7 @@ namespace Test.Transcriptomics
             Assert.That(oligo1, Is.Not.EqualTo(oligo2));
             Assert.That(oligo1, Is.Not.EqualTo((object)oligo2));
             Assert.That(oligo1.GetHashCode(), Is.Not.EqualTo(oligo2.GetHashCode()));
+            Assert.That(oligo1, Is.Not.EqualTo(digestionParams)); // Test the Equals(Object obj) method
         }
     }
 }
