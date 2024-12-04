@@ -57,18 +57,27 @@ public static class SpectraAveraging
         var weights = SpectralWeighting.CalculateSpectraWeights(xArrays, yArrays, parameters.SpectralWeightingType);
 
         // reject outliers and average bins
-        var averagedPeaks = new ConcurrentBag<(double mz, double intensity)>();
-        var binIncidences = bins.Keys.ToArray();
+        ConcurrentBag<(double mz, double intensity)> averagedPeaks = new();
+        var binIncidences = bins.Keys.ToList();
+        var partitioner = Partitioner.Create(0, binIncidences.Count);
 
-        Parallel.ForEach(binIncidences, new ParallelOptions { MaxDegreeOfParallelism = parameters.MaxThreadsToUsePerFile }, binIndex =>
+        Parallel.ForEach(partitioner, new ParallelOptions { MaxDegreeOfParallelism = parameters.MaxThreadsToUsePerFile }, (range, state) =>
         {
-            var peaksFromBin = bins[binIndex];
-            peaksFromBin = OutlierRejection.RejectOutliers(peaksFromBin, parameters);
+            var localAveragedPeaks = new List<(double mz, double intensity)>();
+            for (int i = range.Item1; i < range.Item2; i++)
+            {
+                var peaksFromBin = bins[binIncidences[i]];
 
-            if (peaksFromBin.Count == 0) 
-                return;
+                peaksFromBin = OutlierRejection.RejectOutliers(peaksFromBin, parameters);
+                if (!peaksFromBin.Any()) continue;
 
-            averagedPeaks.Add(AverageBin(peaksFromBin, weights));
+                localAveragedPeaks.Add(AverageBin(peaksFromBin, weights));
+            }
+
+            foreach (var peak in localAveragedPeaks)
+            {
+                averagedPeaks.Add(peak);
+            }
         });
 
         // return averaged
@@ -82,7 +91,6 @@ public static class SpectraAveraging
                     : p.intensity).ToArray()
         };
     }
-
 
     #region Helpers
 
