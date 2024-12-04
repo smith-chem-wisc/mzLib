@@ -20,10 +20,7 @@ namespace MassSpectrometry
         /// This is a list of succesive PASEF scans capturing data on the same ion-mobility scan range and quadrupole isolation window
         /// </summary>
         public List<long> FrameIds { get; }
-        //internal List<MzSpectrum> ComponentSpectra { get; private set; }
-        internal List<ListNode<TofPeak>> ComponentSpectraListNodes { get; private set; }
         internal int ComponentSpectraTotalPeaks { get; private set; }
-
 
         // Need to incorporate scan range somehow
         public TimsDataScan(MzSpectrum massSpectrum,
@@ -67,45 +64,17 @@ namespace MassSpectrometry
             OneOverK0 = medianOneOverK0;
             PrecursorId = precursorId;
             ComponentSpectraTotalPeaks = 0;
-            if(msnOrder > 1)
-            {
-                ComponentSpectraListNodes = new();
-            }
         }
 
         internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
         {
             // TODO: Probably need to add, like, checks and stuff. But oh well.
-            MassSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, proxyFactory, filteringParams);
+            MassSpectrum = TofSpectraMerger.MergeArraysToSpectrum(mzArrays, intensityArrays, filteringParams);
             TotalIonCurrent = (double)MassSpectrum.SumOfAllY;
-            indexArrays.Clear();
+            //indexArrays.Clear();
+            mzArrays.Clear();
             intensityArrays.Clear();
         }
-
-        //public void BuildSpectrumFromComponentArrays(FrameProxyFactory frameProxyFactory)
-        //{
-        //    if(indexArrays == null || intensityArrays == null)
-        //    {
-        //        return;
-        //    }
-        //    MassSpectrum = TofSpectraMerger.MergeMsmsSpectra(indexArrays, intensityArrays);
-        //    TotalIonCurrent = (double)MassSpectrum.SumOfAllY;
-        //    indexArrays.Clear();
-        //    intensityArrays.Clear();
-        //}
-
-        //public void AddComponentSpectrum(MzSpectrum spectrum)
-        //{
-        //    if (ComponentSpectra == null) return;
-        //    ComponentSpectra.Add(spectrum);
-        //}
-
-        //internal void AddComponentSpectrum(ListNode<TofPeak> spectrumHead, int spectrumLength)
-        //{
-        //    if (ComponentSpectraListNodes == null) return;
-        //    ComponentSpectraListNodes.Add(spectrumHead);
-        //    ComponentSpectraTotalPeaks += spectrumLength;
-        //}
 
         internal List<uint[]> indexArrays;
         internal List<int[]> intensityArrays;
@@ -120,6 +89,20 @@ namespace MassSpectrometry
             indexArrays.Add(indices);
             intensityArrays.Add(intensities);
         }
+
+        internal List<double[]> mzArrays;
+
+        internal void AddComponentArrays(double[] mzs, int[] intensities)
+        {
+            if (mzArrays == null)
+            {
+                mzArrays = new();
+                intensityArrays = new();
+            }
+            mzArrays.Add(mzs);
+            intensityArrays.Add(intensities);
+        }
+
 
     }
 }

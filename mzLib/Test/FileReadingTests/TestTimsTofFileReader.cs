@@ -29,7 +29,7 @@ namespace Test.FileReadingTests
             DateTime time = DateTime.Now;
 
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(maxThreads: 12);
+            _testReader.LoadAllStaticData(maxThreads: 1);
 
             DateTime time2 = DateTime.Now;
             var timeDiff = time2 - time;
@@ -139,7 +139,7 @@ namespace Test.FileReadingTests
             watch.Stop();
             var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
 
-            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\IndexBasedReader.txt");
+            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\DoubleMerging_reader.txt");
             using (output)
             {
                 output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
@@ -149,7 +149,7 @@ namespace Test.FileReadingTests
                 output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
             }
 
-            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min_10ppm_Centroid_12_3_24.mzML", writeIndexed: true);
+            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min_10ppm_Centroid_12_4_24.mzML", writeIndexed: true);
             //Assert.Pass();
         }
 
@@ -199,7 +199,7 @@ namespace Test.FileReadingTests
             int[] intensity1 = new int[] { 1, 3, 5, 7, 9 };
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergesMs1Spectra(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToSpectrum(
                 new List<double[]> { mz1, mz2 },
                 new List<int[]> { intensity1, intensity2 });
 
@@ -216,7 +216,7 @@ namespace Test.FileReadingTests
             int[] intensity1 = new int[] { 1, 3, 5, 7, 9, 10 };
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergesMs1Spectra(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToSpectrum(
                 new List<double[]> { mz1, mz2 },
                 new List<int[]> { intensity1, intensity2 });
 
@@ -236,7 +236,7 @@ namespace Test.FileReadingTests
             int[] intensity2 = new int[] { 2, 5, 8 };
             int[] intensity3 = new int[] { 3, 6, 9 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergesMs1Spectra(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToSpectrum(
                 new List<double[]> { mz1, mz2, mz3 },
                 new List<int[]> { intensity1, intensity2, intensity3 });
 
@@ -257,7 +257,7 @@ namespace Test.FileReadingTests
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
             int[] intensity3 = new int[] { 10, 10, 11 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergesMs1Spectra(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToSpectrum(
                 new List<double[]> { mz1, mz2, mz3 },
                 new List<int[]> { intensity1, intensity2, intensity3 });
 

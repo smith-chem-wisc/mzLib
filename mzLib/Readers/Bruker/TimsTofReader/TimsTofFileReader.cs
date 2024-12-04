@@ -423,8 +423,8 @@ namespace Readers
                         }
                         // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
                         // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
-                        (uint[] Indices, int[] Intensities) summedArrays = ConvertScansToArray(indexArrays, intensityArrays);
-                        scan.AddComponentArrays(summedArrays.Indices, summedArrays.Intensities);
+                        (double[] Mzs, int[] Intensities) summedArrays = TofSpectraMerger.MergeArraysToMzArray(indexArrays, intensityArrays, FrameProxyFactory);  
+                        scan.AddComponentArrays(summedArrays.Mzs, summedArrays.Intensities);
                     }
                 } 
             }
