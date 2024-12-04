@@ -40,8 +40,7 @@ public static class SpectraAveraging
     /// <param name="yArrays">yArrays of spectra to be averaged</param>
     /// <param name="parameters">how to perform the averaging</param>
     /// <returns></returns>
-    private static double[][] MzBinning(double[][] xArrays, double[][] yArrays,
-    SpectralAveragingParameters parameters)
+    private static double[][] MzBinning(double[][] xArrays, double[][] yArrays, SpectralAveragingParameters parameters)
     {
         // get tics 
         var tics = yArrays.Select(p => p.Sum()).ToArray();
