@@ -18,7 +18,10 @@ jobs:
         dotnet-version: 8.0.x
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
-    - uses: ilammy/msvc-dev-cmd@v1
+    - name: Download VC++ Redistributable
+      run: wget https://download.visualstudio.microsoft.com/download/pr/100349091/2cd2dba5748dc95950a5c42c2d2d78e4/VC_redist.x64.exe -O vc_redist.exe
+    - name: Install VC++ Redistributable
+      run: ./vc_redist.exe /install /quiet
     - name: Build
       run: cd mzLib && dotnet build --no-restore
     - name: Build (Test)
