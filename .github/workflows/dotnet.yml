@@ -18,10 +18,7 @@ jobs:
         dotnet-version: 8.0.x
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
-    - name: Install Visual c++ build tools
-      uses: crazy-max/ghaction-chocolatey@v3
-      with:
-        args: install visualcpp-build-tools
+    - uses: ilammy/msvc-dev-cmd@v1
     - name: Build
       run: cd mzLib && dotnet build --no-restore
     - name: Build (Test)
