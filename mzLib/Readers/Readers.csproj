@@ -13,6 +13,7 @@
 		<PackageReference Include="OpenMcdf" Version="2.3.1" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.3.1" />
 		<PackageReference Include="System.Data.SQLite" Version="1.0.118" />
+		<PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -34,23 +35,23 @@
 		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
 			<HintPath>Thermo\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
 		</Reference>
-		<Reference Include="msvcp140.dll">
-			<HintPath>Bruker\msvcp140.dll</HintPath>
+		<Reference Include="msvcp140">
+			<HintPath>timsTOF\msvcp140.dll</HintPath>
 		</Reference>
-		<Reference Include="vcomp140.dll">
-			<HintPath>Bruker\vcomp140.dll</HintPath>
+		<Reference Include="vcomp140">
+			<HintPath>timsTOF\vcomp140.dll</HintPath>
 		</Reference>
-		<Reference Include="vcruntime140.dll">
-			<HintPath>Bruker\vcruntime140.dll</HintPath>
+		<Reference Include="vcruntime140">
+			<HintPath>timsTOF\vcruntime140.dll</HintPath>
 		</Reference>
-		<Reference Include="vcruntime140_1.dll">
-			<HintPath>Bruker\vcruntime140_1.dll</HintPath>
+		<Reference Include="vcruntime140_1">
+			<HintPath>timsTOF\vcruntime140_1.dll</HintPath>
 		</Reference>
-		<Reference Include="timsdata.dll">
-			<HintPath>Bruker\timsdata.dll</HintPath>
+		<Reference Include="timsdata">
+			<HintPath>timsTOF\timsdata.dll</HintPath>
 		</Reference>
-		<Reference Include="timsdata.lib">
-			<HintPath>Bruker\timsdata.lib</HintPath>
+		<Reference Include="timsdata">
+			<HintPath>timsTOF\timsdata.lib</HintPath>
 		</Reference>
 	</ItemGroup>
 
@@ -107,7 +108,7 @@
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="timsTOF\baf2sql_c.dll">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="timsTOF\baf2sql_c.lib">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
