@@ -26,8 +26,7 @@ namespace Readers
         MsPathFinderTDecoys,
         MsPathFinderTAllResults,
         CruxResult,
-        ExperimentAnnotation
-        CruxResult,
+        ExperimentAnnotation,
         BrukerD,
         BrukerTimsTof
     }
