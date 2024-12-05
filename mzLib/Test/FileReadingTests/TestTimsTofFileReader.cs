@@ -22,19 +22,14 @@ namespace Test.FileReadingTests
 
         public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
         public TimsTofFileReader _testReader;
+        public TimsDataScan _testMs2Scan;
 
-        [Test]
+        [OneTimeSetUp]
         public void SetUp()
         {
-            DateTime time = DateTime.Now;
-
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(maxThreads: 1);
-
-            DateTime time2 = DateTime.Now;
-            var timeDiff = time2 - time;
-            Console.WriteLine(timeDiff);
-            int placeholder = 0;
+            _testReader.LoadAllStaticData(maxThreads: 10);
+            _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
         }
 
         [Test]
@@ -118,77 +113,32 @@ namespace Test.FileReadingTests
                 MsDataFileReader.GetDataFile(fakePath));
         }
 
-        [Test]
-        public static void TestThreeMinuteReader()
-        {
-            Stopwatch watch = Stopwatch.StartNew();
-            var memoryBeforeReading = GC.GetTotalMemory(true) / 1000;
-
-            FilteringParams filter = new FilteringParams(
-                numberOfPeaksToKeepPerWindow: 200,
-                minimumAllowedIntensityRatioToBasePeak: 0.005,
-                windowWidthThomsons: null,
-                numberOfWindows: null,
-                normalizePeaksAcrossAllWindows: false,
-                applyTrimmingToMs1: false,
-                applyTrimmingToMsMs: true);
-
-            string filePath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d";
-            var test = new TimsTofFileReader(filePath).LoadAllStaticData(filteringParams: filter, maxThreads: 10);
-            //TimsTofFileReader testAsTimmyReader = (TimsTofFileReader)test;
-            watch.Stop();
-            var elapsedTimeSecond = watch.ElapsedMilliseconds / 1000;
-
-            StreamWriter output = new StreamWriter(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\DoubleMerging_reader.txt");
-            using (output)
-            {
-                output.WriteLine(elapsedTimeSecond.ToString() + " seconds to read in the file.");
-                output.WriteLine(test.Scans.Length + " scans read from file.");
-                output.WriteLine(memoryBeforeReading.ToString() + " kB used before reading.");
-                GC.Collect();
-                output.WriteLine((GC.GetTotalMemory(true) / 1000).ToString() + " kB used after reading.");
-            }
-
-            test.ExportAsMzML(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min_10ppm_Centroid_12_4_24.mzML", writeIndexed: true);
-            //Assert.Pass();
-        }
 
         [Test]
         public void TestLoadAllStaticData()
         {
             Assert.That(_testReader.NumSpectra, Is.EqualTo(4096));
-            Assert.That(_testReader.Scans[50].Polarity == Polarity.Positive);
-            Assert.That(_testReader.Scans[50].DissociationType == DissociationType.CID);
-            Assert.That(_testReader.Scans[50].TotalIonCurrent == 24722);
-            Assert.That(_testReader.Scans[50].NativeId == "frames=2-2;scans=354-379");
-            Assert.That(_testReader.Scans[50].SelectedIonMZ, Is.EqualTo(876.915).Within(0.001));
-            Assert.That(_testReader.Scans[50].MsnOrder == 2);
-            Assert.That(_testReader.Scans[50].IsCentroid);
+
+            Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
+            Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
+            Assert.That(_testMs2Scan.TotalIonCurrent == 32607);
+            Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
+            Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
+            Assert.That(_testMs2Scan.MsnOrder == 2);
+            Assert.That(_testMs2Scan.IsCentroid);
         }
 
         [Test]
         public void TestOneBasedPrecursor()
         {
-            TimsDataScan ms2Scan = (TimsDataScan)_testReader.Scans[50];
-            TimsDataScan ms1Scan = (TimsDataScan)_testReader.GetOneBasedScan((int)ms2Scan.OneBasedPrecursorScanNumber);
+            TimsDataScan ms1Scan = (TimsDataScan)_testReader.GetOneBasedScan((int)_testMs2Scan.OneBasedPrecursorScanNumber);
 
-            Assert.AreEqual(ms2Scan.PrecursorId, ms1Scan.PrecursorId);
+            Assert.AreEqual(_testMs2Scan.PrecursorId, ms1Scan.PrecursorId);
             // Check that the child and parent scan are both looking at the same timsScans (i.e., the same region in the ion-mobility dimension)
-            Assert.AreEqual(ms2Scan.ScanNumberStart, ms1Scan.ScanNumberStart);
-            Assert.AreEqual(ms2Scan.ScanNumberEnd, ms1Scan.ScanNumberEnd);
+            Assert.AreEqual(_testMs2Scan.ScanNumberStart, ms1Scan.ScanNumberStart);
+            Assert.AreEqual(_testMs2Scan.ScanNumberEnd, ms1Scan.ScanNumberEnd);
 
         }
-
-        // TODO: Ask Nic about complicated test case implementations
-        //[TestCase(
-        //    new List<double[]> { new double[] { 1, 3, 5, 7, 9 }, new double[] { 2, 4, 6, 8, 10 } }
-        //    )]
-        //public void TestSpectraMerger(
-        //    List<double[]> mzArrays, 
-        //    List<int[]> intensityArrays, 
-        //    int expectedSize, 
-        //    double[] expectedXArray,
-        //    double[] expectedYArray)
 
         [Test]
         public void TestSpectraMerger()
