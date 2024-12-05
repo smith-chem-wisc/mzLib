@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ThermoFisher.CommonCore.Data.Interfaces;
 
-namespace Readers.Bruker
+namespace Readers
 {
     internal class FrameProxyFactory
     {

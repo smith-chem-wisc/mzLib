@@ -4,7 +4,6 @@ using MassSpectrometry;
 using NUnit; 
 using NUnit.Framework;
 using Readers;
-using Readers.Bruker;
 
 namespace Test.FileReadingTests
 {

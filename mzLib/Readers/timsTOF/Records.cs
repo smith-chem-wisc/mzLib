@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Readers.Bruker
+namespace Readers
 {
     internal class Ms1Record
     {

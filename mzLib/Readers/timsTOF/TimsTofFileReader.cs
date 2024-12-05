@@ -7,7 +7,7 @@ using Easy.Common.Extensions;
 using MzLibUtil;
 using UsefulProteomicsDatabases;
 using System.Data.Common;
-using Readers.Bruker;
+using Readers;
 using System.Data.SqlClient;
 using System.Data;
 using ThermoFisher.CommonCore.Data.Business;

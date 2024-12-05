@@ -2,7 +2,7 @@
 using MassSpectrometry;
 using MzLibUtil;
 
-namespace Readers.Bruker
+namespace Readers
 {
     public static class TofSpectraMerger
     {

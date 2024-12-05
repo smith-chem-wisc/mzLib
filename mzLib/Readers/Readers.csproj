@@ -82,39 +82,6 @@
 		<None Update="Bruker\timsdata.lib">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="Bruker\TimsTofReader\baf2sql_c.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\baf2sql_c.lib">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\msvcp110.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\msvcp140.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\msvcr110.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\timsdata.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\timsdata.lib">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\vcomp110.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\vcomp140.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\vcruntime140.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Bruker\TimsTofReader\vcruntime140_1.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
 		<None Update="Bruker\vcomp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
@@ -138,6 +105,30 @@
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.RawFileReader.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\baf2sql_c.dll">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\baf2sql_c.lib">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\msvcp140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\timsdata.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\timsdata.lib">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\vcomp140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\vcruntime140.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\vcruntime140_1.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 
