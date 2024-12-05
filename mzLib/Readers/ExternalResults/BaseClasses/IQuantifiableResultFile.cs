@@ -24,6 +24,6 @@ namespace Readers.ExternalResults.BaseClasses
         /// </summary>
         /// <param name="fullFilePath"> list of file paths associated with each distinct record </param>
         /// <returns> Dictionary of file names and their associted full paths </returns>
-        public Dictionary<string, string> FileNametoFilePath(List<string> fullFilePath);
+        public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePath);
     }
 }

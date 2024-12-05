@@ -8,6 +8,9 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
+    /// <summary>
+    /// Parent class defining minimum requirement to be used <see cref="Deconvoluter"/> 
+    /// </summary>
     public abstract class DeconvolutionAlgorithm
     {
         // For ClassicDeconv. If not used elsewhere, move to that class
@@ -79,6 +82,6 @@ namespace MassSpectrometry
         /// <param name="spectrum">spectrum to be deconvoluted</param>
         /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
-        public abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range);
+        internal abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range);
     }
 }

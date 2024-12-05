@@ -110,9 +110,8 @@ namespace Test.DatabaseTests
 
             // check are equivalent lists of proteins
             Assert.AreEqual(proteins1.Count, proteins2.Count);
-            // Because decoys are written in a parallel environment, there is no guarantee that the orders will be the same
-            CollectionAssert.AreEquivalent(proteins1.Select(p => p.Accession), proteins2.Select(p => p.Accession));
-            CollectionAssert.AreEquivalent(proteins1.Select(p => p.BaseSequence), proteins2.Select(p => p.BaseSequence));
+            // Because decoys are sorted before they are returned, the order should be identical
+            Assert.AreEqual(proteins1, proteins2);
         }
 
         [Test]

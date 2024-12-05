@@ -15,27 +15,26 @@ namespace FlashLFQ
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
         private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
+        public string PepResultString { get; set; }
+        public double MbrQValueThreshold { get; set; }
 
-        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, HashSet<string> peptides = null)
+        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05,
+            HashSet<string> peptideModifiedSequencesToQuantify = null)
         {
             SpectraFiles = spectraFiles;
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
-            if(peptides == null || !peptides.Any())
-            {
-                peptides = identifications.Select(id => id.ModifiedSequence).ToHashSet();
-            }
-            _peptideModifiedSequencesToQuantify = peptides;
+            MbrQValueThreshold = mbrQValueThreshold;
+            _peptideModifiedSequencesToQuantify = peptideModifiedSequencesToQuantify ?? identifications.Where(id => !id.IsDecoy).Select(id => id.ModifiedSequence).ToHashSet();
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
                 Peaks.Add(file, new List<ChromatographicPeak>());
             }
 
-
             // Only quantify peptides within the set of valid peptide modified (full) sequences. This is done to enable pepitde-level FDR control of reported results
-            foreach (Identification id in identifications.Where(id => peptides.Contains(id.ModifiedSequence)))
+            foreach (Identification id in identifications.Where(id => !id.IsDecoy & _peptideModifiedSequencesToQuantify.Contains(id.ModifiedSequence)))
             {
                 if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
                 {
@@ -57,6 +56,17 @@ namespace FlashLFQ
                     }
                 }
             }
+        }
+
+        public void ReNormalizeResults(bool integrate = false, int maxThreads = 10, bool useSharedPeptides = false)
+        {
+            foreach(var peak in Peaks.SelectMany(p => p.Value))
+            {
+                peak.CalculateIntensityForThisFeature(integrate);
+            }
+            new IntensityNormalizationEngine(this, integrate, silent: true, maxThreads).NormalizeResults();
+            CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+            CalculateProteinResultsMedianPolish(useSharedPeptides: useSharedPeptides);
         }
 
         public void MergeResultsWith(FlashLfqResults mergeFrom)
@@ -128,6 +138,8 @@ namespace FlashLFQ
             {
                 var groupedPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
+                    .Where(p => !p.Identifications.First().IsDecoy)
+                    .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .GroupBy(p => p.Identifications.First().ModifiedSequence)
                     .Where(group => _peptideModifiedSequencesToQuantify.Contains(group.Key))
                     .ToList();
@@ -163,11 +175,15 @@ namespace FlashLFQ
                 // report ambiguous quantification
                 var ambiguousPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq > 1)
+                    .Where(p => !p.Identifications.First().IsDecoy)
+                    .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .ToList();
                 foreach (ChromatographicPeak ambiguousPeak in ambiguousPeaks)
                 {
-                    foreach (Identification id in ambiguousPeak.Identifications)
+                    foreach (Identification id in ambiguousPeak.Identifications.Where(id => !id.IsDecoy))
                     {
+                        if (!_peptideModifiedSequencesToQuantify.Contains(id.ModifiedSequence)) continue; // Ignore the ids/sequences we don't want to quantify
+
                         string sequence = id.ModifiedSequence;
 
                         double alreadyRecordedIntensity = PeptideModifiedSequences[sequence].GetIntensity(filePeaks.Key);
@@ -224,7 +240,7 @@ namespace FlashLFQ
 
                     foreach (SpectraFileInfo file in sample)
                     {
-                        foreach (ChromatographicPeak peak in Peaks[file])
+                        foreach (ChromatographicPeak peak in Peaks[file].Where(p => !p.IsMbrPeak || p.MbrQValue < MbrQValueThreshold))
                         {
                             foreach (Identification id in peak.Identifications)
                             {
@@ -549,7 +565,7 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent = true)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
         {
             if (!silent)
             {
