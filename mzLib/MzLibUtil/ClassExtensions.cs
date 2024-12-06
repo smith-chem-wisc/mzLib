@@ -29,27 +29,22 @@ namespace MzLibUtil
         /// <summary>
         /// Parses the full sequence to identify mods.
         /// </summary>
-        /// <param name="fullSeq"> Full sequence of the peptide in question</param>
-        /// <param name="IncludeNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
-        /// <param name="IncludeCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
+        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
+        /// <param name="modOnNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
+        /// <param name="modOnCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(this string fullSeq, bool IncludeNTerminus=false, bool IncludeCTerminus=false)
+        public static Dictionary<int, List<string>> ParseModifications(this string fullSequence, bool modOnNTerminus=false, bool modOnCTerminus=false)
         {
             // use a regex to get all modifications
-            string pattern = @"\[(.+?)\]";
+            string pattern = @"\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
             Regex regex = new(pattern);
 
             // remove each match after adding to the dict. Otherwise, getting positions
             // of the modifications will be rather difficult.
-            //int patternMatches = regex.Matches(fullSeq).Count;
+            //int patternMatches = regex.Matches(fullSequence).Count;
             Dictionary<int, List<string>> modDict = new();
 
-
-            // If there is a missed cleavage, then there will be a label on K and a Label on X modification.
-            // It'll be like [label]|[label] which complicates the positional stuff a little bit. Therefore, 
-            // RemoveSpecialCharacters will remove the "|", to ease things later on. 
-            RemoveSpecialCharacters(ref fullSeq);
-            MatchCollection matches = regex.Matches(fullSeq);
+            MatchCollection matches = regex.Matches(fullSequence);
             int captureLengthSum = 0;
             foreach (Match match in matches)
             {
@@ -68,13 +63,13 @@ namespace MzLibUtil
                 int positionToAddToDict = startIndex - captureLengthSum;
 
                 // Handle N terminus indexing
-                if ((positionToAddToDict == 0) && !IncludeNTerminus)
+                if ((positionToAddToDict == 0) && !modOnNTerminus)
                 {
                     positionToAddToDict++;
                 }
 
                 // Handle C terminus indexing
-                if ((fullSeq.Length == startIndex + captureLength) && IncludeCTerminus)
+                if ((fullSequence.Length == startIndex + captureLength) && modOnCTerminus)
                 {
                     positionToAddToDict++;
                 }
@@ -98,15 +93,15 @@ namespace MzLibUtil
         /// <summary>
         /// Fixes an issue where the | appears and throws off the numbering if there are multiple mods on a single amino acid.
         /// </summary>
-        /// <param name="fullSeq"></param>
+        /// <param name="fullSequence"></param>
         /// <param name="replacement"></param>
         /// <param name="specialCharacter"></param>
         /// <returns></returns>
-        public static void RemoveSpecialCharacters(ref string fullSeq, string replacement = @"", string specialCharacter = @"\|")
+        public static void RemoveSpecialCharacters(ref string fullSequence, string replacement = @"", string specialCharacter = @"\|")
         {
             // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
             Regex regexSpecialChar = new(specialCharacter);
-            fullSeq = regexSpecialChar.Replace(fullSeq, replacement);
+            fullSequence = regexSpecialChar.Replace(fullSequence, replacement);
         }
 
         public static double[] BoxCarSmooth(this double[] data, int points)
