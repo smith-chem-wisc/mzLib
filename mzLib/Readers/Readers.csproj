@@ -35,24 +35,6 @@
 		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
 			<HintPath>Thermo\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
 		</Reference>
-		<Reference Include="msvcp140">
-			<HintPath>timsTOF\msvcp140.dll</HintPath>
-		</Reference>
-		<Reference Include="vcomp140">
-			<HintPath>timsTOF\vcomp140.dll</HintPath>
-		</Reference>
-		<Reference Include="vcruntime140">
-			<HintPath>timsTOF\vcruntime140.dll</HintPath>
-		</Reference>
-		<Reference Include="vcruntime140_1">
-			<HintPath>timsTOF\vcruntime140_1.dll</HintPath>
-		</Reference>
-		<Reference Include="timsdata">
-			<HintPath>timsTOF\timsdata.dll</HintPath>
-		</Reference>
-		<Reference Include="timsdata">
-			<HintPath>timsTOF\timsdata.lib</HintPath>
-		</Reference>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -138,9 +120,6 @@
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="timsTOF\msvcp140.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\timsdata.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="timsTOF\timsdata.lib">
