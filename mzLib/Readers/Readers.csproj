@@ -89,49 +89,16 @@
 		<None Update="Thermo\ThermoFisher.CommonCore.RawFileReader.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="timsTOF\api-ms-win-crt-filesystem-l1-1-0.dll">
+		<None Update="timsdata.dll">
 		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
-		<None Update="timsTOF\api-ms-win-crt-heap-l1-1-0.dll">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\api-ms-win-crt-locale-l1-1-0.dll">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\api-ms-win-crt-math-l1-1-0.dll">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\api-ms-win-crt-runtime-l1-1-0.dll">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\api-ms-win-crt-stdio-l1-1-0.dll">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\api-ms-win-crt-string-l1-1-0.dll">
-		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\api-ms-win-crt-time-l1-1-0.dll">
+		<None Update="timsdata.lib">
 		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 		<None Update="timsTOF\baf2sql_c.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="timsTOF\baf2sql_c.lib">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\msvcp140.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\timsdata.lib">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\vcomp140.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\vcruntime140.dll">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="timsTOF\vcruntime140_1.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
