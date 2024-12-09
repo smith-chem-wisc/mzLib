@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>mzLib</id>
-    <version>5.706.0</version>
+    <version>5.800.1</version>
     <title>mzLib</title>
     <authors>Stef S.</authors>
     <owners>Stef S.</owners>
@@ -63,8 +63,8 @@
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net8.0" />
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net8.0" />
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net8.0" />
-	<file src="Readers\bin\x64\Release\net8.0\Bruker\timsdata.dll" target="lib\net8.0" />
-	<file src="Readers\bin\x64\Release\net8.0\Bruker\timsdata.lib" target="lib\net8.0" />
+	<file src="Readers\bin\x64\Release\net8.0\timsdata.dll" target="lib\net8.0" />
+	<file src="Readers\bin\x64\Release\net8.0\timsdata.lib" target="lib\net8.0" />
 	<file src="Readers\bin\x64\Release\net8.0\Bruker\msvcp110.dll" target="lib\net8.0" />
 	<file src="Readers\bin\x64\Release\net8.0\Bruker\msvcr110.dll" target="lib\net8.0" />
     <file src="UsefulProteomicsDatabases\bin\x64\Release\net8.0\UsefulProteomicsDatabases.dll" target="lib\net8.0" />
@@ -89,8 +89,8 @@
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net8.0-windows7.0" />
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net8.0-windows7.0" />
     <file src="Readers\bin\x64\Release\net8.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net8.0-windows7.0" />
-	<file src="Readers\bin\x64\Release\net8.0\Bruker\timsdata.dll" target="lib\net8.0-windows7.0" />
-	<file src="Readers\bin\x64\Release\net8.0\Bruker\timsdata.lib" target="lib\net8.0-windows7.0" />
+	<file src="Readers\bin\x64\Release\net8.0\timsdata.dll" target="lib\net8.0-windows7.0" />
+	<file src="Readers\bin\x64\Release\net8.0\timsdata.lib" target="lib\net8.0-windows7.0" />
 	<file src="Readers\bin\x64\Release\net8.0\Bruker\msvcp110.dll" target="lib\net8.0-windows7.0" />
 	<file src="Readers\bin\x64\Release\net8.0\Bruker\msvcr110.dll" target="lib\net8.0-windows7.0" />
     <file src="UsefulProteomicsDatabases\bin\x64\Release\net8.0\UsefulProteomicsDatabases.dll" target="lib\net8.0-windows7.0" />

@@ -138,9 +138,21 @@ namespace Readers
             var framesTable = new FrameTable(_sqlConnection, NumberOfFrames);
             if (framesTable == null)
                 throw new MzLibException("Something went wrong while loading the Frames table from the analysis.tdf database.");
-            FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock);
+
+            int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
+            FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs);
             if (FrameProxyFactory == null)
                 throw new MzLibException("Something went wrong constructing the FrameProxyFactory.");
+        }
+
+        internal int GetNumberOfDigitizerSamples()
+        {
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT value FROM GlobalMetadata" +
+                " WHERE GlobalMetadata.Key = 'DigitizerNumSamples'";
+            using var reader = command.ExecuteReader();
+            reader.Read();
+            return Int32.Parse(reader.GetString(0));
         }
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
@@ -158,7 +170,6 @@ namespace Readers
             BuildProxyFactory();
             
             _maxThreads = maxThreads;
-            //List<TimsDataScan> scanList = new();
             Ms1ScanBag = new();
             PasefScanBag = new();
             Parallel.ForEach(
@@ -171,15 +182,9 @@ namespace Readers
                     BuildMS1Scans(Ms1FrameIds[i], filteringParams);
                 }
             });
-            //for (int i = 0; i < Ms1FrameIds.Count; i++)
-            //{
-            //    long frameId = Ms1FrameIds[i];
-                
-            //    BuildMS1Scans(frameId, filteringParams);
-            //}
+
             CloseDynamicConnection();
             AssignOneBasedPrecursorsToPasefScans();
-            //Scans = scanList.ToArray();
             SourceFile = GetSourceFile();
             return this;
         }
@@ -297,8 +302,8 @@ namespace Readers
                 intensityArrays.Add(frame.GetScanIntensities(scan));
             }
             // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = ConvertScansToSpectrum(indexArrays, intensityArrays, filteringParams);
-            if(averagedSpectrum.Size < 1)
+            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
+            if (averagedSpectrum.Size < 1)
             {
                 return null;
             }
@@ -322,7 +327,7 @@ namespace Readers
                 frameId: frame.FrameId,
                 scanNumberStart: record.ScanStart,
                 scanNumberEnd: record.ScanEnd,
-                medianOneOverK0: 0,//frame.GetOneOverK0((double)record.ScanMedian),
+                medianOneOverK0: FrameProxyFactory.GetOneOverK0(record.ScanMedian),
                 precursorId: record.PrecursorId);
 
             return dataScan;
@@ -388,7 +393,7 @@ namespace Readers
                             frameId: frameList.First(),
                             scanNumberStart: scanStart,
                             scanNumberEnd: scanEnd,
-                            medianOneOverK0: -1, // Needs to be set later
+                            medianOneOverK0: FrameProxyFactory.GetOneOverK0(scanMedian), // Needs to be set later
                             precursorId: precursorId,
                             selectedIonMz: mostAbundantPrecursorPeak,
                             selectedIonChargeStateGuess: charge,
@@ -437,17 +442,6 @@ namespace Readers
             }
         }
 
-        // Called by get MS1 Scan 
-        internal MzSpectrum ConvertScansToSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays, FilteringParams filteringParams)
-        {
-            return TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
-        }
-
-        internal (uint[] Indices, int[] Intensities) ConvertScansToArray(List<uint[]> indexArrays, List<int[]> intensityArrays)
-        {
-            return TofSpectraMerger.MergeArraysToArray(indexArrays, intensityArrays);
-        }
-        
 
         private const string nativeIdFormat = "Frame ID + scan number range format";
         private const string massSpecFileFormat = ".D format";

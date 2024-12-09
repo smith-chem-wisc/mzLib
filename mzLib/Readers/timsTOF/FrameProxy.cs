@@ -17,19 +17,19 @@ namespace Readers
         internal UInt64 FileHandle { get; }
         internal Object FileLock { get; }
         internal TimsConversion Converter { get; }
-
-        public static int maxIdx = 396861;
-        public Dictionary<uint, double> mzLookup { get; set; }
-
+        public int MaxIndex { get; init; } 
         public double[] MzLookupArray { get; set; }
 
-        internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock)
+        public double[] OneOverK0LookupArray { get; set; }
+
+        internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock, int maxIndex)
         {
             FramesTable = table;
             FileHandle = fileHandle;
             FileLock = fileLock;
             Converter = new TimsConversion(fileHandle, fileLock);
-            InitializeLookup(fileHandle);
+            MaxIndex = maxIndex;
+            InitializeLookupTables(fileHandle);
         }   
 
         internal FrameProxy GetFrameProxy(long frameId)
@@ -59,33 +59,55 @@ namespace Readers
             double[] mzArray = new double[indices.Count()];
             for (int idx = 0; idx < indices.Count(); idx++)
             {
+                if (indices[idx] >= MzLookupArray.Length)
+                    throw new ArgumentException("Index out of range");
                 mzArray[idx] = MzLookupArray[indices[idx]];
             }
             return mzArray;
         }
 
         /// <summary>
-        /// Accesses the file, then stores the index to m/z lookup in the mzLookup array
+        /// Accesses the file, then stores the index to m/z lookup in the mzLookup array and the index to 1/k0 lookup in the OneOverK0LookupArray
         /// </summary>
         /// <param name="handle"></param>
-        internal void InitializeLookup(ulong handle)
+        internal void InitializeLookupTables(ulong handle)
         {
 
-            uint[] lArray = new uint[maxIdx];
-            for (uint i = 0; i < maxIdx; i++)
+            uint[] lArray = new uint[MaxIndex];
+            for (uint i = 0; i < MaxIndex; i++)
             {
                 lArray[i] = i;
             }
 
             double[] mzLookupIndices = Array
                 .ConvertAll(lArray, entry => (double)entry);
-            MzLookupArray = Converter.DoTransformation(handle, 1, mzLookupIndices, ConversionFunctions.IndexToMz);
+
+            long medianFrameId = FramesTable.OneBasedFrameIndex[FramesTable.OneBasedFrameIndex.Length / 2];
+            MzLookupArray = Converter.DoTransformation(handle, medianFrameId, mzLookupIndices, ConversionFunctions.IndexToMz);
+
+            int scanMax = FramesTable.NumScans.Max();
+            double[] oneOverK0LookupIndices = Array
+                .ConvertAll(Enumerable.Range(0, scanMax).ToArray(), entry => (double)entry);
+            OneOverK0LookupArray = Converter.DoTransformation(handle, medianFrameId, oneOverK0LookupIndices, ConversionFunctions.ScanToOneOverK0);
         }
 
 
         internal Polarity GetPolarity(long frameId)
         {
             return FramesTable.Polarity[frameId - 1] == '+' ? Polarity.Positive : Polarity.Negative;
+        }
+
+        internal double GetOneOverK0(double medianScanNumber)
+        {
+            // The lookup array is 0-indexed, so we need to subtract 1 from the scan number
+            if (medianScanNumber % 1 == 0)
+                return OneOverK0LookupArray[(int)medianScanNumber - 1];
+            else
+            {
+                int floor = (int)Math.Floor(medianScanNumber);
+                int ceil = (int)Math.Ceiling(medianScanNumber);
+                return (OneOverK0LookupArray[floor - 1] + OneOverK0LookupArray[ceil - 1]) / 2;
+            }
         }
 
         internal double GetRetentionTime(long frameId)

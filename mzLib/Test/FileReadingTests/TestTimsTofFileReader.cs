@@ -58,6 +58,20 @@ namespace Test.FileReadingTests
             Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
         }
 
+        //[Test]
+        //public void LocalFileTest()
+        //{
+        //    string localPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\20230505_TIMS05_PaSk_MA_HeLa_6min_ddaP_S1-F2_1_2352.d";
+
+        //    var timer = new Stopwatch();
+        //    timer.Start();
+        //    var reader = new TimsTofFileReader(localPath);
+        //    reader.LoadAllStaticData(maxThreads: 10);
+        //    timer.Stop();
+
+        //    Console.WriteLine($"Time to load all static data: {timer.ElapsedMilliseconds} ms");
+        //}
+
         [Test]
         public void TestCollapse()
         {
@@ -124,6 +138,8 @@ namespace Test.FileReadingTests
             Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
             Assert.That(_testMs2Scan.MsnOrder == 2);
             Assert.That(_testMs2Scan.IsCentroid);
+            Assert.That(_testMs2Scan.ScanNumberStart == 410);
+            Assert.That(_testMs2Scan.OneOverK0, Is.EqualTo(1.0424).Within(0.0001));
         }
 
         [Test]
@@ -135,6 +151,7 @@ namespace Test.FileReadingTests
             // Check that the child and parent scan are both looking at the same timsScans (i.e., the same region in the ion-mobility dimension)
             Assert.AreEqual(_testMs2Scan.ScanNumberStart, ms1Scan.ScanNumberStart);
             Assert.AreEqual(_testMs2Scan.ScanNumberEnd, ms1Scan.ScanNumberEnd);
+            Assert.AreEqual(_testMs2Scan.OneOverK0, ms1Scan.OneOverK0);
 
         }
 
