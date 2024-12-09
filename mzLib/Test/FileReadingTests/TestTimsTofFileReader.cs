@@ -26,8 +26,8 @@ namespace Test.FileReadingTests
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(maxThreads: 10);
-            _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
+            //_testReader.LoadAllStaticData(maxThreads: 10);
+            //_testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
         }
 
         [Test]
@@ -58,19 +58,19 @@ namespace Test.FileReadingTests
             Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
         }
 
-        //[Test]
-        //public void LocalFileTest()
-        //{
-        //    string localPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\20230505_TIMS05_PaSk_MA_HeLa_6min_ddaP_S1-F2_1_2352.d";
+        [Test]
+        public void LocalFileTest()
+        {
+            string localPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d";
 
-        //    var timer = new Stopwatch();
-        //    timer.Start();
-        //    var reader = new TimsTofFileReader(localPath);
-        //    reader.LoadAllStaticData(maxThreads: 10);
-        //    timer.Stop();
+            var timer = new Stopwatch();
+            timer.Start();
+            var reader = new TimsTofFileReader(localPath);
+            reader.LoadAllStaticData(maxThreads: 10);
+            timer.Stop();
 
-        //    Console.WriteLine($"Time to load all static data: {timer.ElapsedMilliseconds} ms");
-        //}
+            Console.WriteLine($"Time to load all static data: {timer.ElapsedMilliseconds} ms");
+        }
 
         [Test]
         public void TestCollapse()

@@ -31,24 +31,24 @@ namespace Readers
             return new MzSpectrum(mzsArray, intensitiesArray, shouldCopy: false);
         }
 
-        internal static (uint[] Indices, int[] Intensities) MergeArraysToArray(List<uint[]> indexArrays, List<int[]> intensityArrays)
-        {
-            if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
-                return (new uint[0], new int[0]);
+        //internal static (uint[] Indices, int[] Intensities) MergeArraysToArray(List<uint[]> indexArrays, List<int[]> intensityArrays)
+        //{
+        //    if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
+        //        return (new uint[0], new int[0]);
 
-            // Merge all index arrays and intensity arrays into a single array
-            uint[] combinedIndices = indexArrays[0];
-            int[] combinedIntensities = intensityArrays[0];
-            for (int i = 1; i < indexArrays.Count(); i++)
-            {
-                var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
-                combinedIndices = mergeResults.Indices;
-                combinedIntensities = mergeResults.Intensities;
-            }
+        //    // Merge all index arrays and intensity arrays into a single array
+        //    uint[] combinedIndices = indexArrays[0];
+        //    int[] combinedIntensities = intensityArrays[0];
+        //    for (int i = 1; i < indexArrays.Count(); i++)
+        //    {
+        //        var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
+        //        combinedIndices = mergeResults.Indices;
+        //        combinedIntensities = mergeResults.Intensities;
+        //    }
 
-            // Collapse the combined arrays into a single array (centroiding, more or less)
-            return CollapseArrays(combinedIndices, combinedIntensities);
-        }
+        //    // Collapse the combined arrays into a single array (centroiding, more or less)
+        //    return CollapseArrays(combinedIndices, combinedIntensities);
+        //}
 
         public static (uint[] Indices, int[] Intensities) TwoPointerMerge(uint[] indexArray1, uint[] indexArray2, int[] intensityArray1, int[] intensityArray2)
         {
