@@ -302,7 +302,7 @@ namespace Readers
                 intensityArrays.Add(frame.GetScanIntensities(scan));
             }
             // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
+            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
             if (averagedSpectrum.Size < 1)
             {
                 return null;

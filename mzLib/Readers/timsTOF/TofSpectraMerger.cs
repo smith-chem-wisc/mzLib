@@ -8,7 +8,8 @@ namespace Readers
     {
         public static readonly double DefaultPpmTolerance = 10;
 
-        internal static MzSpectrum CreateFilteredSpectrum(IList<double> mzs, IList<int> intensities, FilteringParams filteringParams = null)
+        internal static MzSpectrum CreateFilteredSpectrum(IList<double> mzs, IList<int> intensities,
+            FilteringParams filteringParams = null, int msnLevel = 1)
         {
             // Convert the indices to m/z values
             double[] mzsArray = mzs.ToArray();
@@ -21,34 +22,16 @@ namespace Readers
 
             if (filteringParams != null
                 && mzsArray.Length > 0
-                && filteringParams.ApplyTrimmingToMs1)
+                && (   (filteringParams.ApplyTrimmingToMs1 && msnLevel == 1) 
+                    || (filteringParams.ApplyTrimmingToMsMs && msnLevel > 1)) )
             {
                 WindowModeHelper.Run(ref intensitiesArray,
                     ref mzsArray, filteringParams,
-                    mzsArray[0], mzsArray[^0]);
+                    mzsArray[0], mzsArray[^1]);
             }
             // TODO: This would be more performant if we kept the intensities as ints
             return new MzSpectrum(mzsArray, intensitiesArray, shouldCopy: false);
         }
-
-        //internal static (uint[] Indices, int[] Intensities) MergeArraysToArray(List<uint[]> indexArrays, List<int[]> intensityArrays)
-        //{
-        //    if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
-        //        return (new uint[0], new int[0]);
-
-        //    // Merge all index arrays and intensity arrays into a single array
-        //    uint[] combinedIndices = indexArrays[0];
-        //    int[] combinedIntensities = intensityArrays[0];
-        //    for (int i = 1; i < indexArrays.Count(); i++)
-        //    {
-        //        var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
-        //        combinedIndices = mergeResults.Indices;
-        //        combinedIntensities = mergeResults.Intensities;
-        //    }
-
-        //    // Collapse the combined arrays into a single array (centroiding, more or less)
-        //    return CollapseArrays(combinedIndices, combinedIntensities);
-        //}
 
         public static (uint[] Indices, int[] Intensities) TwoPointerMerge(uint[] indexArray1, uint[] indexArray2, int[] intensityArray1, int[] intensityArray2)
         {
@@ -139,7 +122,7 @@ namespace Readers
 
         #region MzLevelOperations
 
-        internal static MzSpectrum MergeArraysToSpectrum(
+        internal static MzSpectrum MergeArraysToMs1Spectrum(
             List<uint[]> indexArrays, 
             List<int[]> intensityArrays, 
             FrameProxyFactory proxyFactory,
@@ -164,7 +147,8 @@ namespace Readers
             return CreateFilteredSpectrum(
                 centroidedResults.Mzs,
                 centroidedResults.Intensities,
-                filteringParams);
+                filteringParams,
+                msnLevel: 1);
         }
 
         internal static (double[] Mzs, int[] Intensities) CollapseArrays(double[] mzArray, int[] intensityArray, double ppmTolerance = -1)
@@ -245,7 +229,7 @@ namespace Readers
             return CollapseArrays(mzsArray, combinedIntensities);
         }
 
-        internal static MzSpectrum MergeArraysToSpectrum(
+        internal static MzSpectrum MergeArraysToMs2Spectrum(
             List<double[]> mzArrays, 
             List<int[]> intensityArrays, 
             FilteringParams filteringParams = null, 
@@ -267,7 +251,11 @@ namespace Readers
             // Collapse the combined arrays into a single array (centroiding, more or less)
             var centroidedResults = CollapseArrays(combinedMzs, combinedIntensities, ppmTolerance);
 
-            return CreateFilteredSpectrum(centroidedResults.Mzs, centroidedResults.Intensities, filteringParams);
+            return CreateFilteredSpectrum(
+                centroidedResults.Mzs,
+                centroidedResults.Intensities,
+                filteringParams,
+                msnLevel: 2);
         }
 
         public static (double[] Mzs, int[] Intensities) TwoPointerMerge(double[] mzArray1, double[] mzArray2, int[] intensityArray1, int[] intensityArray2)

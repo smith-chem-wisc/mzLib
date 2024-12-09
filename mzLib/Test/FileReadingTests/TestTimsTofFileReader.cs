@@ -25,9 +25,10 @@ namespace Test.FileReadingTests
         [OneTimeSetUp]
         public void SetUp()
         {
+            FilteringParams filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
             _testReader = new TimsTofFileReader(_testDataPath);
-            //_testReader.LoadAllStaticData(maxThreads: 10);
-            //_testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
+            _testReader.LoadAllStaticData(filteringParams: filteringParams, maxThreads: 10);
+            _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
         }
 
         [Test]
@@ -58,19 +59,19 @@ namespace Test.FileReadingTests
             Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
         }
 
-        [Test]
-        public void LocalFileTest()
-        {
-            string localPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d";
+        //[Test]
+        //public void LocalFileTest()
+        //{
+        //    string localPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d";
 
-            var timer = new Stopwatch();
-            timer.Start();
-            var reader = new TimsTofFileReader(localPath);
-            reader.LoadAllStaticData(maxThreads: 10);
-            timer.Stop();
+        //    var timer = new Stopwatch();
+        //    timer.Start();
+        //    var reader = new TimsTofFileReader(localPath);
+        //    reader.LoadAllStaticData(maxThreads: 10);
+        //    timer.Stop();
 
-            Console.WriteLine($"Time to load all static data: {timer.ElapsedMilliseconds} ms");
-        }
+        //    Console.WriteLine($"Time to load all static data: {timer.ElapsedMilliseconds} ms");
+        //}
 
         [Test]
         public void TestCollapse()
@@ -133,7 +134,7 @@ namespace Test.FileReadingTests
 
             Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
             Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
-            Assert.That(_testMs2Scan.TotalIonCurrent == 32607);
+            Assert.That(_testMs2Scan.TotalIonCurrent == 25688);
             Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
             Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
             Assert.That(_testMs2Scan.MsnOrder == 2);
@@ -164,7 +165,7 @@ namespace Test.FileReadingTests
             int[] intensity1 = new int[] { 1, 3, 5, 7, 9 };
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToSpectrum(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
                 new List<double[]> { mz1, mz2 },
                 new List<int[]> { intensity1, intensity2 });
 
@@ -181,7 +182,7 @@ namespace Test.FileReadingTests
             int[] intensity1 = new int[] { 1, 3, 5, 7, 9, 10 };
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToSpectrum(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
                 new List<double[]> { mz1, mz2 },
                 new List<int[]> { intensity1, intensity2 });
 
@@ -201,7 +202,7 @@ namespace Test.FileReadingTests
             int[] intensity2 = new int[] { 2, 5, 8 };
             int[] intensity3 = new int[] { 3, 6, 9 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToSpectrum(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
                 new List<double[]> { mz1, mz2, mz3 },
                 new List<int[]> { intensity1, intensity2, intensity3 });
 
@@ -222,7 +223,7 @@ namespace Test.FileReadingTests
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
             int[] intensity3 = new int[] { 10, 10, 11 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToSpectrum(
+            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
                 new List<double[]> { mz1, mz2, mz3 },
                 new List<int[]> { intensity1, intensity2, intensity3 });
 
