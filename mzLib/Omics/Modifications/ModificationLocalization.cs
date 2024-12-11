@@ -5,42 +5,38 @@
         public static bool ModFits(Modification attemptToLocalize, string sequence, int digestionProductOneBasedIndex, int digestionProductLength, int bioPolymerOneBasedIndex)
         {
             // First find the capital letter...
-            var motif = attemptToLocalize.Target;
-            var motifStartLocation = motif.ToString().IndexOf(motif.ToString().First(b => char.IsUpper(b)));
+            var motif = attemptToLocalize.Target.ToString();
+            var motifStartLocation = motif.IndexOf(motif.First(char.IsUpper));
 
             // Look up starting at and including the capital letter
             var proteinToMotifOffset = bioPolymerOneBasedIndex - motifStartLocation - 1;
-            var indexUp = 0;
-            while (indexUp < motif.ToString().Length)
+            var motifLength = motif.Length;
+
+            for (int indexUp = 0; indexUp < motifLength; indexUp++)
             {
-                if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= sequence.Length
-                    || !MotifMatches(motif.ToString()[indexUp], sequence[indexUp + proteinToMotifOffset]))
+                int sequenceIndex = indexUp + proteinToMotifOffset;
+                if (sequenceIndex < 0 || sequenceIndex >= sequence.Length || !MotifMatches(motif[indexUp], sequence[sequenceIndex]))
                 {
                     return false;
                 }
-                indexUp++;
             }
-            switch (attemptToLocalize.LocationRestriction)
+
+            return attemptToLocalize.LocationRestriction switch
             {
-                case "N-terminal." when bioPolymerOneBasedIndex > 2:
-                case "Peptide N-terminal." when digestionProductOneBasedIndex > 1:
-                case "C-terminal." when bioPolymerOneBasedIndex < sequence.Length:
-                case "Peptide C-terminal." when digestionProductOneBasedIndex < digestionProductLength:
-                case "5'-terminal." when bioPolymerOneBasedIndex > 2:
-                // first residue in oligo but not first in nucleic acid
-                case "Oligo 5'-terminal." when digestionProductOneBasedIndex > 1
-                                               || bioPolymerOneBasedIndex == 1:
-                case "3'-terminal." when bioPolymerOneBasedIndex < sequence.Length:
-                // not the last residue in oligo but not in nucleic acid
-                case "Oligo 3'-terminal." when digestionProductOneBasedIndex < digestionProductLength
-                                               || bioPolymerOneBasedIndex == sequence.Length:
-                    return false;
-
-                default:
+                "N-terminal." when bioPolymerOneBasedIndex > 2 => false,
+                "Peptide N-terminal." when digestionProductOneBasedIndex > 1 => false,
+                "C-terminal." when bioPolymerOneBasedIndex < sequence.Length => false,
+                "Peptide C-terminal." when digestionProductOneBasedIndex < digestionProductLength => false,
+                "5'-terminal." when bioPolymerOneBasedIndex > 2 => false,
+                    // first residue in oligo but not first in nucleic acid
+                "Oligo 5'-terminal." when digestionProductOneBasedIndex > 1 || bioPolymerOneBasedIndex == 1 => false,
+                "3'-terminal." when bioPolymerOneBasedIndex < sequence.Length => false,
+                    // last residue in oligo but not in nucleic acid
+                "Oligo 3'-terminal." when digestionProductOneBasedIndex < digestionProductLength || bioPolymerOneBasedIndex == sequence.Length => false,
                     // I guess Anywhere. and Unassigned. are true since how do you localize anywhere or unassigned.
-
-                    return true;
-            }
+                    
+                _ => true,
+            };
         }
 
         public static bool UniprotModExists(IBioPolymer bioPolymer, int i, Modification attemptToLocalize)
