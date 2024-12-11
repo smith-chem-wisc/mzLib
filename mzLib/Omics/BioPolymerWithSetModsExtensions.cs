@@ -112,7 +112,8 @@ public static class BioPolymerWithSetModsExtensions
     /// <returns></returns>
     public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods)
     {
-        var subSequence = new StringBuilder();
+        // start string builder with initial capacity to avoid resizing costs. 
+        var subSequence = new StringBuilder(withSetMods.BaseSequence.Length + withSetMods.AllModsOneIsNterminus.Count * 20);
 
         // modification on peptide N-terminus
         if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification mod))

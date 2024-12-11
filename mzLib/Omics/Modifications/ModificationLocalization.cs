@@ -52,11 +52,19 @@
         private static bool MotifMatches(char motifChar, char sequenceChar)
         {
             char upperMotifChar = char.ToUpper(motifChar);
-            return upperMotifChar.Equals('X')
-                || upperMotifChar.Equals(sequenceChar)
-                || upperMotifChar.Equals('B') && new[] { 'D', 'N' }.Contains(sequenceChar)
-                || upperMotifChar.Equals('J') && new[] { 'I', 'L' }.Contains(sequenceChar)
-                || upperMotifChar.Equals('Z') && new[] { 'E', 'Q' }.Contains(sequenceChar);
+            switch (upperMotifChar)
+            {
+                case 'X':
+                    return true;
+                case 'B':
+                    return sequenceChar is 'D' or 'N';
+                case 'J':
+                    return sequenceChar is 'I' or 'L';
+                case 'Z':
+                    return sequenceChar is 'E' or 'Q';
+                default:
+                    return upperMotifChar == sequenceChar;
+            }
         }
     }
 }
