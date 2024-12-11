@@ -52,8 +52,17 @@ namespace Omics.Digestion
                 var possible_variable_modifications = new Dictionary<int, List<Modification>>(possibleVariableModifications);
 
                 int[] base_variable_modification_pattern = new int[peptideLength + 4];
-                var totalAvailableMods = possible_variable_modifications.Sum(b => b.Value == null ? 0 : b.Value.Count);
-                for (int variable_modifications = 0; variable_modifications <= Math.Min(totalAvailableMods, maxModsForPeptide); variable_modifications++)
+                int totalAvailableMods = 0;
+                foreach (var kvp in possible_variable_modifications)
+                {
+                    if (kvp.Value != null)
+                    {
+                        totalAvailableMods += kvp.Value.Count;
+                    }
+                }
+
+                int maxVariableMods = Math.Min(totalAvailableMods, maxModsForPeptide);
+                for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
                 {
                     foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(new List<KeyValuePair<int, List<Modification>>>(possible_variable_modifications),
                         possible_variable_modifications.Count - variable_modifications, base_variable_modification_pattern, 0))
@@ -77,17 +86,12 @@ namespace Omics.Digestion
                     case "N-terminal.":
                     case "Peptide N-terminal.":
                         //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
-                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
+                        if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
-                            if (OneBasedStartResidue != 1)
-                            {
+                            if (mod.ModificationType == "Protease" && OneBasedStartResidue != 1)
                                 fixedModsOneIsNterminus[2] = mod;
-                            }
-                        }
-                        //Normal N-terminal peptide modification
-                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
-                        {
-                            fixedModsOneIsNterminus[1] = mod;
+                            else //Normal N-terminal peptide modification
+                                fixedModsOneIsNterminus[1] = mod;
                         }
                         break;
 
@@ -106,17 +110,12 @@ namespace Omics.Digestion
                     case "C-terminal.":
                     case "Peptide C-terminal.":
                         //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
-                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
+                        if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
                         {
-                            if (OneBasedEndResidue != Parent.Length)
-                            {
+                            if (mod.ModificationType == "Protease" && OneBasedEndResidue != Parent.Length)
                                 fixedModsOneIsNterminus[length + 1] = mod;
-                            }
-                        }
-                        //Normal C-terminal peptide modification 
-                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
-                        {
-                            fixedModsOneIsNterminus[length + 2] = mod;
+                            else //Normal C-terminal peptide modification 
+                                fixedModsOneIsNterminus[length + 2] = mod;
                         }
                         break;
 
@@ -188,7 +187,5 @@ namespace Omics.Digestion
 
             return modification_pattern;
         }
-
-
     }
 }

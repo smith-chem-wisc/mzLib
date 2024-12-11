@@ -2,6 +2,7 @@
 {
     public static class ModificationLocalization
     {
+        // This method is called a ton in MetaMorpheus. If changes are made, ensure they are efficient. 
         public static bool ModFits(Modification attemptToLocalize, string sequence, int digestionProductOneBasedIndex, int digestionProductLength, int bioPolymerOneBasedIndex)
         {
             // First find the capital letter...
