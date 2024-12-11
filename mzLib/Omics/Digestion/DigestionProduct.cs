@@ -85,11 +85,15 @@ namespace Omics.Digestion
                     case "Oligo 5'-terminal.":
                     case "N-terminal.":
                     case "Peptide N-terminal.":
+
                         //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
                         if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
-                            if (mod.ModificationType == "Protease" && OneBasedStartResidue != 1)
-                                fixedModsOneIsNterminus[2] = mod;
+                            if (mod.ModificationType == "Protease")
+                            {
+                                if (OneBasedStartResidue != 1)
+                                    fixedModsOneIsNterminus[2] = mod;
+                            }
                             else //Normal N-terminal peptide modification
                                 fixedModsOneIsNterminus[1] = mod;
                         }
@@ -112,8 +116,11 @@ namespace Omics.Digestion
                         //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
                         if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
                         {
-                            if (mod.ModificationType == "Protease" && OneBasedEndResidue != Parent.Length)
-                                fixedModsOneIsNterminus[length + 1] = mod;
+                            if (mod.ModificationType == "Protease")
+                            {
+                                if (OneBasedEndResidue != Parent.Length)
+                                    fixedModsOneIsNterminus[length + 1] = mod;
+                            }
                             else //Normal C-terminal peptide modification 
                                 fixedModsOneIsNterminus[length + 2] = mod;
                         }
