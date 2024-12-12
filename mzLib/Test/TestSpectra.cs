@@ -597,18 +597,18 @@ namespace Test
         {
             Dictionary<(string, string), string> baseSequencefullSequencQvaluePepQvalueforPSMs = new Dictionary<(string, string), string>();
 
-            using (StreamReader sr = new StreamReader(@"C:\Users\Michael Shortreed\Downloads\4-26-24 AD Brain DHAA Analysis\AllPSMsMarkovich.psmtsv"))
+            using (StreamReader sr = new StreamReader(@"E:\Projects\SteenSearchResults\AllPSMs.psmtsv"))
             {
                 bool continueReading = true;
                 string line;
                 while ((line = sr.ReadLine()) != null && continueReading)
                 {
                     string[] fields = line.Split('\t');
-                    string baseSequence = fields[12];
-                    string fullSequence = fields[13];
-                    string targetDecoyContam = fields[38];
-                    string qValue = fields[50];
-                    string pepQValue = fields[55];
+                    string baseSequence = fields[13];
+                    string fullSequence = fields[14];
+                    string targetDecoyContam = fields[39];
+                    string qValue = fields[51];
+                    string pepQValue = fields[56];
                     if (targetDecoyContam == "T" && double.TryParse(qValue, out double qValueDouble))
                     {
                         if (qValueDouble < 0.01 && !baseSequencefullSequencQvaluePepQvalueforPSMs.ContainsKey((baseSequence, fullSequence)))
@@ -629,13 +629,13 @@ namespace Test
             }
 
             string psmFilePath =
-                @"C:\Users\Michael Shortreed\Downloads\4-26-24 AD Brain DHAA Analysis\AllPeptidesMarkovich.psmtsv";
+                @"E:\Projects\SteenSearchResults\AllPeptides.psmtsv";
             List<PsmFromTsv> parsedPeptides = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out var warnings);
             parsedPeptides = parsedPeptides.Where(p => p.DecoyContamTarget.Contains("T")).ToList();
 
             List<string> interestingMods = new List<string> { "S[Common Biological:Phosphorylation on S]", "T[Common Biological:Phosphorylation on T]", "S[Less Common:Dehydroalanine on S]", "C[Less Common:Dehydroalanine on C]",
-                "S[Custom:Homocys on S]", "C[Custom:Homocys on C]", "T[Custom:Homocys on T]", "T[Less Common:Dehydrobutyrine on T]", "S[Custom:DTT on S]", "C[Custom:DTT on C]", "C[Custom:DTT on T]", "T[Custom:Glutathione on T]",
-                "S[Custom:Glutathione on S]", "C[Custom:Glutathione on C]", "S[Custom:TCEP on S]", "T[Custom:TCEP on T]", "C[Custom:TCEP on C]"  };
+        "S[Custom:Homocys on S]", "C[Custom:Homocys on C]", "T[Custom:Homocys on T]", "T[Less Common:Dehydrobutyrine on T]", "S[Custom:DTT on S]", "C[Custom:DTT on C]", "C[Custom:DTT on C]", "T[Custom:Glutathione on T]",
+        "S[Custom:Glutathione on S]", "C[Custom:Glutathione on C]", "S[Custom:TCEP on S]", "T[Custom:TCEP on T]", "C[Custom:TCEP on C]","S[Custom:DTT-Acrylamide on S]", "C[Custom:DTT-Acrylamide on C]", "T[Custom:DTT-Acrylamide on T]"  };
 
             Dictionary<(string, int), List<PsmFromTsv>> genePositionPeptides = new Dictionary<(string, int), List<PsmFromTsv>>();
             Dictionary<(string, int), List<string>> genePositionMod = new Dictionary<(string, int), List<string>>();
@@ -840,7 +840,7 @@ namespace Test
             Dictionary<string,string> quantDict = new Dictionary<string, string>();
             using (StreamReader sr =
                    new StreamReader(
-                       @"C:\Users\Michael Shortreed\Downloads\4-26-24 AD Brain DHAA Analysis\QuantifiedPeptidesNormalizedMarkovich.tsv"))
+                       @"E:\Projects\SteenSearchResults\AllQuantifiedPeptides.tsv"))
             {
                 string line;
                 while ((line = sr.ReadLine()) != null)
@@ -868,7 +868,7 @@ namespace Test
                 }
             }
 
-            File.WriteAllLines(@"C:\Users\Michael Shortreed\Downloads\4-26-24 AD Brain DHAA Analysis\modPeptidesMarkovichWithPositionAndQuant_new.txt", newOutList);
+            File.WriteAllLines(@"E:\Projects\SteenSearchResults\modPeptidesMarkovichWithPositionAndQuant_091224.txt", newOutList);
         }
 
 
