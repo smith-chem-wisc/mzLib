@@ -339,6 +339,12 @@ namespace Transcriptomics
             return Equals((NucleicAcid)obj);
         }
 
+        public bool Equals(IBioPolymer other)
+        {
+            var castedOther = other as NucleicAcid;
+            return(Equals(castedOther));
+        }
+
         public override int GetHashCode()
         {
             return HashCode.Combine(_5PrimeTerminus, _3PrimeTerminus, _sequence);
