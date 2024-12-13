@@ -23,6 +23,7 @@
         <dependency id="OpenMcdf" version="2.2.1.3" />
         <dependency id="OpenMcdf.Extensions" version="2.2.1.3" />
         <dependency id="SharpLearning.Optimization" version="0.28.0" />
+        <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
       </group>
       <group targetFramework="net8.0-windows7.0">
         <!--net8.0 target with OxyPlot-->
@@ -35,6 +36,7 @@
         <dependency id="OpenMcdf" version="2.2.1.3" />
         <dependency id="OpenMcdf.Extensions" version="2.2.1.3" />
         <dependency id="SharpLearning.Optimization" version="0.28.0" />
+        <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
         <dependency id="OxyPlot.Wpf" version="2.0.0" />
       </group>
     </dependencies>
