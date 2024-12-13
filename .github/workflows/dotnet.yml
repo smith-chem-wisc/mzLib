@@ -47,16 +47,16 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 8.0.x
-    - name: Restore dependencies
-      run: cd mzLib && dotnet restore
-    - name: Build
-      run: cd mzLib && dotnet build --no-restore --configuration Release
-    - name: Pack
-      run: cd mzLib && nuget pack mzLib.nuspec
+    # - name: Restore dependencies
+    #   run: cd mzLib && dotnet restore
+    # - name: Build
+    #   run: cd mzLib && dotnet build --no-restore --configuration Release
+    # - name: Pack
+    #   run: cd mzLib && nuget pack mzLib.nuspec
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
-        path: MetaMorpheus
+        path: ./MetaMorpheus
         name: smith-chem-wisc/MetaMorpheus 
         ref: master
 
