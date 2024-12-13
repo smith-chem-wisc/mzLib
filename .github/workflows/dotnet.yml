@@ -50,9 +50,9 @@ jobs:
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     - name: Build
-      run: cd mzLib && dotnet build --no-restore
+      run: cd mzLib && dotnet build --no-restore --configuration Release
     - name: Pack
-      run: cd mzLib && nuget pack mzLib.nuspec -Prop Configuration=Debug
+      run: cd mzLib && nuget pack mzLib.nuspec
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
