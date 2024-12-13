@@ -60,9 +60,9 @@ jobs:
         repository: smith-chem-wisc/MetaMorpheus 
         ref: master
     - name: Restore MetaMorpheus
-      run: cd ./MetaMorpheus && dotnet restore
-    - name: Swap in local mzLib
+      run: cd ./MetaMorpheus/MetaMorpheus && dotnet restore
+    - name: 
       run: dotnet nuget locals all -l
     - name: Build MetaMorpheus
-      run: cd ./MetaMorpheus && dotnet build --no-restore
+      run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
 
