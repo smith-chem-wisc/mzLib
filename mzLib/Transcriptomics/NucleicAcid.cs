@@ -324,25 +324,18 @@ namespace Transcriptomics
 
         public bool Equals(NucleicAcid? other)
         {
-            if (ReferenceEquals(null, other)) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return _sequence == other._sequence
+            return (this as IBioPolymer).Equals(other)
                    && _5PrimeTerminus.Equals(other._5PrimeTerminus)
                    && _3PrimeTerminus.Equals(other._3PrimeTerminus);
         }
 
         public override bool Equals(object? obj)
         {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((NucleicAcid)obj);
-        }
-
-        public bool Equals(IBioPolymer other)
-        {
-            var castedOther = other as NucleicAcid;
-            return(Equals(castedOther));
+            if (obj is NucleicAcid oligo)
+            {
+                return Equals(oligo);
+            }
+            return false;
         }
 
         public override int GetHashCode()

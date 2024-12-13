@@ -12,7 +12,7 @@ using Easy.Common.Extensions;
 
 namespace Proteomics
 {
-    public class Protein : IBioPolymer
+    public class Protein : IBioPolymer, IEquatable<Protein>
     {
         private List<ProteolysisProduct> _proteolysisProducts;
 
@@ -969,16 +969,18 @@ namespace Proteomics
         //not sure if we require any additional fields for equality
         public override bool Equals(object obj)
         {
-            Protein otherProtein = (Protein)obj;
-            return otherProtein != null && otherProtein.Accession.Equals(Accession) && otherProtein.BaseSequence.Equals(BaseSequence);
+            if (obj is Protein bioPol)
+            {
+                return Equals(bioPol);
+            }
+            return false;
         }
 
-        public bool Equals(IBioPolymer other)
+        public bool Equals(Protein other)
         {
-            Protein otherProtein = (Protein)other;
-            return otherProtein != null && otherProtein.Accession.Equals(Accession) && otherProtein.BaseSequence.Equals(BaseSequence);
+            return (this as IBioPolymer).Equals(other);   
         }
-
+        
         /// <summary>
         /// The protein object uses the default hash code method for speed,
         /// but note that two protein objects with the same information will give two different hash codes.

@@ -20,7 +20,7 @@ namespace Transcriptomics.Digestion
     /// always available based on the current state of the oligonucleotide and its modifications. Therefor, it is important to set those
     /// properties to null whenever a termini or modification is changed.
     /// </remarks>
-    public class OligoWithSetMods : NucleolyticOligo, IBioPolymerWithSetMods, INucleicAcid
+    public class OligoWithSetMods : NucleolyticOligo, IBioPolymerWithSetMods, INucleicAcid, IEquatable<OligoWithSetMods>
     {
         public OligoWithSetMods(NucleicAcid nucleicAcid, RnaDigestionParams digestionParams, int oneBaseStartResidue,
             int oneBasedEndResidue, int missedCleavages, CleavageSpecificity cleavageSpecificity,
@@ -215,20 +215,18 @@ namespace Transcriptomics.Digestion
                     products.AddRange(GetNeutralFragments(type, sequence));
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
-            var q = obj as OligoWithSetMods;
-            if (q == null) return false;
-            return Equals(q);
+            if (obj is OligoWithSetMods oligo)
+            {
+                return Equals(oligo);
+            }
+            return false;
         }
 
-        public bool Equals(IBioPolymerWithSetMods other)
+        public bool Equals(OligoWithSetMods? other)
         {
-            return FullSequence == other.FullSequence
-                && OneBasedStartResidue == other.OneBasedStartResidue
-                && ((Parent != null && Parent.Equals(other.Parent)) || (Parent == null & other.Parent == null))
-                && ((DigestionParams?.DigestionAgent != null && DigestionParams.DigestionAgent.Equals(other.DigestionParams?.DigestionAgent))
-                    || (DigestionParams?.DigestionAgent == null & other.DigestionParams?.DigestionAgent == null));
+            return (this as IBioPolymerWithSetMods).Equals(other);
         }
 
         public override int GetHashCode()
@@ -236,11 +234,9 @@ namespace Transcriptomics.Digestion
             var hash = new HashCode();
             hash.Add(FullSequence);
             hash.Add(OneBasedStartResidue);
-            if (Parent != null)
+            if (Parent?.Accession != null)
             {
-                hash.Add(Parent);
-                if (Parent.Accession != null)
-                    hash.Add(Parent.Accession);
+                hash.Add(Parent.Accession);
             }
             if (DigestionParams?.DigestionAgent != null)
             {
