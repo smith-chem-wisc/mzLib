@@ -59,11 +59,12 @@ namespace Omics
             if (ReferenceEquals(this, other)) return true;
             if (other.GetType() != GetType()) return false;
 
+            // for those constructed from sequence and mods only
             if (Parent is null && other.Parent is null)
                 return FullSequence.Equals(other.FullSequence);
 
             return FullSequence == other.FullSequence
-                && DigestionParams?.DigestionAgent == other.DigestionParams?.DigestionAgent;
+                && Equals(DigestionParams?.DigestionAgent, other.DigestionParams?.DigestionAgent);
         }
 
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,

@@ -895,7 +895,10 @@ namespace Proteomics.ProteolyticDigestion
 
         public bool Equals(PeptideWithSetModifications other)
         {
-            return (this as IBioPolymerWithSetMods).Equals(other);
+            // interface equals first because it does null and reference checks
+            return (this as IBioPolymerWithSetMods).Equals(other)
+                   && OneBasedStartResidue == other!.OneBasedStartResidue
+                   && Equals(Parent, other.Parent);
         }
 
         public override int GetHashCode()

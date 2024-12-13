@@ -324,6 +324,7 @@ namespace Transcriptomics
 
         public bool Equals(NucleicAcid? other)
         {
+            // interface equals first because it does null and reference checks
             return (this as IBioPolymer).Equals(other)
                    && _5PrimeTerminus.Equals(other._5PrimeTerminus)
                    && _3PrimeTerminus.Equals(other._3PrimeTerminus);
