@@ -12,7 +12,7 @@ using Easy.Common.Extensions;
 
 namespace Proteomics
 {
-    public class Protein : IBioPolymer
+    public class Protein : IBioPolymer, IComparable<Protein>
     {
         private List<ProteolysisProduct> _proteolysisProducts;
 

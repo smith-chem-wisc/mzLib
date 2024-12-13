@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Runtime.CompilerServices;
+using System.Text;
 using Chemistry;
 using MassSpectrometry;
 using Omics.Digestion;
@@ -63,7 +64,7 @@ namespace Omics
 
         public static string GetBaseSequenceFromFullSequence(string fullSequence)
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder(fullSequence.Length);
             int bracketCount = 0;
             foreach (char c in fullSequence)
             {
@@ -163,10 +164,5 @@ namespace Omics
         /// <returns></returns>
         public static List<Modification> GetModificationsFromFullSequence(string fullSequence,
             Dictionary<string, Modification> allModsKnown) => [.. GetModificationDictionaryFromFullSequence(fullSequence, allModsKnown).Values];
-
-        public bool Equals(IBioPolymerWithSetMods other);
-
-        public int GetHashCode();
-
     }
 }
