@@ -45,6 +45,28 @@ namespace Omics
         char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
         IBioPolymer Parent { get; }
 
+        /// <summary>
+        /// Default Equals Method for IBioPolymerWithSetMods
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
+        /// <remarks>
+        /// Different parent but same sequence and digestion condition => are equal
+        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// </remarks>
+        bool IEquatable<IBioPolymerWithSetMods>.Equals(IBioPolymerWithSetMods? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (other.GetType() != GetType()) return false;
+
+            if (Parent is null && other.Parent is null)
+                return FullSequence.Equals(other.FullSequence);
+
+            return FullSequence == other.FullSequence
+                && DigestionParams?.DigestionAgent == other.DigestionParams?.DigestionAgent;
+        }
+
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
             List<Product> products);
 

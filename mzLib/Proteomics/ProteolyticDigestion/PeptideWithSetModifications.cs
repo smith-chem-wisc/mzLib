@@ -16,7 +16,7 @@ using MzLibUtil;
 namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
-    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods
+    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods, IEquatable<PeptideWithSetModifications>
     {
         private static readonly HashSetPool<double> HashSetPool = new();
         public string FullSequence { get; private set; } //sequence with modifications
@@ -899,18 +899,16 @@ namespace Proteomics.ProteolyticDigestion
 
         public override bool Equals(object obj)
         {
-            var q = obj as PeptideWithSetModifications;
-            if (q == null) return false;
-            return Equals(q);
+            if (obj is PeptideWithSetModifications peptide)
+            {
+                return Equals(peptide);
+            }
+            return false;
         }
 
-        public bool Equals(IBioPolymerWithSetMods other)
+        public bool Equals(PeptideWithSetModifications other)
         {
-            return FullSequence == other.FullSequence
-                && OneBasedStartResidue == other.OneBasedStartResidue
-                && ((Parent != null && Parent.Equals(other.Parent)) || (Parent == null & other.Parent == null))
-                && ((DigestionParams?.DigestionAgent != null && DigestionParams.DigestionAgent.Equals(other.DigestionParams?.DigestionAgent))
-                    || (DigestionParams?.DigestionAgent == null & other.DigestionParams?.DigestionAgent == null)); 
+            return (this as IBioPolymerWithSetMods).Equals(other);
         }
 
         public override int GetHashCode()
@@ -918,11 +916,9 @@ namespace Proteomics.ProteolyticDigestion
             var hash = new HashCode();
             hash.Add(FullSequence);
             hash.Add(OneBasedStartResidue);
-            if (Parent != null)
+            if (Parent?.Accession != null)
             {
-                hash.Add(Parent);
-                if (Parent.Accession != null)
-                    hash.Add(Parent.Accession);
+                hash.Add(Parent.Accession);
             }
             if (DigestionParams?.DigestionAgent != null)
             {
