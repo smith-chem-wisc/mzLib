@@ -295,8 +295,8 @@ namespace Test
             RNA rna = new RNA("GUACUG");
 
 
-            Assert.That(rna, Is.Not.EqualTo(protein1));
-            Assert.That(protein1, Is.Not.EqualTo(rna));
+            Assert.That(!rna.Equals(protein1));
+            Assert.That(!protein1.Equals(rna));
         }
     }
 }

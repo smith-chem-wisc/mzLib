@@ -67,8 +67,8 @@ namespace Test
             var oligo = new OligoWithSetMods("GUACUG", []);
             var peptide = new PeptideWithSetModifications("PEPTIDE", []);
 
-            Assert.That(oligo, Is.Not.EqualTo(peptide));
-            Assert.That(peptide, Is.Not.EqualTo(oligo));
+            Assert.That(!oligo.Equals(peptide));
+            Assert.That(!peptide.Equals(oligo));
         }
 
         [Test]

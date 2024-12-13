@@ -97,10 +97,10 @@ namespace Test.Transcriptomics
             Assert.That(!oligoWithSetMods2.Equals(null));
 
             oligoWithSetMods = new(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
-            var oligoWithSetMods3 = new OligoWithSetMods(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
+            oligoWithSetMods2 = new OligoWithSetMods(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
 
-            Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods3));
-            Assert.That(oligoWithSetMods, Is.EqualTo((object)oligoWithSetMods3));
+            Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods2));
+            Assert.That(oligoWithSetMods, Is.EqualTo((object)oligoWithSetMods2));
         }
 
         [Test]
