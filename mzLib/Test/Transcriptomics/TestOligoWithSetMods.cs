@@ -8,6 +8,7 @@ using NUnit.Framework;
 using Omics.Modifications;
 using Transcriptomics.Digestion;
 using Transcriptomics;
+using Omics;
 
 namespace Test.Transcriptomics
 {
@@ -79,20 +80,27 @@ namespace Test.Transcriptomics
         [Test]
         public static void TestEquality()
         {
+            var modDict = new Dictionary<int, List<Modification>> { { 4, [TestDigestion.PotassiumAdducts[1]] } };
             var oligoWithSetMods = new RNA("GUACUG",
-                    oneBasedPossibleLocalizedModifications: new Dictionary<int, List<Modification>> { { 4, [TestDigestion.PotassiumAdducts[1]] } })
+                    oneBasedPossibleLocalizedModifications: modDict)
                 .Digest(new RnaDigestionParams(), [], [])
                 .ElementAt(1);
 
-            var oligoWithSetMods2 = new RNA("GUACUG",
-                    oneBasedPossibleLocalizedModifications: new Dictionary<int, List<Modification>> { { 4, [TestDigestion.PotassiumAdducts[1]] } })
+            IBioPolymerWithSetMods oligoWithSetMods2 = new RNA("GUACUG",
+                    oneBasedPossibleLocalizedModifications: modDict)
                 .Digest(new RnaDigestionParams(), [], [])
                 .ElementAt(1);
 
             Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods2));
             Assert.That(oligoWithSetMods.GetHashCode(), Is.EqualTo(oligoWithSetMods2.GetHashCode()));
-
             Assert.That(oligoWithSetMods.Equals((object)oligoWithSetMods2)); // Test the Equals(Object obj) method
+            Assert.That(!oligoWithSetMods2.Equals(null));
+
+            oligoWithSetMods = new(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
+            var oligoWithSetMods3 = new OligoWithSetMods(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
+
+            Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods3));
+            Assert.That(oligoWithSetMods, Is.EqualTo((object)oligoWithSetMods3));
         }
 
         [Test]
@@ -111,6 +119,7 @@ namespace Test.Transcriptomics
                 .First();
 
             Assert.That(oligo1, Is.EqualTo(oligo2));
+            Assert.That(oligo1.Equals(oligo1));
             Assert.That(oligo1, Is.EqualTo((object)oligo2));
             Assert.That(oligo1.GetHashCode(), Is.EqualTo(oligo2.GetHashCode()));
         }

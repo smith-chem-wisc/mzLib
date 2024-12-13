@@ -13,6 +13,7 @@ using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -58,6 +59,16 @@ namespace Test
             Assert.That(!pep1.Equals(pep2));
             Assert.That(!pep1.Equals((object)pep2));
             Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
+        }
+
+        [Test]
+        public static void TestPeptideOligoEquality()
+        {
+            var oligo = new OligoWithSetMods("GUACUG", []);
+            var peptide = new PeptideWithSetModifications("PEPTIDE", []);
+
+            Assert.That(oligo, Is.Not.EqualTo(peptide));
+            Assert.That(peptide, Is.Not.EqualTo(oligo));
         }
 
         [Test]

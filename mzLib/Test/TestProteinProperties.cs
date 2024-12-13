@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Transcriptomics;
 
 namespace Test
 {
@@ -260,6 +261,42 @@ namespace Test
 
             ///Test case 3 is 2B (not level 3) because you've localized the mod, you just aren't sure what mod it is.
             ///In test case 1, you know what the mods are, but you're not sure where they belong.
+        }
+
+        [Test]
+        public void TestProteinEquals()
+        {
+            string sequence = "MKWVTFISLLFLFSSAYSRGVFRRDTHKSEIAHRFKDLGEEHFKGLVLIAFSQYLQQCPFDEHVKLVNEVTEFAKTCVADESAENCDKSLHTLFGDELCKVASLRETYGDMADCCEKQEPERNECFLSHKDDSPDLPKLKPDPNTLCDEFKADEKKFWGKYLYEIARRHPYFYAPELLFFAKRYKAAFTECCQAADKAACLLPKLDELRDEGKASSAKQR";
+            string accession = "P02768";
+            Protein protein1 = new Protein(sequence, accession);
+            Protein protein2 = new Protein(sequence, accession);
+            
+            NUnit.Framework.Assert.That(protein1.Equals(protein2), Is.True);
+            NUnit.Framework.Assert.That(protein1.Equals((object)protein2), Is.True);
+            NUnit.Framework.Assert.That(protein1.Equals(null), Is.False);
+        }
+
+        [Test]
+        public void TestProteinGetHashCode()
+        {
+            string sequence = "MKWVTFISLLFLFSSAYSRGVFRRDTHKSEIAHRFKDLGEEHFKGLVLIAFSQYLQQCPFDEHVKLVNEVTEFAKTCVADESAENCDKSLHTLFGDELCKVASLRETYGDMADCCEKQEPERNECFLSHKDDSPDLPKLKPDPNTLCDEFKADEKKFWGKYLYEIARRHPYFYAPELLFFAKRYKAAFTECCQAADKAACLLPKLDELRDEGKASSAKQR";
+            string accession = "P02768";
+            Protein protein = new Protein(sequence, accession);
+
+            NUnit.Framework.Assert.That(protein.GetHashCode(), Is.EqualTo(sequence.GetHashCode()));
+        }
+
+        [Test]
+        public void TestProteinRnaEquality()
+        {
+            string sequence = "MKWVTFISLLFLFSSAYSRGVFRRDTHKSEIAHRFKDLGEEHFKGLVLIAFSQYLQQCPFDEHVKLVNEVTEFAKTCVADESAENCDKSLHTLFGDELCKVASLRETYGDMADCCEKQEPERNECFLSHKDDSPDLPKLKPDPNTLCDEFKADEKKFWGKYLYEIARRHPYFYAPELLFFAKRYKAAFTECCQAADKAACLLPKLDELRDEGKASSAKQR";
+            string accession = "P02768";
+            Protein protein1 = new Protein(sequence, accession);
+            RNA rna = new RNA("GUACUG");
+
+
+            Assert.That(rna, Is.Not.EqualTo(protein1));
+            Assert.That(protein1, Is.Not.EqualTo(rna));
         }
     }
 }
