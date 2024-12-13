@@ -52,7 +52,7 @@ jobs:
     - name: Build
       run: cd mzLib && dotnet build --no-restore
     - name: Pack
-      run: dotnet pack --no-build --no-restore -c Debug
+      run: cd mzLib && nuget pack mzLib.nuspec -Prop Configuration=Debug
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
