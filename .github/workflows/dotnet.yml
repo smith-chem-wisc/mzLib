@@ -38,3 +38,19 @@ jobs:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      run: cd mzLib && dotnet restore
+    - name: Build
+      run: cd mzLib && dotnet build --no-restore
+    - name: Pack
+      run: cd mzLib && dotnet pack --no-build --no-restore -c Release
+
