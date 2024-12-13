@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
+using MzLibUtil;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -14,7 +13,8 @@ namespace Proteomics.ProteolyticDigestion
     [Serializable]
     public class ProteolyticPeptide : DigestionProduct
     {
-        
+        private static readonly DictionaryPool<int, List<Modification>> DictionaryPool = new();
+
         internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null, string baseSequence = null) :
             base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificityForFdrCategory, peptideDescription, baseSequence)
         {
@@ -51,13 +51,13 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="digestionParams"></param>
         /// <param name="variableModifications"></param>
         /// <returns></returns>
-        internal IEnumerable<PeptideWithSetModifications> GetModifiedPeptides(IEnumerable<Modification> allKnownFixedModifications,
+        internal IEnumerable<PeptideWithSetModifications> GetModifiedPeptides(List<Modification> allKnownFixedModifications,
             DigestionParams digestionParams, List<Modification> variableModifications)
         {
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
             int maximumVariableModificationIsoforms = digestionParams.MaxModificationIsoforms;
             int maxModsForPeptide = digestionParams.MaxModsForPeptide;
-            var twoBasedPossibleVariableAndLocalizeableModifications = new Dictionary<int, List<Modification>>(peptideLength + 4);
+            var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
 
             var pepNTermVariableMods = new List<Modification>();
             twoBasedPossibleVariableAndLocalizeableModifications.Add(1, pepNTermVariableMods);
@@ -163,6 +163,7 @@ namespace Proteomics.ProteolyticDigestion
                     yield break;
                 }
             }
+            DictionaryPool.Return(twoBasedPossibleVariableAndLocalizeableModifications);
         }
 
         /// <summary>

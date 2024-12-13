@@ -1,4 +1,5 @@
-﻿using Chemistry;
+﻿#nullable enable
+using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
 using System;
@@ -10,12 +11,14 @@ using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
 using Omics.Modifications;
+using MzLibUtil;
 
 namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
     public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods
     {
+        private static readonly HashSetPool<double> HashSetPool = new();
         public string FullSequence { get; private set; } //sequence with modifications
         public int NumFixedMods { get; }
         // Parameter to store the full sequence of the corresponding Target or Decoy peptide
@@ -98,13 +101,17 @@ namespace Proteomics.ProteolyticDigestion
 
                     foreach (var mod in AllModsOneIsNterminus.Values)
                     {
-                        monoMass += mod.MonoisotopicMass.Value;
+                        monoMass += mod.MonoisotopicMass!.Value;
                     }
-                    monoMass += BaseSequence.Sum(b => Residue.ResidueMonoisotopicMass[b]);
+
+                    for (var index = 0; index < BaseSequence.Length; index++)
+                    {
+                        monoMass += Residue.ResidueMonoisotopicMass[BaseSequence[index]];
+                    }
 
                     _monoisotopicMass = monoMass;
                 }
-                return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
+                return (double)_monoisotopicMass.Value.RoundedDouble()!;
             }
 
         }
@@ -142,10 +149,10 @@ namespace Proteomics.ProteolyticDigestion
                     IsotopicDistribution dist = IsotopicDistribution.GetDistribution(this.FullChemicalFormula);
                     double maxIntensity = dist.Intensities.Max();
                     _mostAbundantMonoisotopicMass =
-                        (double)ClassExtensions.RoundedDouble(
-                            dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
+                        (double)
+                            dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)].RoundedDouble()!;
                 }
-                return (double)ClassExtensions.RoundedDouble(_mostAbundantMonoisotopicMass.Value);
+                return (double)_mostAbundantMonoisotopicMass.Value.RoundedDouble()!;
             }
 
         }
@@ -157,7 +164,7 @@ namespace Proteomics.ProteolyticDigestion
                 if (!_hasChemicalFormulas.HasValue)
                 {
                     _hasChemicalFormulas = true;
-                    var subsequence = new StringBuilder();
+                    var subsequence = new StringBuilder(FullSequence.Length);
 
                     // variable modification on peptide N-terminus
                     if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
@@ -254,30 +261,30 @@ namespace Proteomics.ProteolyticDigestion
             // inefficient memory usage and thus frequent garbage collection. 
             // TODO: If you can think of a way to remove these collections and still maintain correct 
             // fragmentation, please do so.
-            HashSet<double> nTermNeutralLosses = null;
-            HashSet<double> cTermNeutralLosses = null;
+            HashSet<double>? nTermNeutralLosses = null!;
+            HashSet<double>? cTermNeutralLosses = null!;
 
             // n-terminus mod
             if (calculateNTermFragments)
             {
-                if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+                if (AllModsOneIsNterminus.TryGetValue(1, out Modification? mod))
                 {
-                    nTermMass += mod.MonoisotopicMass.Value;
+                    nTermMass += mod.MonoisotopicMass!.Value;
 
                     // n-term mod neutral loss
-                    nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
+                    AddNeutralLossesFromMods(mod, dissociationType, ref nTermNeutralLosses);
                 }
             }
 
             // c-terminus mod
             if (calculateCTermFragments)
             {
-                if (AllModsOneIsNterminus.TryGetValue(BaseSequence.Length + 2, out Modification mod))
+                if (AllModsOneIsNterminus.TryGetValue(BaseSequence.Length + 2, out Modification? mod))
                 {
-                    cTermMass += mod.MonoisotopicMass.Value;
+                    cTermMass += mod.MonoisotopicMass!.Value;
 
                     // c-term mod neutral loss
-                    cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                    AddNeutralLossesFromMods(mod, dissociationType, ref cTermNeutralLosses);
                 }
             }
 
@@ -348,7 +355,7 @@ namespace Proteomics.ProteolyticDigestion
                             r + 1,
                             0));
 
-                        nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
+                        AddNeutralLossesFromMods(mod, dissociationType, ref nTermNeutralLosses);
 
                         if (nTermNeutralLosses != null)
                         {
@@ -434,7 +441,7 @@ namespace Proteomics.ProteolyticDigestion
                             BaseSequence.Length - r,
                             0));
 
-                        cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                        AddNeutralLossesFromMods(mod, dissociationType, ref cTermNeutralLosses);
 
                         if (cTermNeutralLosses != null)
                         {
@@ -482,7 +489,7 @@ namespace Proteomics.ProteolyticDigestion
                     1,
                     0));
 
-                cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                AddNeutralLossesFromMods(mod, dissociationType, ref cTermNeutralLosses);
 
                 if (cTermNeutralLosses != null)
                 {
@@ -498,6 +505,12 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
             }
+
+            // release hashsets to reuse memory in next fragmentation event
+            if (cTermNeutralLosses is not null)
+                HashSetPool.Return(cTermNeutralLosses);
+            if (nTermNeutralLosses is not null)
+                HashSetPool.Return(nTermNeutralLosses);
 
             foreach (var mod in AllModsOneIsNterminus.Where(p => p.Value.NeutralLosses != null))
             {
@@ -952,41 +965,31 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
         
-        private HashSet<double> AddNeutralLossesFromMods(Modification mod, HashSet<double> allNeutralLossesSoFar, DissociationType dissociationType)
+        private void AddNeutralLossesFromMods(Modification? mod, DissociationType dissociationType, ref HashSet<double>? allNeutralLossesSoFar)
         {
+            // if mod or mod.NeutralLosses is null, return
+            if (mod is not { NeutralLosses: not null })
+                return;
+
             // add neutral losses specific to this dissociation type
-            if (mod != null
-                && mod.NeutralLosses != null
-                && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLossesFromMod))
+            if (mod.NeutralLosses.TryGetValue(dissociationType, out List<double>? neutralLossesFromMod))
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
                 {
-                    if (allNeutralLossesSoFar == null)
-                    {
-                        allNeutralLossesSoFar = new HashSet<double>();
-                    }
-
+                    allNeutralLossesSoFar ??= HashSetPool.Get();
                     allNeutralLossesSoFar.Add(neutralLoss);
                 }
             }
 
             // add neutral losses that are generic to any dissociation type
-            if (mod != null
-                && mod.NeutralLosses != null
-                && mod.NeutralLosses.TryGetValue(DissociationType.AnyActivationType, out neutralLossesFromMod))
+            if (mod.NeutralLosses.TryGetValue(DissociationType.AnyActivationType, out neutralLossesFromMod))
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
                 {
-                    if (allNeutralLossesSoFar == null)
-                    {
-                        allNeutralLossesSoFar = new HashSet<double>();
-                    }
-
+                    allNeutralLossesSoFar ??= HashSetPool.Get();
                     allNeutralLossesSoFar.Add(neutralLoss);
                 }
             }
-
-            return allNeutralLossesSoFar;
         }
 
         //This function maintains the amino acids associated with the protease motif and reverses all other amino acids.

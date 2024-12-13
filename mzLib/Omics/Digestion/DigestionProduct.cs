@@ -79,7 +79,8 @@ namespace Omics.Digestion
                     case "Oligo 5'-terminal.":
                     case "N-terminal.":
                     case "Peptide N-terminal.":
-                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginning of the protein
+
+                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
                         if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
                             if (mod.ModificationType == "Protease")
@@ -89,6 +90,16 @@ namespace Omics.Digestion
                             }
                             else //Normal N-terminal peptide modification
                                 fixedModsOneIsNterminus[1] = mod;
+                        }
+                        break;
+
+                    case "Anywhere.":
+                        for (int i = 2; i <= length + 1; i++)
+                        {
+                            if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, i - 1, length, OneBasedStartResidue + i - 2))
+                            {
+                                fixedModsOneIsNterminus[i] = mod;
+                            }
                         }
                         break;
 
