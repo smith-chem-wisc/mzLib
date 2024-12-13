@@ -71,6 +71,7 @@ jobs:
         dotnet restore
     - name: Delete mzLib, replace with local
       run: |
+        cd mzLib;
         $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
         $mzlibVersion = $mzlibMatch.Matches[0].Value;
         echo "mzLib version: $mzlibVersion";
