@@ -56,6 +56,6 @@ jobs:
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
-        name: smith-chem-wisc/MetaMorpheus    <-- clone https://github.com/org1/repo1
+        name: smith-chem-wisc/MetaMorpheus 
         ref: refs/heads/release/v1
 
