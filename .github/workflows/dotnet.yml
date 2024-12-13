@@ -56,7 +56,13 @@ jobs:
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
-        path: ../../MetaMorpheus
+        path: ../MetaMorpheus
         repository: smith-chem-wisc/MetaMorpheus 
         ref: master
+    - name: Restore MetaMorpheus
+      run: cd ../MetaMorpheus && dotnet restore
+    - name: Swap in local mzLib
+      run: dotnet nuget locals all -l
+    - name: Build MetaMorpheus
+      run: cd ../MetaMorpheus && dotnet build --no-restore
 
