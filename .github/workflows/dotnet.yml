@@ -59,10 +59,21 @@ jobs:
         path: ./MetaMorpheus
         repository: smith-chem-wisc/MetaMorpheus 
         ref: master
-    - name: Restore MetaMorpheus
-      run: cd ./MetaMorpheus/MetaMorpheus && dotnet restore
-    - name: 
-      run: dotnet nuget locals all -l
+    - name: Delete mzLib and restore MetaMorpheus dependencies
+      run: |
+        cd ./MetaMorpheus/MetaMorpheus;
+        dotnet remove CMD package mzLib;
+        dotnet remove GUI package mzLib;
+        dotnet remove GuiFunctions package mzLib;
+        dotnet remove EngineLayer package mzLib;
+        dotnet remove Test package mzLib;
+        dotnet remove TaskLayer package mzLib;
+        dotnet restore
+    - name: Delete mzLib, replace with local
+      run: |
+        $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
+        $mzlibVersion = $mzlibMatch.Matches[0].Value;
+        echo "mzLib version: $mzlibVersion";
     - name: Build MetaMorpheus
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
 
