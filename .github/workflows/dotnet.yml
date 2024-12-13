@@ -52,5 +52,10 @@ jobs:
     - name: Build
       run: cd mzLib && dotnet build --no-restore
     - name: Pack
-      run: cd mzLib && dotnet pack --no-build --no-restore -c Release
+      run: cd mzLib && dotnet pack --no-build --no-restore -c Debug
+    - name: Clone MetaMorpheus
+      uses: actions/checkout@master
+      with:
+        name: smith-chem-wisc/MetaMorpheus    <-- clone https://github.com/org1/repo1
+        ref: refs/heads/release/v1
 
