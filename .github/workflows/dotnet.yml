@@ -52,14 +52,16 @@ jobs:
     - name: Build
       run: cd mzLib && dotnet build --no-restore --configuration Release
     - name: Pack
-      run: cd mzLib && nuget pack mzLib.nuspec
+      run: |
+        cd mzLib && nuget pack mzLib.nuspec;
+        nuget add mzLib.*.nupkg -Source ./packages
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
         path: ./MetaMorpheus
         repository: smith-chem-wisc/MetaMorpheus 
         ref: master
-    - name: Delete mzLib and restore MetaMorpheus dependencies
+    - name: Delete mzLib dependencies
       run: |
         cd ./MetaMorpheus/MetaMorpheus;
         dotnet remove CMD package mzLib;
@@ -68,13 +70,21 @@ jobs:
         dotnet remove EngineLayer package mzLib;
         dotnet remove Test package mzLib;
         dotnet remove TaskLayer package mzLib;
-        dotnet restore
     - name: Delete mzLib, replace with local
       run: |
         cd mzLib;
         $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
         $mzlibVersion = $mzlibMatch.Matches[0].Value;
         echo "mzLib version: $mzlibVersion";
+        cd ../MetaMorpheus/MetaMorpheus;
+        dotnet add CMD package mzLib -v $mzlibVersion -s ./packages;
+        dotnet add CMD package mzLib -v $mzlibVersion -s ./packages;
+        dotnet add GUI package mzLib -v $mzlibVersion -s ./packages;
+        dotnet add GuiFunctions package mzLib -v $mzlibVersion -s ./packages;
+        dotnet add EngineLayer package mzLib -v $mzlibVersion -s ./packages;
+        dotnet add Test package mzLib -v $mzlibVersion -s ./packages;
+        dotnet add TaskLayer package mzLib -v $mzlibVersion -s ./packages;
+        dotnet restore;
     - name: Build MetaMorpheus
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
 
