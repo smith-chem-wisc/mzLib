@@ -24,17 +24,6 @@ namespace Proteomics.ProteolyticDigestion
             return Name;
         }
 
-        public override bool Equals(object obj)
-        {
-            return obj is Protease a
-                && (a.Name == null && Name == null || a.Name.Equals(Name));
-        }
-
-        public override int GetHashCode()
-        {
-            return (Name ?? "").GetHashCode();
-        }
-
         /// <summary>
         /// This method is used to determine cleavage specificity if the cleavage specificity is unknown
         /// This occurs in the speedy nonspecific/semispecific searches when digesting post-search

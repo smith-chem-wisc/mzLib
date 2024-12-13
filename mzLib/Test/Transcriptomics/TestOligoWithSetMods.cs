@@ -96,11 +96,17 @@ namespace Test.Transcriptomics
             Assert.That(oligoWithSetMods.Equals((object)oligoWithSetMods2)); // Test the Equals(Object obj) method
             Assert.That(!oligoWithSetMods2.Equals(null));
 
+            // Null parent checks
             oligoWithSetMods = new(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
             oligoWithSetMods2 = new OligoWithSetMods(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
+            var oligoWithSetMods3 = new OligoWithSetMods(oligoWithSetMods.FullSequence + "AGAUA", modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
 
             Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods2));
             Assert.That(oligoWithSetMods, Is.EqualTo((object)oligoWithSetMods2));
+            Assert.That(oligoWithSetMods, Is.EqualTo((OligoWithSetMods)oligoWithSetMods2));
+            Assert.That(oligoWithSetMods, Is.Not.EqualTo(oligoWithSetMods3));
+            Assert.That(oligoWithSetMods, Is.Not.EqualTo((object)oligoWithSetMods3));
+            Assert.That(oligoWithSetMods, Is.Not.EqualTo((IBioPolymerWithSetMods)oligoWithSetMods3));
         }
 
         [Test]

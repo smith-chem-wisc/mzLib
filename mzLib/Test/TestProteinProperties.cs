@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics;
 using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Transcriptomics;
@@ -297,6 +298,8 @@ namespace Test
 
             Assert.That(!rna.Equals(protein1));
             Assert.That(!protein1.Equals(rna));
+            Assert.That(!((IBioPolymer)rna).Equals(protein1));
+            Assert.That(!((IBioPolymer)protein1).Equals(rna));
         }
     }
 }

@@ -69,6 +69,8 @@ namespace Test
 
             Assert.That(!oligo.Equals(peptide));
             Assert.That(!peptide.Equals(oligo));
+            Assert.That(!((IBioPolymerWithSetMods)oligo).Equals(peptide));
+            Assert.That(!((IBioPolymerWithSetMods)peptide).Equals(oligo));
         }
 
         [Test]
