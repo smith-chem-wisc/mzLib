@@ -8,7 +8,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
-using Proteomics;
 using Readers;
 
 namespace Test.FileReadingTests
@@ -76,7 +75,6 @@ namespace Test.FileReadingTests
             }
 
             Assert.AreEqual(1, localGlycans.Count);
-
         }
 
         [Test]
