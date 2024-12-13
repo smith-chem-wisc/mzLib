@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
 using MzLibUtil;
 
@@ -65,6 +63,9 @@ namespace MassSpectrometry
         #endregion
 
         protected readonly DeconvolutionParameters DeconvolutionParameters;
+        protected readonly HashSetPool<int> IntegerHashSetPool = new(32);
+        protected readonly HashSetPool<double> DoubleHashSetPool = new(32);
+
 
         /// <summary>
         /// Constructor for deconvolution algorithms, nothing should be added to child constructors

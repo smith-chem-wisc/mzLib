@@ -90,7 +90,7 @@ namespace Proteomics.ProteolyticDigestion
         internal List<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
             int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownTruncationSearch = false)
         {
-            List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
+            List<ProteolyticPeptide> peptides;
 
             // proteolytic cleavage in one spot (N)
             if (CleavageSpecificity == CleavageSpecificity.SingleN)
@@ -107,6 +107,7 @@ namespace Proteomics.ProteolyticDigestion
             //top-down
             else if (CleavageSpecificity == CleavageSpecificity.None)
             {
+                peptides = new(20);
                 if (!topDownTruncationSearch)//standard top-down
                 {
                     // retain methionine
@@ -136,13 +137,13 @@ namespace Proteomics.ProteolyticDigestion
             // Full proteolytic cleavage
             else if (CleavageSpecificity == CleavageSpecificity.Full)
             {
-                peptides.AddRange(FullDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength));
+                peptides = FullDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength).ToList();
             }
 
             // Cleavage rules for semi-specific search
             else if (CleavageSpecificity == CleavageSpecificity.Semi)
             {
-                peptides.AddRange(SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength));
+                peptides = SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength).ToList();
             }
             else
             {

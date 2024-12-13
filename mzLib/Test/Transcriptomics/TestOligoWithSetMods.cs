@@ -96,24 +96,53 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        [TestCase("GUACUG", "GUACUGGUACUG", "RNase A", 0, 0)]
-        [TestCase("GUAGGAG", "GUAGCAG", "RNase A", 0, 1)]
-        public static void TestInequality(string sequence1, string sequence2, string enzyme, int digestedOligo1, int digestedOligo2)
+        [TestCase("GUACUG", "GUACUGGUACUG", "RNase A")]
+        [TestCase("GUAGGAG", "GUAGCAG", "RNase A")]
+        public static void TestEquality_DifferentParentSameDigestionProduct(string sequence1, string sequence2, string enzyme)
         {
             var digestionParams = new RnaDigestionParams(rnase: enzyme, minLength: 1, maxMissedCleavages: 0);
 
             var oligo1 = new RNA(sequence1)
                 .Digest(digestionParams, [], [])
-                .ElementAt(digestedOligo1);
+                .First();
 
             var oligo2 = new RNA(sequence2)
                 .Digest(digestionParams, [], [])
-                .ElementAt(digestedOligo2);
+                .First();
+
+            Assert.That(oligo1, Is.EqualTo(oligo2));
+            Assert.That(oligo1, Is.EqualTo((object)oligo2));
+            Assert.That(oligo1.GetHashCode(), Is.EqualTo(oligo2.GetHashCode()));
+        }
+
+        /// <summary>
+        /// The purpose of this test is to ensure that two oligos digested from two different rnases are not equal even if their sequences are equal
+        /// This is important for multiprotease parsimony in MetaMorpheus
+        /// </summary>
+        [Test]
+        [TestCase("AUAGUCUGG", "RNase T1", "colicin_E5")]
+        [TestCase("AUAGUCUGGGAUCUG",  "RNase T1", "colicin_E5")]
+        public static void TestInequality_SameParentAndDigestionProduct_DifferentRnases(string sequence, string enzyme1, string enzyme2)
+        {
+            var digestionParams1 = new RnaDigestionParams(rnase: enzyme1, minLength: 1, maxMissedCleavages: 0);
+            var digestionParams2 = new RnaDigestionParams(rnase: enzyme2, minLength: 1, maxMissedCleavages: 0);
+
+            var oligo1 = new RNA(sequence)
+                .Digest(digestionParams1, [], [])
+                .ToArray();
+
+            var oligo2 = new RNA(sequence)
+                .Digest(digestionParams2, [], [])
+                .ToArray();
+
+            Assert.That(oligo1.Length, Is.Not.EqualTo(oligo2.Length));
+
+            Assert.That(oligo1.First().BaseSequence, Is.EqualTo("AUAG"));
+            Assert.That(oligo2.First().BaseSequence, Is.EqualTo("AUAG"));
 
             Assert.That(oligo1, Is.Not.EqualTo(oligo2));
             Assert.That(oligo1, Is.Not.EqualTo((object)oligo2));
             Assert.That(oligo1.GetHashCode(), Is.Not.EqualTo(oligo2.GetHashCode()));
-            Assert.That(!oligo1.Equals(digestionParams)); // Test the Equals(Object obj) method
         }
     }
 }
