@@ -16,6 +16,7 @@ using System.Security.AccessControl;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Permissions;
+using System.ComponentModel;
 
 namespace Readers
 { 
@@ -225,7 +226,8 @@ namespace Readers
 
             if(oneBasedScanIndex < scanArray.Length)
             {
-                throw new Exception("Not all scans were written to the final scan array");
+                // Some MS1 scans contain no peaks where the precursor was identified, so they are not included in the scanArray
+                scanArray = scanArray.Where(scan => scan != null).ToArray();
             }
 
             Scans = scanArray;
