@@ -54,7 +54,7 @@ jobs:
     - name: Change mzLib version, pack, add source
       run: |
         cd mzLib;
-        (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9<version\>" | Set-Content mzLib.nuspec;
+        (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.nuspec;
         $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
         $mzlibVersion = $mzlibMatch.Matches[0].Value;
         echo "mzLib version: $mzlibVersion";
