@@ -56,7 +56,7 @@ jobs:
         cd mzLib && nuget pack mzLib.nuspec;
         $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
         $mzlibVersion = $mzlibMatch.Matches[0].Value;
-        nuget add "mzLib.$mzlibVersion.nupkg" -Source ../../packages
+        nuget add "mzLib.$mzlibVersion.nupkg" -Source ../packages
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
