@@ -57,8 +57,9 @@ jobs:
         (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.nuspec;
         $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
         $mzlibVersion = $mzlibMatch.Matches[0].Value;
-        echo "mzLib version: $mzlibVersion";
-        dotnet nuget add source ./
+        echo "mzLib version number changed to: $mzlibVersion";
+        nuget pack;
+        dotnet nuget add source ./;
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
