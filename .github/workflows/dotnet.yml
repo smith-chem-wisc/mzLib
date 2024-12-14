@@ -59,7 +59,9 @@ jobs:
         $mzlibVersion = $mzlibMatch.Matches[0].Value;
         echo "mzLib version number changed to: $mzlibVersion";
         nuget pack;
-        dotnet nuget add source ./;
+        $currentFolder = pwd;
+        dotnet nuget add source $currentFolder;
+        dotnet nuget list source;
     - name: Clone MetaMorpheus
       uses: actions/checkout@master
       with:
