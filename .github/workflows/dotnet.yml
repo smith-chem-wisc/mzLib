@@ -7,37 +7,33 @@ on:
     branches: [ master ]
 
 jobs:
-  #build:
-    # runs-on: windows-latest
-    # timeout-minutes: 15
-    # steps:
-    # - uses: actions/checkout@v2
-    # - name: Set up .NET
-    #   uses: actions/setup-dotnet@v1
-    #   with:
-    #     dotnet-version: 8.0.x
-    # - name: Restore dependencies
-    #   run: cd mzLib && dotnet restore
-    # - name: Build
-    #   run: cd mzLib && dotnet build --no-restore
-    # - name: Build (Test)
-    #   run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
-    # - name: Build (TestFlashLFQ)
-    #   run: cd mzLib && dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj
-    # - name: Add coverlet collector (Test)
-    #   run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
-    # - name: Add coverlet collector (TestFlashLFQ)
-    #   run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector -v 6.0.2
-    # - name: Test
-    #   run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
-    # - name: TestFlashLFQ
-    #   run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./TestFlashLFQ/TestFlashLFQ.csproj
-    # - name: Upload coverage to Codecov
-    #   uses: codecov/codecov-action@v4
-    #   env:
-    #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-    #     verbose: true
-    #     files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      run: cd mzLib && dotnet restore
+    - name: Build
+      run: cd mzLib && dotnet build --no-restore
+    - name: Add coverlet collector (Test)
+      run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
+    - name: Add coverlet collector (TestFlashLFQ)
+      run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector -v 6.0.2
+    - name: Test
+      run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
+    - name: TestFlashLFQ
+      run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./TestFlashLFQ/TestFlashLFQ.csproj
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
+        files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
   package:
     runs-on: windows-latest
     timeout-minutes: 15
@@ -54,7 +50,7 @@ jobs:
     - name: Change mzLib version, pack, add source
       run: |
         cd mzLib;
-        (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.nuspec;
+        (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.nuspec; 
         $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
         $mzlibVersion = $mzlibMatch.Matches[0].Value;
         echo "mzLib version number changed to: $mzlibVersion";
@@ -84,21 +80,6 @@ jobs:
         dotnet remove TaskLayer package mzLib;
         dotnet add TaskLayer package mzLib -v 9.9.9;
         dotnet restore;
-    # - name: Delete mzLib, replace with local
-    #   run: |
-    #     cd mzLib;
-    #     $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
-    #     $mzlibVersion = $mzlibMatch.Matches[0].Value;
-    #     echo "mzLib version: $mzlibVersion";
-    #     cd ../MetaMorpheus/MetaMorpheus;
-    #     dotnet add CMD package mzLib -v $mzlibVersion -s ../../packages;
-    #     dotnet add CMD package mzLib -v $mzlibVersion -s ../../packages;
-    #     dotnet add GUI package mzLib -v $mzlibVersion -s ../../packages;
-    #     dotnet add GuiFunctions package mzLib -v $mzlibVersion -s ../../packages;
-    #     dotnet add EngineLayer package mzLib -v $mzlibVersion -s ../../packages;
-    #     dotnet add Test package mzLib -v $mzlibVersion -s ../../packages;
-    #     dotnet add TaskLayer package mzLib -v $mzlibVersion -s ../../packages;
-    #     dotnet restore;
     - name: Build MetaMorpheus
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
     - name: Test
