@@ -51,7 +51,7 @@ jobs:
       run: cd mzLib && dotnet restore
     - name: Build
       run: cd mzLib && dotnet build --no-restore --configuration Release
-    - name: Pack
+    - name: Change mzLib version, pack, add source
       run: |
         cd mzLib;
         (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9<version\> | Set-Content mzLib.nuspec;
@@ -65,7 +65,7 @@ jobs:
         path: ./MetaMorpheus
         repository: smith-chem-wisc/MetaMorpheus 
         ref: master
-    - name: Change mzLib to local and restore
+    - name: Change MetaMorpheus mzLib version and restore
       run: |
         cd ./MetaMorpheus/MetaMorpheus;
         dotnet remove CMD package mzLib;
