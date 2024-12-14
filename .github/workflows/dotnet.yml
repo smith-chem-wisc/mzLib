@@ -38,7 +38,7 @@ jobs:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
-  package:
+  integration:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
