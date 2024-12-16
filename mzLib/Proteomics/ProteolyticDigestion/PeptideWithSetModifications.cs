@@ -898,8 +898,7 @@ namespace Proteomics.ProteolyticDigestion
             // interface equals first because it does null and reference checks
             return (this as IBioPolymerWithSetMods).Equals(other)
                    && OneBasedStartResidue == other!.OneBasedStartResidue
-                   && (Parent?.Accession == null && other?.Parent.Accession == null 
-                        || other.Parent.Accession.Equals(Parent?.Accession));
+                   && Equals(Parent?.Accession, other.Parent?.Accession); 
         }
 
         public override int GetHashCode()
