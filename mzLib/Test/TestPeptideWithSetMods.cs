@@ -1195,6 +1195,34 @@ namespace Test
         }
 
         [Test]
+        public static void TestPeptideWithSetModsEquals()
+        {
+            // Create two proteins
+            Protein protein1 = new Protein("SEQUENCEK", "accession1");
+            Protein protein2 = new Protein("SEQUENCEK", "accession2");
+
+            // Create digestion parameters
+            DigestionParams digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            // Digest the proteins to get peptides
+            PeptideWithSetModifications peptide1 = protein1.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
+            PeptideWithSetModifications peptide2 = protein2.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
+
+            // Test equality
+            Assert.IsTrue(!peptide1.Equals(peptide2));
+            Assert.IsTrue(!peptide1.Equals((object)peptide2));
+            Assert.AreNotEqual(peptide1.GetHashCode(), peptide2.GetHashCode());
+
+            // Test inequality with different start residue
+            PeptideWithSetModifications peptide3 = new PeptideWithSetModifications(protein1, digestionParams, 2, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(peptide1.Equals(peptide3));
+
+            // Test inequality with different parent accession
+            PeptideWithSetModifications peptide4 = new PeptideWithSetModifications(protein2, digestionParams, 1, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(peptide1.Equals(peptide4));
+        }
+
+        [Test]
         public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
         {
             Dictionary<string, Modification> un = new Dictionary<string, Modification>();
