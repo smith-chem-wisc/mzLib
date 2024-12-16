@@ -14,7 +14,7 @@ using Omics.Modifications;
 namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
-    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods
+    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods, IEquatable<PeptideWithSetModifications>
     {
         public string FullSequence { get; private set; } //sequence with modifications
         public int NumFixedMods { get; }
@@ -886,18 +886,19 @@ namespace Proteomics.ProteolyticDigestion
 
         public override bool Equals(object obj)
         {
-            var q = obj as PeptideWithSetModifications;
-            if (q == null) return false;
-            return Equals(q);
+            if (obj is PeptideWithSetModifications peptide)
+            {
+                return Equals(peptide);
+            }
+            return false;
         }
 
-        public bool Equals(IBioPolymerWithSetMods other)
+        public bool Equals(PeptideWithSetModifications other)
         {
-            return FullSequence == other.FullSequence
-                && OneBasedStartResidue == other.OneBasedStartResidue
-                && ((Parent != null && Parent.Equals(other.Parent)) || (Parent == null & other.Parent == null))
-                && ((DigestionParams?.DigestionAgent != null && DigestionParams.DigestionAgent.Equals(other.DigestionParams?.DigestionAgent))
-                    || (DigestionParams?.DigestionAgent == null & other.DigestionParams?.DigestionAgent == null)); 
+            // interface equals first because it does null and reference checks
+            return (this as IBioPolymerWithSetMods).Equals(other)
+                   && OneBasedStartResidue == other!.OneBasedStartResidue
+                   && Equals(Parent, other.Parent);
         }
 
         public override int GetHashCode()
@@ -905,11 +906,9 @@ namespace Proteomics.ProteolyticDigestion
             var hash = new HashCode();
             hash.Add(FullSequence);
             hash.Add(OneBasedStartResidue);
-            if (Parent != null)
+            if (Parent?.Accession != null)
             {
-                hash.Add(Parent);
-                if (Parent.Accession != null)
-                    hash.Add(Parent.Accession);
+                hash.Add(Parent.Accession);
             }
             if (DigestionParams?.DigestionAgent != null)
             {

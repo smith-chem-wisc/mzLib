@@ -595,5 +595,49 @@ namespace Test
             digestionParams.MaxModsForPeptide = 3;
             Assert.That(digestionParams.MaxMods, Is.EqualTo(digestionParams.MaxModsForPeptide));
         }
+
+        private class TestDigestionAgent : DigestionAgent
+        {
+            public TestDigestionAgent(string name, CleavageSpecificity cleavageSpecificity, List<DigestionMotif> motifList, Modification cleavageMod)
+                : base(name, cleavageSpecificity, motifList, cleavageMod)
+            {
+            }
+        }
+
+        [Test]
+        public void Equals_SameName_ReturnsTrue()
+        {
+            var agent1 = ProteaseDictionary.Dictionary["trypsin"];
+            var agent2 = ProteaseDictionary.Dictionary["trypsin"];
+
+            Assert.That(agent1.Equals(agent2), Is.True);
+        }
+
+        [Test]
+        public void Equals_DifferentName_ReturnsFalse()
+        {
+            var agent1 = ProteaseDictionary.Dictionary["trypsin"];
+            var agent2 = ProteaseDictionary.Dictionary["Arg-C"];
+
+            Assert.That(agent1.Equals(agent2), Is.False);
+        }
+
+        [Test]
+        public void GetHashCode_SameName_ReturnsSameHashCode()
+        {
+            var agent1 = ProteaseDictionary.Dictionary["trypsin"];
+            var agent2 = ProteaseDictionary.Dictionary["trypsin"];
+
+            Assert.That(agent1.GetHashCode(), Is.EqualTo(agent2.GetHashCode()));
+        }
+
+        [Test]
+        public void GetHashCode_DifferentName_ReturnsDifferentHashCode()
+        {
+            var agent1 = ProteaseDictionary.Dictionary["trypsin"];
+            var agent2 = ProteaseDictionary.Dictionary["Arg-C"];
+
+            Assert.That(agent1.GetHashCode(), Is.Not.EqualTo(agent2.GetHashCode()));
+        }
     }
 }
