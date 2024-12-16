@@ -1,9 +1,4 @@
 ﻿using Omics.Modifications;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Omics.Digestion
 {
@@ -17,7 +12,7 @@ namespace Omics.Digestion
             CleavageMod = cleavageMod;
         }
 
-        public string Name { get; init; }
+        public readonly string Name;
         public CleavageSpecificity CleavageSpecificity { get; init; }
         public List<DigestionMotif> DigestionMotifs { get; init; }
         public Modification CleavageMod { get; set; }
@@ -25,6 +20,16 @@ namespace Omics.Digestion
         public override string ToString()
         {
             return Name;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is DigestionAgent agent && agent.Name == Name;
+        }
+
+        public override int GetHashCode()
+        {
+            return Name.GetHashCode();
         }
 
         /// <summary>
