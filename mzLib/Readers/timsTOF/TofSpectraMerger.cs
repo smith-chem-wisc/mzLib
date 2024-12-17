@@ -83,8 +83,8 @@ namespace Readers
             // This is a quick and dirty implementation of the collapse function. There are some edge cases that are not handled here.
 
             // Define lists to store the collapsed indices and intensities
-            List<uint> collapsedIndices = new();
-            List<int> collapsedIntensities = new();
+            List<uint> collapsedIndices = new List<uint>(indexArray.Length);
+            List<int> collapsedIntensities = new List<int>(intensityArray.Length);
 
             // Initialize pointers to the first two elements in the index array
             int p1 = 0;
@@ -116,6 +116,9 @@ namespace Readers
                 p1 = p2 + 1;
                 p2 = p1 + 1;
             }
+
+            collapsedIndices.TrimExcess();
+            collapsedIntensities.TrimExcess();
 
             return (collapsedIndices.ToArray(), collapsedIntensities.ToArray());
         }
