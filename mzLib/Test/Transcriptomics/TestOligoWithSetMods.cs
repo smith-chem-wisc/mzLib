@@ -124,7 +124,7 @@ namespace Test.Transcriptomics
         [Test]
         [TestCase("GUACUG", "GUACUGGUACUG", "RNase A")]
         [TestCase("GUAGGAG", "GUAGCAG", "RNase A")]
-        public static void TestEquality_DifferentParentSameDigestionProduct(string sequence1, string sequence2, string enzyme)
+        public static void TestInequality_DifferentParentSameDigestionProduct(string sequence1, string sequence2, string enzyme)
         {
             var digestionParams = new RnaDigestionParams(rnase: enzyme, minLength: 1, maxMissedCleavages: 0);
 
@@ -136,10 +136,10 @@ namespace Test.Transcriptomics
                 .Digest(digestionParams, [], [])
                 .First();
 
-            Assert.That(oligo1, Is.EqualTo(oligo2));
+            Assert.That(oligo1, Is.Not.EqualTo(oligo2));
             Assert.That(oligo1.Equals(oligo1));
-            Assert.That(oligo1, Is.EqualTo((object)oligo2));
-            Assert.That(oligo1.GetHashCode(), Is.EqualTo(oligo2.GetHashCode()));
+            Assert.That(oligo1, Is.Not.EqualTo((object)oligo2));
+            Assert.That(oligo1.GetHashCode(), Is.Not.EqualTo(oligo2.GetHashCode()));
         }
 
         /// <summary>

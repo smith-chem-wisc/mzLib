@@ -16,7 +16,7 @@ namespace Proteomics.ProteolyticDigestion
     [Serializable]
     public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods, IEquatable<PeptideWithSetModifications>
     {
-        public string FullSequence { get; private set; } //sequence with modifications
+        public string FullSequence { get; init; } //sequence with modifications
         public int NumFixedMods { get; }
         // Parameter to store the full sequence of the corresponding Target or Decoy peptide
         // If the peptide in question is a decoy, this pairs it to the target it was generated from
@@ -885,10 +885,9 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         #region IEquatable
-        
+
         /// <summary>
-        /// Different parent but same sequence and digestion condition => are not equal.
-        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
         /// </summary>
         public override bool Equals(object obj)
         {
@@ -900,14 +899,12 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Different parent but same sequence and digestion condition => are not equal.
-        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
         /// </summary>
         public bool Equals(IBioPolymerWithSetMods other) => Equals(other as PeptideWithSetModifications);
 
         /// <summary>
-        /// Different parent but same sequence and digestion condition => are not equal.
-        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
         /// </summary>
         public bool Equals(PeptideWithSetModifications other)
         {

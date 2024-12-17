@@ -218,8 +218,7 @@ namespace Transcriptomics.Digestion
         #region IEquatable
 
         /// <summary>
-        /// Different parent but same sequence and digestion condition => are equal.
-        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// Oligos are equal if they have the same full sequence, parent, and digestion agent, and terminal caps
         /// </summary>
         public override bool Equals(object? obj)
         {
@@ -231,14 +230,12 @@ namespace Transcriptomics.Digestion
         }
 
         /// <summary>
-        /// Different parent but same sequence and digestion condition => are equal.
-        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// Oligos are equal if they have the same full sequence, parent, and digestion agent, and terminal caps
         /// </summary>
         public bool Equals(IBioPolymerWithSetMods? other) => Equals(other as OligoWithSetMods);
 
         /// <summary>
-        /// Different parent but same sequence and digestion condition => are equal.
-        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// Oligos are equal if they have the same full sequence, parent, and digestion agent, and terminal caps
         /// </summary>
         public bool Equals(OligoWithSetMods? other)
         {
@@ -251,7 +248,12 @@ namespace Transcriptomics.Digestion
                 return FullSequence.Equals(other.FullSequence);
 
             return FullSequence == other.FullSequence
-                   && Equals(DigestionParams?.DigestionAgent, other.DigestionParams?.DigestionAgent);
+                   && Equals(DigestionParams?.DigestionAgent, other.DigestionParams?.DigestionAgent)
+                   && _fivePrimeTerminus.Equals(other._fivePrimeTerminus)
+                   && _threePrimeTerminus.Equals(other._threePrimeTerminus)
+                   // These last two are important for parsimony in MetaMorpheus
+                   && OneBasedStartResidue == other!.OneBasedStartResidue
+                   && Equals(Parent?.Accession, other.Parent?.Accession);
         }
 
         public override int GetHashCode()
@@ -267,6 +269,8 @@ namespace Transcriptomics.Digestion
             {
                 hash.Add(DigestionParams.DigestionAgent);
             }
+            hash.Add(FivePrimeTerminus);
+            hash.Add(ThreePrimeTerminus);
             return hash.ToHashCode();
         }
 
