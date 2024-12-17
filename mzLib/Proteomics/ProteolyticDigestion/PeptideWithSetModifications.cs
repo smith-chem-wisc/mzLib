@@ -884,6 +884,12 @@ namespace Proteomics.ProteolyticDigestion
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
+        #region IEquatable
+        
+        /// <summary>
+        /// Different parent but same sequence and digestion condition => are not equal.
+        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// </summary>
         public override bool Equals(object obj)
         {
             if (obj is PeptideWithSetModifications peptide)
@@ -893,10 +899,29 @@ namespace Proteomics.ProteolyticDigestion
             return false;
         }
 
+        /// <summary>
+        /// Different parent but same sequence and digestion condition => are not equal.
+        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// </summary>
+        public bool Equals(IBioPolymerWithSetMods other) => Equals(other as PeptideWithSetModifications);
+
+        /// <summary>
+        /// Different parent but same sequence and digestion condition => are not equal.
+        /// Different Digestion agent but same sequence => are not equal (this is for multi-protease analysis in MetaMorpheus)
+        /// </summary>
         public bool Equals(PeptideWithSetModifications other)
         {
-            // interface equals first because it does null and reference checks
-            return (this as IBioPolymerWithSetMods).Equals(other)
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (other.GetType() != GetType()) return false;
+
+            // for those constructed from sequence and mods only
+            if (Parent is null && other.Parent is null)
+                return FullSequence.Equals(other.FullSequence);
+
+            return FullSequence == other.FullSequence
+                   && Equals(DigestionParams?.DigestionAgent, other.DigestionParams?.DigestionAgent)
+                   // These last two are important for parsimony in MetaMorpheus
                    && OneBasedStartResidue == other!.OneBasedStartResidue
                    && Equals(Parent?.Accession, other.Parent?.Accession); 
         }
@@ -916,6 +941,8 @@ namespace Proteomics.ProteolyticDigestion
             }
             return hash.ToHashCode();
         }
+
+        #endregion
 
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
