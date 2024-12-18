@@ -402,7 +402,7 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
+        internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
         {
             string result = null;
             if (regex != null)
@@ -416,7 +416,7 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        private static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
+        internal static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
         {
             var mod_dict = new Dictionary<string, IList<Modification>>();
 
@@ -436,7 +436,7 @@ namespace UsefulProteomicsDatabases
             return mod_dict;
         }
 
-        private static Dictionary<string, Modification> GetModificationDictWithMotifs(IEnumerable<Modification> mods)
+        internal static Dictionary<string, Modification> GetModificationDictWithMotifs(IEnumerable<Modification> mods)
         {
             var mod_dict = new Dictionary<string, Modification>();
 

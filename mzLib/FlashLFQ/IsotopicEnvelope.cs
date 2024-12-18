@@ -11,11 +11,12 @@
         public readonly IndexedMassSpectralPeak IndexedPeak;
         public readonly int ChargeState;
 
-        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity)
+        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
             Intensity = intensity / chargeState;
+            PearsonCorrelation = pearsonCorrelation;
         }
 
         /// <summary>
@@ -24,6 +25,9 @@
         /// isotopic distribution was otherwise similar to the expected isotopic distribution.
         /// </summary>
         public double Intensity { get; private set; }
+
+
+        public double PearsonCorrelation { get; init; }
 
         public void Normalize(double normalizationFactor)
         {
