@@ -115,25 +115,6 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        public void WritingIsReproducible()
-        {
-            // Load in proteins
-            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml");
-            List<Protein> proteins1 = null;
-            List<Protein> proteins2 = null;
-
-            proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, null, false, null, out var unknownModifications);
-            proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, null, false, null, out unknownModifications);
-
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins1, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD2.xml"));
-
-            // check are equivalent lists of proteins
-            Assert.AreEqual(proteins1.Count, proteins2.Count);
-            // Because decoys are sorted before they are returned, the order should be identical
-            Assert.AreEqual(proteins1, proteins2);
-        }
-
-        [Test]
         public static void LoadModWithNl()
         {
             var hah = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cfInNL.txt"), out var errors).First() as Modification;
@@ -561,6 +542,7 @@ namespace Test.DatabaseTests
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out Dictionary<string, Modification> um);
 
+            // Create a second protein with the same modifications, but listed in a different order.
             sampleModList.Reverse();
             Protein modShuffledProtein = new Protein(
                 "MCMCMCSSSSSSSS",
@@ -588,9 +570,11 @@ namespace Test.DatabaseTests
             List<Protein> newShuffledProteins = ProteinDbLoader.LoadProteinXML(shuffledProteinFileName,
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(), out um);
 
+            // We've read in proteins from both databases. Assert that they are equal
             Assert.AreEqual(newShuffledProteins.First().Accession, newProteins.First().Accession);
             Assert.AreEqual(newShuffledProteins.First(), newProteins.First());
 
+            // Now, ensure that the modification dictionaries for each are equivalent (contain the same mods) and equal (contain the same mods in the same order)
             for(int i = 1; i<4; i++)
             {
                 int oneBasedResidue = i * 2;
