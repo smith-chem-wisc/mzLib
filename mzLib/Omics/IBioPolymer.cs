@@ -35,8 +35,8 @@ namespace Omics
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
             if (other.GetType() != GetType()) return false;
-            return Accession.Equals(other.Accession)
-                && BaseSequence.Equals(other.BaseSequence);
+            return Accession == other.Accession
+                && BaseSequence == other.BaseSequence;
         }
     }
 }
