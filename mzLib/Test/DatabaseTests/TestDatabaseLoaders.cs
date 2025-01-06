@@ -115,6 +115,25 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public void WritingIsReproducible()
+        {
+            // Load in proteins
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml");
+            List<Protein> proteins1 = null;
+            List<Protein> proteins2 = null;
+
+            proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, null, false, null, out var unknownModifications);
+            proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, null, false, null, out unknownModifications);
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins1, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD2.xml"));
+
+            // check are equivalent lists of proteins
+            Assert.AreEqual(proteins1.Count, proteins2.Count);
+            // Because decoys are sorted before they are returned, the order should be identical
+            Assert.AreEqual(proteins1, proteins2);
+        }
+
+        [Test]
         public static void LoadModWithNl()
         {
             var hah = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cfInNL.txt"), out var errors).First() as Modification;
@@ -468,6 +487,111 @@ namespace Test.DatabaseTests
 
             var c = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml"))[0];
             var d = new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First();
+
+            Assert.IsTrue(c.Equals(d));
+
+            //But that we can still read modifications from other protein XMLs that exist
+            Assert.AreEqual(0, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "xml.xml")).Count);
+        }
+
+        [Test]
+        public void MultiMod_ProteinDbWriter()
+        {
+            Loaders.LoadElements();
+            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"), out var errors).ToList();
+            var currentMod = sampleModList.First();
+            // create a slightly different modification
+            var newMod = new Modification(_originalId: "1" + currentMod.OriginalId, _target: currentMod.Target, _modificationType: currentMod.ModificationType, 
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction, _featureType: currentMod.FeatureType, 
+                _chemicalFormula: currentMod.ChemicalFormula);
+            var newMod2 = new Modification(_originalId: "2" + currentMod.OriginalId, _target: currentMod.Target, _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction, _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            var newMod3 = new Modification(_originalId: "3" + currentMod.OriginalId, _target: currentMod.Target, _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction, _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            var newMod4 = new Modification(_originalId: "4" + currentMod.OriginalId, _target: currentMod.Target, _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction, _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            var newMod5 = new Modification(_originalId: "5" + currentMod.OriginalId, _target: currentMod.Target, _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction, _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            sampleModList.AddRange( new List<Modification>() { newMod, newMod2, newMod3, newMod4, newMod5 });
+            Assert.AreEqual(6, sampleModList.OfType<Modification>().Count());
+            Protein protein = new Protein(
+                "MCMCMCSSSSSSSS", 
+                "accession", 
+                "organism", 
+                new List<Tuple<string, string>>(), 
+                new Dictionary<int, List<Modification>>
+                {
+                    { 2, sampleModList.OfType<Modification>().ToList() },
+                    { 4, sampleModList.OfType<Modification>().ToList() },
+                    { 6, sampleModList.OfType<Modification>().ToList() },
+                }, 
+                null,
+                "name", 
+                "full_name",
+                false,
+                false,
+                new List<DatabaseReference>(),
+                new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>());
+
+            Assert.AreEqual(6, protein.OneBasedPossibleLocalizedModifications[2].OfType<Modification>().Count());
+            Assert.AreEqual(18, protein.OneBasedPossibleLocalizedModifications.SelectMany(kvp => kvp.Value).Count());
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"));
+            List<Protein> newProteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"),
+                true, DecoyType.None, new List<Modification>(), false, new List<string>(), out Dictionary<string, Modification> um);
+
+            sampleModList.Reverse();
+            Protein modShuffledProtein = new Protein(
+                "MCMSMSSSSSSSSS",
+                "accession",
+                "organism",
+                new List<Tuple<string, string>>(),
+                new Dictionary<int, List<Modification>>
+                {
+                    { 2, sampleModList.OfType<Modification>().ToList() },
+                    { 4, sampleModList.OfType<Modification>().ToList() },
+                    { 6, sampleModList.OfType<Modification>().ToList() },
+                },
+                null,
+                "name",
+                "full_name",
+                false,
+                false,
+                new List<DatabaseReference>(),
+                new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>());
+            string shuffledProteinFileName = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_shuffled_modifications_with_proteins.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { modShuffledProtein }, shuffledProteinFileName);
+            List<Protein> newShuffledProteins = ProteinDbLoader.LoadProteinXML(shuffledProteinFileName,
+                true, DecoyType.None, new List<Modification>(), false, new List<string>(), out um);
+
+            Assert.AreEqual(newShuffledProteins.First(), newProteins.First());
+
+
+            Assert.AreEqual(1, newProteins.Count);
+            Assert.AreEqual(1, newProteins[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(1, newProteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
+            Assert.AreEqual("Type", newProteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).OfType<Modification>().First().ModificationType);
+            Assert.AreEqual("Palmitoylation on C", newProteins[0].OneBasedPossibleLocalizedModifications[2][0].IdWithMotif);
+            Assert.AreEqual(1, newProteins[0].OneBasedPossibleLocalizedModifications[2].OfType<Modification>().Count());
+
+            // Check that Modifications were saved after last load
+            Assert.AreEqual(1, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml")).Count);
+            Assert.True(ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml"))[0] == newProteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First());
+
+            //But that we can still read modifications from other protein XMLs that exist
+            Assert.AreEqual(0, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "xml.xml")).Count);
+
+            // Check that Modifications were saved after last load
+            var b = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml"));
+            Assert.AreEqual(1, b.Count);
+
+            var c = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml"))[0];
+            var d = newProteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First();
 
             Assert.IsTrue(c.Equals(d));
 
