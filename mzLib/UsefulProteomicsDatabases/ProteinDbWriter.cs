@@ -324,8 +324,17 @@ namespace UsefulProteomicsDatabases
                 }
 
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
-                    nonVariantProteins.SelectMany(p => p.SequenceVariations.SelectMany(sv => sv.OneBasedModifications).Concat(p.OneBasedPossibleLocalizedModifications).SelectMany(kv => kv.Value))
-                    .Concat(additionalModsToAddToProteins.Where(kv => nonVariantProteins.SelectMany(p => p.SequenceVariations.Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession })).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                    nonVariantProteins
+                        .SelectMany(p => p.SequenceVariations
+                            .SelectMany(sv => sv.OneBasedModifications)
+                            .Concat(p.OneBasedPossibleLocalizedModifications)
+                            .SelectMany(kv => kv.Value))
+                        .Concat(additionalModsToAddToProteins
+                            .Where(kv => nonVariantProteins
+                                .SelectMany(p => p.SequenceVariations
+                                    .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
+                                .Contains(kv.Key))
+                            .SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
@@ -413,23 +422,23 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    foreach (var hm in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
-                        foreach (var modId in hm.Value)
+                        foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
                         {
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "modified residue");
                             writer.WriteAttributeString("description", modId);
                             writer.WriteStartElement("location");
                             writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.Key.ToString(CultureInfo.InvariantCulture));
+                            writer.WriteAttributeString("position", positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
                             writer.WriteEndElement();
                             writer.WriteEndElement();
                             writer.WriteEndElement();
                         }
                     }
 
-                    foreach (var hm in protein.SequenceVariations)
+                    foreach (var hm in protein.SequenceVariations.OrderBy(sv => sv))
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
@@ -458,7 +467,7 @@ namespace UsefulProteomicsDatabases
                         }
                         foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
-                            foreach (var modId in hmm.Value)
+                            foreach (var modId in hmm.Value.OrderBy(mod => mod))
                             {
                                 writer.WriteStartElement("subfeature");
                                 writer.WriteAttributeString("type", "modified residue");
@@ -475,7 +484,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement(); // feature
                     }
 
-                    foreach (var hm in protein.DisulfideBonds)
+                    foreach (var hm in protein.DisulfideBonds.OrderBy(bond => bond.OneBasedBeginPosition))
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "disulfide bond");
@@ -500,7 +509,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement(); // feature
                     }
 
-                    foreach (var hm in protein.SpliceSites)
+                    foreach (var hm in protein.SpliceSites.OrderBy(site => site.OneBasedBeginPosition))
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "splice site");

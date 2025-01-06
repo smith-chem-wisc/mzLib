@@ -126,7 +126,30 @@ namespace Readers
             {
                 Ms1FrameIds.Add(sqliteReader.GetInt64(0));
             }
+            
         }
+
+        public ConcurrentBag<TimsDataScan> Ms1ScansNoPrecursorsBag { internal get; set; }
+        public TimsDataScan[] Ms1ScanArray { internal get; set; }
+        public TimsDataScan[] PasefScanArray { internal get; set; }
+
+        internal void CountPrecursors()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT MAX(Id) FROM Precursors;";
+            using var sqliteReader = command.ExecuteReader();
+            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
+                .Select(sqliteReader.GetName).ToList();
+            long maxPrecursorId = 0;
+            while (sqliteReader.Read())
+            {
+                maxPrecursorId = sqliteReader.GetInt64(0);
+            }
+            Ms1ScanArray = new TimsDataScan[maxPrecursorId];
+            PasefScanArray = new TimsDataScan[maxPrecursorId];
+        }
+
 
         /// <summary>
         /// Builds a new FrameProxyFactory to pull frames from the timsTOF data file
@@ -169,10 +192,12 @@ namespace Readers
             CountFrames();
             CountMS1Frames();
             BuildProxyFactory();
+            CountPrecursors();
             
             _maxThreads = maxThreads;
-            Ms1ScanBag = new();
-            PasefScanBag = new();
+            //Ms1ScanBag = new();
+            //PasefScanBag = new();
+            Ms1ScansNoPrecursorsBag = new();
             Parallel.ForEach(
                 Partitioner.Create(0, Ms1FrameIds.Count),
                 new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
@@ -192,27 +217,41 @@ namespace Readers
 
         internal void AssignOneBasedPrecursorsToPasefScans()
         {
-            var ms1Scans = Ms1ScanBag.OrderBy(scan => scan.FrameId).ThenBy(scan => scan.PrecursorId).ToList();
-            var pasefScans = PasefScanBag.OrderBy(scan => scan.PrecursorId).ToList();
-            TimsDataScan[] scanArray = new TimsDataScan[ms1Scans.Count + pasefScans.Count];
+            //var ms1Scans = Ms1ScanBag.OrderBy(scan => scan.FrameId).ThenBy(scan => scan.PrecursorId).ToList();
+            //var pasefScans = PasefScanBag.OrderBy(scan => scan.PrecursorId).ToList();
+
+            var localMs1Scans = this.Ms1ScanArray.Where(scan => scan != null).OrderBy(scan => scan.FrameId).ThenBy(scan => scan.PrecursorId).ToList();
+            var localPasefScans = this.PasefScanArray.Where(scan => scan != null).OrderBy(scan => scan.PrecursorId).ToList();
+            var localMs1ScansNoPrecursor = Ms1ScansNoPrecursorsBag.OrderBy(scan => scan.FrameId).ToList();
+            TimsDataScan[] scanArray = new TimsDataScan[localMs1Scans.Count*2 + localMs1ScansNoPrecursor.Count];
 
             int oneBasedScanIndex = 1;
             int pasefScanIndex = 0;
+            int ms1NoPrecursorIndex = 0;
+            TimsDataScan? ms1ScanNoPrecursor = localMs1ScansNoPrecursor.IsNotNullOrEmpty() ? localMs1ScansNoPrecursor[ms1NoPrecursorIndex] : null;
             //Write the scans to the scanArray and assign scan indices
-            for (int i = 0; i < ms1Scans.Count; i++)
+            for (int i = 0; i < localMs1Scans.Count; i++)
             {
-                var ms1Scan = ms1Scans[i];
+                var ms1Scan = localMs1Scans[i];
+                while (ms1ScanNoPrecursor != null && ms1ScanNoPrecursor.FrameId < ms1Scan.FrameId)
+                {
+                    ms1ScanNoPrecursor.SetOneBasedScanNumber(oneBasedScanIndex);
+                    scanArray[oneBasedScanIndex - 1] = ms1ScanNoPrecursor;
+                    ms1NoPrecursorIndex++;
+                    oneBasedScanIndex++;
+                    ms1ScanNoPrecursor = ms1NoPrecursorIndex < localMs1ScansNoPrecursor.Count ? localMs1ScansNoPrecursor[ms1NoPrecursorIndex] : null;
+                }
                 ms1Scan.SetOneBasedScanNumber(oneBasedScanIndex);
                 scanArray[oneBasedScanIndex - 1] = ms1Scan;
                 oneBasedScanIndex++;
-                if (ms1Scan.PrecursorId == -1) continue; // Continue if the scan didn't have any precursors (as there will be no MS2 scans)
+                //if (ms1Scan.PrecursorId == -1) continue; // Continue if the scan didn't have any precursors (as there will be no MS2 scans)
                 
                 // This assumes that there is a one to one correspondence between the MS1 scans and the PASEF scans
-                var pasefScan = pasefScans[pasefScanIndex];
+                var pasefScan = localPasefScans[pasefScanIndex];
                 while(pasefScan.PrecursorId < ms1Scan.PrecursorId)
                 {
                     pasefScanIndex++;
-                    pasefScan = pasefScans[pasefScanIndex];
+                    pasefScan = localPasefScans[pasefScanIndex];
                 }
                 if(pasefScan.PrecursorId == ms1Scan.PrecursorId)
                 {
@@ -273,20 +312,25 @@ namespace Readers
             if (records.Count == 0)
             {
                 Ms1Record noPrecursorRecord = new Ms1Record(-1, 1, frame.NumberOfScans, frame.NumberOfScans / 2);
-                TimsDataScan dataScan = GetMs1Scan(noPrecursorRecord, frame, filteringParams);
+                TimsDataScan? dataScan = GetMs1Scan(noPrecursorRecord, frame, filteringParams);
                 if (dataScan != null)
                 {
-                    Ms1ScanBag.Add(dataScan);
+                    Ms1ScansNoPrecursorsBag.Add(dataScan);
+                    //Ms1ScanBag.Add(dataScan);
                 }
                 return;
             }
 
             foreach (var record in records)
             {
-                TimsDataScan dataScan = GetMs1Scan(record, frame,  filteringParams);
+                TimsDataScan? dataScan = GetMs1Scan(record, frame,  filteringParams);
                 if (dataScan != null)
                 {
-                    Ms1ScanBag.Add(dataScan);
+                    if(dataScan.PrecursorId != null)
+                        Ms1ScanArray[(int)dataScan.PrecursorId - 1] = dataScan;
+                    else
+                        Ms1ScansNoPrecursorsBag.Add(dataScan);
+                    //Ms1ScanBag.Add(dataScan);
                 }
             }
             
@@ -294,7 +338,7 @@ namespace Readers
             BuildPasefScanFromPrecursor(precursorIds: records.Select(r => r.PrecursorId), filteringParams);
         }
 
-        internal TimsDataScan GetMs1Scan(Ms1Record record, FrameProxy frame, FilteringParams filteringParams)
+        internal TimsDataScan? GetMs1Scan(Ms1Record record, FrameProxy frame, FilteringParams filteringParams)
         {
             List<uint[]> indexArrays = new();
             List<int[]> intensityArrays = new();
@@ -440,7 +484,11 @@ namespace Readers
             foreach (TimsDataScan scan in pasefScans)
             {
                 scan.AverageComponentSpectra(FrameProxyFactory, filteringParams);
-                PasefScanBag.Add(scan);
+                if (scan?.PrecursorId != null)
+                    PasefScanArray[(int)scan.PrecursorId - 1] = scan;
+
+
+                //PasefScanBag.Add(scan);
             }
         }
 
