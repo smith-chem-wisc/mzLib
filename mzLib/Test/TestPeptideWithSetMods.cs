@@ -8,10 +8,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using MzLibUtil;
 using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -55,8 +57,22 @@ namespace Test
             Assert.That(pep1.Parent.Equals(pep2.Parent));
             Assert.That(!pep1.DigestionParams.DigestionAgent.Equals(pep2.DigestionParams.DigestionAgent));
             Assert.That(!pep1.Equals(pep2));
-            // HashCode is only concerned with the full sequence, not the protease. Only the equals method is interested in the protease used
-            Assert.That(pep1.GetHashCode().Equals(pep2.GetHashCode()));
+            Assert.That(!pep1.Equals((object)pep2));
+            Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
+        }
+
+        [Test]
+        public static void TestPeptideOligoEquality()
+        {
+            var oligo = new OligoWithSetMods("GUACUG", []);
+            var peptide = new PeptideWithSetModifications("PEPTIDE", []);
+
+            Assert.That(!oligo.Equals(peptide));
+            Assert.That(!peptide.Equals(oligo));
+            Assert.That(!((IBioPolymerWithSetMods)oligo).Equals(peptide));
+            Assert.That(!((IBioPolymerWithSetMods)peptide).Equals(oligo));
+            Assert.That(!((object)oligo).Equals(peptide));
+            Assert.That(!((object)peptide).Equals(oligo));
         }
 
         [Test]
@@ -762,12 +778,11 @@ namespace Test
 
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testDecoyHash = reverse.GetHashCode(); 
-            Assert.AreEqual(reverse.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
+
+            string targetSequence = p.FullSequence;
+            string decoySequence = reverse.FullSequence; 
+            Assert.AreEqual(reverse.PairedTargetDecoySequence, targetSequence);
+            Assert.AreEqual(p.PairedTargetDecoySequence, decoySequence);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
@@ -839,11 +854,11 @@ namespace Test
             PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, VTIRTVR_modsDictionary, 0, null);
             PeptideWithSetModifications p_tryp_reverse = p_tryp.GetReverseDecoyFromTarget(newAminoAcidPositions);
             // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testMirrorTargetHash = p_tryp.GetHashCode();
+            string mirrorTarget = p_tryp.FullSequence;
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testMirrorDecoyHash = p_tryp_reverse.GetHashCode();
-            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoySequence.GetHashCode());
-            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoySequence.GetHashCode());
+            string mirrorDecoy = p_tryp_reverse.FullSequence;
+            Assert.AreEqual(mirrorTarget, p_tryp_reverse.PairedTargetDecoySequence);
+            Assert.AreEqual(mirrorDecoy, p_tryp.PairedTargetDecoySequence);
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
@@ -868,12 +883,11 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications testScrambled = p.GetScrambledDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testDecoyHash = testScrambled.GetHashCode();
-            Assert.AreEqual(testScrambled.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
+
+            string targetSequence = p.FullSequence;
+            string decoySequence = testScrambled.FullSequence;
+            Assert.AreEqual(testScrambled.PairedTargetDecoySequence, targetSequence);
+            Assert.AreEqual(p.PairedTargetDecoySequence, decoySequence);
             Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
             Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
             // Check n-term acetyl
@@ -1180,6 +1194,136 @@ namespace Test
             Assert.AreEqual('K', last.PreviousResidue);
             Assert.AreEqual('-', last.NextAminoAcid);
             Assert.AreEqual('-', last.NextResidue);
+        }
+
+        [Test]
+        public static void TestPeptideWithSetModsEquals()
+        {
+            // Create two proteins
+            Protein protein1 = new Protein("SEQUENCEK", "accession1");
+            Protein protein2 = new Protein("SEQUENCEK", "accession2");
+
+            // Create digestion parameters
+            DigestionParams digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            // Digest the proteins to get peptides
+            PeptideWithSetModifications peptide1 = protein1.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
+            PeptideWithSetModifications peptide2 = protein2.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
+
+            // Test equality - same peptide
+            Assert.IsTrue(peptide1.Equals(peptide1));
+
+            // different peptide
+            Assert.IsTrue(!peptide1.Equals(peptide2));
+            Assert.IsTrue(!peptide1.Equals((object)peptide2));
+            Assert.IsTrue(!peptide1.Equals((IBioPolymerWithSetMods)peptide2));
+            Assert.AreNotEqual(peptide1.GetHashCode(), peptide2.GetHashCode());
+
+            // Test inequality with different start residue
+            PeptideWithSetModifications peptide3 = new PeptideWithSetModifications(protein1, digestionParams, 2, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(peptide1.Equals(peptide3));
+
+            // Test inequality with different parent accession
+            PeptideWithSetModifications peptide4 = new PeptideWithSetModifications(protein2, digestionParams, 1, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(peptide1.Equals(peptide4));
+
+            // all fail on null
+            Assert.That(!peptide1.Equals(null));
+            Assert.That(!peptide1.Equals((object)null));
+            Assert.That(!peptide1.Equals((PeptideWithSetModifications)null));
+        }
+
+       
+
+        [Test]
+        public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
+        {
+            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"),
+                    formalChargesDictionary).ToList();
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
+                true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            var allKnownModDict = UniProtPtms.ToDictionary(p => p.IdWithMotif, p => p);
+            var digestionParameters = new DigestionParams(maxModsForPeptides: 3);
+
+            foreach (Protein p in proteins)
+            {
+                List<PeptideWithSetModifications> digestedPeptides =
+                    p.Digest(digestionParameters, [], [], null, null).ToList();
+                // take the most modified peptide by base sequence and ensure all methods function properly
+                foreach (var targetPeptide in digestedPeptides
+                             .Where(pep => pep.FullSequence.Contains('['))
+                             .GroupBy(pep => pep.BaseSequence)
+                             .Select(pepGroup => pepGroup.MaxBy(pep => pep.AllModsOneIsNterminus.Count)))
+                {
+                    var startResidue = targetPeptide.OneBasedStartResidue;
+                    var endResidue = targetPeptide.OneBasedEndResidue;
+
+                    // Pull our expected modifications based upon parent protein object with a maximum value of DigestionParameters.MaxMods
+                    // A bunch of logic to count the number of expected modifications based upon the xml database entries
+                    int expectedModCount = 0;
+                    foreach (var modDictEntry in p.OneBasedPossibleLocalizedModifications
+                                 .Where(mod => mod.Key >= startResidue && mod.Key <= endResidue))
+                    {
+                        if (modDictEntry.Value.Count > 1)
+                        {
+                            var locRestrictions = modDictEntry.Value.Select(mod => mod.LocationRestriction).ToList();
+
+                            if (locRestrictions.AllSame())
+                            {
+                                if (locRestrictions.First() == "Anywhere.")
+                                    expectedModCount++;
+                                else if (locRestrictions.First() == "N-terminal." && modDictEntry.Key == startResidue)
+                                    expectedModCount++;
+                            }
+                            else if (modDictEntry.Value.Select(mod => mod.LocationRestriction).Contains("Anywhere.")
+                                     && modDictEntry.Value.Select(mod => mod.LocationRestriction)
+                                         .Contains("N-terminal."))
+                            {
+                                expectedModCount++;
+                                if (modDictEntry.Key == startResidue)
+                                    expectedModCount++;
+                            }
+                        }
+                        else
+                        {
+                            switch (modDictEntry.Value.First().LocationRestriction)
+                            {
+                                case "Anywhere.":
+                                case "N-terminal." when modDictEntry.Key == startResidue:
+                                    expectedModCount++;
+                                    break;
+                            }
+                        }
+                    }
+
+                    expectedModCount = Math.Min(expectedModCount, digestionParameters.MaxMods);
+
+                    var expectedModifications = p.OneBasedPossibleLocalizedModifications.Where(mod =>
+                        mod.Key >= startResidue &&
+                        mod.Key <= endResidue).SelectMany(mod => mod.Value).ToList();
+
+                    // Parse modifications from PWSM and two IBioPolymerWithSetMods methods
+                    var pwsmModDict = targetPeptide.AllModsOneIsNterminus;
+                    var bpwsmModDict = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
+                    var bpwsmModList = IBioPolymerWithSetMods.GetModificationsFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
+
+                    // Ensure all methods are in agreement by modification count
+                    Assert.AreEqual(pwsmModDict.Count, expectedModCount);
+                    Assert.AreEqual(bpwsmModDict.Count, expectedModCount);
+                    Assert.AreEqual(bpwsmModList.Count, expectedModCount);
+
+                    // Ensure all methods are in agreement by modification identify
+                    foreach (var pwsmModification in pwsmModDict.Values)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                    foreach (var pwsmModification in bpwsmModDict.Values)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                    foreach (var pwsmModification in bpwsmModList)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                }
+            }
         }
     }
 }

@@ -1,9 +1,9 @@
-﻿using MzLibUtil;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
+using FlashLFQ.PEP;
 
 namespace FlashLFQ
 {
@@ -16,20 +16,23 @@ namespace FlashLFQ
         public int ScanCount => IsotopicEnvelopes.Count;
         public double SplitRT;
         public readonly bool IsMbrPeak;
-        public double PredictedRetentionTime { get; init; }
-
+        public double MbrScore;
+        public double PpmScore { get; set; }
+        public double IntensityScore { get; set; }
+        public double RtScore { get; set; }
+        public double ScanCountScore { get; set; }
+        public double IsotopicDistributionScore { get; set; }
         /// <summary>
-        /// A score bounded by 100 and 0, with more confident MBR-detections receiving higher scores
+        /// Stores the pearson correlation between the apex isotopic envelope and the theoretical isotopic distribution
         /// </summary>
-        public double MbrScore { get; private set; }
+        public double IsotopicPearsonCorrelation => Apex?.PearsonCorrelation ?? -1;
+        public double RtPredictionError { get; set; }
+        public List<int> ChargeList { get; set; }
+        internal double MbrQValue { get; set; }
+        public ChromatographicPeakData PepPeakData { get; set; }
+        public double? MbrPep { get; set; }
 
-        /// The four scores below are bounded by 0 and 1, with higher scores being better
-        public double PpmScore { get; private set; }
-        public double IntensityScore { get; private set; }
-        public double RtScore { get; private set; }
-        public double ScanCountScore { get; private set; }
-
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
+        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
             SplitRT = 0;
             NumChargeStatesObserved = 0;
@@ -40,12 +43,14 @@ namespace FlashLFQ
             IsotopicEnvelopes = new List<IsotopicEnvelope>();
             IsMbrPeak = isMbrPeak;
             SpectraFileInfo = fileInfo;
+            RandomRt = randomRt;
         }
 
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime) :
-            this(id, isMbrPeak, fileInfo)
+        public bool Equals(ChromatographicPeak peak)
         {
-            PredictedRetentionTime = predictedRetentionTime;
+            return SpectraFileInfo.Equals(peak.SpectraFileInfo) 
+                && Identifications.First().ModifiedSequence.Equals(peak.Identifications.First().ModifiedSequence)
+                && ApexRetentionTime == peak.ApexRetentionTime;
         }
 
         public IsotopicEnvelope Apex { get; private set; }
@@ -54,13 +59,18 @@ namespace FlashLFQ
         public int NumIdentificationsByBaseSeq { get; private set; }
         public int NumIdentificationsByFullSeq { get; private set; }
         public double MassError { get; private set; }
+        /// <summary>
+        /// Bool that describes whether the retention time of this peak was randomized
+        /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
+        /// </summary>
+        public bool RandomRt { get; }
+        public bool DecoyPeptide => Identifications.First().IsDecoy;
 
         public void CalculateIntensityForThisFeature(bool integrate)
         {
             if (IsotopicEnvelopes.Any())
             {
-                double maxIntensity = IsotopicEnvelopes.Max(p => p.Intensity);
-                Apex = IsotopicEnvelopes.First(p => p.Intensity == maxIntensity);
+                Apex = IsotopicEnvelopes.MaxBy(p => p.Intensity);
 
                 if (integrate)
                 {
@@ -123,25 +133,6 @@ namespace FlashLFQ
             this.NumIdentificationsByBaseSeq = Identifications.Select(v => v.BaseSequence).Distinct().Count();
             this.NumIdentificationsByFullSeq = Identifications.Select(v => v.ModifiedSequence).Distinct().Count();
         }
-
-        /// <summary>
-        /// Calculates four component scores and one overarching Mbr score for an MBR peak.
-        /// MBR Score is equal to 100 * the geometric mean of the four component scores.
-        /// </summary>
-        /// <param name="scorer"> An MbrScorer specific to the file where this peak was found </param>
-        /// <param name="donorPeak"> The donor peak used as the basis for the MBR identification. </param>
-        internal void CalculateMbrScore(MbrScorer scorer, ChromatographicPeak donorPeak)
-        {
-            if (SpectraFileInfo != scorer.AcceptorFile) throw new MzLibException("Error when performing match-between-runs: Mismatch between scorer and peak.");
-
-            IntensityScore = scorer.CalculateIntensityScore(this, donorPeak);
-            RtScore = scorer.CalculateRetentionTimeScore(this, donorPeak);
-            PpmScore = scorer.CalculatePpmErrorScore(this);
-            ScanCountScore = scorer.CalculateScanCountScore(this);
-
-            MbrScore = 100 * Math.Pow(IntensityScore * RtScore * PpmScore * ScanCountScore, 0.25);
-        }
-
         public static string TabSeparatedHeader
         {
             get
@@ -164,20 +155,18 @@ namespace FlashLFQ
                 sb.Append("Peak Charge" + "\t");
                 sb.Append("Num Charge States Observed" + "\t");
                 sb.Append("Peak Detection Type" + "\t");
-                sb.Append("MBR Score" + "\t");
-                sb.Append("Ppm Score" + "\t");
-                sb.Append("Intensity Score" + "\t");
-                sb.Append("Rt Score" + "\t");
-                sb.Append("Scan Count Score" + "\t");
+                sb.Append("PIP Q-Value" + "\t");
+                sb.Append("PIP PEP" + "\t");
                 sb.Append("PSMs Mapped" + "\t");
                 sb.Append("Base Sequences Mapped" + "\t");
                 sb.Append("Full Sequences Mapped" + "\t");
                 sb.Append("Peak Split Valley RT" + "\t");
-                sb.Append("Peak Apex Mass Error (ppm)");
+                sb.Append("Peak Apex Mass Error (ppm)" + "\t");
+                sb.Append("Decoy Peptide" + "\t");
+                sb.Append("Random RT");
                 return sb.ToString();
             }
         }
-
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
@@ -260,17 +249,16 @@ namespace FlashLFQ
                 sb.Append("" + "MSMS" + "\t");
             }
 
-            sb.Append("" + (IsMbrPeak ? MbrScore.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? PpmScore.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? IntensityScore.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? RtScore.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? ScanCountScore.ToString() : "") + "\t");
+            sb.Append("" + (IsMbrPeak ? MbrQValue.ToString() : "") + "\t");
+            sb.Append("" + (IsMbrPeak ? MbrPep.ToString() : "") + "\t");
 
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError);
+            sb.Append("\t" + DecoyPeptide);
+            sb.Append("\t" + RandomRt);
 
             return sb.ToString();
         }

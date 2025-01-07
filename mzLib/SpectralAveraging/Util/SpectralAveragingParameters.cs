@@ -37,7 +37,7 @@ public class SpectralAveragingParameters
         SpectralAveragingType spectralAveragingType = SpectralAveragingType.MzBinning,
         NormalizationType normalizationType = NormalizationType.RelativeToTics,
         SpectraFileAveragingType specAveragingType = SpectraFileAveragingType.AverageAll,
-        OutputType outputType = OutputType.MzML, int numToAverage = 5, int overlap = 2,
+        OutputType outputType = OutputType.MzML, int numToAverage = 5, int overlap = 4,
         double percentile = 0.1, double minSigma = 1.5, double maxSigma = 1.5, double binSize = 0.01,
         int maxThreads = 1)
     {
@@ -67,7 +67,7 @@ public class SpectralAveragingParameters
         SpectraFileAveragingType = SpectraFileAveragingType.AverageAll;
         NormalizationType = NormalizationType.RelativeToTics;
         OutputType = OutputType.MzML;
-        ScanOverlap = 2;
+        ScanOverlap = 4;
         NumberOfScansToAverage = 5;
         Percentile = 0.1;
         MinSigmaValue = 1.5;

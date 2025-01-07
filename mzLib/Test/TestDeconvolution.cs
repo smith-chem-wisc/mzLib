@@ -397,7 +397,7 @@ namespace Test
 
             // set up deconvolution
             DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(-10, -1, 20, 3, Polarity.Negative);
-            
+
             // get isolated masses and charges on an MS1 scan. This means the isolation window is null.
             var ms1Result = precursorScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams).ToList();
             Assert.That(ms1Result.Count, Is.EqualTo(0));
@@ -405,7 +405,8 @@ namespace Test
             Assert.That(ms1Result.Count, Is.EqualTo(0));
 
             // get isolated masses and charges on an MS2 scan. This should work correctly
-            var ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams).ToList();
+            var ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParams)
+                .ToList();
             Assert.That(ms2Result.Count, Is.EqualTo(1));
             ms2Result = fragmentationScan.GetIsolatedMassesAndCharges(precursorScan, deconParams).ToList();
             Assert.That(ms2Result.Count, Is.EqualTo(1));

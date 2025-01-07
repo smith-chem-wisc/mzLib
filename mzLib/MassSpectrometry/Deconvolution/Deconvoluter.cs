@@ -5,7 +5,11 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    
+    public enum DeconvolutionType
+    {
+        ClassicDeconvolution,
+        ExampleNewDeconvolutionTemplate,
+    }
 
     /// <summary>
     /// Context class for all deconvolution
@@ -63,6 +67,8 @@ namespace MassSpectrometry
                 foreach (var isotopicEnvelope in deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom).ToList()) 
                     yield return isotopicEnvelope;
             }
+
+            return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
         }
     }
 }
