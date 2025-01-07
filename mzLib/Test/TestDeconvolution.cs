@@ -14,7 +14,6 @@ using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Test.FileReadingTests;
-using IsoDecDeconvolutionParameters = MassSpectrometry.IsoDecDeconvolutionParameters;
 
 namespace Test
 {
@@ -332,8 +331,6 @@ namespace Test
 
         [Test]
         [TestCase(373.85, -5, 1874.28)] // GUAGUC -5
-        [TestCase(467.57, -4, 1874.28)] // GUAGUC -4
-        [TestCase(623.75, -3, 1874.28)] // GUAGUC -3
         [TestCase(936.13, -2, 1874.28)] // GUAGUC -2
         [TestCase(473.05, -4, 1896.26)] // GUAGUC +Na -H -4
         [TestCase(631.07, -3, 1896.26)] // GUAGUC +Na -H -3

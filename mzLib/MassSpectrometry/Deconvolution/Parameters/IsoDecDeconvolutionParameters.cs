@@ -1,7 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
 namespace MassSpectrometry;
-
 public class IsoDecDeconvolutionParameters : DeconvolutionParameters
 {
     public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.IsoDecDeconvolution;
@@ -153,7 +152,7 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     /// <summary>
     /// Minimum score difference for isotope distribution to allow missed monoisotopic peaks
     /// </summary>
-    public float MinScoreDiff { get; set; } = (float)0.1;
+    public float MinScoreDiff { get; protected set; } = (float)0.1;
 
     /// <summary>
     /// Isotope Distribution Length
@@ -168,17 +167,17 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     /// <summary>
     /// Adduct Mass
     /// </summary>
-    public float AdductMass { get; set; } = (float)1.00727276467;
+    public float AdductMass { get; protected set; } = (float)1.00727276467;
 
     /// <summary>
     /// Use set the -1 isotope as 0 to help force better alignments
     /// </summary>
-    public int MinusOneAreasZero { get; set; } = 1;
+    public int MinusOneAreasZero { get; protected set; } = 1;
 
     /// <summary>
     /// Threshold for isotope distribution. Will remove relative intensities below this.
     /// </summary>
-    public float IsotopeThreshold { get; set; } = (float)0.01;
+    public float IsotopeThreshold { get; protected set; } = (float)0.01;
 
     /// <summary>
     /// Ratio above which a secondary charge state prediction will be returned.
