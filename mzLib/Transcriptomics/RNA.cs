@@ -23,7 +23,7 @@ namespace Transcriptomics
         /// </summary>
         /// <param name="sequence"></param>
         /// <param name="name"></param>
-        /// <param name="identifier"></param>
+        /// <param name="accession"></param>
         /// <param name="organism"></param>
         /// <param name="databaseFilePath"></param>
         /// <param name="fivePrimeTerminus"></param>
@@ -33,12 +33,12 @@ namespace Transcriptomics
         /// <param name="isDecoy"></param>
         /// <param name="geneNames"></param>
         /// <param name="databaseAdditionalFields"></param>
-        public RNA(string sequence, string name, string identifier, string organism, string databaseFilePath,
+        public RNA(string sequence, string name, string accession, string organism, string databaseFilePath,
             IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleModifications = null,
             bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>> geneNames = null,
             Dictionary<string, string>? databaseAdditionalFields = null)
-            : base(sequence, name, identifier, organism, databaseFilePath, fivePrimeTerminus, threePrimeTerminus,
+            : base(sequence, name, accession, organism, databaseFilePath, fivePrimeTerminus, threePrimeTerminus,
                 oneBasedPossibleModifications, isContaminant, isDecoy, geneNames, databaseAdditionalFields)
         {
 

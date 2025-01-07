@@ -91,43 +91,55 @@ namespace Test.Transcriptomics
                 .Digest(new RnaDigestionParams(), [], [])
                 .ElementAt(1);
 
-            Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods2));
+            // same oligos
+            Assert.That(oligoWithSetMods.Equals(oligoWithSetMods2));
+            Assert.That(oligoWithSetMods.Equals((object)oligoWithSetMods2));
+            Assert.That(oligoWithSetMods.Equals((OligoWithSetMods)oligoWithSetMods2));
+            Assert.That(oligoWithSetMods.Equals(oligoWithSetMods));
+            Assert.That(oligoWithSetMods.Equals((object)oligoWithSetMods));
+            Assert.That(oligoWithSetMods.Equals((OligoWithSetMods)oligoWithSetMods));
             Assert.That(oligoWithSetMods.GetHashCode(), Is.EqualTo(oligoWithSetMods2.GetHashCode()));
-            Assert.That(oligoWithSetMods.Equals((object)oligoWithSetMods2)); // Test the Equals(Object obj) method
+
+            // all fail on null
             Assert.That(!oligoWithSetMods2.Equals(null));
+            Assert.That(!oligoWithSetMods2.Equals((object)null));
+            Assert.That(!oligoWithSetMods2.Equals((OligoWithSetMods)null));
 
             // Null parent checks
             oligoWithSetMods = new(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
             oligoWithSetMods2 = new OligoWithSetMods(oligoWithSetMods.FullSequence, modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
             var oligoWithSetMods3 = new OligoWithSetMods(oligoWithSetMods.FullSequence + "AGAUA", modDict.ToDictionary(p => p.Value.First().IdWithMotif, p => p.Value.First()));
 
-            Assert.That(oligoWithSetMods, Is.EqualTo(oligoWithSetMods2));
-            Assert.That(oligoWithSetMods, Is.EqualTo((object)oligoWithSetMods2));
-            Assert.That(oligoWithSetMods, Is.EqualTo((OligoWithSetMods)oligoWithSetMods2));
-            Assert.That(oligoWithSetMods, Is.Not.EqualTo(oligoWithSetMods3));
-            Assert.That(oligoWithSetMods, Is.Not.EqualTo((object)oligoWithSetMods3));
-            Assert.That(oligoWithSetMods, Is.Not.EqualTo((IBioPolymerWithSetMods)oligoWithSetMods3));
+            // same oligo null parent
+            Assert.That(oligoWithSetMods.Equals(oligoWithSetMods2));
+            Assert.That(oligoWithSetMods.Equals((object)oligoWithSetMods2));
+            Assert.That(oligoWithSetMods.Equals((OligoWithSetMods)oligoWithSetMods2));
+
+            // different oligo null parent
+            Assert.That(!oligoWithSetMods.Equals(oligoWithSetMods3));
+            Assert.That(!oligoWithSetMods.Equals((object)oligoWithSetMods3));
+            Assert.That(!oligoWithSetMods.Equals((IBioPolymerWithSetMods)oligoWithSetMods3));
         }
 
         [Test]
         [TestCase("GUACUG", "GUACUGGUACUG", "RNase A")]
         [TestCase("GUAGGAG", "GUAGCAG", "RNase A")]
-        public static void TestEquality_DifferentParentSameDigestionProduct(string sequence1, string sequence2, string enzyme)
+        public static void TestInequality_DifferentParentSameDigestionProduct(string sequence1, string sequence2, string enzyme)
         {
             var digestionParams = new RnaDigestionParams(rnase: enzyme, minLength: 1, maxMissedCleavages: 0);
 
-            var oligo1 = new RNA(sequence1)
+            var oligo1 = new RNA(sequence1, "", "rna1", "", "")
                 .Digest(digestionParams, [], [])
                 .First();
 
-            var oligo2 = new RNA(sequence2)
+            var oligo2 = new RNA(sequence2, "", "rna3", "", "")
                 .Digest(digestionParams, [], [])
                 .First();
 
-            Assert.That(oligo1, Is.EqualTo(oligo2));
+            Assert.That(oligo1, Is.Not.EqualTo(oligo2));
             Assert.That(oligo1.Equals(oligo1));
-            Assert.That(oligo1, Is.EqualTo((object)oligo2));
-            Assert.That(oligo1.GetHashCode(), Is.EqualTo(oligo2.GetHashCode()));
+            Assert.That(oligo1, Is.Not.EqualTo((object)oligo2));
+            Assert.That(oligo1.GetHashCode(), Is.Not.EqualTo(oligo2.GetHashCode()));
         }
 
         /// <summary>
