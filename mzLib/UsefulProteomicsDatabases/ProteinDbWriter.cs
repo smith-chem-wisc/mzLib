@@ -407,7 +407,7 @@ namespace UsefulProteomicsDatabases
                     //some day we could write those if observed
                     //the truncation designation is contained in the "type" field of ProteolysisProduct
                     List<ProteolysisProduct> proteolysisProducts = protein.ProteolysisProducts.Where(p => !p.Type.Contains("truncation"))
-                        .OrderBy(p => p).ToList();
+                        .OrderBy(p => p.OneBasedBeginPosition).ToList();
                     foreach (var proteolysisProduct in proteolysisProducts)
                     {
                         writer.WriteStartElement("feature");
@@ -439,7 +439,8 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
-                    foreach (var hm in protein.SequenceVariations.OrderBy(sv => sv))
+                    
+                    foreach (var hm in protein.SequenceVariations.OrderBy(sv => sv.OneBasedBeginPosition).ThenBy(sv => sv.VariantSequence)) 
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
