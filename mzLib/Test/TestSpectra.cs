@@ -316,8 +316,6 @@ namespace Test
             Assert.AreEqual(7, thisSpectrum.GetClosestPeakXvalue(8));
         }
 
-        #region Neutral Mass Spectrum
-
         [Test]
         public void TestEqualsAndHashCode()
         {
@@ -346,6 +344,7 @@ namespace Test
             Assert.That(!_mzSpectrumA.Equals((object)2));
         }
 
+        #region Neutral Mass Spectrum
 
         [Test]
         public void NeutralMassSpectrum_Constructor_ValidArguments_InitializesProperties()
@@ -462,7 +461,7 @@ namespace Test
         [TestCase(106.0, new int[] { 5, 4 })] // Case: Upper and lower bounds with stopping conditions
         [TestCase(107.0, new int[] { 5 })] // Case: Upper outside tolerance
         [TestCase(200.0, new int[] {  })] // Case: Nearest index is outside range
-        public void Test_GetPeakIndicesWithinTolerance(double x, int[] expectedIndices)
+        public void TestGetPeakIndicesWithinTolerance(double x, int[] expectedIndices)
         {
             // Arrange
             var xArray = new [] { 99.0, 101.0, 103.0, 104.0, 105.0, 106.0 };
@@ -477,7 +476,7 @@ namespace Test
         }
 
         [Test]
-        public void GetPeakIndicesWithinTolerance_HandlesEmptyXArray_Gracefully()
+        public void TestGetPeakIndicesWithinTolerance_HandlesEmptyXArray_Gracefully()
         {
             // Arrange
             var empty = new double[] { }; // Empty array
