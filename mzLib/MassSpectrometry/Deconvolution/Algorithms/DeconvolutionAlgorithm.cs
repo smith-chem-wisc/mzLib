@@ -81,7 +81,5 @@ namespace MassSpectrometry
         /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
         internal abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range);
-
-
        }
 }

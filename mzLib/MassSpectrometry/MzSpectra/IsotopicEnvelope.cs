@@ -50,7 +50,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Used for A deconvolution method that calculates its own score. 
         /// </summary>
-        /// <param name="id">All missed mono products of the same peak will share an ID</param>
+        /// <param name="id">All missed mono products of the same peak will share an ID if enabled in IsoDec</param>
         /// <param name="peaks"></param>
         /// <param name="monoisotopicmass"></param>
         /// <param name="chargestate"></param>

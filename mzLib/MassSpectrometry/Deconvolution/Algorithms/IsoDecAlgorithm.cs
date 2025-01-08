@@ -88,13 +88,14 @@ namespace MassSpectrometry
         {
             List<IsotopicEnvelope> result = new List<IsotopicEnvelope>();
             int currentId = 0;
+            var tolerance = new PpmTolerance(5);
             foreach(MatchedPeak peak in matchedpeaks)
             {
                 List<(double,double)> peaks = new List<(double,double)> ();
                 for (int i = 0; i < peak.realisolength; i++)
                 {
 
-                    List<int> indicesWithinTolerance = spectrum.GetPeakIndicesWithinTolerance(peak.isomz[i], new PpmTolerance(5));
+                    List<int> indicesWithinTolerance = spectrum.GetPeakIndicesWithinTolerance(peak.isomz[i], tolerance);
                     double maxIntensity = 0;
                     int maxIndex = -1;
                     foreach (int index in indicesWithinTolerance)

@@ -609,35 +609,24 @@ namespace MassSpectrometry
             return XArray.GetClosestIndex(x);
         }
 
-        public List<int> GetPeakIndicesWithinTolerance(double x, PpmTolerance tolerance)
+        public List<int> GetPeakIndicesWithinTolerance(double x, Tolerance tolerance)
         {
-            List<int> indices = new List<int>();
-            int nearestIdx = XArray.GetClosestIndex(x);
-            if(nearestIdx == 0) { return indices; }
-            if (tolerance.Within(XArray[nearestIdx], x)) { indices.Add(nearestIdx); }
-            int shift = 1;
+            if (XArray.Length == 0)
+                return [];
 
-            bool findingUpper = true;
-            bool findingLower = true;
+            // find min and max allowed
+            var minX = tolerance.GetMinimumValue(x);
+            var maxX = tolerance.GetMaximumValue(x);
 
-            while(findingLower || findingLower)
-            {
-                int upperIdx = nearestIdx+ shift;
-                int lowerIdx = nearestIdx-shift;
-                if(findingUpper && upperIdx < XArray.Length)
-                {
-                    if(tolerance.Within(XArray[upperIdx], x)) {indices.Add(upperIdx); }
-                    else { findingUpper = false; }
-                }
+            // check if min and max are possible to find in this spectrum
+            if (XArray.First() > maxX || XArray.Last() < minX)
+                return [];
 
-                if(findingLower && lowerIdx >= 0)
-                {
-                    if (tolerance.Within(XArray[lowerIdx], x)) { indices.Add(lowerIdx); }
-                    else { findingLower = false; }
-                }
-                shift++;
-            }
-            return indices;
+            // find index closest to extrema
+            int startingIndex = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
+            int endIndex = XArray.GetClosestIndex(maxX, ArraySearchOption.Previous);
+
+            return Enumerable.Range(startingIndex, endIndex - startingIndex + 1).ToList();
         }
 
         public void ReplaceXbyApplyingFunction(Func<MzPeak, double> convertor)
