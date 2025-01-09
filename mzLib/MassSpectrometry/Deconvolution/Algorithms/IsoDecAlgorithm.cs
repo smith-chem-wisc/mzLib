@@ -6,14 +6,24 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
+    /// <summary>
+    /// Performs deconvolution on a single spectrum or region of spectrum using the Isodec algorithm
+    /// <remarks>
+    /// Isodec only needs to region of interest and does not use surrounding charge states as references.
+    /// Isodec can report multiple monoisotopic masses for a single peak if enabled by ReportMultipleMonoisos parameter
+    ///     In this case, the resulting isotopic envelopes will have the same precursor ID.
+    /// </remarks>
+    /// </summary>
     internal class IsoDecAlgorithm : DeconvolutionAlgorithm
     {
-
         internal IsoDecAlgorithm(DeconvolutionParameters deconParameters) : base(deconParameters)
         {
 
         }
 
+        /// <summary>
+        /// Struct passed by pointer in memory to the Isodec.dll
+        /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack =1)]
         public struct MatchedPeak
         {
@@ -41,6 +51,18 @@ namespace MassSpectrometry
             public float score;
             public int realisolength;
         }
+
+        /// <summary>
+        /// Calls the Isodec.dll to perform deconvolution on the given spectrum
+        /// The Isodec.dll requires three other dll's as dependencies: isogenmass.dll, libmmd.dll, scml_dispmd.dll
+        /// </summary>
+        /// <param name="cmz"></param>
+        /// <param name="cintensity"></param>
+        /// <param name="c"></param>
+        /// <param name="fname"></param>
+        /// <param name="matchedpeaks"></param>
+        /// <param name="settings"></param>
+        /// <returns></returns>
 
         [DllImport("isodeclib.dll", EntryPoint = "process_spectrum", CallingConvention = CallingConvention.Cdecl)]
         protected static extern int process_spectrum(double[] cmz, float[] cintensity, int c, string fname, IntPtr matchedpeaks, IsoDecDeconvolutionParameters.IsoSettings settings);
@@ -84,6 +106,13 @@ namespace MassSpectrometry
             }
         }
 
+        /// <summary>
+        /// Converts the isodec output (MatchedPeak) to IsotopicEnvelope for return
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <param name="matchedpeaks"></param>
+        /// <param name="spectrum"></param>
+        /// <returns></returns>
         private List<IsotopicEnvelope> ConvertToIsotopicEnvelopes(IsoDecDeconvolutionParameters parameters, MatchedPeak[] matchedpeaks, MzSpectrum spectrum)
         {
             List<IsotopicEnvelope> result = new List<IsotopicEnvelope>();
