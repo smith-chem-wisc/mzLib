@@ -286,7 +286,7 @@ namespace UsefulProteomicsDatabases
             return newModResEntries;
         }
 
-        // <summary>
+        /// <summary>
         /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
         /// <param name="additionalModsToAddToProteins"></param>
