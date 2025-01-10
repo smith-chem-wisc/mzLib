@@ -23,13 +23,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Deconvolution\TestData\Averaged_221110_CytoOnly.mzML">
+    <None Update="DeconvolutionDevelopment\TestData\Averaged_221110_CytoOnly.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Deconvolution\TestData\Averaged_221110_HGHOnly.mzML">
+    <None Update="DeconvolutionDevelopment\TestData\Averaged_221110_HGHOnly.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Deconvolution\TestData\Averaged_221110_UbiqOnly.mzML">
+    <None Update="DeconvolutionDevelopment\TestData\Averaged_221110_UbiqOnly.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
