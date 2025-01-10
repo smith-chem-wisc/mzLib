@@ -476,6 +476,118 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public void MultiMod_ProteinDbWriter()
+        {
+            Loaders.LoadElements();
+            var sampleModList = PtmListLoader
+                .ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"),
+                    out var errors).ToList();
+            var currentMod = sampleModList.First();
+            // create slightly different modifications
+            var newMod = new Modification(_originalId: "1" + currentMod.OriginalId, _target: currentMod.Target,
+                _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction,
+                _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            var newMod2 = new Modification(_originalId: "2" + currentMod.OriginalId, _target: currentMod.Target,
+                _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction,
+                _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            var newMod3 = new Modification(_originalId: "3" + currentMod.OriginalId, _target: currentMod.Target,
+                _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction,
+                _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            var newMod4 = new Modification(_originalId: "4" + currentMod.OriginalId, _target: currentMod.Target,
+                _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction,
+                _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            var newMod5 = new Modification(_originalId: "5" + currentMod.OriginalId, _target: currentMod.Target,
+                _modificationType: currentMod.ModificationType,
+                _accession: currentMod.Accession, _locationRestriction: currentMod.LocationRestriction,
+                _featureType: currentMod.FeatureType,
+                _chemicalFormula: currentMod.ChemicalFormula);
+            sampleModList.AddRange(new List<Modification>() { newMod, newMod2, newMod3, newMod4, newMod5 });
+            Assert.AreEqual(6, sampleModList.OfType<Modification>().Count());
+            // Create a protein with all possible modifications
+            Protein protein = new Protein(
+                "MCMCMCSSSSSSSS",
+                "accession",
+                "organism",
+                new List<Tuple<string, string>>(),
+                new Dictionary<int, List<Modification>>
+                {
+                    { 2, sampleModList.OfType<Modification>().ToList() },
+                    { 4, sampleModList.OfType<Modification>().ToList() },
+                    { 6, sampleModList.OfType<Modification>().ToList() },
+                },
+                null,
+                "name",
+                "full_name",
+                false,
+                false,
+                new List<DatabaseReference>(),
+                new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>());
+
+            Assert.AreEqual(6, protein.OneBasedPossibleLocalizedModifications[2].OfType<Modification>().Count());
+            Assert.AreEqual(18, protein.OneBasedPossibleLocalizedModifications.SelectMany(kvp => kvp.Value).Count());
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                new List<Protein> { protein },
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"));
+            List<Protein> newProteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"),
+                true, DecoyType.None, new List<Modification>(), false, new List<string>(),
+                out Dictionary<string, Modification> um);
+
+            // Create a second protein with the same modifications, but listed in a different order.
+            sampleModList.Reverse();
+            Protein modShuffledProtein = new Protein(
+                "MCMCMCSSSSSSSS",
+                "accession",
+                "organism",
+                new List<Tuple<string, string>>(),
+                new Dictionary<int, List<Modification>>
+                {
+                    { 2, sampleModList.OfType<Modification>().ToList() },
+                    { 4, sampleModList.OfType<Modification>().ToList() },
+                    { 6, sampleModList.OfType<Modification>().ToList() },
+                },
+                null,
+                "name",
+                "full_name",
+                false,
+                false,
+                new List<DatabaseReference>(),
+                new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>());
+            string shuffledProteinFileName = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "test_shuffled_modifications_with_proteins.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                new List<Protein> { modShuffledProtein }, shuffledProteinFileName);
+            List<Protein> newShuffledProteins = ProteinDbLoader.LoadProteinXML(shuffledProteinFileName,
+                true, DecoyType.None, new List<Modification>(), false, new List<string>(), out um);
+
+            // We've read in proteins from both databases. Assert that they are equal
+            Assert.AreEqual(newShuffledProteins.First().Accession, newProteins.First().Accession);
+            Assert.AreEqual(newShuffledProteins.First(), newProteins.First());
+
+            // Now, ensure that the modification dictionaries for each are equivalent (contain the same mods) and equal (contain the same mods in the same order)
+            for(int i = 1; i<4; i++)
+            {
+                int oneBasedResidue = i * 2;
+
+                Assert.That(newShuffledProteins.First().OneBasedPossibleLocalizedModifications[oneBasedResidue],
+                    Is.EquivalentTo(newProteins.First().OneBasedPossibleLocalizedModifications[oneBasedResidue]));
+
+                Assert.That(newShuffledProteins.First().OneBasedPossibleLocalizedModifications[oneBasedResidue],
+                    Is.EqualTo(newProteins.First().OneBasedPossibleLocalizedModifications[oneBasedResidue]));
+            }
+        }
+
+        [Test]
         public static void Test_MetaMorpheusStyleProteinDatabaseWriteAndREad()
         {
             string proteinDbFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestProteinSplitAcrossFiles.xml");

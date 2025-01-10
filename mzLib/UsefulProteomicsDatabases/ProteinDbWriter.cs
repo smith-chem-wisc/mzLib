@@ -324,8 +324,17 @@ namespace UsefulProteomicsDatabases
                 }
 
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
-                    nonVariantProteins.SelectMany(p => p.SequenceVariations.SelectMany(sv => sv.OneBasedModifications).Concat(p.OneBasedPossibleLocalizedModifications).SelectMany(kv => kv.Value))
-                    .Concat(additionalModsToAddToProteins.Where(kv => nonVariantProteins.SelectMany(p => p.SequenceVariations.Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession })).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                    nonVariantProteins
+                        .SelectMany(p => p.SequenceVariations
+                            .SelectMany(sv => sv.OneBasedModifications)
+                            .Concat(p.OneBasedPossibleLocalizedModifications)
+                            .SelectMany(kv => kv.Value))
+                        .Concat(additionalModsToAddToProteins
+                            .Where(kv => nonVariantProteins
+                                .SelectMany(p => p.SequenceVariations
+                                    .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
+                                .Contains(kv.Key))
+                            .SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
@@ -384,7 +393,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteStartElement("dbReference");
                         writer.WriteAttributeString("type", dbRef.Type);
                         writer.WriteAttributeString("id", dbRef.Id);
-                        foreach (Tuple<string, string> property in dbRef.Properties)
+                        foreach (Tuple<string, string> property in dbRef.Properties.OrderBy(t => t.Item1).ThenBy(t => t.Item2))
                         {
                             writer.WriteStartElement("property");
                             writer.WriteAttributeString("type", property.Item1);
@@ -397,7 +406,8 @@ namespace UsefulProteomicsDatabases
                     //for now we are not going to write top-down truncations generated for top-down truncation search. 
                     //some day we could write those if observed
                     //the truncation designation is contained in the "type" field of ProteolysisProduct
-                    List<ProteolysisProduct> proteolysisProducts = protein.ProteolysisProducts.Where(p => !p.Type.Contains("truncation")).ToList();
+                    List<ProteolysisProduct> proteolysisProducts = protein.ProteolysisProducts.Where(p => !p.Type.Contains("truncation"))
+                        .OrderBy(p => p.OneBasedBeginPosition).ToList();
                     foreach (var proteolysisProduct in proteolysisProducts)
                     {
                         writer.WriteStartElement("feature");
@@ -413,23 +423,24 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    foreach (var hm in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
-                        foreach (var modId in hm.Value)
+                        foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
                         {
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "modified residue");
                             writer.WriteAttributeString("description", modId);
                             writer.WriteStartElement("location");
                             writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.Key.ToString(CultureInfo.InvariantCulture));
+                            writer.WriteAttributeString("position", positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
                             writer.WriteEndElement();
                             writer.WriteEndElement();
                             writer.WriteEndElement();
                         }
                     }
 
-                    foreach (var hm in protein.SequenceVariations)
+                    
+                    foreach (var hm in protein.SequenceVariations.OrderBy(sv => sv.OneBasedBeginPosition).ThenBy(sv => sv.VariantSequence)) 
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
@@ -458,7 +469,7 @@ namespace UsefulProteomicsDatabases
                         }
                         foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
-                            foreach (var modId in hmm.Value)
+                            foreach (var modId in hmm.Value.OrderBy(mod => mod))
                             {
                                 writer.WriteStartElement("subfeature");
                                 writer.WriteAttributeString("type", "modified residue");
@@ -475,7 +486,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement(); // feature
                     }
 
-                    foreach (var hm in protein.DisulfideBonds)
+                    foreach (var hm in protein.DisulfideBonds.OrderBy(bond => bond.OneBasedBeginPosition))
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "disulfide bond");
@@ -500,7 +511,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement(); // feature
                     }
 
-                    foreach (var hm in protein.SpliceSites)
+                    foreach (var hm in protein.SpliceSites.OrderBy(site => site.OneBasedBeginPosition))
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "splice site");
@@ -537,6 +548,7 @@ namespace UsefulProteomicsDatabases
             }
             return newModResEntries;
         }
+
 
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
         {
