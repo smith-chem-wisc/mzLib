@@ -1452,6 +1452,32 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestMzmlWriterRounding()
+        {
+            // This test ensure the CreateAndWriteMzml method only writes m/z values out to 4 decimal places of precision
+            MsDataScan[] scans = new MsDataScan[1];
+
+            double[] intensities0 = new double[] { 1, 1, 1, 1 };
+            double[] mz0 = new double[] { 50.00004, 50.00005, 50.0004, 50.0005 };
+            MzSpectrum massSpec0 = new MzSpectrum(mz0, intensities0, false);
+            scans[0] = new MsDataScan(massSpec0, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec0.SumOfAllY, null, null, "1");
+
+            FakeMsDataFile fakeFile = new FakeMsDataFile(scans);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(fakeFile, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), false);
+            var fakeMzml =
+                MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
+            fakeMzml.LoadAllStaticData();
+
+            var readSpectrum = fakeMzml.Scans[0].MassSpectrum;
+
+            // Ensure that the spectrum was rounded to the fourth decimal place on write
+            Assert.That(readSpectrum.XArray[0], Is.EqualTo(50).Within(0.000001));
+            Assert.That(readSpectrum.XArray[1], Is.EqualTo(50.0001).Within(0.000001));
+            Assert.That(readSpectrum.XArray[2], Is.EqualTo(50.0004).Within(0.000001));
+            Assert.That(readSpectrum.XArray[3], Is.EqualTo(50.0005).Within(0.000001));
+        }
+
+        [Test]
         [TestCase("tester.mzml")]
         [TestCase("SmallCalibratibleYeast.mzml")]
         [TestCase("small.raw", true)]
