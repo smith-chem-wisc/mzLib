@@ -76,9 +76,7 @@ namespace Omics.Digestion
         /// <returns></returns>
         public List<int> GetDigestionSiteIndices(string sequence)
         {
-            List<int>? indicesList;
             var indices = HashSetPool.Get(); // use hash set to ensure no duplicates
-
             try
             {
                 indices.Add(0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
@@ -113,13 +111,12 @@ namespace Omics.Digestion
                 }
 
                 indices.Add(sequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
+                return indices.ToList();
             }
             finally
             {
-                indicesList = indices.ToList();
                 HashSetPool.Return(indices);
             }
-            return indicesList;
         }
     }
 }
