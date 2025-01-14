@@ -402,15 +402,18 @@ namespace Test
             // Load in proteins
             var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
             var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
-            DecoyType decoyType = DecoyType.Reverse;
+            DecoyType decoyType = DecoyType.None;
             List<Protein> proteins5 = null;
             List<Protein> proteins6 = null;
 
             proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, decoyType, null, false, null, out var unknownModificationsFive);
             proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, decoyType, null, false, null, out var unknownModificationsSix);
 
-            unknownModificationsFive.Add("", oxidationOnM);
-            unknownModificationsSix.Add("", oxidationOnM);
+            var fiveMods = ProteinDbLoader.GetPtmListFromProteinXml(dbFive);
+            var sixMods = ProteinDbLoader.GetPtmListFromProteinXml(dbSix);
+
+            Assert.AreEqual(fiveMods.Count, sixMods.Count);
+            CollectionAssert.AreEquivalent(fiveMods, sixMods);
 
             var peptides5 = proteins5.First().Digest(digestionParams, fixedModifications, unknownModificationsFive.Values.Distinct().ToList()).ToList();
             var peptides6 = proteins6.First().Digest(digestionParams, fixedModifications, unknownModificationsSix.Values.Distinct().ToList()).ToList();
