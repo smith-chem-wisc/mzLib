@@ -386,6 +386,38 @@ namespace Test
             Assert.AreEqual("MED[mt:mod1 on D]EEK", pep2.FullSequence);
         }
 
+        /// <summary>
+        /// We want to have protein digestion yield the same set of peptides regardless of the order their modifications are encoded in the XML.
+        /// </summary>
+        [Test]
+        public static void TestDigestionOfSameProteinFromDifferentXmls()
+        {
+            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
+            Modification carbamidomethylOnC = new Modification(_originalId: "Carbamidomethyl on C", _modificationType: "Common Fixed", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
+            var fixedModifications = new List<Modification> { carbamidomethylOnC };
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motifM);
+            Modification oxidationOnM = new Modification(_originalId: "Oxidation on M", _modificationType: "Common Variable", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"));
+
+            // Load in proteins
+            var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
+            var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
+            DecoyType decoyType = DecoyType.Reverse;
+            List<Protein> proteins5 = null;
+            List<Protein> proteins6 = null;
+
+            proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, decoyType, null, false, null, out var unknownModificationsFive);
+            proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, decoyType, null, false, null, out var unknownModificationsSix);
+
+            unknownModificationsFive.Add("", oxidationOnM);
+            unknownModificationsSix.Add("", oxidationOnM);
+
+            var peptides5 = proteins5.First().Digest(digestionParams, fixedModifications, unknownModificationsFive.Values.Distinct().ToList()).ToList();
+            var peptides6 = proteins6.First().Digest(digestionParams, fixedModifications, unknownModificationsSix.Values.Distinct().ToList()).ToList();
+            Assert.AreEqual(peptides5.Count, peptides6.Count);
+            CollectionAssert.AreEquivalent(peptides5, peptides6);
+        }
+
         [Test]
         [TestCase("cRAP_databaseGPTMD.xml")]
         [TestCase("uniprot_aifm1.fasta")]

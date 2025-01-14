@@ -39,6 +39,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\05.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\06.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\b_availableUniProtProteomes.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
