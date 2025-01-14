@@ -220,7 +220,7 @@ namespace Test
             variableModifications.Add(new Modification(_originalId: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
 
             var ye = prot.Digest(digestionParams, new List<Modification>(), variableModifications).ToList();
-            Assert.AreEqual(3 * 2 * 3, ye.Count);
+            Assert.AreEqual(2 * 2 * 2, ye.Count);
             Assert.AreEqual("[H]M[H][H]", ye.Last().SequenceWithChemicalFormulas);
 
             double m1 = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
@@ -251,9 +251,40 @@ namespace Test
 
             Assert.AreEqual(1, ok.Count);
 
-            Assert.AreEqual("[:pepNmod on M]M[:resMod on M][:ProtCmod on M]", ok.First().FullSequence);
+            Assert.AreEqual("[:ProtNmod on M]M[:resMod on M][:ProtCmod on M]", ok.First().FullSequence);
 
             Assert.AreEqual("[H]M[H][H]", ok.First().SequenceWithChemicalFormulas);
+            Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ok.Last().MonoisotopicMass, 1e-9);
+        }
+
+        [Test]
+        public static void TestPeptideWithFixedModifications_TwoProducts()
+        {
+            var prot = new Protein("MKM", null);
+            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            List<Modification> fixedMods = new List<Modification>();
+            ModificationMotif.TryGetMotif("M", out ModificationMotif mMotif);
+            ModificationMotif.TryGetMotif("K", out ModificationMotif kMotif);
+
+            fixedMods.Add(new Modification(_originalId: "ProtNmod", _target: mMotif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "ProtNmod", _target: kMotif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "pepNmod", _target: mMotif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "pepNmod", _target: kMotif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "resMod", _target: mMotif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "PepCmod", _target: mMotif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "PepCmod", _target: kMotif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "ProtCmod", _target: mMotif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "ProtCmod", _target: kMotif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+
+            var ok = prot.Digest(digestionParams, fixedMods, new List<Modification>()).ToList();
+
+            Assert.AreEqual(2, ok.Count);
+
+            Assert.AreEqual("[:ProtNmod on M]M[:resMod on M]K[:PepCmod on K]", ok.First().FullSequence);
+            Assert.AreEqual("[:pepNmod on M]M[:resMod on M][:ProtCmod on M]", ok.Skip(1).First().FullSequence);
+
+            Assert.AreEqual("[H]M[H]K[H]", ok.First().SequenceWithChemicalFormulas);
+            Assert.AreEqual("[H]M[H][H]", ok.Skip(1).First().SequenceWithChemicalFormulas);
             Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ok.Last().MonoisotopicMass, 1e-9);
         }
 
