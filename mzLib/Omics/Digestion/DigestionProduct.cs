@@ -54,34 +54,31 @@ namespace Omics.Digestion
         /// </remarks>
         protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, List<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
         {
-            if (possibleVariableModifications.Count == 0)
-            {
-                yield return null;
-            }
-            else
-            {
-                int[] baseVariableModificationPattern = new int[peptideLength + 4];
-                int totalAvailableMods = possibleVariableModifications.Values.Sum(modList => modList?.Count ?? 0);
-                int maxVariableMods = Math.Min(totalAvailableMods, maxModsForPeptide);
+            if (possibleVariableModifications.Count <= 0) 
+                yield break;
 
-                for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
+            int[] baseVariableModificationPattern = new int[peptideLength + 4];
+            int totalAvailableMods = possibleVariableModifications.Values.Sum(modList => modList?.Count ?? 0);
+            int maxVariableMods = Math.Min(totalAvailableMods, maxModsForPeptide);
+
+            for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
+            {
+                foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications.ToList(),
+                             possibleVariableModifications.Count - variable_modifications, baseVariableModificationPattern, 0))
                 {
-                    foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications.ToList(),
-                                 possibleVariableModifications.Count - variable_modifications, baseVariableModificationPattern, 0))
+                    // use modification pattern to construct a dictionary of modifications for the peptide
+                    var modificationPattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
+
+                    foreach (KeyValuePair<int, List<Modification>> kvp in possibleVariableModifications)
                     {
-                        // use modification pattern to construct a dictionary of modifications for the peptide
-                        var modificationPattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
-
-                        foreach (KeyValuePair<int, List<Modification>> kvp in possibleVariableModifications)
+                        int modIndex = variable_modification_pattern[kvp.Key] - 1;
+                        if (modIndex >= 0)
                         {
-                            if (variable_modification_pattern[kvp.Key] > 0)
-                            {
-                                modificationPattern.Add(kvp.Key, kvp.Value[variable_modification_pattern[kvp.Key] - 1]);
-                            }
+                            modificationPattern.Add(kvp.Key, kvp.Value[modIndex]);
                         }
-
-                        yield return modificationPattern;
                     }
+
+                    yield return modificationPattern;
                 }
             }
         }
