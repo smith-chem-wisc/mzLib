@@ -17,6 +17,7 @@ namespace MassSpectrometry
         internal double MostAbundantObservedIsotopicMass { get; private set; }
         public readonly int Charge;
         public readonly double TotalIntensity;
+        public readonly int PrecursorId;
 
         public double Score { get; private set; }
 
@@ -44,6 +45,26 @@ namespace MassSpectrometry
             TotalIntensity = intensity;
             Score = double.MaxValue;
             Peaks = [(monoisotopicMass.ToMz(charge), intensity)];
+        }
+
+        /// <summary>
+        /// Used for A deconvolution method that calculates its own score. 
+        /// </summary>
+        /// <param name="id">All missed mono products of the same peak will share an ID if enabled in IsoDec</param>
+        /// <param name="peaks"></param>
+        /// <param name="monoisotopicmass"></param>
+        /// <param name="chargestate"></param>
+        /// <param name="intensity"></param>
+        /// <param name="score"></param>
+        public IsotopicEnvelope(int id, List<(double mz, double intensity)> peaks, double monoisotopicmass, int chargestate, double intensity, double score)
+        {
+            PrecursorId = id;
+            Peaks = peaks;
+            MonoisotopicMass = monoisotopicmass;
+            Charge = chargestate;
+            TotalIntensity = intensity;
+            Score = score;
+            MostAbundantObservedIsotopicMass = peaks.MaxBy(p => p.intensity).mz * Math.Abs(chargestate);
         }
 
         public override string ToString()
