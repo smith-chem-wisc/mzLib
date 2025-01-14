@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Omics.Modifications;
+﻿using Omics.Modifications;
 
 namespace Omics.Digestion
 {
@@ -49,16 +43,17 @@ namespace Omics.Digestion
             }
             else
             {
-                var possible_variable_modifications = new Dictionary<int, List<Modification>>(possibleVariableModifications);
+                var possibleVariableModificationsCopy = new Dictionary<int, List<Modification>>(possibleVariableModifications);
+                int[] baseVariableModificationPattern = new int[peptideLength + 4];
+                int totalAvailableMods = possibleVariableModificationsCopy.Values.Sum(modList => modList?.Count ?? 0);
+                int maxVariableMods = Math.Min(totalAvailableMods, maxModsForPeptide);
 
-                int[] base_variable_modification_pattern = new int[peptideLength + 4];
-                var totalAvailableMods = possible_variable_modifications.Sum(b => b.Value == null ? 0 : b.Value.Count);
-                for (int variable_modifications = 0; variable_modifications <= Math.Min(totalAvailableMods, maxModsForPeptide); variable_modifications++)
+                for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
                 {
-                    foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(new List<KeyValuePair<int, List<Modification>>>(possible_variable_modifications),
-                        possible_variable_modifications.Count - variable_modifications, base_variable_modification_pattern, 0))
+                    foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModificationsCopy.ToList(),
+                                 possibleVariableModificationsCopy.Count - variable_modifications, baseVariableModificationPattern, 0))
                     {
-                        yield return GetNewVariableModificationPattern(variable_modification_pattern, possible_variable_modifications);
+                        yield return GetNewVariableModificationPattern(variable_modification_pattern, possibleVariableModificationsCopy);
                     }
                 }
             }
@@ -77,17 +72,15 @@ namespace Omics.Digestion
                     case "N-terminal.":
                     case "Peptide N-terminal.":
                         //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
-                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
+                        if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
-                            if (OneBasedStartResidue != 1)
+                            if (mod.ModificationType == "Protease")
                             {
-                                fixedModsOneIsNterminus[2] = mod;
+                                if (OneBasedStartResidue != 1)
+                                    fixedModsOneIsNterminus[2] = mod;
                             }
-                        }
-                        //Normal N-terminal peptide modification
-                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
-                        {
-                            fixedModsOneIsNterminus[1] = mod;
+                            else //Normal N-terminal peptide modification
+                                fixedModsOneIsNterminus[1] = mod;
                         }
                         break;
 
@@ -106,17 +99,15 @@ namespace Omics.Digestion
                     case "C-terminal.":
                     case "Peptide C-terminal.":
                         //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
-                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
+                        if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
                         {
-                            if (OneBasedEndResidue != Parent.Length)
+                            if (mod.ModificationType == "Protease")
                             {
-                                fixedModsOneIsNterminus[length + 1] = mod;
+                                if (OneBasedEndResidue != Parent.Length)
+                                    fixedModsOneIsNterminus[length + 1] = mod;
                             }
-                        }
-                        //Normal C-terminal peptide modification 
-                        else if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
-                        {
-                            fixedModsOneIsNterminus[length + 2] = mod;
+                            else //Normal C-terminal peptide modification 
+                                fixedModsOneIsNterminus[length + 2] = mod;
                         }
                         break;
 
@@ -126,7 +117,6 @@ namespace Omics.Digestion
             }
             return fixedModsOneIsNterminus;
         }
-
 
         private static IEnumerable<int[]> GetVariableModificationPatterns(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
             int unmodifiedResiduesDesired, int[] variableModificationPattern, int index)
@@ -174,9 +164,9 @@ namespace Omics.Digestion
         }
 
         private static Dictionary<int, Modification> GetNewVariableModificationPattern(int[] variableModificationArray,
-            IEnumerable<KeyValuePair<int, List<Modification>>> possibleVariableModifications)
+            Dictionary<int, List<Modification>> possibleVariableModifications)
         {
-            var modification_pattern = new Dictionary<int, Modification>();
+            var modification_pattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
 
             foreach (KeyValuePair<int, List<Modification>> kvp in possibleVariableModifications)
             {
@@ -188,7 +178,5 @@ namespace Omics.Digestion
 
             return modification_pattern;
         }
-
-
     }
 }
