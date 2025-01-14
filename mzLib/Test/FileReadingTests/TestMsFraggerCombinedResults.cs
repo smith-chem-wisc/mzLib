@@ -1,15 +1,12 @@
 ﻿using NUnit.Framework;
 using Readers;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
 using TopDownProteomics;
-using OxyPlot;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Test
+namespace Test.FileReadingTests
 {
     [ExcludeFromCodeCoverage]
     internal class TestMsFraggerCombinedResults
@@ -22,8 +19,8 @@ namespace Test
             MsFraggerCombinedResults ms = new MsFraggerCombinedResults(filePath);
             ms.LoadResults();
 
-            Assert.That(ms.AllPsmFiles.Count.Equals(2));
-            Assert.That(ms.Results.Count.Equals(8));
+            NUnit.Framework.Assert.That(ms.AllPsmFiles.Count.Equals(2));
+            NUnit.Framework.Assert.That(ms.Results.Count.Equals(8));
         }
 
         [Test]
@@ -36,8 +33,8 @@ namespace Test
 
             List<string> results = ms.Results.Select(psm => psm.FileName).ToList();
 
-            Assert.That((results.Count(s => s.Contains("A_1"))).Equals(4));
-            Assert.That((results.Count(s => s.Contains("A_2"))).Equals(4));
+            NUnit.Framework.Assert.That(results.Count(s => s.Contains("A_1")).Equals(4));
+            NUnit.Framework.Assert.That(results.Count(s => s.Contains("A_2")).Equals(4));
         }
 
         [Test]
@@ -61,8 +58,8 @@ namespace Test
 
             foreach (var fileName in results)
             {
-                Assert.That(allFiles.TryGetValue(fileName, out var output));
-                Assert.That(filePaths.Contains(output));
+                NUnit.Framework.Assert.That(allFiles.TryGetValue(fileName, out var output));
+                NUnit.Framework.Assert.That(filePaths.Contains(output));
             }
         }
 
@@ -80,8 +77,8 @@ namespace Test
 
             foreach (var fileName in results)
             {
-                Assert.That(allFiles.TryGetValue(fileName, out var output));
-                Assert.That(filePaths.Contains(output));
+                NUnit.Framework.Assert.That(allFiles.TryGetValue(fileName, out var output));
+                NUnit.Framework.Assert.That(filePaths.Contains(output));
             }
         }
 
@@ -101,7 +98,7 @@ namespace Test
             ExperimentAnnotationFile experimentAnnotation = FileReader.ReadFile<ExperimentAnnotationFile>(fileToRead);
 
             experimentAnnotation.WriteResults(fileToWrite);
-            Assert.That(File.Exists(fileToWrite));
+            NUnit.Framework.Assert.That(File.Exists(fileToWrite));
 
             File.Delete(fileToWrite);
         }
