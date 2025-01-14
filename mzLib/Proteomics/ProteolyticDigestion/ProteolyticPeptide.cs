@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using MzLibUtil;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -13,7 +12,6 @@ namespace Proteomics.ProteolyticDigestion
     [Serializable]
     public class ProteolyticPeptide : DigestionProduct
     {
-        private static readonly DictionaryPool<int, List<Modification>> DictionaryPool = new(8);
         internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null, string baseSequence = null) :
             base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificityForFdrCategory, peptideDescription, baseSequence)
         {
@@ -57,6 +55,7 @@ namespace Proteomics.ProteolyticDigestion
             int maximumVariableModificationIsoforms = digestionParams.MaxModificationIsoforms;
             int maxModsForPeptide = digestionParams.MaxModsForPeptide;
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
+            var fixedModDictionary = FixedModDictionaryPool.Get();
 
             try
             {
@@ -144,11 +143,12 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 int variable_modification_isoforms = 0;
+                SetFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, ref fixedModDictionary);
 
                 foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
                 {
                     int numFixedMods = 0;
-                    foreach (var ok in GetFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications))
+                    foreach (var ok in fixedModDictionary)
                     {
                         if (!kvp.ContainsKey(ok.Key))
                         {
@@ -167,6 +167,7 @@ namespace Proteomics.ProteolyticDigestion
             }
             finally
             {
+                FixedModDictionaryPool.Return(fixedModDictionary);
                 DictionaryPool.Return(twoBasedPossibleVariableAndLocalizeableModifications);
             }
         }

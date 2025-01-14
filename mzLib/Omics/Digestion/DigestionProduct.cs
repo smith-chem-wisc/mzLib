@@ -1,9 +1,13 @@
-﻿using Omics.Modifications;
+﻿using MzLibUtil;
+using Omics.Modifications;
 
 namespace Omics.Digestion
 {
     public abstract class DigestionProduct
     {
+        protected static readonly DictionaryPool<int, List<Modification>> DictionaryPool = new();
+        protected static readonly DictionaryPool<int, Modification> FixedModDictionaryPool = new(8);
+
         protected string _baseSequence;
 
         protected DigestionProduct(IBioPolymer parent, int oneBasedStartResidue, int oneBasedEndResidue, int missedCleavages, 
@@ -43,26 +47,24 @@ namespace Omics.Digestion
             }
             else
             {
-                var possibleVariableModificationsCopy = new Dictionary<int, List<Modification>>(possibleVariableModifications);
                 int[] baseVariableModificationPattern = new int[peptideLength + 4];
-                int totalAvailableMods = possibleVariableModificationsCopy.Values.Sum(modList => modList?.Count ?? 0);
+                int totalAvailableMods = possibleVariableModifications.Values.Sum(modList => modList?.Count ?? 0);
                 int maxVariableMods = Math.Min(totalAvailableMods, maxModsForPeptide);
 
                 for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
                 {
-                    foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModificationsCopy.ToList(),
-                                 possibleVariableModificationsCopy.Count - variable_modifications, baseVariableModificationPattern, 0))
+                    foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications.ToList(),
+                                 possibleVariableModifications.Count - variable_modifications, baseVariableModificationPattern, 0))
                     {
-                        yield return GetNewVariableModificationPattern(variable_modification_pattern, possibleVariableModificationsCopy);
+                        yield return GetNewVariableModificationPattern(variable_modification_pattern, possibleVariableModifications);
                     }
                 }
             }
         }
 
-        protected Dictionary<int, Modification> GetFixedModsOneIsNorFivePrimeTerminus(int length,
-            IEnumerable<Modification> allKnownFixedModifications)
+        protected void SetFixedModsOneIsNorFivePrimeTerminus(int length,
+            IEnumerable<Modification> allKnownFixedModifications, ref Dictionary<int, Modification> fixedModsOneIsNterminus)
         {
-            var fixedModsOneIsNterminus = new Dictionary<int, Modification>(length + 3);
             foreach (Modification mod in allKnownFixedModifications)
             {
                 switch (mod.LocationRestriction)
@@ -71,7 +73,7 @@ namespace Omics.Digestion
                     case "Oligo 5'-terminal.":
                     case "N-terminal.":
                     case "Peptide N-terminal.":
-                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
+                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginning of the protein
                         if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
                             if (mod.ModificationType == "Protease")
@@ -115,7 +117,6 @@ namespace Omics.Digestion
                         throw new NotSupportedException("This terminus localization is not supported.");
                 }
             }
-            return fixedModsOneIsNterminus;
         }
 
         private static IEnumerable<int[]> GetVariableModificationPatterns(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
