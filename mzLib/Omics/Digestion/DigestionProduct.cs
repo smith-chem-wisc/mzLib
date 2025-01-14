@@ -39,6 +39,19 @@ namespace Omics.Digestion
         public int Length => BaseSequence.Length; //how many residues long the peptide is
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
+        /// <summary>
+        /// Generates all possible variable modification patterns for a peptide.
+        /// </summary>
+        /// <param name="possibleVariableModifications">A dictionary of possible variable modifications with their positions.</param>
+        /// <param name="maxModsForPeptide">The maximum number of modifications allowed for the peptide.</param>
+        /// <param name="peptideLength">The length of the peptide.</param>
+        /// <returns>An enumerable of dictionaries representing different modification patterns.</returns>
+        /// <remarks>
+        /// This method generates all possible combinations of variable modifications for a given peptide. 
+        /// It first calculates the total number of available modifications and the maximum number of variable modifications allowed.
+        /// Then, it iterates through all possible numbers of modifications and generates the corresponding modification patterns.
+        /// The returned dictionary is then appended with fixed modifications and used to construct a peptide with set mods
+        /// </remarks>
         protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, List<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
         {
             if (possibleVariableModifications.Count == 0)
@@ -56,12 +69,33 @@ namespace Omics.Digestion
                     foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications.ToList(),
                                  possibleVariableModifications.Count - variable_modifications, baseVariableModificationPattern, 0))
                     {
-                        yield return GetNewVariableModificationPattern(variable_modification_pattern, possibleVariableModifications);
+                        // use modification pattern to construct a dictionary of modifications for the peptide
+                        var modificationPattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
+
+                        foreach (KeyValuePair<int, List<Modification>> kvp in possibleVariableModifications)
+                        {
+                            if (variable_modification_pattern[kvp.Key] > 0)
+                            {
+                                modificationPattern.Add(kvp.Key, kvp.Value[variable_modification_pattern[kvp.Key] - 1]);
+                            }
+                        }
+
+                        yield return modificationPattern;
                     }
                 }
             }
         }
 
+        /// <summary>
+        /// Sets the fixed modifications for the peptide, considering the N-terminal and C-terminal positions, by populating the <paramref name="fixedModsOneIsNterminus"/> dictionary.
+        /// </summary>
+        /// <param name="length">The length of the peptide.</param>
+        /// <param name="allKnownFixedModifications">A collection of all known fixed modifications.</param>
+        /// <param name="fixedModsOneIsNterminus">A reference to a dictionary that will hold the fixed modifications, with the key representing the position.</param>
+        /// <remarks>
+        /// This method iterates through all known fixed modifications and assigns them to the appropriate positions in the peptide.
+        /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
+        /// </remarks>
         protected void SetFixedModsOneIsNorFivePrimeTerminus(int length,
             IEnumerable<Modification> allKnownFixedModifications, ref Dictionary<int, Modification> fixedModsOneIsNterminus)
         {
@@ -119,6 +153,20 @@ namespace Omics.Digestion
             }
         }
 
+        /// <summary>
+        /// Recursively generates all possible variable modification patterns for a peptide.
+        /// </summary>
+        /// <param name="possibleVariableModifications">A list of key-value pairs representing possible variable modifications and their positions.</param>
+        /// <param name="unmodifiedResiduesDesired">The number of unmodified residues desired in the pattern.</param>
+        /// <param name="variableModificationPattern">An array representing the current modification pattern.</param>
+        /// <param name="index">The current index in the list of possible modifications.</param>
+        /// <returns>An enumerable of arrays representing different modification patterns. The array index corresponds to the location of the modification
+        /// in the peptide, while the value at that index determines which index in the <paramref name="possibleVariableModifications"/> list of modifications 
+        /// to add to the final variable modification pattern </returns>
+        /// <remarks>
+        /// This method uses recursion to generate all possible combinations of variable modifications for a given peptide.
+        /// It considers both modified and unmodified residues and generates patterns accordingly.
+        /// </remarks>
         private static IEnumerable<int[]> GetVariableModificationPatterns(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
             int unmodifiedResiduesDesired, int[] variableModificationPattern, int index)
         {
@@ -162,22 +210,6 @@ namespace Omics.Digestion
                     }
                 }
             }
-        }
-
-        private static Dictionary<int, Modification> GetNewVariableModificationPattern(int[] variableModificationArray,
-            Dictionary<int, List<Modification>> possibleVariableModifications)
-        {
-            var modification_pattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
-
-            foreach (KeyValuePair<int, List<Modification>> kvp in possibleVariableModifications)
-            {
-                if (variableModificationArray[kvp.Key] > 0)
-                {
-                    modification_pattern.Add(kvp.Key, kvp.Value[variableModificationArray[kvp.Key] - 1]);
-                }
-            }
-
-            return modification_pattern;
         }
     }
 }
