@@ -344,6 +344,7 @@ namespace Test
             Assert.That(!_mzSpectrumA.Equals((object)2));
         }
 
+        #region Neutral Mass Spectrum
 
         [Test]
         public void NeutralMassSpectrum_Constructor_ValidArguments_InitializesProperties()
@@ -448,6 +449,46 @@ namespace Test
 
             // Act & Assert
             Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMassesIntensities, charges));
+        }
+
+        #endregion
+
+        [TestCase(50.0, new int[] { })] // Case: Nearest index is zero
+        [TestCase(101.0, new int[] { 1 })] // Case: Nearest index is within tolerance
+        [TestCase(102.0, new int[] { 1, 2 })] // Case: Upper and lower bounds within tolerance
+        [TestCase(104.0, new int[] { 3, 4, 2 })] // Case: Upper and lower bounds within tolerance
+        [TestCase(105.0, new int[] { 4, 5, 3 })] // Case: Upper and lower bounds within tolerance
+        [TestCase(106.0, new int[] { 5, 4 })] // Case: Upper and lower bounds with stopping conditions
+        [TestCase(107.0, new int[] { 5 })] // Case: Upper outside tolerance
+        [TestCase(200.0, new int[] {  })] // Case: Nearest index is outside range
+        public void TestGetPeakIndicesWithinTolerance(double x, int[] expectedIndices)
+        {
+            // Arrange
+            var xArray = new [] { 99.0, 101.0, 103.0, 104.0, 105.0, 106.0 };
+            var tolerance = new AbsoluteTolerance(1);
+            var testObject = new MzSpectrum(xArray, xArray, false);
+
+            // Act
+            List<int> result = testObject.GetPeakIndicesWithinTolerance(x, tolerance);
+
+            // Assert
+            NUnit.Framework.Assert.That(result, Is.EquivalentTo(expectedIndices));
+        }
+
+        [Test]
+        public void TestGetPeakIndicesWithinTolerance_HandlesEmptyXArray_Gracefully()
+        {
+            // Arrange
+            var empty = new double[] { }; // Empty array
+            var tolerance = new PpmTolerance(10);
+            var testObject = new MzSpectrum(empty, empty, false);
+            double x = 103.0;
+
+            // Act
+            List<int> result = testObject.GetPeakIndicesWithinTolerance(x, tolerance);
+
+            // Assert
+            NUnit.Framework.Assert.That(result, Is.Empty);
         }
     }
 }
