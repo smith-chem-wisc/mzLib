@@ -24,4 +24,19 @@
 		<InternalsVisibleTo Include="Development" />
 		<InternalsVisibleTo Include="Test" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="isodeclib.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="isogenmass.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="libmmd.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="svml_dispmd.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
 </Project>
