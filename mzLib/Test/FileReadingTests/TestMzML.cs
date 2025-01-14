@@ -741,7 +741,8 @@ namespace Test.FileReadingTests
             Assert.AreEqual(2, reader.GetClosestOneBasedSpectrumNumber(2));
 
             var newFirstValue = reader.GetOneBasedScan(1).MassSpectrum.FirstX;
-            Assert.AreEqual(oldFirstValue.Value, newFirstValue.Value, 1e-9);
+            Assert.AreNotEqual(oldFirstValue.Value, newFirstValue.Value);
+            Assert.AreEqual(Math.Round((double)oldFirstValue, 4, MidpointRounding.AwayFromZero), newFirstValue.Value, 1e-6);
 
             var secondScan2 = reader.GetOneBasedScan(2);
 
