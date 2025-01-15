@@ -1,9 +1,12 @@
-﻿using Omics.Modifications;
+﻿using MzLibUtil;
+using Omics.Modifications;
 
 namespace Omics.Digestion
 {
     public abstract class DigestionAgent
     {
+        protected static readonly HashSetPool<int> HashSetPool = new HashSetPool<int>(8);
+
         protected DigestionAgent(string name, CleavageSpecificity cleavageSpecificity, List<DigestionMotif> motifList, Modification cleavageMod)
         {
             Name = name;
@@ -73,40 +76,48 @@ namespace Omics.Digestion
         /// <returns></returns>
         public List<int> GetDigestionSiteIndices(string sequence)
         {
-            var indices = new List<int>();
-
-            for (int r = 0; r < sequence.Length; r++)
+            var indices = HashSetPool.Get(); // use hash set to ensure no duplicates
+            try // Try block is to ensure that, even if an error gets thrown, the hashset is returned to the pool
             {
-                var cutSiteIndex = -1;
-                bool cleavagePrevented = false;
+                indices.Add(0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
 
-                foreach (DigestionMotif motif in DigestionMotifs)
+                for (int r = 0; r < sequence.Length; r++)
                 {
-                    var motifResults = motif.Fits(sequence, r);
-                    bool motifFits = motifResults.Item1;
-                    bool motifPreventsCleavage = motifResults.Item2;
+                    var cutSiteIndex = -1;
+                    bool cleavagePrevented = false;
 
-                    if (motifFits && r + motif.CutIndex < sequence.Length)
+                    foreach (DigestionMotif motif in DigestionMotifs)
                     {
-                        cutSiteIndex = Math.Max(r + motif.CutIndex, cutSiteIndex);
+                        var motifResults = motif.Fits(sequence, r);
+                        bool motifFits = motifResults.Item1;
+                        bool motifPreventsCleavage = motifResults.Item2;
+
+                        if (motifFits && r + motif.CutIndex < sequence.Length)
+                        {
+                            cutSiteIndex = Math.Max(r + motif.CutIndex, cutSiteIndex);
+                        }
+
+                        if (motifPreventsCleavage) // if any motif prevents cleave
+                        {
+                            cleavagePrevented = true;
+                        }
                     }
 
-                    if (motifPreventsCleavage) // if any motif prevents cleave
+                    // if no motif prevents cleave
+                    if (!cleavagePrevented && cutSiteIndex != -1)
                     {
-                        cleavagePrevented = true;
+                        indices.Add(cutSiteIndex);
                     }
                 }
 
-                // if no motif prevents cleave
-                if (!cleavagePrevented && cutSiteIndex != -1)
-                {
-                    indices.Add(cutSiteIndex);
-                }
+                indices.Add(sequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
+                return indices.ToList(); // convert the hashset to a list for return. 
             }
-
-            indices.Add(0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
-            indices.Add(sequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
-            return indices.Distinct().OrderBy(i => i).ToList();
+            finally
+            {
+                // return hashset to pool. This clears it and gets it ready for the next time it is needed from the pool.
+                HashSetPool.Return(indices);
+            }
         }
     }
 }
