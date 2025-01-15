@@ -26,9 +26,9 @@ namespace Test.FileReadingTests
         public void SetUp()
         {
             FilteringParams filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
-            //_testReader = new TimsTofFileReader(_testDataPath);
-            //_testReader.LoadAllStaticData(filteringParams: filteringParams, maxThreads: 10);
-            //_testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
+            _testReader = new TimsTofFileReader(_testDataPath);
+            _testReader.LoadAllStaticData(filteringParams: filteringParams, maxThreads: 10);
+            _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
         }
 
         [Test]
@@ -59,19 +59,19 @@ namespace Test.FileReadingTests
             Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
         }
 
-        [Test]
-        public void LocalFileTest()
-        {
-            string localPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\20191021_K562_200ng_90min_Slot1-1_01_4786.d";
+        //[Test]
+        //public void LocalFileTest()
+        //{
+        //    string localPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\20191021_K562_200ng_90min_Slot1-1_01_4786.d";
 
-            var timer = new Stopwatch();
-            timer.Start();
-            var reader = new TimsTofFileReader(localPath);
-            reader.LoadAllStaticData(maxThreads: 10);
-            timer.Stop();
+        //    var timer = new Stopwatch();
+        //    timer.Start();
+        //    var reader = new TimsTofFileReader(localPath);
+        //    reader.LoadAllStaticData(maxThreads: 10);
+        //    timer.Stop();
 
-            Console.WriteLine($"Time to load all static data: {timer.ElapsedMilliseconds} ms");
-        }
+        //    Console.WriteLine($"Time to load all static data: {timer.ElapsedMilliseconds} ms");
+        //}
 
         [Test]
         public void TestCollapse()

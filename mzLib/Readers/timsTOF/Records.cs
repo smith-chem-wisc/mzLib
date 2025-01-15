@@ -22,35 +22,47 @@ namespace Readers
         }
     }
 
-    //internal class Ms2Record
-    //{
-    //    List<long> FrameList { get; }
-    //    internal int PrecursorId { get; }
-    //    internal int ScanStart { get; }
-    //    internal int ScanEnd { get; }
-    //    internal double ScanMedian { get; }
-    //    internal float IsolationMz { get; }
-    //    internal float IsolationWidth { get; }
-    //    internal float CollisionEnergy { get; }
-    //    internal float MostAbundantPrecursorMz { get; }
-    //    internal float PrecursorMonoisotopicMz { get; }
-    //    internal int Charge { get; }
-    //    internal float Precurso
+    internal class PasefRecord
+    {
+        internal IEnumerable<long> FrameList { get; }
+        internal int PrecursorId { get; }
+        internal int ScanStart { get; }
+        internal int ScanEnd { get; }
+        internal double ScanMedian { get; }
+        internal float IsolationMz { get; }
+        internal float IsolationWidth { get; }
+        internal float CollisionEnergy { get; }
+        internal float MostAbundantPrecursorMz { get; }
+        internal float PrecursorMonoisotopicMz { get; }
+        internal int Charge { get; }
+        internal float PrecursorIntensity { get; }
 
-
-    //    var frameList = sqliteReader.GetString(0).Split(',').Select(id => Int64.Parse(id));
-    //    allFrames.UnionWith(frameList);
-    //                var scanStart = sqliteReader.GetInt32(1);
-    //    var scanEnd = sqliteReader.GetInt32(2);
-    //    var isolationMz = sqliteReader.GetFloat(3);
-    //    var isolationWidth = sqliteReader.GetFloat(4);
-    //    var collisionEnergy = sqliteReader.GetFloat(5);
-    //    var mostAbundantPrecursorPeak = sqliteReader.GetFloat(6);
-    //    var precursorMonoisotopicMz = sqliteReader.GetFloat(7);
-    //    var charge = sqliteReader.GetInt32(8);
-    //    var precursorIntensity = sqliteReader.GetFloat(9);
-    //    var scanMedian = sqliteReader.GetFloat(10);
-    //    var precursorId = sqliteReader.GetInt32(11);
-    //    runningTotal++;
-    //}
+        public PasefRecord(
+            IEnumerable<long> frameList,
+            int precursorId,
+            int scanStart,
+            int scanEnd,
+            double scanMedian,
+            float isolationMz,
+            float isolationWidth,
+            float collisionEnergy,
+            float mostAbundantPrecursorMz,
+            float precursorMonoisotopicMz,
+            int charge, 
+            float precursorIntensity)
+        {
+            FrameList = frameList ?? throw new ArgumentNullException(nameof(frameList));
+            PrecursorId = precursorId;
+            ScanStart = scanStart;
+            ScanEnd = scanEnd;
+            ScanMedian = scanMedian;
+            IsolationMz = isolationMz;
+            IsolationWidth = isolationWidth;
+            CollisionEnergy = collisionEnergy;
+            MostAbundantPrecursorMz = mostAbundantPrecursorMz;
+            PrecursorMonoisotopicMz = precursorMonoisotopicMz;
+            Charge = charge;
+            PrecursorIntensity = precursorIntensity;
+        }
+    }
 }
