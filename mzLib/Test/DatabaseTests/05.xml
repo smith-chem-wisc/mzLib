@@ -2434,221 +2434,1184 @@ DR   Unimod; 954
 
 //</modification>
   <entry>
-    <accession>P63250</accession>
-    <name>KCNJ3_MOUSE</name>
+    <accession>P63260</accession>
+    <name>ACTG_MOUSE</name>
     <protein>
       <recommendedName>
-        <fullName>G protein-activated inward rectifier potassium channel 1</fullName>
+        <fullName>Actin, cytoplasmic 2</fullName>
       </recommendedName>
     </protein>
     <gene>
-      <name type="primary">Kcnj3</name>
-      <name type="synonym">Girk1</name>
+      <name type="primary">Actg1</name>
+      <name type="synonym">Actg</name>
     </gene>
     <organism>
       <name type="scientific">Mus musculus</name>
     </organism>
     <dbReference type="NCBI Taxonomy" id="10090" />
-    <dbReference type="PubMed" id="7702616" />
-    <dbReference type="DOI" id="10.1006/bbrc.1995.1456" />
-    <dbReference type="PubMed" id="21183079" />
-    <dbReference type="DOI" id="10.1016/j.cell.2010.12.001" />
-    <dbReference type="PubMed" id="12507423" />
-    <dbReference type="DOI" id="10.1016/S0092-8674(02)01227-8" />
-    <dbReference type="EMBL" id="D45022">
-      <property type="protein sequence ID" value="BAA08079.1" />
+    <dbReference type="PubMed" id="213279" />
+    <dbReference type="DOI" id="10.1111/j.1432-1033.1978.tb12624.x" />
+    <dbReference type="PubMed" id="3221869" />
+    <dbReference type="DOI" id="10.1128/MCB.8.9.3929" />
+    <dbReference type="PubMed" id="16141072" />
+    <dbReference type="DOI" id="10.1126/science.1112014" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="PubMed" id="3210229" />
+    <dbReference type="DOI" id="10.1016/0022-2836(88)90200-8" />
+    <dbReference type="PubMed" id="23911929" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2013.06.019" />
+    <dbReference type="EMBL" id="X13055">
+      <property type="protein sequence ID" value="CAA31455.1" />
       <property type="molecule type" value="mRNA" />
     </dbReference>
-    <dbReference type="CCDS" id="CCDS16042.1" />
-    <dbReference type="PIR" id="JC4139">
-      <property type="entry name" value="JC4139" />
+    <dbReference type="EMBL" id="AK076081">
+      <property type="protein sequence ID" value="BAC36167.1" />
+      <property type="molecule type" value="mRNA" />
     </dbReference>
-    <dbReference type="RefSeq" id="NP_032452.1">
-      <property type="nucleotide sequence ID" value="NM_008426.2" />
+    <dbReference type="EMBL" id="AK087983">
+      <property type="protein sequence ID" value="BAC40075.1" />
+      <property type="molecule type" value="mRNA" />
     </dbReference>
-    <dbReference type="RefSeq" id="XP_006497793.1">
-      <property type="nucleotide sequence ID" value="XM_006497730.3" />
+    <dbReference type="EMBL" id="BC003337">
+      <property type="protein sequence ID" value="AAH03337.1" />
+      <property type="molecule type" value="mRNA" />
     </dbReference>
-    <dbReference type="UniGene" id="Mm.418451" />
-    <dbReference type="UniGene" id="Mm.5127" />
-    <dbReference type="PDB" id="1N9P">
-      <property type="method" value="X-ray" />
-      <property type="resolution" value="1.80" />
-      <property type="chains" value="A=41-371" />
+    <dbReference type="EMBL" id="BC021796">
+      <property type="protein sequence ID" value="AAH21796.1" />
+      <property type="molecule type" value="mRNA" />
     </dbReference>
-    <dbReference type="PDB" id="1U4E">
-      <property type="method" value="X-ray" />
-      <property type="resolution" value="2.09" />
-      <property type="chains" value="A=41-63, A=189-371" />
+    <dbReference type="EMBL" id="BC023248">
+      <property type="protein sequence ID" value="AAH23248.1" />
+      <property type="molecule type" value="mRNA" />
     </dbReference>
-    <dbReference type="PDB" id="2QKS">
-      <property type="method" value="X-ray" />
-      <property type="resolution" value="2.20" />
-      <property type="chains" value="A/B=41-82, A/B=178-371" />
+    <dbReference type="EMBL" id="M21495">
+      <property type="protein sequence ID" value="AAA37168.1" />
+      <property type="molecule type" value="mRNA" />
     </dbReference>
-    <dbReference type="PDB" id="3K6N">
-      <property type="method" value="X-ray" />
-      <property type="resolution" value="2.00" />
-      <property type="chains" value="A=41-63, A=190-371" />
+    <dbReference type="CCDS" id="CCDS25730.1" />
+    <dbReference type="PIR" id="A30243">
+      <property type="entry name" value="ATMSG" />
     </dbReference>
-    <dbReference type="PDBsum" id="1N9P" />
-    <dbReference type="PDBsum" id="1U4E" />
-    <dbReference type="PDBsum" id="2QKS" />
-    <dbReference type="PDBsum" id="3K6N" />
-    <dbReference type="ProteinModelPortal" id="P63250" />
-    <dbReference type="SMR" id="P63250" />
-    <dbReference type="CORUM" id="P63250" />
-    <dbReference type="DIP" id="DIP-48585N" />
-    <dbReference type="STRING" id="10090.ENSMUSP00000063329" />
-    <dbReference type="GuidetoPHARMACOLOGY" id="434" />
-    <dbReference type="iPTMnet" id="P63250" />
-    <dbReference type="PhosphoSitePlus" id="P63250" />
-    <dbReference type="PaxDb" id="P63250" />
-    <dbReference type="PeptideAtlas" id="P63250" />
-    <dbReference type="PRIDE" id="P63250" />
-    <dbReference type="Ensembl" id="ENSMUST00000067101">
-      <property type="protein sequence ID" value="ENSMUSP00000063329" />
-      <property type="gene ID" value="ENSMUSG00000026824" />
+    <dbReference type="RefSeq" id="NP_033739.1">
+      <property type="nucleotide sequence ID" value="NM_009609.3" />
     </dbReference>
-    <dbReference type="Ensembl" id="ENSMUST00000112633">
-      <property type="protein sequence ID" value="ENSMUSP00000108252" />
-      <property type="gene ID" value="ENSMUSG00000026824" />
+    <dbReference type="UniGene" id="Mm.196173" />
+    <dbReference type="UniGene" id="Mm.426706" />
+    <dbReference type="UniGene" id="Mm.470166" />
+    <dbReference type="ProteinModelPortal" id="P63260" />
+    <dbReference type="SMR" id="P63260" />
+    <dbReference type="BioGrid" id="197946">
+      <property type="interactions" value="21" />
     </dbReference>
-    <dbReference type="GeneID" id="16519" />
-    <dbReference type="KEGG" id="mmu:16519" />
-    <dbReference type="UCSC" id="uc008jru.2">
+    <dbReference type="CORUM" id="P63260" />
+    <dbReference type="IntAct" id="P63260">
+      <property type="interactions" value="25" />
+    </dbReference>
+    <dbReference type="STRING" id="10090.ENSMUSP00000071486" />
+    <dbReference type="iPTMnet" id="P63260" />
+    <dbReference type="PhosphoSitePlus" id="P63260" />
+    <dbReference type="SwissPalm" id="P63260" />
+    <dbReference type="COMPLUYEAST-2DPAGE" id="P63260" />
+    <dbReference type="REPRODUCTION-2DPAGE" id="P63260" />
+    <dbReference type="UCD-2DPAGE" id="P63260" />
+    <dbReference type="EPD" id="P63260" />
+    <dbReference type="PaxDb" id="P63260" />
+    <dbReference type="PeptideAtlas" id="P63260" />
+    <dbReference type="PRIDE" id="P63260" />
+    <dbReference type="Ensembl" id="ENSMUST00000071555">
+      <property type="protein sequence ID" value="ENSMUSP00000071486" />
+      <property type="gene ID" value="ENSMUSG00000062825" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENSMUST00000106215">
+      <property type="protein sequence ID" value="ENSMUSP00000101822" />
+      <property type="gene ID" value="ENSMUSG00000062825" />
+    </dbReference>
+    <dbReference type="GeneID" id="11465" />
+    <dbReference type="KEGG" id="mmu:11465" />
+    <dbReference type="UCSC" id="uc007msi.1">
       <property type="organism name" value="mouse" />
     </dbReference>
-    <dbReference type="CTD" id="3760" />
-    <dbReference type="MGI" id="MGI:104742">
-      <property type="gene designation" value="Kcnj3" />
+    <dbReference type="CTD" id="71" />
+    <dbReference type="MGI" id="MGI:87906">
+      <property type="gene designation" value="Actg1" />
     </dbReference>
-    <dbReference type="eggNOG" id="KOG3827">
+    <dbReference type="eggNOG" id="KOG0676">
       <property type="taxonomic scope" value="Eukaryota" />
     </dbReference>
-    <dbReference type="eggNOG" id="ENOG410XQ62">
+    <dbReference type="eggNOG" id="COG5277">
       <property type="taxonomic scope" value="LUCA" />
     </dbReference>
-    <dbReference type="GeneTree" id="ENSGT00760000118842" />
-    <dbReference type="HOGENOM" id="HOG000237325" />
-    <dbReference type="HOVERGEN" id="HBG006178" />
-    <dbReference type="InParanoid" id="P63250" />
-    <dbReference type="KO" id="K04997" />
-    <dbReference type="OMA" id="CHVIDTK" />
-    <dbReference type="OrthoDB" id="EOG091G08HC" />
-    <dbReference type="PhylomeDB" id="P63250" />
-    <dbReference type="TreeFam" id="TF313676" />
-    <dbReference type="Reactome" id="R-MMU-1296041">
-      <property type="pathway name" value="Activation of G protein gated Potassium channels" />
+    <dbReference type="GeneTree" id="ENSGT00760000118957" />
+    <dbReference type="HOGENOM" id="HOG000233340" />
+    <dbReference type="HOVERGEN" id="HBG003771" />
+    <dbReference type="InParanoid" id="P63260" />
+    <dbReference type="KO" id="K05692" />
+    <dbReference type="OMA" id="ANGIHET" />
+    <dbReference type="OrthoDB" id="EOG091G08LD" />
+    <dbReference type="PhylomeDB" id="P63260" />
+    <dbReference type="TreeFam" id="TF354237" />
+    <dbReference type="Reactome" id="R-MMU-190873">
+      <property type="pathway name" value="Gap junction degradation" />
     </dbReference>
-    <dbReference type="Reactome" id="R-MMU-997272">
-      <property type="pathway name" value="Inhibition of voltage gated Ca2+ channels via Gbeta/gamma subunits" />
+    <dbReference type="Reactome" id="R-MMU-196025">
+      <property type="pathway name" value="Formation of annular gap junctions" />
     </dbReference>
-    <dbReference type="EvolutionaryTrace" id="P63250" />
-    <dbReference type="PRO" id="PR:P63250" />
+    <dbReference type="Reactome" id="R-MMU-2029482">
+      <property type="pathway name" value="Regulation of actin dynamics for phagocytic cup formation" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-3928662">
+      <property type="pathway name" value="EPHB-mediated forward signaling" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-418990">
+      <property type="pathway name" value="Adherens junctions interactions" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-437239">
+      <property type="pathway name" value="Recycling pathway of L1" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-4420097">
+      <property type="pathway name" value="VEGFA-VEGFR2 Pathway" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-445095">
+      <property type="pathway name" value="Interaction between L1 and Ankyrins" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-446353">
+      <property type="pathway name" value="Cell-extracellular matrix interactions" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-5626467">
+      <property type="pathway name" value="RHO GTPases activate IQGAPs" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-5663213">
+      <property type="pathway name" value="RHO GTPases Activate WASPs and WAVEs" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-5663220">
+      <property type="pathway name" value="RHO GTPases Activate Formins" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-MMU-8856828">
+      <property type="pathway name" value="Clathrin-mediated endocytosis" />
+    </dbReference>
+    <dbReference type="ChiTaRS" id="Actg1">
+      <property type="organism name" value="mouse" />
+    </dbReference>
+    <dbReference type="PMAP-CutDB" id="P63260" />
+    <dbReference type="PRO" id="PR:P63260" />
     <dbReference type="Proteomes" id="UP000000589">
-      <property type="component" value="Chromosome 2" />
+      <property type="component" value="Chromosome 11" />
     </dbReference>
-    <dbReference type="Bgee" id="ENSMUSG00000026824" />
-    <dbReference type="ExpressionAtlas" id="P63250">
+    <dbReference type="Bgee" id="ENSMUSG00000062825" />
+    <dbReference type="CleanEx" id="MM_ACTG1" />
+    <dbReference type="ExpressionAtlas" id="P63260">
       <property type="expression patterns" value="baseline and differential" />
     </dbReference>
-    <dbReference type="Genevisible" id="P63250">
+    <dbReference type="Genevisible" id="P63260">
       <property type="organism ID" value="MM" />
     </dbReference>
-    <dbReference type="GO" id="GO:0009897">
-      <property type="term" value="C:external side of plasma membrane" />
-      <property type="evidence" value="ECO:0000501" />
-      <property type="project" value="Ensembl" />
+    <dbReference type="GO" id="GO:0015629">
+      <property type="term" value="C:actin cytoskeleton" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="MGI" />
     </dbReference>
-    <dbReference type="GO" id="GO:0005887">
-      <property type="term" value="C:integral component of plasma membrane" />
-      <property type="evidence" value="ECO:0000318" />
-      <property type="project" value="GO_Central" />
-    </dbReference>
-    <dbReference type="GO" id="GO:0030315">
-      <property type="term" value="C:T-tubule" />
-      <property type="evidence" value="ECO:0000501" />
-      <property type="project" value="Ensembl" />
-    </dbReference>
-    <dbReference type="GO" id="GO:0008076">
-      <property type="term" value="C:voltage-gated potassium channel complex" />
+    <dbReference type="GO" id="GO:0072562">
+      <property type="term" value="C:blood microparticle" />
       <property type="evidence" value="ECO:0000266" />
       <property type="project" value="MGI" />
     </dbReference>
-    <dbReference type="GO" id="GO:0015467">
-      <property type="term" value="F:G-protein activated inward rectifier potassium channel activity" />
+    <dbReference type="GO" id="GO:0043034">
+      <property type="term" value="C:costamere" />
       <property type="evidence" value="ECO:0000304" />
       <property type="project" value="MGI" />
     </dbReference>
-    <dbReference type="GO" id="GO:0010107">
-      <property type="term" value="P:potassium ion import" />
-      <property type="evidence" value="ECO:0000318" />
-      <property type="project" value="GO_Central" />
+    <dbReference type="GO" id="GO:0005829">
+      <property type="term" value="C:cytosol" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
     </dbReference>
-    <dbReference type="GO" id="GO:1990573">
-      <property type="term" value="P:potassium ion import across plasma membrane" />
+    <dbReference type="GO" id="GO:0097433">
+      <property type="term" value="C:dense body" />
+      <property type="evidence" value="ECO:0000250" />
+      <property type="project" value="AgBase" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0070062">
+      <property type="term" value="C:extracellular exosome" />
       <property type="evidence" value="ECO:0000266" />
       <property type="project" value="MGI" />
     </dbReference>
-    <dbReference type="GO" id="GO:0051602">
-      <property type="term" value="P:response to electrical stimulus" />
+    <dbReference type="GO" id="GO:0031012">
+      <property type="term" value="C:extracellular matrix" />
+      <property type="evidence" value="ECO:0000266" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005615">
+      <property type="term" value="C:extracellular space" />
+      <property type="evidence" value="ECO:0000266" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0031941">
+      <property type="term" value="C:filamentous actin" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005925">
+      <property type="term" value="C:focal adhesion" />
+      <property type="evidence" value="ECO:0000250" />
+      <property type="project" value="AgBase" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0016020">
+      <property type="term" value="C:membrane" />
+      <property type="evidence" value="ECO:0000266" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043209">
+      <property type="term" value="C:myelin sheath" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0030016">
+      <property type="term" value="C:myofibril" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005634">
+      <property type="term" value="C:nucleus" />
+      <property type="evidence" value="ECO:0000266" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005886">
+      <property type="term" value="C:plasma membrane" />
+      <property type="evidence" value="ECO:0000250" />
+      <property type="project" value="AgBase" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005524">
+      <property type="term" value="F:ATP binding" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="UniProtKB-KW" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0042802">
+      <property type="term" value="F:identical protein binding" />
+      <property type="evidence" value="ECO:0000266" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005522">
+      <property type="term" value="F:profilin binding" />
       <property type="evidence" value="ECO:0000501" />
       <property type="project" value="Ensembl" />
     </dbReference>
-    <dbReference type="Gene3D" id="2.60.40.1400">
+    <dbReference type="GO" id="GO:0005200">
+      <property type="term" value="F:structural constituent of cytoskeleton" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0031625">
+      <property type="term" value="F:ubiquitin protein ligase binding" />
+      <property type="evidence" value="ECO:0000266" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0070527">
+      <property type="term" value="P:platelet aggregation" />
+      <property type="evidence" value="ECO:0000266" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0001895">
+      <property type="term" value="P:retina homeostasis" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0045214">
+      <property type="term" value="P:sarcomere organization" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR004000">
+      <property type="entry name" value="Actin" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR020902">
+      <property type="entry name" value="Actin/actin-like_CS" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR004001">
+      <property type="entry name" value="Actin_CS" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR11937">
+      <property type="entry name" value="PTHR11937" />
       <property type="match status" value="1" />
     </dbReference>
-    <dbReference type="InterPro" id="IPR014756">
-      <property type="entry name" value="Ig_E-set" />
-    </dbReference>
-    <dbReference type="InterPro" id="IPR016449">
-      <property type="entry name" value="K_chnl_inward-rec_Kir" />
-    </dbReference>
-    <dbReference type="InterPro" id="IPR003274">
-      <property type="entry name" value="K_chnl_inward-rec_Kir3.1" />
-    </dbReference>
-    <dbReference type="InterPro" id="IPR013518">
-      <property type="entry name" value="K_chnl_inward-rec_Kir_cyto" />
-    </dbReference>
-    <dbReference type="PANTHER" id="PTHR11767">
-      <property type="entry name" value="PTHR11767" />
+    <dbReference type="Pfam" id="PF00022">
+      <property type="entry name" value="Actin" />
       <property type="match status" value="1" />
     </dbReference>
-    <dbReference type="Pfam" id="PF01007">
-      <property type="entry name" value="IRK" />
+    <dbReference type="PRINTS" id="PR00190">
+      <property type="entry name" value="ACTIN" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00268">
+      <property type="entry name" value="ACTIN" />
       <property type="match status" value="1" />
     </dbReference>
-    <dbReference type="PRINTS" id="PR01327">
-      <property type="entry name" value="KIR31CHANNEL" />
-    </dbReference>
-    <dbReference type="PRINTS" id="PR01320">
-      <property type="entry name" value="KIRCHANNEL" />
-    </dbReference>
-    <dbReference type="SUPFAM" id="SSF81296">
-      <property type="entry name" value="SSF81296" />
+    <dbReference type="PROSITE" id="PS00406">
+      <property type="entry name" value="ACTINS_1" />
       <property type="match status" value="1" />
     </dbReference>
-    <dbReference type="PDB" id="1U4E" />
-    <dbReference type="PDB" id="2QKS" />
-    <dbReference type="PDB" id="3K6N" />
-    <dbReference type="PubMed" id="21183079" />
+    <dbReference type="PROSITE" id="PS00432">
+      <property type="entry name" value="ACTINS_2" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS01132">
+      <property type="entry name" value="ACTINS_ACT_LIKE" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="UniProtKB" id="P63261" />
+    <dbReference type="PubMed" id="213279" />
+    <dbReference type="PubMed" id="23911929" />
     <feature type="chain">
       <location>
         <begin position="1" />
-        <end position="501" />
+        <end position="375" />
       </location>
     </feature>
-    <feature type="modified residue" description="Phosphoserine on S">
+    <feature type="chain">
       <location>
-        <position position="385" />
+        <begin position="2" />
+        <end position="375" />
       </location>
     </feature>
-    <feature type="modified residue" description="Phosphoserine on S">
+    <feature type="modified residue" description="N-acetylmethionine on M">
       <location>
-        <position position="424" />
+        <position position="1" />
       </location>
     </feature>
-    <sequence length="501">MSALRRKFGDDYQVVTTSSSGSGLQPQGPGQGPQQQLVPKKKRQRFVDKNGRCNVQHGNLGSETSRYLSDLFTTLVDLKWRWNLFIFILTYTVAWLFMASMWWVIAYTRGDLNKAHVGNYTPCVANVYNFPSAFLFFIETEATIGYGYRYITDKCPEGIILFLFQSILGSIVDAFLIGCMFIKMSQPKKRAETLMFSEHAVISMRDGKLTLMFRVGNLRNSHMVSAQIRCKLLKSRQTPEGEFLPLDQLELDVGFSTGADQLFLVSPLTICHVIDAKSPFYDLSQRSMQTEQFEVVVILEGIVETTGMTCQARTSYTEDEVLWGHRFFPVISLEEGFFKVDYSQFHATFEVPTPPYSVKEQEEMLLMSSPLIAPAITNSKERHNSVECLDGLDDISTKLPSKLQKITGREDFPKKLLRMSSTTSEKAYSLGDLPMKLQRISSVPGNSEEKLVSKTTKMLSDPMSQSVADLPPKLQKMAGGPTRMEGNLPAKLRKMNSDRFT</sequence>
+    <feature type="modified residue" description="N-acetylglutamate on E">
+      <location>
+        <position position="2" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Calcium on E">
+      <location>
+        <position position="2" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="2" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="2" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Calcium on E">
+      <location>
+        <position position="3" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="3" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="3" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Calcium on E">
+      <location>
+        <position position="4" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="4" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="4" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on I">
+      <location>
+        <position position="5" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on L">
+      <location>
+        <position position="8" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on V">
+      <location>
+        <position position="9" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on I">
+      <location>
+        <position position="10" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Calcium on D">
+      <location>
+        <position position="11" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on D">
+      <location>
+        <position position="11" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on D">
+      <location>
+        <position position="11" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on N">
+      <location>
+        <position position="12" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Ammonia loss on N">
+      <location>
+        <position position="12" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on S">
+      <location>
+        <position position="14" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on M">
+      <location>
+        <position position="16" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on C">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on C">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on K">
+      <location>
+        <position position="18" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on K">
+      <location>
+        <position position="18" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Formylation on X">
+      <location>
+        <position position="40" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on H">
+      <location>
+        <position position="40" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on Q">
+      <location>
+        <position position="41" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Deamidation on Q">
+      <location>
+        <position position="41" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on V">
+      <location>
+        <position position="43" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Methionine (R)-sulfoxide on M">
+      <location>
+        <position position="44" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on V">
+      <location>
+        <position position="45" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Methionine (R)-sulfoxide on M">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on Q">
+      <location>
+        <position position="49" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Deamidation on Q">
+      <location>
+        <position position="49" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Formylation on K">
+      <location>
+        <position position="50" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on K">
+      <location>
+        <position position="50" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on Y">
+      <location>
+        <position position="69" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on Y">
+      <location>
+        <position position="69" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on Y">
+      <location>
+        <position position="69" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on X">
+      <location>
+        <position position="69" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Propionamidation on X">
+      <location>
+        <position position="69" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Didehydro on Y">
+      <location>
+        <position position="69" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on P">
+      <location>
+        <position position="70" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on P">
+      <location>
+        <position position="70" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Proline pyrrole to pyrrolidine six member ring on P">
+      <location>
+        <position position="70" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on I">
+      <location>
+        <position position="71" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="72" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on E">
+      <location>
+        <position position="72" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Tele-methylhistidine on H">
+      <location>
+        <position position="73" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on H">
+      <location>
+        <position position="73" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on H">
+      <location>
+        <position position="73" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on I">
+      <location>
+        <position position="75" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on V">
+      <location>
+        <position position="76" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on T">
+      <location>
+        <position position="77" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on T">
+      <location>
+        <position position="77" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dehydrobutyrine on T">
+      <location>
+        <position position="77" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on N">
+      <location>
+        <position position="78" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Deamidation on N">
+      <location>
+        <position position="78" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on W">
+      <location>
+        <position position="79" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on W">
+      <location>
+        <position position="79" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation to Kynurenine on W">
+      <location>
+        <position position="79" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on D">
+      <location>
+        <position position="80" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on D">
+      <location>
+        <position position="80" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Water loss on D">
+      <location>
+        <position position="80" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on D">
+      <location>
+        <position position="81" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on D">
+      <location>
+        <position position="81" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Water loss on D">
+      <location>
+        <position position="81" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on M">
+      <location>
+        <position position="82" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="83" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on E">
+      <location>
+        <position position="83" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-methyllysine on K">
+      <location>
+        <position position="84" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on K">
+      <location>
+        <position position="84" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on K">
+      <location>
+        <position position="84" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on K">
+      <location>
+        <position position="84" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Propionamidation on K">
+      <location>
+        <position position="84" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on X">
+      <location>
+        <position position="96" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Formylation on X">
+      <location>
+        <position position="96" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on E">
+      <location>
+        <position position="99" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="99" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on E">
+      <location>
+        <position position="100" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="100" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on H">
+      <location>
+        <position position="101" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on T">
+      <location>
+        <position position="106" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Formylation on T">
+      <location>
+        <position position="106" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on E">
+      <location>
+        <position position="107" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="107" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on K">
+      <location>
+        <position position="113" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Formylation on K">
+      <location>
+        <position position="113" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on X">
+      <location>
+        <position position="216" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on L">
+      <location>
+        <position position="216" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on C">
+      <location>
+        <position position="217" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on Y">
+      <location>
+        <position position="218" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on Y">
+      <location>
+        <position position="218" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on V">
+      <location>
+        <position position="219" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on L">
+      <location>
+        <position position="221" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Reduction on D">
+      <location>
+        <position position="222" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on D">
+      <location>
+        <position position="222" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on D">
+      <location>
+        <position position="222" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on D">
+      <location>
+        <position position="222" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on F">
+      <location>
+        <position position="223" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on E">
+      <location>
+        <position position="224" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="224" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="224" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on Q">
+      <location>
+        <position position="225" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on E">
+      <location>
+        <position position="226" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="226" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="226" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Reduction on T">
+      <location>
+        <position position="229" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on T">
+      <location>
+        <position position="229" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on T">
+      <location>
+        <position position="229" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Reduction on S">
+      <location>
+        <position position="232" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on S">
+      <location>
+        <position position="232" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on S">
+      <location>
+        <position position="232" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Reduction on S">
+      <location>
+        <position position="233" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on S">
+      <location>
+        <position position="233" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on S">
+      <location>
+        <position position="233" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Reduction on S">
+      <location>
+        <position position="234" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on S">
+      <location>
+        <position position="234" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on S">
+      <location>
+        <position position="234" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Reduction on S">
+      <location>
+        <position position="235" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on S">
+      <location>
+        <position position="235" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on S">
+      <location>
+        <position position="235" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on L">
+      <location>
+        <position position="236" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on E">
+      <location>
+        <position position="237" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="237" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="237" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Carbamidomethyl on K">
+      <location>
+        <position position="238" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on K">
+      <location>
+        <position position="238" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on S">
+      <location>
+        <position position="239" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dehydroalanine on S">
+      <location>
+        <position position="239" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on Y">
+      <location>
+        <position position="240" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on Y">
+      <location>
+        <position position="240" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Zinc on E">
+      <location>
+        <position position="241" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Cu[I] on E">
+      <location>
+        <position position="241" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="241" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="241" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on L">
+      <location>
+        <position position="242" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on P">
+      <location>
+        <position position="243" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on P">
+      <location>
+        <position position="243" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Zinc on D">
+      <location>
+        <position position="244" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Cu[I] on D">
+      <location>
+        <position position="244" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on D">
+      <location>
+        <position position="244" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on D">
+      <location>
+        <position position="244" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Water loss on D">
+      <location>
+        <position position="244" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on Q">
+      <location>
+        <position position="246" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Deamidation on Q">
+      <location>
+        <position position="246" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on V">
+      <location>
+        <position position="247" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on I">
+      <location>
+        <position position="248" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on T">
+      <location>
+        <position position="249" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dehydrobutyrine on T">
+      <location>
+        <position position="249" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on I">
+      <location>
+        <position position="250" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on N">
+      <location>
+        <position position="252" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Deamidation on N">
+      <location>
+        <position position="252" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Zinc on E">
+      <location>
+        <position position="253" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Cu[I] on E">
+      <location>
+        <position position="253" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on E">
+      <location>
+        <position position="253" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Sodium on E">
+      <location>
+        <position position="253" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Oxidation on R">
+      <location>
+        <position position="254" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dioxidation on R">
+      <location>
+        <position position="254" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Citrullination on R">
+      <location>
+        <position position="254" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Deamidation on N">
+      <location>
+        <position position="296" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Citrullination on R">
+      <location>
+        <position position="312" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Water Loss on E">
+      <location>
+        <position position="316" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dehydrobutyrine on T">
+      <location>
+        <position position="318" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dehydroalanine on S">
+      <location>
+        <position position="323" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dehydrobutyrine on T">
+      <location>
+        <position position="324" />
+      </location>
+    </feature>
+    <sequence length="375">MEEEIAALVIDNGSGMCKAGFAGDDAPRAVFPSIVGRPRHQGVMVGMGQKDSYVGDEAQSKRGILTLKYPIEHGIVTNWDDMEKIWHHTFYNELRVAPEEHPVLLTEAPLNPKANREKMTQIMFETFNTPAMYVAIQAVLSLYASGRTTGIVMDSGDGVTHTVPIYEGYALPHAILRLDLAGRDLTDYLMKILTERGYSFTTTAEREIVRDIKEKLCYVALDFEQEMATAASSSSLEKSYELPDGQVITIGNERFRCPEALFQPSFLGMESCGIHETTFNSIMKCDVDIRKDLYANTVLSGGTTMYPGIADRMQKEITALAPSTMKIKIIAPPERKYSVWIGGSILASLSTFQQMWISKQEYDESGPSIVHRKCF</sequence>
   </entry>
 </mzLibProteinDb>
