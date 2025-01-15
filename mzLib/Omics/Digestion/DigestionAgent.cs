@@ -77,7 +77,7 @@ namespace Omics.Digestion
         public List<int> GetDigestionSiteIndices(string sequence)
         {
             var indices = HashSetPool.Get(); // use hash set to ensure no duplicates
-            try
+            try // Try block is to ensure that, even if an error gets thrown, the hashset is returned to the pool
             {
                 indices.Add(0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
 
@@ -111,10 +111,11 @@ namespace Omics.Digestion
                 }
 
                 indices.Add(sequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
-                return indices.ToList();
+                return indices.ToList(); // convert the hashset to a list for return. 
             }
             finally
             {
+                // return hashset to pool. This clears it and gets it ready for the next time it is needed from the pool.
                 HashSetPool.Return(indices);
             }
         }
