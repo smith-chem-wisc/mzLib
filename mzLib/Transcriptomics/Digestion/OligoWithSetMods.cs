@@ -20,7 +20,7 @@ namespace Transcriptomics.Digestion
     /// always available based on the current state of the oligonucleotide and its modifications. Therefor, it is important to set those
     /// properties to null whenever a termini or modification is changed.
     /// </remarks>
-    public class OligoWithSetMods : NucleolyticOligo, IBioPolymerWithSetMods, INucleicAcid
+    public class OligoWithSetMods : NucleolyticOligo, IBioPolymerWithSetMods, INucleicAcid, IEquatable<OligoWithSetMods>
     {
         public OligoWithSetMods(NucleicAcid nucleicAcid, RnaDigestionParams digestionParams, int oneBaseStartResidue,
             int oneBasedEndResidue, int missedCleavages, CleavageSpecificity cleavageSpecificity,
@@ -214,6 +214,67 @@ namespace Transcriptomics.Digestion
                 foreach (var type in threePrimeProductTypes)
                     products.AddRange(GetNeutralFragments(type, sequence));
         }
+
+        #region IEquatable
+
+        /// <summary>
+        /// Oligos are equal if they have the same full sequence, parent, and digestion agent, and terminal caps
+        /// </summary>
+        public override bool Equals(object? obj)
+        {
+            if (obj is OligoWithSetMods oligo)
+            {
+                return Equals(oligo);
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Oligos are equal if they have the same full sequence, parent, and digestion agent, and terminal caps
+        /// </summary>
+        public bool Equals(IBioPolymerWithSetMods? other) => Equals(other as OligoWithSetMods);
+
+        /// <summary>
+        /// Oligos are equal if they have the same full sequence, parent, and digestion agent, and terminal caps
+        /// </summary>
+        public bool Equals(OligoWithSetMods? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (other.GetType() != GetType()) return false;
+
+            // for those constructed from sequence and mods only
+            if (Parent is null && other.Parent is null)
+                return FullSequence.Equals(other.FullSequence);
+
+            return FullSequence == other.FullSequence
+                   && Equals(DigestionParams?.DigestionAgent, other.DigestionParams?.DigestionAgent)
+                   && _fivePrimeTerminus.Equals(other._fivePrimeTerminus)
+                   && _threePrimeTerminus.Equals(other._threePrimeTerminus)
+                   // These last two are important for parsimony in MetaMorpheus
+                   && OneBasedStartResidue == other!.OneBasedStartResidue
+                   && Equals(Parent?.Accession, other.Parent?.Accession);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(FullSequence);
+            hash.Add(OneBasedStartResidue);
+            if (Parent?.Accession != null)
+            {
+                hash.Add(Parent.Accession);
+            }
+            if (DigestionParams?.DigestionAgent != null)
+            {
+                hash.Add(DigestionParams.DigestionAgent);
+            }
+            hash.Add(FivePrimeTerminus);
+            hash.Add(ThreePrimeTerminus);
+            return hash.ToHashCode();
+        }
+
+        #endregion
 
         /// <summary>
         /// Generates theoretical internal fragments for given dissociation type for this peptide. 

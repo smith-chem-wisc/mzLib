@@ -14,7 +14,7 @@ namespace Omics
     /// Proteins -> PeptideWithSetModifications : ProteolyticPeptide
     /// Nucleic Acids -> OligoWithSetMods : NucleolyticOligo
     /// </remarks>
-    public interface IBioPolymerWithSetMods : IHasChemicalFormula
+    public interface IBioPolymerWithSetMods : IHasChemicalFormula, IEquatable<IBioPolymerWithSetMods>
     {
         string BaseSequence { get; }
         string FullSequence { get; }

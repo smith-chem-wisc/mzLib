@@ -13,6 +13,7 @@ using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -56,8 +57,22 @@ namespace Test
             Assert.That(pep1.Parent.Equals(pep2.Parent));
             Assert.That(!pep1.DigestionParams.DigestionAgent.Equals(pep2.DigestionParams.DigestionAgent));
             Assert.That(!pep1.Equals(pep2));
-            // HashCode is only concerned with the full sequence, not the protease. Only the equals method is interested in the protease used
-            Assert.That(pep1.GetHashCode().Equals(pep2.GetHashCode()));
+            Assert.That(!pep1.Equals((object)pep2));
+            Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
+        }
+
+        [Test]
+        public static void TestPeptideOligoEquality()
+        {
+            var oligo = new OligoWithSetMods("GUACUG", []);
+            var peptide = new PeptideWithSetModifications("PEPTIDE", []);
+
+            Assert.That(!oligo.Equals(peptide));
+            Assert.That(!peptide.Equals(oligo));
+            Assert.That(!((IBioPolymerWithSetMods)oligo).Equals(peptide));
+            Assert.That(!((IBioPolymerWithSetMods)peptide).Equals(oligo));
+            Assert.That(!((object)oligo).Equals(peptide));
+            Assert.That(!((object)peptide).Equals(oligo));
         }
 
         [Test]
@@ -763,12 +778,11 @@ namespace Test
 
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testDecoyHash = reverse.GetHashCode(); 
-            Assert.AreEqual(reverse.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
+
+            string targetSequence = p.FullSequence;
+            string decoySequence = reverse.FullSequence; 
+            Assert.AreEqual(reverse.PairedTargetDecoySequence, targetSequence);
+            Assert.AreEqual(p.PairedTargetDecoySequence, decoySequence);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
@@ -840,11 +854,11 @@ namespace Test
             PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, VTIRTVR_modsDictionary, 0, null);
             PeptideWithSetModifications p_tryp_reverse = p_tryp.GetReverseDecoyFromTarget(newAminoAcidPositions);
             // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testMirrorTargetHash = p_tryp.GetHashCode();
+            string mirrorTarget = p_tryp.FullSequence;
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testMirrorDecoyHash = p_tryp_reverse.GetHashCode();
-            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoySequence.GetHashCode());
-            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoySequence.GetHashCode());
+            string mirrorDecoy = p_tryp_reverse.FullSequence;
+            Assert.AreEqual(mirrorTarget, p_tryp_reverse.PairedTargetDecoySequence);
+            Assert.AreEqual(mirrorDecoy, p_tryp.PairedTargetDecoySequence);
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
@@ -869,12 +883,11 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications testScrambled = p.GetScrambledDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testDecoyHash = testScrambled.GetHashCode();
-            Assert.AreEqual(testScrambled.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
+
+            string targetSequence = p.FullSequence;
+            string decoySequence = testScrambled.FullSequence;
+            Assert.AreEqual(testScrambled.PairedTargetDecoySequence, targetSequence);
+            Assert.AreEqual(p.PairedTargetDecoySequence, decoySequence);
             Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
             Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
             // Check n-term acetyl
@@ -1182,6 +1195,45 @@ namespace Test
             Assert.AreEqual('-', last.NextAminoAcid);
             Assert.AreEqual('-', last.NextResidue);
         }
+
+        [Test]
+        public static void TestPeptideWithSetModsEquals()
+        {
+            // Create two proteins
+            Protein protein1 = new Protein("SEQUENCEK", "accession1");
+            Protein protein2 = new Protein("SEQUENCEK", "accession2");
+
+            // Create digestion parameters
+            DigestionParams digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            // Digest the proteins to get peptides
+            PeptideWithSetModifications peptide1 = protein1.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
+            PeptideWithSetModifications peptide2 = protein2.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
+
+            // Test equality - same peptide
+            Assert.IsTrue(peptide1.Equals(peptide1));
+
+            // different peptide
+            Assert.IsTrue(!peptide1.Equals(peptide2));
+            Assert.IsTrue(!peptide1.Equals((object)peptide2));
+            Assert.IsTrue(!peptide1.Equals((IBioPolymerWithSetMods)peptide2));
+            Assert.AreNotEqual(peptide1.GetHashCode(), peptide2.GetHashCode());
+
+            // Test inequality with different start residue
+            PeptideWithSetModifications peptide3 = new PeptideWithSetModifications(protein1, digestionParams, 2, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(peptide1.Equals(peptide3));
+
+            // Test inequality with different parent accession
+            PeptideWithSetModifications peptide4 = new PeptideWithSetModifications(protein2, digestionParams, 1, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(peptide1.Equals(peptide4));
+
+            // all fail on null
+            Assert.That(!peptide1.Equals(null));
+            Assert.That(!peptide1.Equals((object)null));
+            Assert.That(!peptide1.Equals((PeptideWithSetModifications)null));
+        }
+
+       
 
         [Test]
         public static void TestIBioPolymerWithSetModsModificationFromFullSequence()

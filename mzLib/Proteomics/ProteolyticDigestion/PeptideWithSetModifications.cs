@@ -14,9 +14,9 @@ using Omics.Modifications;
 namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
-    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods
+    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods, IEquatable<PeptideWithSetModifications>
     {
-        public string FullSequence { get; private set; } //sequence with modifications
+        public string FullSequence { get; init; } //sequence with modifications
         public int NumFixedMods { get; }
         // Parameter to store the full sequence of the corresponding Target or Decoy peptide
         // If the peptide in question is a decoy, this pairs it to the target it was generated from
@@ -884,26 +884,62 @@ namespace Proteomics.ProteolyticDigestion
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
+        #region IEquatable
+
+        /// <summary>
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
+        /// </summary>
         public override bool Equals(object obj)
         {
-            var q = obj as PeptideWithSetModifications;
-
-            if (Protein == null && q.Protein == null)
+            if (obj is PeptideWithSetModifications peptide)
             {
-                return q.FullSequence.Equals(this.FullSequence);
+                return Equals(peptide);
             }
+            return false;
+        }
 
-            return q != null
-                && q.FullSequence.Equals(this.FullSequence)
-                && q.OneBasedStartResidue == this.OneBasedStartResidue
-                && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.DigestionAgent.Equals(this.DigestionParams.DigestionAgent);
+        /// <summary>
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
+        /// </summary>
+        public bool Equals(IBioPolymerWithSetMods other) => Equals(other as PeptideWithSetModifications);
+
+        /// <summary>
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
+        /// </summary>
+        public bool Equals(PeptideWithSetModifications other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (other.GetType() != GetType()) return false;
+
+            // for those constructed from sequence and mods only
+            if (Parent is null && other.Parent is null)
+                return FullSequence.Equals(other.FullSequence);
+
+            return FullSequence == other.FullSequence
+                   && Equals(DigestionParams?.DigestionAgent, other.DigestionParams?.DigestionAgent)
+                   // These last two are important for parsimony in MetaMorpheus
+                   && OneBasedStartResidue == other!.OneBasedStartResidue
+                   && Equals(Parent?.Accession, other.Parent?.Accession); 
         }
 
         public override int GetHashCode()
         {
-            return FullSequence.GetHashCode();
+            var hash = new HashCode();
+            hash.Add(FullSequence);
+            hash.Add(OneBasedStartResidue);
+            if (Parent?.Accession != null)
+            {
+                hash.Add(Parent.Accession);
+            }
+            if (DigestionParams?.DigestionAgent != null)
+            {
+                hash.Add(DigestionParams.DigestionAgent);
+            }
+            return hash.ToHashCode();
         }
+
+        #endregion
 
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized

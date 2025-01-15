@@ -44,3 +44,55 @@ jobs:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+  integration:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      run: cd mzLib && dotnet restore
+    - name: Build
+      run: cd mzLib && dotnet build --no-restore --configuration Release
+    - name: Change mzLib version, pack, add source
+      run: |
+        cd mzLib;
+        (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.nuspec; 
+        $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
+        $mzlibVersion = $mzlibMatch.Matches[0].Value;
+        echo "mzLib version number changed to: $mzlibVersion";
+        nuget pack;
+        $currentFolder = pwd;
+        dotnet nuget add source $currentFolder;
+        dotnet nuget list source;
+    - name: Clone MetaMorpheus
+      uses: actions/checkout@master
+      with:
+        path: ./MetaMorpheus
+        repository: smith-chem-wisc/MetaMorpheus 
+        ref: master
+    - name: Change MetaMorpheus mzLib version and restore
+      run: |
+        cd ./MetaMorpheus/MetaMorpheus;
+        dotnet remove CMD package mzLib;
+        dotnet add CMD package mzLib -v 9.9.9;
+        dotnet remove GUI package mzLib;
+        dotnet add GUI package mzLib -v 9.9.9;
+        dotnet remove GuiFunctions package mzLib;
+        dotnet add GuiFunctions package mzLib -v 9.9.9;
+        dotnet remove EngineLayer package mzLib;
+        dotnet add EngineLayer package mzLib -v 9.9.9;
+        dotnet remove Test package mzLib;
+        dotnet add Test package mzLib -v 9.9.9;
+        dotnet remove TaskLayer package mzLib;
+        dotnet add TaskLayer package mzLib -v 9.9.9;
+        dotnet restore;
+    - name: Build MetaMorpheus
+      run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
+    - name: Test
+      run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal
+
+
