@@ -363,6 +363,7 @@ namespace Test
 
         /// <summary>
         /// We want to have protein digestion yield the same set of peptides regardless of the order their modifications are encoded in the XML.
+        /// While all of the positions of the modifications are the same, the order of the modifications in the XML is different.
         /// </summary>
         [Test]
         public static void TestDigestionOfSameProteinFromDifferentXmls()
@@ -373,7 +374,7 @@ namespace Test
             var fixedModifications = new List<Modification> { carbamidomethylOnC };
             ModificationMotif.TryGetMotif("M", out ModificationMotif motifM);
             Modification oxidationOnM = new Modification(_originalId: "Oxidation on M", _modificationType: "Common Variable", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"));
-
+            var variableModifications = new List<Modification> { oxidationOnM };
             // Load in proteins
             var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
             var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
@@ -390,8 +391,8 @@ namespace Test
             Assert.AreEqual(fiveMods.Count, sixMods.Count);
             CollectionAssert.AreEquivalent(fiveMods, sixMods);
 
-            var peptides5 = proteins5.First().Digest(digestionParams, fixedModifications, unknownModificationsFive.Values.Distinct().ToList()).ToList();
-            var peptides6 = proteins6.First().Digest(digestionParams, fixedModifications, unknownModificationsSix.Values.Distinct().ToList()).ToList();
+            var peptides5 = proteins5.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
+            var peptides6 = proteins6.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
             Assert.AreEqual(peptides5.Count, peptides6.Count);
             CollectionAssert.AreEquivalent(peptides5, peptides6);
         }
