@@ -368,7 +368,7 @@ namespace Test
         [Test]
         public static void TestDigestionOfSameProteinFromDifferentXmls()
         {
-            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain, maxModificationIsoforms: int.MaxValue);
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
             Modification carbamidomethylOnC = new Modification(_originalId: "Carbamidomethyl on C", _modificationType: "Common Fixed", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
             var fixedModifications = new List<Modification> { carbamidomethylOnC };
@@ -377,7 +377,7 @@ namespace Test
             var variableModifications = new List<Modification> { oxidationOnM };
             // Load in proteins
             var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
-            var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
+            var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "06.xml");
             DecoyType decoyType = DecoyType.None;
             List<Protein> proteins5 = null;
             List<Protein> proteins6 = null;
@@ -393,6 +393,8 @@ namespace Test
 
             var peptides5 = proteins5.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
             var peptides6 = proteins6.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
+            File.WriteAllLines(@"C:\Users\trish\Downloads\peptides5.txt", peptides5.OrderBy(p => p.FullSequence).Select(p => p.FullSequence));
+            File.WriteAllLines(@"C:\Users\trish\Downloads\peptides6.txt", peptides6.OrderBy(p => p.FullSequence).Select(p => p.FullSequence));
             Assert.AreEqual(peptides5.Count, peptides6.Count);
             CollectionAssert.AreEquivalent(peptides5, peptides6);
         }

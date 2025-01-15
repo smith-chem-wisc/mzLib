@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -184,6 +185,15 @@ namespace Omics.Digestion
                 {
                     modification_pattern.Add(kvp.Key, kvp.Value[variableModificationArray[kvp.Key] - 1]);
                 }
+            }
+
+            using (StreamWriter sw = File.AppendText(@"C:\Users\trish\Downloads\pattern.txt"))
+            {
+                foreach (var kvp in modification_pattern)
+                {
+                    sw.WriteLine(kvp.Key + " " + kvp.Value);
+                }
+                sw.WriteLine("-------------------------------------------------------------------------------------------------------");
             }
 
             return modification_pattern;
