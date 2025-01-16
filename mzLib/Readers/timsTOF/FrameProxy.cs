@@ -37,18 +37,6 @@ namespace Readers
             return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
         }
 
-        internal double[] GetScanMzs(FrameProxy frame, int zeroIndexedScanNumber)
-        {
-            uint[] mzLookupIndices = GetScanIndices(frame, zeroIndexedScanNumber);
-            double[] mzValues = new double[mzLookupIndices.Length];
-
-            for(int idx = 0; idx < mzLookupIndices.Length; idx++)
-            {
-                mzValues[idx] = MzLookupArray[mzLookupIndices[idx]];
-            }
-            return mzValues;
-        }
-
         internal uint[] GetScanIndices(FrameProxy frame, int zeroIndexedScanNumber)
         {
             return frame._rawData[frame.GetXRange(zeroIndexedScanNumber)];
@@ -91,7 +79,6 @@ namespace Readers
             OneOverK0LookupArray = Converter.DoTransformation(handle, medianFrameId, oneOverK0LookupIndices, ConversionFunctions.ScanToOneOverK0);
         }
 
-
         internal Polarity GetPolarity(long frameId)
         {
             return FramesTable.Polarity[frameId - 1] == '+' ? Polarity.Positive : Polarity.Negative;
@@ -120,11 +107,6 @@ namespace Readers
             return FramesTable.FillTime[frameId - 1];
         }
 
-        internal int GetScanCount(long frameId)
-        {
-            return FramesTable.NumScans[frameId - 1];
-        }
-
         internal double GetInjectionTimeSum(long firstFrameId, long lastFrameId)
         {
             double injectionTimeSum = 0;
@@ -144,7 +126,6 @@ namespace Readers
         internal UInt64 FileHandle { get; }
         internal long FrameId { get; }
         internal int NumberOfScans { get; }
-        internal int TotalNumberOfPeaks => _scanOffsets[NumberOfScans - 1];
         internal TimsConversion Converter { get; }
         
 
@@ -163,14 +144,6 @@ namespace Readers
         internal int[] GetScanIntensities(int zeroIndexedScanNumber)
         {
             return Array.ConvertAll(_rawData[GetYRange(zeroIndexedScanNumber)], entry => (int)entry);
-        }
-
-        internal double GetOneOverK0(double zeroIndexedScanNumberMedian)
-        {
-            ThrowIfInvalidScanNumber((int)zeroIndexedScanNumberMedian);
-            double[] scanNumberArray = new double[] { zeroIndexedScanNumberMedian };
-            return Converter
-                .DoTransformation(FileHandle, FrameId, scanNumberArray, ConversionFunctions.ScanToOneOverK0)[0];
         }
 
         /// <summary>
@@ -224,12 +197,6 @@ namespace Readers
                 }
                 finally{ Marshal.FreeHGlobal(pData); } 
             }
-        }
-
-        internal int GetNumberOfPeaks(int zeroIndexedScanNumber)
-        {
-            ThrowIfInvalidScanNumber(zeroIndexedScanNumber);
-            return (int)_rawData[zeroIndexedScanNumber];
         }
 
         /// <summary>

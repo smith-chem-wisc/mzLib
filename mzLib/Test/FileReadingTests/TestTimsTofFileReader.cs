@@ -24,7 +24,7 @@ namespace Test.FileReadingTests
         public TimsDataScan _testMs1Scan;
         public FilteringParams _filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
 
-        [OneTimeSetUp]
+       // [OneTimeSetUp]
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
@@ -197,6 +197,11 @@ namespace Test.FileReadingTests
             string fakePath = "fakePath.d";
             Assert.Throws<FileNotFoundException>(() =>
                 MsDataFileReader.GetDataFile(fakePath));
+
+            TimsTofFileReader reader = new TimsTofFileReader(fakePath);
+
+            Assert.Throws<FileNotFoundException>(() =>
+              reader.LoadAllStaticData());
         }
 
 

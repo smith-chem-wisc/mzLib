@@ -26,10 +26,7 @@ namespace Readers
         // over multiple scans with each scan corresponding to the same retention time but different
         // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
 
-        public TimsTofFileReader(string filePath) : base (filePath) 
-        {
-            PrecursorToOneBasedParentScanIndex = new();
-        }
+        public TimsTofFileReader(string filePath) : base (filePath) { }
 
         private UInt64? _fileHandle;
         private Object _fileLock;
@@ -43,11 +40,6 @@ namespace Readers
         private MzRange? _scanWindow;
         public MzRange ScanWindow => _scanWindow ??= new MzRange(20, 2000);
         public const string ScanFilter = "f";
-
-        /// <summary>
-        /// Each precursor is uniquely linked to one MS1 scan
-        /// </summary>
-        public Dictionary<int, int> PrecursorToOneBasedParentScanIndex { get; private set; }
 
         public override void InitiateDynamicConnection()
         {
