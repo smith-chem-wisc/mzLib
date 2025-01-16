@@ -37,10 +37,10 @@ namespace Readers
             return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
         }
 
-        internal uint[] GetScanIndices(FrameProxy frame, int zeroIndexedScanNumber)
-        {
-            return frame._rawData[frame.GetXRange(zeroIndexedScanNumber)];
-        }
+        //internal uint[] GetScanIndices(FrameProxy frame, int zeroIndexedScanNumber)
+        //{
+        //    return frame._rawData[frame.GetXRange(zeroIndexedScanNumber)];
+        //}
 
         internal double[] ConvertIndicesToMz(IList<uint> indices)
         {
@@ -136,7 +136,6 @@ namespace Readers
             FrameId = frameId;
             Converter = converter;
 
-
             _rawData = GetScanRawData(fileHandle, frameId, (uint)numScans, fileLock);
             _scanOffsets = PartialSum(_rawData, 0, numScans);
         }
@@ -144,6 +143,11 @@ namespace Readers
         internal int[] GetScanIntensities(int zeroIndexedScanNumber)
         {
             return Array.ConvertAll(_rawData[GetYRange(zeroIndexedScanNumber)], entry => (int)entry);
+        }
+
+        internal uint[] GetScanIndices(int zeroIndexedScanNumber)
+        {
+            return _rawData[GetXRange(zeroIndexedScanNumber)];
         }
 
         /// <summary>

@@ -17,6 +17,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Permissions;
 using System.ComponentModel;
+using MzLibUtil.SparseMatrix;
 
 namespace Readers
 { 
@@ -190,6 +191,8 @@ namespace Readers
             FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs);
             if (FrameProxyFactory == null)
                 throw new MzLibException("Something went wrong constructing the FrameProxyFactory.");
+
+            _scanWindow = new MzRange(FrameProxyFactory.MzLookupArray[0], FrameProxyFactory.MzLookupArray[^1]);
         }
 
         internal void CountPrecursors()
@@ -247,6 +250,31 @@ namespace Readers
             AssignOneBasedPrecursorsToPasefScans();
             SourceFile = GetSourceFile();
             return this;
+        }
+
+        public void LoadMs1Data(ITimsTofMatrix matrix)
+        {
+            
+            InitiateDynamicConnection();
+            CountMS1Frames();
+
+            matrix.InitializeIndexedPeaksArray(ScanWindow);
+
+            // It's assumed that every MS1 frame will contain the same number of scans
+            int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
+            FrameProxy frame;
+            MzSpectrum spectrum;
+            foreach (var ms1FrameId in Ms1FrameIds)
+            {
+                for(int scanNo = 1; scanNo <= numberOfScans; scanNo++)
+                {
+                    frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
+                    var indices = frame.GetScanIndices(scanNo - 1);
+                    var intensities = frame.GetScanIntensities(scanNo - 1);
+                    TofSpectraMerger.CollapseArrays(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
+
+                }
+            }
         }
 
         internal void AssignOneBasedPrecursorsToPasefScans()
@@ -376,8 +404,8 @@ namespace Readers
             List<int[]> intensityArrays = new();
             for (int scan = record.ScanStart; scan < record.ScanEnd; scan++)
             {
-                indexArrays.Add(FrameProxyFactory.GetScanIndices(frame, scan));
-                intensityArrays.Add(frame.GetScanIntensities(scan));
+                indexArrays.Add(frame.GetScanIndices(scan-1));
+                intensityArrays.Add(frame.GetScanIntensities(scan-1));
             }
             // Step 2: Average those suckers
             MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
@@ -469,8 +497,8 @@ namespace Readers
                         List<int[]> intensityArrays = new();
                         for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
                         {
-                            indexArrays.Add(FrameProxyFactory.GetScanIndices(frame, mobilityScanIdx));
-                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx));
+                            indexArrays.Add(frame.GetScanIndices(mobilityScanIdx - 1));
+                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx - 1));
                         }
                         // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
                         // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
