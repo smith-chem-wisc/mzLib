@@ -49,37 +49,40 @@ namespace Readers
             fixed (double* inputPtr = &input[0])
             {
                 IntPtr outPtr = Marshal.AllocHGlobal(input.Length * Marshal.SizeOf<double>());
-                lock (_fileLock)
+                try
                 {
-                    switch (function)
+                    lock (_fileLock)
                     {
-                        case ConversionFunctions.IndexToMz:
-                            tims_index_to_mz(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                            break;
-                        case ConversionFunctions.MzToIndex:
-                            tims_mz_to_index(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                            break;
-                        case ConversionFunctions.ScanToOneOverK0:
-                            tims_scannum_to_oneoverk0(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                            break;
-                        case ConversionFunctions.OneOverK0ToScan:
-                            tims_oneoverk0_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                            break;
-                        case ConversionFunctions.ScanToVoltage:
-                            tims_scannum_to_voltage(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                            break;
-                        case ConversionFunctions.VoltageToScan:
-                            tims_voltage_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
-                            break;
-                        default:
-                            break;
+                        switch (function)
+                        {
+                            case ConversionFunctions.IndexToMz:
+                                tims_index_to_mz(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                                break;
+                            case ConversionFunctions.MzToIndex:
+                                tims_mz_to_index(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                                break;
+                            case ConversionFunctions.ScanToOneOverK0:
+                                tims_scannum_to_oneoverk0(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                                break;
+                            case ConversionFunctions.OneOverK0ToScan:
+                                tims_oneoverk0_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                                break;
+                            case ConversionFunctions.ScanToVoltage:
+                                tims_scannum_to_voltage(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                                break;
+                            case ConversionFunctions.VoltageToScan:
+                                tims_voltage_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                                break;
+                            default:
+                                break;
 
+                        }
                     }
-                }
-                Marshal.Copy(outPtr, transformedValues, 0, input.Length);
-                Marshal.FreeHGlobal(outPtr);
-            }
 
+                    Marshal.Copy(outPtr, transformedValues, 0, input.Length);
+                }
+                finally { Marshal.FreeHGlobal(outPtr); }
+            }
             return transformedValues;
         }
 

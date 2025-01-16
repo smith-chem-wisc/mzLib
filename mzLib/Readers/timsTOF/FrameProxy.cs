@@ -183,44 +183,46 @@ namespace Readers
         /// Note: different threads must not read scans from the same storage handle
         /// concurrently.
         /// </summary> 
-        internal unsafe static uint[] GetScanRawData(UInt64 fileHandle, long frameId, UInt32 numScans, Object fileLock)
+        internal static uint[] GetScanRawData(UInt64 fileHandle, long frameId, UInt32 numScans, Object fileLock)
         {
             int bufferSize = _defaultBufferSize;
             // buffer expansion loop
             while (true)
             {
                 IntPtr pData = Marshal.AllocHGlobal(bufferSize * Marshal.SizeOf<Int32>());
-                uint outputLength;
-
-                lock ( fileLock )
+                try
                 {
-                    outputLength = tims_read_scans_v2(
-                    fileHandle,
-                    frameId,
-                    scan_begin: 0,
-                    scan_end: numScans,
-                    buffer: pData,
-                    length: (uint)(bufferSize * 4));
+                    uint outputLength;
+
+                    lock (fileLock)
+                    {
+                        outputLength = tims_read_scans_v2(
+                            fileHandle,
+                            frameId,
+                            scan_begin: 0,
+                            scan_end: numScans,
+                            buffer: pData,
+                            length: (uint)(bufferSize * 4));
+                    }
+
+                    if (4 * bufferSize > outputLength)
+                    {
+                        var dataArray = new uint[bufferSize];
+                        CopyToManaged(pData, dataArray, 0, bufferSize);
+                        Marshal.FreeHGlobal(pData);
+
+                        return dataArray;
+                    }
+
+                    if (outputLength > 16777216) // Arbitrary 16 mb frame limit
+                    {
+                        throw new Exception("Maximum frame size exceeded");
+                    }
+
+                    // Increase buffer size if necessary
+                    bufferSize = ((int)outputLength / 4) + 1;
                 }
-                
-                if (4 * bufferSize > outputLength)
-                {
-                    var dataArray = new uint[bufferSize];
-                    CopyToManaged(pData, dataArray, 0, bufferSize);
-                    Marshal.FreeHGlobal(pData);
-
-                    return dataArray;
-                }
-
-                if (outputLength > 16777216) // Arbitrary 16 mb frame limit
-                {
-                    throw new Exception("Maximum frame size exceeded");
-                }
-
-                // Increase buffer size if necessary
-                bufferSize = ((int)outputLength / 4) + 1;
-
-                Marshal.FreeHGlobal(pData);
+                finally{ Marshal.FreeHGlobal(pData); } 
             }
         }
 
