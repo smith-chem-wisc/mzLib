@@ -376,8 +376,8 @@ namespace Readers
             List<int[]> intensityArrays = new();
             for (int scan = record.ScanStart; scan < record.ScanEnd; scan++)
             {
-                indexArrays.Add(FrameProxyFactory.GetScanIndices(frame, scan));
-                intensityArrays.Add(frame.GetScanIntensities(scan));
+                indexArrays.Add(frame.GetScanIndices(scan-1));
+                intensityArrays.Add(frame.GetScanIntensities(scan-1));
             }
             // Step 2: Average those suckers
             MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
@@ -469,8 +469,8 @@ namespace Readers
                         List<int[]> intensityArrays = new();
                         for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
                         {
-                            indexArrays.Add(FrameProxyFactory.GetScanIndices(frame, mobilityScanIdx));
-                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx));
+                            indexArrays.Add(frame.GetScanIndices(mobilityScanIdx-1));
+                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx-1));
                         }
                         // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
                         // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
