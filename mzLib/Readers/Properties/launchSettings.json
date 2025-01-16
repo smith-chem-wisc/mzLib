@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Readers": {
-      "commandName": "Project",
-      "nativeDebugging": true
-    }
-  }
-}
