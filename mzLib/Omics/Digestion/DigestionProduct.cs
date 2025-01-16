@@ -5,7 +5,7 @@ namespace Omics.Digestion
 {
     public abstract class DigestionProduct
     {
-        protected static readonly DictionaryPool<int, List<Modification>> DictionaryPool = new();
+        protected static readonly DictionaryPool<int, SortedSet<Modification>> DictionaryPool = new();
         protected static readonly DictionaryPool<int, Modification> FixedModDictionaryPool = new(8);
 
         protected string _baseSequence;
@@ -54,7 +54,7 @@ namespace Omics.Digestion
         /// Then, it iterates through all possible numbers of modifications and generates the corresponding modification patterns.
         /// The returned dictionary is then appended with fixed modifications and used to construct a peptide with set mods
         /// </remarks>
-        protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, List<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
+        protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, SortedSet<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
         {
             if (possibleVariableModifications.Count <= 0) 
                 yield break;
@@ -71,12 +71,12 @@ namespace Omics.Digestion
                     // use modification pattern to construct a dictionary of modifications for the peptide
                     var modificationPattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
 
-                    foreach (KeyValuePair<int, List<Modification>> kvp in possibleVariableModifications)
+                    foreach (var kvp in possibleVariableModifications)
                     {
                         int modIndex = variable_modification_pattern[kvp.Key] - 1;
                         if (modIndex >= 0)
                         {
-                            modificationPattern.Add(kvp.Key, kvp.Value[modIndex]);
+                            modificationPattern.Add(kvp.Key, kvp.Value.ElementAt(modIndex));
                         }
                     }
 
@@ -162,13 +162,13 @@ namespace Omics.Digestion
         /// This method iterates through all variable modifications and assigns them to the appropriate positions in the peptide.
         /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
         /// </remarks>
-        protected void PopulateVariableModifications(List<Modification> allVariableMods, ref Dictionary<int, List<Modification>> twoBasedDictToPopulate)
+        protected void PopulateVariableModifications(List<Modification> allVariableMods, IComparer<Modification> comparer, ref Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
         {
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
-            var pepNTermVariableMods = new List<Modification>();
+            var pepNTermVariableMods = new SortedSet<Modification>(comparer);
             twoBasedDictToPopulate.Add(1, pepNTermVariableMods);
 
-            var pepCTermVariableMods = new List<Modification>();
+            var pepCTermVariableMods = new SortedSet<Modification>(comparer);
             twoBasedDictToPopulate.Add(peptideLength + 2, pepCTermVariableMods);
 
             // VARIABLE MODS
@@ -187,7 +187,7 @@ namespace Omics.Digestion
                     {
                         if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
                         {
-                            residueVariableMods = new List<Modification>() { variableModification };
+                            residueVariableMods = new SortedSet<Modification>(comparer) { variableModification };
                             twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
                         }
                         else
@@ -232,7 +232,7 @@ namespace Omics.Digestion
                     {
                         if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
                         {
-                            residueVariableMods = new List<Modification>() { variableModification };
+                            residueVariableMods = new SortedSet<Modification>(comparer) { variableModification };
                             twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
                         }
                         else
@@ -264,7 +264,7 @@ namespace Omics.Digestion
         /// This method uses recursion to generate all possible combinations of variable modifications for a given peptide.
         /// It considers both modified and unmodified residues and generates patterns accordingly.
         /// </remarks>
-        private static IEnumerable<int[]> GetVariableModificationPatternsRecursive(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
+        private static IEnumerable<int[]> GetVariableModificationPatternsRecursive(List<KeyValuePair<int, SortedSet<Modification>>> possibleVariableModifications,
             int unmodifiedResiduesDesired, int[] variableModificationPattern, int index)
         {
             if (index < possibleVariableModifications.Count - 1)
@@ -331,6 +331,44 @@ namespace Omics.Digestion
         {
             return mod.LocationRestriction is "3'-terminal." or "Oligo 3'-terminal." or "C-terminal." or "Peptide C-terminal."
                    && ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1);
+        }
+
+        // Used in the sorted sets for variable mod generation to ensure that modifications are consistently ordered
+        protected class ModificationComparer : IComparer<Modification>
+        {
+            public int Compare(Modification? x, Modification? y)
+            {
+                if (ReferenceEquals(x, y)) return 0;
+                if (y is null) return 1;
+                if (x is null) return -1;
+
+                var idWithMotifComparison = string.Compare(x.IdWithMotif, y.IdWithMotif, StringComparison.Ordinal);
+                if (idWithMotifComparison != 0)
+                    return idWithMotifComparison;
+
+                var originalIdComparison = string.Compare(x.OriginalId, y.OriginalId, StringComparison.Ordinal);
+                if (originalIdComparison != 0)
+                    return originalIdComparison;
+
+                var accessionComparison = string.Compare(x.Accession, y.Accession, StringComparison.Ordinal);
+                if (accessionComparison != 0)
+                    return accessionComparison;
+
+                var modificationTypeComparison = string.Compare(x.ModificationType, y.ModificationType, StringComparison.Ordinal);
+                if (modificationTypeComparison != 0)
+                    return modificationTypeComparison;
+
+                var featureTypeComparison = string.Compare(x.FeatureType, y.FeatureType, StringComparison.Ordinal);
+                if (featureTypeComparison != 0)
+                    return featureTypeComparison;
+
+                var locationRestrictionComparison = string.Compare(x.LocationRestriction, y.LocationRestriction, StringComparison.Ordinal);
+                if (locationRestrictionComparison != 0)
+                    return locationRestrictionComparison;
+
+                return
+                    string.Compare(x.FileOrigin, y.FileOrigin, StringComparison.Ordinal);
+            }
         }
 
         #endregion

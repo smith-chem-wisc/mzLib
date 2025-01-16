@@ -57,10 +57,11 @@ namespace Proteomics.ProteolyticDigestion
             int maxModsForPeptide = digestionParams.MaxModsForPeptide;
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
+            var modificationComparer = new ModificationComparer();
 
             try
             {
-                PopulateVariableModifications(variableModifications, ref twoBasedPossibleVariableAndLocalizeableModifications);
+                PopulateVariableModifications(variableModifications, modificationComparer, ref twoBasedPossibleVariableAndLocalizeableModifications);
                 PopulateFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, ref fixedModDictionary);
 
                 foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
