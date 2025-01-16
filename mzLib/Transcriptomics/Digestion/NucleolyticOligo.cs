@@ -55,11 +55,10 @@ namespace Transcriptomics.Digestion
             int maxModsForOligo = digestionParams.MaxMods;
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
-            var modificationComparer = new ModificationComparer();
 
             try
             {
-                PopulateVariableModifications(variableModifications, modificationComparer, in twoBasedPossibleVariableAndLocalizeableModifications);
+                PopulateVariableModifications(variableModifications, in twoBasedPossibleVariableAndLocalizeableModifications);
                 PopulateFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods, in fixedModDictionary);
 
                 // Add the mods to the oligo by return numerous OligoWithSetMods

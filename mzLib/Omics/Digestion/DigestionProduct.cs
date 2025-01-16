@@ -5,6 +5,7 @@ namespace Omics.Digestion
 {
     public abstract class DigestionProduct
     {
+        private static readonly ModificationComparer ModComparer = new();
         protected static readonly DictionaryPool<int, SortedSet<Modification>> DictionaryPool = new();
         protected static readonly DictionaryPool<int, Modification> FixedModDictionaryPool = new(8);
 
@@ -162,13 +163,13 @@ namespace Omics.Digestion
         /// This method iterates through all variable modifications and assigns them to the appropriate positions in the peptide.
         /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
         /// </remarks>
-        protected void PopulateVariableModifications(List<Modification> allVariableMods, IComparer<Modification> comparer, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
+        protected void PopulateVariableModifications(List<Modification> allVariableMods, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
         {
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
-            var pepNTermVariableMods = new SortedSet<Modification>(comparer);
+            var pepNTermVariableMods = new SortedSet<Modification>(ModComparer);
             twoBasedDictToPopulate.Add(1, pepNTermVariableMods);
 
-            var pepCTermVariableMods = new SortedSet<Modification>(comparer);
+            var pepCTermVariableMods = new SortedSet<Modification>(ModComparer);
             twoBasedDictToPopulate.Add(peptideLength + 2, pepCTermVariableMods);
 
             // VARIABLE MODS
@@ -187,7 +188,7 @@ namespace Omics.Digestion
                     {
                         if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
                         {
-                            residueVariableMods = new SortedSet<Modification>(comparer) { variableModification };
+                            residueVariableMods = new SortedSet<Modification>(ModComparer) { variableModification };
                             twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
                         }
                         else
@@ -232,7 +233,7 @@ namespace Omics.Digestion
                     {
                         if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
                         {
-                            residueVariableMods = new SortedSet<Modification>(comparer) { variableModification };
+                            residueVariableMods = new SortedSet<Modification>(ModComparer) { variableModification };
                             twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
                         }
                         else
@@ -357,7 +358,7 @@ namespace Omics.Digestion
         }
 
         // Used in the sorted sets for variable mod generation to ensure that modifications are consistently ordered
-        protected class ModificationComparer : IComparer<Modification>
+        private class ModificationComparer : IComparer<Modification>
         {
             public int Compare(Modification? x, Modification? y)
             {
