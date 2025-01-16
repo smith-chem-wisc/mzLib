@@ -1,5 +1,6 @@
 ﻿using MzLibUtil;
 using Omics.Modifications;
+using System.Runtime.CompilerServices;
 
 namespace Omics.Digestion
 {
@@ -39,6 +40,8 @@ namespace Omics.Digestion
         public int Length => BaseSequence.Length; //how many residues long the peptide is
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
+        #region Digestion Helper Methods
+
         /// <summary>
         /// Generates all possible variable modification patterns for a peptide.
         /// </summary>
@@ -63,7 +66,7 @@ namespace Omics.Digestion
 
             for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
             {
-                foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications.ToList(),
+                foreach (int[] variable_modification_pattern in GetVariableModificationPatternsRecursive(possibleVariableModifications.ToList(),
                              possibleVariableModifications.Count - variable_modifications, baseVariableModificationPattern, 0))
                 {
                     // use modification pattern to construct a dictionary of modifications for the peptide
@@ -151,6 +154,104 @@ namespace Omics.Digestion
         }
 
         /// <summary>
+        /// Populates the variable modifications dictionary  from both the variable modifications and the localized mods from xml reading, 
+        /// considering the N-terminal, C-terminal, and internal positions.
+        /// </summary>
+        /// <param name="allVariableMods">A list of all variable modifications.</param>
+        /// <param name="twoBasedDictToPopulate">A reference to a dictionary that will hold the variable modifications, with the key representing the position.</param>
+        /// <remarks>
+        /// This method iterates through all variable modifications and assigns them to the appropriate positions in the peptide.
+        /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
+        /// </remarks>
+        protected void PopulateVariableModifications(List<Modification> allVariableMods, ref Dictionary<int, List<Modification>> twoBasedDictToPopulate)
+        {
+            int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
+            var pepNTermVariableMods = new List<Modification>();
+            twoBasedDictToPopulate.Add(1, pepNTermVariableMods);
+
+            var pepCTermVariableMods = new List<Modification>();
+            twoBasedDictToPopulate.Add(peptideLength + 2, pepCTermVariableMods);
+
+            // VARIABLE MODS
+            foreach (Modification variableModification in allVariableMods)
+            {
+                // Check if can be a n-term mod
+                if (CanBeNTerminalOrFivePrime(variableModification, peptideLength) && !ModificationLocalization.UniprotModExists(Parent, 1, variableModification))
+                {
+                    pepNTermVariableMods.Add(variableModification);
+                }
+
+                for (int r = 0; r < peptideLength; r++)
+                {
+                    if (ModificationLocalization.ModFits(variableModification, Parent.BaseSequence, r + 1, peptideLength, OneBasedStartResidue + r)
+                        && variableModification.LocationRestriction == "Anywhere." && !ModificationLocalization.UniprotModExists(Parent, r + 1, variableModification))
+                    {
+                        if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
+                        {
+                            residueVariableMods = new List<Modification>() { variableModification };
+                            twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
+                        }
+                        else
+                        {
+                            residueVariableMods.Add(variableModification);
+                        }
+                    }
+                }
+                // Check if can be a c-term mod
+                if (CanBeCTerminalOrThreePrime(variableModification, peptideLength) && !ModificationLocalization.UniprotModExists(Parent, peptideLength, variableModification))
+                {
+                    pepCTermVariableMods.Add(variableModification);
+                }
+            }
+
+            // LOCALIZED MODS
+            foreach (var kvp in Parent.OneBasedPossibleLocalizedModifications)
+            {
+                bool inBounds = kvp.Key >= OneBasedStartResidue && kvp.Key <= OneBasedEndResidue;
+                if (!inBounds)
+                {
+                    continue;
+                }
+
+                int locInPeptide = kvp.Key - OneBasedStartResidue + 1;
+                foreach (Modification modWithMass in kvp.Value)
+                {
+                    if (modWithMass is not Modification variableModification)
+                        continue;
+
+                    // Check if can be a n-term mod
+                    if (locInPeptide == 1 && CanBeNTerminalOrFivePrime(variableModification, peptideLength) && !Parent.IsDecoy)
+                    {
+                        pepNTermVariableMods.Add(variableModification);
+                    }
+
+                    int r = locInPeptide - 1;
+                    if (r >= 0 && r < peptideLength
+                               && (Parent.IsDecoy ||
+                                   (ModificationLocalization.ModFits(variableModification, Parent.BaseSequence, r + 1, peptideLength, OneBasedStartResidue + r)
+                                    && variableModification.LocationRestriction == "Anywhere.")))
+                    {
+                        if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
+                        {
+                            residueVariableMods = new List<Modification>() { variableModification };
+                            twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
+                        }
+                        else
+                        {
+                            residueVariableMods.Add(variableModification);
+                        }
+                    }
+
+                    // Check if can be a c-term mod
+                    if (locInPeptide == peptideLength && CanBeCTerminalOrThreePrime(variableModification, peptideLength) && !Parent.IsDecoy)
+                    {
+                        pepCTermVariableMods.Add(variableModification);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Recursively generates all possible variable modification patterns for a peptide.
         /// </summary>
         /// <param name="possibleVariableModifications">A list of key-value pairs representing possible variable modifications and their positions.</param>
@@ -164,7 +265,7 @@ namespace Omics.Digestion
         /// This method uses recursion to generate all possible combinations of variable modifications for a given peptide.
         /// It considers both modified and unmodified residues and generates patterns accordingly.
         /// </remarks>
-        private static IEnumerable<int[]> GetVariableModificationPatterns(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
+        private static IEnumerable<int[]> GetVariableModificationPatternsRecursive(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
             int unmodifiedResiduesDesired, int[] variableModificationPattern, int index)
         {
             if (index < possibleVariableModifications.Count - 1)
@@ -172,7 +273,7 @@ namespace Omics.Digestion
                 if (unmodifiedResiduesDesired > 0)
                 {
                     variableModificationPattern[possibleVariableModifications[index].Key] = 0;
-                    foreach (int[] new_variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications,
+                    foreach (int[] new_variable_modification_pattern in GetVariableModificationPatternsRecursive(possibleVariableModifications,
                         unmodifiedResiduesDesired - 1, variableModificationPattern, index + 1))
                     {
                         yield return new_variable_modification_pattern;
@@ -183,7 +284,7 @@ namespace Omics.Digestion
                     for (int i = 1; i <= possibleVariableModifications[index].Value.Count; i++)
                     {
                         variableModificationPattern[possibleVariableModifications[index].Key] = i;
-                        foreach (int[] new_variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications,
+                        foreach (int[] new_variable_modification_pattern in GetVariableModificationPatternsRecursive(possibleVariableModifications,
                             unmodifiedResiduesDesired, variableModificationPattern, index + 1))
                         {
                             yield return new_variable_modification_pattern;
@@ -215,7 +316,7 @@ namespace Omics.Digestion
         /// <param name="mod">The modification to check.</param>
         /// <param name="peptideLength">The length of the peptide.</param>
         /// <returns>True if the modification can be applied to the N-terminal or 5' end; otherwise, false.</returns>
-        protected bool CanBeNTerminalOrFivePrime(Modification mod, int peptideLength)
+        private bool CanBeNTerminalOrFivePrime(Modification mod, int peptideLength)
         {
             return mod.LocationRestriction is "5'-terminal." or "Oligo 5'-terminal." or "N-terminal." or "Peptide N-terminal."
                    && ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, peptideLength, OneBasedStartResidue);
@@ -227,10 +328,12 @@ namespace Omics.Digestion
         /// <param name="mod">The modification to check.</param>
         /// <param name="peptideLength">The length of the peptide.</param>
         /// <returns>True if the modification can be applied to the C-terminal or 3' end; otherwise, false.</returns>
-        protected bool CanBeCTerminalOrThreePrime(Modification mod, int peptideLength)
+        private bool CanBeCTerminalOrThreePrime(Modification mod, int peptideLength)
         {
             return mod.LocationRestriction is "3'-terminal." or "Oligo 3'-terminal." or "C-terminal." or "Peptide C-terminal."
                    && ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1);
         }
+
+        #endregion
     }
 }
