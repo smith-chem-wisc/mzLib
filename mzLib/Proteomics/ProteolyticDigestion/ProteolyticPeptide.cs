@@ -60,22 +60,16 @@ namespace Proteomics.ProteolyticDigestion
 
             try
             {
-                PopulateVariableModifications(variableModifications, ref twoBasedPossibleVariableAndLocalizeableModifications);
-                PopulateFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, ref fixedModDictionary);
+                PopulateVariableModifications(variableModifications, in twoBasedPossibleVariableAndLocalizeableModifications);
+                PopulateFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, in fixedModDictionary);
 
-                foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
+                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
                 {
-                    int numFixedMods = 0;
-                    foreach (var ok in fixedModDictionary)
-                    {
-                        if (!kvp.ContainsKey(ok.Key))
-                        {
-                            numFixedMods++;
-                            kvp.Add(ok.Key, ok.Value);
-                        }
-                    }
+                    AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
+
                     yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidue, OneBasedEndResidue,
-                        CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, kvp, numFixedMods);
+                        CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, variableModPattern, numFixedMods);
+
                     variable_modification_isoforms++;
                     if (variable_modification_isoforms == maximumVariableModificationIsoforms)
                     {
