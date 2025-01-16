@@ -96,7 +96,7 @@ namespace Omics.Digestion
         /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
         /// </remarks>
         protected void PopulateFixedModsOneIsNorFivePrimeTerminus(int length,
-            IEnumerable<Modification> allKnownFixedModifications, ref Dictionary<int, Modification> fixedModsOneIsNterminus)
+            IEnumerable<Modification> allKnownFixedModifications, in Dictionary<int, Modification> fixedModsOneIsNterminus)
         {
             foreach (Modification mod in allKnownFixedModifications)
             {
@@ -162,7 +162,7 @@ namespace Omics.Digestion
         /// This method iterates through all variable modifications and assigns them to the appropriate positions in the peptide.
         /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
         /// </remarks>
-        protected void PopulateVariableModifications(List<Modification> allVariableMods, IComparer<Modification> comparer, ref Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
+        protected void PopulateVariableModifications(List<Modification> allVariableMods, IComparer<Modification> comparer, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
         {
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
             var pepNTermVariableMods = new SortedSet<Modification>(comparer);
@@ -247,6 +247,29 @@ namespace Omics.Digestion
                         pepCTermVariableMods.Add(variableModification);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Appends fixed modifications to the variable modification pattern when no variable mod exists. 
+        /// </summary>
+        /// <param name="fixedModDict">The dictionary containing fixed modifications.</param>
+        /// <param name="variableModPattern">The dictionary containing the variable modification pattern.</param>
+        /// <param name="numFixedMods">The number of fixed modifications appended.</param>
+        /// <remarks>
+        /// This method iterates through the fixed modifications and adds them to the variable modification pattern
+        /// if they are not already present. The number of fixed modifications appended is returned via the out parameter.
+        /// </remarks>
+        protected void AppendFixedModificationsToVariable(in Dictionary<int, Modification> fixedModDict, in Dictionary<int, Modification> variableModPattern, out int numFixedMods)
+        {
+            numFixedMods = 0;
+            foreach (var fixedModPattern in fixedModDict)
+            {
+                if (variableModPattern.ContainsKey(fixedModPattern.Key))
+                    continue;
+
+                numFixedMods++;
+                variableModPattern.Add(fixedModPattern.Key, fixedModPattern.Value);
             }
         }
 

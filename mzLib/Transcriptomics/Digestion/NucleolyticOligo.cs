@@ -59,23 +59,17 @@ namespace Transcriptomics.Digestion
 
             try
             {
-                PopulateVariableModifications(variableModifications, modificationComparer, ref twoBasedPossibleVariableAndLocalizeableModifications);
-                PopulateFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods, ref fixedModDictionary);
+                PopulateVariableModifications(variableModifications, modificationComparer, in twoBasedPossibleVariableAndLocalizeableModifications);
+                PopulateFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods, in fixedModDictionary);
 
                 // Add the mods to the oligo by return numerous OligoWithSetMods
                 foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength))
                 {
-                    int numFixedMods = 0;
-                    foreach (var fixedModPattern in fixedModDictionary)
-                    {
-                        if (!variableModPattern.ContainsKey(fixedModPattern.Key))
-                        {
-                            numFixedMods++;
-                            variableModPattern.Add(fixedModPattern.Key, fixedModPattern.Value);
-                        }
-                    }
+                    AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
+
                     yield return new OligoWithSetMods(NucleicAcid, digestionParams, OneBasedStartResidue, OneBasedEndResidue, MissedCleavages,
                         CleavageSpecificityForFdrCategory, variableModPattern, numFixedMods, _fivePrimeTerminus, _threePrimeTerminus);
+
                     variableModificationIsoforms++;
                     if (variableModificationIsoforms == maximumVariableModificationIsoforms)
                     {
