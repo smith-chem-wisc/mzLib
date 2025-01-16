@@ -27,7 +27,6 @@ namespace Test.FileReadingTests
         [OneTimeSetUp]
         public void SetUp()
         {
-            //FilteringParams filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
             _testReader = new TimsTofFileReader(_testDataPath);
             _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
@@ -35,7 +34,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public void TestGetPasefScanFromDynamicConnection()
+        public void TestGetPasefScanFromDynamicConnectionUsingFrameId()
         {
             var dynamicReader = new TimsTofFileReader(_testDataPath);
             dynamicReader.InitiateDynamicConnection();
@@ -57,7 +56,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public void TestGetMs1ScanFromDynamicConnection()
+        public void TestGetMs1ScanFromDynamicConnectionUsingFrameId()
         {
             var dynamicReader = new TimsTofFileReader(_testDataPath);
             dynamicReader.InitiateDynamicConnection();
@@ -76,6 +75,47 @@ namespace Test.FileReadingTests
             Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs1Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
             Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorID values are not equal.");
             Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs1Scan.MassSpectrum), "Mass spectra are not equal");
+        }
+
+        [Test]
+        public void TestGetScanFromDyanmicConnectionUsingOneBasedScanNumber()
+        {
+            var dynamicReader = new TimsTofFileReader(_testDataPath);
+            dynamicReader.InitiateDynamicConnection();
+            var scanBeforeCast = dynamicReader.GetOneBasedScanFromDynamicConnection(_testMs1Scan.OneBasedScanNumber, _filteringParams);
+            var dynamicScan = scanBeforeCast as TimsDataScan;
+            Assert.IsNotNull(dynamicScan);
+
+            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorId values are not equal.");
+            Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs1Scan.ScanNumberStart), "ScanStart values are not equal.");
+            Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs1Scan.ScanNumberEnd), "ScanEnd values are not equal.");
+            Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs1Scan.OneOverK0), "ScanMedian values are not equal.");
+            Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs1Scan.IsolationMz), "IsolationMz values are not equal.");
+            Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs1Scan.IsolationWidth), "IsolationWidth values are not equal.");
+            Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs1Scan.HcdEnergy), "CollisionEnergy values are not equal.");
+            Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs1Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
+            Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs1Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
+            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorID values are not equal.");
+            Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs1Scan.MassSpectrum), "Mass spectra are not equal");
+            Assert.That(dynamicScan.OneBasedScanNumber, Is.EqualTo(_testMs1Scan.OneBasedScanNumber));
+
+
+            scanBeforeCast = dynamicReader.GetOneBasedScanFromDynamicConnection(_testMs2Scan.OneBasedScanNumber, _filteringParams);
+            dynamicScan = scanBeforeCast as TimsDataScan;
+            Assert.IsNotNull(dynamicScan);
+
+            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorId values are not equal.");
+            Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs2Scan.ScanNumberStart), "ScanStart values are not equal.");
+            Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs2Scan.ScanNumberEnd), "ScanEnd values are not equal.");
+            Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs2Scan.OneOverK0), "ScanMedian values are not equal.");
+            Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs2Scan.IsolationMz), "IsolationMz values are not equal.");
+            Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs2Scan.IsolationWidth), "IsolationWidth values are not equal.");
+            Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs2Scan.HcdEnergy), "CollisionEnergy values are not equal.");
+            Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs2Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
+            Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs2Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
+            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorID values are not equal.");
+            Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs2Scan.MassSpectrum), "Mass spectra are not equal");
+            Assert.That(dynamicScan.OneBasedScanNumber, Is.EqualTo(_testMs2Scan.OneBasedScanNumber));
         }
 
         [Test]

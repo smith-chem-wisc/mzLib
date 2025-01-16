@@ -56,7 +56,7 @@ namespace Readers
                 throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
             }
 
-            if(_sqlConnection != null && !_sqlConnection.IsCanceled()) _sqlConnection.Dispose();
+            _sqlConnection?.Dispose();
             OpenSqlConnection();
 
             if(_fileHandle != null) tims_close((UInt64)_fileHandle);
@@ -108,11 +108,13 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
-            if (Scans != null && Scans.Length <= oneBasedScanNumber && Scans[oneBasedScanNumber - 1] != null)
+            if(oneBasedScanNumber <= 0)
+                throw new IndexOutOfRangeException("Invalid one-based index given when accessing data scans. Index: " + oneBasedScanNumber);    
+            if (Scans != null && Scans.Length >= oneBasedScanNumber && Scans[oneBasedScanNumber - 1] != null)
                 return Scans[oneBasedScanNumber - 1];
-            else 
-                LoadAllStaticData(filteringParams: (FilteringParams)filterParams);
-            if (oneBasedScanNumber < 1 | oneBasedScanNumber > Scans.Length)
+
+            LoadAllStaticData(filteringParams: (FilteringParams)filterParams);
+            if (oneBasedScanNumber > Scans.Length)
                 throw new IndexOutOfRangeException("Invalid one-based index given when accessing data scans. Index: " + oneBasedScanNumber);
             return Scans[oneBasedScanNumber - 1];
         }
