@@ -368,7 +368,6 @@ namespace Readers
 			}
 			return stepsTableList;
 		}
-
 		/// <summary>
 		/// Generic function to read an sql table. Currently supports the types that exist in
 		/// the sql tables, which are int32, string, and double. 
