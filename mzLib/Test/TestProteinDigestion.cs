@@ -400,15 +400,13 @@ namespace Test
             ModificationMotif.TryGetMotif("M", out ModificationMotif motifM);
             Modification oxidationOnM = new Modification(_originalId: "Oxidation on M", _modificationType: "Common Variable", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"));
             var variableModifications = new List<Modification> { oxidationOnM };
+
             // Load in proteins
             var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
-            var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
-            DecoyType decoyType = DecoyType.None;
-            List<Protein> proteins5 = null;
-            List<Protein> proteins6 = null;
+            var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "06.xml");
 
-            proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, decoyType, null, false, null, out var unknownModificationsFive);
-            proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, decoyType, null, false, null, out var unknownModificationsSix);
+            var proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, DecoyType.None, null, false, null, out var unknownModificationsFive);
+            var proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, DecoyType.None, null, false, null, out var unknownModificationsSix);
 
             var fiveMods = ProteinDbLoader.GetPtmListFromProteinXml(dbFive);
             var sixMods = ProteinDbLoader.GetPtmListFromProteinXml(dbSix);
@@ -419,7 +417,7 @@ namespace Test
             var peptides5 = proteins5.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
             var peptides6 = proteins6.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
             Assert.AreEqual(peptides5.Count, peptides6.Count);
-            CollectionAssert.AreEquivalent(peptides5, peptides6);
+            CollectionAssert.AreEqual(peptides5, peptides6);
         }
 
         [Test]
