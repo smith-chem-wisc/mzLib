@@ -97,47 +97,50 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // LOCALIZED MODS
-            foreach (var kvp in Protein.OneBasedPossibleLocalizedModifications)
+            var localizedModsOrderedByPositionThenByModification = Protein.OneBasedPossibleLocalizedModifications
+                .SelectMany(kvp => kvp.Value.Select(value => (kvp.Key, value)))
+                .OrderBy(tuple => tuple.Key)
+                .ThenBy(tuple => tuple.value)
+                .ToList();
+            foreach (var localizedMod in localizedModsOrderedByPositionThenByModification)
             {
-                bool inBounds = kvp.Key >= OneBasedStartResidue && kvp.Key <= OneBasedEndResidue;
+                bool inBounds = localizedMod.Key >= OneBasedStartResidue && localizedMod.Key <= OneBasedEndResidue;
                 if (!inBounds)
                 {
                     continue;
                 }
 
-                int locInPeptide = kvp.Key - OneBasedStartResidueInProtein + 1;
-                foreach (Modification modWithMass in kvp.Value)
+                int locInPeptide = localizedMod.Key - OneBasedStartResidueInProtein + 1;
+
+                if (localizedMod.value is Modification variableModification)
                 {
-                    if (modWithMass is Modification variableModification)
+                    // Check if can be a n-term mod
+                    if (locInPeptide == 1 && CanBeNTerminalMod(variableModification, peptideLength) && !Protein.IsDecoy)
                     {
-                        // Check if can be a n-term mod
-                        if (locInPeptide == 1 && CanBeNTerminalMod(variableModification, peptideLength) && !Protein.IsDecoy)
-                        {
-                            pepNTermVariableMods.Add(variableModification);
-                        }
+                        pepNTermVariableMods.Add(variableModification);
+                    }
 
-                        int r = locInPeptide - 1;
-                        if (r >= 0 && r < peptideLength
-                            && (Protein.IsDecoy ||
-                            (ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r)
-                                && variableModification.LocationRestriction == "Anywhere.")))
+                    int r = locInPeptide - 1;
+                    if (r >= 0 && r < peptideLength
+                        && (Protein.IsDecoy ||
+                        (ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r)
+                            && variableModification.LocationRestriction == "Anywhere.")))
+                    {
+                        if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<Modification> residueVariableMods))
                         {
-                            if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<Modification> residueVariableMods))
-                            {
-                                residueVariableMods = new List<Modification> { variableModification };
-                                twoBasedPossibleVariableAndLocalizeableModifications.Add(r + 2, residueVariableMods);
-                            }
-                            else
-                            {
-                                residueVariableMods.Add(variableModification);
-                            }
+                            residueVariableMods = new List<Modification> { variableModification };
+                            twoBasedPossibleVariableAndLocalizeableModifications.Add(r + 2, residueVariableMods);
                         }
+                        else
+                        {
+                            residueVariableMods.Add(variableModification);
+                        }
+                    }
 
-                        // Check if can be a c-term mod
-                        if (locInPeptide == peptideLength && CanBeCTerminalMod(variableModification, peptideLength) && !Protein.IsDecoy)
-                        {
-                            pepCTermVariableMods.Add(variableModification);
-                        }
+                    // Check if can be a c-term mod
+                    if (locInPeptide == peptideLength && CanBeCTerminalMod(variableModification, peptideLength) && !Protein.IsDecoy)
+                    {
+                        pepCTermVariableMods.Add(variableModification);
                     }
                 }
             }
