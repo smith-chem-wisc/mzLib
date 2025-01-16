@@ -143,7 +143,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 int variable_modification_isoforms = 0;
-                SetFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, ref fixedModDictionary);
+                PopulateFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, ref fixedModDictionary);
 
                 foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
                 {

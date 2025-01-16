@@ -143,7 +143,7 @@ namespace Transcriptomics.Digestion
                 }
 
                 int variableModificationIsoforms = 0;
-                SetFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods, ref fixedModDictionary);
+                PopulateFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods, ref fixedModDictionary);
 
                 // Add the mods to the oligo by return numerous OligoWithSetMods
                 foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength))

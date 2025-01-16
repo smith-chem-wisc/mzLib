@@ -93,7 +93,7 @@ namespace Omics.Digestion
         /// This method iterates through all known fixed modifications and assigns them to the appropriate positions in the peptide.
         /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
         /// </remarks>
-        protected void SetFixedModsOneIsNorFivePrimeTerminus(int length,
+        protected void PopulateFixedModsOneIsNorFivePrimeTerminus(int length,
             IEnumerable<Modification> allKnownFixedModifications, ref Dictionary<int, Modification> fixedModsOneIsNterminus)
         {
             foreach (Modification mod in allKnownFixedModifications)
