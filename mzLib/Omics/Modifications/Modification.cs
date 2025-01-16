@@ -13,7 +13,7 @@ namespace Omics.Modifications
     /// Represents a modification
     /// Mods.txt format was taken from https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/docs/ptmlist.txt
     /// </summary>
-    public class Modification : IComparable<Modification>
+    public class Modification
     {
         public string IdWithMotif { get; private set; }
         public string OriginalId { get; private set; }
@@ -298,18 +298,6 @@ namespace Omics.Modifications
             sb.Append("#This modification can be found in file " + this.FileOrigin);
 
             return sb.ToString();
-        }
-        public int CompareTo(Modification other)
-        {
-            if (other == null) return 1;
-
-            int idComparison = string.Compare(this.IdWithMotif, other.IdWithMotif, StringComparison.Ordinal);
-            if (idComparison != 0)
-            {
-                return idComparison;
-            }
-
-            return Nullable.Compare(this.MonoisotopicMass, other.MonoisotopicMass);
         }
     }
 }

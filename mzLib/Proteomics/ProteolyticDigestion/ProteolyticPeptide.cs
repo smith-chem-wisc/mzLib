@@ -97,12 +97,10 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // LOCALIZED MODS
-            var localizedModsOrderedByPositionThenByModification = Protein.OneBasedPossibleLocalizedModifications
+            foreach (var localizedMod in Protein.OneBasedPossibleLocalizedModifications
                 .SelectMany(kvp => kvp.Value.Select(value => (kvp.Key, value)))
                 .OrderBy(tuple => tuple.Key)
-                .ThenBy(tuple => tuple.value)
-                .ToList();
-            foreach (var localizedMod in localizedModsOrderedByPositionThenByModification)
+                .ThenBy(tuple => tuple.value.IdWithMotif))
             {
                 bool inBounds = localizedMod.Key >= OneBasedStartResidue && localizedMod.Key <= OneBasedEndResidue;
                 if (!inBounds)
