@@ -182,7 +182,6 @@ namespace Readers
                     {
                         var dataArray = new uint[bufferSize];
                         CopyToManaged(pData, dataArray, 0, bufferSize);
-                        Marshal.FreeHGlobal(pData);
 
                         return dataArray;
                     }
