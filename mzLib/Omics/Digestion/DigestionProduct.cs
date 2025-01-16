@@ -1,6 +1,5 @@
 ﻿using MzLibUtil;
 using Omics.Modifications;
-using System.Runtime.CompilerServices;
 
 namespace Omics.Digestion
 {
