@@ -49,6 +49,7 @@ namespace Transcriptomics.Digestion
         internal IEnumerable<OligoWithSetMods> GenerateModifiedOligos(List<Modification> allKnownFixedMods,
             RnaDigestionParams digestionParams, List<Modification> variableModifications)
         {
+            int variableModificationIsoforms = 0;
             int oligoLength = OneBasedEndResidue - OneBasedStartResidue + 1;
             int maximumVariableModificationIsoforms = digestionParams.MaxModificationIsoforms;
             int maxModsForOligo = digestionParams.MaxMods;
@@ -67,7 +68,7 @@ namespace Transcriptomics.Digestion
                 foreach (Modification variableModification in variableModifications)
                 {
                     // Check if can be a 5'-term mod
-                    if (CanBeFivePrime(variableModification, oligoLength) && !ModificationLocalization.UniprotModExists(NucleicAcid, 1, variableModification))
+                    if (CanBeNTerminalOrFivePrime(variableModification, oligoLength) && !ModificationLocalization.UniprotModExists(NucleicAcid, 1, variableModification))
                     {
                         fivePrimeVariableMods.Add(variableModification);
                     }
@@ -90,7 +91,7 @@ namespace Transcriptomics.Digestion
                         }
                     }
                     // Check if can be a 3'-term mod
-                    if (CanBeThreePrime(variableModification, oligoLength) && !ModificationLocalization.UniprotModExists(NucleicAcid, oligoLength, variableModification))
+                    if (CanBeCTerminalOrThreePrime(variableModification, oligoLength) && !ModificationLocalization.UniprotModExists(NucleicAcid, oligoLength, variableModification))
                     {
                         threePrimeVariableMods.Add(variableModification);
                     }
@@ -111,7 +112,7 @@ namespace Transcriptomics.Digestion
                         if (modWithMass is Modification variableModification)
                         {
                             // Check if can be a 5'-term mod
-                            if (locInPeptide == 1 && CanBeFivePrime(variableModification, oligoLength) && !NucleicAcid.IsDecoy)
+                            if (locInPeptide == 1 && CanBeNTerminalOrFivePrime(variableModification, oligoLength) && !NucleicAcid.IsDecoy)
                             {
                                 fivePrimeVariableMods.Add(variableModification);
                             }
@@ -134,7 +135,7 @@ namespace Transcriptomics.Digestion
                             }
 
                             // Check if can be a 3'-term mod
-                            if (locInPeptide == oligoLength && CanBeThreePrime(variableModification, oligoLength) && !NucleicAcid.IsDecoy)
+                            if (locInPeptide == oligoLength && CanBeCTerminalOrThreePrime(variableModification, oligoLength) && !NucleicAcid.IsDecoy)
                             {
                                 threePrimeVariableMods.Add(variableModification);
                             }
@@ -142,7 +143,6 @@ namespace Transcriptomics.Digestion
                     }
                 }
 
-                int variableModificationIsoforms = 0;
                 PopulateFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods, ref fixedModDictionary);
 
                 // Add the mods to the oligo by return numerous OligoWithSetMods
@@ -171,18 +171,6 @@ namespace Transcriptomics.Digestion
                 DictionaryPool.Return(twoBasedPossibleVariableAndLocalizeableModifications);
                 FixedModDictionaryPool.Return(fixedModDictionary);
             }
-        }
-
-        private bool CanBeFivePrime(Modification variableModification, int peptideLength)
-        {
-            return (variableModification.LocationRestriction == "5'-terminal." || variableModification.LocationRestriction == "Oligo 5'-terminal.")
-                && ModificationLocalization.ModFits(variableModification, NucleicAcid.BaseSequence, 1, peptideLength, OneBasedStartResidue);
-        }
-
-        private bool CanBeThreePrime(Modification variableModification, int peptideLength)
-        {
-            return (variableModification.LocationRestriction == "3'-terminal." || variableModification.LocationRestriction == "Oligo 3'-terminal.")
-                && ModificationLocalization.ModFits(variableModification, NucleicAcid.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1);
         }
     }
 }

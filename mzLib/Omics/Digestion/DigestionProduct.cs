@@ -208,5 +208,29 @@ namespace Omics.Digestion
                 }
             }
         }
+
+        /// <summary>
+        /// Determines if a modification can be applied to the N-terminal or 5' end of the peptide.
+        /// </summary>
+        /// <param name="mod">The modification to check.</param>
+        /// <param name="peptideLength">The length of the peptide.</param>
+        /// <returns>True if the modification can be applied to the N-terminal or 5' end; otherwise, false.</returns>
+        protected bool CanBeNTerminalOrFivePrime(Modification mod, int peptideLength)
+        {
+            return mod.LocationRestriction is "5'-terminal." or "Oligo 5'-terminal." or "N-terminal." or "Peptide N-terminal."
+                   && ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, peptideLength, OneBasedStartResidue);
+        }
+
+        /// <summary>
+        /// Determines if a modification can be applied to the C-terminal or 3' end of the peptide.
+        /// </summary>
+        /// <param name="mod">The modification to check.</param>
+        /// <param name="peptideLength">The length of the peptide.</param>
+        /// <returns>True if the modification can be applied to the C-terminal or 3' end; otherwise, false.</returns>
+        protected bool CanBeCTerminalOrThreePrime(Modification mod, int peptideLength)
+        {
+            return mod.LocationRestriction is "3'-terminal." or "Oligo 3'-terminal." or "C-terminal." or "Peptide C-terminal."
+                   && ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1);
+        }
     }
 }
