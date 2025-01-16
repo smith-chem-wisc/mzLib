@@ -78,7 +78,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public void TestGetScanFromDyanmicConnectionUsingOneBasedScanNumber()
+        public void TestGetScanFromDynamicConnectionUsingOneBasedScanNumber()
         {
             var dynamicReader = new TimsTofFileReader(_testDataPath);
             dynamicReader.InitiateDynamicConnection();
