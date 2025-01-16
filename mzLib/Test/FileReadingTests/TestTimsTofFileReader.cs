@@ -21,14 +21,61 @@ namespace Test.FileReadingTests
         public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
         public TimsTofFileReader _testReader;
         public TimsDataScan _testMs2Scan;
+        public TimsDataScan _testMs1Scan;
+        public FilteringParams _filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
 
         [OneTimeSetUp]
         public void SetUp()
         {
-            FilteringParams filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
+            //FilteringParams filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(filteringParams: filteringParams, maxThreads: 10);
+            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
+            _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
+        }
+
+        [Test]
+        public void TestGetPasefScanFromDynamicConnection()
+        {
+            var dynamicReader = new TimsTofFileReader(_testDataPath);
+            dynamicReader.InitiateDynamicConnection();
+            var dynamicScan = dynamicReader
+                .GetScanFromPrecursorAndFrameIdFromDynamicConnection((int)_testMs2Scan.PrecursorId, (int)_testMs2Scan.FrameId, _filteringParams);
+            Assert.IsNotNull(dynamicScan);
+
+            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorId values are not equal.");
+            Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs2Scan.ScanNumberStart), "ScanStart values are not equal.");
+            Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs2Scan.ScanNumberEnd), "ScanEnd values are not equal.");
+            Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs2Scan.OneOverK0), "ScanMedian values are not equal.");
+            Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs2Scan.IsolationMz), "IsolationMz values are not equal.");
+            Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs2Scan.IsolationWidth), "IsolationWidth values are not equal.");
+            Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs2Scan.HcdEnergy), "CollisionEnergy values are not equal.");
+            Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs2Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
+            Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs2Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
+            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorID values are not equal.");
+            Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs2Scan.MassSpectrum), "Mass spectra are not equal");
+        }
+
+        [Test]
+        public void TestGetMs1ScanFromDynamicConnection()
+        {
+            var dynamicReader = new TimsTofFileReader(_testDataPath);
+            dynamicReader.InitiateDynamicConnection();
+            var dynamicScan = dynamicReader
+                .GetScanFromPrecursorAndFrameIdFromDynamicConnection((int)_testMs1Scan.PrecursorId, (int)_testMs1Scan.FrameId, _filteringParams);
+            Assert.IsNotNull(dynamicScan);
+
+            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorId values are not equal.");
+            Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs1Scan.ScanNumberStart), "ScanStart values are not equal.");
+            Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs1Scan.ScanNumberEnd), "ScanEnd values are not equal.");
+            Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs1Scan.OneOverK0), "ScanMedian values are not equal.");
+            Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs1Scan.IsolationMz), "IsolationMz values are not equal.");
+            Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs1Scan.IsolationWidth), "IsolationWidth values are not equal.");
+            Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs1Scan.HcdEnergy), "CollisionEnergy values are not equal.");
+            Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs1Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
+            Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs1Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
+            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorID values are not equal.");
+            Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs1Scan.MassSpectrum), "Mass spectra are not equal");
         }
 
         [Test]
@@ -58,20 +105,6 @@ namespace Test.FileReadingTests
             Assert.That(mergerOutput.Intensities, Is.EqualTo(intendedOutput));
             Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
         }
-
-        //[Test]
-        //public void LocalFileTest()
-        //{
-        //    string localPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\20191021_K562_200ng_90min_Slot1-1_01_4786.d";
-
-        //    var timer = new Stopwatch();
-        //    timer.Start();
-        //    var reader = new TimsTofFileReader(localPath);
-        //    reader.LoadAllStaticData(maxThreads: 10);
-        //    timer.Stop();
-
-        //    Console.WriteLine($"Time to load all static data: {timer.ElapsedMilliseconds} ms");
-        //}
 
         [Test]
         public void TestCollapse()

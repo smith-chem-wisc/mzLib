@@ -37,12 +37,10 @@ namespace Readers
         internal float[] RetentionTime { get; }
         internal float[] FillTime { get; }
 
-        internal TimsTofMsMsType GetAnalysisType()
+        internal TimsTofMsMsType GetAnalysisType(int frameId)
         {
-            var msMsTypes = MsMsType.Where(t => t != 0).Distinct();
-            if (msMsTypes.Count() != 1)
-                throw new MzLibException("Multiple MS/MS methods detected.");
-            else if (msMsTypes.First().ToEnum<TimsTofMsMsType>(out var analysisType))
+            if (frameId == 0 || frameId > MsMsType.Length) throw new IndexOutOfRangeException("Invalid frame ID!");
+            if (MsMsType[frameId - 1].ToEnum<TimsTofMsMsType>(out var analysisType))
                 return analysisType;
             else
                 throw new MzLibException("Unrecognized MS/MS method.");
