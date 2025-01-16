@@ -265,7 +265,7 @@ namespace Proteomics
                 unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParameters.KeepNGlycopeptide, digestionParameters.KeepOGlycopeptide);
             }
 
-            unmodifiedPeptides = unmodifiedPeptides.Where(p => p.BaseSequence == "EKLCYVALDFEQEMATAASSSSLEKSYELPDGQVITIGNER");
+            //unmodifiedPeptides = unmodifiedPeptides.Where(p => p.BaseSequence == "EKLCYVALDFEQEMATAASSSSLEKSYELPDGQVITIGNER");
 
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => 
                 peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParameters, variableModifications));

@@ -364,11 +364,12 @@ namespace Test
         /// <summary>
         /// We want to have protein digestion yield the same set of peptides regardless of the order their modifications are encoded in the XML.
         /// While all of the positions of the modifications are the same, the order of the modifications in the XML is different.
+        /// The issue is that we are running into the cap of max modified forms of 1024 and depending on which mod you use first, you cut off some other modified forms
         /// </summary>
         [Test]
         public static void TestDigestionOfSameProteinFromDifferentXmls()
         {
-            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain, maxModificationIsoforms: int.MaxValue);
+            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
             Modification carbamidomethylOnC = new Modification(_originalId: "Carbamidomethyl on C", _modificationType: "Common Fixed", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
             var fixedModifications = new List<Modification> { carbamidomethylOnC };
@@ -393,8 +394,7 @@ namespace Test
 
             var peptides5 = proteins5.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
             var peptides6 = proteins6.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
-            File.WriteAllLines(@"C:\Users\trish\Downloads\peptides5.txt", peptides5.OrderBy(p => p.FullSequence).Select(p => p.FullSequence));
-            File.WriteAllLines(@"C:\Users\trish\Downloads\peptides6.txt", peptides6.OrderBy(p => p.FullSequence).Select(p => p.FullSequence));
+
             Assert.AreEqual(peptides5.Count, peptides6.Count);
             CollectionAssert.AreEquivalent(peptides5, peptides6);
         }
