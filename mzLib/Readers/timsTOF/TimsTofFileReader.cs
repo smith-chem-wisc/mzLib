@@ -1,22 +1,10 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Runtime.InteropServices;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
 using MzLibUtil;
-using UsefulProteomicsDatabases;
-using System.Data.Common;
-using Readers;
-using System.Data.SqlClient;
 using System.Data;
-using ThermoFisher.CommonCore.Data.Business;
-using Polarity = MassSpectrometry.Polarity;
-using System.Security.AccessControl;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Security.Permissions;
-using System.ComponentModel;
 using MzLibUtil.SparseMatrix;
 
 namespace Readers
@@ -256,9 +244,58 @@ namespace Readers
             return this;
         }
 
+        /// <summary>
+        /// Constructs one timsDataScan for every scan in every MS1 frame in the timsTOF data file
+        /// This comes out to ~1000 scans per frame
+        /// These TimsDataScans are missing some fields that aren't needed for quant
+        /// Missing fields: TotalIonCurrent, NoiseData, NativeId, PrecursorId
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<TimsDataScan> GetMs1InfoScanByScan()
+        {
+            InitiateDynamicConnection();
+            CountMS1Frames();
+
+            // It's assumed that every MS1 frame will contain the same number of scans
+            int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
+            FrameProxy frame;
+            foreach (var ms1FrameId in Ms1FrameIds)
+            {
+                for (int scanNo = 1; scanNo <= numberOfScans; scanNo++)
+                {
+                    frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
+                    var indices = frame.GetScanIndices(scanNo - 1);
+                    var intensities = frame.GetScanIntensities(scanNo - 1);
+                    var mzIntensityArrayTuple = TofSpectraMerger.CollapseArrays(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
+                    var spectrum = TofSpectraMerger.CreateFilteredSpectrum(mzIntensityArrayTuple.Mzs, mzIntensityArrayTuple.Intensities);
+
+                    //TODO: This could be refactored to be more lightweight. We really don't need a huge scan object
+                    // just the spectrum and retention time. Additionally, it would be nice to use an object pool
+                    yield return new TimsDataScan(
+                        massSpectrum: spectrum,
+                        oneBasedScanNumber: -1, // This gets adjusted once all data has been read
+                        msnOrder: 1,
+                        isCentroid: true,
+                        polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+                        retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+                        scanWindowRange: ScanWindow,
+                        scanFilter: ScanFilter,
+                        mzAnalyzer: MZAnalyzerType.TOF,
+                        totalIonCurrent: -1,
+                        injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+                        noiseData: null,
+                        nativeId: null,
+                        frameId: frame.FrameId,
+                        scanNumberStart: scanNo,
+                        scanNumberEnd: scanNo,
+                        medianOneOverK0: FrameProxyFactory.GetOneOverK0(scanNo),
+                        precursorId: null);
+                }
+            }
+        }
+
         public void LoadMs1Data(ITimsTofMatrix matrix)
         {
-            
             InitiateDynamicConnection();
             CountMS1Frames();
 
@@ -275,8 +312,8 @@ namespace Readers
                     frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
                     var indices = frame.GetScanIndices(scanNo - 1);
                     var intensities = frame.GetScanIntensities(scanNo - 1);
-                    TofSpectraMerger.CollapseArrays(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
-
+                    var mzIntensityArrayTuple = TofSpectraMerger.CollapseArrays(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
+                    spectrum = TofSpectraMerger.CreateFilteredSpectrum(mzIntensityArrayTuple.Mzs, mzIntensityArrayTuple.Intensities);
                 }
             }
         }

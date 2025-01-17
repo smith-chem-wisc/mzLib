@@ -161,11 +161,6 @@ namespace Readers
             return Array.ConvertAll(_rawData[GetYRange(zeroIndexedScanNumber)], entry => (int)entry);
         }
 
-        internal uint[] GetScanIndices(int zeroIndexedScanNumber)
-        {
-            return _rawData[GetXRange(zeroIndexedScanNumber)];
-        }
-
         /// <summary>
         /// Gets the indices for the specified scan.
         /// </summary>
