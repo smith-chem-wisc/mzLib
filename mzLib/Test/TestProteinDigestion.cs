@@ -402,8 +402,8 @@ namespace Test
             var variableModifications = new List<Modification> { oxidationOnM };
 
             // Load in proteins
-            var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "05.xml");
-            var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "06.xml");
+            var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SingleEntry_ModOrder1.xml");
+            var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SingleEntry_ModOrder2.xml");
 
             var proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, DecoyType.None, null, false, null, out var unknownModificationsFive);
             var proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, DecoyType.None, null, false, null, out var unknownModificationsSix);
