@@ -1,4 +1,4 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using Omics.Modifications;
 
 namespace Omics.Digestion
@@ -42,7 +42,7 @@ namespace Omics.Digestion
         #region Digestion Helper Methods
 
         /// <summary>
-        /// Generates all possible variable modification patterns for a peptide.
+        /// Generates all possible variable modification patterns for a peptide, which includes variable and localized modifications but excludes fixed mods
         /// </summary>
         /// <param name="possibleVariableModifications">A dictionary of possible variable modifications with their positions.</param>
         /// <param name="maxModsForPeptide">The maximum number of modifications allowed for the peptide.</param>
