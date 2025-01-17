@@ -2,7 +2,7 @@
 
 namespace Omics.Modifications
 {
-    public class ModificationMotif : IComparable<ModificationMotif>
+    public class ModificationMotif
     {
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
         private readonly string motifString;
@@ -27,13 +27,6 @@ namespace Omics.Modifications
                 return true;
             }
             return false;
-        }
-
-        public int CompareTo(ModificationMotif? other)
-        {
-            if (other == null) return 1;
-            
-            return string.Compare(motifString, other.motifString, StringComparison.Ordinal);
         }
 
         public override string ToString()

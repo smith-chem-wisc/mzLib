@@ -307,9 +307,6 @@ namespace Omics.Modifications
 
             int typeComparison = string.Compare(this.ModificationType, other.ModificationType, StringComparison.Ordinal);
             if (typeComparison != 0) return typeComparison;
-            
-            int motifComparison = this.Target.CompareTo(other.Target);
-            if (motifComparison != 0) return motifComparison;
 
             int locRestrictionComparison = string.Compare(this.LocationRestriction, other.LocationRestriction, StringComparison.Ordinal);
             if (locRestrictionComparison != 0) return locRestrictionComparison;
