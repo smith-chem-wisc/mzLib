@@ -49,7 +49,6 @@ namespace Readers
                 throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
             }
 
-            _sqlConnection?.Dispose();
             OpenSqlConnection();
 
             if(_fileHandle != null) tims_close((UInt64)_fileHandle);
