@@ -2,7 +2,7 @@
 
 namespace Omics.Modifications
 {
-    public class ModificationMotif
+    public class ModificationMotif : IComparable<ModificationMotif>
     {
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
         private readonly string motifString;
@@ -28,19 +28,13 @@ namespace Omics.Modifications
             }
             return false;
         }
-        // Commented out by AVC on 4/5/23. Methods were unused and untested 
-        // since 2017. 
-        // public override bool Equals(object o)
-        // {
-        //     ModificationMotif m = o as ModificationMotif;
-        //     return m != null
-        //         && m.motifString == motifString;
-        // }
-        //
-        // public override int GetHashCode()
-        // {
-        //     return motifString.GetHashCode();
-        // }
+
+        public int CompareTo(ModificationMotif? other)
+        {
+            if (other == null) return 1;
+            
+            return string.Compare(motifString, other.motifString, StringComparison.Ordinal);
+        }
 
         public override string ToString()
         {

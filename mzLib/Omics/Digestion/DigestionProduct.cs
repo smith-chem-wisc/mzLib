@@ -5,7 +5,6 @@ namespace Omics.Digestion
 {
     public abstract class DigestionProduct
     {
-        private static readonly ModificationComparer ModComparer = new();
         protected static readonly DictionaryPool<int, SortedSet<Modification>> DictionaryPool = new();
         protected static readonly DictionaryPool<int, Modification> FixedModDictionaryPool = new(8);
 
@@ -63,21 +62,22 @@ namespace Omics.Digestion
             int[] baseVariableModificationPattern = new int[peptideLength + 4];
             int totalAvailableMods = possibleVariableModifications.Values.Sum(modList => modList?.Count ?? 0);
             int maxVariableMods = Math.Min(totalAvailableMods, maxModsForPeptide);
+            var variableModKvpList = possibleVariableModifications.ToList();
 
             for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
             {
-                foreach (int[] variable_modification_pattern in GetVariableModificationPatternsRecursive(possibleVariableModifications.ToList(),
+                foreach (int[] variable_modification_pattern in GetVariableModificationPatternsRecursive(variableModKvpList,
                              possibleVariableModifications.Count - variable_modifications, baseVariableModificationPattern, 0))
                 {
                     // use modification pattern to construct a dictionary of modifications for the peptide
                     var modificationPattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
 
-                    foreach (var kvp in possibleVariableModifications)
+                    foreach (var variableModSet in possibleVariableModifications)
                     {
-                        int modIndex = variable_modification_pattern[kvp.Key] - 1;
+                        int modIndex = variable_modification_pattern[variableModSet.Key] - 1;
                         if (modIndex >= 0)
                         {
-                            modificationPattern.Add(kvp.Key, kvp.Value.ElementAt(modIndex));
+                            modificationPattern.Add(variableModSet.Key, variableModSet.Value.ElementAt(modIndex));
                         }
                     }
 
@@ -166,10 +166,10 @@ namespace Omics.Digestion
         protected void PopulateVariableModifications(List<Modification> allVariableMods, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
         {
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
-            var pepNTermVariableMods = new SortedSet<Modification>(ModComparer);
+            var pepNTermVariableMods = new SortedSet<Modification>();
             twoBasedDictToPopulate.Add(1, pepNTermVariableMods);
 
-            var pepCTermVariableMods = new SortedSet<Modification>(ModComparer);
+            var pepCTermVariableMods = new SortedSet<Modification>();
             twoBasedDictToPopulate.Add(peptideLength + 2, pepCTermVariableMods);
 
             // VARIABLE MODS
@@ -188,7 +188,7 @@ namespace Omics.Digestion
                     {
                         if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
                         {
-                            residueVariableMods = new SortedSet<Modification>(ModComparer) { variableModification };
+                            residueVariableMods = new SortedSet<Modification>() { variableModification };
                             twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
                         }
                         else
@@ -233,7 +233,7 @@ namespace Omics.Digestion
                     {
                         if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
                         {
-                            residueVariableMods = new SortedSet<Modification>(ModComparer) { variableModification };
+                            residueVariableMods = new SortedSet<Modification>() { variableModification };
                             twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
                         }
                         else
@@ -268,7 +268,6 @@ namespace Omics.Digestion
             {
                 if (variableModPattern.ContainsKey(fixedModPattern.Key))
                     continue;
-
                 numFixedMods++;
                 variableModPattern.Add(fixedModPattern.Key, fixedModPattern.Value);
             }
@@ -355,44 +354,6 @@ namespace Omics.Digestion
         {
             return mod.LocationRestriction is "3'-terminal." or "Oligo 3'-terminal." or "C-terminal." or "Peptide C-terminal."
                    && ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1);
-        }
-
-        // Used in the sorted sets for variable mod generation to ensure that modifications are consistently ordered
-        private class ModificationComparer : IComparer<Modification>
-        {
-            public int Compare(Modification? x, Modification? y)
-            {
-                if (ReferenceEquals(x, y)) return 0;
-                if (y is null) return 1;
-                if (x is null) return -1;
-
-                var idWithMotifComparison = string.Compare(x.IdWithMotif, y.IdWithMotif, StringComparison.Ordinal);
-                if (idWithMotifComparison != 0)
-                    return idWithMotifComparison;
-
-                var originalIdComparison = string.Compare(x.OriginalId, y.OriginalId, StringComparison.Ordinal);
-                if (originalIdComparison != 0)
-                    return originalIdComparison;
-
-                var accessionComparison = string.Compare(x.Accession, y.Accession, StringComparison.Ordinal);
-                if (accessionComparison != 0)
-                    return accessionComparison;
-
-                var modificationTypeComparison = string.Compare(x.ModificationType, y.ModificationType, StringComparison.Ordinal);
-                if (modificationTypeComparison != 0)
-                    return modificationTypeComparison;
-
-                var featureTypeComparison = string.Compare(x.FeatureType, y.FeatureType, StringComparison.Ordinal);
-                if (featureTypeComparison != 0)
-                    return featureTypeComparison;
-
-                var locationRestrictionComparison = string.Compare(x.LocationRestriction, y.LocationRestriction, StringComparison.Ordinal);
-                if (locationRestrictionComparison != 0)
-                    return locationRestrictionComparison;
-
-                return
-                    string.Compare(x.FileOrigin, y.FileOrigin, StringComparison.Ordinal);
-            }
         }
 
         #endregion
