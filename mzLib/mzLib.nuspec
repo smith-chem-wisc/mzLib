@@ -16,8 +16,8 @@
         <!--net8.0 target-->
         <dependency id="Easy.Common" version="6.7.0" />
         <dependency id="MathNet.Numerics" version="5.0.0" />
-		<dependency id="Microsoft.ML" version="2.0.0" />
-		<dependency id="Microsoft.ML.FastTree" version="2.0.0" />
+        <dependency id="Microsoft.ML" version="2.0.0" />
+        <dependency id="Microsoft.ML.FastTree" version="2.0.0" />
         <dependency id="Microsoft.Win32.Registry" version="5.0.0" />
         <dependency id="NetSerializer" version="4.1.1" />
         <dependency id="OpenMcdf" version="2.2.1.3" />
@@ -29,8 +29,8 @@
         <!--net8.0 target with OxyPlot-->
         <dependency id="Easy.Common" version="6.7.0" />
         <dependency id="MathNet.Numerics" version="5.0.0" />
-		<dependency id="Microsoft.ML" version="2.0.0" />
-		<dependency id="Microsoft.ML.FastTree" version="2.0.0" />
+        <dependency id="Microsoft.ML" version="2.0.0" />
+        <dependency id="Microsoft.ML.FastTree" version="2.0.0" />
         <dependency id="Microsoft.Win32.Registry" version="5.0.0" />
         <dependency id="NetSerializer" version="4.1.1" />
         <dependency id="OpenMcdf" version="2.2.1.3" />
