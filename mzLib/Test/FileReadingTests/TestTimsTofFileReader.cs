@@ -211,7 +211,7 @@ namespace Test.FileReadingTests
 
             Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
             Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
-            Assert.That(_testMs2Scan.TotalIonCurrent == 25688);
+            Assert.That(_testMs2Scan.TotalIonCurrent == 25130);
             Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
             Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
             Assert.That(_testMs2Scan.MsnOrder == 2);

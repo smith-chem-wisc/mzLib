@@ -1,16 +1,11 @@
 ﻿using MassSpectrometry;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using ThermoFisher.CommonCore.Data.Interfaces;
 
 namespace Readers
 {
+    /// <summary>
+    /// Factory class for creating FrameProxy instances and managing frame-related data.
+    /// </summary>
     internal class FrameProxyFactory
     {
         internal FrameTable FramesTable { get; }
@@ -18,8 +13,13 @@ namespace Readers
         internal Object FileLock { get; }
         internal TimsConversion Converter { get; }
         public int MaxIndex { get; init; } 
+        /// <summary>
+        /// Used to convert the tofIndices stored in the .d file to m/z values
+        /// </summary>
         public double[] MzLookupArray { get; set; }
-
+        /// <summary>
+        /// Used to convert scan number to 1/K0 values
+        /// </summary>
         public double[] OneOverK0LookupArray { get; set; }
 
         internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock, int maxIndex)
@@ -37,11 +37,6 @@ namespace Readers
             return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
         }
 
-        //internal uint[] GetScanIndices(FrameProxy frame, int zeroIndexedScanNumber)
-        //{
-        //    return frame._rawData[frame.GetXRange(zeroIndexedScanNumber)];
-        //}
-
         internal double[] ConvertIndicesToMz(IList<uint> indices)
         {
             double[] mzArray = new double[indices.Count()];
@@ -55,24 +50,29 @@ namespace Readers
         }
 
         /// <summary>
-        /// Accesses the file, then stores the index to m/z lookup in the mzLookup array and the index to 1/k0 lookup in the OneOverK0LookupArray
+        /// Accesses the file, then stores the index to m/z lookup in the mzLookup array 
+        /// and the index to 1/k0 lookup in the OneOverK0LookupArray
         /// </summary>
         /// <param name="handle"></param>
         internal void InitializeLookupTables(ulong handle)
         {
-
             uint[] lArray = new uint[MaxIndex];
             for (uint i = 0; i < MaxIndex; i++)
             {
                 lArray[i] = i;
             }
 
+            // Each frame technically has slightly different index --> m/z mapping
+            // but in conversations with Sander Willem, I was told that the differences are negligible
+            // so we can use the median frame to generate the lookup table
+            long medianFrameId = FramesTable.OneBasedFrameIndex[FramesTable.OneBasedFrameIndex.Length / 2];
+
+            // Populate the mzLookupArray
             double[] mzLookupIndices = Array
                 .ConvertAll(lArray, entry => (double)entry);
-
-            long medianFrameId = FramesTable.OneBasedFrameIndex[FramesTable.OneBasedFrameIndex.Length / 2];
             MzLookupArray = Converter.DoTransformation(handle, medianFrameId, mzLookupIndices, ConversionFunctions.IndexToMz);
 
+            // Populate the 1/K0 lookup array
             int scanMax = FramesTable.NumScans.Max();
             double[] oneOverK0LookupIndices = Array
                 .ConvertAll(Enumerable.Range(0, scanMax).ToArray(), entry => (double)entry);
@@ -118,17 +118,28 @@ namespace Readers
         }
     }
 
+    /// <summary>
+    /// Proxy class for accessing frame data. Each FrameProxy stores the raw information collected across all
+    /// ~1000 scans that make up a frame
+    /// </summary>
     internal class FrameProxy
     {
         private int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
+        /// <summary>
+        /// This is one huge array that stores ALLLL the information for the frame. 
+        /// Specific scans are accessed by determining the number of data points that were collected 
+        /// before the scan took place, then jumping forward by that amount to get the data for that scan
+        /// </summary>
         public uint[] _rawData;
+        /// <summary>
+        /// default size for the raw data array
+        /// </summary>
         private const int _defaultBufferSize = 4096;
         internal UInt64 FileHandle { get; }
         internal long FrameId { get; }
         internal int NumberOfScans { get; }
         internal TimsConversion Converter { get; }
         
-
         internal FrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter)
         {
             NumberOfScans = numScans;
@@ -140,11 +151,26 @@ namespace Readers
             _scanOffsets = PartialSum(_rawData, 0, numScans);
         }
 
+        /// <summary>
+        /// Gets the intensities for the specified scan.
+        /// </summary>
+        /// <param name="zeroIndexedScanNumber">Zero-indexed scan number.</param>
+        /// <returns>Array of intensities.</returns>
         internal int[] GetScanIntensities(int zeroIndexedScanNumber)
         {
             return Array.ConvertAll(_rawData[GetYRange(zeroIndexedScanNumber)], entry => (int)entry);
         }
 
+        internal uint[] GetScanIndices(int zeroIndexedScanNumber)
+        {
+            return _rawData[GetXRange(zeroIndexedScanNumber)];
+        }
+
+        /// <summary>
+        /// Gets the indices for the specified scan.
+        /// </summary>
+        /// <param name="zeroIndexedScanNumber">Zero-indexed scan number.</param>
+        /// <returns>Array of indices.</returns>
         internal uint[] GetScanIndices(int zeroIndexedScanNumber)
         {
             return _rawData[GetXRange(zeroIndexedScanNumber)];

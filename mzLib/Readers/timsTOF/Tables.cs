@@ -25,6 +25,12 @@ namespace Readers
         Maldi = 20
     }
 
+    /// <summary>
+    /// This class stores information take from the .tdf SQLite database file
+    /// Every frame in the file has 9 pieces of metadata that can be accessed by 
+    /// selecting the appropriate array. All arrays are zero-based!!!
+    /// EX: ScanMode[0] will return the scan mode of the first frame (FrameID = 1) in the file
+    /// </summary>
     internal class FrameTable
     {
         internal long[] OneBasedFrameIndex { get; }

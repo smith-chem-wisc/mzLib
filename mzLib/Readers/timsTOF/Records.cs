@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Readers
 {
-    internal class Ms1Record
+    internal readonly struct Ms1Record
     {
         internal int PrecursorId { get; }
         internal int ScanStart { get; }
@@ -22,7 +22,7 @@ namespace Readers
         }
     }
 
-    internal class PasefRecord
+    internal readonly struct PasefRecord
     {
         internal IEnumerable<long> FrameList { get; }
         internal int PrecursorId { get; }

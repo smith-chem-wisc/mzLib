@@ -21,11 +21,12 @@ using MzLibUtil.SparseMatrix;
 
 namespace Readers
 { 
-    public class TimsTofFileReader : MsDataFile
+    public class TimsTofFileReader : MsDataFile, IDisposable
     {
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
         // over multiple scans with each scan corresponding to the same retention time but different
         // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
+        // a single spectrum
 
         public TimsTofFileReader(string filePath) : base (filePath) { }
 
@@ -62,6 +63,9 @@ namespace Readers
 
         internal void OpenSqlConnection()
         {
+            if (_sqlConnection?.State == ConnectionState.Open)
+                return;
+
             _sqlConnection = new SQLiteConnection("Data Source=" +
                 Path.Combine(FilePath, "analysis.tdf") +
                 "; Version=3");
@@ -85,13 +89,18 @@ namespace Readers
 
         public override void CloseDynamicConnection()
         {
-            _sqlConnection?.Close();
+            if (_sqlConnection?.State == ConnectionState.Open) _sqlConnection.Close();
             _sqlConnection?.Dispose();
             if (_fileHandle != null)
             {
                 tims_close((UInt64)_fileHandle);
                 _fileHandle = null;
             }   
+        }
+
+        public void Dispose()
+        {
+            CloseDynamicConnection();
         }
 
         /// <summary>
@@ -123,7 +132,7 @@ namespace Readers
         /// <exception cref="MzLibException"></exception>
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="NotImplementedException"></exception>
-        public TimsDataScan? GetScanFromPrecursorAndFrameIdFromDynamicConnection(int precursorId, int frameId, IFilteringParams filteringParams = null)
+        public TimsDataScan GetScanFromPrecursorAndFrameIdFromDynamicConnection(int precursorId, int frameId, IFilteringParams filteringParams = null)
         {
             if(_fileHandle == null || _fileHandle == 0 || _sqlConnection.IsCanceled() || FrameProxyFactory == null)
             {
@@ -136,7 +145,6 @@ namespace Readers
                 case TimsTofMsMsType.MS:
                     var records = GetMs1Records(frameId);
                     var recordForPrecursor = records.FirstOrDefault(x => x.PrecursorId == precursorId);
-                    if (recordForPrecursor == null) throw new ArgumentException("The provided precursor was not observed in frame: " + frameId);
                     return GetMs1Scan(recordForPrecursor, FrameProxyFactory.GetFrameProxy(frameId), (FilteringParams)filteringParams);
                 case TimsTofMsMsType.PASEF:
                     return BuildPasefScanFromPrecursor([precursorId], (FilteringParams)filteringParams).FirstOrDefault();
@@ -189,10 +197,6 @@ namespace Readers
 
             int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
             FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs);
-            if (FrameProxyFactory == null)
-                throw new MzLibException("Something went wrong constructing the FrameProxyFactory.");
-
-            _scanWindow = new MzRange(FrameProxyFactory.MzLookupArray[0], FrameProxyFactory.MzLookupArray[^1]);
         }
 
         internal void CountPrecursors()
@@ -497,8 +501,8 @@ namespace Readers
                         List<int[]> intensityArrays = new();
                         for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
                         {
-                            indexArrays.Add(frame.GetScanIndices(mobilityScanIdx - 1));
-                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx - 1));
+                            indexArrays.Add(frame.GetScanIndices(mobilityScanIdx-1));
+                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx-1));
                         }
                         // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
                         // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
