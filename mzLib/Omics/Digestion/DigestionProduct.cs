@@ -1,11 +1,11 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using Omics.Modifications;
 
 namespace Omics.Digestion
 {
     public abstract class DigestionProduct
     {
-        protected static readonly DictionaryPool<int, List<Modification>> DictionaryPool = new();
+        protected static readonly DictionaryPool<int, SortedSet<Modification>> DictionaryPool = new();
         protected static readonly DictionaryPool<int, Modification> FixedModDictionaryPool = new(8);
 
         protected string _baseSequence;
@@ -54,7 +54,7 @@ namespace Omics.Digestion
         /// Then, it iterates through all possible numbers of modifications and generates the corresponding modification patterns.
         /// The returned dictionary is then appended with fixed modifications and used to construct a peptide with set mods
         /// </remarks>
-        protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, List<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
+        protected static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, SortedSet<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
         {
             if (possibleVariableModifications.Count <= 0) 
                 yield break;
@@ -62,21 +62,22 @@ namespace Omics.Digestion
             int[] baseVariableModificationPattern = new int[peptideLength + 4];
             int totalAvailableMods = possibleVariableModifications.Values.Sum(modList => modList?.Count ?? 0);
             int maxVariableMods = Math.Min(totalAvailableMods, maxModsForPeptide);
+            var variableModKvpList = possibleVariableModifications.ToList();
 
             for (int variable_modifications = 0; variable_modifications <= maxVariableMods; variable_modifications++)
             {
-                foreach (int[] variable_modification_pattern in GetVariableModificationPatternsRecursive(possibleVariableModifications.ToList(),
+                foreach (int[] variable_modification_pattern in GetVariableModificationPatternsRecursive(variableModKvpList,
                              possibleVariableModifications.Count - variable_modifications, baseVariableModificationPattern, 0))
                 {
                     // use modification pattern to construct a dictionary of modifications for the peptide
                     var modificationPattern = new Dictionary<int, Modification>(possibleVariableModifications.Count);
 
-                    foreach (KeyValuePair<int, List<Modification>> kvp in possibleVariableModifications)
+                    foreach (var variableModSet in possibleVariableModifications)
                     {
-                        int modIndex = variable_modification_pattern[kvp.Key] - 1;
+                        int modIndex = variable_modification_pattern[variableModSet.Key] - 1;
                         if (modIndex >= 0)
                         {
-                            modificationPattern.Add(kvp.Key, kvp.Value[modIndex]);
+                            modificationPattern.Add(variableModSet.Key, variableModSet.Value.ElementAt(modIndex));
                         }
                     }
 
@@ -162,13 +163,13 @@ namespace Omics.Digestion
         /// This method iterates through all variable modifications and assigns them to the appropriate positions in the peptide.
         /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
         /// </remarks>
-        protected void PopulateVariableModifications(List<Modification> allVariableMods, in Dictionary<int, List<Modification>> twoBasedDictToPopulate)
+        protected void PopulateVariableModifications(List<Modification> allVariableMods, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
         {
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
-            var pepNTermVariableMods = new List<Modification>();
+            var pepNTermVariableMods = new SortedSet<Modification>();
             twoBasedDictToPopulate.Add(1, pepNTermVariableMods);
 
-            var pepCTermVariableMods = new List<Modification>();
+            var pepCTermVariableMods = new SortedSet<Modification>();
             twoBasedDictToPopulate.Add(peptideLength + 2, pepCTermVariableMods);
 
             // VARIABLE MODS
@@ -187,7 +188,7 @@ namespace Omics.Digestion
                     {
                         if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
                         {
-                            residueVariableMods = new List<Modification>() { variableModification };
+                            residueVariableMods = new SortedSet<Modification>() { variableModification };
                             twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
                         }
                         else
@@ -232,7 +233,7 @@ namespace Omics.Digestion
                     {
                         if (!twoBasedDictToPopulate.TryGetValue(r + 2, out var residueVariableMods))
                         {
-                            residueVariableMods = new List<Modification>() { variableModification };
+                            residueVariableMods = new SortedSet<Modification>() { variableModification };
                             twoBasedDictToPopulate.Add(r + 2, residueVariableMods);
                         }
                         else
@@ -267,7 +268,6 @@ namespace Omics.Digestion
             {
                 if (variableModPattern.ContainsKey(fixedModPattern.Key))
                     continue;
-
                 numFixedMods++;
                 variableModPattern.Add(fixedModPattern.Key, fixedModPattern.Value);
             }
@@ -287,7 +287,7 @@ namespace Omics.Digestion
         /// This method uses recursion to generate all possible combinations of variable modifications for a given peptide.
         /// It considers both modified and unmodified residues and generates patterns accordingly.
         /// </remarks>
-        private static IEnumerable<int[]> GetVariableModificationPatternsRecursive(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
+        private static IEnumerable<int[]> GetVariableModificationPatternsRecursive(List<KeyValuePair<int, SortedSet<Modification>>> possibleVariableModifications,
             int unmodifiedResiduesDesired, int[] variableModificationPattern, int index)
         {
             if (index < possibleVariableModifications.Count - 1)
