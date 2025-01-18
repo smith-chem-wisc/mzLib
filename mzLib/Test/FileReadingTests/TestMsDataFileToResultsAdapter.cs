@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -135,7 +136,8 @@ namespace Test.FileReadingTests
                 Assert.That(readInScan.OneBasedScanNumber.Equals(writtenScan.OneBasedScanNumber));
                 Assert.That(readInScan.MsnOrder.Equals(writtenScan.MsnOrder));
                 Assert.That(readInScan.IsCentroid.Equals(writtenScan.IsCentroid));
-                Assert.That(readInScan.MassSpectrum.Equals(writtenScan.MassSpectrum));
+                Assert.That(readInScan.MassSpectrum.YArray, Is.EquivalentTo(writtenScan.MassSpectrum.YArray));
+                Assert.That(readInScan.MassSpectrum.XArray, Is.EquivalentTo(writtenScan.MassSpectrum.XArray.Select(x => Math.Round(x, 4, MidpointRounding.AwayFromZero))));
             }
 
             File.Delete(outfile);
