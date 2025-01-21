@@ -89,7 +89,7 @@ namespace MassSpectrometry
             IntensityArrays.Add(intensities);
         }
 
-        public MzSpectrum[] Ms1SpectraIndexedByZeroBasedScanNumber { get; private set; }
+        public MzSpectrum?[] Ms1SpectraIndexedByZeroBasedScanNumber { get; private set; }
 
         public void AddMs1Spectrum(MzSpectrum spectrum, int scanNumber)
         {

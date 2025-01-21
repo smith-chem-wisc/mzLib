@@ -108,7 +108,7 @@ namespace Readers
 
         internal double GetRetentionTime(long frameId)
         {
-            return (double)FramesTable.RetentionTime[frameId - 1];
+            return Math.Round(FramesTable.RetentionTime[frameId - 1] / 60.0, 4, MidpointRounding.AwayFromZero);
         }
 
         internal double GetInjectionTime(long frameId)

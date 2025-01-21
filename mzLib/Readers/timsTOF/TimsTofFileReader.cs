@@ -41,6 +41,7 @@ namespace Readers
             }
 
             _sqlConnection?.Dispose();
+            _sqlConnection = null;
             OpenSqlConnection();
 
             if(_fileHandle != null) tims_close((UInt64)_fileHandle);
@@ -48,6 +49,7 @@ namespace Readers
             _fileLock = new();
 
             CountFrames();
+            CountMS1Frames();
             BuildProxyFactory();
         }
 
@@ -161,6 +163,7 @@ namespace Readers
         internal void CountMS1Frames()
         {
             if (_sqlConnection == null) return;
+
             using var command = new SQLiteCommand(_sqlConnection);
             command.CommandText = @"SELECT f.Id FROM Frames f WHERE f.MsMsType = 0;";
             using var sqliteReader = command.ExecuteReader();
@@ -255,8 +258,8 @@ namespace Readers
         /// <returns> DataScans with populated Ms1SpectraIndexedByZeroBasedScanNumber arrays </returns>
         public IEnumerable<TimsDataScan> GetMs1InfoScanByScan()
         {
-            InitiateDynamicConnection();
-            CountMS1Frames();
+            if(_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
+                InitiateDynamicConnection();
 
             // It's assumed that every MS1 frame will contain the same number of scans
             int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
@@ -287,6 +290,9 @@ namespace Readers
                 for (int scanNo = 1; scanNo <= numberOfScans; scanNo++)
                 {
                     var indices = frame.GetScanIndices(scanNo - 1);
+                    if(indices.Length == 0)
+                        continue;
+                    
                     var intensities = frame.GetScanIntensities(scanNo - 1);
                     // Individual scans are centroided by the instrument already, so no need to call the Collapse function
                     var spectrum = TofSpectraMerger.CreateFilteredSpectrum(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
@@ -294,30 +300,6 @@ namespace Readers
                 }
 
                 yield return dataScan;
-            }
-        }
-
-        public void LoadMs1Data(ITimsTofMatrix matrix)
-        {
-            InitiateDynamicConnection();
-            CountMS1Frames();
-
-            matrix.InitializeIndexedPeaksArray(ScanWindow);
-
-            // It's assumed that every MS1 frame will contain the same number of scans
-            int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
-            FrameProxy frame;
-            MzSpectrum spectrum;
-            foreach (var ms1FrameId in Ms1FrameIds)
-            {
-                for(int scanNo = 1; scanNo <= numberOfScans; scanNo++)
-                {
-                    frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
-                    var indices = frame.GetScanIndices(scanNo - 1);
-                    var intensities = frame.GetScanIntensities(scanNo - 1);
-                    var mzIntensityArrayTuple = TofSpectraMerger.CollapseArrays(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
-                    spectrum = TofSpectraMerger.CreateFilteredSpectrum(mzIntensityArrayTuple.Mzs, mzIntensityArrayTuple.Intensities);
-                }
             }
         }
 

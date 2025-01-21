@@ -203,7 +203,6 @@ namespace Test.FileReadingTests
               reader.LoadAllStaticData());
         }
 
-
         [Test]
         public void TestLoadAllStaticData()
         {
@@ -231,6 +230,16 @@ namespace Test.FileReadingTests
             Assert.AreEqual(_testMs2Scan.ScanNumberEnd, ms1Scan.ScanNumberEnd);
             Assert.AreEqual(_testMs2Scan.OneOverK0, ms1Scan.OneOverK0);
 
+        }
+
+        [Test]
+        public void TestGetMs1ScanByScan()
+        {
+            var reader = new TimsTofFileReader(_testDataPath);
+            foreach(var frame in reader.GetMs1InfoScanByScan())
+            {
+                Assert.That(frame.Ms1SpectraIndexedByZeroBasedScanNumber.Length, Is.EqualTo(reader.FrameProxyFactory.MaxScanOneBasedIndex));
+            }
         }
 
         [Test]
