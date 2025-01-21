@@ -24,6 +24,8 @@ namespace Readers
         private int _maxThreads;
         public int NumberOfFrames { get; private set; }
         public List<long> Ms1FrameIds { get; private set; }
+        public int NumberOfMs1Frames => Ms1FrameIds.Count;
+        public int NumberOfScansPerFrame => FrameProxyFactory.FramesTable.NumScans.Max();
         internal FrameProxyFactory FrameProxyFactory { get; private set; }
         
         // I don't know what the default scan range is, and at this point I'm too afraid to ask...
@@ -248,9 +250,9 @@ namespace Readers
         /// Constructs one timsDataScan for every scan in every MS1 frame in the timsTOF data file
         /// This comes out to ~1000 scans per frame
         /// These TimsDataScans are missing some fields that aren't needed for quant
-        /// Missing fields: TotalIonCurrent, NoiseData, NativeId, PrecursorId
+        /// Missing fields: TotalIonCurrent, NoiseData, NativeId, PrecursorId.
         /// </summary>
-        /// <returns></returns>
+        /// <returns> DataScans with populated Ms1SpectraIndexedByZeroBasedScanNumber arrays </returns>
         public IEnumerable<TimsDataScan> GetMs1InfoScanByScan()
         {
             InitiateDynamicConnection();
@@ -261,36 +263,37 @@ namespace Readers
             FrameProxy frame;
             foreach (var ms1FrameId in Ms1FrameIds)
             {
+                frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
+                TimsDataScan dataScan = new TimsDataScan(
+                    massSpectrum: null,
+                    oneBasedScanNumber: -1, // This gets adjusted once all data has been read
+                    msnOrder: 1,
+                    isCentroid: true,
+                    polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+                    retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+                    scanWindowRange: ScanWindow,
+                    scanFilter: ScanFilter,
+                    mzAnalyzer: MZAnalyzerType.TOF,
+                    totalIonCurrent: -1,
+                    injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+                    noiseData: null,
+                    nativeId: null,
+                    frameId: frame.FrameId,
+                    scanNumberStart: 1,
+                    scanNumberEnd: numberOfScans,
+                    medianOneOverK0: -1,
+                    precursorId: null);
+
                 for (int scanNo = 1; scanNo <= numberOfScans; scanNo++)
                 {
-                    frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
                     var indices = frame.GetScanIndices(scanNo - 1);
                     var intensities = frame.GetScanIntensities(scanNo - 1);
-                    var mzIntensityArrayTuple = TofSpectraMerger.CollapseArrays(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
-                    var spectrum = TofSpectraMerger.CreateFilteredSpectrum(mzIntensityArrayTuple.Mzs, mzIntensityArrayTuple.Intensities);
-
-                    //TODO: This could be refactored to be more lightweight. We really don't need a huge scan object
-                    // just the spectrum and retention time. Additionally, it would be nice to use an object pool
-                    yield return new TimsDataScan(
-                        massSpectrum: spectrum,
-                        oneBasedScanNumber: -1, // This gets adjusted once all data has been read
-                        msnOrder: 1,
-                        isCentroid: true,
-                        polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
-                        retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
-                        scanWindowRange: ScanWindow,
-                        scanFilter: ScanFilter,
-                        mzAnalyzer: MZAnalyzerType.TOF,
-                        totalIonCurrent: -1,
-                        injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
-                        noiseData: null,
-                        nativeId: null,
-                        frameId: frame.FrameId,
-                        scanNumberStart: scanNo,
-                        scanNumberEnd: scanNo,
-                        medianOneOverK0: FrameProxyFactory.GetOneOverK0(scanNo),
-                        precursorId: null);
+                    // Individual scans are centroided by the instrument already, so no need to call the Collapse function
+                    var spectrum = TofSpectraMerger.CreateFilteredSpectrum(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
+                    dataScan.AddMs1Spectrum(spectrum, scanNo);
                 }
+
+                yield return dataScan;
             }
         }
 

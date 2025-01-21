@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using MzLibUtil.SparseMatrix;
 
 namespace FlashLFQ
 {
@@ -37,7 +38,9 @@ namespace FlashLFQ
 
             // read spectra file
             string fileName = fileInfo.FullFilePathWithExtension;
-            var reader = MsDataFileReader.GetDataFile(fileName); 
+            var reader = MsDataFileReader.GetDataFile(fileName);
+            if (reader is TimsTofFileReader)
+                return IndexTimsTofPeaks(fileInfo, silent, _ms1Scans);
             reader.LoadAllStaticData();
             // retrieve only the ms1s. 
             msDataScans = reader.GetMS1Scans().Where(i => i.MsnOrder == 1)
@@ -94,6 +97,32 @@ namespace FlashLFQ
             }
 
             return true;
+        }
+
+        public bool IndexTimsTofPeaks(TimsTofFileReader file, SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
+        {
+            
+            // create the indexed peaks array
+            _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
+
+            // foreach frame...
+            foreach(TimsDataScan ms1Scan in file.GetMs1InfoScanByScan())
+            {
+                // for each scan in the frame...
+                for (int scanIdx = 0; scanIdx < file.NumberOfScansPerFrame; scanIdx++)
+                {
+                    // for each peak in the spectrum
+                    for (int spectrumIdx = 0; spectrumIdx < ms1Scan.Ms1SpectraIndexedByZeroBasedScanNumber.Length; spectrumIdx++)
+                    {
+
+                    }
+                }
+            }
+            
+            
+            
+
+            return false;
         }
 
         public void ClearIndex()

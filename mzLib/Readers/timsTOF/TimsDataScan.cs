@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ThermoFisher.CommonCore.Data;
 
 namespace MassSpectrometry
 {
@@ -68,26 +69,35 @@ namespace MassSpectrometry
 
         internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
         {
-            MassSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(mzArrays, intensityArrays, filteringParams);
+            MassSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(MzArrays, IntensityArrays, filteringParams);
             TotalIonCurrent = MassSpectrum.SumOfAllY;
-            mzArrays.Clear();
-            intensityArrays.Clear();
+            MzArrays.Clear();
+            IntensityArrays.Clear();
         }
 
-        internal List<double[]> mzArrays;
-        internal List<int[]> intensityArrays;
+        internal List<double[]> MzArrays;
+        internal List<int[]> IntensityArrays;
 
         internal void AddComponentArrays(double[] mzs, int[] intensities)
         {
-            if (mzArrays == null)
+            if (MzArrays == null)
             {
-                mzArrays = new();
-                intensityArrays = new();
+                MzArrays = new();
+                IntensityArrays = new();
             }
-            mzArrays.Add(mzs);
-            intensityArrays.Add(intensities);
+            MzArrays.Add(mzs);
+            IntensityArrays.Add(intensities);
         }
 
+        public MzSpectrum[] Ms1SpectraIndexedByZeroBasedScanNumber { get; private set; }
 
-    }
+        public void AddMs1Spectrum(MzSpectrum spectrum, int scanNumber)
+        {
+            if (Ms1SpectraIndexedByZeroBasedScanNumber.IsNullOrEmpty())
+            {
+                Ms1SpectraIndexedByZeroBasedScanNumber = new MzSpectrum[ScanNumberEnd - ScanNumberStart + 1];
+            }
+            Ms1SpectraIndexedByZeroBasedScanNumber[scanNumber - ScanNumberStart] = spectrum;
+        }
+    }       
 }

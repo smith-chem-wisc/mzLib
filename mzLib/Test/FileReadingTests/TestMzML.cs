@@ -13,6 +13,8 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.AminoAcidPolymer;
 using Readers;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Easy.Common.Extensions;
+using MathNet.Numerics.Statistics;
 
 namespace Test.FileReadingTests
 {
@@ -749,6 +751,84 @@ namespace Test.FileReadingTests
 
             secondScan2.MassSpectrum.ReplaceXbyApplyingFunction((a) => 44);
             Assert.AreEqual(44, secondScan2.MassSpectrum.LastX);
+        }
+
+        [Test]
+        public void LocalTestForMzmlEquivalence()
+        {
+            MsDataFile j14_Averaged = MsDataFileReader.GetDataFile(@"D:\MetaMorpheusVignette\InstabilityInvestigation\02-17-20_jurkat_td_rep2_fract4-calib-averaged_1-14.mzML");
+            MsDataFile j16_Averaged = MsDataFileReader.GetDataFile(@"D:\MetaMorpheusVignette\InstabilityInvestigation\02-17-20_jurkat_td_rep2_fract4-calib-averaged_1-16.mzML");
+
+            j14_Averaged.LoadAllStaticData();
+            j16_Averaged.LoadAllStaticData();
+
+            List<MsDataScan> variableScans = new();
+            List<double> mzDiscrepancies = new();
+
+            for(int i = 0; i < j14_Averaged.Scans.Length; i++)
+            {
+                if (!j14_Averaged.Scans[i].MassSpectrum.Equals(j16_Averaged.Scans[i].MassSpectrum))
+                {
+                    variableScans.Add(j14_Averaged.Scans[i]);
+                    variableScans.Add(j16_Averaged.Scans[i]);
+                    if (j14_Averaged.Scans[i].MassSpectrum.Size != j16_Averaged.Scans[i].MassSpectrum.Size)
+                    {
+                        Console.WriteLine("Spectra sized differ by: " + (j14_Averaged.Scans[i].MassSpectrum.Size - j16_Averaged.Scans[i].MassSpectrum.Size));
+                        continue;
+                    }
+                        
+                    for (int j = 0; j < j14_Averaged.Scans[i].MassSpectrum.Size; j++)
+                    {
+                        if (j14_Averaged.Scans[i].MassSpectrum.XArray[j] != j16_Averaged.Scans[i].MassSpectrum.XArray[j])
+                            mzDiscrepancies.Add(Math.Abs(j14_Averaged.Scans[i].MassSpectrum.XArray[j] - j16_Averaged.Scans[i].MassSpectrum.XArray[j]));
+                    }
+                }
+            }
+
+            Console.WriteLine("Number of mismatched spectra: " + variableScans.Count / 2);
+            Console.WriteLine("Total number of spectra: " + j14_Averaged.Scans.Length);
+            Console.WriteLine("Median peak difference: " + mzDiscrepancies.Median());
+            Console.WriteLine("Max peak difference: " + mzDiscrepancies.Max());
+            Console.WriteLine("Total number of peak differences: " + mzDiscrepancies.Count);
+        }
+
+        [Test]
+        public void LocalTestForMzmlEquivalenceCalibratedFiles()
+        {
+            MsDataFile j14_Averaged = MsDataFileReader.GetDataFile(@"D:\MetaMorpheusVignette\InstabilityInvestigation\02-17-20_jurkat_td_rep2_fract4-calib_1-14.mzML");
+            MsDataFile j16_Averaged = MsDataFileReader.GetDataFile(@"D:\MetaMorpheusVignette\InstabilityInvestigation\02-17-20_jurkat_td_rep2_fract4-calib_1-16.mzML");
+
+            j14_Averaged.LoadAllStaticData();
+            j16_Averaged.LoadAllStaticData();
+
+            List<MsDataScan> variableScans = new();
+            List<double> mzDiscrepancies = new();
+
+            for (int i = 0; i < j14_Averaged.Scans.Length; i++)
+            {
+                if (!j14_Averaged.Scans[i].MassSpectrum.Equals(j16_Averaged.Scans[i].MassSpectrum))
+                {
+                    variableScans.Add(j14_Averaged.Scans[i]);
+                    variableScans.Add(j16_Averaged.Scans[i]);
+                    if (j14_Averaged.Scans[i].MassSpectrum.Size != j16_Averaged.Scans[i].MassSpectrum.Size)
+                    {
+                        Console.WriteLine("Spectra sized differ by: " + (j14_Averaged.Scans[i].MassSpectrum.Size - j16_Averaged.Scans[i].MassSpectrum.Size));
+                        continue;
+                    }
+
+                    for (int j = 0; j < j14_Averaged.Scans[i].MassSpectrum.Size; j++)
+                    {
+                        if (j14_Averaged.Scans[i].MassSpectrum.XArray[j] != j16_Averaged.Scans[i].MassSpectrum.XArray[j])
+                            mzDiscrepancies.Add(Math.Abs(j14_Averaged.Scans[i].MassSpectrum.XArray[j] - j16_Averaged.Scans[i].MassSpectrum.XArray[j]));
+                    }
+                }
+            }
+
+            Console.WriteLine("Number of mismatched spectra: " + variableScans.Count / 2);
+            Console.WriteLine("Total number of spectra: " + j14_Averaged.Scans.Length);
+            Console.WriteLine("Median peak difference: " + mzDiscrepancies.Median());
+            Console.WriteLine("Max peak difference: " + mzDiscrepancies.Max());
+            Console.WriteLine("Total number of peak differences: " + mzDiscrepancies.Count);
         }
 
         [Test]

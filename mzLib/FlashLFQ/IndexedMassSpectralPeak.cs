@@ -8,7 +8,7 @@ namespace FlashLFQ
         public readonly int ZeroBasedMs1ScanIndex;
         public readonly double Mz;
         public readonly double RetentionTime;
-        public readonly double Intensity;
+        public double Intensity { get; protected set; }
 
         public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
         {
