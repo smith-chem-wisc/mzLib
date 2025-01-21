@@ -31,18 +31,17 @@
             }
             switch (attemptToLocalize.LocationRestriction)
             {
+                    // Only the intact (undigested) terminus
                 case "N-terminal." when bioPolymerOneBasedIndex > 2:
-                case "Peptide N-terminal." when digestionProductOneBasedIndex > 1 || bioPolymerOneBasedIndex == 1:
-                case "C-terminal." when bioPolymerOneBasedIndex < sequence.Length:
-                case "Peptide C-terminal." when digestionProductOneBasedIndex < digestionProductLength || bioPolymerOneBasedIndex == sequence.Length:
                 case "5'-terminal." when bioPolymerOneBasedIndex > 2:
-                // first residue in oligo but not first in nucleic acid
-                case "Oligo 5'-terminal." when digestionProductOneBasedIndex > 1
-                                               || bioPolymerOneBasedIndex == 1:
+                case "C-terminal." when bioPolymerOneBasedIndex < sequence.Length:
                 case "3'-terminal." when bioPolymerOneBasedIndex < sequence.Length:
-                // not the last residue in oligo but not in nucleic acid
-                case "Oligo 3'-terminal." when digestionProductOneBasedIndex < digestionProductLength
-                                               || bioPolymerOneBasedIndex == sequence.Length:
+
+                    // All Digested Termini AND original undigested termini
+                case "Peptide N-terminal." when digestionProductOneBasedIndex > 1:
+                case "Oligo 5'-terminal." when digestionProductOneBasedIndex > 1:
+                case "Peptide C-terminal." when digestionProductOneBasedIndex < digestionProductLength:
+                case "Oligo 3'-terminal." when digestionProductOneBasedIndex < digestionProductLength:
                     return false;
 
                 default:
