@@ -39,6 +39,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\SingleEntry_ModOrder1.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\SingleEntry_ModOrder2.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\b_availableUniProtProteomes.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -304,6 +310,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\timsTOF_snippet.d\analysis.tdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\timsTOF_snippet.d\analysis.tdf_bin">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv">

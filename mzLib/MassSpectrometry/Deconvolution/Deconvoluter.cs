@@ -4,12 +4,6 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public enum DeconvolutionType
-    {
-        ClassicDeconvolution,
-        ExampleNewDeconvolutionTemplate,
-    }
-
     /// <summary>
     /// Context class for all deconvolution
     /// </summary>
@@ -26,9 +20,7 @@ namespace MassSpectrometry
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
             // set any specific deconvolution parameters found only in the MsDataScan
-
-            foreach (var isotopicEnvelope in Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom)) 
-                yield return isotopicEnvelope;
+            return Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
         }
 
         /// <summary>
@@ -43,36 +35,52 @@ namespace MassSpectrometry
         {
             rangeToGetPeaksFrom ??= spectrum.Range;
 
-            // set deconvolution algorithm 
-            DeconvolutionAlgorithm deconAlgorithm;
-            switch (deconvolutionParameters.DeconvolutionType)
-            {
-                case DeconvolutionType.ClassicDeconvolution:
-                    deconAlgorithm = new ClassicDeconvolutionAlgorithm(deconvolutionParameters);
-                    break;
-
-                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
-                    deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
-                    break;
-
-                default: throw new MzLibException("DeconvolutionType not yet supported");
-            }
-
             // Short circuit deconvolution if it is called on a neutral mass spectrum
             if (spectrum is NeutralMassSpectrum newt)
+                return DeconvoluteNeutralMassSpectrum(newt, rangeToGetPeaksFrom);
+
+            // set deconvolution algorithm 
+            DeconvolutionAlgorithm deconAlgorithm = CreateAlgorithm(deconvolutionParameters);
+
+            // Delegate deconvolution to the algorithm
+            return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
+        }
+
+        /// <summary>
+        /// Factory method to create the correct deconvolution algorithm from the parameters
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
+        /// <exception cref="MzLibException"></exception>
+        private static DeconvolutionAlgorithm CreateAlgorithm(DeconvolutionParameters parameters)
+        {
+            return parameters.DeconvolutionType switch
             {
-                for (int i = 0; i < newt.XArray.Length; i++)
+                DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(parameters),
+                DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(parameters),
+                DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(parameters),
+                _ => throw new MzLibException("DeconvolutionType not yet supported")
+            };
+        }
+
+        /// <summary>
+        /// Returns all peaks in the neutral mass spectrum as an isotopic envelope with a single peak
+        /// </summary>
+        /// <param name="neutralSpectrum"></param>
+        /// <param name="range"></param>
+        /// <returns></returns>
+        private static IEnumerable<IsotopicEnvelope> DeconvoluteNeutralMassSpectrum(NeutralMassSpectrum neutralSpectrum, MzRange range)
+        {
+            for (int i = 0; i < neutralSpectrum.XArray.Length; i++)
+            {
+                double neutralMass = neutralSpectrum.XArray[i];
+                double intensity = neutralSpectrum.YArray[i];
+                int chargeState = neutralSpectrum.Charges[i];
+
+                if (range.Contains(neutralMass.ToMz(chargeState)))
                 {
-                    // skip this peak if it's outside the range of interest (e.g. if we're only interested in deconvoluting a small m/z range)
-                    if (!rangeToGetPeaksFrom.Contains(newt.XArray[i].ToMz(newt.Charges[i])))
-                        continue; 
-                    yield return new IsotopicEnvelope(newt.XArray[i], newt.YArray[i], newt.Charges[i]);
+                    yield return new IsotopicEnvelope(neutralMass, intensity, chargeState);
                 }
-            }
-            else
-            {
-                foreach (var isotopicEnvelope in deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom)) 
-                    yield return isotopicEnvelope;
             }
         }
     }

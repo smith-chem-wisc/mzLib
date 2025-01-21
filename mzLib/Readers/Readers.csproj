@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
 		<Platforms>x64</Platforms>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -12,6 +13,7 @@
 		<PackageReference Include="OpenMcdf" Version="2.3.1" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.3.1" />
 		<PackageReference Include="System.Data.SQLite" Version="1.0.118" />
+		<PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -21,7 +23,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	
 		<Reference Include="ThermoFisher.CommonCore.BackgroundSubtraction">
 			<HintPath>Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
 		</Reference>
@@ -69,6 +70,18 @@
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.RawFileReader.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsdata.dll">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="timsdata.lib">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\baf2sql_c.dll">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="timsTOF\baf2sql_c.lib">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 

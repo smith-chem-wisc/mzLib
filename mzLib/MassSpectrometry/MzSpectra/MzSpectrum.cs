@@ -498,7 +498,7 @@ namespace MassSpectrometry
 
         public byte[] Get64BitXarray()
         {
-            return Get64Bitarray(XArray);
+            return Get64Bitarray(XArray.Select(x => Math.Round(x, 4, MidpointRounding.AwayFromZero)));
         }
 
         public override string ToString()
@@ -607,6 +607,26 @@ namespace MassSpectrometry
         public int GetClosestPeakIndex(double x)
         {
             return XArray.GetClosestIndex(x);
+        }
+
+        public List<int> GetPeakIndicesWithinTolerance(double x, Tolerance tolerance)
+        {
+            if (XArray.Length == 0)
+                return [];
+
+            // find min and max allowed
+            var minX = tolerance.GetMinimumValue(x);
+            var maxX = tolerance.GetMaximumValue(x);
+
+            // check if min and max are possible to find in this spectrum
+            if (XArray.First() > maxX || XArray.Last() < minX)
+                return [];
+
+            // find index closest to extrema
+            int startingIndex = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
+            int endIndex = XArray.GetClosestIndex(maxX, ArraySearchOption.Previous);
+
+            return Enumerable.Range(startingIndex, endIndex - startingIndex + 1).ToList();
         }
 
         public void ReplaceXbyApplyingFunction(Func<MzPeak, double> convertor)

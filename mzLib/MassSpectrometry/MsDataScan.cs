@@ -27,9 +27,29 @@ namespace MassSpectrometry
 {
     public class MsDataScan
     {
-        public MsDataScan(MzSpectrum massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer,
-            double totalIonCurrent, double? injectionTime, double[,] noiseData, string nativeId, double? selectedIonMz = null, int? selectedIonChargeStateGuess = null, double? selectedIonIntensity = null, double? isolationMZ = null,
-            double? isolationWidth = null, DissociationType? dissociationType = null, int? oneBasedPrecursorScanNumber = null, double? selectedIonMonoisotopicGuessMz = null, string hcdEnergy = null, string scanDescription = null)
+        public MsDataScan(MzSpectrum massSpectrum, 
+            int oneBasedScanNumber, 
+            int msnOrder, 
+            bool isCentroid, 
+            Polarity polarity, 
+            double retentionTime, 
+            MzRange scanWindowRange, 
+            string scanFilter, 
+            MZAnalyzerType mzAnalyzer,
+            double totalIonCurrent, 
+            double? injectionTime, 
+            double[,] noiseData, 
+            string nativeId, 
+            double? selectedIonMz = null, 
+            int? selectedIonChargeStateGuess = null, 
+            double? selectedIonIntensity = null, 
+            double? isolationMZ = null,
+            double? isolationWidth = null, 
+            DissociationType? dissociationType = null, 
+            int? oneBasedPrecursorScanNumber = null, 
+            double? selectedIonMonoisotopicGuessMz = null, 
+            string hcdEnergy = null,
+            string scanDescription = null)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             MsnOrder = msnOrder;
@@ -61,7 +81,7 @@ namespace MassSpectrometry
         /// </summary>
         public MzSpectrum MassSpectrum { get; protected set; }
 
-        public int OneBasedScanNumber { get; private set; }
+        public int OneBasedScanNumber { get; protected set; }
         public int MsnOrder { get; }
         public double RetentionTime { get; }
         public Polarity Polarity { get; }
@@ -70,7 +90,7 @@ namespace MassSpectrometry
         public string ScanFilter { get; }
         public string NativeId { get; private set; }
         public bool IsCentroid { get; }
-        public double TotalIonCurrent { get; }
+        public double TotalIonCurrent { get; protected set; }
         public double? InjectionTime { get; }
         public double[,] NoiseData { get; }
 
@@ -82,7 +102,7 @@ namespace MassSpectrometry
         public double? SelectedIonMZ { get; private set; } // May be adjusted by calibration
         public DissociationType? DissociationType { get; }
         public double? IsolationWidth { get; }
-        public int? OneBasedPrecursorScanNumber { get; private set; }
+        public int? OneBasedPrecursorScanNumber { get; protected set; }
         public double? SelectedIonMonoisotopicGuessIntensity { get; private set; } // May be refined
         public double? SelectedIonMonoisotopicGuessMz { get; private set; } // May be refined
         public string HcdEnergy { get; private set; }

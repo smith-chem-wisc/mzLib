@@ -802,5 +802,78 @@ namespace Test
 
             Assert.That(peptide.FullSequence == "PEPT[UniProt:acetylation on T]IDE");
         }
+
+        [Test]
+        public void CompareTo_SameModification_ReturnsZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentIdWithMotif_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod2", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentModificationType_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type2", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentTarget_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif1);
+            ModificationMotif.TryGetMotif("B", out var motif2);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif1, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type1", "feature1", motif2, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentLocationRestriction_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "C-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentMonoisotopicMass_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 101.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(null), Is.EqualTo(1));
+        }
     }
 }
