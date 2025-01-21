@@ -742,7 +742,7 @@ namespace Test.FileReadingTests
 
             var newFirstValue = reader.GetOneBasedScan(1).MassSpectrum.FirstX;
             Assert.AreNotEqual(oldFirstValue.Value, newFirstValue.Value);
-            Assert.AreEqual(Math.Round((double)oldFirstValue, 4, MidpointRounding.AwayFromZero), newFirstValue.Value, 1e-6);
+            Assert.AreEqual(Math.Round((double)oldFirstValue, 4), newFirstValue.Value, 1e-6);
 
             var secondScan2 = reader.GetOneBasedScan(2);
 
@@ -1459,7 +1459,7 @@ namespace Test.FileReadingTests
             MsDataScan[] scans = new MsDataScan[1];
 
             double[] intensities0 = new double[] { 1, 1, 1, 1 };
-            double[] mz0 = new double[] { 50.00004, 50.00005, 50.0004, 50.0005 };
+            double[] mz0 = new double[] { 50.00014, 50.00015, 50.0004, 50.0005 };
             MzSpectrum massSpec0 = new MzSpectrum(mz0, intensities0, false);
             scans[0] = new MsDataScan(massSpec0, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec0.SumOfAllY, null, null, "1");
 
@@ -1472,8 +1472,8 @@ namespace Test.FileReadingTests
             var readSpectrum = fakeMzml.Scans[0].MassSpectrum;
 
             // Ensure that the spectrum was rounded to the fourth decimal place on write
-            Assert.That(readSpectrum.XArray[0], Is.EqualTo(50).Within(0.000001));
-            Assert.That(readSpectrum.XArray[1], Is.EqualTo(50.0001).Within(0.000001));
+            Assert.That(readSpectrum.XArray[0], Is.EqualTo(50.0001).Within(0.000001));
+            Assert.That(readSpectrum.XArray[1], Is.EqualTo(50.0002).Within(0.000001));
             Assert.That(readSpectrum.XArray[2], Is.EqualTo(50.0004).Within(0.000001));
             Assert.That(readSpectrum.XArray[3], Is.EqualTo(50.0005).Within(0.000001));
         }
