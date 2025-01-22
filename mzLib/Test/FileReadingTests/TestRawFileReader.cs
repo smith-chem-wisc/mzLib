@@ -171,13 +171,13 @@ namespace Test.FileReadingTests
 
                 for (int j = 0; j < mzmlScan.MassSpectrum.XArray.Length; j++)
                 {
-                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 4, MidpointRounding.AwayFromZero);
+                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 4);
 
                     //  XArray is rounded to the 4th digit during CreateAndWrite
                     Assert.AreEqual(mzmlScan.MassSpectrum.XArray[j], roundedRawMz);
 
-                    double roundedMzmlIntensity = Math.Round(mzmlScan.MassSpectrum.XArray[j], 0, MidpointRounding.AwayFromZero);
-                    double roundedRawIntensity = Math.Round(rawScan.MassSpectrum.XArray[j], 0, MidpointRounding.AwayFromZero);
+                    double roundedMzmlIntensity = Math.Round(mzmlScan.MassSpectrum.XArray[j], 0);
+                    double roundedRawIntensity = Math.Round(rawScan.MassSpectrum.XArray[j], 0);
 
                     Assert.AreEqual(roundedMzmlIntensity, roundedRawIntensity);
                 }
