@@ -88,5 +88,11 @@ jobs:
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
     - name: Test
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MetaMorpheusInstaller
+        path: ./MetaMorpheus/MetaMorpheus/Bootstrapper/bin/x64/Debug/MetaMorpheusInstaller.exe
+
 
 
