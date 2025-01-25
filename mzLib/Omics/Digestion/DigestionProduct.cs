@@ -110,13 +110,25 @@ namespace Omics.Digestion
                         //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginning of the protein
                         if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
-                            if (mod.ModificationType == "Protease")
+                            if (mod.ModificationType == "Protease") // Protease N-terminal or 5' modification
                             {
                                 if (OneBasedStartResidue != 1)
                                     fixedModsOneIsNterminus[2] = mod;
                             }
+                            else if (OneBasedStartResidue == 1) // Modified BioPolymer Start Residue (e.g. Protein N-Terminal)
+                            {
+                                if (!fixedModsOneIsNterminus.TryAdd(1, mod)) // Check if a protein N-terminal mod is already present
+                                {
+                                    if (mod.LocationRestriction is "N-terminal." or "5'-terminal.") // Only overwrite if new mod is N-terminal, not peptide N-terminal
+                                    {
+                                        fixedModsOneIsNterminus[1] = mod;
+                                    }
+                                }
+                            }
                             else //Normal N-terminal peptide modification
+                            {
                                 fixedModsOneIsNterminus[1] = mod;
+                            }
                         }
                         break;
 
@@ -137,13 +149,25 @@ namespace Omics.Digestion
                         //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
                         if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
                         {
-                            if (mod.ModificationType == "Protease")
+                            if (mod.ModificationType == "Protease") // Protease N-terminal or 3' modification
                             {
                                 if (OneBasedEndResidue != Parent.Length)
                                     fixedModsOneIsNterminus[length + 1] = mod;
                             }
+                            else if (OneBasedEndResidue == Parent.Length) // Modified BioPolymer End Residue (e.g. Protein C-Terminal)
+                            {
+                                if (!fixedModsOneIsNterminus.TryAdd(length + 2, mod)) // Check if a protein C-terminal mod is already present
+                                {
+                                    if (mod.LocationRestriction is "C-terminal." or "3'-terminal.") // Only overwrite if new mod is C-terminal, not peptide C-terminal
+                                    {
+                                        fixedModsOneIsNterminus[length + 2] = mod;
+                                    }
+                                }
+                            }
                             else //Normal C-terminal peptide modification 
+                            {
                                 fixedModsOneIsNterminus[length + 2] = mod;
+                            }
                         }
                         break;
 
