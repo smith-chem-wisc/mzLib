@@ -92,7 +92,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MetaMorpheusInstaller
-        path: ./MetaMorpheus/MetaMorpheus/Bootstrapper/bin/x64/Debug/MetaMorpheusInstaller.exe
+        path: ./MetaMorpheus/MetaMorpheus/MetaMorpheusSetup/bin/Debug/MetaMorpheusInstaller.msi
         compression-level: 0
-
-
