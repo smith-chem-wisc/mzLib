@@ -93,6 +93,6 @@ jobs:
       with:
         name: MetaMorpheusInstaller
         path: ./MetaMorpheus/MetaMorpheus/Bootstrapper/bin/x64/Debug/MetaMorpheusInstaller.exe
-
+        compression-level: 0
 
 
