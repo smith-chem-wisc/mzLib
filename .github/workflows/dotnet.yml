@@ -88,9 +88,15 @@ jobs:
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
     - name: Test
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal
-    - name: Upload artifact
+    - name: Upload artifact (installer)
       uses: actions/upload-artifact@v4
       with:
         name: MetaMorpheusInstaller
         path: ./MetaMorpheus/MetaMorpheus/MetaMorpheusSetup/bin/Debug/MetaMorpheusInstaller.msi
         compression-level: 0
+    - name: Upload artifact (GUI)
+      uses: actions/upload-artifact@v4
+      with:
+        name: MetaMorpheusInstaller
+        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net8.0-windows/
+
