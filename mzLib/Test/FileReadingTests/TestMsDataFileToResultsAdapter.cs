@@ -137,7 +137,7 @@ namespace Test.FileReadingTests
                 Assert.That(readInScan.MsnOrder.Equals(writtenScan.MsnOrder));
                 Assert.That(readInScan.IsCentroid.Equals(writtenScan.IsCentroid));
                 Assert.That(readInScan.MassSpectrum.YArray, Is.EquivalentTo(writtenScan.MassSpectrum.YArray));
-                Assert.That(readInScan.MassSpectrum.XArray, Is.EquivalentTo(writtenScan.MassSpectrum.XArray.Select(x => Math.Round(x, 4))));
+                Assert.That(readInScan.MassSpectrum.XArray, Is.EquivalentTo(writtenScan.MassSpectrum.XArray));
             }
 
             File.Delete(outfile);
