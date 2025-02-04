@@ -1,6 +1,5 @@
 ﻿using Easy.Common.Extensions;
 using MathNet.Numerics.Statistics;
-using Microsoft.FSharp.Linq.RuntimeHelpers;
 using System;
 using System.Collections.Generic;
 using System.Data.Entity.Core.Objects.DataClasses;
