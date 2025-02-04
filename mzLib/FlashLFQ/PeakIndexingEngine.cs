@@ -26,6 +26,13 @@ namespace FlashLFQ
             _serializer = new Serializer(messageTypes);
         }
 
+        /// <summary>
+        /// Try to index the mass spectral peaks in the given spectra file. Group the peaks by their m/z within the same bin. Then store the peaks information (intensity and retentionTime) in the indexedPeaks array. All result will be stored in the _indexedPeaks.
+        /// </summary>
+        /// <param name="fileInfo"></param>
+        /// <param name="silent"></param>
+        /// <param name="_ms1Scans"></param>
+        /// <returns></returns>
         public bool IndexMassSpectralPeaks(SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
         {
             if (!silent)
@@ -81,7 +88,10 @@ namespace FlashLFQ
                 scanIndex++;
             }
 
-            _ms1Scans.Add(fileInfo, scanInfo.ToArray());
+            if (!_ms1Scans.ContainsKey(fileInfo)) 
+            {
+                _ms1Scans.Add(fileInfo, scanInfo.ToArray());
+            }
 
             if (_indexedPeaks == null || _indexedPeaks.Length == 0)
             {
@@ -92,7 +102,6 @@ namespace FlashLFQ
 
                 return false;
             }
-
             return true;
         }
 
@@ -112,7 +121,6 @@ namespace FlashLFQ
                     _indexedPeaks[i] = null;
                 }
             }
-
             GC.Collect();
         }
 
