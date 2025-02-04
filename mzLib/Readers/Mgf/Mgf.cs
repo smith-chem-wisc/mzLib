@@ -35,8 +35,6 @@ namespace Readers
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             List<MsDataScan> scans = new List<MsDataScan>();
             HashSet<int> checkForDuplicateScans = new HashSet<int>();
 
@@ -122,7 +120,6 @@ namespace Readers
             {
                 throw new FileNotFoundException();
             }
-            Loaders.LoadElements();
             _streamReader = new StreamReader(FilePath);
 
             BuildIndex();

@@ -155,8 +155,6 @@ namespace Readers
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             SourceFile = GetSourceFile();
 
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
@@ -686,7 +684,6 @@ namespace Readers
                 throw new InvalidDataException();
             }
 
-            Loaders.LoadElements();
             reader = new StreamReader(FilePath);
 
             ScanNumberToByteOffset = new Dictionary<int, long>();

@@ -618,7 +618,6 @@ namespace Test
         {
             string testSequenceForThisTest = "PEPTIDEa";
 
-            Loaders.LoadElements();
             Residue x = new Residue("a", 'a', "a", new ChemicalFormula(), ModificationSites.All); 
             Residue.AddNewResiduesToDictionary(new List<Residue> { x });
 

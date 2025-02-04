@@ -191,8 +191,6 @@ namespace TestFlashLFQ
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.033, 1.035, 1.04, 1.045, 1.05 };
             double[] file2Rt = new double[] { 1.00, 1.025, 1.03, 1.031, 1.035, 1.04, 1.055, 1.07 };
 
-            Loaders.LoadElements();
-
             // generate mzml files (5 peptides each)
             for (int f = 0; f < filesToWrite.Count; f++)
             {
