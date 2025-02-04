@@ -14,28 +14,9 @@ using System.Runtime.CompilerServices;
 using System.IO;
 using Easy.Common.Extensions;
 using FlashLFQ.PEP;
-using System.IO;
-using System.Threading;
-using pepXML.Generated;
 using FlashLFQ.Alex_project;
-using MathNet.Numerics.LinearAlgebra.Factorization;
-using System.Data.Entity.Core.Objects.DataClasses;
-using static System.Formats.Asn1.AsnWriter;
-using System.Runtime;
-using System.Collections.Immutable;
-using MathNet.Numerics;
-using System.Diagnostics.Metrics;
-using System.ComponentModel;
-using Readers.Generated;
-using MassSpectrometry;
-using Plotly.NET;
-using Plotly.NET.CSharp;
-using Chart = Plotly.NET.CSharp.Chart;
-using GenericChartExtensions = Plotly.NET.CSharp.GenericChartExtensions;
-using Plotly.NET.LayoutObjects;
-using Plotly.NET.TraceObjects;
-using System.Drawing;
-using Color = Plotly.NET.Color;
+
+
 
 
 
@@ -369,61 +350,6 @@ namespace FlashLFQ
                         capRatio = ActualCount / TherothicalCount;
                         captureRatio[id.ModifiedSequence] = (TherothicalCount, ActualCount, capRatio);
                         IsobaricPeakInDifferentRun[id.ModifiedSequence] = peakPairChorm;
-
-                        if (peakPairChorm.Count != -1)
-                        {
-                            List<GenericChart> plots = new List<GenericChart>();
-                            List<ColorKeyword> colorKeywords = new List<ColorKeyword> { ColorKeyword.Red, ColorKeyword.Blue, ColorKeyword.Green, ColorKeyword.Orange, ColorKeyword.Purple, ColorKeyword.Pink, ColorKeyword.Brown, ColorKeyword.Cyan, ColorKeyword.Magenta, ColorKeyword.Gray, ColorKeyword.Black };
-                            int index = 0;
-
-                            foreach (var xic in xICGroups.XICs) 
-                            {
-                                var plot = Chart.Combine(new[]
-                                {
-                            Chart.Line<double, double, string>(xic.Ms1Peaks.Select(p=> p.RetentionTime).ToList(), xic.Ms1Peaks.Select(p=> p.Intensity).ToList(), Name: "Raw plot" + xic.SpectraFile.ToString(),
-                             MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(colorKeywords[index])),
-
-                        }) 
-                                .WithSize(1600, 400);
-                                plots.Add(plot);
-                                index++;
-                            }
-
-                            foreach (var xic in xICGroups.XICs)
-                            {
-                                var plot = Chart.Combine(new[]
-                                {
-                            Chart.Line<double, double, string>(xic.SmoothedRetentionTime.ToList(), xic.SmoothedIntensity.ToList(), Name: "Smoothed plot" + xic.SpectraFile.ToString(),
-                             MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(colorKeywords[index])),
-
-                        })
-                                .WithSize(1600, 400);
-                                plots.Add(plot);
-                                index++;
-                            }
-
-                            var PlotRef = Chart.Combine(new[]
-                                {
-                            Chart.Line<double, double, string>(xICGroups.reference.SmoothedRetentionTime, xICGroups.reference.SmoothedIntensity, Name: "Reference" + xICGroups.reference.SpectraFile.ToString(),
-                             MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(colorKeywords[index])),
-                            Chart.Point<double, double, string>(xICGroups.ExtremaInRef.Keys.ToList(), xICGroups.ExtremaInRef.Values.ToList(), Name: "sharedExtre"
-                            ,MarkerSymbol: StyleParam.MarkerSymbol.Circle, MarkerColor: Color.fromKeyword(ColorKeyword.Black))
-
-                        })
-                                .WithSize(1600, 400);
-                            plots.Add(PlotRef);
-
-                            var stacked = Chart.Grid(plots, plots.Count(), 1)
-                    .WithTitle(id.ToString() + "   monoMass : "+ id.MonoisotopicMass)
-                    .WithXAxisStyle<double, double, string>(Title: Title.init("Retention Times (min)"))
-                    .WithYAxisStyle<double, double, string>(Title: Title.init("Intensities"))
-                    .WithSize(1600, 400 * plots.Count());
-                            GenericChartExtensions.Show(stacked);
-                        }
-
-
-
-
                         int iii = 0;
 
 
