@@ -31,8 +31,6 @@ namespace Test
         [OneTimeSetUp]
         public void Setup()
         {
-            Loaders.LoadElements();
-
             Assert.That(Thread.CurrentThread.CurrentCulture == CultureInfo.InvariantCulture);
             Assert.That(Thread.CurrentThread.CurrentUICulture == CultureInfo.InvariantCulture);
         }
