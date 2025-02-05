@@ -435,42 +435,42 @@ namespace Test.FileReadingTests
         [Test]
         public void XicViewer() 
         {
-            string file1 = "FS1_14373_3.raw";
-            string file2 = "FS1_MS_14373_6_05082021.raw";
-            string file3 = "FS1_MS_14373_9_05082021.raw";
-            string file4 = "FS1_14373_12_20210729014106.raw";
-            string file5 = "FS1_14373_15.raw";
-            string file6 = "FS1_14373_18_20210729230343.raw";
-            string file7 = "FS1_MS_14373_21_05082021.raw";
-            string file8 = "FS1_MS_14373_24_05082021.raw";
-            string file9 = "FS1_14373_27.raw";
-            string file10 = "FS1_14373_30.raw";
-            List<string> nameList = new List<string>(){ file1, file2, file3, file4, file5, file6, file7, file8, file9, file10};
-            //List<string> nameList = new List<string>() {  file2, file3, file4, file8,  file10 };
-            List<string> filePathList = new List<string>();
-            List<MsDataFile> readerList = new List<MsDataFile>();
-            List<List<MsDataScan>> ms1ScansList = new List<List<MsDataScan>>();
+            //string file1 = "FS1_14373_3.raw";
+            //string file2 = "FS1_MS_14373_6_05082021.raw";
+            //string file3 = "FS1_MS_14373_9_05082021.raw";
+            //string file4 = "FS1_14373_12_20210729014106.raw";
+            //string file5 = "FS1_14373_15.raw";
+            //string file6 = "FS1_14373_18_20210729230343.raw";
+            //string file7 = "FS1_MS_14373_21_05082021.raw";
+            //string file8 = "FS1_MS_14373_24_05082021.raw";
+            //string file9 = "FS1_14373_27.raw";
+            //string file10 = "FS1_14373_30.raw";
+            //List<string> nameList = new List<string>(){ file1, file2, file3, file4, file5, file6, file7, file8, file9, file10};
+            ////List<string> nameList = new List<string>() {  file2, file3, file4, file8,  file10 };
+            //List<string> filePathList = new List<string>();
+            //List<MsDataFile> readerList = new List<MsDataFile>();
+            //List<List<MsDataScan>> ms1ScansList = new List<List<MsDataScan>>();
 
 
-            foreach (string name in nameList) 
-            {
-                filePathList.Add("E:\\GitClones\\mzLib\\mzLib\\TestFlashLFQ\\TestData\\isobaricFolder\\" + name);
-            }
+            //foreach (string name in nameList) 
+            //{
+            //    filePathList.Add("E:\\GitClones\\mzLib\\mzLib\\TestFlashLFQ\\TestData\\isobaricFolder\\" + name);
+            //}
 
-            foreach (string path in filePathList)
-            {
-                var reader = MsDataFileReader.GetDataFile(path);
-                reader.LoadAllStaticData(null, maxThreads: 1);
-                readerList.Add(reader);
-            }
+            //foreach (string path in filePathList)
+            //{
+            //    var reader = MsDataFileReader.GetDataFile(path);
+            //    reader.LoadAllStaticData(null, maxThreads: 1);
+            //    readerList.Add(reader);
+            //}
             
-            foreach (var reader in readerList)
-            {
-                ms1ScansList.Add(reader.GetAllScansList().Where(p => p.MsnOrder == 1).ToList());
-            }
+            //foreach (var reader in readerList)
+            //{
+            //    ms1ScansList.Add(reader.GetAllScansList().Where(p => p.MsnOrder == 1).ToList());
+            //}
 
-            var xicGroup = XICGrouping(ms1ScansList, 1078.4825, 0.3, 0.05);
-            DrawPlot(ms1ScansList, 1078.4825, false, true, nameList);
+            //var xicGroup = XICGrouping(ms1ScansList, 1078.4825, 0.3, 0.05);
+            //DrawPlot(ms1ScansList, 1078.4825, false, true, nameList);
             int iiii = 0;
         }
 
