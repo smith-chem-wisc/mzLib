@@ -51,35 +51,7 @@ namespace FlashLFQ
                 return false;
             }
 
-            _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
-                && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
-
-            int scanIndex = 0;
-            List<Ms1ScanInfo> scanInfo = new List<Ms1ScanInfo>();
-
-            for (int i = 0; i < msDataScans.Length; i++)
-            {
-                if (msDataScans[i] == null)
-                {
-                    continue;
-                }
-
-                scanInfo.Add(new Ms1ScanInfo(msDataScans[i].OneBasedScanNumber, scanIndex, msDataScans[i].RetentionTime));
-
-                for (int j = 0; j < msDataScans[i].MassSpectrum.XArray.Length; j++)
-                {
-                    int roundedMz = (int)Math.Round(msDataScans[i].MassSpectrum.XArray[j] * BinsPerDalton, 0);
-                    if (_indexedPeaks[roundedMz] == null)
-                    {
-                        _indexedPeaks[roundedMz] = new List<IndexedMassSpectralPeak>();
-                    }
-
-                    _indexedPeaks[roundedMz].Add(new IndexedMassSpectralPeak(msDataScans[i].MassSpectrum.XArray[j],
-                        msDataScans[i].MassSpectrum.YArray[j], scanIndex, msDataScans[i].RetentionTime));
-                }
-
-                scanIndex++;
-            }
+            _indexedPeaks = peakIndexing(msDataScans, out List<Ms1ScanInfo> scanInfo);
 
             _ms1Scans.Add(fileInfo, scanInfo.ToArray());
 
@@ -94,6 +66,39 @@ namespace FlashLFQ
             }
 
             return true;
+        }
+
+        public static List<IndexedMassSpectralPeak>[] peakIndexing(MsDataScan[] msDataScans, out List<Ms1ScanInfo> scanInfo)
+        {
+            List<IndexedMassSpectralPeak>[] indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
+                           && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
+
+            int scanIndex = 0;
+            scanInfo = new List<Ms1ScanInfo>();
+
+            for (int i = 0; i < msDataScans.Length; i++)
+            {
+                if (msDataScans[i] == null)
+                {
+                    continue;
+                }
+                scanInfo.Add(new Ms1ScanInfo(msDataScans[i].OneBasedScanNumber, scanIndex, msDataScans[i].RetentionTime));
+
+                for (int j = 0; j < msDataScans[i].MassSpectrum.XArray.Length; j++)
+                {
+                    int roundedMz = (int)Math.Round(msDataScans[i].MassSpectrum.XArray[j] * BinsPerDalton, 0);
+                    if (indexedPeaks[roundedMz] == null)
+                    {
+                        indexedPeaks[roundedMz] = new List<IndexedMassSpectralPeak>();
+                    }
+
+                    indexedPeaks[roundedMz].Add(new IndexedMassSpectralPeak(msDataScans[i].MassSpectrum.XArray[j],
+                                               msDataScans[i].MassSpectrum.YArray[j], scanIndex, msDataScans[i].RetentionTime));
+                }
+                scanIndex++;
+            }
+
+            return indexedPeaks;
         }
 
         public void ClearIndex()
