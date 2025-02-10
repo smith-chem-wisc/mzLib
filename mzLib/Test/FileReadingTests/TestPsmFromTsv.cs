@@ -8,7 +8,6 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
-using Proteomics;
 using Readers;
 
 namespace Test.FileReadingTests
@@ -76,7 +75,6 @@ namespace Test.FileReadingTests
             }
 
             Assert.AreEqual(1, localGlycans.Count);
-
         }
 
         [Test]
@@ -188,7 +186,7 @@ namespace Test.FileReadingTests
 
             // psm with two mods on the same amino acid
             string fullSeq = "[Common Fixed:Carbamidomethyl on C]|[UniProt:N-acetylserine on S]KPRKIEEIKDFLLTARRKDAKSVKIKKNKDNVKFK";
-            modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(fullSeq);
+            modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(fullSeq, true, true);
             Assert.That(modDict.Count == 1);
             Assert.That(modDict.ContainsKey(0));
             Assert.That(modDict[0].Count == 2);
