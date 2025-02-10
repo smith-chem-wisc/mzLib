@@ -91,8 +91,6 @@ namespace MzLibUtil
     }
     public class PositionFrequencyAnalysis
     {
-        // TODO: Write PeptideToProteinPTMOccupancy which takes a dictionary of ProteinAccession:ProteinSequence for determining index offsets to the peptide modification indices. 
-
         /// <summary>
         /// Calculates the occupancy of post-translational modifications at the peptide level. 
         /// </summary>

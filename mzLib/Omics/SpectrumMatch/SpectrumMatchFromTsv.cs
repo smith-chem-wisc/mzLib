@@ -99,9 +99,9 @@ namespace Omics.SpectrumMatch
         /// <param name="IncludeNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
         /// <param name="IncludeCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(string fullSeq, bool IncludeNTerminus=true, bool IncludeCTerminus=true)
+        public static Dictionary<int, List<string>> ParseModifications(string fullSeq, bool modOnNTerminus=true, bool modOnCTerminus=true)
         {
-            return fullSeq.ParseModifications(IncludeNTerminus, IncludeCTerminus);
+            return fullSeq.ParseModifications(modOnNTerminus, modOnCTerminus);
         }
 
         /// <summary>

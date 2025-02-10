@@ -44,7 +44,9 @@ namespace MzLibUtil
             //int patternMatches = regex.Matches(fullSequence).Count;
             Dictionary<int, List<string>> modDict = new();
 
-            MatchCollection matches = regex.Matches(fullSequence);
+            string fullSeq = fullSequence;
+            RemoveSpecialCharacters(ref fullSeq);
+            MatchCollection matches = regex.Matches(fullSeq);
             int captureLengthSum = 0;
             foreach (Match match in matches)
             {
@@ -69,7 +71,7 @@ namespace MzLibUtil
                 }
 
                 // Handle C terminus indexing
-                if ((fullSequence.Length == startIndex + captureLength) && modOnCTerminus)
+                if ((fullSeq.Length == startIndex + captureLength) && modOnCTerminus)
                 {
                     positionToAddToDict++;
                 }

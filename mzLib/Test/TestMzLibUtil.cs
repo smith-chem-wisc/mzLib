@@ -154,8 +154,10 @@ namespace Test
                 peptides.Add(Tuple.Create(seq, baseSeq, pgs, 1.0));
             }
 
-            var occupancy = PositionFrequencyAnalysis.PeptidePTMOccupancy(peptides);
-
+            PositionFrequencyAnalysis pfa = new PositionFrequencyAnalysis();
+            pfa.PeptidePTMOccupancy(peptides);
+            var occupancy = pfa.Occupancy;  
+              
             Assert.That(6.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[0]["UniProt: N - acetylglutamate on E"].Intensity);
             Assert.That(1.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[10]["Metal: Calcium on D"].Intensity);
             Assert.That(1.0 == occupancy["pg1"].Proteins["pg1"].Peptides[baseSeq].ModifiedAminoAcidPositions[10]["Metal: Sodium on D"].Intensity);
