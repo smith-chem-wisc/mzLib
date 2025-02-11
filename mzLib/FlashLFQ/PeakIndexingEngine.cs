@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.ML.Trainers;
 
 namespace FlashLFQ
 {
@@ -145,23 +146,10 @@ namespace FlashLFQ
             File.Delete(indexPath);
         }
 
-        public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState)
-        {
-            IndexedMassSpectralPeak bestPeak = SearchPeakFromScan(zeroBasedScanIndex, theorMass.ToMz(chargeState), tolerance);
+        public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState) => 
+            GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, tolerance);
 
-            if (bestPeak != null)
-            {
-                double expMass = bestPeak.Mz.ToMass(chargeState);
-                if (!tolerance.Within(expMass, theorMass))
-                {
-                    bestPeak = null;
-                }
-            }
-            
-            return bestPeak;
-        }
-
-        public IndexedMassSpectralPeak SearchPeakFromScan(int zeroBasedScanIndex, double mz, Tolerance tolerance)
+        public IndexedMassSpectralPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, Tolerance tolerance)
         {
             IndexedMassSpectralPeak bestPeak = null;
             int ceilingMz = (int)Math.Ceiling(tolerance.GetMaximumValue(mz) * BinsPerDalton);
@@ -183,7 +171,7 @@ namespace FlashLFQ
                             break;
                         }
 
-                        if (peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
+                        if (tolerance.Within(peak.Mz, mz) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
                         {
                             bestPeak = peak;
                         }
