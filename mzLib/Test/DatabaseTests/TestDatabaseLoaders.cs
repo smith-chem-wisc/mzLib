@@ -115,6 +115,30 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        [TestCase("proteinEntryLipidMoietyBindingRegion.xml", DecoyType.Reverse)]
+        public void LoadingLipidAsMod(string fileName, DecoyType decoyType)
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            // Load in proteins
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", fileName);
+            List<Protein> proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, UniProtPtms, false, null, out var unknownModifications);
+            List<Protein> proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, UniProtPtms, false, null, out unknownModifications);
+
+            // check are equivalent lists of proteins
+            Assert.AreEqual(proteins1.Count, proteins2.Count);
+            // Because decoys are sorted before they are returned, the order should be identical
+            Assert.AreEqual(proteins1, proteins2);
+            var oneBasedPossibleLocalizedModifications = proteins1[0].OneBasedPossibleLocalizedModifications[36];
+            var firstMod = oneBasedPossibleLocalizedModifications.First();
+            Assert.AreEqual("LIPID", firstMod.FeatureType);
+            Assert.AreEqual("Anywhere.", firstMod.LocationRestriction);
+            Assert.AreEqual("S-palmitoyl cysteine on C", firstMod.IdWithMotif);
+        }
+
+        [Test]
         public static void LoadModWithNl()
         {
             var hah = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cfInNL.txt"), out var errors).First() as Modification;
