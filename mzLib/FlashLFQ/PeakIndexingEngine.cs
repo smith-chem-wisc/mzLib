@@ -149,11 +149,15 @@ namespace FlashLFQ
         {
             IndexedMassSpectralPeak bestPeak = SearchPeakFromScan(_indexedPeaks, zeroBasedScanIndex, theorMass.ToMz(chargeState), tolerance);
 
-            double expMass = bestPeak.Mz.ToMass(chargeState);
-            if (!tolerance.Within(expMass, theorMass))
+            if (bestPeak != null)
             {
-                bestPeak = null;
+                double expMass = bestPeak.Mz.ToMass(chargeState);
+                if (!tolerance.Within(expMass, theorMass))
+                {
+                    bestPeak = null;
+                }
             }
+            
             return bestPeak;
         }
 
