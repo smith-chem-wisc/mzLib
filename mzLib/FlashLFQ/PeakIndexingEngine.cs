@@ -147,7 +147,7 @@ namespace FlashLFQ
 
         public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState)
         {
-            IndexedMassSpectralPeak bestPeak = SearchPeakFromScan(_indexedPeaks, zeroBasedScanIndex, theorMass.ToMz(chargeState), tolerance);
+            IndexedMassSpectralPeak bestPeak = SearchPeakFromScan(zeroBasedScanIndex, theorMass.ToMz(chargeState), tolerance);
 
             if (bestPeak != null)
             {
@@ -161,7 +161,7 @@ namespace FlashLFQ
             return bestPeak;
         }
 
-        public static IndexedMassSpectralPeak SearchPeakFromScan(List<IndexedMassSpectralPeak>[] indexedPeaks, int zeroBasedScanIndex, double mz, Tolerance tolerance)
+        public IndexedMassSpectralPeak SearchPeakFromScan(int zeroBasedScanIndex, double mz, Tolerance tolerance)
         {
             IndexedMassSpectralPeak bestPeak = null;
             int ceilingMz = (int)Math.Ceiling(tolerance.GetMaximumValue(mz) * BinsPerDalton);
@@ -169,9 +169,9 @@ namespace FlashLFQ
 
             for (int j = floorMz; j <= ceilingMz; j++)
             {
-                if (j < indexedPeaks.Length && indexedPeaks[j] != null)
+                if (j < _indexedPeaks.Length && _indexedPeaks[j] != null)
                 {
-                    List<IndexedMassSpectralPeak> bin = indexedPeaks[j];
+                    List<IndexedMassSpectralPeak> bin = _indexedPeaks[j];
                     int index = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
 
                     for (int i = index; i < bin.Count; i++)
