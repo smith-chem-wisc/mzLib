@@ -163,6 +163,9 @@ namespace Test.FileReadingTests
 
             theSpectrum.SetIsolationMz(42);
             Assert.AreEqual(42, theSpectrum.IsolationMz);
+
+            theSpectrum.SetMsnOrder(2);
+            Assert.AreEqual(2, theSpectrum.MsnOrder);
         }
 
         [Test]
