@@ -14,7 +14,6 @@ using ThermoFisher.CommonCore.Data.Business;
 using Polarity = MassSpectrometry.Polarity;
 using System.Security.AccessControl;
 using System.Collections.Concurrent;
-using MzLibUtil.SparseMatrix;
 
 namespace Readers
 { 

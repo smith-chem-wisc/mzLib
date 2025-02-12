@@ -7,10 +7,12 @@ using System.Threading.Tasks;
 namespace FlashLFQ
 {
     [Serializable]
-    internal class IndexedTimsTofPeak : IndexedMassSpectralPeak
+    public class IndexedTimsTofPeak : IndexedMassSpectralPeak
     {
         public List<IonMobilityPeak> IonMobilityPeaks { get; init; }
         public int ZeroBasedMs1FrameIndex => ZeroBasedMs1ScanIndex;
+
+        public Dictionary<Identification, (int, int)> ImsScanIndices { internal get; set; }
 
         /// <summary>
         /// Stores the information associated with a specific m/z value in one timsTOF frame
@@ -28,6 +30,7 @@ namespace FlashLFQ
             // Set initial size to 32 to minimize resizing
             IonMobilityPeaks = new List<IonMobilityPeak>(32);
             IonMobilityPeaks.Add(ionMobilityPeak);
+            ImsScanIndices = new();
         }
 
         /// <summary>
@@ -67,10 +70,10 @@ namespace FlashLFQ
     /// This struct does not store information about the m/z of the peak!
     /// </summary>
     [Serializable]
-    internal readonly struct IonMobilityPeak(int oneBasedTimsScanNumber, double intensity)
+    public readonly struct IonMobilityPeak(int oneBasedTimsScanNumber, double intensity)
     {
-        public readonly int OneBasedTimsScanNumber { get; } = oneBasedTimsScanNumber;
-        public readonly double Intensity { get; } = intensity;
+        public int OneBasedTimsScanNumber { get; } = oneBasedTimsScanNumber;
+        public double Intensity { get; } = intensity;
     }
 
 }

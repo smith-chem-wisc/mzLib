@@ -14,7 +14,7 @@ using Test.FileReadingTests;
 using UsefulProteomicsDatabases;
 
 
-namespace TestFlashLFQ
+namespace Test
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

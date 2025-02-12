@@ -7,8 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using MzLibUtil.SparseMatrix;
-
 namespace FlashLFQ
 {
     public class PeakIndexingEngine
@@ -56,7 +54,7 @@ namespace FlashLFQ
             
             if (!msDataScans.Any(p => p != null))
             {
-                _indexedPeaks = new List<IndexedMassSpectralPeak>[0];
+                _indexedPeaks = Array.Empty<List<IndexedMassSpectralPeak>>();
                 return false;
             }
 

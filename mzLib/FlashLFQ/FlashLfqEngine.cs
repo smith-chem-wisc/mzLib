@@ -1810,6 +1810,85 @@ namespace FlashLFQ
             return xic;
         }
 
+        internal List<IndexedTimsTofPeak> TrimXic(List<IndexedTimsTofPeak> rawXic, Identification id)
+        {
+            var apexITTPeak = rawXic.MaxBy(p => p.Intensity);
+
+
+            return rawXic;
+        }
+
+        //private bool ShouldCutPeak(ChromatographicPeak peak)
+        //{
+        //    List<ISeparable> timePointsForApexZ = peak.IsotopicEnvelopes
+        //        .Where(p => p.ChargeState == peak.Apex.ChargeState)
+        //        .Cast<ISeparable>()
+        //        .ToList();
+
+        //    HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.ZeroBasedScanIndex));
+        //    int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
+        //    ISeparable valleyEnvelope = null;
+
+        //    // -1 checks the left side, +1 checks the right side
+        //    int[] directions = { 1, -1 };
+
+        //    foreach (int direction in directions)
+        //    {
+        //        valleyEnvelope = null;
+        //        int indexOfValley = 0;
+
+        //        for (int i = apexIndex + direction; i < timePointsForApexZ.Count && i >= 0; i += direction)
+        //        {
+        //            ISeparable timepoint = timePointsForApexZ[i];
+
+        //            if (valleyEnvelope == null || timepoint.Intensity < valleyEnvelope.Intensity)
+        //            {
+        //                valleyEnvelope = timepoint;
+        //                indexOfValley = timePointsForApexZ.IndexOf(valleyEnvelope);
+        //            }
+
+        //            double discriminationFactor =
+        //                (timepoint.Intensity - valleyEnvelope.Intensity) / timepoint.Intensity;
+
+        //            if (discriminationFactor > DiscriminationFactorToCutPeak &&
+        //                (indexOfValley + direction < timePointsForApexZ.Count && indexOfValley + direction >= 0))
+        //            {
+        //                ISeparable secondValleyTimepoint = timePointsForApexZ[indexOfValley + direction];
+
+        //                discriminationFactor =
+        //                    (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
+
+        //                if (discriminationFactor > DiscriminationFactorToCutPeak)
+        //                {
+        //                    return true;
+        //                }
+
+        //                int nextMs1ScanNum = -1;
+
+        //                for (int j = valleyEnvelope.IndexedPeak.ZeroBasedMs1ScanIndex - 1;
+        //                    j < _ms1Scans[peak.SpectraFileInfo].Length && j >= 0;
+        //                    j += direction)
+        //                {
+        //                    if (_ms1Scans[peak.SpectraFileInfo][j].OneBasedScanNumber >= 0 &&
+        //                        _ms1Scans[peak.SpectraFileInfo][j].OneBasedScanNumber !=
+        //                        valleyEnvelope.IndexedPeak.ZeroBasedMs1ScanIndex)
+        //                    {
+        //                        nextMs1ScanNum = j + 1;
+        //                        break;
+        //                    }
+        //                }
+
+        //                if (!scanNumbers.Contains(nextMs1ScanNum))
+        //                {
+        //                    return true;
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    return false;
+        //}
+
         /// <summary>
         /// Recursively cuts ChromatographicPeaks, removing all IsotopicEnvelopes
         /// that occur before or after potential "valleys" surrounding the identification's
@@ -1827,6 +1906,7 @@ namespace FlashLFQ
             {
                 return;
             }
+
 
             List<IsotopicEnvelope> timePointsForApexZ = peak.IsotopicEnvelopes
                 .Where(p => p.ChargeState == peak.Apex.ChargeState).ToList();
