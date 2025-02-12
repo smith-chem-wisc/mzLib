@@ -99,5 +99,5 @@ namespace MassSpectrometry
             }
             Ms1SpectraIndexedByZeroBasedScanNumber[scanNumber - ScanNumberStart] = spectrum;
         }
-    }       
+    }
 }

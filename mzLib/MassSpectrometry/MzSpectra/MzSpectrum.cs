@@ -501,7 +501,7 @@ namespace MassSpectrometry
 
         public byte[] Get64BitXarray()
         {
-            return Get64Bitarray(XArray);
+            return Get64Bitarray(XArray.Select(x => Math.Round(x, 4)));
         }
 
         public override string ToString()

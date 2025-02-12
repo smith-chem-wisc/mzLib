@@ -203,6 +203,7 @@ namespace Test.FileReadingTests
               reader.LoadAllStaticData());
         }
 
+
         [Test]
         public void TestLoadAllStaticData()
         {

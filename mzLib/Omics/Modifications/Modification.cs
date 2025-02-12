@@ -1,10 +1,5 @@
 ﻿using Chemistry;
 using MassSpectrometry;
-using Omics.Modifications;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace Omics.Modifications
@@ -13,7 +8,7 @@ namespace Omics.Modifications
     /// Represents a modification
     /// Mods.txt format was taken from https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/docs/ptmlist.txt
     /// </summary>
-    public class Modification
+    public class Modification : IComparable<Modification>
     {
         public string IdWithMotif { get; private set; }
         public string OriginalId { get; private set; }
@@ -298,6 +293,25 @@ namespace Omics.Modifications
             sb.Append("#This modification can be found in file " + this.FileOrigin);
 
             return sb.ToString();
+        }
+
+
+        // Used in the sorted sets for variable mod generation to ensure that modifications are consistently ordered
+        // UniProt annotations also contain an evidence level. Future work could include this in the ordering of modifications for digestion. 
+        public int CompareTo(Modification? other)
+        {
+            if (other == null) return 1;
+
+            int idComparison = string.Compare(this.IdWithMotif, other.IdWithMotif, StringComparison.Ordinal);
+            if (idComparison != 0) return idComparison;
+
+            int typeComparison = string.Compare(this.ModificationType, other.ModificationType, StringComparison.Ordinal);
+            if (typeComparison != 0) return typeComparison;
+
+            int locRestrictionComparison = string.Compare(this.LocationRestriction, other.LocationRestriction, StringComparison.Ordinal);
+            if (locRestrictionComparison != 0) return locRestrictionComparison;
+
+            return Nullable.Compare(this.MonoisotopicMass, other.MonoisotopicMass);
         }
     }
 }

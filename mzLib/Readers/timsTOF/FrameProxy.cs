@@ -83,6 +83,7 @@ namespace Readers
             MzLookupArray = Converter.DoTransformation(handle, medianFrameId, mzLookupIndices, ConversionFunctions.IndexToMz);
 
             // Populate the 1/K0 lookup array
+            int scanMax = FramesTable.NumScans.Max();
             double[] oneOverK0LookupIndices = Array
                 .ConvertAll(Enumerable.Range(0, MaxScanOneBasedIndex).ToArray(), entry => (double)entry);
             OneOverK0LookupArray = Converter.DoTransformation(handle, medianFrameId, oneOverK0LookupIndices, ConversionFunctions.ScanToOneOverK0);
