@@ -2047,6 +2047,27 @@ namespace Test
                 engine.Run();
             });
         }
-        
+
+        [Test]
+        public static void TestGetXICWithMaxRtLimit()
+        {
+            Loaders.LoadElements();
+            var scan1 = new MsDataScan(new MzSpectrum(new double[] { 400, 500, 1000 }, new double[] { 10, 20, 30 }, false),
+                1, 1, true, Polarity.Positive, 0.1, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scan2 = new MsDataScan(new MzSpectrum(new double[] { 400.001, 500.001, 1000.001 }, new double[] { 1001, 2001, 3000 }, false),
+                3, 1, true, Polarity.Positive, 0.2, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scan3 = new MsDataScan(new MzSpectrum(new double[] { 400.002, 500.002, 1000.002 }, new double[] { 100, 200, 300 }, false),
+                5, 1, true, Polarity.Positive, 0.3, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scan4 = new MsDataScan(new MzSpectrum(new double[] { 400.005, 500.0025, 1000.003 }, new double[] { 1000, 2000, 3001 }, false),
+                7, 1, true, Polarity.Positive, 0.4, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scan5 = new MsDataScan(new MzSpectrum(new double[] { 400.0065, 500.0015, 1000.005 }, new double[] { 100, 200, 300 }, false),
+                9, 1, true, Polarity.Positive, 0.5, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scans = new MsDataScan[] { scan1, scan2, scan3, scan4, scan5 };
+
+            var indexedPeaks = new PeakIndexingEngine(scans);
+            var xic = FlashLfqEngine.GetXIC(1000.003, 3, indexedPeaks, 5, new PpmTolerance(10), 2, 0.15);
+            Assert.That(xic.Count == 4);
+            Assert.That(xic.First().Mz == 1000.001);
+        }
     }
 }

@@ -27,6 +27,11 @@ namespace FlashLFQ
             _serializer = new Serializer(messageTypes);
         }
 
+        public PeakIndexingEngine(MsDataScan[] scans)
+        {
+            PeakIndexing(scans, out List<Ms1ScanInfo> scanInfo);
+        }
+
         public bool IndexMassSpectralPeaks(SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
         {
             if (!silent)
@@ -52,11 +57,30 @@ namespace FlashLFQ
                 return false;
             }
 
+            PeakIndexing(msDataScans, out List<Ms1ScanInfo> scanInfo);
+
+            _ms1Scans.Add(fileInfo, scanInfo.ToArray());
+
+            if (_indexedPeaks == null || _indexedPeaks.Length == 0)
+            {
+                if (!silent)
+                {
+                    Console.WriteLine("FlashLFQ Error: The file " + fileInfo.FilenameWithoutExtension + " contained no MS1 peaks!");
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        public void PeakIndexing(MsDataScan[] msDataScans, out List<Ms1ScanInfo> scanInfo)
+        {
             _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
 
             int scanIndex = 0;
-            List<Ms1ScanInfo> scanInfo = new List<Ms1ScanInfo>();
+            scanInfo = new List<Ms1ScanInfo>();
 
             for (int i = 0; i < msDataScans.Length; i++)
             {
@@ -81,20 +105,6 @@ namespace FlashLFQ
 
                 scanIndex++;
             }
-
-            _ms1Scans.Add(fileInfo, scanInfo.ToArray());
-
-            if (_indexedPeaks == null || _indexedPeaks.Length == 0)
-            {
-                if (!silent)
-                {
-                    Console.WriteLine("FlashLFQ Error: The file " + fileInfo.FilenameWithoutExtension + " contained no MS1 peaks!");
-                }
-
-                return false;
-            }
-
-            return true;
         }
 
         public void ClearIndex()
