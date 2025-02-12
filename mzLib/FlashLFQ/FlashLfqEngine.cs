@@ -14,7 +14,7 @@ using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
 using FlashLFQ.PEP;
 using System.IO;
-using System.Threading;
+using MassSpectrometry;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -1743,8 +1743,6 @@ namespace FlashLFQ
         /// <returns></returns>
         public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
-            var xic = new List<IndexedMassSpectralPeak>();
-
             // get precursor scan to start at
             Ms1ScanInfo[] ms1Scans = _ms1Scans[spectraFileInfo];
             int precursorScanIndex = -1;
@@ -1760,13 +1758,22 @@ namespace FlashLFQ
                 }
             }
 
+            var xic = GetXIC(mass.ToMz(charge), precursorScanIndex, _peakIndexingEngine, ms1Scans.Length, tolerance, MissedScansAllowed);
+
+            return xic;
+        }
+
+        public static List<IndexedMassSpectralPeak> GetXIC(double mz, int zeroBasedScanIndex, PeakIndexingEngine peakIndexingEngine, int scansLength, Tolerance tolerance, int missedScansAllowed, double maxRT = double.MaxValue)
+        {
+            var xic = new List<IndexedMassSpectralPeak>();
+
             // go right
             int missedScans = 0;
-            for (int t = precursorScanIndex; t < ms1Scans.Length; t++)
+            for (int t = zeroBasedScanIndex; t < scansLength; t++)
             {
-                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, tolerance);
 
-                if (peak == null && t != precursorScanIndex)
+                if (peak == null && t != zeroBasedScanIndex)
                 {
                     missedScans++;
                 }
@@ -1774,9 +1781,14 @@ namespace FlashLFQ
                 {
                     missedScans = 0;
                     xic.Add(peak);
+
+                    if (peak.RetentionTime - xic.First().RetentionTime > maxRT)
+                    {
+                        break;
+                    }
                 }
 
-                if (missedScans > MissedScansAllowed)
+                if (missedScans > missedScansAllowed)
                 {
                     break;
                 }
@@ -1784,11 +1796,11 @@ namespace FlashLFQ
 
             // go left
             missedScans = 0;
-            for (int t = precursorScanIndex - 1; t >= 0; t--)
+            for (int t = zeroBasedScanIndex - 1; t >= 0; t--)
             {
-                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, tolerance);
 
-                if (peak == null && t != precursorScanIndex)
+                if (peak == null && t != zeroBasedScanIndex)
                 {
                     missedScans++;
                 }
@@ -1796,9 +1808,14 @@ namespace FlashLFQ
                 {
                     missedScans = 0;
                     xic.Add(peak);
+
+                    if (xic.First().RetentionTime - peak.RetentionTime > maxRT)
+                    {
+                        break;
+                    }
                 }
 
-                if (missedScans > MissedScansAllowed)
+                if (missedScans > missedScansAllowed)
                 {
                     break;
                 }
