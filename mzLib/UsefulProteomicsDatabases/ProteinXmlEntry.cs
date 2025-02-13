@@ -276,6 +276,11 @@ namespace UsefulProteomicsDatabases
                 FeatureDescription = FeatureDescription.Split(';')[0];
                 AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
             }
+            else if (FeatureType == "lipid moiety-binding region")
+            {
+                FeatureDescription = FeatureDescription.Split(';')[0];
+                AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
+            }
             else if (FeatureType == "peptide" || FeatureType == "propeptide" || FeatureType == "chain" || FeatureType == "signal peptide")
             {
                 string type = FeatureType;

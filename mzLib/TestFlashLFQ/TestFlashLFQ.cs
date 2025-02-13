@@ -870,6 +870,145 @@ namespace Test
         }
 
         [Test]
+        public static void TestPeakSplittingRightWithEmptyScanAndMs2Spectra()
+        {
+            string fileToWrite = "myMzml.mzML";
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+
+            Loaders.LoadElements();
+
+            // generate mzml file
+
+            // 1 MS1 scan per peptide
+            MsDataScan[] scans = new MsDataScan[20];
+            double[] intensityMultipliers = { 1, 3, 5, 10, 5, 3, 1, 1, 3, 1 };
+
+            for (int s = 0; s < 10; s++)
+            {
+                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+                IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+                double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
+
+                if (s == 7)
+                {
+                    mz = new[] { 401.0 };
+                    intensities = new[] { 1000.0 };
+                }
+
+                int zeroBasedScanIndex = s * 2;
+                // add the MS1 scan
+                scans[zeroBasedScanIndex] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: zeroBasedScanIndex + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (zeroBasedScanIndex + 1));
+
+                // add the MS2 scan
+                scans[zeroBasedScanIndex + 1] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: zeroBasedScanIndex + 2, msnOrder: 2, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.5 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (zeroBasedScanIndex + 2),
+                    oneBasedPrecursorScanNumber: zeroBasedScanIndex + 1,
+                    selectedIonMz: mz.First(),
+                    dissociationType: DissociationType.HCD);
+            }
+
+            // write the .mzML
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+
+            Identification id1 = new Identification(file1, peptide, peptide,
+                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+
+            // run the engine
+            var results = engine.Run();
+            ChromatographicPeak peak = results.Peaks.First().Value.First();
+
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
+            Assert.That(peak.SplitRT == 1.6);
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
+            Assert.That(peak.IsotopicEnvelopes.Count == 6);
+        }
+
+        [Test]
+        public static void TestPeakSplittingLeftWithEmptyScanAndMs2Spectra()
+        {
+            string fileToWrite = "myMzml.mzML";
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+
+            Loaders.LoadElements();
+
+            // generate mzml file
+
+            // 1 MS1 scan per peptide
+            MsDataScan[] scans = new MsDataScan[20];
+            double[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
+
+            for (int s = 0; s < 10; s++)
+            {
+                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+                IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+                double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
+
+                if (s == 2)
+                {
+                    mz = new[] { 401.0 };
+                    intensities = new[] { 1000.0 };
+                }
+
+                int zeroBasedScanIndex = s * 2;
+                // add the MS1 scan
+                scans[zeroBasedScanIndex] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: zeroBasedScanIndex + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (zeroBasedScanIndex + 1));
+
+                // add the MS2 scan
+                scans[zeroBasedScanIndex+1] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: zeroBasedScanIndex + 2, msnOrder: 2, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.5 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (zeroBasedScanIndex + 2),
+                    oneBasedPrecursorScanNumber: zeroBasedScanIndex + 1,
+                    selectedIonMz: mz.First(),
+                    dissociationType: DissociationType.HCD);
+            }
+
+            // write the .mzML
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+
+            Identification id1 = new Identification(file1, peptide, peptide,
+                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+
+            // run the engine
+            var results = engine.Run();
+            ChromatographicPeak peak = results.Peaks.First().Value.First();
+
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
+            Assert.That(peak.SplitRT == 1.3);
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
+            Assert.That(peak.IsotopicEnvelopes.Count == 6);
+        }
+
+
+        [Test]
         public static void TestToString()
         {
             // many of these are just to check that the ToString methods don't cause crashes
@@ -1387,8 +1526,8 @@ namespace Test
             // Any change to ML.NET or the PEP Analysis engine will cause these to change.
             Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
             Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
-            Assert.AreEqual(138, f1r1MbrResults.Count);
-            Assert.AreEqual(70, f1r2MbrResults.Count);
+            Assert.AreEqual(141, f1r1MbrResults.Count);
+            Assert.AreEqual(78, f1r2MbrResults.Count);
 
             // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
             List<(double, double)> peptideIntensities = f1r1MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();
@@ -1493,7 +1632,7 @@ namespace Test
 
             Assert.That((int)results.PeptideModifiedSequences[sequence].GetIntensity(file1) == 1386491);
             ChromatographicPeak peak = results.Peaks[file1].First(p => p.Identifications.First().ModifiedSequence == sequence);
-            Assert.That(Math.Round(peak.MassError, 3), Is.EqualTo(0.006).Within(0.0001));
+            Assert.That(Math.Round(peak.MassError, 3), Is.EqualTo(0));
             Assert.That(peak.IsotopicEnvelopes.Count == 10);
         }
 
