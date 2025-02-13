@@ -4,17 +4,20 @@ using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
 using FlashLFQ.PEP;
+using FlashLFQ.Interfaces;
 
 namespace FlashLFQ
 {
-    public class ChromatographicPeak
+    public class ChromatographicPeak : ITraceable<IsotopicEnvelope>
     {
         public double Intensity;
         public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
         public readonly SpectraFileInfo SpectraFileInfo;
-        public List<IsotopicEnvelope> IsotopicEnvelopes;
+        public List<IsotopicEnvelope> IsotopicEnvelopes { get; set; }
+        public List<IsotopicEnvelope> ScanOrderedPoints => IsotopicEnvelopes;
+        public List<IsotopicEnvelope> ApexChargeStateScanOrderedPoints => IsotopicEnvelopes.Where(p => p.ChargeState == Apex.ChargeState).ToList();
         public int ScanCount => IsotopicEnvelopes.Count;
-        public double SplitRT;
+        public double SplitRT { get; private set; }
         public readonly bool IsMbrPeak;
         public double MbrScore;
         public double PpmScore { get; set; }
@@ -123,6 +126,11 @@ namespace FlashLFQ
                     .Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
                 this.CalculateIntensityForThisFeature(integrate);
             }
+        }
+
+        public void SetSplitLocation(IsotopicEnvelope splitEnvelope)
+        {
+            SplitRT = splitEnvelope.IndexedPeak.RetentionTime;
         }
 
         /// <summary>

@@ -15,6 +15,7 @@ using Easy.Common.Extensions;
 using FlashLFQ.PEP;
 using System.IO;
 using System.Threading;
+using FlashLFQ.Interfaces;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -507,7 +508,7 @@ namespace FlashLFQ
                         }
 
                         msmsFeature.CalculateIntensityForThisFeature(Integrate);
-                        CutPeak(msmsFeature, identification.Ms2RetentionTimeInMinutes);
+                        CutPeak<ChromatographicPeak, IsotopicEnvelope>(msmsFeature, identification.Ms2RetentionTimeInMinutes);
 
                         if (!msmsFeature.IsotopicEnvelopes.Any())
                         {
@@ -1292,7 +1293,7 @@ namespace FlashLFQ
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
 
-            CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
+            CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime, apexTimePoints: acceptorPeak.ApexChargeStateScanOrderedPoints);
 
             var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak))
             {
@@ -1811,65 +1812,55 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Recursively cuts ChromatographicPeaks, removing all IsotopicEnvelopes
-        /// that occur before or after potential "valleys" surrounding the identification's
-        /// MS2 retention time. Then, the peak intensity is recalculated
+        /// Determines whether a peak should be cut based on the intensity of the surrounding time points.
         /// </summary>
-        /// <param name="peak"> Peak to be cut, where envelopes are sorted by MS1 scan number </param>
-        /// <param name="identificationTime"> MS2 scan retention time </param>
-        private void CutPeak(ChromatographicPeak peak, double identificationTime)
+        /// <typeparam name="T">The type of the time points, which must implement ISingleScanDatum.</typeparam>
+        /// <param name="timePoints">The list of time points</param>
+        /// <param name="indexOfApexInTimePoints">The index of the apex (most intense, best, whatever) in the list of time points.</param>
+        /// <param name="valley">The valley point, which is the lowest intensity point encountered.</param>
+        /// <param name="discriminationFactorToCutPeak">The discrimination factor to determine if the peak should be cut. Default is 0.6.</param>
+        /// <returns>True if the peak should be cut, otherwise false.</returns>
+        public static bool ShouldCutPeak<T>(List<T> timePoints, int indexOfApexInTimePoints, 
+            out T valley, double discriminationFactorToCutPeak = 0.6) where T : ISingleScanDatum
         {
-            // find out if we need to split this peak by using the discrimination factor
-            // this method assumes that the isotope envelopes in a chromatographic peak are already sorted by MS1 scan number
+            valley = default(T);
             bool cutThisPeak = false;
-
-            if (peak.IsotopicEnvelopes.Count < 5)
-            {
-                return;
-            }
-
-            // Ordered list of all time points where the apex charge state had a valid isotopic envelope
-            List<IsotopicEnvelope> timePointsForApexZ = peak.IsotopicEnvelopes
-                .Where(p => p.ChargeState == peak.Apex.ChargeState).ToList();
-            HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedPeak.ZeroBasedMs1ScanIndex));
-            int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
-            IsotopicEnvelope valleyEnvelope = null;
+            HashSet<int> zeroIndexedScanNumbers = timePoints.Select(p => p.ZeroBasedScanIndex).ToHashSet();
 
             // -1 checks the left side, +1 checks the right side
             int[] directions = { 1, -1 };
             foreach (int direction in directions)
             {
-                valleyEnvelope = null;
+                valley = default(T);
                 int indexOfValley = 0;
 
-                for (int i = apexIndex + direction; i < timePointsForApexZ.Count && i >= 0; i += direction)
+                for (int i = indexOfApexInTimePoints + direction; i < timePoints.Count && i >= 0; i += direction)
                 {
-                    IsotopicEnvelope timepoint = timePointsForApexZ[i];
+                    ISingleScanDatum timepoint = timePoints[i];
 
                     // Valley envelope is the lowest intensity point that has been encountered thus far
-                    if (valleyEnvelope == null || timepoint.Intensity < valleyEnvelope.Intensity)
+                    if (valley == null || timepoint.Intensity < valley.Intensity)
                     {
-                        valleyEnvelope = timepoint;
-                        indexOfValley = timePointsForApexZ.IndexOf(valleyEnvelope);
+                        valley = (T)timepoint;
+                        indexOfValley = i;
                     }
 
                     double discriminationFactor =
-                        (timepoint.Intensity - valleyEnvelope.Intensity) / timepoint.Intensity;
+                        (timepoint.Intensity - valley.Intensity) / timepoint.Intensity;
 
                     // If the time point is at least discriminationFactor times more intense than the valley
                     // We perform an additional check to see if the time point is more intense than the point next to the valley
-                    if (discriminationFactor > DiscriminationFactorToCutPeak &&
-                        (indexOfValley + direction < timePointsForApexZ.Count && indexOfValley + direction >= 0))
+                    if (discriminationFactor > discriminationFactorToCutPeak &&
+                        (indexOfValley + direction < timePoints.Count && indexOfValley + direction >= 0))
                     {
-
-                        IsotopicEnvelope secondValleyTimepoint = timePointsForApexZ[indexOfValley + direction];
+                        ISingleScanDatum secondValleyTimepoint = timePoints[indexOfValley + direction];
 
                         discriminationFactor =
                             (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
 
                         // If the current timepoint is more intense than the second valley, we cut the peak
                         // If the scan following the valley isn't in the timePointsForApexZ list (i.e., no isotopic envelope is observed in the scan immediately after the valley), we also cut the peak
-                        if (discriminationFactor > DiscriminationFactorToCutPeak || !scanNumbers.Contains(valleyEnvelope.IndexedPeak.ZeroBasedMs1ScanIndex + direction))
+                        if (discriminationFactor > discriminationFactorToCutPeak || !zeroIndexedScanNumbers.Contains(valley.ZeroBasedScanIndex + direction))
                         {
                             cutThisPeak = true;
                             break;
@@ -1883,28 +1874,49 @@ namespace FlashLFQ
                 }
             }
 
-            // cut
-            if (cutThisPeak)
+            return cutThisPeak;
+        }
+
+        /// <summary>
+        /// Recursively cuts ITraceable objects, removing all datapoints
+        /// that occur before or after potential "valleys" surrounding the identification's
+        /// MS2 retention time. Then, the peak intensity is recalculated and the split location is set
+        /// </summary>
+        /// <param name="peak"> ITraceable object to be cut </param>
+        /// <param name="identificationTime"> Time representing the center of the peak </param>
+        /// <param name="apexTimePoints"> List of ISingleScanDatum objects that represent the trace apex. Most commonly used to pass in the apex charge state Isotopic Envelopes from a Chromatographic peak object</param>
+        private void CutPeak<T, TU>(T peak, double identificationTime, List<TU> apexTimePoints = null) where T : ITraceable<TU> where TU : ISingleScanDatum
+        {
+            // find out if we need to split this peak by using the discrimination factor
+            // this method assumes that the isotope envelopes in a chromatographic peak are already sorted by MS1 scan number
+            if (peak.ScanOrderedPoints.Count < 5)
             {
-                if (identificationTime > valleyEnvelope.IndexedPeak.RetentionTime)
+                return;
+            }
+
+            List<TU> timePointsToSplitOn = apexTimePoints ?? peak.ScanOrderedPoints;
+            int apexIndex = timePointsToSplitOn.IndexOf(peak.Apex);
+            
+            // cut
+            if (ShouldCutPeak(timePointsToSplitOn, apexIndex, out var valleyEnvelope, discriminationFactorToCutPeak: DiscriminationFactorToCutPeak))
+            {
+                if (identificationTime > valleyEnvelope.RelativeSeparationValue)
                 {
                     // MS2 identification is to the right of the valley; remove all peaks left of the valley
-                    peak.IsotopicEnvelopes.RemoveAll(p => 
-                        p.IndexedPeak.RetentionTime <= valleyEnvelope.IndexedPeak.RetentionTime);
+                    peak.ScanOrderedPoints.RemoveAll(p => p.RelativeSeparationValue <= valleyEnvelope.RelativeSeparationValue);
                 }
                 else
                 {
                     // MS2 identification is to the left of the valley; remove all peaks right of the valley
-                    peak.IsotopicEnvelopes.RemoveAll(p => 
-                        p.IndexedPeak.RetentionTime >= valleyEnvelope.IndexedPeak.RetentionTime);
+                    peak.ScanOrderedPoints.RemoveAll(p => p.RelativeSeparationValue >= valleyEnvelope.RelativeSeparationValue);
                 }
 
                 // recalculate intensity for the peak
                 peak.CalculateIntensityForThisFeature(Integrate);
-                peak.SplitRT = valleyEnvelope.IndexedPeak.RetentionTime;
+                peak.SetSplitLocation(valleyEnvelope);
 
                 // recursively cut
-                CutPeak(peak, identificationTime);
+                CutPeak(peak, identificationTime, apexTimePoints);
             }
         }
     }
