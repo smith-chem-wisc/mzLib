@@ -1834,11 +1834,9 @@ namespace FlashLFQ
             HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedPeak.ZeroBasedMs1ScanIndex));
             int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
             IsotopicEnvelope valleyEnvelope = null;
-            int numberOfMs1Scans = _ms1Scans[peak.SpectraFileInfo].Length;
 
             // -1 checks the left side, +1 checks the right side
             int[] directions = { 1, -1 };
-
             foreach (int direction in directions)
             {
                 valleyEnvelope = null;
