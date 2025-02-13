@@ -508,7 +508,7 @@ namespace FlashLFQ
                         }
 
                         msmsFeature.CalculateIntensityForThisFeature(Integrate);
-                        CutPeak<ChromatographicPeak, IsotopicEnvelope>(msmsFeature, identification.Ms2RetentionTimeInMinutes);
+                        CutPeak(msmsFeature, identification.Ms2RetentionTimeInMinutes, msmsFeature.ApexChargeStateScanOrderedPoints);
 
                         if (!msmsFeature.IsotopicEnvelopes.Any())
                         {
@@ -1880,12 +1880,13 @@ namespace FlashLFQ
         /// <summary>
         /// Recursively cuts ITraceable objects, removing all datapoints
         /// that occur before or after potential "valleys" surrounding the identification's
-        /// MS2 retention time. Then, the peak intensity is recalculated and the split location is set
+        /// MS2 retention time. Then, the peak intensity is recalculated and the split location is set.
+        /// If using this on a ChromatographicPeak, it is important to pass in the apexTimePoints parameter
         /// </summary>
         /// <param name="peak"> ITraceable object to be cut </param>
         /// <param name="identificationTime"> Time representing the center of the peak </param>
         /// <param name="apexTimePoints"> List of ISingleScanDatum objects that represent the trace apex. Most commonly used to pass in the apex charge state Isotopic Envelopes from a Chromatographic peak object</param>
-        private void CutPeak<T, TU>(T peak, double identificationTime, List<TU> apexTimePoints = null) where T : ITraceable<TU> where TU : ISingleScanDatum
+        private void CutPeak<T, TU>(T peak, double identificationTime, List<TU> apexTimePoints = null) where T : TraceablePeak<TU> where TU : ISingleScanDatum
         {
             // find out if we need to split this peak by using the discrimination factor
             // this method assumes that the isotope envelopes in a chromatographic peak are already sorted by MS1 scan number
@@ -1894,7 +1895,10 @@ namespace FlashLFQ
                 return;
             }
 
-            List<TU> timePointsToSplitOn = apexTimePoints ?? peak.ScanOrderedPoints;
+            List<TU> timePointsToSplitOn;
+
+
+            timePointsToSplitOn = apexTimePoints ?? peak.ScanOrderedPoints;
             int apexIndex = timePointsToSplitOn.IndexOf(peak.Apex);
             
             // cut
@@ -1912,8 +1916,8 @@ namespace FlashLFQ
                 }
 
                 // recalculate intensity for the peak
-                peak.CalculateIntensityForThisFeature(Integrate);
-                peak.SetSplitLocation(valleyEnvelope);
+                //peak.CalculateIntensityForThisFeature(Integrate);
+                //peak.SetSplitLocation(valleyEnvelope);
 
                 // recursively cut
                 CutPeak(peak, identificationTime, apexTimePoints);

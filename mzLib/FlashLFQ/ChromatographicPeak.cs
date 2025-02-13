@@ -5,10 +5,11 @@ using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
 using FlashLFQ.PEP;
 using FlashLFQ.Interfaces;
+using MathNet.Numerics;
 
 namespace FlashLFQ
 {
-    public class ChromatographicPeak : ITraceable<IsotopicEnvelope>
+    public class ChromatographicPeak : TraceablePeak<IsotopicEnvelope>
     {
         public double Intensity;
         public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
@@ -34,6 +35,18 @@ namespace FlashLFQ
         internal double MbrQValue { get; set; }
         public ChromatographicPeakData PepPeakData { get; set; }
         public double? MbrPep { get; set; }
+        public IsotopicEnvelope Apex { get; private set; }
+        public List<Identification> Identifications { get; private set; }
+        public int NumChargeStatesObserved { get; private set; }
+        public int NumIdentificationsByBaseSeq { get; private set; }
+        public int NumIdentificationsByFullSeq { get; private set; }
+        public double MassError { get; private set; }
+        /// <summary>
+        /// Bool that describes whether the retention time of this peak was randomized
+        /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
+        /// </summary>
+        public bool RandomRt { get; }
+        public bool DecoyPeptide => Identifications.First().IsDecoy;
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -56,18 +69,22 @@ namespace FlashLFQ
                 && ApexRetentionTime == peak.ApexRetentionTime;
         }
 
-        public IsotopicEnvelope Apex { get; private set; }
-        public List<Identification> Identifications { get; private set; }
-        public int NumChargeStatesObserved { get; private set; }
-        public int NumIdentificationsByBaseSeq { get; private set; }
-        public int NumIdentificationsByFullSeq { get; private set; }
-        public double MassError { get; private set; }
-        /// <summary>
-        /// Bool that describes whether the retention time of this peak was randomized
-        /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
-        /// </summary>
-        public bool RandomRt { get; }
-        public bool DecoyPeptide => Identifications.First().IsDecoy;
+        public void CutPeak(double ms2IdRetentionTime, double discriminationFactorToCutPeak = 0.6, bool integrate = false)
+        {
+            // Find all envelopes associated with the apex peak charge state
+            List<IsotopicEnvelope> envelopesForApexCharge = IsotopicEnvelopes.Where(e => e.ChargeState == Apex.ChargeState).ToList();
+            var centerEnvelope = envelopesForApexCharge.MinBy(e => Math.Abs(e.RelativeSeparationValue - ms2IdRetentionTime));
+            // Find the boundaries of the peak, based on the apex charge state envelopes
+            var peakBoundaries = FindPeakBoundaries(envelopesForApexCharge, envelopesForApexCharge.IndexOf(centerEnvelope), discriminationFactorToCutPeak);
+            // Remove all points outside the peak boundaries (inclusive)
+            CutPeak(peakBoundaries, ms2IdRetentionTime);
+
+            // Recalculate the intensity of the peak and update the split RT
+            CalculateIntensityForThisFeature(integrate);
+            // technically, there could be two "SplitRT" values if the peak is split into two separate peaks
+            // however, this edge case wasn't handled in the legacy code and won't be handled here
+            SplitRT = peakBoundaries.Count > 0 ? peakBoundaries.Last().RelativeSeparationValue : 0;
+        }
 
         public void CalculateIntensityForThisFeature(bool integrate)
         {
@@ -126,11 +143,6 @@ namespace FlashLFQ
                     .Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
                 this.CalculateIntensityForThisFeature(integrate);
             }
-        }
-
-        public void SetSplitLocation(IsotopicEnvelope splitEnvelope)
-        {
-            SplitRT = splitEnvelope.IndexedPeak.RetentionTime;
         }
 
         /// <summary>
