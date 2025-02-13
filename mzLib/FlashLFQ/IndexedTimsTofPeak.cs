@@ -12,8 +12,6 @@ namespace FlashLFQ
         public List<IonMobilityPeak> IonMobilityPeaks { get; init; }
         public int ZeroBasedMs1FrameIndex => ZeroBasedMs1ScanIndex;
 
-        public Dictionary<Identification, (int, int)> ImsScanIndices { internal get; set; }
-
         /// <summary>
         /// Stores the information associated with a specific m/z value in one timsTOF frame
         /// The given m/z can be observed in multiple ion mobility scans, each with a different intensity
@@ -30,7 +28,6 @@ namespace FlashLFQ
             // Set initial size to 32 to minimize resizing
             IonMobilityPeaks = new List<IonMobilityPeak>(32);
             IonMobilityPeaks.Add(ionMobilityPeak);
-            ImsScanIndices = new();
         }
 
         /// <summary>
@@ -70,10 +67,12 @@ namespace FlashLFQ
     /// This struct does not store information about the m/z of the peak!
     /// </summary>
     [Serializable]
-    public readonly struct IonMobilityPeak(int oneBasedTimsScanNumber, double intensity)
+    public readonly struct IonMobilityPeak(int oneBasedTimsScanNumber, double intensity) : ISeparable
     {
         public int OneBasedTimsScanNumber { get; } = oneBasedTimsScanNumber;
         public double Intensity { get; } = intensity;
+        public double SeparationDomainValue => OneBasedTimsScanNumber;
+        public int ZeroBasedScanIndex => OneBasedTimsScanNumber - 1;
     }
 
 }

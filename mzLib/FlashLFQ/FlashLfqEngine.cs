@@ -1818,76 +1818,61 @@ namespace FlashLFQ
             return rawXic;
         }
 
-        //private bool ShouldCutPeak(ChromatographicPeak peak)
-        //{
-        //    List<ISeparable> timePointsForApexZ = peak.IsotopicEnvelopes
-        //        .Where(p => p.ChargeState == peak.Apex.ChargeState)
-        //        .Cast<ISeparable>()
-        //        .ToList();
+        private bool ShouldCutPeak(List<ISeparable> timePointsForApexZ, int apexIndex, HashSet<int> scanNumbers, out ISeparable valleyPoint)
+        {
+            bool cutThisPeak = false;
+            valleyPoint = null;
 
-        //    HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.ZeroBasedScanIndex));
-        //    int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
-        //    ISeparable valleyEnvelope = null;
+            // -1 checks the left side, +1 checks the right side
+            int[] directions = { 1, -1 };
+            foreach (int direction in directions)
+            {
+                valleyPoint = null;
+                int indexOfValley = 0;
 
-        //    // -1 checks the left side, +1 checks the right side
-        //    int[] directions = { 1, -1 };
+                for (int i = apexIndex + direction; i < timePointsForApexZ.Count && i >= 0; i += direction)
+                {
+                    ISeparable timepoint = timePointsForApexZ[i];
 
-        //    foreach (int direction in directions)
-        //    {
-        //        valleyEnvelope = null;
-        //        int indexOfValley = 0;
+                    // Valley envelope is the lowest intensity point that has been encountered thus far
+                    if (valleyPoint == null || timepoint.Intensity < valleyPoint.Intensity)
+                    {
+                        valleyPoint = timepoint;
+                        indexOfValley = timePointsForApexZ.IndexOf(valleyPoint);
+                    }
 
-        //        for (int i = apexIndex + direction; i < timePointsForApexZ.Count && i >= 0; i += direction)
-        //        {
-        //            ISeparable timepoint = timePointsForApexZ[i];
+                    double discriminationFactor =
+                        (timepoint.Intensity - valleyPoint.Intensity) / timepoint.Intensity;
 
-        //            if (valleyEnvelope == null || timepoint.Intensity < valleyEnvelope.Intensity)
-        //            {
-        //                valleyEnvelope = timepoint;
-        //                indexOfValley = timePointsForApexZ.IndexOf(valleyEnvelope);
-        //            }
+                    // If the time point is at least discriminationFactor times more intense than the valley
+                    // We perform an additional check to see if the time point is more intense than the point next to the valley
+                    if (discriminationFactor > DiscriminationFactorToCutPeak &&
+                        (indexOfValley + direction < timePointsForApexZ.Count && indexOfValley + direction >= 0))
+                    {
+                        ISeparable secondValleyTimepoint = timePointsForApexZ[indexOfValley + direction];
 
-        //            double discriminationFactor =
-        //                (timepoint.Intensity - valleyEnvelope.Intensity) / timepoint.Intensity;
+                        discriminationFactor =
+                            (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
 
-        //            if (discriminationFactor > DiscriminationFactorToCutPeak &&
-        //                (indexOfValley + direction < timePointsForApexZ.Count && indexOfValley + direction >= 0))
-        //            {
-        //                ISeparable secondValleyTimepoint = timePointsForApexZ[indexOfValley + direction];
+                        // If the current timepoint is more intense than the second valley, we cut the peak
+                        // If the scan following the valley isn't in the timePointsForApexZ list (i.e., no isotopic envelope is observed in the scan immediately after the valley), we also cut the peak
+                        if (discriminationFactor > DiscriminationFactorToCutPeak || !scanNumbers.Contains(valleyPoint.ZeroBasedScanIndex + direction))
+                        {
+                            cutThisPeak = true;
+                            break;
+                        }
+                    }
+                }
 
-        //                discriminationFactor =
-        //                    (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
+                if (cutThisPeak)
+                {
+                    break;
+                }
+            }
 
-        //                if (discriminationFactor > DiscriminationFactorToCutPeak)
-        //                {
-        //                    return true;
-        //                }
+            return cutThisPeak;
+        }
 
-        //                int nextMs1ScanNum = -1;
-
-        //                for (int j = valleyEnvelope.IndexedPeak.ZeroBasedMs1ScanIndex - 1;
-        //                    j < _ms1Scans[peak.SpectraFileInfo].Length && j >= 0;
-        //                    j += direction)
-        //                {
-        //                    if (_ms1Scans[peak.SpectraFileInfo][j].OneBasedScanNumber >= 0 &&
-        //                        _ms1Scans[peak.SpectraFileInfo][j].OneBasedScanNumber !=
-        //                        valleyEnvelope.IndexedPeak.ZeroBasedMs1ScanIndex)
-        //                    {
-        //                        nextMs1ScanNum = j + 1;
-        //                        break;
-        //                    }
-        //                }
-
-        //                if (!scanNumbers.Contains(nextMs1ScanNum))
-        //                {
-        //                    return true;
-        //                }
-        //            }
-        //        }
-        //    }
-
-        //    return false;
-        //}
 
         /// <summary>
         /// Recursively cuts ChromatographicPeaks, removing all IsotopicEnvelopes
@@ -1912,69 +1897,20 @@ namespace FlashLFQ
                 .Where(p => p.ChargeState == peak.Apex.ChargeState).ToList();
             HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedPeak.ZeroBasedMs1ScanIndex));
             int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
-            IsotopicEnvelope valleyEnvelope = null;
 
-            // -1 checks the left side, +1 checks the right side
-            int[] directions = { 1, -1 };
-            foreach (int direction in directions)
+            if(ShouldCutPeak(timePointsForApexZ.Cast<ISeparable>().ToList(), apexIndex, scanNumbers, out var valleyPoint))
             {
-                valleyEnvelope = null;
-                int indexOfValley = 0;
-
-                for (int i = apexIndex + direction; i < timePointsForApexZ.Count && i >= 0; i += direction)
-                {
-                    IsotopicEnvelope timepoint = timePointsForApexZ[i];
-
-                    // Valley envelope is the lowest intensity point that has been encountered thus far
-                    if (valleyEnvelope == null || timepoint.Intensity < valleyEnvelope.Intensity)
-                    {
-                        valleyEnvelope = timepoint;
-                        indexOfValley = timePointsForApexZ.IndexOf(valleyEnvelope);
-                    }
-
-                    double discriminationFactor =
-                        (timepoint.Intensity - valleyEnvelope.Intensity) / timepoint.Intensity;
-
-                    // If the time point is at least discriminationFactor times more intense than the valley
-                    // We perform an additional check to see if the time point is more intense than the point next to the valley
-                    if (discriminationFactor > DiscriminationFactorToCutPeak &&
-                        (indexOfValley + direction < timePointsForApexZ.Count && indexOfValley + direction >= 0))
-                    {
-
-                        IsotopicEnvelope secondValleyTimepoint = timePointsForApexZ[indexOfValley + direction];
-
-                        discriminationFactor =
-                            (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
-
-                        // If the current timepoint is more intense than the second valley, we cut the peak
-                        // If the scan following the valley isn't in the timePointsForApexZ list (i.e., no isotopic envelope is observed in the scan immediately after the valley), we also cut the peak
-                        if (discriminationFactor > DiscriminationFactorToCutPeak || !scanNumbers.Contains(valleyEnvelope.IndexedPeak.ZeroBasedMs1ScanIndex + direction))
-                        {
-                            cutThisPeak = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (cutThisPeak)
-                {
-                    break;
-                }
-            }
-
-            // cut
-            if (cutThisPeak)
-            {
+                IsotopicEnvelope valleyEnvelope = (IsotopicEnvelope)valleyPoint;
                 if (identificationTime > valleyEnvelope.IndexedPeak.RetentionTime)
                 {
                     // MS2 identification is to the right of the valley; remove all peaks left of the valley
-                    peak.IsotopicEnvelopes.RemoveAll(p => 
+                    peak.IsotopicEnvelopes.RemoveAll(p =>
                         p.IndexedPeak.RetentionTime <= valleyEnvelope.IndexedPeak.RetentionTime);
                 }
                 else
                 {
                     // MS2 identification is to the left of the valley; remove all peaks right of the valley
-                    peak.IsotopicEnvelopes.RemoveAll(p => 
+                    peak.IsotopicEnvelopes.RemoveAll(p =>
                         p.IndexedPeak.RetentionTime >= valleyEnvelope.IndexedPeak.RetentionTime);
                 }
 
