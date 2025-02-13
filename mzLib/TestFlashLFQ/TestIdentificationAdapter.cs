@@ -6,7 +6,7 @@ using FlashLFQ;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
 
-namespace TestFlashLFQ
+namespace Test
 {
     internal class TestIdentificationAdapter
     {
