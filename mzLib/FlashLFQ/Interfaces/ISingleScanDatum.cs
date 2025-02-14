@@ -16,8 +16,8 @@ namespace FlashLFQ
         public double Intensity { get; }
 
         /// <summary>
-        /// The position of the datum in separation domain,
-        /// e.g., m/z, ion mobility
+        /// The position of the datum in the separation domain,
+        /// e.g., retention time, ion mobility
         /// </summary>
         public double RelativeSeparationValue { get; }
         public int ZeroBasedScanIndex { get; }

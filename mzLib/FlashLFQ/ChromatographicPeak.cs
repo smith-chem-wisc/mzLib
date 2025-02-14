@@ -69,6 +69,11 @@ namespace FlashLFQ
                 && ApexRetentionTime == peak.ApexRetentionTime;
         }
 
+        /// <summary>
+        /// Cuts the peak in such a way as to ensure that the final peak contains the ms2IdRetention time
+        /// </summary>
+        /// <param name="ms2IdRetentionTime"> The time at which the MS2 scan matched to a peptide was collected</param>
+        /// <param name="integrate"> Passed to CalculateIntensityForThisFeature </param>
         public void CutPeak(double ms2IdRetentionTime, double discriminationFactorToCutPeak = 0.6, bool integrate = false)
         {
             // Find all envelopes associated with the apex peak charge state
@@ -95,6 +100,12 @@ namespace FlashLFQ
             }
         }
 
+        /// <summary>
+        /// Calculated the intensity of the peak. If Integrate is false, this is equal to the summed intensity of all
+        /// m/z peak in the the most intense isotopic envelope of the most intense charge state. If Integrate is true,
+        /// intensity is  set as the summed intensity of every m/z peak in every isotopic envelope in every charge state.
+        /// </summary>
+        /// <param name="integrate"></param>
         public void CalculateIntensityForThisFeature(bool integrate)
         {
             if (IsotopicEnvelopes.Any())
