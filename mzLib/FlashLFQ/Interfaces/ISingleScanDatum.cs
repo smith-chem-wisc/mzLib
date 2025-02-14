@@ -12,7 +12,6 @@ namespace FlashLFQ
     /// </summary>
     public interface ISingleScanDatum
     {
-        public double Mz { get; }
         public double Intensity { get; }
 
         /// <summary>

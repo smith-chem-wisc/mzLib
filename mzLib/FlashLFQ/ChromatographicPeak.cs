@@ -35,7 +35,8 @@ namespace FlashLFQ
         internal double MbrQValue { get; set; }
         public ChromatographicPeakData PepPeakData { get; set; }
         public double? MbrPep { get; set; }
-        public IsotopicEnvelope Apex { get; private set; }
+        public override IsotopicEnvelope Apex => _apex;
+        private IsotopicEnvelope _apex;
         public List<Identification> Identifications { get; private set; }
         public int NumChargeStatesObserved { get; private set; }
         public int NumIdentificationsByBaseSeq { get; private set; }
@@ -110,7 +111,7 @@ namespace FlashLFQ
         {
             if (IsotopicEnvelopes.Any())
             {
-                Apex = IsotopicEnvelopes.MaxBy(p => p.Intensity);
+                _apex = IsotopicEnvelopes.MaxBy(p => p.Intensity);
 
                 if (integrate)
                 {
@@ -140,7 +141,7 @@ namespace FlashLFQ
                 Intensity = 0;
                 MassError = double.NaN;
                 NumChargeStatesObserved = 0;
-                Apex = null;
+                _apex = null;
             }
         }
 

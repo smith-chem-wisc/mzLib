@@ -17,12 +17,12 @@ namespace FlashLFQ.Interfaces
         /// <summary>
         /// The most intense point in the trace
         /// </summary>
-        public virtual T Apex { get; }
+        public abstract T Apex { get; }
         /// <summary>
         /// A list of data points that compose the ITraceable object
         /// This list must be ordered by the separation domain in ascending order! (e.g., retention time)
         /// </summary>
-        public virtual List<T> ScanOrderedPoints { get; }
+        public abstract List<T> ScanOrderedPoints { get; }
 
         /// <summary>
         /// Determines whether a peak should be cut based on the intensity of the surrounding time points.
