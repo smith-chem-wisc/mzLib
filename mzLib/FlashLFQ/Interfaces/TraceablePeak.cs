@@ -17,23 +17,22 @@ namespace FlashLFQ.Interfaces
         /// <summary>
         /// The most intense point in the trace
         /// </summary>
-        public T Apex { get; }
+        public virtual T Apex { get; }
         /// <summary>
         /// A list of data points that compose the ITraceable object
         /// This list must be ordered by the separation domain in ascending order! (e.g., retention time)
         /// </summary>
-        public List<T> ScanOrderedPoints { get; }
+        public virtual List<T> ScanOrderedPoints { get; }
 
         /// <summary>
         /// Determines whether a peak should be cut based on the intensity of the surrounding time points.
         /// </summary>
         /// <typeparam name="T">The type of the time points, which must implement ISingleScanDatum.</typeparam>
         /// <param name="timePoints">The list of time points</param>
-        /// <param name="indexOfPeakCenterInTimePoints">The index of the apex (most intense, best, whatever) in the list of time points.</param>
-        /// <param name="valley">The valley point, which is the lowest intensity point encountered.</param>
+        /// <param name="apexTimepointIndex">The index of the apex (most intense, best, whatever) in the list of time points.</param>
         /// <param name="discriminationFactorToCutPeak">The discrimination factor to determine if the peak should be cut. Default is 0.6.</param>
         /// <returns>True if the peak should be cut, otherwise false.</returns>
-        public static List<T> FindPeakBoundaries<T>(List<T> timePoints, int indexOfPeakCenterInTimePoints, double discriminationFactorToCutPeak = 0.6) where T : ISingleScanDatum
+        public static List<T> FindPeakBoundaries<T>(List<T> timePoints, int apexTimepointIndex, double discriminationFactorToCutPeak = 0.6) where T : ISingleScanDatum
         {
             List<T> peakBoundaries = new List<T>();
             HashSet<int> zeroIndexedScanNumbers = timePoints.Select(p => p.ZeroBasedScanIndex).ToHashSet();
@@ -45,7 +44,7 @@ namespace FlashLFQ.Interfaces
                 T valley = default(T);
                 int indexOfValley = 0;
 
-                for (int i = indexOfPeakCenterInTimePoints + direction; i < timePoints.Count && i >= 0; i += direction)
+                for (int i = apexTimepointIndex + direction; i < timePoints.Count && i >= 0; i += direction)
                 {
                     ISingleScanDatum timepoint = timePoints[i];
 
@@ -82,29 +81,20 @@ namespace FlashLFQ.Interfaces
             return peakBoundaries;
         }
 
-        public List<T> FindPeakBoundaries(double separationValueAtPeakCenter, double discriminationFactorToCutPeak = 0.6)
-        {
-            if(ScanOrderedPoints.Count < 5) return null;
-            T peakCenter = ScanOrderedPoints.MinBy(d => Math.Abs(d.RelativeSeparationValue -  separationValueAtPeakCenter));
-            return FindPeakBoundaries(ScanOrderedPoints, ScanOrderedPoints.IndexOf(peakCenter), discriminationFactorToCutPeak);
-        }
-
         /// <summary>
         /// Recursively cuts ITraceable objects, removing all datapoints
-        /// that occur before or after potential "valleys" surrounding the "separationValueAtPeakCenter",
-        /// which in the case of a Chromatographic peak will be the associated identification's
-        /// MS2 retention time.
+        /// that occur before or after potential "valleys" surrounding the Apex.
         /// </summary>
-        /// <param name="separationValueAtPeakCenter"> Time representing the center of the peak </param>
         /// <param name="discriminationFactorToCutPeak"> The discrimination factor to determine if the peak should be cut. Default is 0.6. </param>
-        public virtual void CutPeak(double separationValueAtPeakCenter, double discriminationFactorToCutPeak = 0.6)
+        public virtual void CutPeak(double discriminationFactorToCutPeak = 0.6)
         {
-            var peakBoundaries = FindPeakBoundaries(separationValueAtPeakCenter, discriminationFactorToCutPeak);
-            CutPeak(peakBoundaries, separationValueAtPeakCenter);
+            var peakBoundaries = FindPeakBoundaries(ScanOrderedPoints, ScanOrderedPoints.IndexOf(Apex), discriminationFactorToCutPeak);
+            CutPeak(peakBoundaries, Apex.RelativeSeparationValue);
         }
 
         /// <summary>
-        /// Recursively cuts ITraceable objects, removing all datapoints outside of the peak boundaries, inclusive
+        /// Cuts a TraceablePeak objects, starting at the separationValueAtPeakCenter and removing all datapoints
+        /// that occur before or after the peakBoundaries
         /// </summary>
         /// <param name="peakBoundaries"></param>
         /// <param name="separationValueAtPeakCenter"></param>
