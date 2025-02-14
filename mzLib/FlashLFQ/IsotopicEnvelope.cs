@@ -5,13 +5,17 @@ namespace FlashLFQ
     /// <summary>
     /// Contains the summed intensities of all isotope peaks detected in a single MS1 scan for a given species.
     /// </summary>
-    public class IsotopicEnvelope : ISeparable
+    public class IsotopicEnvelope : ISingleScanDatum
     {
         /// <summary>
         /// The most abundant isotopic peak used for peak finding.
         /// </summary>
         public readonly IndexedMassSpectralPeak IndexedPeak;
         public readonly int ChargeState;
+
+        public double Mz => IndexedPeak.Mz;
+        public double RelativeSeparationValue => IndexedPeak.RetentionTime;
+        public int ZeroBasedScanIndex => IndexedPeak.ZeroBasedMs1ScanIndex;
 
         public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
@@ -27,8 +31,7 @@ namespace FlashLFQ
         /// isotopic distribution was otherwise similar to the expected isotopic distribution.
         /// </summary>
         public double Intensity { get; private set; }
-        public double SeparationDomainValue => IndexedPeak.RetentionTime;
-        public int ZeroBasedScanIndex => IndexedPeak.ZeroBasedMs1ScanIndex;
+
         public double PearsonCorrelation { get; init; }
 
         public void Normalize(double normalizationFactor)

@@ -218,6 +218,7 @@ namespace Test.FileReadingTests
             Assert.That(_testMs2Scan.IsCentroid);
             Assert.That(_testMs2Scan.ScanNumberStart == 410);
             Assert.That(_testMs2Scan.OneOverK0, Is.EqualTo(1.0424).Within(0.0001));
+            Assert.That(_testReader.Scans.All(s => s != null));
         }
 
         [Test]
