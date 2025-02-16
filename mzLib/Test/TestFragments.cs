@@ -1104,10 +1104,9 @@ namespace Test
             Assert.IsTrue(products.Count == expectedProducts.Count);
             for (int i = 0; i < products.Count; i++)
             {
-                var product = products[i];
-                Assert.IsFalse(product.IsTerminalProduct);
-                Assert.IsTrue(product.Annotation.Equals(expectedProducts[i].Annotation));
-                Assert.IsTrue(Math.Round(product.NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
+                Assert.IsFalse(products[i].IsTerminalProduct);
+                Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
+                Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
             }
 
             //test string includes both termini
