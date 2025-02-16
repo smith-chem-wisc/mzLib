@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Easy.Common.Extensions;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -64,6 +65,18 @@ namespace FlashLFQ
             else
             {
                 Intensities.Add(fileInfo, intensity);
+            }
+        }
+
+        public double GetTotalIntensity()
+        {
+            if (Intensities.IsNotNullOrEmpty())
+            {
+                return Intensities.Sum(i => i.Value);
+            }
+            else
+            {
+                return 0;
             }
         }
 

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Chemistry;
 using Omics.Fragmentation.Peptide;
+using MzLibUtil;
 
 namespace Omics.SpectrumMatch
 {
@@ -92,58 +93,15 @@ namespace Omics.SpectrumMatch
         }
 
         /// <summary>
-        /// Parses the full sequence to identify mods
+        /// Parses the full sequence to identify mods.
         /// </summary>
-        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
+        /// <param name="fullSeq"> Full sequence of the peptide in question</param>
+        /// <param name="modOnNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
+        /// <param name="modOnCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(string fullSeq)
+        public static Dictionary<int, List<string>> ParseModifications(string fullSeq, bool modOnNTerminus = true, bool modOnCTerminus = true)
         {
-            // use a regex to get all modifications
-            string pattern = @"\[(.+?)\]";
-            Regex regex = new(pattern);
-
-            // remove each match after adding to the dict. Otherwise, getting positions
-            // of the modifications will be rather difficult.
-            //int patternMatches = regex.Matches(fullSeq).Count;
-            Dictionary<int, List<string>> modDict = new();
-
-
-            // If there is a missed cleavage, then there will be a label on K and a Label on X modification.
-            // It'll be like [label]|[label] which complicates the positional stuff a little bit. Therefore, 
-            // RemoveSpecialCharacters will remove the "|", to ease things later on. 
-            RemoveSpecialCharacters(ref fullSeq);
-            MatchCollection matches = regex.Matches(fullSeq);
-            int captureLengthSum = 0; 
-            foreach (Match match in matches)
-            {
-                GroupCollection group = match.Groups;
-                string val = group[1].Value;
-                int startIndex = group[0].Index;
-                int captureLength = group[0].Length;
-
-                List<string> modList = new List<string>();
-                modList.Add(val);
-                
-                // The position of the amino acids is tracked by the positionToAddToDict variable. It takes the 
-                // startIndex of the modification Match and removes the cumulative length of the modifications
-                // found (including the brackets). The difference will be the number of nonmodification characters, 
-                // or the number of amino acids prior to the startIndex in the sequence. 
-                int positionToAddToDict = startIndex - captureLengthSum;
-
-                // check to see if key already exist
-                // if the already key exists, update the current position with the capture length + 1.
-                // otherwise, add the modification to the dict.
-                if (modDict.ContainsKey(positionToAddToDict))
-                {
-                    modDict[positionToAddToDict].Add(val);
-                }
-                else
-                {
-                    modDict.Add(positionToAddToDict, modList);
-                }
-                captureLengthSum += captureLength;
-            }
-            return modDict;
+            return fullSeq.ParseModifications(modOnNTerminus, modOnCTerminus);
         }
 
         /// <summary>
@@ -155,9 +113,7 @@ namespace Omics.SpectrumMatch
         /// <returns></returns>
         public static void RemoveSpecialCharacters(ref string fullSeq, string replacement = @"", string specialCharacter = @"\|")
         {
-            // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
-            Regex regexSpecialChar = new(specialCharacter);
-            fullSeq = regexSpecialChar.Replace(fullSeq, replacement);
+            MzLibUtil.ClassExtensions.RemoveSpecialCharacters(ref fullSeq, replacement, specialCharacter);
         }
 
 
