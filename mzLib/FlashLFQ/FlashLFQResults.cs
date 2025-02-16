@@ -1,5 +1,7 @@
 ﻿using Easy.Common.Extensions;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
+using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,6 +16,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
+        public Dictionary<string, MzLibUtil.UtilProteinGroup> ModInfo { get; private set; }
         private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }

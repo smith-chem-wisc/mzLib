@@ -1345,6 +1345,12 @@ namespace Test
             var peaks = results.Peaks.Values.ToList();
             var peptides = results.PeptideModifiedSequences.Values.ToList();
             var proteins = results.ProteinGroups.Values.ToList();
+            var modInfo = results.ModInfo;
+
+            Assert.AreEqual(6989789.488346225, peptides[0].GetTotalIntensity(), 0.0000001);
+            Assert.AreEqual(726036.539062, peptides[4].GetTotalIntensity(), 0.000001);
+            Assert.AreEqual(726036.539062, modInfo["Q7KZF4"].Proteins["Q7KZF4"].Peptides["EYGMIYLGK"].ModifiedAminoAcidPositions[4]["Common Variable:Oxidation on M"].Intensity, 0.000001);
+            Assert.AreEqual(modInfo["Q7KZF4"].Proteins["Q7KZF4"].Peptides["EYGMIYLGK"].Intensity, modInfo["Q7KZF4"].Proteins["Q7KZF4"].Peptides["EYGMIYLGK"].ModifiedAminoAcidPositions[4]["Common Variable:Oxidation on M"].Intensity, 0.000001);
 
             Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
             Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));

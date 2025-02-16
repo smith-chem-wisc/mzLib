@@ -188,7 +188,7 @@ namespace Test.FileReadingTests
 
             // psm with two mods on the same amino acid
             string fullSeq = "[Common Fixed:Carbamidomethyl on C]|[UniProt:N-acetylserine on S]KPRKIEEIKDFLLTARRKDAKSVKIKKNKDNVKFK";
-            modDict = SpectrumMatchFromTsv.ParseModifications(fullSeq);
+            modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(fullSeq, true, true);
             Assert.That(modDict.Count == 1);
             Assert.That(modDict.ContainsKey(0));
             Assert.That(modDict[0].Count == 2);

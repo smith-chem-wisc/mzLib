@@ -137,7 +137,10 @@ namespace MzLibUtil
         }
     }
     public class PositionFrequencyAnalysis
-    {
+    { 
+
+        public Dictionary<string, UtilProteinGroup> Occupancy { get; private set; }
+
         /// <summary>
         /// Calculates the occupancy of post-translational modifications at the peptide level. 
         /// </summary>
@@ -147,11 +150,7 @@ namespace MzLibUtil
         /// <returns> A nested dictionary whose key mappings are as follows: string ProteinGroup-> string Protein-> string BaseSequence-> int ModifiedAminoAcidIndex-> string ModificationName-> double Intensity
         /// Note: Each BaseSequence dictionary contains a ModifiedAminoAcidIndex key of -1 that then contains a ModificationName key called "Total" that is used to track the total intensity observed for 
         /// all of the amino acids in that peptide.</returns>
-        /// 
-
-        public Dictionary<string, UtilProteinGroup> Occupancy { get; private set; }
-
-        
+        ///
         public void ProteinGroupsOccupancyByPeptide(List<(string fullSeq, string baseSeq, List<string> proteinGroup, double intensity)> peptides, bool modOnNTerminus = true, bool modOnCTerminus = true, bool ignoreTerminusMod=false)
         {
             var proteinGroups = new Dictionary<string, UtilProteinGroup>();
@@ -227,12 +226,6 @@ namespace MzLibUtil
         public void ProteinGroupsOccupancyByProtein(Dictionary<string, string> proteinSequences) // Dictionary<accession, sequence>
         {
             throw new NotImplementedException();
-        }
-
-        public void ChangePeptideToProteinOccupancyIndex(string proteinGroupName, string proteinName, string peptide, int OneBasedStartResidue)
-        {
-            Occupancy[proteinGroupName].OccupancyLevel = "protein";
-            Occupancy[proteinGroupName].Proteins[proteinName].Peptides[peptide].PeptideToProteinPositions(OneBasedStartResidue);
         }
     }
 }

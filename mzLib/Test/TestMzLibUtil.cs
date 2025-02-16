@@ -2,6 +2,7 @@
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MzLibUtil;
 using Readers;
+using System.Collections.Generic;
 
 namespace Test
 {
