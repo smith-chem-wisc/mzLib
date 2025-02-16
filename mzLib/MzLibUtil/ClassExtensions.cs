@@ -25,6 +25,91 @@ namespace MzLibUtil
 {
     public static class ClassExtensions
     {
+        /// <summary>
+        /// Parses the full sequence to identify mods.
+        /// </summary>
+        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
+        /// <param name="modOnNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
+        /// <param name="modOnCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
+        /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
+        public static Dictionary<int, List<string>> ParseModifications(this string fullSequence, bool modOnNTerminus=false, bool modOnCTerminus=false, bool ignoreTerminusMod=false)
+        {
+            // use a regex to get all modifications
+            string pattern = @"\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
+            Regex regex = new(pattern);
+
+            // remove each match after adding to the dict. Otherwise, getting positions
+            // of the modifications will be rather difficult.
+            //int patternMatches = regex.Matches(fullSequence).Count;
+            Dictionary<int, List<string>> modDict = new();
+
+            string fullSeq = fullSequence;
+            RemoveSpecialCharacters(ref fullSeq);
+            MatchCollection matches = regex.Matches(fullSeq);
+            int captureLengthSum = 0;
+            foreach (Match match in matches)
+            {
+                GroupCollection group = match.Groups;
+                string val = group[1].Value;
+                int startIndex = group[0].Index;
+                int captureLength = group[0].Length;
+
+                List<string> modList = new List<string>();
+                modList.Add(val);
+
+                // The position of the amino acids is tracked by the positionToAddToDict variable. It takes the 
+                // startIndex of the modification Match and removes the cumulative length of the modifications
+                // found (including the brackets). The difference will be the number of nonmodification characters, 
+                // or the number of amino acids prior to the startIndex in the sequence. 
+                int positionToAddToDict = startIndex - captureLengthSum;
+
+                if ((positionToAddToDict == 0 || (fullSeq.Length == startIndex + captureLength)) && ignoreTerminusMod)
+                {
+                    continue;
+                }
+
+                // Handle N terminus indexing
+                if ((positionToAddToDict == 0) && !modOnNTerminus)
+                {
+                    positionToAddToDict++;
+                }
+
+                // Handle C terminus indexing
+                if ((fullSeq.Length == startIndex + captureLength) && modOnCTerminus)
+                {
+                    positionToAddToDict++;
+                }
+
+                // check to see if key already exist
+                // if the already key exists, update the current position with the capture length + 1.
+                // otherwise, add the modification to the dict.
+                if (modDict.ContainsKey(positionToAddToDict))
+                {
+                    modDict[positionToAddToDict].Add(val);
+                }
+                else
+                {
+                    modDict.Add(positionToAddToDict, modList);
+                }
+                captureLengthSum += captureLength;
+            }
+            return modDict;
+        }
+
+        /// <summary>
+        /// Fixes an issue where the | appears and throws off the numbering if there are multiple mods on a single amino acid.
+        /// </summary>
+        /// <param name="fullSequence"></param>
+        /// <param name="replacement"></param>
+        /// <param name="specialCharacter"></param>
+        /// <returns></returns>
+        public static void RemoveSpecialCharacters(ref string fullSequence, string replacement = @"", string specialCharacter = @"\|")
+        {
+            // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
+            Regex regexSpecialChar = new(specialCharacter);
+            fullSequence = regexSpecialChar.Replace(fullSequence, replacement);
+        }
+
         public static double[] BoxCarSmooth(this double[] data, int points)
         {
             // Force to be odd
