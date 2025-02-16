@@ -20,14 +20,28 @@ namespace Omics.Fragmentation
             Mz = experMz;
             Intensity = experIntensity;
             Charge = charge;
-            MassErrorDa = Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
-            MassErrorPpm = (MassErrorDa / NeutralTheoreticalProduct.NeutralMass) * 1e6;
             IsTerminalFragment = NeutralTheoreticalProduct.IsTerminalProduct;
         }
 
-        public double MassErrorDa { get; }
+        private double? _massErrorDa;
+        public double MassErrorDa
+        {
+            get
+            {
+                _massErrorDa ??= Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
+                return _massErrorDa.Value;
+            }
+        }
 
-        public double MassErrorPpm { get; }
+        private double? _massErrorPpm;
+        public double MassErrorPpm
+        {
+            get
+            {
+                _massErrorPpm ??= (MassErrorDa / NeutralTheoreticalProduct.NeutralMass) * 1e6;
+                return _massErrorPpm.Value;
+            }
+        }
 
         private string? _annotation;
         public string Annotation
@@ -59,7 +73,6 @@ namespace Omics.Fragmentation
             }
         }
 
-
         /// <summary>
         /// Summarizes a TheoreticalFragmentIon into a string for debug purposes
         /// </summary>
@@ -78,7 +91,6 @@ namespace Omics.Fragmentation
         {
             return obj is MatchedFragmentIon otherIon && this.Equals(otherIon);
         }
-
 
         public bool Equals(MatchedFragmentIon? other)
         {
