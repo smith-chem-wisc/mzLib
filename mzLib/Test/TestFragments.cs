@@ -908,12 +908,78 @@ namespace Test
             Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
             Assert.AreEqual(1072693248, P.GetHashCode());
         }
+
+        [Test]
+        public void TestProductConstructor()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            Assert.That(product.NeutralMass, Is.EqualTo(100.0));
+            Assert.That(product.ProductType, Is.EqualTo(ProductType.b));
+            Assert.That(product.NeutralLoss, Is.EqualTo(0.0));
+            Assert.That(product.Terminus, Is.EqualTo(FragmentationTerminus.N));
+            Assert.That(product.FragmentNumber, Is.EqualTo(1));
+            Assert.That(product.ResiduePosition, Is.EqualTo(1));
+            Assert.That(product.SecondaryProductType, Is.Null);
+            Assert.That(product.SecondaryFragmentNumber, Is.EqualTo(0));
+            Assert.That(product.IsTerminalProduct, Is.True);
+        }
+
+        [Test]
+        public void TestProductAnnotation()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            Assert.That(product.Annotation, Is.EqualTo("b1"));
+            Assert.That(product.IsTerminalProduct, Is.True);
+
+            var productWithLoss = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 18.0);
+            Assert.That(productWithLoss.Annotation, Is.EqualTo("b1-18.00"));
+
+            var internalProduct = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0, ProductType.y, 2);
+            Assert.That(internalProduct.Annotation, Is.EqualTo("bIy[1-2]"));
+            Assert.That(internalProduct.IsTerminalProduct, Is.False);
+        }
+
+        [Test]
+        public void TestProductToString()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            Assert.That(product.ToString(), Is.EqualTo("b1;100.00000-0"));
+            Assert.That(product.IsTerminalProduct, Is.True);
+
+            var productWithLoss = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 18.0);
+            Assert.That(productWithLoss.ToString(), Is.EqualTo("b1;100.00000-18"));
+
+            var internalProduct = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0, ProductType.y, 2);
+            Assert.That(internalProduct.ToString(), Is.EqualTo("bIy[1-2];100.00000-0"));
+            Assert.That(internalProduct.IsTerminalProduct, Is.False);
+        }
+
+        [Test]
+        public void TestProductEquality()
+        {
+            var product1 = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            var product2 = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            var product3 = new Product(ProductType.y, FragmentationTerminus.C, 200.0, 2, 2, 0.0);
+
+            Assert.That(product1.Equals(product2), Is.True);
+            Assert.That(product1.Equals(product3), Is.False);
+            Assert.That(product1.Equals(null), Is.False);
+        }
+
+        [Test]
+        public void TestProductHashCode()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            Assert.That(product.GetHashCode(), Is.EqualTo(product.NeutralMass.GetHashCode()));
+        }
+
         [Test]
         public static void Test_ProductMonoisotopicMass()
         {
             Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
             Assert.That(P.MonoisotopicMass.Equals(P.NeutralMass));
         }
+
         [Test]
         public static void Test_MatchedFragmentGetHashCode()
         {
@@ -1038,8 +1104,10 @@ namespace Test
             Assert.IsTrue(products.Count == expectedProducts.Count);
             for (int i = 0; i < products.Count; i++)
             {
-                Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
-                Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
+                var product = products[i];
+                Assert.IsFalse(product.IsTerminalProduct);
+                Assert.IsTrue(product.Annotation.Equals(expectedProducts[i].Annotation));
+                Assert.IsTrue(Math.Round(product.NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
             }
 
             //test string includes both termini

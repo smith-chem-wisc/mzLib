@@ -3,12 +3,13 @@ using System.Text;
 
 namespace Omics.Fragmentation
 {
-    public class MatchedFragmentIon
+    public class MatchedFragmentIon : IEquatable<MatchedFragmentIon>
     {
         public readonly Product NeutralTheoreticalProduct;
         public readonly double Mz;
         public readonly double Intensity;
         public readonly int Charge;
+        public readonly bool IsTerminalFragment;
 
         /// <summary>
         /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
@@ -19,28 +20,22 @@ namespace Omics.Fragmentation
             Mz = experMz;
             Intensity = experIntensity;
             Charge = charge;
-        }
-        public double MassErrorDa
-        {
-            get
-            {
-                return Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
-            }
+            MassErrorDa = Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
+            MassErrorPpm = (MassErrorDa / NeutralTheoreticalProduct.NeutralMass) * 1e6;
+            IsTerminalFragment = NeutralTheoreticalProduct.IsTerminalProduct;
         }
 
-        public double MassErrorPpm
-        {
-            get
-            {
-                return (MassErrorDa / NeutralTheoreticalProduct.NeutralMass) * 1e6;
-            }
-        }
+        public double MassErrorDa { get; }
 
+        public double MassErrorPpm { get; }
+
+        private string? _annotation;
         public string Annotation
         {
             get
             {
-                StringBuilder sb = new StringBuilder();
+                if (_annotation is not null) return _annotation;
+                StringBuilder sb = new StringBuilder(8);
 
                 bool containsNeutralLoss = NeutralTheoreticalProduct.NeutralLoss != 0;
 
@@ -59,9 +54,11 @@ namespace Omics.Fragmentation
                 sb.Append("+");
                 sb.Append(Charge);
 
-                return sb.ToString();
+                _annotation = sb.ToString();
+                return _annotation;
             }
         }
+
 
         /// <summary>
         /// Summarizes a TheoreticalFragmentIon into a string for debug purposes
@@ -77,13 +74,13 @@ namespace Omics.Fragmentation
         // Rounding to 6 decimal places ensures accurate comparison up to 1,000,000,000 AU (non-inclusive)
         internal const int IntensityDecimalDigits = 6;
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is MatchedFragmentIon otherIon && this.Equals(otherIon);
         }
 
 
-        public bool Equals(MatchedFragmentIon other)
+        public bool Equals(MatchedFragmentIon? other)
         {
             return this.NeutralTheoreticalProduct.Equals(other.NeutralTheoreticalProduct)
                 && this.Charge == other.Charge
