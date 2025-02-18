@@ -9,7 +9,7 @@ namespace Omics.Fragmentation
         public readonly double Mz;
         public readonly double Intensity;
         public readonly int Charge;
-        public readonly bool IsTerminalFragment;
+        public readonly bool IsInternalFragment;
 
         /// <summary>
         /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
@@ -20,7 +20,7 @@ namespace Omics.Fragmentation
             Mz = experMz;
             Intensity = experIntensity;
             Charge = charge;
-            IsTerminalFragment = NeutralTheoreticalProduct.IsTerminalProduct;
+            IsInternalFragment = NeutralTheoreticalProduct.IsInternalFragment;
         }
 
         private double? _massErrorDa;

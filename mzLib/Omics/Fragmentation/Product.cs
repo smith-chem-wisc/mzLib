@@ -15,7 +15,7 @@ namespace Omics.Fragmentation
         public ProductType? SecondaryProductType { get; } //used for internal fragment ions
         public int SecondaryFragmentNumber { get; } //used for internal fragment ions
         public double MonoisotopicMass => NeutralMass;
-        public bool IsTerminalProduct { get; }
+        public bool IsInternalFragment { get; }
 
         /// <summary>
         /// A product is the individual neutral fragment from an MS dissociation. A fragmentation product here contains one of the two termini (N- or C-). 
@@ -32,9 +32,11 @@ namespace Omics.Fragmentation
             Terminus = terminus;
             FragmentNumber = fragmentNumber;
             ResiduePosition = residuePosition;
+
+            // These two are set for internal ions only.
             SecondaryProductType = secondaryProductType;
             SecondaryFragmentNumber = secondaryFragmentNumber;
-            IsTerminalProduct = SecondaryProductType == null;
+            IsInternalFragment = SecondaryProductType != null;
         }
 
         private string? _annotation;
