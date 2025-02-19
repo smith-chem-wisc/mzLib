@@ -1,4 +1,5 @@
 ﻿using Easy.Common.Extensions;
+using MassSpectrometry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -162,6 +163,19 @@ namespace FlashLFQ
             }
         }
 
+        public void SetMbrPeptide(Dictionary<Tuple<int, double, double>, List<ChromatographicPeak>> isobaricList)
+        {
+            // Loading the whole isobaric peptide list into the peptide object
+            foreach (var Peak in isobaricList)
+            {
+                string peakName = "SinglePeak";
+                if (!IsobaricPeptideList.ContainsKey("SinglePeak")) // Make sure we don't have the same peak name in the list
+                {
+                    IsobaricPeptideList.Add(peakName, Peak.Value);
+                }
+            }
+        }
+
         public string ToString(List<SpectraFileInfo> rawFiles)
         {
             if (IsobaricPeptideList.Any()) // There is a isobaric case in this peptide, then we need to write down them separately
@@ -213,7 +227,29 @@ namespace FlashLFQ
 
                     foreach (var file in rawFiles)
                     {
-                        str.Append(GetDetectionType(file) + "\t");
+                        DetectionType detectionType;
+                        var peak = isobaricPep.Value
+                            .Where(p => p?.SpectraFileInfo?.Equals(file) == true)
+                            .FirstOrDefault(); // Check if p and SpectraFileInfo are not null
+                            
+                        if (peak != null && peak.IsMbrPeak && peak.Intensity > 0)
+                        {
+                            detectionType = DetectionType.MBR;
+                        }
+                        else if (peak != null && !peak.IsMbrPeak && peak.Intensity > 0)
+                        {
+                            detectionType = DetectionType.MSMS;
+                        }
+                        else if (peak != null && !peak.IsMbrPeak && peak.Intensity == 0)
+                        {
+                            detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
+                        }
+                        else
+                        {
+                            detectionType = DetectionType.NotDetected;
+                        }
+
+                        str.Append(detectionType + "\t");
                     }
 
                     countForNextLine++;

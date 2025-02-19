@@ -27,7 +27,7 @@ namespace FlashLFQ.Alex_project
         public List<IndexedMassSpectralPeak> Ms1Peaks { get; init; }
         public double PeakFindingMz { get; init; }
         public SpectraFileInfo SpectraFile { get; init; }
-        public bool Reference { get; init; }
+        public bool Reference { get; set; }
         public MathNet.Numerics.Interpolation.LinearSpline LinearSpline { get; private set; }
         public CubicSpline SmoothedCubicSpline { get; private set; }
         public double RtShift { get; private set; }
@@ -159,33 +159,15 @@ namespace FlashLFQ.Alex_project
             double[] retentionTime = Ms1Peaks.Select(p => p.RetentionTime).ToArray();
             double[] intensity = Ms1Peaks.Select(p => p.Intensity).ToArray();
 
+            //SmoothedIntensity = IntesitySmoothing_normal(intensity, smoothDegree).ToList();
             SmoothedIntensity = IntesitySmoothing_weight(intensity, smoothDegree).ToList();
             SmoothedIntensity = IntesitySmoothing_normal(SmoothedIntensity.ToArray(), smoothDegree).ToList();
-            //SmoothedIntensity = SGFiltering(intensity).ToList();
+
 
             SmoothedRetentionTime = retentionTime.ToList();
             this.SmoothedCubicSpline = CubicSpline.InterpolateAkimaSorted(retentionTime, SmoothedIntensity.ToArray());
         }
 
-
-        public double[] SGFiltering(double[] intensity) 
-        {
-            double[] smoothedIntensity = new double[intensity.Length];
-
-            for (int i = 0; i < intensity.Length; i++) 
-            {
-                if (i < 3 || i >= intensity.Length - 3) 
-                {
-                    smoothedIntensity[i] = intensity[i];
-                }
-                else
-                {
-                    smoothedIntensity[i] = ( 5 * intensity[i-3] + -30 * intensity[i - 2] + 75 * intensity[i - 1] + 131 * intensity[i] + 75 * intensity[i + 1] - 30 * intensity[i + 2] + 5 * intensity[i + 3]) / 231;
-                }
-            }
-
-            return smoothedIntensity;
-        }
 
         public double[] IntesitySmoothing_weight(double[] intensity, int pointsToAverage)
         {

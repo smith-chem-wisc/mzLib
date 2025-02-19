@@ -150,92 +150,9 @@ namespace FlashLFQ.Alex_project
             }
 
             int iii = 0;
-            //while (removeIndex < count - 1)
-            //{
-            //    bool sameType = sharedExtrema[removeIndex].Type == sharedExtrema[removeIndex + 1].Type;
-            //    double timeDiff = sharedExtrema[removeIndex + 1].RetentionTime - sharedExtrema[removeIndex].RetentionTime;
-            //    if (sameType && timeDiff < cutOff)
-            //    {
-            //        sharedExtrema.RemoveAt(removeIndex + 1);
-            //        count--;
-            //    }
-            //    else
-            //    {
-            //        removeIndex++;
-            //    }
-            //}
+            
         }
 
-        //public void buildSharedExtrema(double count_threshold , double tolerance , double cutOff = 0.16)
-        //{
-        //    List<Extremum> extremaList = new List<Extremum>();
-        //    foreach (var xic in XICs)
-        //    {
-        //        extremaList.AddRange(xic.Extrema);
-        //    }
-        //    extremaList.Sort((p1,p2) => p1.RetentionTime.CompareTo(p2.RetentionTime));
-
-
-        //    int index = 0;
-        //    Dictionary<Extremum, List<Extremum>> group = new Dictionary<Extremum, List<Extremum>>();
-        //    Extremum currentExtremum ;
-        //    while (index < extremaList.Count()-1)
-        //    {
-        //        currentExtremum = extremaList[index]; 
-        //        List<Extremum> currentGroup = new List<Extremum>() { currentExtremum };
-
-        //        for (int i = index+1;  i < extremaList.Count() ; i++)
-        //        {
-        //            double timeDiff = extremaList[i].RetentionTime - currentExtremum.RetentionTime;
-        //            index = i;
-
-        //            if (timeDiff > tolerance)
-        //            { 
-        //                break;
-        //            }
-
-        //            else
-        //            {
-        //                if (extremaList[i].Type == currentExtremum.Type)
-        //                {
-        //                    currentGroup.Add(extremaList[i]);
-        //                }
-        //            }
-        //        }
-
-        //        if (group.ContainsKey(currentExtremum))
-        //        {
-        //            continue;
-        //        }
-
-        //        group.Add(currentExtremum, currentGroup);
-
-        //    }
-
-        //    sharedExtrema = group.Where(p => p.Value.Count() >= count_threshold * XICs.Count())
-        //                         .Select(p=>p.Key).ToList();
-
-        //    int removeIndex = 0;
-        //    int count = sharedExtrema.Count();
-        //    while (removeIndex < count-1) 
-        //    {
-        //        bool sameType = sharedExtrema[removeIndex].Type == sharedExtrema[removeIndex + 1].Type;
-        //        double timeDiff = sharedExtrema[removeIndex + 1].RetentionTime - sharedExtrema[removeIndex].RetentionTime;
-        //        if (sameType && timeDiff < cutOff)
-        //        {
-        //            sharedExtrema.RemoveAt(removeIndex + 1);
-        //            count--;
-        //        }
-        //        else
-        //        {
-        //            removeIndex++;
-        //        }
-        //    }
-
-        //    int I = 0;
-
-
-        //}
 
         public void sharedExtremaInRef(XIC reference, List<Extremum> sharedExtre)
         {
@@ -314,7 +231,7 @@ namespace FlashLFQ.Alex_project
             {
                 if (xic.Ids != null) 
                 {
-                    foreach (var id in xic.Ids) // Collect and modified the identifications in the XIC
+                    foreach (var id in xic.Ids.Where(p=> p.FileInfo.Equals(xic.SpectraFile))) // Collect and modified the identifications in the XIC, Ignore the borrowed Id
                     {
                         MovedIdentification moveId = new MovedIdentification(id.FileInfo, id.BaseSequence, id.ModifiedSequence,
                             id.MonoisotopicMass, id.Ms2RetentionTimeInMinutes, id.PrecursorChargeState, id.ProteinGroups.ToList(), xic.RtShift);

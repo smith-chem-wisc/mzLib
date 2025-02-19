@@ -269,12 +269,16 @@ namespace FlashLFQ
 
                 IsobaricPeakInDifferentRun = new Dictionary<string, Dictionary<Tuple<int, double, double>, List<ChromatographicPeak>>>();
                 var IdGroupedbySeq = _allIdentifications.Where(p=> p.BaseSequence != p.ModifiedSequence).GroupBy(p => p.ModifiedSequence);                
-                Dictionary<int,List<ChromatographicPeak>> ChromPeakInDifferentRun = new Dictionary<int, List<ChromatographicPeak>> ();
+                
 
                 foreach (var idGroup in IdGroupedbySeq) //Try to interate the all ID in the group
                 {
                     List<XIC> xicGroup = new List<XIC>();
 
+                    if (idGroup.First().ModifiedSequence == "AN[N-Glycosylation:H4N4F1 on N]STGTLVITDPTR")
+                    {
+                        int iiii = 0;
+                    }
 
                     var idGroup_MostCommon = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
                     var id = idGroup_MostCommon.First();
@@ -291,35 +295,26 @@ namespace FlashLFQ
                     var fileForReference = idGroup_MostCommon.GroupBy(p=> p.FileInfo).OrderBy(p=>p.Count()).Last().Key;
                     foreach (var spectraFile in _spectraFileInfo) 
                     {
-                        var xic_ids = idGroup_MostCommon.Where(p => p.FileInfo == spectraFile).ToList();
+                        var xic_ids = idGroup_MostCommon.Where(p => p.FileInfo.Equals(spectraFile) ).ToList();
 
                         if (xic_ids.Count() == 0) 
                         {
                             xic_ids = idGroup_MostCommon.Where(p => !p.IsDecoy).ToList(); //If in this run, there is no any ID, we will borrow the ID from other run to build the XIC.
                         }
 
-                        if (spectraFile == fileForReference)
+                        XIC xic = buildXIC(xic_ids, spectraFile, false, LeftWindow, RightWindow);
+                        if (xic != null && xic.Ms1Peaks.Count() > 5)
                         {
-                            XIC xic = buildXIC(xic_ids, spectraFile, true, LeftWindow, RightWindow);
-                            if (xic!=null && xic.Ms1Peaks.Count() > 5)
-                            {
-                                xicGroup.Add(xic);
-                            }
+                            xicGroup.Add(xic);
                         }
-                        else
-                        {
-                            XIC xic = buildXIC(xic_ids, spectraFile, false, LeftWindow, RightWindow);
-                            if (xic != null && xic.Ms1Peaks.Count() > 5)
-                            {
-                                xicGroup.Add(xic);
-                            }
-                        } 
                     }
                     
                     // If we have more than one XIC, we can do the MBR
                     if (xicGroup.Count > 1)
                     {
-                        
+                        xicGroup.OrderBy(p => p.Ids.Count()).First().Reference = true; //The one with most IDs is the reference
+
+
                         XICGroups xICGroups = new XICGroups(xicGroup); // try to build the XICGroups
                         Dictionary<Tuple<int,double, double>, List<ChromatographicPeak>> peakPairChorm = new Dictionary<Tuple<int, double, double>, List<ChromatographicPeak>>(); //The dictionary of [PeakInfor <-> ChromatographicPeak]
                         int PeakIndex = 1;  // The index of the peak in the XICGroups, start from 1
@@ -350,15 +345,17 @@ namespace FlashLFQ
                         capRatio = ActualCount / TherothicalCount;
                         captureRatio[id.ModifiedSequence] = (TherothicalCount, ActualCount, capRatio);
                         IsobaricPeakInDifferentRun[id.ModifiedSequence] = peakPairChorm;
-                        int iii = 0;
 
+
+                        int iii = 0;
 
                     }
 
 
 
                 }
-
+                 //var missing = captureRatio.Where(p => p.Value.Item2 < 2).Count();
+                 //var missrate = missing / captureRatio.Count();
                 _results.IsobaricPeakInDifferentRun = IsobaricPeakInDifferentRun;
 
             }
@@ -2165,10 +2162,12 @@ namespace FlashLFQ
                 // Is there any vaild Id within this peak region?
                 double peakStart = peaksInOneXIC.Value.Item1 ;
                 double PeakEnd = peaksInOneXIC.Value.Item2 ;
+                bool isMBR = false;
                 Identification idForThisPeak = xICGroups.XICGroup_IdList.Where(p=>Within(p.Ms2RetentionTimeInMinutes, peakStart, PeakEnd) && p.FileInfo.Equals(xic.SpectraFile)).FirstOrDefault();
                 if (idForThisPeak == null)
                 {
                     idForThisPeak = xICGroups.XICGroup_IdList.Where(p =>  Within(p.Ms2RetentionTimeInMinutes, peakStart, PeakEnd)).FirstOrDefault();
+                    isMBR = true;
                 }
 
                 //If we find the Id, input the TimeWindow and id into the XIC and generate the ChromatographicPeak
@@ -2179,7 +2178,7 @@ namespace FlashLFQ
                 
                 Tuple<double, double, double> rtInfo = new Tuple<double, double, double>(rt, start, end); // predicted RT, RtStartHypothesis, RtEndHypothesis
 
-                ChromatographicPeak peak = BuildChromPeak(rtInfo, xic, idForThisPeak);
+                ChromatographicPeak peak = BuildChromPeak(rtInfo, xic, idForThisPeak, isMBR);
                 chromPeaksInThisSequence.Add(peak);
 
             }
@@ -2195,14 +2194,14 @@ namespace FlashLFQ
         }
 
 
-        internal ChromatographicPeak BuildChromPeak(Tuple<double, double, double> rtInfo, XIC xic, Identification idForChrom) 
+        internal ChromatographicPeak BuildChromPeak(Tuple<double, double, double> rtInfo, XIC xic, Identification idForChrom, bool isMBR = false) 
         {
             // get the MS1 scan info for this region so we can look up indexed peaks
 
             List<IndexedMassSpectralPeak> snippedPeaks = new List<IndexedMassSpectralPeak>();
             double mass = xic.PeakFindingMz;
             Identification id = idForChrom;
-            PpmTolerance mbrTol = new PpmTolerance(MbrPpmTolerance); //still don'y know what is this
+
             SpectraFileInfo spectraFile = xic.SpectraFile;
 
             if (idForChrom == null)
@@ -2254,7 +2253,7 @@ namespace FlashLFQ
 
 
             //Ray Part
-            var acceptorPeak = new ChromatographicPeak(id, true, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1);
+            var acceptorPeak = new ChromatographicPeak(id, isMBR, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1);
             IsotopicEnvelope BestEnvelopes = chargeEnvelopes.OrderByDescending(p => p.Intensity).First();
             acceptorPeak.IsotopicEnvelopes.Add(chargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);

@@ -367,23 +367,26 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public void XICSmoothViewer() 
+        public void XICSmoothViewer()
         {
-            string file9 = "FS1_14373_3.raw";
-            string file10 = "FS1_MS_14373_6_05082021.raw";
-            string filePath9 = "E:\\GitClones\\mzLib\\mzLib\\TestFlashLFQ\\TestData\\isobaricFolder\\" + file9;
-            string filePath10 = "E:\\GitClones\\mzLib\\mzLib\\TestFlashLFQ\\TestData\\isobaricFolder\\" + file10;
-            var reader9 = MsDataFileReader.GetDataFile(filePath9);
-            var reader10 = MsDataFileReader.GetDataFile(filePath10);
-            reader9.LoadAllStaticData(null, maxThreads: 1);
-            reader10.LoadAllStaticData(null, maxThreads: 1);
-            List<MsDataScan> ms1scans9 = reader9.GetAllScansList().ToList();
-            List<MsDataScan> ms1scans10 = reader10.GetAllScansList().ToList();
-            var run9 = ms1scans9.Where(p => p.MsnOrder > 1).ToList();
-            var run10 = ms1scans10.Where(p => p.MsnOrder > 1).ToList();
+            List<string> fileNameList = new List<string>() { "HFX_MB_14751_1.raw", "HFX_MB_14751_2_23052022.raw", "HFX_MB_14751_3_29052022.raw", "HFX_MB_14751_4_02062022.raw", "HFX_MB_14751_5_02062022.raw" };
+            List<string> fileList = fileNameList.Select(p => "E:\\MBR\\multiple peaks data\\" + p).ToList();
+            List < List < MsDataScan >> ms1ScansList = new List<List<MsDataScan>>();
+
+            foreach (var file in fileList)
+            {
+                var reader = MsDataFileReader.GetDataFile(file);
+                reader.LoadAllStaticData(null, maxThreads: 1);
+                List<MsDataScan> ms1scans = reader.GetAllScansList().ToList().Where(p => p.MsnOrder == 1).ToList();
+                ms1ScansList.Add(ms1scans);
+            }
+
+            double mz = 1018.126;
             //DrawPlot(new List<List<MsDataScan>> { run9,run10}, 518.2038, false, false, new List<string>(){file9,file10});
-            DrawPlot(new List<List<MsDataScan>> { run9, run10 }, 1078.482, false ,false, new List<string>() { file9, file10 });
-            var xicGroup = XICGrouping( new List<List<MsDataScan>>{ run9,run10 }, 1078.482, 0.55, 0.2);
+            var xicGroup = XICGrouping(new List<List<MsDataScan>> { ms1ScansList.ToList() }, mz, 0.55, 0.2);
+            DrawPlot(new List<List<MsDataScan>> { ms1ScansList.ToList() }, mz, false ,true, fileNameList);
+            
+
             int iii = 0;
         }
 

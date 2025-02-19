@@ -17,6 +17,9 @@ using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using TopDownProteomics;
+using System.Web;
+using static Microsoft.FSharp.Core.ByRefKinds;
+using System.Text.RegularExpressions;
 
 namespace Test
 {
@@ -1427,6 +1430,594 @@ namespace Test
         }
 
         [Test]
+        public static void RealDataMbrTest_IsobaricCase_noRtShift()
+        {
+            string psmFile = "E:\\MBR\\testRawFile2\\PSMsForIsobaricCase.psmtsv";
+            string outputFilepath = "E:\\MBR\\testRawFile\\testingOutput\\Isobaric_noRtShift_0217.tsv";
+
+            SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\testRawFile2\\20100604_Velos1_TaGe_SA_A549_3_first.mzML", "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\testRawFile2\\20100604_Velos1_TaGe_SA_A549_3_second.mzML", "a", 1, 0, 0);
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("first"))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains("second"))
+                {
+                    file = f1r2;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[22].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[25].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: true);
+            var results = engine.Run();
+            results.WriteResults(null, outputFilepath, null, null, true);
+
+            
+        }
+
+
+        [Test]
+        public static void FakeDataMbrTest_IsobaricCase_withRtShift()
+        {
+            string psmFile = "E:\\MBR\\testRawFile2\\PSMsForIsobaricCase_withRtShift.psmtsv";
+            string outputFilepath = "E:\\MBR\\testRawFile\\testingOutput\\Isobaric_RtShift.tsv";
+
+            SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\testRawFile2\\20100604_Velos1_TaGe_SA_A549_3_first_shiftcase.mzML", "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\testRawFile2\\20100604_Velos1_TaGe_SA_A549_3_second_shiftcase.mzML", "a", 1, 0, 0);
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("first"))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains("second"))
+                {
+                    file = f1r2;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[22].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[25].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: true);
+            var results = engine.Run();
+            results.WriteResults(null, outputFilepath, null, null, true);
+
+
+        }
+
+
+        [Test]
+        public static void FakeDataMbrTest_IsobaricCase_withMutipleRun()
+        {
+            string psmFile = "E:\\MBR\\TestRawFile2\\PSMs_mutipleRuns.psmtsv";
+            string outputFilepath = "E:\\MBR\\testRawFile\\testingOutput\\Isobaric_mutipleRuns.tsv";
+
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine("E:\\MBR\\TestRawFile2\\Run1.mzML"), "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine("E:\\MBR\\TestRawFile2\\Run2.mzML"), "a", 1, 0, 0);
+            SpectraFileInfo f1r3 = new SpectraFileInfo(Path.Combine("E:\\MBR\\TestRawFile2\\Run3.mzML"), "a", 2, 0, 0);
+            SpectraFileInfo f1r4 = new SpectraFileInfo(Path.Combine("E:\\MBR\\TestRawFile2\\Run4.mzML"), "a", 3, 0, 0);
+            SpectraFileInfo f1r5 = new SpectraFileInfo(Path.Combine("E:\\MBR\\TestRawFile2\\Run5.mzML"), "a", 4, 0, 0);
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                switch (split[0]) 
+                {
+                    case string s when s.Contains("Run1"):
+                        file = f1r1;
+                        break;
+                    case string s when s.Contains("Run2"):
+                        file = f1r2;
+                        break;
+                    case string s when s.Contains("Run3"):
+                        file = f1r3;
+                        break;
+                    case string s when s.Contains("Run4"):
+                        file = f1r4;
+                        break;
+                    case string s when s.Contains("Run5"):
+                        file = f1r5;
+                        break;
+                    default:
+                        file = null;
+                        break;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[22].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[25].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: true);
+            var results = engine.Run();
+            results.WriteResults(null, outputFilepath, null, null, true);
+        }
+
+        [Test]
+        public static void RealDataMbrTest_IsobaricCase_RealDataSam() 
+        {
+            string psmFile = "E:\\MBR\\Sam testing data\\XL_Intralinks_MBR.tsv";
+            string psmFile_time_first = "E:\\MBR\\Sam testing data\\4-5-24-IGS-Std-calib_PSMs.psmtsv";
+            string psmFile_time_second = "E:\\MBR\\Sam testing data\\4-5-24-IGS-Spike-In-8uL-calib_PSMs.psmtsv";
+
+            string outputFilepath = "E:\\MBR\\Sam testing data\\Isobaric_Sam_RealTest.tsv";
+
+            string Spectrafile1 = "E:\\MBR\\Sam testing data\\4-5-24-IGS-Std-calib.mzML";
+            string Spectrafile2 = "E:\\MBR\\Sam testing data\\4-5-24-IGS-Spike-In-8uL-calib.mzML";
+            SpectraFileInfo f1r = new SpectraFileInfo(Spectrafile1, "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Spectrafile2, "a", 0, 0, 0);
+
+            List<SpectraFileInfo> fileList = new List<SpectraFileInfo> { f1r, f1r2};
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+
+            //Try to add the psm into the existed one (with scan number)
+            Dictionary<Tuple<string, int>, double> timeMap = new Dictionary<Tuple<string, int>, double>();
+            foreach (string line in File.ReadAllLines(psmFile_time_first)) 
+            {
+                var split = line.Split(new char[] { '\t' });
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+                string fileName = split[0];
+                int scanIndex = int.Parse(split[1]);
+                double time = double.Parse(split[2]);
+                if(!timeMap.ContainsKey(new Tuple<string, int>(fileName, scanIndex)))
+                {
+                    timeMap.Add(new Tuple<string, int>(fileName, scanIndex), time);
+                }
+
+            }
+            foreach (string line in File.ReadAllLines(psmFile_time_second))
+            {
+                var split = line.Split(new char[] { '\t' });
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+                string fileName = split[0];
+                int scanIndex = int.Parse(split[1]);
+                double time = double.Parse(split[2]);
+                if (!timeMap.ContainsKey(new Tuple<string, int>(fileName, scanIndex)))
+                {
+                    timeMap.Add(new Tuple<string, int>(fileName, scanIndex), time);
+                }
+            }
+            // use the time map for converting (scan number to retention time)
+            var sortedTimemap = timeMap.OrderBy(p => p.Value).ToDictionary(p=>p.Key, p=>p.Value);
+
+
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                string fileName = split[0].Split(new char[] { '\\'}).Last().Split(new char[] { '.'}).First();
+                int scanIndex = int.Parse(split[1]);
+                sortedTimemap.TryGetValue(new Tuple<string, int>(fileName, scanIndex), out double rt);
+                SpectraFileInfo file;
+                if(fileName.Contains("Std"))
+                {
+                    file = f1r;
+                }
+                else
+                {
+                    file = f1r2;
+                }
+
+                double alphaMass = double.Parse(split[13]);
+                double betaMass = double.Parse(split[26]);
+                string alphaBaseSequence = split[11];
+                string betaBaseSequence = split[24];
+                string alphaSequence = split[12];
+                string betaSequence = split[25];
+                string fullSequence = alphaSequence + betaSequence;
+                string baseSequence = alphaBaseSequence + betaBaseSequence;
+                double monoMass = alphaMass+betaMass-18.0105;
+                int z = int.Parse(split[4]);
+                var proteins = split[9].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+                
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+
+            }
+            ids.Add(new Identification(f1r2, "CGSKDNIKIGSTENLK", "CGSKDNIK(1)IGSTENLK(3)", 1705.866949, 63.0, 4, new List<ProteinGroup> { new ProteinGroup("P00000", "", "") }));
+            ids.Add(new Identification(f1r2, "IGSTENLKCGSKDNIK", "IGSTENLK(3)CGSKDNIK(1)", 1705.866949, 62.68, 4, new List<ProteinGroup> { new ProteinGroup("P00000", "", "") }));
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: true);
+            var results = engine.Run();
+            results.WriteResults(null, outputFilepath, null, null, true);
+
+
+        }
+
+        [Test]
+        public static void RealDataMbrTest_IsobaricCase_DavidData()
+        {
+            string psmFile = "E:\\MBR\\multiple peaks data\\Task\\nglyco_snipped.psmtsv";
+            SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_1.raw", "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_2_23052022.raw", "a", 0, 0, 0);
+            SpectraFileInfo f1r3 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_3_29052022.raw", "a", 0, 0, 0);
+            SpectraFileInfo f1r4 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_4_02062022.raw", "a", 0, 0, 0);
+            SpectraFileInfo f1r5 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_5_02062022.raw", "a", 0, 0, 0);
+            string outputFilepath = "E:\\MBR\\multiple peaks data\\SnippedPsm.tsv";
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                switch (split[0])
+                {
+                    case string s when s.Contains("HFX_MB_14751_1.raw"):
+                        file = f1r1;
+                        break;
+                    case string s when s.Contains("HFX_MB_14751_2_23052022.raw"):
+                        file = f1r2;
+                        break;
+                    case string s when s.Contains("HFX_MB_14751_3_29052022.raw"):
+                        file = f1r3;
+                        break;
+                    case string s when s.Contains("HFX_MB_14751_4_02062022.raw"):
+                        file = f1r4;
+                        break;
+                    case string s when s.Contains("HFX_MB_14751_5_02062022.raw"):
+                        file = f1r5;
+                        break;
+                    default:
+                        file = null;
+                        break;
+                }
+
+                string baseSequence = split[11];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[15].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[5]);
+                var proteins = split[7].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: true);
+            var results = engine.Run();
+            results.WriteResults(null, outputFilepath, null, null, true);
+
+            //var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: true);
+        }
+
+        [Test]
+        public static void RealDataMbrTest_IsobaricCase_RealDataSampling() 
+        {
+            string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"Example_Input_revise.txt");
+            string outputFilepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Isobaric_RealTest.tsv");
+
+            string file1 = "FS1_14373_3.raw";
+            string file2 = "FS1_MS_14373_6_05082021.raw";
+            string file3 = "FS1_MS_14373_9_05082021.raw";
+            string file4 = "FS1_14373_12_20210729014106.raw";
+            string file5 = "FS1_14373_15.raw";
+            string file6 = "FS1_14373_18_20210729230343.raw";
+            string file7 = "FS1_MS_14373_21_05082021.raw";
+            string file8 = "FS1_MS_14373_24_05082021.raw";
+            string file9 = "FS1_14373_27.raw";
+            string file10 = "FS1_14373_30.raw";
+            SpectraFileInfo f1r = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder",@file1), "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file2), "a", 0, 0, 0);
+            SpectraFileInfo f1r3 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file3), "a", 0, 0, 0);
+            SpectraFileInfo f1r4 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file4), "a", 0, 0, 0);
+            SpectraFileInfo f1r5 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file5), "a", 0, 0, 0);
+            SpectraFileInfo f1r6 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file6), "a", 0, 0, 0);
+            SpectraFileInfo f1r7 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file7), "a", 0, 0, 0);
+            SpectraFileInfo f1r8 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file8), "a", 0, 0, 0);
+            SpectraFileInfo f1r9 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file9), "a", 0, 0, 0);
+            SpectraFileInfo f1r10 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file10), "a", 0, 0, 0);
+
+            List<SpectraFileInfo> fileList = new List<SpectraFileInfo> { f1r2, f1r3, f1r4, f1r5, f1r6, f1r7, f1r8, f1r9, f1r10 };
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            int index = 0;
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("Filename") || string.IsNullOrWhiteSpace(line))
+                {
+                    index++;
+                    continue;
+                }
+
+                string fullSequence = split[3];
+                string baseSequence = "GCVLLSYLNETVTVSASLESVR";
+                double monoMass = double.Parse(split[8]);
+                double rt = double.Parse(split[23]);
+                int z = (int)double.Parse(split[7]);
+                var proteins = split[20].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(f1r, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+
+                if (index == 4) 
+                {
+                    foreach (var file in fileList)
+                    {
+                        id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                        ids.Add(id);
+                    }
+                    
+                
+                }
+                index++;
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: true);
+            var results = engine.Run();
+            results.WriteResults(null, outputFilepath, null, null, true);
+        }
+
+        [Test]
+        public static void RealDataMbrTest_IsobaricCase_RealDataTesting()
+        {
+            string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"PSMsForIsobaricCase_realData.psmtsv");
+            string outputFilepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Isobaric_RealTest.tsv");
+
+            string file1 = "FS1_14373_3.raw";
+            string file2 = "FS1_MS_14373_6_05082021.raw";
+            string file3 = "FS1_MS_14373_9_05082021.raw";
+            string file4 = "FS1_14373_12_20210729014106.raw";
+            string file5 = "FS1_14373_15.raw";
+            string file6 = "FS1_14373_18_20210729230343.raw";
+            string file7 = "FS1_MS_14373_21_05082021.raw";
+            string file8 = "FS1_MS_14373_24_05082021.raw";
+            string file9 = "FS1_14373_27.raw";
+            string file10 = "FS1_14373_30.raw";
+            SpectraFileInfo f1r = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file1), "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file2), "a", 0, 0, 0);
+            SpectraFileInfo f1r3 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file3), "a", 0, 0, 0);
+            SpectraFileInfo f1r4 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file4), "a", 0, 0, 0);
+            SpectraFileInfo f1r5 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file5), "a", 0, 0, 0);
+            SpectraFileInfo f1r6 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file6), "a", 0, 0, 0);
+            SpectraFileInfo f1r7 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file7), "a", 0, 0, 0);
+            SpectraFileInfo f1r8 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file8), "a", 0, 0, 0);
+            SpectraFileInfo f1r9 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file9), "a", 0, 0, 0);
+            SpectraFileInfo f1r10 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", "isobaricFolder", @file10), "a", 0, 0, 0);
+
+            List<SpectraFileInfo> fileList = new List<SpectraFileInfo> { f1r2, f1r3, f1r4, f1r5, f1r6, f1r7, f1r8, f1r9, f1r10 };
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                switch (split[0])
+                {
+                    case string s when s.Contains("14373_3."):
+                        file = f1r;
+                        break;
+                    case string s when s.Contains("14373_6"):
+                        file = f1r2;
+                        break;
+                    case string s when s.Contains("14373_9"):
+                        file = f1r3;
+                        break;
+                    case string s when s.Contains("14373_12"):
+                        file = f1r4;
+                        break;
+                    case string s when s.Contains("14373_15"):
+                        file = f1r5;
+                        break;
+                    case string s when s.Contains("14373_18"):
+                        file = f1r6;
+                        break;
+                    case string s when s.Contains("14373_21"):
+                        file = f1r7;
+                        break;
+                    case string s when s.Contains("14373_24"):
+                        file = f1r8;
+                        break;
+                    case string s when s.Contains("14373_27"):
+                        file = f1r9;
+                        break;
+                    case string s when s.Contains("14373_30"):
+                        file = f1r10;
+                        break;
+                    default:
+                        file = null;
+                        break;
+                }
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[5]);
+                string baseSequence = split[11];
+                string fullSequence = split[13];                
+                double monoMass = double.Parse(split[15]);
+
+                
+                var proteins = split[9].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: true);
+            var results = engine.Run();
+            results.WriteResults(null, outputFilepath, null, null, true);
+        }
+
+
+        [Test]
         public static void ProteoformPeakfindingTest()
         {
             Loaders.LoadElements();
@@ -1493,7 +2084,7 @@ namespace Test
 
             Assert.That((int)results.PeptideModifiedSequences[sequence].GetIntensity(file1) == 1386491);
             ChromatographicPeak peak = results.Peaks[file1].First(p => p.Identifications.First().ModifiedSequence == sequence);
-            Assert.That(Math.Round(peak.MassError, 3), Is.EqualTo(0));
+            Assert.That(Math.Round(peak.MassError, 3) == 0);
             Assert.That(peak.IsotopicEnvelopes.Count == 10);
         }
 

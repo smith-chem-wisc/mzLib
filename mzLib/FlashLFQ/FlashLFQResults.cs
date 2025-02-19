@@ -150,6 +150,8 @@ namespace FlashLFQ
                 foreach (var sequenceWithPeaks in groupedPeaks)
                 {
                     string sequence = sequenceWithPeaks.Key;
+                    
+
                     double intensity = sequenceWithPeaks.Value.Max(p => p.Intensity);
                     ChromatographicPeak bestPeak = sequenceWithPeaks.Value.First(p => p.Intensity == intensity);
                     DetectionType detectionType;
@@ -171,12 +173,19 @@ namespace FlashLFQ
                         detectionType = DetectionType.NotDetected;
                     }
 
-                    if (IsobaricPeakInDifferentRun != null && IsobaricPeakInDifferentRun.ContainsKey(sequence) &&
-                        IsobaricPeakInDifferentRun[sequence].Values.Count() > 1) // There are more than one peak in the same sequence
+                    if (IsobaricPeakInDifferentRun != null && IsobaricPeakInDifferentRun.ContainsKey(sequence) )
                     {
-                        PeptideModifiedSequences[sequence].SetIsobaricPeptide(IsobaricPeakInDifferentRun[sequence]);
+                        if (IsobaricPeakInDifferentRun[sequence].Values.Count() > 1)
+                        {
+                            PeptideModifiedSequences[sequence].SetIsobaricPeptide(IsobaricPeakInDifferentRun[sequence]);
+                        }
+                        else
+                        {
+                            PeptideModifiedSequences[sequence].SetMbrPeptide(IsobaricPeakInDifferentRun[sequence]);
+                        }
+
                     }
-                    
+
                     PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, intensity);
                     PeptideModifiedSequences[sequence].SetRetentionTime(filePeaks.Key, bestPeak.ApexRetentionTime);
                     PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, detectionType);
