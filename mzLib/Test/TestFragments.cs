@@ -1088,6 +1088,7 @@ namespace Test
             Assert.IsTrue(products.Count == expectedProducts.Count);
             for (int i = 0; i < products.Count; i++)
             {
+                Assert.IsTrue(products[i].IsInternalFragment);
                 Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
                 Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
             }
@@ -1104,7 +1105,7 @@ namespace Test
             Assert.IsTrue(products.Count == expectedProducts.Count);
             for (int i = 0; i < products.Count; i++)
             {
-                Assert.IsFalse(products[i].IsTerminalProduct);
+                Assert.IsTrue(products[i].IsInternalFragment);
                 Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
                 Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
             }
