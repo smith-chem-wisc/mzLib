@@ -4,17 +4,21 @@ using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
 using FlashLFQ.PEP;
+using FlashLFQ.Interfaces;
+using MathNet.Numerics;
+using Easy.Common.Extensions;
 
 namespace FlashLFQ
 {
-    public class ChromatographicPeak
+    public class ChromatographicPeak : TraceablePeak<IsotopicEnvelope>
     {
         public double Intensity;
         public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
         public readonly SpectraFileInfo SpectraFileInfo;
-        public List<IsotopicEnvelope> IsotopicEnvelopes;
+        public List<IsotopicEnvelope> IsotopicEnvelopes { get; set; }
+        public override List<IsotopicEnvelope> ScanOrderedPoints => IsotopicEnvelopes;
         public int ScanCount => IsotopicEnvelopes.Count;
-        public double SplitRT;
+        public double SplitRT { get; private set; }
         public readonly bool IsMbrPeak;
         public double MbrScore;
         public double PpmScore { get; set; }
@@ -31,6 +35,19 @@ namespace FlashLFQ
         internal double MbrQValue { get; set; }
         public ChromatographicPeakData PepPeakData { get; set; }
         public double? MbrPep { get; set; }
+        public override IsotopicEnvelope Apex => _apex;
+        private IsotopicEnvelope _apex;
+        public List<Identification> Identifications { get; private set; }
+        public int NumChargeStatesObserved { get; private set; }
+        public int NumIdentificationsByBaseSeq { get; private set; }
+        public int NumIdentificationsByFullSeq { get; private set; }
+        public double MassError { get; private set; }
+        /// <summary>
+        /// Bool that describes whether the retention time of this peak was randomized
+        /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
+        /// </summary>
+        public bool RandomRt { get; }
+        public bool DecoyPeptide => Identifications.First().IsDecoy;
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -53,24 +70,48 @@ namespace FlashLFQ
                 && ApexRetentionTime == peak.ApexRetentionTime;
         }
 
-        public IsotopicEnvelope Apex { get; private set; }
-        public List<Identification> Identifications { get; private set; }
-        public int NumChargeStatesObserved { get; private set; }
-        public int NumIdentificationsByBaseSeq { get; private set; }
-        public int NumIdentificationsByFullSeq { get; private set; }
-        public double MassError { get; private set; }
         /// <summary>
-        /// Bool that describes whether the retention time of this peak was randomized
-        /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
+        /// Cuts the peak in such a way as to ensure that the final peak contains the ms2IdRetention time
         /// </summary>
-        public bool RandomRt { get; }
-        public bool DecoyPeptide => Identifications.First().IsDecoy;
+        /// <param name="ms2IdRetentionTime"> The time at which the MS2 scan matched to a peptide was collected</param>
+        /// <param name="integrate"> Passed to CalculateIntensityForThisFeature </param>
+        public void CutPeak(double ms2IdRetentionTime, double discriminationFactorToCutPeak = 0.6, bool integrate = false)
+        {
+            // Find all envelopes associated with the apex peak charge state
+            List<IsotopicEnvelope> envelopesForApexCharge = IsotopicEnvelopes.Where(e => e.ChargeState == Apex.ChargeState).ToList();
 
+            // Find the boundaries of the peak, based on the apex charge state envelopes
+            var peakBoundaries = FindPeakBoundaries(envelopesForApexCharge, envelopesForApexCharge.IndexOf(Apex), discriminationFactorToCutPeak);
+
+            // This is done in a while loop, as it's possible that there are multiple distinct peaks in the trace
+            while(peakBoundaries.IsNotNullOrEmpty())
+            {
+                // Remove all points outside the peak boundaries (inclusive)
+                CutPeak(peakBoundaries, ms2IdRetentionTime);
+                
+                // Recalculate the intensity of the peak and update the split RT
+                CalculateIntensityForThisFeature(integrate);
+                // technically, there could be two "SplitRT" values if the peak is split into two separate peaks
+                // however, this edge case wasn't handled in the legacy code and won't be handled here
+                SplitRT = peakBoundaries.Count > 0 ? peakBoundaries.Last().RelativeSeparationValue : 0;
+
+                // Update the list of envelopes for the apex charge state (as some were removed during the peak cutting)
+                envelopesForApexCharge = IsotopicEnvelopes.Where(e => e.ChargeState == Apex.ChargeState).ToList();
+                peakBoundaries = FindPeakBoundaries(envelopesForApexCharge, envelopesForApexCharge.IndexOf(Apex), discriminationFactorToCutPeak);
+            }
+        }
+
+        /// <summary>
+        /// Calculated the intensity of the peak. If Integrate is false, this is equal to the summed intensity of all
+        /// m/z peak in the the most intense isotopic envelope of the most intense charge state. If Integrate is true,
+        /// intensity is  set as the summed intensity of every m/z peak in every isotopic envelope in every charge state.
+        /// </summary>
+        /// <param name="integrate"></param>
         public void CalculateIntensityForThisFeature(bool integrate)
         {
             if (IsotopicEnvelopes.Any())
             {
-                Apex = IsotopicEnvelopes.MaxBy(p => p.Intensity);
+                _apex = IsotopicEnvelopes.MaxBy(p => p.Intensity);
 
                 if (integrate)
                 {
@@ -100,7 +141,7 @@ namespace FlashLFQ
                 Intensity = 0;
                 MassError = double.NaN;
                 NumChargeStatesObserved = 0;
-                Apex = null;
+                _apex = null;
             }
         }
 

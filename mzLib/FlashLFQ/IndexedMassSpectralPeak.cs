@@ -3,12 +3,15 @@
 namespace FlashLFQ
 {
     [Serializable]
-    public class IndexedMassSpectralPeak
+    public class IndexedMassSpectralPeak : ISingleScanDatum
     {
-        public readonly int ZeroBasedMs1ScanIndex;
-        public readonly double Mz;
-        public readonly double RetentionTime;
-        public readonly double Intensity;
+        public int ZeroBasedMs1ScanIndex { get; init; }
+        public double Mz { get; init; }
+        public double RetentionTime { get; init; }
+        public double Intensity { get; init; }
+        // ISingleScanDatum properties
+        public double RelativeSeparationValue => RetentionTime;
+        public int ZeroBasedScanIndex => ZeroBasedMs1ScanIndex;
 
         public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
         {
