@@ -1733,10 +1733,7 @@ namespace FlashLFQ
 
         /// <summary>
         /// Finds peaks with a given mz (mass/charge + H) that occur on either side of a given
-        /// retention time. Peak searching iterates backwards through MS1 scans until the peak 
-        /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
-        /// MissedScansAllowed property. Missed scans don't have to be sequential. The same procedure
-        /// is then repeated in the forward direction.
+        /// retention time for FlashLfq related tasks. Calls GetXIC to find a list of indexedSpectralPeak.
         /// </summary>
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
         /// <param name="mass"> Peakfinding mass </param>
@@ -1763,17 +1760,26 @@ namespace FlashLFQ
             return xic;
         }
 
-        public static List<IndexedMassSpectralPeak> GetXIC(double mz, int zeroBasedScanIndex, PeakIndexingEngine peakIndexingEngine, int scansLength, Tolerance tolerance, int missedScansAllowed, double maxRT = double.MaxValue)
+        /// <summary>
+        /// A generic method of peak tracing across the retention time. Finds peaks with a given mz that occur on either side of a given
+        /// retention time. Peak searching iterates backwards through the scans until the peak 
+        /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
+        /// missedScansAllowed parameter. Missed scans don't have to be sequential. The same procedure
+        /// is then repeated in the forward direction.
+        /// </summary>
+        /// <param name="zeroBasedStartIndex"> the scan where peak searching behaviour begins </param>
+        /// <returns></returns>
+        public static List<IndexedMassSpectralPeak> GetXIC(double mz, int zeroBasedStartIndex, PeakIndexingEngine peakIndexingEngine, int scansLength, Tolerance ppmTolerance, int missedScansAllowed, double maxRT = double.MaxValue)
         {
             var xic = new List<IndexedMassSpectralPeak>();
 
             // go right
             int missedScans = 0;
-            for (int t = zeroBasedScanIndex; t < scansLength; t++)
+            for (int t = zeroBasedStartIndex; t < scansLength; t++)
             {
-                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, tolerance);
+                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, ppmTolerance);
 
-                if (peak == null && t != zeroBasedScanIndex)
+                if (peak == null && t != zeroBasedStartIndex)
                 {
                     missedScans++;
                 }
@@ -1796,11 +1802,11 @@ namespace FlashLFQ
 
             // go left
             missedScans = 0;
-            for (int t = zeroBasedScanIndex - 1; t >= 0; t--)
+            for (int t = zeroBasedStartIndex - 1; t >= 0; t--)
             {
-                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, tolerance);
+                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, ppmTolerance);
 
-                if (peak == null && t != zeroBasedScanIndex)
+                if (peak == null && t != zeroBasedStartIndex)
                 {
                     missedScans++;
                 }

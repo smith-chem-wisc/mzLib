@@ -73,6 +73,11 @@ namespace FlashLFQ
             return true;
         }
 
+        /// <summary>
+        /// Read in all spectral peaks from scans, index the peaks and store them in a list ordered by m/z
+        /// </summary>
+        /// <param name="msDataScans">An array of raw data scans</param>
+        /// <param name="scanInfo">Outputs a list of scan information for each scan which is needed for FlashLfq
         public void PeakIndexing(MsDataScan[] msDataScans, out List<Ms1ScanInfo> scanInfo)
         {
             _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
@@ -150,14 +155,17 @@ namespace FlashLFQ
             File.Delete(indexPath);
         }
 
-        public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState) => 
-            GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, tolerance);
+        public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance ppmTolerance, int chargeState) => 
+            GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, ppmTolerance);
 
-        public IndexedMassSpectralPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, Tolerance tolerance)
+        /// <summary>
+        /// A generic method for finding the closest peak with a specified m/z and in a specified scan. Returns null if no peaks within tolerance are found.
+        /// </summary>
+        public IndexedMassSpectralPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, Tolerance ppmTolerance)
         {
             IndexedMassSpectralPeak bestPeak = null;
-            int ceilingMz = (int)Math.Ceiling(tolerance.GetMaximumValue(mz) * BinsPerDalton);
-            int floorMz = (int)Math.Floor(tolerance.GetMinimumValue(mz) * BinsPerDalton);
+            int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(mz) * BinsPerDalton);
+            int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(mz) * BinsPerDalton);
 
             for (int j = floorMz; j <= ceilingMz; j++)
             {
@@ -175,7 +183,7 @@ namespace FlashLFQ
                             break;
                         }
 
-                        if (tolerance.Within(peak.Mz, mz) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
+                        if (ppmTolerance.Within(peak.Mz, mz) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
                         {
                             bestPeak = peak;
                         }
