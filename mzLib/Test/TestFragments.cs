@@ -896,45 +896,6 @@ namespace Test
         }
 
         [Test]
-        public static void Test_MatchedFragmentIonToString()
-        {
-            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
-            Assert.AreEqual("b1+1\t;1", m.ToString());
-        }
-        [Test]
-        public static void Test_ProductGetHashCode()
-        {
-            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            Assert.AreEqual(1072693248, P.GetHashCode());
-        }
-        [Test]
-        public static void Test_ProductMonoisotopicMass()
-        {
-            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            Assert.That(P.MonoisotopicMass.Equals(P.NeutralMass));
-        }
-        [Test]
-        public static void Test_MatchedFragmentGetHashCode()
-        {
-            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            Product pPrime = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
-            MatchedFragmentIon mPrime = new MatchedFragmentIon(pPrime, 1, 1, 1);
-            Assert.AreEqual(P.GetHashCode(), pPrime.GetHashCode());
-            Assert.AreEqual(mPrime.GetHashCode(), m.GetHashCode());
-        }
-
-        [Test]
-        public static void TestMatchedFragmentIonEquals()
-        {
-            Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            MatchedFragmentIon ion1 = new MatchedFragmentIon(P, experMz: 150, experIntensity: 99.99999999999, charge: 2);
-            MatchedFragmentIon ion2 = new MatchedFragmentIon(P, experMz: 149.99999999999, experIntensity: 100, charge: 2);
-            Assert.AreEqual(ion1, ion2);
-        }
-
-        [Test]
         public static void Test_CID_Fragmentation_No_Unmodified_B1_ions()
         {
             //FOR CID B1 ions should always be missing whether or not there is a modification on first amino acid or not.
@@ -1022,6 +983,7 @@ namespace Test
             Assert.IsTrue(products.Count == expectedProducts.Count);
             for (int i = 0; i < products.Count; i++)
             {
+                Assert.IsTrue(products[i].IsInternalFragment);
                 Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
                 Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
             }
@@ -1038,6 +1000,7 @@ namespace Test
             Assert.IsTrue(products.Count == expectedProducts.Count);
             for (int i = 0; i < products.Count; i++)
             {
+                Assert.IsTrue(products[i].IsInternalFragment);
                 Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
                 Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
             }

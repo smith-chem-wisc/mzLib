@@ -185,6 +185,7 @@ namespace Test.Transcriptomics
                 Assert.That(testCase.NeutralMasses[i], Is.EqualTo(product.MonoisotopicMass).Within(0.01));
                 Assert.That(0, Is.EqualTo(product.NeutralLoss));
                 Assert.That(null, Is.EqualTo(product.SecondaryProductType));
+                Assert.That(!product.IsInternalFragment);
                 Assert.That(0, Is.EqualTo(product.SecondaryFragmentNumber));
 
                 string annotation = $"{product.ProductType}{product.FragmentNumber}";
