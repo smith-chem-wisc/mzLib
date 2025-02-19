@@ -42,7 +42,6 @@ namespace Test.Transcriptomics
         {
             get
             {
-                Loaders.LoadElements();
                 foreach (var type in DissociationTypeCollection.AllImplementedDissociationTypes)
                     yield return type;
             }
@@ -56,7 +55,6 @@ namespace Test.Transcriptomics
         [TestCaseSource(nameof(ImplementedDissociationTypes))]
         public void TestFragmentation_Unmodified_ProductCountsAreCorrect(DissociationType type)
         {
-            Loaders.LoadElements();
             List<Product> products = new();
             var rnaToTest = new List<RNA>
             {
