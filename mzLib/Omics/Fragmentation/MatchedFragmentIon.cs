@@ -22,10 +22,9 @@ namespace Omics.Fragmentation
         }
 
         public bool IsInternalFragment => NeutralTheoreticalProduct.IsInternalFragment;
-        public double MassErrorDa => Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
-        public double MassErrorPpm => MassErrorDa / NeutralTheoreticalProduct.NeutralMass * 1e6;
-
-        public string Annotation
+        public virtual double MassErrorDa => Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
+        public virtual double MassErrorPpm => MassErrorDa / NeutralTheoreticalProduct.NeutralMass * 1e6;
+        public virtual string Annotation
         {
             get
             {
@@ -87,5 +86,21 @@ namespace Omics.Fragmentation
                 Math.Round(Mz, MzDecimalDigits).GetHashCode(),
                 Math.Round(Intensity, IntensityDecimalDigits).GetHashCode());
         }
+    }
+
+    /// <summary>
+    /// Represents a matched fragment ion with additional caching capabilities.
+    /// Inherits from <see cref="MatchedFragmentIon"/>.
+    /// </summary>
+    public class MatchedFragmentIonWithCache(Product neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
+        : MatchedFragmentIon(neutralTheoreticalProduct, experMz, experIntensity, charge)
+    {
+        private double? _massErrorDa = null!;
+        private double? _massErrorPpm = null!;
+        private string? _annotation = null!;
+
+        public override string Annotation => _annotation ??= base.Annotation;
+        public override double MassErrorDa => _massErrorDa ??= base.MassErrorDa;
+        public override double MassErrorPpm => _massErrorPpm ??= base.MassErrorPpm;
     }
 }
