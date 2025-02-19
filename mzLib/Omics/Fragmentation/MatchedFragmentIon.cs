@@ -23,32 +23,13 @@ namespace Omics.Fragmentation
             IsInternalFragment = NeutralTheoreticalProduct.IsInternalFragment;
         }
 
-        private double? _massErrorDa;
-        public double MassErrorDa
-        {
-            get
-            {
-                _massErrorDa ??= Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
-                return _massErrorDa.Value;
-            }
-        }
+        public double MassErrorDa => Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
+        public double MassErrorPpm => MassErrorDa / NeutralTheoreticalProduct.NeutralMass * 1e6;
 
-        private double? _massErrorPpm;
-        public double MassErrorPpm
-        {
-            get
-            {
-                _massErrorPpm ??= (MassErrorDa / NeutralTheoreticalProduct.NeutralMass) * 1e6;
-                return _massErrorPpm.Value;
-            }
-        }
-
-        private string? _annotation;
         public string Annotation
         {
             get
             {
-                if (_annotation is not null) return _annotation;
                 StringBuilder sb = new StringBuilder(8);
 
                 bool containsNeutralLoss = NeutralTheoreticalProduct.NeutralLoss != 0;
@@ -68,8 +49,7 @@ namespace Omics.Fragmentation
                 sb.Append("+");
                 sb.Append(Charge);
 
-                _annotation = sb.ToString();
-                return _annotation;
+                return sb.ToString();
             }
         }
 
