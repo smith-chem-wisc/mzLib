@@ -55,8 +55,6 @@ namespace Readers
 			{
 				throw new FileNotFoundException(); 
 			}
-			// get the baf file inside
-			Loaders.LoadElements();
 
 			List<MsDataScan> scans = new(); 
 			OpenFileConnection(FilePath+@"\analysis.baf");

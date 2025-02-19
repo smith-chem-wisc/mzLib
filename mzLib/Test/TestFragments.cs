@@ -921,7 +921,7 @@ namespace Test
             Assert.That(product.ResiduePosition, Is.EqualTo(1));
             Assert.That(product.SecondaryProductType, Is.Null);
             Assert.That(product.SecondaryFragmentNumber, Is.EqualTo(0));
-            Assert.That(product.IsTerminalProduct, Is.True);
+            Assert.That(product.IsInternalFragment, Is.False);
         }
 
         [Test]
@@ -929,14 +929,14 @@ namespace Test
         {
             var product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             Assert.That(product.Annotation, Is.EqualTo("b1"));
-            Assert.That(product.IsTerminalProduct, Is.True);
+            Assert.That(product.IsInternalFragment, Is.False);
 
             var productWithLoss = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 18.0);
             Assert.That(productWithLoss.Annotation, Is.EqualTo("b1-18.00"));
 
             var internalProduct = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0, ProductType.y, 2);
             Assert.That(internalProduct.Annotation, Is.EqualTo("bIy[1-2]"));
-            Assert.That(internalProduct.IsTerminalProduct, Is.False);
+            Assert.That(internalProduct.IsInternalFragment, Is.True);
         }
 
         [Test]
@@ -944,14 +944,14 @@ namespace Test
         {
             var product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             Assert.That(product.ToString(), Is.EqualTo("b1;100.00000-0"));
-            Assert.That(product.IsTerminalProduct, Is.True);
+            Assert.That(product.IsInternalFragment, Is.False);
 
             var productWithLoss = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 18.0);
             Assert.That(productWithLoss.ToString(), Is.EqualTo("b1;100.00000-18"));
 
             var internalProduct = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0, ProductType.y, 2);
             Assert.That(internalProduct.ToString(), Is.EqualTo("bIy[1-2];100.00000-0"));
-            Assert.That(internalProduct.IsTerminalProduct, Is.False);
+            Assert.That(internalProduct.IsInternalFragment, Is.True);
         }
 
         [Test]
