@@ -955,10 +955,23 @@ namespace Test
         }
 
         [Test]
+        public void TestProductWithCacheAnnotation()
+        {
+            var productWithCache = new ProductWithCache(ProductType.b, FragmentationTerminus.N, 100.0, 3, 5, 0.0);
+            Assert.That(productWithCache.Annotation, Is.EqualTo("b3"));
+
+            var productWithCacheWithLoss = new ProductWithCache(ProductType.b, FragmentationTerminus.N, 100.0, 3, 5, 18.0);
+            Assert.That(productWithCacheWithLoss.Annotation, Is.EqualTo("b3-18.00"));
+
+            var internalProductWithCache = new ProductWithCache(ProductType.y, FragmentationTerminus.C, 200.0, 18, 5, 0.0, ProductType.b, 36);
+            Assert.That(internalProductWithCache.Annotation, Is.EqualTo("yIb[18-36]"));
+        }
+
+        [Test]
         public void TestProductEquality()
         {
             var product1 = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
-            var product2 = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            var product2 = new ProductWithCache(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             var product3 = new Product(ProductType.y, FragmentationTerminus.C, 200.0, 2, 2, 0.0);
 
             Assert.That(product1.Equals(product2), Is.True);

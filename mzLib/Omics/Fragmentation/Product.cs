@@ -38,13 +38,10 @@ namespace Omics.Fragmentation
             SecondaryFragmentNumber = secondaryFragmentNumber;
         }
 
-        private string? _annotation;
-        public string Annotation
+        public virtual string Annotation
         {
             get
             {
-                if (_annotation is not null) return _annotation;
-
                 StringBuilder sb = new StringBuilder(8);
 
                 if (SecondaryProductType == null)
@@ -68,8 +65,7 @@ namespace Omics.Fragmentation
                     sb.Append(NeutralLoss.ToString("F2"));
                 }
 
-                _annotation = sb.ToString();
-                return _annotation;
+                return sb.ToString();
             }
         }
 
@@ -114,5 +110,18 @@ namespace Omics.Fragmentation
         {
             return NeutralMass.GetHashCode();
         }
+    }
+
+
+    /// <summary>
+    /// Product Class that caches the annotation information to avoid repeated calculations
+    /// </summary>
+    public class ProductWithCache(ProductType productType, FragmentationTerminus terminus, double neutralMass, int fragmentNumber,
+        int residuePosition, double neutralLoss, ProductType? secondaryProductType = null, int secondaryFragmentNumber = 0)
+        : Product(productType, terminus, neutralMass, fragmentNumber, residuePosition, neutralLoss,
+            secondaryProductType, secondaryFragmentNumber)
+    {
+        private string? _annotation;
+        public override string Annotation => _annotation ??= base.Annotation;
     }
 }
