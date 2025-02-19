@@ -279,9 +279,6 @@ namespace FlashLFQ
             // do top3 protein quantification
             _results.CalculateProteinResultsMedianPolish(UseSharedPeptidesForProteinQuant);
 
-            // calculate ptm occupancy at the peptide level
-            _results.CalculatePTMOccupancy();
-
             // do Bayesian protein fold-change analysis
             if (BayesianProteinQuant)
             {

@@ -5,7 +5,6 @@ using Easy.Common.Extensions;
 
 namespace MzLibUtil
 {
-    // Should this have all of the parent data (i.e. protein group, protein, peptide, peptide position)? Unnecessary for now, but probably useful later.
     public class UtilModification
     {
         public string IdWithMotif { get; set; }
@@ -27,14 +26,16 @@ namespace MzLibUtil
         public string FullSequence { get; set; }
         public string BaseSequence { get; set; }
         public UtilProtein ParentProtein { get; set; }
-        public int IndexInProtein { get; set; }
+        public int OneBasedStartIndexInProtein { get; set; }
         public Dictionary<int, Dictionary<string, UtilModification>> ModifiedAminoAcidPositions { get; set; }
         public double Intensity { get; set; } 
 
-        public UtilPeptide(string fullSequence, Dictionary<int, Dictionary<string, UtilModification>> mods = null) 
+        public UtilPeptide(string fullSequence, Dictionary<int, Dictionary<string, UtilModification>> mods = null, int oneBasedStartIndexInProtein = 1, double intensity = 0) 
         {
             FullSequence = fullSequence;
             ModifiedAminoAcidPositions = mods.IsNotNullOrEmpty() ? mods : new Dictionary<int, Dictionary<string, UtilModification>>();
+            OneBasedStartIndexInProtein = oneBasedStartIndexInProtein;
+            Intensity = intensity;
             SetBaseSequence();
         }
         public void SetBaseSequence(string modPattern = @"\[(.+?)\](?<!\[I+\])")
@@ -42,27 +43,14 @@ namespace MzLibUtil
             Regex regexSpecialChar = new(modPattern);
             BaseSequence = regexSpecialChar.Replace(FullSequence, @"");
         }
-        public void AddModifications(Dictionary<int, string> mods)
+        public void PeptideToProteinPositions()
         {
-            throw new NotImplementedException();
-        }
-        public void PeptideToProteinPositions(int offset=0, bool UseParent=false)
-        {
-            if (offset <= 0 && !UseParent)
-            {
-                return; // keep current mod indexing if not offsetting.
-            }
-            else if (UseParent)
-            {
-                offset = ParentProtein.Sequence.IndexOf(BaseSequence);
-            }
-
             var modificationsToAdd = new Dictionary<int, Dictionary<string, UtilModification>>();
             var modificationsToRemove = new List<int>();
 
             foreach (var modpos in ModifiedAminoAcidPositions.Keys)
             {
-                int positionInProtein = modpos + offset;
+                int positionInProtein = modpos + OneBasedStartIndexInProtein-1;
                 Dictionary<string, UtilModification> mods = ModifiedAminoAcidPositions[modpos];
                 foreach (var mod in mods.Values)
                 {
@@ -86,14 +74,14 @@ namespace MzLibUtil
     
     public class UtilProtein
     {
-        public string Name { get; set; }
+        public string Accession { get; set; }
         public string Sequence { get; set; }
         public Dictionary<string, UtilPeptide> Peptides { get; set; }
         public Dictionary<int, Dictionary<string, UtilModification>> ModifiedAminoAcidPositionsInProtein { get; set; }
 
-        public UtilProtein(string name, Dictionary<string, UtilPeptide> peptides=null)
+        public UtilProtein(string accession, Dictionary<string, UtilPeptide> peptides=null)
         {
-            Name = name;
+            Accession = accession;
             if (peptides != null) Peptides = peptides;
             else Peptides= new Dictionary<string, UtilPeptide>();
         }
@@ -104,6 +92,8 @@ namespace MzLibUtil
             ModifiedAminoAcidPositionsInProtein = new Dictionary<int, Dictionary<string, UtilModification>>();
             foreach (var peptide in Peptides.Values)
             {
+                peptide.PeptideToProteinPositions();
+
                 foreach (var modpos in peptide.ModifiedAminoAcidPositions)
                 {
                     if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(modpos.Key))
@@ -153,6 +143,7 @@ namespace MzLibUtil
         ///
         public void ProteinGroupsOccupancyByPeptide(List<(string fullSeq, string baseSeq, List<string> proteinGroup, double intensity)> peptides, bool modOnNTerminus = true, bool modOnCTerminus = true, bool ignoreTerminusMod=false)
         {
+            // ToDo: change first argument to Dictionary<IPeptide, intensity>
             var proteinGroups = new Dictionary<string, UtilProteinGroup>();
             
             // Go through the peptides given
@@ -223,9 +214,7 @@ namespace MzLibUtil
             Occupancy = proteinGroups;
         }
 
-        public void ProteinGroupsOccupancyByProtein(Dictionary<string, string> proteinSequences) // Dictionary<accession, sequence>
-        {
-            throw new NotImplementedException();
-        }
+        //public void ProteinGroupsOccupancyByProtein(Dictionary<string, string> proteinSequences) // Dictionary<accession, sequence>
+
     }
 }

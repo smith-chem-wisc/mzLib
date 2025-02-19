@@ -65,6 +65,7 @@ namespace MzLibUtil
 
                 if ((positionToAddToDict == 0 || (fullSeq.Length == startIndex + captureLength)) && ignoreTerminusMod)
                 {
+                    captureLengthSum += captureLength;
                     continue;
                 }
 
