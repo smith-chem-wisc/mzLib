@@ -1,9 +1,11 @@
 using System;
 using Omics.Fragmentation;
 using NUnit.Framework;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Test.Omics
 {
+    [ExcludeFromCodeCoverage]
     public class MatchedFragmentIonTests
     {
         [Test]
@@ -42,13 +44,16 @@ namespace Test.Omics
             product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             ion = new MatchedFragmentIonWithCache(product, 101.0, 200.0, 1);
             Assert.That(ion.MassErrorDa, Is.EqualTo(1.0).Within(10));
+            Assert.That(ion.MassErrorDa, Is.EqualTo(1.0).Within(10));
 
             product = new ProductWithCache(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             ion = new MatchedFragmentIon(product, 101.0, 200.0, 1);
             Assert.That(ion.MassErrorDa, Is.EqualTo(1.0).Within(10));
+            Assert.That(ion.MassErrorDa, Is.EqualTo(1.0).Within(10));
 
             product = new ProductWithCache(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             ion = new MatchedFragmentIonWithCache(product, 101.0, 200.0, 1);
+            Assert.That(ion.MassErrorDa, Is.EqualTo(1.0).Within(10));
             Assert.That(ion.MassErrorDa, Is.EqualTo(1.0).Within(10));
         }
 
@@ -62,13 +67,16 @@ namespace Test.Omics
             product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             ion = new MatchedFragmentIonWithCache(product, 101, 200.0, 1);
             Assert.That(ion.MassErrorPpm, Is.EqualTo(-72.764).Within(0.001));
+            Assert.That(ion.MassErrorPpm, Is.EqualTo(-72.764).Within(0.001));
 
             product = new ProductWithCache(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            ion = new MatchedFragmentIon(product, 101, 200.0, 1);
             ion = new MatchedFragmentIon(product, 101, 200.0, 1);
             Assert.That(ion.MassErrorPpm, Is.EqualTo(-72.764).Within(0.001));
 
             product = new ProductWithCache(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             ion = new MatchedFragmentIonWithCache(product, 101, 200.0, 1);
+            Assert.That(ion.MassErrorPpm, Is.EqualTo(-72.764).Within(0.001));
             Assert.That(ion.MassErrorPpm, Is.EqualTo(-72.764).Within(0.001));
         }
 

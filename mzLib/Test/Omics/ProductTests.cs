@@ -1,8 +1,10 @@
 ﻿using NUnit.Framework;
 using Omics.Fragmentation;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Test.Omics
 {
+    [ExcludeFromCodeCoverage]
     public class ProductTests
     {
         [Test]
