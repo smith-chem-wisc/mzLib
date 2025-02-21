@@ -214,8 +214,9 @@ namespace Test
             string fullSeq1 = "DMME[Metal:Calcium[II] on E]LVQPSISGVDLDK";
             string fullSeq2 = "DM[Common Variable:Oxidation on M]ME[Metal:Sodium[I] on E]LVQPSISGVDLDK";
             string fullSeq3 = "DM[Common Variable:Oxidation on M]MELVQPSIC[Common Fixed: Carbamidomethyl on C]SGVDLDK";
+            string fullSeq4 = "DM[Common Variable:Oxidation on M]MELVQPSICSGVDLDK";
 
-            string[] seqs = { fullSeq1, fullSeq2, fullSeq3 };
+            string[] seqs = { fullSeq1, fullSeq2, fullSeq3, fullSeq4};
 
             var modsForSeqs = seqs.Select(x => x.ParseModifications());
             var peptideMods = new List<Dictionary<int, Dictionary<string, UtilModification>>>();
@@ -240,7 +241,7 @@ namespace Test
             }
 
             var peptides = new Dictionary<string, UtilPeptide>();
-            int[] peptideStartIndicesInProtein = { 1, 1, 100 };
+            int[] peptideStartIndicesInProtein = { 1, 1, 100, 100};
 
             for (int i=0; i < seqs.Count();  i++)
             {
@@ -250,7 +251,7 @@ namespace Test
             var protein = new UtilProtein("TestAccession", peptides);
             protein.SetProteinModsFromPeptides();
 
-            Assert.That(protein.Peptides.Count == 3);
+            Assert.That(protein.Peptides.Count == 4);
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein.ContainsKey(2));
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein.ContainsKey(4));
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein.ContainsKey(101));
@@ -264,6 +265,11 @@ namespace Test
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein[101].ContainsKey("Common Variable:Oxidation on M"));
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein[110].Count() == 1);
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein[110].ContainsKey("Common Fixed: Carbamidomethyl on C"));
+
+            //var modStoich = protein.GetModStoichiometryFromProteinMods();
+            //add more tests here
+            //Assert.That(modStoich[101].Values.First().Intensity == 1);
+
         }
 
         [Test]
