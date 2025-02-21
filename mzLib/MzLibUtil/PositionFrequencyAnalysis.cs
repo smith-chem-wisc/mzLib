@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Easy.Common.Extensions;
 
@@ -28,14 +29,16 @@ namespace MzLibUtil
         public UtilProtein ParentProtein { get; set; }
         public int OneBasedStartIndexInProtein { get; set; }
         public Dictionary<int, Dictionary<string, UtilModification>> ModifiedAminoAcidPositions { get; set; }
-        public double Intensity { get; set; } 
+        public double Intensity { get; set; }
+        public string PositionIndexType { get; set; }
 
-        public UtilPeptide(string fullSequence, Dictionary<int, Dictionary<string, UtilModification>> mods = null, int oneBasedStartIndexInProtein = 1, double intensity = 0) 
+        public UtilPeptide(string fullSequence, Dictionary<int, Dictionary<string, UtilModification>> mods = null, int oneBasedStartIndexInProtein = 1, double intensity = 0, string positionIndexType= "peptide") 
         {
             FullSequence = fullSequence;
             ModifiedAminoAcidPositions = mods.IsNotNullOrEmpty() ? mods : new Dictionary<int, Dictionary<string, UtilModification>>();
             OneBasedStartIndexInProtein = oneBasedStartIndexInProtein;
             Intensity = intensity;
+            PositionIndexType = positionIndexType;
             SetBaseSequence();
         }
         public void SetBaseSequence(string modPattern = @"\[(.+?)\](?<!\[I+\])")
@@ -45,6 +48,7 @@ namespace MzLibUtil
         }
         public void PeptideToProteinPositions()
         {
+            PositionIndexType = "protein";
             var modificationsToAdd = new Dictionary<int, Dictionary<string, UtilModification>>();
             var modificationsToRemove = new List<int>();
 
@@ -78,6 +82,7 @@ namespace MzLibUtil
         public string Sequence { get; set; }
         public Dictionary<string, UtilPeptide> Peptides { get; set; }
         public Dictionary<int, Dictionary<string, UtilModification>> ModifiedAminoAcidPositionsInProtein { get; set; }
+        public Dictionary<int, List<UtilPeptide>> PeptidesByProteinPosition { get; set; }
 
         public UtilProtein(string accession, Dictionary<string, UtilPeptide> peptides=null)
         {
@@ -90,26 +95,53 @@ namespace MzLibUtil
         {
             // for now, this method must be used AFTER peptide mod positions are offsetted to protein positions
             ModifiedAminoAcidPositionsInProtein = new Dictionary<int, Dictionary<string, UtilModification>>();
+            PeptidesByProteinPosition = new Dictionary<int, List<UtilPeptide>>();
+
             foreach (var peptide in Peptides.Values)
             {
-                peptide.PeptideToProteinPositions();
+                if (peptide.PositionIndexType != "protein")
+                {
+                    peptide.PeptideToProteinPositions();
+                }
 
                 foreach (var modpos in peptide.ModifiedAminoAcidPositions)
                 {
                     if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(modpos.Key))
                     {
                         ModifiedAminoAcidPositionsInProtein[modpos.Key] = new Dictionary<string, UtilModification>();
+                        PeptidesByProteinPosition[modpos.Key] = new List<UtilPeptide>();
                     }
+
+                    PeptidesByProteinPosition[modpos.Key].Add(peptide);
+
                     foreach (var mod in modpos.Value.Values)
                     {
                         if (!ModifiedAminoAcidPositionsInProtein[modpos.Key].ContainsKey(mod.IdWithMotif))
                         {
                             ModifiedAminoAcidPositionsInProtein[modpos.Key][mod.IdWithMotif] = new UtilModification(mod.IdWithMotif, modpos.Key, 0);
                         }
-                        ModifiedAminoAcidPositionsInProtein[modpos.Key][mod.IdWithMotif].Intensity += mod.Intensity/peptide.Intensity; // might need to add some magic later to keep stored the mod intensity and the peptide intensity for MM output
+                        ModifiedAminoAcidPositionsInProtein[modpos.Key][mod.IdWithMotif].Intensity += mod.Intensity; // might need to add some magic later to keep stored the mod intensity and the peptide intensity for MM output
                     }
                 }
             }
+        }
+
+        public Dictionary<int, Dictionary<string, UtilModification>> GetModStoichiometryFromProteinMods()
+        {
+            if (ModifiedAminoAcidPositionsInProtein == null)
+            {
+                SetProteinModsFromPeptides();
+            }
+
+            var aaModsStoichiometry = ModifiedAminoAcidPositionsInProtein;
+            foreach (var modpos in aaModsStoichiometry)
+            {
+                foreach (var mod in modpos.Value.Values)
+                {
+                    mod.Intensity = mod.Intensity / PeptidesByProteinPosition[modpos.Key].Select(x => x.Intensity).Sum();
+                }
+            }
+            return aaModsStoichiometry;
         }
     }
 
