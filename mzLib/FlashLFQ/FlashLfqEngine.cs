@@ -345,18 +345,15 @@ namespace FlashLFQ
                         capRatio = ActualCount / TherothicalCount;
                         captureRatio[id.ModifiedSequence] = (TherothicalCount, ActualCount, capRatio);
                         IsobaricPeakInDifferentRun[id.ModifiedSequence] = peakPairChorm;
-
-
-                        int iii = 0;
-
                     }
 
 
 
                 }
-                 //var missing = captureRatio.Where(p => p.Value.Item2 < 2).Count();
-                 //var missrate = missing / captureRatio.Count();
                 _results.IsobaricPeakInDifferentRun = IsobaricPeakInDifferentRun;
+                AddIsoPeaks();
+
+
 
             }
 
@@ -2197,7 +2194,6 @@ namespace FlashLFQ
         internal ChromatographicPeak BuildChromPeak(Tuple<double, double, double> rtInfo, XIC xic, Identification idForChrom, bool isMBR = false) 
         {
             // get the MS1 scan info for this region so we can look up indexed peaks
-
             List<IndexedMassSpectralPeak> snippedPeaks = new List<IndexedMassSpectralPeak>();
             double mass = xic.PeakFindingMz;
             Identification id = idForChrom;
@@ -2209,7 +2205,6 @@ namespace FlashLFQ
                 return null;
             }
 
-
             // Try to snipped the MS1 scans to the region where the analyte should appear
             foreach (var peak in xic.Ms1Peaks)
             {
@@ -2218,7 +2213,6 @@ namespace FlashLFQ
                     snippedPeaks.Add(peak);
                 }
             }
-
 
             List<IsotopicEnvelope> chargeEnvelopes = GetIsotopicEnvelopes(snippedPeaks, id, id.PrecursorChargeState, spectraFile).OrderBy(env => env.Intensity).ToList();
 
@@ -2230,37 +2224,36 @@ namespace FlashLFQ
             // Find envelope with the highest intensity
             // envelopes = Find all envelopes that are adjacent to the highest intensity envelope (similar to Peakfind function)
             // acceptorPeak.IsotopicEnvelopes.AddRange(envelopes)
-
-
-
-            //var acceptorPeak = new ChromatographicPeak(id, true, xic.SpectraFile, predictedRetentionTime: rtInfo.PredictedRt);
-            //IsotopicEnvelope seedEnv = chargeEnvelopes.First();
-            //var xicForEnve = Peakfind(seedEnv.IndexedPeak.RetentionTime, id.PeakfindingMass, id.PrecursorChargeState, spectraFile, mbrTol);
-            //List<IsotopicEnvelope> BestChargeEnve = GetIsotopicEnvelopes(xicForEnve, id, id.PrecursorChargeState, spectraFile);
-
-            //acceptorPeak.IsotopicEnvelopes.AddRange(BestChargeEnve);
-
-            //acceptorPeak.CalculateIntensityForThisFeature(Integrate);
-
-            //CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
-
-            //var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak))
-            //{
-            //    seedEnv.IndexedPeak // prevents infinite loops
-            //};
-
-            //chargeEnvelopes.RemoveAll(p => claimedPeaks.Contains(p.IndexedPeak));
-
-
-            //Ray Part
             var acceptorPeak = new ChromatographicPeak(id, isMBR, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1);
             IsotopicEnvelope BestEnvelopes = chargeEnvelopes.OrderByDescending(p => p.Intensity).First();
-            acceptorPeak.IsotopicEnvelopes.Add(chargeEnvelopes);
+            acceptorPeak.IsotopicEnvelopes.Add(BestEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
 
             return acceptorPeak;
+        }
+
+        /// <summary>
+        /// Add the isobaric peaks into the result dictionary (_peaks)
+        /// </summary>
+        internal void AddIsoPeaks()
+        {
+            foreach (var fileInfo in _spectraFileInfo)
+            {
+                var chromPeaksInIsoDict = IsobaricPeakInDifferentRun
+                    .SelectMany(p => p.Value)
+                    .SelectMany(p => p.Value)
+                    .Where(peak => peak != null && peak.SpectraFileInfo.Equals(fileInfo))
+                    .ToList();
+
+                _results.Peaks[fileInfo].AddRange(chromPeaksInIsoDict);
+                _results.Peaks[fileInfo] = _results.Peaks[fileInfo]
+                    .DistinctBy(peak => new { peak.ApexRetentionTime, peak.SpectraFileInfo }).ToList();
+
+            }
 
         }
+
+
 
     }
 
