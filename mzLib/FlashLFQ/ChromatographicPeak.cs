@@ -16,6 +16,7 @@ namespace FlashLFQ
         public int ScanCount => IsotopicEnvelopes.Count;
         public double SplitRT;
         public readonly bool IsMbrPeak;
+        public double PredictedRetentionTime { get; init; }
         public double MbrScore;
         public double PpmScore { get; set; }
         public double IntensityScore { get; set; }
@@ -44,6 +45,12 @@ namespace FlashLFQ
             IsMbrPeak = isMbrPeak;
             SpectraFileInfo = fileInfo;
             RandomRt = randomRt;
+        }
+
+        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime) :
+            this(id, isMbrPeak, fileInfo)
+        {
+            PredictedRetentionTime = predictedRetentionTime;
         }
 
         public bool Equals(ChromatographicPeak peak)
