@@ -138,8 +138,6 @@ namespace FlashLFQ
             double donorQValueThreshold = 0.01,
             List<string> peptideSequencesToQuantify = null)
         {
-            Loaders.LoadElements();
-
             _globalStopwatch = new Stopwatch();
             _chargeStates = new List<int>();
             _peakIndexingEngine = new PeakIndexingEngine();

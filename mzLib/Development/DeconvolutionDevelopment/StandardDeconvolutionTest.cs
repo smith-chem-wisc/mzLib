@@ -35,8 +35,6 @@ namespace Development.Deconvolution
         /// </summary>
         static StandardDeconvolutionTest()
         {
-            Loaders.LoadElements();
-
             // define paths to spectra
             var ubiquitinPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DeconvolutionDevelopment", "TestData",
                 "Averaged_221110_UbiqOnly.mzML");
