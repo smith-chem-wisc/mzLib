@@ -103,6 +103,11 @@ namespace FlashLFQ
             return true;
         }
 
+
+
+        // Need to make an intermediate class that inherits from traceable peak 
+        // Build them out for each frame
+        // Then, split them and spit out IndexedTimsTofPeaks
         public bool IndexTimsTofPeaks(TimsTofFileReader file, SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
         {
             // create the indexed peaks array
@@ -113,6 +118,7 @@ namespace FlashLFQ
 
             // set the default list length to 1/25th of the number of frames
             int defaultListLength = file.NumberOfMs1Frames / 25;
+            PpmTolerance tolerance = new PpmTolerance(15);
 
             // Populate the _indexedPeaks array with the peaks from the TimsTofFileReader
             int zeroBasedMs1FrameIndex = 0;
@@ -135,22 +141,36 @@ namespace FlashLFQ
                         if (_indexedPeaks[roundedMz] == null)
                         {
                             _indexedPeaks[roundedMz] = new List<IndexedMassSpectralPeak>(defaultListLength);
-                            _indexedPeaks[roundedMz].Add(new IndexedTimsTofPeak(spectrum.XArray[spectrumIdx], zeroBasedMs1FrameIndex, ms1Scan.RetentionTime,
-                                new IonMobilityPeak(scanIdx + 1, spectrum.YArray[spectrumIdx])));
+                            //_indexedPeaks[roundedMz].Add(new IndexedTimsTofPeak(spectrum.XArray[spectrumIdx], zeroBasedMs1FrameIndex, ms1Scan.RetentionTime,
+                            //    new IonMobilityPeak(scanIdx + 1, spectrum.YArray[spectrumIdx])));
+                            continue;
                         }
 
-                        // Otherwise, check if the list already contains a peak for the given scan index. If it does, add a new IonMobilityPeak.
-                        else if (_indexedPeaks[roundedMz][^1].ZeroBasedMs1ScanIndex == zeroBasedMs1FrameIndex)
-                            ((IndexedTimsTofPeak)_indexedPeaks[roundedMz][^1]).AddIonMobilityPeak(new IonMobilityPeak(scanIdx + 1, spectrum.YArray[spectrumIdx]));
+                        int lookbackIdx = 1;
+                        bool addedPeak = false;
+                        // Go backwards through the list of peaks until the scan index is different from the current scan index
+                        while(_indexedPeaks[roundedMz][^lookbackIdx].ZeroBasedMs1ScanIndex == zeroBasedMs1FrameIndex)
+                        {
+                            // If the scan indices match, check if the existing peak is within tolerance of the current peak
+                            if(tolerance.Within(_indexedPeaks[roundedMz][^lookbackIdx].Mz, spectrum.XArray[spectrumIdx]))
+                            {
+                                //((IndexedTimsTofPeak)_indexedPeaks[roundedMz][^lookbackIdx]).AddIonMobilityPeak(
+                                //    new IonMobilityPeak(scanIdx + 1, spectrum.YArray[spectrumIdx]));
+                                addedPeak = true;
+                                break;
+                            }
+                        }
 
-                        // If it doesn't, create and add a new TimsIndexedMassSpectralPeak.
-                        else
-                            _indexedPeaks[roundedMz].Add(new IndexedTimsTofPeak(spectrum.XArray[spectrumIdx], zeroBasedMs1FrameIndex, ms1Scan.RetentionTime,
-                                new IonMobilityPeak(scanIdx + 1, spectrum.YArray[spectrumIdx])));
+                        // If the ion mobility peak wasn't added to an existing timsTofPeak, add it now
+                        //if(!addedPeak)
+                            //_indexedPeaks[roundedMz].Add(new IndexedTimsTofPeak(spectrum.XArray[spectrumIdx], zeroBasedMs1FrameIndex, ms1Scan.RetentionTime,
+                            //    new IonMobilityPeak(scanIdx + 1, spectrum.YArray[spectrumIdx])));
                     }
                 }
                 foreach (int roundedMz in observedRoundedMzs)
                     ((IndexedTimsTofPeak)_indexedPeaks[roundedMz][^1]).IonMobilityPeaks.TrimExcess();
+
+               
                 scanInfoArray[zeroBasedMs1FrameIndex] = new Ms1ScanInfo((int)ms1Scan.FrameId, zeroBasedMs1FrameIndex, ms1Scan.RetentionTime);
                 zeroBasedMs1FrameIndex++;
             }

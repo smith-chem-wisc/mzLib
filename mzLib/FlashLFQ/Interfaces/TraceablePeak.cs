@@ -32,9 +32,19 @@ namespace FlashLFQ.Interfaces
         /// <param name="apexTimepointIndex">The index of the apex (most intense, best, whatever) in the list of time points.</param>
         /// <param name="discriminationFactorToCutPeak">The discrimination factor to determine if the peak should be cut. Default is 0.6.</param>
         /// <returns>True if the peak should be cut, otherwise false.</returns>
-        public static List<T> FindPeakBoundaries<T>(List<T> timePoints, int apexTimepointIndex, double discriminationFactorToCutPeak = 0.6) where T : ISingleScanDatum
+        public static List<T> FindPeakSplits<T>(List<T> timePoints, int apexTimepointIndex, double discriminationFactorToCutPeak = 0.6) where T : ISingleScanDatum
         {
             List<T> peakBoundaries = new List<T>();
+            foreach(int idx in FindPeakSplitIndices(timePoints, apexTimepointIndex, discriminationFactorToCutPeak))
+            {
+                peakBoundaries.Add(timePoints[idx]);
+            }
+            return peakBoundaries;
+        }
+
+        public static List<int> FindPeakSplitIndices<T>(List<T> timePoints, int apexTimepointIndex, double discriminationFactorToCutPeak = 0.6) where T : ISingleScanDatum
+        {
+            List<int> peakSplitIndices = new List<int>();
             HashSet<int> zeroIndexedScanNumbers = timePoints.Select(p => p.ZeroBasedScanIndex).ToHashSet();
 
             // -1 checks the left side, +1 checks the right side
@@ -49,7 +59,7 @@ namespace FlashLFQ.Interfaces
                     ISingleScanDatum timepoint = timePoints[i];
 
                     // Valley envelope is the lowest intensity point that has been encountered thus far
-                    if (valley == null || timepoint.Intensity < valley.Intensity)
+                    if (EqualityComparer<T>.Default.Equals(valley, default(T)) || timepoint.Intensity < valley.Intensity)
                     {
                         valley = (T)timepoint;
                         indexOfValley = i;
@@ -71,14 +81,14 @@ namespace FlashLFQ.Interfaces
                         // If the scan following the valley isn't in the timePointsForApexZ list (i.e., no isotopic envelope is observed in the scan immediately after the valley), we also cut the peak
                         if (discriminationFactor > discriminationFactorToCutPeak || !zeroIndexedScanNumbers.Contains(valley.ZeroBasedScanIndex + direction))
                         {
-                            peakBoundaries.Add(valley);
+                            peakSplitIndices.Add(indexOfValley);
                             break;
                         }
                     }
                 }
             }
 
-            return peakBoundaries;
+            return peakSplitIndices;
         }
 
         /// <summary>
@@ -88,7 +98,7 @@ namespace FlashLFQ.Interfaces
         /// <param name="discriminationFactorToCutPeak"> The discrimination factor to determine if the peak should be cut. Default is 0.6. </param>
         public virtual void CutPeak(double discriminationFactorToCutPeak = 0.6)
         {
-            var peakBoundaries = FindPeakBoundaries(ScanOrderedPoints, ScanOrderedPoints.IndexOf(Apex), discriminationFactorToCutPeak);
+            var peakBoundaries = FindPeakSplits(ScanOrderedPoints, ScanOrderedPoints.IndexOf(Apex), discriminationFactorToCutPeak);
             CutPeak(peakBoundaries, Apex.RelativeSeparationValue);
         }
 

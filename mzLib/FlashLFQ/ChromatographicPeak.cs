@@ -81,23 +81,23 @@ namespace FlashLFQ
             List<IsotopicEnvelope> envelopesForApexCharge = IsotopicEnvelopes.Where(e => e.ChargeState == Apex.ChargeState).ToList();
 
             // Find the boundaries of the peak, based on the apex charge state envelopes
-            var peakBoundaries = FindPeakBoundaries(envelopesForApexCharge, envelopesForApexCharge.IndexOf(Apex), discriminationFactorToCutPeak);
+            var peakSplits = FindPeakSplits(envelopesForApexCharge, envelopesForApexCharge.IndexOf(Apex), discriminationFactorToCutPeak);
 
             // This is done in a while loop, as it's possible that there are multiple distinct peaks in the trace
-            while(peakBoundaries.IsNotNullOrEmpty())
+            while(peakSplits.IsNotNullOrEmpty())
             {
                 // Remove all points outside the peak boundaries (inclusive)
-                CutPeak(peakBoundaries, ms2IdRetentionTime);
+                CutPeak(peakSplits, ms2IdRetentionTime);
                 
                 // Recalculate the intensity of the peak and update the split RT
                 CalculateIntensityForThisFeature(integrate);
                 // technically, there could be two "SplitRT" values if the peak is split into two separate peaks
                 // however, this edge case wasn't handled in the legacy code and won't be handled here
-                SplitRT = peakBoundaries.Count > 0 ? peakBoundaries.Last().RelativeSeparationValue : 0;
+                SplitRT = peakSplits.Count > 0 ? peakSplits.Last().RelativeSeparationValue : 0;
 
                 // Update the list of envelopes for the apex charge state (as some were removed during the peak cutting)
                 envelopesForApexCharge = IsotopicEnvelopes.Where(e => e.ChargeState == Apex.ChargeState).ToList();
-                peakBoundaries = FindPeakBoundaries(envelopesForApexCharge, envelopesForApexCharge.IndexOf(Apex), discriminationFactorToCutPeak);
+                peakSplits = FindPeakSplits(envelopesForApexCharge, envelopesForApexCharge.IndexOf(Apex), discriminationFactorToCutPeak);
             }
         }
 
