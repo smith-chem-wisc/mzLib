@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 
 namespace FlashLFQ
 {
+    /// <summary>
+    /// For TimsTofPeaks, the ZeroBasedMs1ScanIndex refers to the MS1 Frame index, not the ion mobility scan index
+    /// </summary>
     [Serializable]
     public class IndexedTimsTofPeak : IndexedMassSpectralPeak
     {
-        public List<IonMobilityPeak> IonMobilityPeaks { get; init; }
-        public int ZeroBasedMs1FrameIndex => ZeroBasedMs1ScanIndex;
+        public double TimsIndex { get; init; }
 
         /// <summary>
         /// Stores the information associated with a specific m/z value in one timsTOF frame
@@ -21,34 +23,23 @@ namespace FlashLFQ
         /// <param name="zeroBasedMs1FrameIndex">One</param>
         /// <param name="retentionTime"></param>
         /// <param name="ionMobilityPeak"></param>
-        public IndexedTimsTofPeak(double mz, int zeroBasedMs1FrameIndex, double retentionTime, IonMobilityPeak ionMobilityPeak) : 
-            base(mz, intensity: ionMobilityPeak.Intensity, zeroBasedMs1FrameIndex, retentionTime)
+        public IndexedTimsTofPeak(double mz, double intensity, int zeroBasedMs1FrameIndex, double retentionTime, double timsIndex) : 
+            base(mz, intensity, zeroBasedMs1FrameIndex, retentionTime)
         {
-            // Initialize the list of ion mobility peaks with the first peak
-            // Set initial size to 32 to minimize resizing
-            IonMobilityPeaks = new List<IonMobilityPeak>(32);
-            IonMobilityPeaks.Add(ionMobilityPeak);
+            TimsIndex = timsIndex;
         }
 
         public IndexedTimsTofPeak(double mz, double intensity, int zeroBasedMs1FrameIndex, double retentionTime):
             base(mz, intensity, zeroBasedMs1FrameIndex, retentionTime) { }
-        /// <summary>
-        /// Adds an additional ion mobility peak to the list of ion mobility peaks
-        /// and updated the intensity 
-        /// </summary>
-        public void AddIonMobilityPeak(IonMobilityPeak ionMobilityPeak)
-        {
-            IonMobilityPeaks.Add(ionMobilityPeak);
-            Intensity += ionMobilityPeak.Intensity;
-        }
 
         public override bool Equals(object obj)
         {
             var otherPeak = (IndexedTimsTofPeak)obj;
 
             return otherPeak != null
-                && otherPeak.Mz == this.Mz
-                && otherPeak.ZeroBasedMs1ScanIndex == this.ZeroBasedMs1ScanIndex;
+                && otherPeak.Mz == Mz
+                && otherPeak.ZeroBasedMs1ScanIndex == ZeroBasedMs1ScanIndex
+                && otherPeak.TimsIndex == TimsIndex;
         }
 
         public override int GetHashCode()
@@ -69,7 +60,7 @@ namespace FlashLFQ
     /// This struct does not store information about the m/z of the peak!
     /// </summary>
     [Serializable]
-    public readonly struct IonMobilityPeak(int oneBasedTimsScanNumber, int intensity, double mz) : ISingleScanDatum, IComparable<IonMobilityPeak>, IEquatable<IonMobilityPeak>
+    public readonly struct IonMobilityPeak(double mz, int intensity, int oneBasedTimsScanNumber) : ISingleScanDatum, IComparable<IonMobilityPeak>, IEquatable<IonMobilityPeak>
     {
         public int OneBasedTimsScanNumber { get; } = oneBasedTimsScanNumber;
         public int IntegerIntensity { get; } = intensity;
@@ -85,7 +76,9 @@ namespace FlashLFQ
 
         public bool Equals(IonMobilityPeak other)
         {
-            return OneBasedTimsScanNumber == other.OneBasedTimsScanNumber;
+            return OneBasedTimsScanNumber == other.OneBasedTimsScanNumber
+                && IntegerIntensity == other.IntegerIntensity
+                && Math.Abs(Mz - other.Mz) < 0.0001;
         }
     }
 

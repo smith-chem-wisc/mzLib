@@ -24,6 +24,97 @@ namespace Test
 
     public class TimsQuantTests
     {
+
+        [Test]
+        public static void LocalDataTinyTest()
+        {
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
+            string outputDirectory = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\FlashLFQ_Test";
+            Directory.CreateDirectory(outputDirectory);
+
+            string psmFile = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\Task1-SearchTask\AllPSMs.psmtsv";
+
+            SpectraFileInfo f1r1 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d", "one", 1, 1, 1);
+            //SpectraFileInfo f1r2 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d", "two", 1, 1, 1);
+            //SpectraFileInfo f1r3 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\20230505_TIMS05_PaSk_MA_HeLa_6min_ddaP_S1-F2_1_2352.d", "three", 1, 1, 1);
+
+            //List<string> acceptableProteinGroupAccessions = new() { "Q7KZF4", "Q15149", "P52298" };
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("HeLaPASEF_1min"))
+                {
+                    file = f1r1;
+                }
+                else continue;
+
+                if (split[23].Contains("|") || double.Parse(split[56]) > 0.01)
+                {
+                    continue;
+                }
+
+                string baseSequence = split[13];
+                string fullSequence = split[14];
+                double monoMass = double.Parse(split[23]);
+                double rt = double.Parse(split[2]) / 60;
+                int z = (int)double.Parse(split[6]);
+                var proteinSubset = split[26].Split(new char[] { '|' });
+                string organism = split[29];
+                string gene = split[27];
+
+                double score = double.Parse(split[10]);
+                string targetContamDecoy = split[39];
+                List<ProteinGroup> proteinGroups = new();
+
+
+                foreach (var protein in proteinSubset)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, gene, organism));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups,
+                    psmScore: score, decoy: targetContamDecoy.Contains("D"));
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: true,
+                maxThreads: -1);
+            var results = engine.Run();
+
+            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
+
+            var peaks = results.Peaks.Values.ToList();
+            var peptides = results.PeptideModifiedSequences.Values.ToList();
+            var proteins = results.ProteinGroups.Values.ToList();
+
+            Assert.Pass();
+
+        }
+
+
         [Test]
         public static void LocalDataSmallTest()
         {
@@ -104,7 +195,7 @@ namespace Test
             }
 
             var engine = new FlashLfqEngine(ids,
-                matchBetweenRuns: true,
+                matchBetweenRuns: false,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: true,
                 maxThreads: -1);
@@ -241,7 +332,7 @@ namespace Test
             TraceableTimsTofPeak testPeak = new TraceableTimsTofPeak(1, 1);
             for (int i = 0; i < 10; i++)
             {
-                testPeak.IonMobilityPeaks.Add(new IonMobilityPeak(i + 1, intensityMultipliers[i], 1.2));
+                testPeak.IonMobilityPeaks.Add(new IonMobilityPeak(1.2, i + 1, intensityMultipliers[i]));
             }
 
             var indexedPeaks = testPeak.GetIndexedPeaks();
@@ -257,7 +348,7 @@ namespace Test
             TraceableTimsTofPeak testPeak = new TraceableTimsTofPeak(1, 1);
             for (int i = 0; i < 13; i++)
             {
-                testPeak.IonMobilityPeaks.Add(new IonMobilityPeak(i + 1, intensityMultipliers[i], 1.2));
+                testPeak.IonMobilityPeaks.Add(new IonMobilityPeak(1.2, i + 1, intensityMultipliers[i]));
             }
 
             var indexedPeaks = testPeak.GetIndexedPeaks();

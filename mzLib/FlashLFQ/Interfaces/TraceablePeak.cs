@@ -42,7 +42,7 @@ namespace FlashLFQ.Interfaces
             return peakBoundaries;
         }
 
-        public static List<int> FindPeakSplitIndices<T>(List<T> timePoints, int apexTimepointIndex, double discriminationFactorToCutPeak = 0.6) where T : ISingleScanDatum
+        public static List<int> FindPeakSplitIndices<T>(List<T> timePoints, int apexTimepointIndex, double discriminationFactorToCutPeak = 0.6, int allowedMissedScans = 2) where T : ISingleScanDatum
         {
             List<int> peakSplitIndices = new List<int>();
             HashSet<int> zeroIndexedScanNumbers = timePoints.Select(p => p.ZeroBasedScanIndex).ToHashSet();
@@ -51,12 +51,25 @@ namespace FlashLFQ.Interfaces
             int[] directions = { -1, 1 };
             foreach (int direction in directions)
             {
+                if(apexTimepointIndex < 0)
+                {
+                    Console.WriteLine("xys");
+                    break;
+                }
                 T valley = default(T);
                 int indexOfValley = 0;
+                int previousZeroBasedScanIndex = timePoints[apexTimepointIndex].ZeroBasedScanIndex;
 
                 for (int i = apexTimepointIndex + direction; i < timePoints.Count && i >= 0; i += direction)
                 {
                     ISingleScanDatum timepoint = timePoints[i];
+
+                    if (Math.Abs(previousZeroBasedScanIndex - timepoint.ZeroBasedScanIndex) > allowedMissedScans)
+                    {
+                        peakSplitIndices.Add(i - direction); // Split at previous point
+                        break;
+                    }
+                    else previousZeroBasedScanIndex = timepoint.ZeroBasedScanIndex;
 
                     // Valley envelope is the lowest intensity point that has been encountered thus far
                     if (EqualityComparer<T>.Default.Equals(valley, default(T)) || timepoint.Intensity < valley.Intensity)

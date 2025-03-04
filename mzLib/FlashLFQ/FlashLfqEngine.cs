@@ -470,12 +470,13 @@ namespace FlashLFQ
             Tolerance ppmTolerance = new PpmTolerance(PpmTolerance);
             ChromatographicPeak[] chromatographicPeaks = new ChromatographicPeak[ms2IdsForThisFile.Count];
 
-            Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
-                (range, loopState) =>
-                {
-                    for (int i = range.Item1; i < range.Item2; i++)
-                    {
+            //Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
+            //    new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
+            //    (range, loopState) =>
+            //    {
+            //for (int i = range.Item1; i < range.Item2; i++)
+            for (int i = 0; i < ms2IdsForThisFile.Count; i++)
+            {
                         var identification = ms2IdsForThisFile[i];
                         ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, false, fileInfo);
                         chromatographicPeaks[i] = msmsFeature;
@@ -486,9 +487,12 @@ namespace FlashLFQ
                             {
                                 continue;
                             }
-
-                            // get XIC (peakfinding)
-                            List<IndexedMassSpectralPeak> xic = Peakfind(
+                            List<IndexedMassSpectralPeak> xic;
+                            try
+                            {
+                                // get XIC (peakfinding)
+                                //List<IndexedMassSpectralPeak> 
+                                xic = Peakfind(
                                     identification.Ms2RetentionTimeInMinutes,
                                     identification.PeakfindingMass,
                                     chargeState,
@@ -496,25 +500,35 @@ namespace FlashLFQ
                                     peakfindingTol)
                                 .OrderBy(p => p.RetentionTime)
                                 .ToList();
+                            }
+                            catch (Exception ex) {
+                                Console.WriteLine("Error in peakfinding: " + ex.Message);
+                                continue;
+                            }
 
                             // filter by smaller mass tolerance
                             xic.RemoveAll(p => 
                                 !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.PeakfindingMass));
+                            try
+                            {
+                                // filter by isotopic distribution
+                                List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
 
-                            // filter by isotopic distribution
-                            List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
-
-                            // add isotopic envelopes to the chromatographic peak
-                            msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
+                                // add isotopic envelopes to the chromatographic peak
+                                msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
+                            } catch (Exception ex) {
+                                Console.WriteLine("Error in isotopic envelope creation: " + ex.Message);
+                            }
+                            
                         }
-
-                        msmsFeature.CalculateIntensityForThisFeature(Integrate);
-                        msmsFeature.CutPeak(identification.Ms2RetentionTimeInMinutes, DiscriminationFactorToCutPeak, Integrate);
-
                         if (!msmsFeature.IsotopicEnvelopes.Any())
                         {
                             continue;
                         }
+                msmsFeature.CalculateIntensityForThisFeature(Integrate);
+                        msmsFeature.CutPeak(identification.Ms2RetentionTimeInMinutes, DiscriminationFactorToCutPeak, Integrate);
+
+                        
 
                         var precursorXic = msmsFeature.IsotopicEnvelopes.Where(p => p.ChargeState == identification.PrecursorChargeState).ToList();
 
@@ -530,7 +544,7 @@ namespace FlashLFQ
                         msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedMs1ScanIndex > max);
                         msmsFeature.CalculateIntensityForThisFeature(Integrate);
                     }
-                });
+                //});
 
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
         }

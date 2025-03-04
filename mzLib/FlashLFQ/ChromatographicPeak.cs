@@ -80,6 +80,16 @@ namespace FlashLFQ
             // Find all envelopes associated with the apex peak charge state
             List<IsotopicEnvelope> envelopesForApexCharge = IsotopicEnvelopes.Where(e => e.ChargeState == Apex.ChargeState).ToList();
 
+            if (envelopesForApexCharge.Count == 0)
+            {
+                Console.WriteLine("Something has gone wrong during the peak-cutting procedure");
+                return;
+            }
+            if(envelopesForApexCharge.Count < 5)
+            {
+                return;
+            }
+
             // Find the boundaries of the peak, based on the apex charge state envelopes
             var peakSplits = FindPeakSplits(envelopesForApexCharge, envelopesForApexCharge.IndexOf(Apex), discriminationFactorToCutPeak);
 
