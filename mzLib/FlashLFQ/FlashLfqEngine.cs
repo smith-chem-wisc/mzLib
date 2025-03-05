@@ -1766,6 +1766,7 @@ namespace FlashLFQ
         /// is then repeated in the forward direction.
         /// </summary>
         /// <param name="zeroBasedStartIndex"> the scan where peak searching behaviour begins </param>
+        /// <param name="maxRT"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns></returns>
         public static List<IndexedMassSpectralPeak> GetXIC(double mz, int zeroBasedStartIndex, PeakIndexingEngine peakIndexingEngine, int scansLength, Tolerance ppmTolerance, int missedScansAllowed, double maxRT = double.MaxValue)
         {

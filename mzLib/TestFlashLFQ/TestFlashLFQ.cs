@@ -2173,7 +2173,6 @@ namespace Test
         [Test]
         public static void TestGetXICWithMaxRtLimit()
         {
-            Loaders.LoadElements();
             var scan1 = new MsDataScan(new MzSpectrum(new double[] { 400, 500, 1000 }, new double[] { 10, 20, 30 }, false),
                 1, 1, true, Polarity.Positive, 0.1, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
             var scan2 = new MsDataScan(new MzSpectrum(new double[] { 400.001, 500.001, 1000.001 }, new double[] { 1001, 2001, 3000 }, false),
@@ -2186,8 +2185,10 @@ namespace Test
                 9, 1, true, Polarity.Positive, 0.5, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
             var scans = new MsDataScan[] { scan1, scan2, scan3, scan4, scan5 };
 
+            //This tests if the length of XIC is limited by the maxRT parameter. Peak finding starts at mz 1000.003 from scan4 and maxRT limit is set to 0.15.
+            //Without RT limit, the XIC would find 5 peaks, but with the limit, the peak from scan1 will be excluded.
             var indexedPeaks = new PeakIndexingEngine(scans);
-            var xic = FlashLfqEngine.GetXIC(1000.003, 3, indexedPeaks, 5, new PpmTolerance(10), 2, 0.15);
+            var xic = FlashLfqEngine.GetXIC(1000.003, 3, indexedPeaks, 5, new PpmTolerance(10), 2, maxRT: 0.15);
             Assert.That(xic.Count == 4);
             Assert.That(xic.First().Mz == 1000.001);
         }
