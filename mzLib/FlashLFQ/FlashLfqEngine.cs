@@ -484,7 +484,7 @@ namespace FlashLFQ
                             }
 
                             // get XIC (peakfinding)
-                            List<IndexedMassSpectralPeak> xic = Peakfind(
+                            List<IndexedMassSpectralPeak> xic = GetXIC(
                                     identification.Ms2RetentionTimeInMinutes,
                                     identification.PeakfindingMass,
                                     chargeState,
@@ -1285,7 +1285,7 @@ namespace FlashLFQ
 
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
-            var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, idAcceptorFile, mbrTol);
+            var xic = GetXIC(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, idAcceptorFile, mbrTol);
             List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z);
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
@@ -1736,7 +1736,7 @@ namespace FlashLFQ
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
         /// <param name="mass"> Peakfinding mass </param>
         /// <returns></returns>
-        public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
+        public List<IndexedMassSpectralPeak> GetXIC(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
             // get precursor scan to start at
             Ms1ScanInfo[] ms1Scans = _ms1Scans[spectraFileInfo];
