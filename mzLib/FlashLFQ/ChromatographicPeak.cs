@@ -98,6 +98,12 @@ namespace FlashLFQ
             {
                 // Remove all points outside the peak boundaries (inclusive)
                 CutPeak(peakSplits, ms2IdRetentionTime);
+                if(IsotopicEnvelopes.Count == 0)
+                {
+                    Intensity = 0;
+                    _apex = null;
+                    return;
+                }
                 
                 // Recalculate the intensity of the peak and update the split RT
                 CalculateIntensityForThisFeature(integrate);

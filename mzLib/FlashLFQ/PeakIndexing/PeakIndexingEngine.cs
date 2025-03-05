@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FlashLFQ.PeakIndexing;
+using Easy.Common.Extensions;
 namespace FlashLFQ
 {
     public class PeakIndexingEngine
@@ -151,16 +152,15 @@ namespace FlashLFQ
                 {
                     foreach (var traceablePeak in kvp.Value) // for each traceable peak in the list (there can be two peaks with same rounded mz but actual mzs > 15ppm apart
                     {
-                        //int previous = _indexedPeaks[kvp.Key].Count();
-                        var peaksFromTraceable = traceablePeak.GetIndexedPeaks().ToList();
+                        var peaksFromTraceable = traceablePeak.GetIndexedPeaks();
                         
-                        if (peaksFromTraceable.Any())
+                        if (peaksFromTraceable.IsNotNullOrEmpty())
                         {
-                            _indexedPeaks[kvp.Key] ??= new List<IndexedMassSpectralPeak>();
-                            _indexedPeaks[kvp.Key].AddRange(peaksFromTraceable);
+                            if (_indexedPeaks[kvp.Key] == null)
+                               _indexedPeaks[kvp.Key] = new List<IndexedMassSpectralPeak>();
+                            else
+                                _indexedPeaks[kvp.Key].AddRange(peaksFromTraceable);
                         }
-                        //int added = _indexedPeaks[kvp.Key].Count() - previous;
-                        //peakTotal += added;
                     }
                 }
 

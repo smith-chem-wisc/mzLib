@@ -98,9 +98,11 @@ namespace Test
             }
 
             var engine = new FlashLfqEngine(ids,
-                matchBetweenRuns: false,
+                matchBetweenRuns: true,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: true,
+                ppmTolerance: 15,
+                isotopeTolerancePpm: 15,
                 maxThreads: -1);
             var results = engine.Run();
 

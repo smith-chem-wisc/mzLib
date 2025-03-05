@@ -60,7 +60,7 @@ namespace FlashLFQ
     /// This struct does not store information about the m/z of the peak!
     /// </summary>
     [Serializable]
-    public readonly struct IonMobilityPeak(double mz, int intensity, int oneBasedTimsScanNumber) : ISingleScanDatum, IComparable<IonMobilityPeak>, IEquatable<IonMobilityPeak>
+    public readonly record struct IonMobilityPeak(double mz, int intensity, int oneBasedTimsScanNumber) : ISingleScanDatum, IComparable<IonMobilityPeak>, IEquatable<IonMobilityPeak>
     {
         public int OneBasedTimsScanNumber { get; } = oneBasedTimsScanNumber;
         public int IntegerIntensity { get; } = intensity;
