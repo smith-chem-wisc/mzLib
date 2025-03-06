@@ -470,24 +470,24 @@ namespace FlashLFQ
             Tolerance ppmTolerance = new PpmTolerance(PpmTolerance);
             ChromatographicPeak[] chromatographicPeaks = new ChromatographicPeak[ms2IdsForThisFile.Count];
 
-            //Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
-            //    new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
-            //    (range, loopState) =>
-            //    {
-            //for (int i = range.Item1; i < range.Item2; i++)
-            for (int i = 0; i < ms2IdsForThisFile.Count; i++)
-            {
+            Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
+                (range, loopState) =>
+                {
+                    for (int i = range.Item1; i < range.Item2; i++)
+                    //for (int i = 0; i < ms2IdsForThisFile.Count; i++)
+                    {
                 var identification = ms2IdsForThisFile[i];
                 ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, false, fileInfo);
                 chromatographicPeaks[i] = msmsFeature;
 
-                if(identification.BaseSequence.Equals("EMGQMQVLQMK")
-                    || identification.BaseSequence.Equals("ALEAEQVEITVGR")
-                    || identification.BaseSequence.Equals("TLVSAVPEESEMDPHVR")
-                    )
-                {
-                    int xyz = 1;
-                }
+                //if(identification.BaseSequence.Equals("EMGQMQVLQMK")
+                //    || identification.BaseSequence.Equals("ALEAEQVEITVGR")
+                //    || identification.BaseSequence.Equals("TLVSAVPEESEMDPHVR")
+                //    )
+                //{
+                //    int xyz = 1;
+                //}
 
                 foreach (var chargeState in _chargeStates)
                 {
@@ -535,8 +535,7 @@ namespace FlashLFQ
                 }
                 msmsFeature.CalculateIntensityForThisFeature(Integrate);
                 msmsFeature.CutPeak(identification.Ms2RetentionTimeInMinutes, DiscriminationFactorToCutPeak, Integrate);
-
-                        
+        
 
                 var precursorXic = msmsFeature.IsotopicEnvelopes.Where(p => p.ChargeState == identification.PrecursorChargeState).ToList();
                 if (!precursorXic.Any())
@@ -551,7 +550,7 @@ namespace FlashLFQ
                 msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedMs1ScanIndex > max);
                 msmsFeature.CalculateIntensityForThisFeature(Integrate);
             }
-                //});
+                });
 
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
         }

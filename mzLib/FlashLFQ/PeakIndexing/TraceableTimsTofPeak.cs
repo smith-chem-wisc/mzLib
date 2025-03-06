@@ -56,7 +56,7 @@ namespace FlashLFQ.PeakIndexing
 
         public List<IndexedMassSpectralPeak> GetIndexedPeaks()
         {
-            if (ScanOrderedPoints.Count < 1)
+            if (ScanOrderedPoints.Count < 2)
             {
                 return null;
             }
@@ -100,7 +100,7 @@ namespace FlashLFQ.PeakIndexing
 
         private IndexedTimsTofPeak GetSinglePeak(int startIndex, int endIndexExclusive)
         {
-            if (endIndexExclusive - startIndex >= 1) // Need at least three scans for a peak
+            if (endIndexExclusive - startIndex >= 2) // Need at least two scans for a peak
             {
                 int intensity = IonMobilityPeaks[startIndex..endIndexExclusive].Sum(p => p.IntegerIntensity);
                 if ( intensity > 50) // Arbitrary threshold

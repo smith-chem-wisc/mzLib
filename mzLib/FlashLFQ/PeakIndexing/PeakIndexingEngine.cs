@@ -162,8 +162,6 @@ namespace FlashLFQ
                             else
                             {
                                 _indexedPeaks[kvp.Key].AddRange(peaksFromTraceable);
-                                var tempy = _indexedPeaks[kvp.Key];
-                                int placey = 1;
                             }
                         }
                     }

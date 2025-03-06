@@ -311,9 +311,12 @@ namespace Test
 
             var engine = new FlashLfqEngine(ids,
                 matchBetweenRuns: true,
+                ppmTolerance: 15,
+                isotopeTolerancePpm: 15,
+                matchBetweenRunsFdrThreshold: 0.01,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: true,
-                maxThreads: 12);
+                maxThreads: 20);
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
