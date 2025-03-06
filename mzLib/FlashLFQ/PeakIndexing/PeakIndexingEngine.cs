@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using FlashLFQ.PeakIndexing;
 using Easy.Common.Extensions;
+using System.Collections.Concurrent;
 namespace FlashLFQ
 {
     public class PeakIndexingEngine
@@ -114,6 +115,7 @@ namespace FlashLFQ
             Dictionary<int, List<TraceableTimsTofPeak>> roundedMzObservedPeakDict = new();
 
             int zeroBasedMs1FrameIndex = 0;
+            Dictionary<int, Dictionary<int, List<TraceableTimsTofPeak>>> frameObservedPeaksDict = new();
             // foreach frame, build a collection of TraceableTimsTofPeaks that will be added to _indexedPeaks
             foreach (TimsDataScan ms1Scan in file.GetMs1InfoScanByScan())
             {
@@ -170,6 +172,8 @@ namespace FlashLFQ
                 scanInfoArray[zeroBasedMs1FrameIndex] = new Ms1ScanInfo((int)ms1Scan.FrameId, zeroBasedMs1FrameIndex, ms1Scan.RetentionTime);
                 zeroBasedMs1FrameIndex++;
             }
+
+
 
             _ms1Scans.Add(fileInfo, scanInfoArray);
 
