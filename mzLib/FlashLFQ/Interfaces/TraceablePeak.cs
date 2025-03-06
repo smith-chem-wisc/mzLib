@@ -64,12 +64,13 @@ namespace FlashLFQ.Interfaces
                 {
                     ISingleScanDatum timepoint = timePoints[i];
 
-                    if (Math.Abs(previousZeroBasedScanIndex - timepoint.ZeroBasedScanIndex) > allowedMissedScans)
-                    {
-                        peakSplitIndices.Add(i - direction); // Split at previous point
-                        break;
-                    }
-                    else previousZeroBasedScanIndex = timepoint.ZeroBasedScanIndex;
+                    //if (Math.Abs(previousZeroBasedScanIndex - timepoint.ZeroBasedScanIndex) > allowedMissedScans)
+                    //{
+                    //    peakSplitIndices.Add(i - direction); // Split at previous point
+                    //    break;
+                    //}
+                    //else 
+                    previousZeroBasedScanIndex = timepoint.ZeroBasedScanIndex;
 
                     // Valley envelope is the lowest intensity point that has been encountered thus far
                     if (EqualityComparer<T>.Default.Equals(valley, default(T)) || timepoint.Intensity < valley.Intensity)
