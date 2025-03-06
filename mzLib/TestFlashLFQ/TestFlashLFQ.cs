@@ -1750,15 +1750,15 @@ namespace Test
         [Test]
         public static void RealDataMbrTest_IsobaricCase_DavidData()
         {
-            string psmFile = "E:\\MBR\\multiple peaks data\\Task\\nglyco.psmtsv";
+            string psmFile = "E:\\MBR\\multiple peaks data\\ThePsmForIsoTracker\\nglyco_snipped.psmtsv";
             SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_1.raw", "a", 0, 0, 0);
             SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_2_23052022.raw", "a", 0, 0, 0);
             SpectraFileInfo f1r3 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_3_29052022.raw", "a", 0, 0, 0);
             SpectraFileInfo f1r4 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_4_02062022.raw", "a", 0, 0, 0);
             SpectraFileInfo f1r5 = new SpectraFileInfo("E:\\MBR\\multiple peaks data\\HFX_MB_14751_5_02062022.raw", "a", 0, 0, 0);
-            string QpeakFilePath = "E:\\MBR\\multiple peaks data\\Qpeak.tsv";
-            string QpeptideFilePath = "E:\\MBR\\multiple peaks data\\Qpeptide.tsv";
-            string QproteinFilePath = "E:\\MBR\\multiple peaks data\\Qprotein.tsv";
+            string QpeakFilePath = "E:\\MBR\\multiple peaks data\\The nGlycanPsmQuantification_IsoTracker\\nglycan_snipped\\Qpeak.tsv";
+            string QpeptideFilePath = "E:\\MBR\\multiple peaks data\\The nGlycanPsmQuantification_IsoTracker\\nglycan_snipped\\Qpeptide.tsv";
+            string QproteinFilePath = "E:\\MBR\\multiple peaks data\\The nGlycanPsmQuantification_IsoTracker\\nglycan_snipped\\Qprotein.tsv";
 
             List<Identification> ids = new List<Identification>();
             Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
