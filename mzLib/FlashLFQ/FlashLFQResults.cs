@@ -783,7 +783,7 @@ namespace FlashLFQ
                 int peakIndex = 1;
                 foreach (var isoPeptidePeaks in isoPeptides.Value.Values.ToList())
                 {
-                    Peptide peptide = new Peptide(reference.Sequence + "Peak " + peakIndex, reference.BaseSequence, reference.UseForProteinQuant, reference.ProteinGroups);
+                    Peptide peptide = new Peptide(reference.Sequence + "_Peak " + peakIndex, reference.BaseSequence, reference.UseForProteinQuant, reference.ProteinGroups);
                     peptide.SetIsobaricPeptide(isoPeptidePeaks); //When we set the peptide as IsobaricPeptide, then the retention time and intensity will be got from the chromPeak.
                     PeptideModifiedSequences[peptide.Sequence] = peptide;
                     peakIndex++;
