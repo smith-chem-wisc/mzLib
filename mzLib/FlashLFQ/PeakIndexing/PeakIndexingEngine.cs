@@ -110,7 +110,7 @@ namespace FlashLFQ
             file.InitiateDynamicConnection();
 
             Ms1ScanInfo[] scanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
-            PpmTolerance tolerance = new PpmTolerance(15);
+            PpmTolerance tolerance = new PpmTolerance(20);
             Dictionary<int, List<TraceableTimsTofPeak>> roundedMzObservedPeakDict = new();
 
             int zeroBasedMs1FrameIndex = 0;
@@ -119,10 +119,11 @@ namespace FlashLFQ
             {
                 roundedMzObservedPeakDict.Clear();
                 // for each scan in the frame, iterate through every mz peak
-                for (int scanIdx = 0; scanIdx < file.NumberOfScansPerFrame; scanIdx++)
+                //foreach(var scanSpectrumTuple in ms1Scan.TimsScanIdxMs1SpectraList)
+                for (int scanIdx = 0; scanIdx < ms1Scan.TimsScanIdxMs1SpectraList.Count; scanIdx++)
                 {
-                    var spectrum = ms1Scan.Ms1SpectraIndexedByZeroBasedScanNumber[scanIdx];
-                    if (spectrum == null) continue; // If there are no peaks in the spectrum, continue to the next scan
+                    var spectrum = ms1Scan.TimsScanIdxMs1SpectraList[scanIdx].Spectrum;
+                    //if (spectrum == null) continue; // If there are no peaks in the spectrum, continue to the next scan
 
                     // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
                     for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
@@ -133,8 +134,8 @@ namespace FlashLFQ
                         if(roundedMzObservedPeakDict.TryGetValue(roundedMz, out var traceablePeaks))
                         {
                             var matchingPeak = traceablePeaks
-                                .FirstOrDefault(p => tolerance.Within(spectrum.XArray[spectrumIdx], p.Mz));
-                            if (matchingPeak != null) matchingPeak.AddIonMobilityPeak(ionMobilityPeak);
+                                .MinBy(p =>Math.Abs(spectrum.XArray[spectrumIdx] - p.Mz));
+                            if (tolerance.Within(matchingPeak.Mz, spectrum.XArray[spectrumIdx]) )matchingPeak.AddIonMobilityPeak(ionMobilityPeak);
                             else traceablePeaks.Add(new TraceableTimsTofPeak(zeroBasedMs1FrameIndex, ms1Scan.RetentionTime, ionMobilityPeak));
                         }
                         else
@@ -159,7 +160,11 @@ namespace FlashLFQ
                             if (_indexedPeaks[kvp.Key] == null)
                                _indexedPeaks[kvp.Key] = new List<IndexedMassSpectralPeak>();
                             else
+                            {
                                 _indexedPeaks[kvp.Key].AddRange(peaksFromTraceable);
+                                var tempy = _indexedPeaks[kvp.Key];
+                                int placey = 1;
+                            }
                         }
                     }
                 }

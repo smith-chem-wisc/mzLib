@@ -56,7 +56,7 @@ namespace FlashLFQ.PeakIndexing
 
         public List<IndexedMassSpectralPeak> GetIndexedPeaks()
         {
-            if (ScanOrderedPoints.Count < 3)
+            if (ScanOrderedPoints.Count < 1)
             {
                 return null;
             }
@@ -69,7 +69,7 @@ namespace FlashLFQ.PeakIndexing
             {
                 int index = allPeakBoundaries[i];
                 IndexedTimsTofPeak indexedTimsTofPeak;
-                if (index - previousPeakIdx > 7) // If we have more than 7 peaks, there is a chance we can split them further
+                if (index - previousPeakIdx > 5) // If we have more than 7 peaks, there is a chance we can split them further
                 {
                     var splitIndices = FindPeakSplitIndices(
                         timePoints: IonMobilityPeaks[previousPeakIdx..index],
@@ -100,20 +100,21 @@ namespace FlashLFQ.PeakIndexing
 
         private IndexedTimsTofPeak GetSinglePeak(int startIndex, int endIndexExclusive)
         {
-            if (endIndexExclusive - startIndex >= 5) // Need at least three scans for a peak
+            if (endIndexExclusive - startIndex >= 1) // Need at least three scans for a peak
             {
                 int intensity = IonMobilityPeaks[startIndex..endIndexExclusive].Sum(p => p.IntegerIntensity);
-                return new IndexedTimsTofPeak(
-                    IonMobilityPeaks[startIndex..endIndexExclusive].MaxBy(p => p.IntegerIntensity).Mz,
-                    intensity,
-                    ZeroBasedMs1FrameIndex,
-                    RetentionTime,
-                    GetWeightedAverageTimsIndex(intensity, IonMobilityPeaks[startIndex..endIndexExclusive]));
+                if ( intensity > 50) // Arbitrary threshold
+                    return new IndexedTimsTofPeak(
+                        IonMobilityPeaks[startIndex..endIndexExclusive].MaxBy(p => p.IntegerIntensity).Mz,
+                        intensity,
+                        ZeroBasedMs1FrameIndex,
+                        RetentionTime,
+                        GetWeightedAverageTimsIndex(intensity, IonMobilityPeaks[startIndex..endIndexExclusive]));
             }
             return null;
         }
 
-        private int _allowedMissedScans = 20;
+        private int _allowedMissedScans = 4;
 
         public List<int> GetPeakBoundariesLinear()
         {

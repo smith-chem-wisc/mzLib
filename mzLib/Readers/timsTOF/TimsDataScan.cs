@@ -91,13 +91,32 @@ namespace MassSpectrometry
 
         public MzSpectrum?[] Ms1SpectraIndexedByZeroBasedScanNumber { get; private set; }
 
+        public List<(int ScanIdx , MzSpectrum Spectrum)> TimsScanIdxMs1SpectraList { get; private set; }
+
         public void AddMs1Spectrum(MzSpectrum spectrum, int scanNumber)
         {
-            if (Ms1SpectraIndexedByZeroBasedScanNumber.IsNullOrEmpty())
+            //if (Ms1SpectraIndexedByZeroBasedScanNumber.IsNullOrEmpty())
+            //{
+            //    Ms1SpectraIndexedByZeroBasedScanNumber = new MzSpectrum[ScanNumberEnd - ScanNumberStart + 1];
+            //}
+            //Ms1SpectraIndexedByZeroBasedScanNumber[scanNumber - ScanNumberStart] = spectrum;
+
+            if (TimsScanIdxMs1SpectraList == null)
             {
-                Ms1SpectraIndexedByZeroBasedScanNumber = new MzSpectrum[ScanNumberEnd - ScanNumberStart + 1];
+                TimsScanIdxMs1SpectraList = new();
             }
-            Ms1SpectraIndexedByZeroBasedScanNumber[scanNumber - ScanNumberStart] = spectrum;
+            TimsScanIdxMs1SpectraList.Add((scanNumber, spectrum));
         }
+    }
+
+    public class TimsSpectrum : MzSpectrum
+    {
+        public TimsSpectrum(double[] mzArray, double[] intensityArray, double ionMobilityIndex, bool shouldCopy = false) :
+            base(mzArray, intensityArray, shouldCopy)
+        {
+            IonMobilityIndex = ionMobilityIndex;
+        }
+
+        public double IonMobilityIndex { get; }
     }
 }

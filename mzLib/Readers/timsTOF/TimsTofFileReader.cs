@@ -295,17 +295,41 @@ namespace Readers
                     medianOneOverK0: -1,
                     precursorId: null);
 
-                for (int scanNo = 1; scanNo <= numberOfScans; scanNo++)
+                // Want to change this to group 10 scans at a time
+                int previousScan = 1;
+                int nextScan = 1;
+                List<uint[]> indexArrays = new();
+                List<int[]> intensityArrays = new();
+                while (previousScan < numberOfScans)
                 {
-                    var indices = frame.GetScanIndices(scanNo - 1);
-                    if(indices.Length == 0)
-                        continue;
-                    
-                    var intensities = frame.GetScanIntensities(scanNo - 1);
-                    // Individual scans are centroided by the instrument already, so no need to call the Collapse function
-                    var spectrum = TofSpectraMerger.CreateFilteredSpectrum(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
-                    dataScan.AddMs1Spectrum(spectrum, scanNo);
+                    nextScan = Math.Min(previousScan + 10, numberOfScans);
+
+                    indexArrays.Clear();
+                    intensityArrays.Clear();
+                    for (int scan = previousScan; scan < nextScan; scan++)
+                    {
+                        indexArrays.Add(frame.GetScanIndices(scan - 1));
+                        intensityArrays.Add(frame.GetScanIntensities(scan - 1));
+                    }
+                    // Step 2: Average those suckers
+                    MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory);
+                    if (averagedSpectrum.Size > 1)
+                    {
+                        dataScan.AddMs1Spectrum(averagedSpectrum, (nextScan + previousScan) / 2);
+                    }
+                    previousScan = nextScan;
                 }
+                //for (int scanNo = 1; scanNo <= numberOfScans; scanNo++)
+                //{
+                //    var indices = frame.GetScanIndices(scanNo - 1);
+                //    if(indices.Length == 0)
+                //        continue;
+                    
+                //    var intensities = frame.GetScanIntensities(scanNo - 1);
+                //    // Individual scans are centroided by the instrument already, so no need to call the Collapse function
+                //    var spectrum = TofSpectraMerger.CreateFilteredSpectrum(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
+                //    dataScan.AddMs1Spectrum(spectrum, scanNo);
+                //}
 
                 yield return dataScan;
             }

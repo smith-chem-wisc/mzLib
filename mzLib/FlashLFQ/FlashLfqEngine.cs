@@ -481,10 +481,10 @@ namespace FlashLFQ
                 ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, false, fileInfo);
                 chromatographicPeaks[i] = msmsFeature;
 
-                if(identification.BaseSequence.Equals("ALDVMVSTFHK")
+                if(identification.BaseSequence.Equals("EMGQMQVLQMK")
                     || identification.BaseSequence.Equals("ALEAEQVEITVGR")
-                    || identification.BaseSequence.Equals("ALENPDTASLLGR")
-                    || identification.BaseSequence.Equals("ALKDEEKMELQEIQLK"))
+                    || identification.BaseSequence.Equals("TLVSAVPEESEMDPHVR")
+                    )
                 {
                     int xyz = 1;
                 }
