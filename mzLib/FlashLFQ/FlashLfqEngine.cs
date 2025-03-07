@@ -215,8 +215,7 @@ namespace FlashLFQ
         {
             _globalStopwatch.Start();
             _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
-            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, MbrDetectionQValueThreshold, PeptideModifiedSequencesToQuantify);
-
+            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, MbrDetectionQValueThreshold, PeptideModifiedSequencesToQuantify, IsobaricCase);
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
             // quantify each file
@@ -437,7 +436,7 @@ namespace FlashLFQ
                                   _globalStopwatch.Elapsed.Seconds + "s");
             }
 
-            _results.IsoTracker = IsobaricCase;
+            
             return _results;
         }
 
@@ -2238,6 +2237,7 @@ namespace FlashLFQ
         /// </summary>
         internal void AddIsoPeaks()
         {
+
             foreach (var fileInfo in _spectraFileInfo)
             {
                 var chromPeaksInIsoDict = IsobaricPeakInDifferentRun
@@ -2248,7 +2248,7 @@ namespace FlashLFQ
 
                 _results.Peaks[fileInfo].AddRange(chromPeaksInIsoDict);
                 _results.Peaks[fileInfo] = _results.Peaks[fileInfo]
-                    .DistinctBy(peak => new { peak.ApexRetentionTime, peak.SpectraFileInfo }).ToList();
+                    .DistinctBy(peak => new { peak.ApexRetentionTime, peak.SpectraFileInfo, peak.Identifications }).ToList();
 
             }
 

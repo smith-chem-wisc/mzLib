@@ -153,6 +153,11 @@ namespace FlashLFQ
                 foreach (var sequenceWithPeaks in groupedPeaks)
                 {
                     string sequence = sequenceWithPeaks.Key;
+                    if (sequence == "AAASTDYYK")
+                    {
+                        int iiiii = 0;
+                    }
+
                     double intensity = sequenceWithPeaks.Value.Max(p => p.Intensity);
                     ChromatographicPeak bestPeak = sequenceWithPeaks.Value.First(p => p.Intensity == intensity);
                     DetectionType detectionType;
