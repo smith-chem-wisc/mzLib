@@ -103,7 +103,7 @@ namespace Test
                 useSharedPeptidesForProteinQuant: true,
                 ppmTolerance: 15,
                 isotopeTolerancePpm: 15,
-                maxThreads: -1);
+                maxThreads: 5);
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);

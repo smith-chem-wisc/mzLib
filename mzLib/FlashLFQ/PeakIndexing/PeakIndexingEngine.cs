@@ -10,6 +10,8 @@ using System.Linq;
 using FlashLFQ.PeakIndexing;
 using Easy.Common.Extensions;
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
+
 namespace FlashLFQ
 {
     public class PeakIndexingEngine
@@ -17,8 +19,9 @@ namespace FlashLFQ
         private List<IndexedMassSpectralPeak>[] _indexedPeaks;
         private readonly Serializer _serializer;
         private const int BinsPerDalton = 100;
+        private readonly int _maxThreads;
 
-        public PeakIndexingEngine()
+        public PeakIndexingEngine(int maxThreads)
         {
             var messageTypes = new List<Type>
             {
@@ -30,6 +33,7 @@ namespace FlashLFQ
                 typeof(IndexedTimsTofPeak)
             };
             _serializer = new Serializer(messageTypes);
+            _maxThreads = maxThreads;
         }
 
         public bool IndexMassSpectralPeaks(SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
@@ -106,74 +110,104 @@ namespace FlashLFQ
 
         public bool IndexTimsTofPeaks(TimsTofFileReader file, SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
         {
-            // create the indexed peaks array
-            _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
             file.InitiateDynamicConnection();
 
             Ms1ScanInfo[] scanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
             PpmTolerance tolerance = new PpmTolerance(20);
-            Dictionary<int, List<TraceableTimsTofPeak>> roundedMzObservedPeakDict = new();
+            //Dictionary<int, List<TraceableTimsTofPeak>> roundedMzObservedPeakDict = new();
 
-            int zeroBasedMs1FrameIndex = 0;
-            Dictionary<int, Dictionary<int, List<TraceableTimsTofPeak>>> frameObservedPeaksDict = new();
+            //int zeroBasedMs1FrameIndex = 0;
+            ConcurrentDictionary<int, Dictionary<int, List<IndexedMassSpectralPeak>>> frameObservedPeaksDict = new();
             // foreach frame, build a collection of TraceableTimsTofPeaks that will be added to _indexedPeaks
-            foreach (TimsDataScan ms1Scan in file.GetMs1InfoScanByScan())
+            //foreach (TimsDataScan ms1Scan in file.GetMs1InfoScanByScan())
+
+            //
+            var frameCollection = new BlockingCollection<TimsDataScan>(new ConcurrentQueue<TimsDataScan>());
+            file.GetMs1InfoFrameByFrame(frameCollection, maxThreads: _maxThreads);
+
+            //file.GetMs1InfoFrameByFrame(maxThreads: _maxThreads);
+
+
+            Task[] indexingTasks = new Task[_maxThreads];
+            //var enumerator = scanEnumerable.GetEnumerator();
+            for (int thread = 0; thread < _maxThreads; thread++)
             {
-                roundedMzObservedPeakDict.Clear();
-                // for each scan in the frame, iterate through every mz peak
-                //foreach(var scanSpectrumTuple in ms1Scan.TimsScanIdxMs1SpectraList)
-                for (int scanIdx = 0; scanIdx < ms1Scan.TimsScanIdxMs1SpectraList.Count; scanIdx++)
-                {
-                    var spectrum = ms1Scan.TimsScanIdxMs1SpectraList[scanIdx].Spectrum;
-                    //if (spectrum == null) continue; // If there are no peaks in the spectrum, continue to the next scan
-
-                    // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
-                    for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
+                var indexTask = Task.Factory.StartNew(() =>
                     {
-                        var ionMobilityPeak = new IonMobilityPeak(spectrum.XArray[spectrumIdx], (int)spectrum.YArray[spectrumIdx], scanIdx + 1);
-                        int roundedMz = (int)Math.Round(ionMobilityPeak.Mz * BinsPerDalton, 0);
-                        
-                        if(roundedMzObservedPeakDict.TryGetValue(roundedMz, out var traceablePeaks))
+                        while (frameCollection.TryTake(out var ms1Scan))
+                        //while(enumerator.)
                         {
-                            var matchingPeak = traceablePeaks
-                                .MinBy(p =>Math.Abs(spectrum.XArray[spectrumIdx] - p.Mz));
-                            if (tolerance.Within(matchingPeak.Mz, spectrum.XArray[spectrumIdx]) )matchingPeak.AddIonMobilityPeak(ionMobilityPeak);
-                            else traceablePeaks.Add(new TraceableTimsTofPeak(zeroBasedMs1FrameIndex, ms1Scan.RetentionTime, ionMobilityPeak));
-                        }
-                        else
-                        {
-                            roundedMzObservedPeakDict[roundedMz] = new List<TraceableTimsTofPeak> {
-                                new TraceableTimsTofPeak(zeroBasedMs1FrameIndex, ms1Scan.RetentionTime, ionMobilityPeak) };
-                        }
-                    }
-                }
-
-                int peakTotal = 0;
-
-                // Now, add all the traceable peaks in the dict to the indexed peaks jagged array
-                foreach (var kvp in roundedMzObservedPeakDict)
-                {
-                    foreach (var traceablePeak in kvp.Value) // for each traceable peak in the list (there can be two peaks with same rounded mz but actual mzs > 15ppm apart
-                    {
-                        var peaksFromTraceable = traceablePeak.GetIndexedPeaks();
-                        
-                        if (peaksFromTraceable.IsNotNullOrEmpty())
-                        {
-                            if (_indexedPeaks[kvp.Key] == null)
-                               _indexedPeaks[kvp.Key] = new List<IndexedMassSpectralPeak>();
-                            else
+                            int zeroBasedMs1FrameIndex = file.Ms1FrameIds.IndexOf(ms1Scan.FrameId);
+                            Dictionary<int, List<TraceableTimsTofPeak>> roundedMzObservedPeakDict = new();
+                            for (int scanIdx = 0; scanIdx < ms1Scan.TimsScanIdxMs1SpectraList.Count; scanIdx++)
                             {
-                                _indexedPeaks[kvp.Key].AddRange(peaksFromTraceable);
-                            }
-                        }
-                    }
-                }
+                                var spectrum = ms1Scan.TimsScanIdxMs1SpectraList[scanIdx].Spectrum;
 
-                scanInfoArray[zeroBasedMs1FrameIndex] = new Ms1ScanInfo((int)ms1Scan.FrameId, zeroBasedMs1FrameIndex, ms1Scan.RetentionTime);
-                zeroBasedMs1FrameIndex++;
+                                // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
+                                for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
+                                {
+                                    var ionMobilityPeak = new IonMobilityPeak(spectrum.XArray[spectrumIdx], (int)spectrum.YArray[spectrumIdx], scanIdx + 1);
+                                    int roundedMz = (int)Math.Round(ionMobilityPeak.Mz * BinsPerDalton, 0);
+
+                                    if (roundedMzObservedPeakDict.TryGetValue(roundedMz, out var traceablePeaks))
+                                    {
+                                        var matchingPeak = traceablePeaks
+                                            .MinBy(p => Math.Abs(spectrum.XArray[spectrumIdx] - p.Mz));
+                                        if (tolerance.Within(matchingPeak.Mz, spectrum.XArray[spectrumIdx])) matchingPeak.AddIonMobilityPeak(ionMobilityPeak);
+                                        else traceablePeaks.Add(new TraceableTimsTofPeak(zeroBasedMs1FrameIndex, ms1Scan.RetentionTime, ionMobilityPeak));
+                                    }
+                                    else
+                                    {
+                                        roundedMzObservedPeakDict[roundedMz] = new List<TraceableTimsTofPeak> {
+                                new TraceableTimsTofPeak(zeroBasedMs1FrameIndex, ms1Scan.RetentionTime, ionMobilityPeak) };
+                                    }
+                                }
+                            }
+
+                            Dictionary<int, List<IndexedMassSpectralPeak>> peakDict = new();
+                            foreach (var kvp in roundedMzObservedPeakDict)
+                            {
+                                List<IndexedMassSpectralPeak> imps = new();
+                                foreach (var traceablePeak in kvp.Value)
+                                {
+                                    var peaksFromTraceable = traceablePeak.GetIndexedPeaks();
+                                    if (peaksFromTraceable.IsNotNullOrEmpty())
+                                    {
+                                        imps.AddRange(peaksFromTraceable);
+                                    }
+                                }
+                                peakDict[kvp.Key] = imps;
+                            }
+
+                            frameObservedPeaksDict.TryAdd(
+                                (int)ms1Scan.FrameId,
+                                peakDict);
+
+                            scanInfoArray[zeroBasedMs1FrameIndex] = new Ms1ScanInfo((int)ms1Scan.FrameId, zeroBasedMs1FrameIndex, ms1Scan.RetentionTime);
+                        }
+                    });
+                indexingTasks[thread] = indexTask;
             }
 
+            Task.WaitAll(indexingTasks);
+            _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
+            foreach (var frameDictPair in frameObservedPeaksDict.OrderBy(kvp => kvp.Key))
+            {
+                foreach (var kvp in frameDictPair.Value)
+                {
 
+                    if (kvp.Value.IsNotNullOrEmpty())
+                    {
+                        if (_indexedPeaks[kvp.Key] == null)
+                            _indexedPeaks[kvp.Key] = new List<IndexedMassSpectralPeak>();
+                        else
+                        {
+                            _indexedPeaks[kvp.Key].AddRange(kvp.Value);
+                        }
+                    }
+                    
+                }
+            }
 
             _ms1Scans.Add(fileInfo, scanInfoArray);
 

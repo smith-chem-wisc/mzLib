@@ -144,7 +144,7 @@ namespace FlashLFQ
 
             _globalStopwatch = new Stopwatch();
             _chargeStates = new List<int>();
-            _peakIndexingEngine = new PeakIndexingEngine();
+            
 
             _spectraFileInfo = allIdentifications.Select(p => p.FileInfo).Distinct()
                 .OrderBy(p => p.Condition)
@@ -194,6 +194,7 @@ namespace FlashLFQ
                 MaxThreads = 1;
             }
 
+            _peakIndexingEngine = new PeakIndexingEngine(MaxThreads);
             PeakfindingPpmTolerance = 20.0;
             MissedScansAllowed = 1;
             DiscriminationFactorToCutPeak = 0.6;

@@ -14,6 +14,7 @@ using ThermoFisher.CommonCore.Data.Business;
 using Polarity = MassSpectrometry.Polarity;
 using System.Security.AccessControl;
 using System.Collections.Concurrent;
+using System.Threading.Tasks.Dataflow;
 
 namespace Readers
 { 
@@ -29,7 +30,6 @@ namespace Readers
         private UInt64? _fileHandle;
         private Object _fileLock;
         private SQLiteConnection? _sqlConnection;
-        private int _maxThreads;
         public int NumberOfFrames { get; private set; }
         public List<long> Ms1FrameIds { get; private set; }
         public int NumberOfMs1Frames => Ms1FrameIds.Count;
@@ -238,11 +238,10 @@ namespace Readers
             CountMS1Frames();
             CountPrecursors();
             
-            _maxThreads = maxThreads;
             Ms1ScansNoPrecursorsBag = new();
             Parallel.ForEach(
                 Partitioner.Create(0, Ms1FrameIds.Count),
-                new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
+                new ParallelOptions() { MaxDegreeOfParallelism = maxThreads },
                 (range) =>
             {
                 for (int i = range.Item1; i < range.Item2; i++)
@@ -264,75 +263,136 @@ namespace Readers
         /// Missing fields: TotalIonCurrent, NoiseData, NativeId, PrecursorId.
         /// </summary>
         /// <returns> DataScans with populated Ms1SpectraIndexedByZeroBasedScanNumber arrays </returns>
-        public IEnumerable<TimsDataScan> GetMs1InfoScanByScan()
+        //public IEnumerable<TimsDataScan> GetMs1InfoFrameByFrame(int maxThreads)
+        public void GetMs1InfoFrameByFrame(BlockingCollection<TimsDataScan> scanCollection, int maxThreads = 1)
         {
-            if(_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
+            if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
+            //var scanCollection = new BlockingCollection<TimsDataScan>();
             // It's assumed that every MS1 frame will contain the same number of scans
             int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
-            FrameProxy frame;
-            foreach (var ms1FrameId in Ms1FrameIds)
-            {
-                frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
-                TimsDataScan dataScan = new TimsDataScan(
-                    massSpectrum: null,
-                    oneBasedScanNumber: -1, // This gets adjusted once all data has been read
-                    msnOrder: 1,
-                    isCentroid: true,
-                    polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
-                    retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
-                    scanWindowRange: ScanWindow,
-                    scanFilter: ScanFilter,
-                    mzAnalyzer: MZAnalyzerType.TOF,
-                    totalIonCurrent: -1,
-                    injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
-                    noiseData: null,
-                    nativeId: null,
-                    frameId: frame.FrameId,
-                    scanNumberStart: 1,
-                    scanNumberEnd: numberOfScans,
-                    medianOneOverK0: -1,
-                    precursorId: null);
-
-                // Want to change this to group 10 scans at a time
-                int previousScan = 1;
-                int nextScan = 1;
-                List<uint[]> indexArrays = new();
-                List<int[]> intensityArrays = new();
-                while (previousScan < numberOfScans)
+            Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count),
+                new ParallelOptions() { MaxDegreeOfParallelism = maxThreads },
+                (range) =>
                 {
-                    nextScan = Math.Min(previousScan + 10, numberOfScans);
-
-                    indexArrays.Clear();
-                    intensityArrays.Clear();
-                    for (int scan = previousScan; scan < nextScan; scan++)
+                    for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        indexArrays.Add(frame.GetScanIndices(scan - 1));
-                        intensityArrays.Add(frame.GetScanIntensities(scan - 1));
-                    }
-                    // Step 2: Average those suckers
-                    MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory);
-                    if (averagedSpectrum.Size > 1)
-                    {
-                        dataScan.AddMs1Spectrum(averagedSpectrum, (nextScan + previousScan) / 2);
-                    }
-                    previousScan = nextScan;
-                }
-                //for (int scanNo = 1; scanNo <= numberOfScans; scanNo++)
-                //{
-                //    var indices = frame.GetScanIndices(scanNo - 1);
-                //    if(indices.Length == 0)
-                //        continue;
-                    
-                //    var intensities = frame.GetScanIntensities(scanNo - 1);
-                //    // Individual scans are centroided by the instrument already, so no need to call the Collapse function
-                //    var spectrum = TofSpectraMerger.CreateFilteredSpectrum(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
-                //    dataScan.AddMs1Spectrum(spectrum, scanNo);
-                //}
+                        FrameProxy frame = FrameProxyFactory.GetFrameProxy(Ms1FrameIds[i]);
+                        TimsDataScan dataScan = new TimsDataScan(
+                            massSpectrum: null,
+                            oneBasedScanNumber: -1, // This gets adjusted once all data has been read
+                            msnOrder: 1,
+                            isCentroid: true,
+                            polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+                            retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+                            scanWindowRange: ScanWindow,
+                            scanFilter: ScanFilter,
+                            mzAnalyzer: MZAnalyzerType.TOF,
+                            totalIonCurrent: -1,
+                            injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+                            noiseData: null,
+                            nativeId: null,
+                            frameId: frame.FrameId,
+                            scanNumberStart: 1,
+                            scanNumberEnd: numberOfScans,
+                            medianOneOverK0: -1,
+                            precursorId: null);
 
-                yield return dataScan;
-            }
+                        // Want to change this to group 10 scans at a time
+                        int previousScan = 1;
+                        List<uint[]> indexArrays = new();
+                        List<int[]> intensityArrays = new();
+                        while (previousScan < numberOfScans)
+                        {
+                            int nextScan = Math.Min(previousScan + 10, numberOfScans);
+
+                            indexArrays.Clear();
+                            intensityArrays.Clear();
+                            for (int scan = previousScan; scan < nextScan; scan++)
+                            {
+                                indexArrays.Add(frame.GetScanIndices(scan - 1));
+                                intensityArrays.Add(frame.GetScanIntensities(scan - 1));
+                            }
+                            // Step 2: Average those suckers
+                            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory);
+                            if (averagedSpectrum.Size > 1)
+                            {
+                                dataScan.AddMs1Spectrum(averagedSpectrum, (nextScan + previousScan) / 2);
+                            }
+                            previousScan = nextScan;
+                        }
+                        scanCollection.Add(dataScan);
+                    }
+                });
+
+
+            //foreach (var toReturn in scanCollection.GetConsumingEnumerable())
+            //{
+            //    yield return toReturn;
+            //}
+
+            //foreach (var ms1FrameId in Ms1FrameIds)
+            //{
+            //    frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
+            //    TimsDataScan dataScan = new TimsDataScan(
+            //        massSpectrum: null,
+            //        oneBasedScanNumber: -1, // This gets adjusted once all data has been read
+            //        msnOrder: 1,
+            //        isCentroid: true,
+            //        polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+            //        retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+            //        scanWindowRange: ScanWindow,
+            //        scanFilter: ScanFilter,
+            //        mzAnalyzer: MZAnalyzerType.TOF,
+            //        totalIonCurrent: -1,
+            //        injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+            //        noiseData: null,
+            //        nativeId: null,
+            //        frameId: frame.FrameId,
+            //        scanNumberStart: 1,
+            //        scanNumberEnd: numberOfScans,
+            //        medianOneOverK0: -1,
+            //        precursorId: null);
+
+            //    // Want to change this to group 10 scans at a time
+            //    int previousScan = 1;
+            //    int nextScan = 1;
+            //    List<uint[]> indexArrays = new();
+            //    List<int[]> intensityArrays = new();
+            //    while (previousScan < numberOfScans)
+            //    {
+            //        nextScan = Math.Min(previousScan + 10, numberOfScans);
+
+            //        indexArrays.Clear();
+            //        intensityArrays.Clear();
+            //        for (int scan = previousScan; scan < nextScan; scan++)
+            //        {
+            //            indexArrays.Add(frame.GetScanIndices(scan - 1));
+            //            intensityArrays.Add(frame.GetScanIntensities(scan - 1));
+            //        }
+            //        // Step 2: Average those suckers
+            //        MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory);
+            //        if (averagedSpectrum.Size > 1)
+            //        {
+            //            dataScan.AddMs1Spectrum(averagedSpectrum, (nextScan + previousScan) / 2);
+            //        }
+            //        previousScan = nextScan;
+            //    }
+            //    //for (int scanNo = 1; scanNo <= numberOfScans; scanNo++)
+            //    //{
+            //    //    var indices = frame.GetScanIndices(scanNo - 1);
+            //    //    if(indices.Length == 0)
+            //    //        continue;
+
+            //    //    var intensities = frame.GetScanIntensities(scanNo - 1);
+            //    //    // Individual scans are centroided by the instrument already, so no need to call the Collapse function
+            //    //    var spectrum = TofSpectraMerger.CreateFilteredSpectrum(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
+            //    //    dataScan.AddMs1Spectrum(spectrum, scanNo);
+            //    //}
+
+            //    yield return dataScan;
+            //}
         }
 
         internal void AssignOneBasedPrecursorsToPasefScans()
