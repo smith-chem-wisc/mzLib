@@ -897,15 +897,15 @@ namespace Test
 
             var peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup>());
             var peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
-            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\t\t\t\t0\tNotDetected");
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\t\t\t\t0\t0\tNotDetected");
 
             peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup });
             peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
-            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession\tGene\tOrganism\t0\tNotDetected");
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession\tGene\tOrganism\t0\t0\tNotDetected");
 
             peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup, new ProteinGroup("Accession2", "Gene2", "Organism2") });
             peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
-            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession;Accession2\tGene;Gene2\tOrganism;Organism2\t0\tNotDetected");
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession;Accession2\tGene;Gene2\tOrganism;Organism2\t0\t0\tNotDetected");
         }
 
         [Test]
@@ -1243,6 +1243,9 @@ namespace Test
 
             //check that all rows including header have the same number of elements
             Assert.AreEqual(1, peaksList.Select(l => l.Split('\t').Length).Distinct().ToList().Count);
+            var peakL = peaksList.Select(l => l.Split('\t').Length).ToList();
+            var nnn = peptidesList.Select(l => l.Split('\t').Length).ToList();
+            var nn = proteinsList.Select(l => l.Split('\t').Length).ToList();
             Assert.AreEqual(1, peptidesList.Select(l => l.Split('\t').Length).Distinct().ToList().Count);
             Assert.AreEqual(1, proteinsList.Select(l => l.Split('\t').Length).Distinct().ToList().Count);
 

@@ -220,7 +220,7 @@ namespace FlashLFQ
             {
                 StringBuilder str = new StringBuilder();
                 str.Append(Sequence + "\t");
-                str.Append("N/A" + "\t");
+                //str.Append("N/A" + "\t"); why we need this?
                 str.Append(BaseSequence + "\t");
 
                 var orderedProteinGroups = ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();

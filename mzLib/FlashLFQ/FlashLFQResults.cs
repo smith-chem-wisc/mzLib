@@ -221,7 +221,12 @@ namespace FlashLFQ
                 
             }
 
-            RevisedModifiedPeptides();
+            if (IsobaricPeakInDifferentRun != null)
+            {
+                RevisedModifiedPeptides();
+            }
+
+            
 
             if (!quantifyAmbiguousPeptides)
             {
