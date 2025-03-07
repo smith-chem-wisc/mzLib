@@ -28,13 +28,12 @@ namespace MzLibUtil
         /// <summary>
         /// Parses the full sequence to identify mods.
         /// </summary>
-        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
-        /// <param name="modOnNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
-        /// <param name="modOnCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
+        /// <param name="fullSequence"> Full sequence of the peptide in question.</param>
+        /// <param name="ignoreTerminusMod"> If true, terminal modifications will be ignored.</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(this string fullSequence, bool modOnNTerminus=false, bool modOnCTerminus=false, bool ignoreTerminusMod=false)
+        public static Dictionary<int, List<string>> ParseModifications(this string fullSequence, bool ignoreTerminusMod=false)
         {
-            // use a regex to get all modifications
+            // use a regex to get modifications
             string pattern = @"\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
             Regex regex = new(pattern);
 
@@ -69,14 +68,9 @@ namespace MzLibUtil
                     continue;
                 }
 
-                // Handle N terminus indexing
-                if ((positionToAddToDict == 0) && !modOnNTerminus)
-                {
-                    positionToAddToDict++;
-                }
-
-                // Handle C terminus indexing
-                if ((fullSeq.Length == startIndex + captureLength) && modOnCTerminus)
+                // The C-terminus is ambiguous when it comes to how a modification is included in the full sequence string. 
+                // So, extra logic is needed to read the  
+                if ((fullSeq.Length == startIndex + captureLength) && val.Contains("terminal")) 
                 {
                     positionToAddToDict++;
                 }

@@ -8,6 +8,7 @@ using FlashLFQ;
 using System.Linq;
 using System.Security;
 using System;
+using System.Collections.Immutable;
 
 namespace Test
 {
@@ -41,10 +42,10 @@ namespace Test
         }
 
         [Test]
-        public static void TestParseModificationsOneMod()
+        public static void TestParseModificationsSideChainModOnly()
         {
             string fullSeq = "DM[Common Variable:Oxidation on M]MELVQPSISGVDLDK";
-            var mods = fullSeq.ParseModifications();
+            var mods = fullSeq.ParseModifications(ignoreTerminusMod: false);
             Assert.That(mods.Count == 1);
             Assert.That(mods.ContainsKey(2));
             Assert.That(mods[2].Count == 1);
@@ -52,104 +53,43 @@ namespace Test
         }
 
         [Test]
-        public static void TestParseModificationsTwoModsZeroIndexing()
+        public static void TestParseModificationsSideChainAndNTerminusMods()
         {
-            // sequence with two terminal mods with indexed termini (zero-based indexing)
-            string fullSeq = "[UniProt:N-acetylglutamate on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            var mods = fullSeq.ParseModifications(true, true);
-            Assert.That(mods.Count == 3);
+            // sequence with two terminal mods
+            string fullSeq = "[UniProt:N-acetylglutamate on E]EEEIAALVIDNGSGMC[Common Fixed:Carbamidomethyl on C]";
+            var mods = fullSeq.ParseModifications(ignoreTerminusMod: false);
+            Assert.That(mods.Count == 2);
             Assert.That(mods.ContainsKey(0));
-            Assert.That(mods.ContainsKey(10));
-            Assert.That(mods.ContainsKey(17));
-            Assert.That(mods[0].Count == 1);
-            Assert.That(mods[10].Count == 1);
-            Assert.That(mods[17].Count == 1);
-            Assert.That(mods[0].Contains("UniProt:N-acetylglutamate on E"));
-            Assert.That(mods[10].Contains("Metal:Calcium on D"));
-            Assert.That(mods[17].Contains("Common Fixed:Carbamidomethyl on C"));
-        }
-
-        [Test]
-        public static void TestParseModificationsTwoModsOneIndexing()
-        {
-            // sequence with two terminal mods with termini indexed at amino acid positions (one-based indexing)
-            string fullSeq = "[UniProt:N-acetylglutamate on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            var mods = fullSeq.ParseModifications();
-            Assert.That(mods.Count == 3);
-            Assert.That(mods.ContainsKey(1));
-            Assert.That(mods.ContainsKey(10));
             Assert.That(mods.ContainsKey(16));
-            Assert.That(mods[1].Count == 1);
-            Assert.That(mods[10].Count == 1);
+            Assert.That(mods[0].Count == 1);
             Assert.That(mods[16].Count == 1);
-            Assert.That(mods[1].Contains("UniProt:N-acetylglutamate on E"));
-            Assert.That(mods[10].Contains("Metal:Calcium on D"));
+            Assert.That(mods[0].Contains("UniProt:N-acetylglutamate on E"));
             Assert.That(mods[16].Contains("Common Fixed:Carbamidomethyl on C"));
         }
 
         [Test]
-        public static void TestParseModificationsTwoModsSameTerminusZeroIndexing()
+        public static void TestParseModificationsTwoModsSamePosition()
         {
-            // sequence with two mods on same terminus with with indexed termini  (zero-based indexing)
-            string fullSeq = "[UniProt:N-acetylglutamate on E]|[Common Artifact:Water Loss on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            var mods = fullSeq.ParseModifications(true, true);
-            Assert.That(mods.Count == 3);
+            // sequence with two mods on same terminus
+            string fullSeq = "[UniProt:N-acetylglutamate on E]|[Common Artifact:Water Loss on E]EEEIAALVID[Metal:Calcium on D]NGSGMC";
+            var mods = fullSeq.ParseModifications(ignoreTerminusMod: false);
+            Assert.That(mods.Count == 2);
             Assert.That(mods.ContainsKey(0));
             Assert.That(mods.ContainsKey(10));
-            Assert.That(mods.ContainsKey(17));
             Assert.That(mods[0].Count == 2);
             Assert.That(mods[10].Count == 1);
-            Assert.That(mods[17].Count == 1);
             Assert.That(mods[0].Contains("UniProt:N-acetylglutamate on E"));
             Assert.That(mods[0].Contains("Common Artifact:Water Loss on E"));
             Assert.That(mods[10].Contains("Metal:Calcium on D"));
-            Assert.That(mods[17].Contains("Common Fixed:Carbamidomethyl on C"));
         }
 
         [Test]
-        public static void TestParseModificationsTwoModsSameTerminusOneIndexing()
-        {
-            // sequence with two mods on same terminus with termini indexed at amino acid positions (one-based indexing)
-            string fullSeq = "[UniProt:N-acetylglutamate on E]|[Common Artifact:Water Loss on E]EEEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            var mods = fullSeq.ParseModifications();
-            Assert.That(mods.Count == 3);
-            Assert.That(mods.ContainsKey(1));
-            Assert.That(mods.ContainsKey(10));
-            Assert.That(mods.ContainsKey(16));
-            Assert.That(mods[1].Count == 2);
-            Assert.That(mods[10].Count == 1);
-            Assert.That(mods[16].Count == 1);
-            Assert.That(mods[1].Contains("UniProt:N-acetylglutamate on E"));
-            Assert.That(mods[1].Contains("Common Artifact:Water Loss on E"));
-            Assert.That(mods[10].Contains("Metal:Calcium on D"));
-            Assert.That(mods[16].Contains("Common Fixed:Carbamidomethyl on C"));
-        }
 
-        [Test]
-        public static void TestParseModificationsTwoModsTerminusAndSideChain()
-        {
-            // sequence with mod on N terminus and mod on first amino acid side chain
-            string fullSeq = "[UniProt:N-acetylglutamate on E]E[Metal:Sodium on E]EEIAALVID[Metal:Calcium on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            var mods = fullSeq.ParseModifications();
-            Assert.That(mods.Count == 3);
-            Assert.That(mods.ContainsKey(1));
-            Assert.That(mods.ContainsKey(10));
-            Assert.That(mods.ContainsKey(16));
-            Assert.That(mods[1].Count == 2);
-            Assert.That(mods[10].Count == 1);
-            Assert.That(mods[16].Count == 1);
-            Assert.That(mods[1].Contains("UniProt:N-acetylglutamate on E"));
-            Assert.That(mods[1].Contains("Metal:Sodium on E"));
-            Assert.That(mods[10].Contains("Metal:Calcium on D"));
-            Assert.That(mods[16].Contains("Common Fixed:Carbamidomethyl on C"));
-        }
-
-        [Test]
         public static void TestParseModificationsIgnoreTerminusMod()
         {
             // sequence with mod on both termini and mod on first amino acid side chain
             string fullSeq = "[UniProt:N-acetylglutamate on E]|[Common Artifact:Water Loss on E]E[Metal:Sodium[I] on E]EEIAALVID[Metal:Calcium[II] on D]NGSGMC[Common Fixed:Carbamidomethyl on C]";
-            var mods = fullSeq.ParseModifications(true, true, true);
+            var mods = fullSeq.ParseModifications(ignoreTerminusMod: true);
             Assert.That(mods.Count == 2);
             Assert.That(mods.ContainsKey(1));
             Assert.That(mods.ContainsKey(10));
@@ -211,7 +151,7 @@ namespace Test
         [Test]
         public void TestUtilClassesForPositionFrequencyAnalysis()
         {
-            string fullSeq1 = "DMME[Metal:Calcium[II] on E]LVQPSISGVDLDK";
+            string fullSeq1 = "[N-acetylation on D]DMME[Metal:Calcium[II] on E]LVQPSISGVDLDK";
             string fullSeq2 = "DM[Common Variable:Oxidation on M]ME[Metal:Sodium[I] on E]LVQPSISGVDLDK";
             string fullSeq3 = "DM[Common Variable:Oxidation on M]MELVQPSIC[Common Fixed: Carbamidomethyl on C]SGVDLDK";
             string fullSeq4 = "DM[Common Variable:Oxidation on M]MELVQPSICSGVDLDK";
@@ -223,17 +163,17 @@ namespace Test
             foreach (var seqMods in modsForSeqs)
             {
                 var modDict = new Dictionary<int, Dictionary<string, UtilModification>>();
-                foreach (var modsAtIndex in seqMods)
+                foreach (var modPosition in seqMods)
                 {
-                    if (!modDict.ContainsKey(modsAtIndex.Key))
+                    if (!modDict.ContainsKey(modPosition.Key))
                     {
-                        modDict.Add(modsAtIndex.Key, new Dictionary<string, UtilModification>());
+                        modDict.Add(modPosition.Key, new Dictionary<string, UtilModification>());
                     }
-                    foreach (var mod in modsAtIndex.Value)
+                    foreach (var mod in modPosition.Value)
                     {
-                        if (!modDict[modsAtIndex.Key].ContainsKey(mod))
+                        if (!modDict[modPosition.Key].ContainsKey(mod))
                         {
-                            modDict[modsAtIndex.Key].Add(mod, new UtilModification(mod, modsAtIndex.Key, 1));
+                            modDict[modPosition.Key].Add(mod, new UtilModification(mod, modPosition.Key, 1));
                         }
                     }
                 }
@@ -247,29 +187,22 @@ namespace Test
             {
                 peptides.Add(seqs[i], new UtilPeptide(seqs[i], peptideMods[i], peptideStartIndicesInProtein[i]));
             }
-
+            
             var protein = new UtilProtein("TestAccession", peptides);
-            protein.SetProteinModsFromPeptides();
+            protein.SetProteinModsFromPeptides(); 
 
             Assert.That(protein.Peptides.Count == 4);
-            Assert.That(protein.ModifiedAminoAcidPositionsInProtein.ContainsKey(2));
-            Assert.That(protein.ModifiedAminoAcidPositionsInProtein.ContainsKey(4));
-            Assert.That(protein.ModifiedAminoAcidPositionsInProtein.ContainsKey(101));
-            Assert.That(protein.ModifiedAminoAcidPositionsInProtein.ContainsKey(110));
-            Assert.That(protein.ModifiedAminoAcidPositionsInProtein[2].Count() == 1);
+
+            Assert.AreEqual(new List<int> { 2, 4, 101, 110 }, protein.ModifiedAminoAcidPositionsInProtein.Keys.Order().ToList());
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[2].Count(), 1);
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein[2].ContainsKey("Common Variable:Oxidation on M"));
-            Assert.That(protein.ModifiedAminoAcidPositionsInProtein[4].Count() == 2);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[4].Count(), 2);
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein[4].ContainsKey("Metal:Calcium[II] on E"));
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein[4].ContainsKey("Metal:Sodium[I] on E"));
-            Assert.That(protein.ModifiedAminoAcidPositionsInProtein[101].Count() == 1);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[101].Count(), 1);
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein[101].ContainsKey("Common Variable:Oxidation on M"));
-            Assert.That(protein.ModifiedAminoAcidPositionsInProtein[110].Count() == 1);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[110].Count(), 1);
             Assert.That(protein.ModifiedAminoAcidPositionsInProtein[110].ContainsKey("Common Fixed: Carbamidomethyl on C"));
-
-            //var modStoich = protein.GetModStoichiometryFromProteinMods();
-            //add more tests here
-            //Assert.That(modStoich[101].Values.First().Intensity == 1);
-
         }
 
         [Test]

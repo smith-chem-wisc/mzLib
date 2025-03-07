@@ -9,19 +9,19 @@ namespace MzLibUtil
     public class UtilModification
     {
         public string IdWithMotif { get; set; }
-        public int PeptidePositionZeroIsNTerminus { get; set; } //NEED TO ENFORCE THIS EVERYWHERE OR CHECK IF ZERO OR ONE
-
-
+        public int PeptidePositionZeroIsNTerminus { get; set; }
+        public int ProteinPositionZeroIsNTerminus { get; set; }
         public double Intensity { get; set; }
 
-        public UtilModification(string name, int position, double intensity)
+        public UtilModification(string name, int positionInPeptide, int? positionInProtein=null, double intensity=0)
         {
             IdWithMotif = name;
-            PeptidePositionZeroIsNTerminus = position;
+            PeptidePositionZeroIsNTerminus = positionInPeptide;
+            ProteinPositionZeroIsNTerminus = positionInProtein ?? -1;
             Intensity = intensity;
         }
-
     }
+
     public class UtilPeptide
     {
         public string FullSequence { get; set; }
@@ -30,15 +30,13 @@ namespace MzLibUtil
         public int OneBasedStartIndexInProtein { get; set; }
         public Dictionary<int, Dictionary<string, UtilModification>> ModifiedAminoAcidPositions { get; set; }
         public double Intensity { get; set; }
-        public string PositionIndexType { get; set; }
 
-        public UtilPeptide(string fullSequence, Dictionary<int, Dictionary<string, UtilModification>> mods = null, int oneBasedStartIndexInProtein = 1, double intensity = 0, string positionIndexType= "peptide") 
+        public UtilPeptide(string fullSequence, Dictionary<int, Dictionary<string, UtilModification>> mods = null, int oneBasedStartIndexInProtein = 1, double intensity = 0) 
         {
             FullSequence = fullSequence;
             ModifiedAminoAcidPositions = mods.IsNotNullOrEmpty() ? mods : new Dictionary<int, Dictionary<string, UtilModification>>();
             OneBasedStartIndexInProtein = oneBasedStartIndexInProtein;
             Intensity = intensity;
-            PositionIndexType = positionIndexType;
             SetBaseSequence();
         }
         public void SetBaseSequence(string modPattern = @"\[(.+?)\](?<!\[I+\])")
@@ -46,33 +44,18 @@ namespace MzLibUtil
             Regex regexSpecialChar = new(modPattern);
             BaseSequence = regexSpecialChar.Replace(FullSequence, @"");
         }
-        public void PeptideToProteinPositions()
+
+        public Dictionary<int, Dictionary<string, UtilModification>> GetModStoichiometryFromPeptideMods()
         {
-            PositionIndexType = "protein";
-            var modificationsToAdd = new Dictionary<int, Dictionary<string, UtilModification>>();
-            var modificationsToRemove = new List<int>();
-
-            foreach (var modpos in ModifiedAminoAcidPositions.Keys)
+            var aaModsStoichiometry = ModifiedAminoAcidPositions;
+            foreach (var modpos in aaModsStoichiometry)
             {
-                int positionInProtein = modpos + OneBasedStartIndexInProtein-1;
-                Dictionary<string, UtilModification> mods = ModifiedAminoAcidPositions[modpos];
-                foreach (var mod in mods.Values)
+                foreach (var mod in modpos.Value.Values)
                 {
-                    mod.PeptidePositionZeroIsNTerminus = positionInProtein;
+                    mod.Intensity = mod.Intensity / Intensity;
                 }
-                modificationsToAdd[positionInProtein] = mods;
-                modificationsToRemove.Add(modpos);
             }
-
-            foreach (var modpos in modificationsToRemove)
-            {
-                ModifiedAminoAcidPositions.Remove(modpos);
-            }
-
-            foreach (var modpos in modificationsToAdd)
-            {
-                ModifiedAminoAcidPositions[modpos.Key] = modpos.Value;
-            }
+            return aaModsStoichiometry;
         }
     }
     
@@ -93,34 +76,46 @@ namespace MzLibUtil
 
         public void SetProteinModsFromPeptides()
         {
-            // for now, this method must be used AFTER peptide mod positions are offsetted to protein positions
             ModifiedAminoAcidPositionsInProtein = new Dictionary<int, Dictionary<string, UtilModification>>();
             PeptidesByProteinPosition = new Dictionary<int, List<UtilPeptide>>();
 
             foreach (var peptide in Peptides.Values)
             {
-                if (peptide.PositionIndexType != "protein")
-                {
-                    peptide.PeptideToProteinPositions();
-                }
-
                 foreach (var modpos in peptide.ModifiedAminoAcidPositions)
                 {
-                    if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(modpos.Key))
+                    var modPositionInProtein = modpos.Key + peptide.OneBasedStartIndexInProtein - 1;
+                    if (Sequence.IsNotNullOrEmpty()) // if the protein sequence is known, ignore terminal modifications that are not protein terminal modifications
                     {
-                        ModifiedAminoAcidPositionsInProtein[modpos.Key] = new Dictionary<string, UtilModification>();
-                        PeptidesByProteinPosition[modpos.Key] = new List<UtilPeptide>();
+                        if ((modPositionInProtein != 0 && modpos.Key == 0) // if the mod is at the N-terminus of the peptide, but not the protein
+                            || (modPositionInProtein != Sequence.Length + 1 && modpos.Key == peptide.BaseSequence.Length + 1)) // if the mod is at the C-terminus of the peptide, but not the protein
+                        {
+                            continue;
+                        }
+                    }
+                    else // if the protein sequence is not known, ignore peptide terminal modifications
+                    {
+                        if (modpos.Key == 0 || modpos.Key == peptide.BaseSequence.Length + 1)
+                        {
+                            continue;
+                        }
                     }
 
-                    PeptidesByProteinPosition[modpos.Key].Add(peptide);
+                    if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(modPositionInProtein))
+                    {
+                        ModifiedAminoAcidPositionsInProtein[modPositionInProtein] = new Dictionary<string, UtilModification>();
+                        PeptidesByProteinPosition[modPositionInProtein] = new List<UtilPeptide>();
+                    }
+
+                    PeptidesByProteinPosition[modPositionInProtein].Add(peptide);
 
                     foreach (var mod in modpos.Value.Values)
                     {
-                        if (!ModifiedAminoAcidPositionsInProtein[modpos.Key].ContainsKey(mod.IdWithMotif))
+                        mod.ProteinPositionZeroIsNTerminus = modPositionInProtein;
+                        if (!ModifiedAminoAcidPositionsInProtein[modPositionInProtein].ContainsKey(mod.IdWithMotif))
                         {
-                            ModifiedAminoAcidPositionsInProtein[modpos.Key][mod.IdWithMotif] = new UtilModification(mod.IdWithMotif, modpos.Key, 0);
+                            ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif] = new UtilModification(mod.IdWithMotif, mod.PeptidePositionZeroIsNTerminus, modPositionInProtein, 0);
                         }
-                        ModifiedAminoAcidPositionsInProtein[modpos.Key][mod.IdWithMotif].Intensity += mod.Intensity; // might need to add some magic later to keep stored the mod intensity and the peptide intensity for MM output
+                        ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif].Intensity += mod.Intensity;
                     }
                 }
             }
@@ -167,13 +162,12 @@ namespace MzLibUtil
         /// Calculates the occupancy of post-translational modifications at the peptide level. 
         /// </summary>
         /// <param name="peptides"> A List of Tuples whose entries are ordered as (string FullSequence, string BaseSequence, List<string> ProteinGroups, Intensity) for each peptide.</param>
-        /// <param name="modOnNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
-        /// <param name="modOnCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
+        /// <param name="ignoreTerminusMod"> If true, terminal modifications will be ignored.</param>
         /// <returns> A nested dictionary whose key mappings are as follows: string ProteinGroup-> string Protein-> string BaseSequence-> int ModifiedAminoAcidIndex-> string ModificationName-> double Intensity
         /// Note: Each BaseSequence dictionary contains a ModifiedAminoAcidIndex key of -1 that then contains a ModificationName key called "Total" that is used to track the total intensity observed for 
         /// all of the amino acids in that peptide.</returns>
         ///
-        public void ProteinGroupsOccupancyByPeptide(List<(string fullSeq, string baseSeq, List<string> proteinGroup, double intensity)> peptides, bool modOnNTerminus = true, bool modOnCTerminus = true, bool ignoreTerminusMod=false)
+        public void ProteinGroupsOccupancyByPeptide(List<(string fullSeq, string baseSeq, List<string> proteinGroup, double intensity)> peptides, bool ignoreTerminusMod=false)
         {
             // ToDo: change first argument to Dictionary<IPeptide, intensity>
             var proteinGroups = new Dictionary<string, UtilProteinGroup>();
@@ -217,7 +211,7 @@ namespace MzLibUtil
                         var peptide = protein.Peptides[baseSeq];
 
                         // Want both arguments passed here to be true if need to later filter out peptide terminal mods that are not protein terminal mods 
-                        Dictionary<int, List<string>> peptideMods = pep.fullSeq.ParseModifications(modOnNTerminus, modOnCTerminus, ignoreTerminusMod);
+                        Dictionary<int, List<string>> peptideMods = pep.fullSeq.ParseModifications(ignoreTerminusMod);
                         // Go through the modified positions found froum the full sequence
                         foreach (var modpos in peptideMods)
                         {

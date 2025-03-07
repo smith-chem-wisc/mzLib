@@ -96,12 +96,10 @@ namespace Omics.SpectrumMatch
         /// Parses the full sequence to identify mods.
         /// </summary>
         /// <param name="fullSeq"> Full sequence of the peptide in question</param>
-        /// <param name="modOnNTerminus"> If true, the index of modifications at the N-terminus will be 0 (zero-based indexing). Otherwise, it is the index of the first amino acid (one-based indexing).</param>
-        /// <param name="modOnCTerminus"> If true, the index of modifications at the C-terminus will be one more than the index of the last amino acid. Otherwise, it is the index of the last amino acid.</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(string fullSeq, bool modOnNTerminus = true, bool modOnCTerminus = true)
+        public static Dictionary<int, List<string>> ParseModifications(string fullSeq, bool ignoreTerminusMod=false)
         {
-            return fullSeq.ParseModifications(modOnNTerminus, modOnCTerminus);
+            return fullSeq.ParseModifications(ignoreTerminusMod);
         }
 
         /// <summary>
