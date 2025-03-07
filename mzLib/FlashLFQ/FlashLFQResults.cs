@@ -11,6 +11,7 @@ namespace FlashLFQ
 {
     public class FlashLfqResults
     {
+        public bool IsoTracker = false;
         public readonly List<SpectraFileInfo> SpectraFiles;
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
@@ -21,7 +22,7 @@ namespace FlashLFQ
         public double MbrQValueThreshold { get; set; }
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05,
-            HashSet<string> peptideModifiedSequencesToQuantify = null)
+            HashSet<string> peptideModifiedSequencesToQuantify = null, bool isIsoTracker = false)
         {
             SpectraFiles = spectraFiles;
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
@@ -29,6 +30,7 @@ namespace FlashLFQ
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
             MbrQValueThreshold = mbrQValueThreshold;
             _peptideModifiedSequencesToQuantify = peptideModifiedSequencesToQuantify ?? identifications.Where(id => !id.IsDecoy).Select(id => id.ModifiedSequence).ToHashSet();
+            IsoTracker = isIsoTracker;
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
@@ -221,7 +223,7 @@ namespace FlashLFQ
                 
             }
 
-            if (IsobaricPeakInDifferentRun != null)
+            if (IsoTracker && IsobaricPeakInDifferentRun != null)
             {
                 RevisedModifiedPeptides();
             }
@@ -606,11 +608,19 @@ namespace FlashLFQ
             {
                 using (StreamWriter output = new StreamWriter(modPeptideOutputPath))
                 {
-                    output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
+                    if (IsoTracker)
+                    {
+                        output.WriteLine(Peptide.TabSeparatedHeader_IsoTracker(SpectraFiles));
+                    }
+                    else
+                    {
+                        output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
+                    }
+
 
                     foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
                     {
-                        output.WriteLine(peptide.Value.ToString(SpectraFiles));
+                        output.WriteLine(peptide.Value.ToString(SpectraFiles, IsoTracker));
                     }
                 }
             }

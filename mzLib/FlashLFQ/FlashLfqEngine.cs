@@ -437,6 +437,7 @@ namespace FlashLFQ
                                   _globalStopwatch.Elapsed.Seconds + "s");
             }
 
+            _results.IsoTracker = IsobaricCase;
             return _results;
         }
 

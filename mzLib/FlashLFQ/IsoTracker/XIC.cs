@@ -19,18 +19,22 @@ using System.Security.AccessControl;
 
 namespace FlashLFQ.Alex_project
 {
+    /// <summary>
+    /// An XIC should contain a list of every indexed Mass Spectral Peak (imsPeak) that corresponds to the MS1 signal
+    /// produced by a given m/z, in a given time range, in one LC-MS Run
+    /// </summary>
     public class XIC
     {
         public List<double> SmoothedIntensity { get; set; }
         public List<double> SmoothedRetentionTime { get; set; }
 
-        public List<IndexedMassSpectralPeak> Ms1Peaks { get; init; }
-        public double PeakFindingMz { get; init; }
-        public SpectraFileInfo SpectraFile { get; init; }
-        public bool Reference { get; set; }
-        public MathNet.Numerics.Interpolation.LinearSpline LinearSpline { get; private set; }
+        public List<IndexedMassSpectralPeak> Ms1Peaks { get; init; } //A list of imsPeak objects
+        public double PeakFindingMz { get; init; } //The peak-finding mz used to detect the imsPeaks. Every peak should have this m/z+- tolerance
+        public SpectraFileInfo SpectraFile { get; init; } // The spectra file the XIC came from
+        public bool Reference { get; set; } //For a collection of XICs, one should be the reference for time alignment. We picked the XIC with the most MS2ID.
+        public MathNet.Numerics.Interpolation.LinearSpline LinearSpline { get; private set; } //A spline will be use for data interpolation.
         public CubicSpline SmoothedCubicSpline { get; private set; }
-        public double RtShift { get; private set; }
+        public double RtShift { get; private set; } // The time shift from the reference XIC
         public List<Extremum> Extrema { get; set; }
 
         public List<Identification> Ids;
@@ -55,6 +59,10 @@ namespace FlashLFQ.Alex_project
 
         }
 
+        /// <summary>
+        /// Pad the XIC with 5 peaks before the first peak and 5 peaks after the last peak. The intensity of the padded peaks is 0.
+        /// </summary>
+        /// <returns></returns>
         private List<IndexedMassSpectralPeak> PadPeaks()
 
         {
@@ -97,10 +105,10 @@ namespace FlashLFQ.Alex_project
 
 
         /// <summary>
-        /// calculate the retention time shift between two XICs. Then store the value in the RtShift property
+        /// calculate the retention time shift among the reference. Then store the value in the RtShift property.
         /// </summary>
         /// <param name="xicToAlign"> The reference XIC</param>
-        /// <param name="resolution"> The number of the timepoint</param>
+        /// <param name="resolution"> The number of the timePoint for X-correlation </param>
         /// <returns> The retention to shift to align to the reference </returns>
         public double AlignXICs(XIC referenceXIC, int resolution = 1000)
         {
@@ -150,9 +158,10 @@ namespace FlashLFQ.Alex_project
         }
 
         /// <summary>
-        /// Try to smooth the XIC by averaging the intensity of the points (weight averaging)
+        /// Try to smooth the XIC by averaging the intensity of the points (weight averaging then sum averaging).
+        /// Using the smoothedXIC to generate the cubic spline date for Extremum finding.
         /// </summary>
-        /// <param name="pointsToAverage"> should be odds number. The number of points to average for smoothing the XIC </param>
+        /// <param name="pointsToAverage"> Should be odds number. The number of points to average for smoothing the XIC </param>
         /// <exception cref="ArgumentException"></exception>
         public void BuildSmoothedCubicSpline(int smoothDegree)
         {
@@ -254,7 +263,7 @@ namespace FlashLFQ.Alex_project
         }
 
         /// <summary>
-        /// Use the second derivative to find the local maxmun and minimum points. Notably, at here, the time of the extrema is the time projected to the reference XIC
+        /// Use the second derivative to find the local maximun and minimum points. Notably, at here, the time of the extrema is the time projected to the reference XIC
         /// For example, if the time of the extrema is 10.5, the time of the extrema in the reference XIC is 10.5 + RtShift
         /// The reason to do this is to make the shift is easier to find the shared extrema
         /// </summary>

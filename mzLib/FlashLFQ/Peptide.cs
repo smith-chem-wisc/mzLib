@@ -50,6 +50,25 @@ namespace FlashLFQ
             }
             foreach (var rawfile in rawFiles)
             {
+                sb.Append("Detection Type_" + rawfile.FilenameWithoutExtension + "\t");
+            }
+            return sb.ToString().TrimEnd('\t');
+        }
+
+        public static string TabSeparatedHeader_IsoTracker(List<SpectraFileInfo> rawFiles)
+        {
+            var sb = new StringBuilder();
+            sb.Append("Sequence" + "\t");
+            sb.Append("Base Sequence" + "\t");
+            sb.Append("Protein Groups" + "\t");
+            sb.Append("Gene Names" + "\t");
+            sb.Append("Organism" + "\t");
+            foreach (var rawfile in rawFiles)
+            {
+                sb.Append("Intensity_" + rawfile.FilenameWithoutExtension + "\t");
+            }
+            foreach (var rawfile in rawFiles)
+            {
                 sb.Append("RetentionTime (min)_" + rawfile.FilenameWithoutExtension + "\t");
             }
             foreach (var rawfile in rawFiles)
@@ -171,9 +190,9 @@ namespace FlashLFQ
         }
 
 
-        public string ToString(List<SpectraFileInfo> rawFiles)
+        public string ToString(List<SpectraFileInfo> rawFiles, bool IsoTracker = false)
         {
-            if (IsobaricPeaks.Any()) // There is a isobaric case in this peptide, then we need to write down them separately
+            if (IsoTracker) // There is a isobaric case in this peptide, then we need to write down them separately
             {
                 int countForNextLine = 0; // To count the line, and make sure we don't add a new line at the end of the file
                 StringBuilder str = new StringBuilder();
@@ -241,10 +260,6 @@ namespace FlashLFQ
                 foreach (var file in rawFiles)
                 {
                     str.Append(GetIntensity(file) + "\t");
-                }
-                foreach (var file in rawFiles)
-                {
-                    str.Append(GetRetentionTime(file) + "\t");
                 }
                 foreach (var file in rawFiles)
                 {
