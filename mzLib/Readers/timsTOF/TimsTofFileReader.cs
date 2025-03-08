@@ -264,12 +264,13 @@ namespace Readers
         /// </summary>
         /// <returns> DataScans with populated Ms1SpectraIndexedByZeroBasedScanNumber arrays </returns>
         //public IEnumerable<TimsDataScan> GetMs1InfoFrameByFrame(int maxThreads)
-        public void GetMs1InfoFrameByFrame(BlockingCollection<TimsDataScan> scanCollection, int maxThreads = 1)
+        public TimsDataScan[] GetMs1InfoFrameByFrame(int maxThreads = 1)
         {
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
             //var scanCollection = new BlockingCollection<TimsDataScan>();
+            TimsDataScan[] scans = new TimsDataScan[Ms1FrameIds.Count];
             // It's assumed that every MS1 frame will contain the same number of scans
             int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
             Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count),
@@ -322,10 +323,13 @@ namespace Readers
                             }
                             previousScan = nextScan;
                         }
-                        scanCollection.Add(dataScan);
+                        //scanCollection.Add(dataScan);
+                        scans[i] = dataScan;
                     }
+                    Console.WriteLine("Scan Getter Range: " + range.Item1 + "-" + range.Item2);
                 });
 
+            return scans;
 
             //foreach (var toReturn in scanCollection.GetConsumingEnumerable())
             //{

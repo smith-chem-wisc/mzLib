@@ -103,7 +103,7 @@ namespace FlashLFQ.PeakIndexing
             if (endIndexExclusive - startIndex >= 2) // Need at least two scans for a peak
             {
                 int intensity = IonMobilityPeaks[startIndex..endIndexExclusive].Sum(p => p.IntegerIntensity);
-                if ( intensity > 50) // Arbitrary threshold
+                if ( intensity > 200) // Arbitrary threshold
                     return new IndexedTimsTofPeak(
                         IonMobilityPeaks[startIndex..endIndexExclusive].MaxBy(p => p.IntegerIntensity).Mz,
                         intensity,

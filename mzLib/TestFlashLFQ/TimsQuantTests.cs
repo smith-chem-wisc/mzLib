@@ -126,8 +126,8 @@ namespace Test
 
             string psmFile = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\Task1-SearchTask\AllPSMs.psmtsv";
 
-            SpectraFileInfo f1r1 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d", "one", 1, 1, 1);
-            SpectraFileInfo f1r2 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d", "two", 1, 1, 1);
+            //SpectraFileInfo f1r1 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d", "one", 1, 1, 1);
+            //SpectraFileInfo f1r2 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d", "two", 1, 1, 1);
             SpectraFileInfo f1r3 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\20230505_TIMS05_PaSk_MA_HeLa_6min_ddaP_S1-F2_1_2352.d", "three", 1, 1, 1);
 
             //List<string> acceptableProteinGroupAccessions = new() { "Q7KZF4", "Q15149", "P52298" };
@@ -146,17 +146,22 @@ namespace Test
 
                 SpectraFileInfo file = null;
 
-                if (split[0].Contains("HeLaPASEF_1min"))
-                {
-                    file = f1r1;
-                }
-                else if (split[0].Contains("_extreme_3min"))
-                {
-                    file = f1r2;
-                }
-                else if (split[0].Contains("_6min_ddaP"))
+                //if (split[0].Contains("HeLaPASEF_1min"))
+                //{
+                //    file = f1r1;
+                //}
+                //else if (split[0].Contains("_extreme_3min"))
+                //{
+                //    file = f1r2;
+                //}
+                //else 
+                if (split[0].Contains("_6min_ddaP"))
                 {
                     file = f1r3;
+                }
+                else
+                {
+                    continue;
                 }
 
                 if (split[23].Contains("|") || double.Parse(split[56]) > 0.01)
