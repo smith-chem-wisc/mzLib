@@ -11,15 +11,18 @@ using FlashLFQ.PeakIndexing;
 using Easy.Common.Extensions;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using FlashLFQ.Interfaces;
 
 namespace FlashLFQ
 {
-    public class PeakIndexingEngine
+    public class PeakIndexingEngine : IIndexingEngine
     {
         private List<IndexedMassSpectralPeak>[] _indexedPeaks;
         private readonly Serializer _serializer;
         private const int BinsPerDalton = 100;
         private readonly int _maxThreads;
+        public Ms1ScanInfo[] Ms1ScanInfoArray { get; private set; }
+        public SpectraFileInfo spectraFileInfo { get; private set; }
 
         public PeakIndexingEngine(int maxThreads)
         {
@@ -36,7 +39,7 @@ namespace FlashLFQ
             _maxThreads = maxThreads;
         }
 
-        public bool IndexMassSpectralPeaks(SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
+        public bool IndexPeaks(SpectraFileInfo fileInfo, bool silent)
         {
             if (!silent)
             {
@@ -48,12 +51,12 @@ namespace FlashLFQ
             // read spectra file
             string fileName = fileInfo.FullFilePathWithExtension;
             var reader = MsDataFileReader.GetDataFile(fileName);
-            if (reader is TimsTofFileReader)
-                return IndexTimsTofPeaks((TimsTofFileReader)reader, fileInfo, silent, _ms1Scans);
+            //if (reader is TimsTofFileReader)
+            //    return IndexTimsTofPeaks((TimsTofFileReader)reader, fileInfo, silent, _ms1Scans);
             reader.LoadAllStaticData();
             // retrieve only the ms1s. 
-            msDataScans = reader.GetMS1Scans().Where(i => i.MsnOrder == 1)
-                .Select(i => i)
+            msDataScans = reader.GetMS1Scans()
+                .Where(i => i != null && i.MsnOrder == 1)
                 .OrderBy(i => i.OneBasedScanNumber)
                 .ToArray(); 
             
@@ -67,16 +70,14 @@ namespace FlashLFQ
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
 
             int scanIndex = 0;
+            Ms1ScanInfoArray = new Ms1ScanInfo[msDataScans.Length];
             List<Ms1ScanInfo> scanInfo = new List<Ms1ScanInfo>();
 
             for (int i = 0; i < msDataScans.Length; i++)
             {
-                if (msDataScans[i] == null)
-                {
-                    continue;
-                }
 
-                scanInfo.Add(new Ms1ScanInfo(msDataScans[i].OneBasedScanNumber, scanIndex, msDataScans[i].RetentionTime));
+                Ms1ScanInfoArray[i] = new Ms1ScanInfo(msDataScans[i].OneBasedScanNumber, scanIndex, msDataScans[i].RetentionTime);
+                //scanInfo.Add(new Ms1ScanInfo(msDataScans[i].OneBasedScanNumber, scanIndex, msDataScans[i].RetentionTime));
 
                 for (int j = 0; j < msDataScans[i].MassSpectrum.XArray.Length; j++)
                 {
@@ -93,7 +94,7 @@ namespace FlashLFQ
                 scanIndex++;
             }
 
-            _ms1Scans.Add(fileInfo, scanInfo.ToArray());
+            //_ms1Scans.Add(fileInfo, scanInfo.ToArray());
 
             if (_indexedPeaks == null || _indexedPeaks.Length == 0)
             {
@@ -108,110 +109,88 @@ namespace FlashLFQ
             return true;
         }
 
-        public bool IndexTimsTofPeaks(TimsTofFileReader file, SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
-        {
-            file.InitiateDynamicConnection();
+        //public bool IndexTimsTofPeaks(TimsTofFileReader file, SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
+        //{
+        //    file.InitiateDynamicConnection();
 
-            Ms1ScanInfo[] scanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
-            PpmTolerance tolerance = new PpmTolerance(20);
-            //Dictionary<int, List<TraceableTimsTofPeak>> roundedMzObservedPeakDict = new();
+        //    Ms1ScanInfo[] scanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
+        //    PpmTolerance tolerance = new PpmTolerance(20);
 
-            //int zeroBasedMs1FrameIndex = 0;
-            ConcurrentDictionary<int, Dictionary<int, List<TraceableTimsTofPeak>>> binToFramePeakDict = new();
-            // foreach frame, build a collection of TraceableTimsTofPeaks that will be added to _indexedPeaks
-            //foreach (TimsDataScan ms1Scan in file.GetMs1InfoScanByScan())
+        //    ConcurrentDictionary<int, Dictionary<int, List<TraceableTimsTofPeak>>> binToFramePeakDict = new();
 
-            //
-            //var frameCollection = new BlockingCollection<TimsDataScan>(new ConcurrentQueue<TimsDataScan>());
-            var frameArray = file.GetMs1InfoFrameByFrame(maxThreads: _maxThreads);
+        //    var frameArray = file.GetMs1InfoFrameByFrame(maxThreads: _maxThreads);
 
-            //file.GetMs1InfoFrameByFrame(maxThreads: _maxThreads);
+        //    for (int i = 0; i < frameArray.Length; i++)
+        //    {
+        //        var ms1Scan = frameArray[i];
+        //        //Dictionary<int, List<TraceableTimsTofPeak>> roundedMzObservedPeakDict = new();
+        //        for (int scanIdx = 0; scanIdx < ms1Scan.TimsScanIdxMs1SpectraList.Count; scanIdx++)
+        //        {
+        //            var spectrum = ms1Scan.TimsScanIdxMs1SpectraList[scanIdx].Spectrum;
 
-            for (int i = 0; i < frameArray.Length; i++)
-            {
-                var ms1Scan = frameArray[i];
-                //Dictionary<int, List<TraceableTimsTofPeak>> roundedMzObservedPeakDict = new();
-                for (int scanIdx = 0; scanIdx < ms1Scan.TimsScanIdxMs1SpectraList.Count; scanIdx++)
-                {
-                    var spectrum = ms1Scan.TimsScanIdxMs1SpectraList[scanIdx].Spectrum;
+        //            // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
+        //            for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
+        //            {
+        //                var ionMobilityPeak = new IonMobilityPeak(spectrum.TofIndices[spectrumIdx], (int)spectrum.YArray[spectrumIdx], scanIdx + 1);
+        //                int roundedMz = (int)Math.Round(ionMobilityPeak.Mz * BinsPerDalton, 0);
 
-                    // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
-                    for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
-                    {
-                        var ionMobilityPeak = new IonMobilityPeak(spectrum.XArray[spectrumIdx], (int)spectrum.YArray[spectrumIdx], scanIdx + 1);
-                        int roundedMz = (int)Math.Round(ionMobilityPeak.Mz * BinsPerDalton, 0);
+        //                if (binToFramePeakDict.TryGetValue(roundedMz, out var framePeaks))
+        //                {
+        //                    if (framePeaks.TryGetValue(i, out var traceablePeaks))
+        //                    {
+        //                        var matchingPeak = traceablePeaks
+        //                            .MinBy(p => Math.Abs(spectrum.TofIndices[spectrumIdx] - p.Mz));
+        //                        if (tolerance.Within(matchingPeak.Mz, spectrum.TofIndices[spectrumIdx])) matchingPeak.AddIonMobilityPeak(ionMobilityPeak);
+        //                        else traceablePeaks.Add(new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak));
+        //                    }
+        //                    else
+        //                    {
+        //                        framePeaks[i] = new List<TraceableTimsTofPeak>() { new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak) };
+        //                    }
+        //                }
+        //                else
+        //                {
+        //                    binToFramePeakDict[roundedMz] = new Dictionary<int, List<TraceableTimsTofPeak>>() {
+        //                        { i, new List<TraceableTimsTofPeak>() { new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak) } } };
+        //                }
+        //            }
+        //        }
 
-                        if (binToFramePeakDict.TryGetValue(roundedMz, out var framePeaks))
-                        {
-                            if (framePeaks.TryGetValue(i, out var traceablePeaks))
-                            {
-                                var matchingPeak = traceablePeaks
-                                    .MinBy(p => Math.Abs(spectrum.XArray[spectrumIdx] - p.Mz));
-                                if (tolerance.Within(matchingPeak.Mz, spectrum.XArray[spectrumIdx])) matchingPeak.AddIonMobilityPeak(ionMobilityPeak);
-                                else traceablePeaks.Add(new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak));
-                            }
-                            else
-                            {
-                                framePeaks[i] = new List<TraceableTimsTofPeak>() { new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak) };
-                            }
-                        }
-                        else
-                        {
-                            binToFramePeakDict[roundedMz] = new Dictionary<int, List<TraceableTimsTofPeak>>() {
-                                { i, new List<TraceableTimsTofPeak>() { new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak) } } };
-                        }
-                    }
-                }
+        //        scanInfoArray[i] = new Ms1ScanInfo((int)ms1Scan.FrameId, i, ms1Scan.RetentionTime);
+        //        frameArray[i] = null;
+        //    }
 
-                scanInfoArray[i] = new Ms1ScanInfo((int)ms1Scan.FrameId, i, ms1Scan.RetentionTime);
-                frameArray[i] = null;
-            }
+        //    _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
+        //    foreach (var binToFramePeakDictKvp in binToFramePeakDict.OrderBy(kvp => kvp.Key))
+        //    {
+        //        _indexedPeaks[binToFramePeakDictKvp.Key] = binToFramePeakDictKvp.Value
+        //            .OrderBy(kvp => kvp.Key)
+        //            .SelectMany(kvp => kvp.Value)
+        //            .Where(x => x != null)
+        //            .AsParallel()
+        //            .SelectMany(p => p.GetIndexedPeaks())
+        //            .Where(p => p != null)
+        //            .ToList();    
+        //    }
 
-            _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
-            foreach (var binToFramePeakDictKvp in binToFramePeakDict.OrderBy(kvp => kvp.Key))
-            {
-                _indexedPeaks[binToFramePeakDictKvp.Key] = binToFramePeakDictKvp.Value
-                    .OrderBy(kvp => kvp.Key)
-                    .SelectMany(kvp => kvp.Value)
-                    .Where(x => x != null)
-                    .AsParallel()
-                    .SelectMany(p => p.GetIndexedPeaks())
-                    .Where(p => p != null)
-                    .ToList();    
-            }
+        //    _ms1Scans.Add(fileInfo, scanInfoArray);
 
-            _ms1Scans.Add(fileInfo, scanInfoArray);
+        //    if (_indexedPeaks == null || _indexedPeaks.Length == 0)
+        //    {
+        //        if (!silent)
+        //        {
+        //            Console.WriteLine("FlashLFQ Error: The file " + fileInfo.FilenameWithoutExtension + " contained no MS1 peaks!");
+        //        }
 
-            if (_indexedPeaks == null || _indexedPeaks.Length == 0)
-            {
-                if (!silent)
-                {
-                    Console.WriteLine("FlashLFQ Error: The file " + fileInfo.FilenameWithoutExtension + " contained no MS1 peaks!");
-                }
+        //        return false;
+        //    }
 
-                return false;
-            }
-
-            return true;
-        }
+        //    return true;
+        //}
 
         public void ClearIndex()
         {
-            if (_indexedPeaks != null)
-            {
-                for (int i = 0; i < _indexedPeaks.Length; i++)
-                {
-                    if (_indexedPeaks[i] == null)
-                    {
-                        continue;
-                    }
-
-                    _indexedPeaks[i].Clear();
-                    _indexedPeaks[i].TrimExcess();
-                    _indexedPeaks[i] = null;
-                }
-            }
-
+            _indexedPeaks = null;
             GC.Collect();
         }
 
@@ -239,7 +218,7 @@ namespace FlashLFQ
             File.Delete(indexPath);
         }
 
-        public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState, int? timsIndex = null)
+        public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState)
         {
             IndexedMassSpectralPeak bestPeak = null;
             int ceilingMz = (int)Math.Ceiling(tolerance.GetMaximumValue(theorMass).ToMz(chargeState) * BinsPerDalton);
@@ -266,15 +245,11 @@ namespace FlashLFQ
 
                         if (tolerance.Within(expMass, theorMass) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex)
                         {
-                            if (bestPeak == null) bestPeak = peak;
-                            else if (timsIndex != null && peak is IndexedTimsTofPeak && bestPeak is IndexedTimsTofPeak)
-                            { 
-                                // TODO: Decide on how to choose when considering ion mobility and mass accuracy
-                            }
-                            else if(Math.Abs(expMass - theorMass) < Math.Abs(bestPeak.Mz.ToMass(chargeState) - theorMass))
-                            {
+                            if (bestPeak == null) 
                                 bestPeak = peak;
-                            }
+                            
+                            else if(Math.Abs(expMass - theorMass) < Math.Abs(bestPeak.Mz.ToMass(chargeState) - theorMass))
+                                bestPeak = peak;
                         }
                     }
                 }

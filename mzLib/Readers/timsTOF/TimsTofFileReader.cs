@@ -22,7 +22,7 @@ namespace Readers
     {
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
         // over multiple scans with each scan corresponding to the same retention time but different
-        // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
+        // ion mobility values. When reading the file, multiple scans from the same frame are collapsed into 
         // a single spectrum
 
         public TimsTofFileReader(string filePath) : base (filePath) { }
@@ -59,6 +59,14 @@ namespace Readers
             CountFrames();
             CountMS1Frames();
             BuildProxyFactory();
+        }
+
+        public double[] GetMzLookupTable()
+        {
+            if(FrameProxyFactory == null)
+                throw new MzLibException("The dynamic connection has not been created yet!");
+
+            return FrameProxyFactory.MzLookupArray;
         }
 
         internal void OpenSqlConnection()
@@ -316,87 +324,19 @@ namespace Readers
                                 intensityArrays.Add(frame.GetScanIntensities(scan - 1));
                             }
                             // Step 2: Average those suckers
-                            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory);
+                            TimsSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays);
                             if (averagedSpectrum.Size > 1)
                             {
-                                dataScan.AddMs1Spectrum(averagedSpectrum, (nextScan + previousScan) / 2);
+                                dataScan.AddSpectrum(averagedSpectrum, (nextScan + previousScan) / 2);
                             }
                             previousScan = nextScan;
                         }
-                        //scanCollection.Add(dataScan);
                         scans[i] = dataScan;
                     }
                     Console.WriteLine("Scan Getter Range: " + range.Item1 + "-" + range.Item2);
                 });
 
             return scans;
-
-            //foreach (var toReturn in scanCollection.GetConsumingEnumerable())
-            //{
-            //    yield return toReturn;
-            //}
-
-            //foreach (var ms1FrameId in Ms1FrameIds)
-            //{
-            //    frame = FrameProxyFactory.GetFrameProxy(ms1FrameId);
-            //    TimsDataScan dataScan = new TimsDataScan(
-            //        massSpectrum: null,
-            //        oneBasedScanNumber: -1, // This gets adjusted once all data has been read
-            //        msnOrder: 1,
-            //        isCentroid: true,
-            //        polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
-            //        retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
-            //        scanWindowRange: ScanWindow,
-            //        scanFilter: ScanFilter,
-            //        mzAnalyzer: MZAnalyzerType.TOF,
-            //        totalIonCurrent: -1,
-            //        injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
-            //        noiseData: null,
-            //        nativeId: null,
-            //        frameId: frame.FrameId,
-            //        scanNumberStart: 1,
-            //        scanNumberEnd: numberOfScans,
-            //        medianOneOverK0: -1,
-            //        precursorId: null);
-
-            //    // Want to change this to group 10 scans at a time
-            //    int previousScan = 1;
-            //    int nextScan = 1;
-            //    List<uint[]> indexArrays = new();
-            //    List<int[]> intensityArrays = new();
-            //    while (previousScan < numberOfScans)
-            //    {
-            //        nextScan = Math.Min(previousScan + 10, numberOfScans);
-
-            //        indexArrays.Clear();
-            //        intensityArrays.Clear();
-            //        for (int scan = previousScan; scan < nextScan; scan++)
-            //        {
-            //            indexArrays.Add(frame.GetScanIndices(scan - 1));
-            //            intensityArrays.Add(frame.GetScanIntensities(scan - 1));
-            //        }
-            //        // Step 2: Average those suckers
-            //        MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory);
-            //        if (averagedSpectrum.Size > 1)
-            //        {
-            //            dataScan.AddMs1Spectrum(averagedSpectrum, (nextScan + previousScan) / 2);
-            //        }
-            //        previousScan = nextScan;
-            //    }
-            //    //for (int scanNo = 1; scanNo <= numberOfScans; scanNo++)
-            //    //{
-            //    //    var indices = frame.GetScanIndices(scanNo - 1);
-            //    //    if(indices.Length == 0)
-            //    //        continue;
-
-            //    //    var intensities = frame.GetScanIntensities(scanNo - 1);
-            //    //    // Individual scans are centroided by the instrument already, so no need to call the Collapse function
-            //    //    var spectrum = TofSpectraMerger.CreateFilteredSpectrum(FrameProxyFactory.ConvertIndicesToMz(indices), intensities);
-            //    //    dataScan.AddMs1Spectrum(spectrum, scanNo);
-            //    //}
-
-            //    yield return dataScan;
-            //}
         }
 
         internal void AssignOneBasedPrecursorsToPasefScans()

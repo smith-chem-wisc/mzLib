@@ -98,7 +98,8 @@ namespace FlashLFQ
         private List<int> _chargeStates;
         private FlashLfqResults _results;
         internal Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
-        internal PeakIndexingEngine _peakIndexingEngine;
+        internal PeakIndexingEngine CurrentIndexingEngine;
+        internal Dictionary<SpectraFileInfo, PeakIndexingEngine> IndexingEngineDict { get; private set; }
         internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
 
         /// <summary>
@@ -194,7 +195,8 @@ namespace FlashLFQ
                 MaxThreads = 1;
             }
 
-            _peakIndexingEngine = new PeakIndexingEngine(MaxThreads);
+            CurrentIndexingEngine = new PeakIndexingEngine(MaxThreads);
+            IndexingEngineDict = new();
             PeakfindingPpmTolerance = 20.0;
             MissedScansAllowed = 1;
             DiscriminationFactorToCutPeak = 0.6;
@@ -203,7 +205,6 @@ namespace FlashLFQ
         public FlashLfqResults Run()
         {
             _globalStopwatch.Start();
-            _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
             _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, MbrDetectionQValueThreshold, PeptideModifiedSequencesToQuantify);
 
             // build m/z index keys
@@ -212,8 +213,12 @@ namespace FlashLFQ
             // quantify each file
             foreach (var spectraFile in _spectraFileInfo)
             {
+                var indexingEngine = new PeakIndexingEngine(MaxThreads);
+                CurrentIndexingEngine = indexingEngine;
+                IndexingEngineDict.Add(spectraFile, indexingEngine);
+
                 // fill lookup-table with peaks from the spectra file
-                if (!_peakIndexingEngine.IndexMassSpectralPeaks(spectraFile, Silent, _ms1Scans))
+                if (!indexingEngine.IndexPeaks(spectraFile, Silent))
                 {
                     // something went wrong finding/opening/indexing the file...
                     continue;
@@ -225,7 +230,7 @@ namespace FlashLFQ
                 // write the indexed peaks for MBR later
                 if (MatchBetweenRuns)
                 {
-                    _peakIndexingEngine.SerializeIndex(spectraFile);
+                    indexingEngine.SerializeIndex(spectraFile);
                 }
 
                 // error checking function
@@ -238,7 +243,7 @@ namespace FlashLFQ
                 }
 
                 // some memory-saving stuff
-                _peakIndexingEngine.ClearIndex();
+                indexingEngine.ClearIndex();
             }
 
             // do MBR
@@ -253,8 +258,9 @@ namespace FlashLFQ
                         Console.WriteLine("Doing match-between-runs for " + spectraFile.FilenameWithoutExtension);
                     }
 
+                    CurrentIndexingEngine = IndexingEngineDict[spectraFile];
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
-                    _peakIndexingEngine.ClearIndex();
+                    IndexingEngineDict[spectraFile].ClearIndex();
 
                     if (!Silent)
                     {
@@ -320,11 +326,6 @@ namespace FlashLFQ
             }
 
             return _results;
-        }
-
-        public PeakIndexingEngine GetIndexingEngine()
-        {
-            return _peakIndexingEngine;
         }
 
         /// <summary>
@@ -941,7 +942,7 @@ namespace FlashLFQ
             mbrTol = new PpmTolerance(MbrPpmTolerance);
 
             // deserialize the file's indexed mass spectral peaks. these were stored and serialized to a file earlier
-            _peakIndexingEngine.DeserializeIndex(idAcceptorFile);
+            CurrentIndexingEngine.DeserializeIndex(idAcceptorFile);
 
             HashSet<ProteinGroup> thisFilesMsmsIdentifiedProteins = new HashSet<ProteinGroup>();
             if (RequireMsmsIdInCondition)
@@ -1221,7 +1222,7 @@ namespace FlashLFQ
             double? randomRt = null)
         {
             // get the MS1 scan info for this region so we can look up indexed peaks
-            Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
+            Ms1ScanInfo[] ms1ScanInfos = IndexingEngineDict[idAcceptorFile].Ms1ScanInfoArray;
             Ms1ScanInfo start = ms1ScanInfos[0];
             Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
             double rtStartHypothesis = randomRt == null ? rtInfo.RtStartHypothesis : (double)randomRt - (rtInfo.Width / 2.0);
@@ -1258,7 +1259,7 @@ namespace FlashLFQ
 
                 for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
                 {
-                    IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(donorIdentification.PeakfindingMass, j, fileSpecificTol, z);
+                    IndexedMassSpectralPeak peak = CurrentIndexingEngine.GetIndexedPeak(donorIdentification.PeakfindingMass, j, fileSpecificTol, z);
                     if (peak != null)
                         chargeXic.Add(peak);
                 }
@@ -1641,7 +1642,7 @@ namespace FlashLFQ
                                                  theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
-                            IndexedMassSpectralPeak isotopePeak = _peakIndexingEngine.GetIndexedPeak(isotopeMass,
+                            IndexedMassSpectralPeak isotopePeak = CurrentIndexingEngine.GetIndexedPeak(isotopeMass,
                                 peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                             if (isotopePeak == null
@@ -1717,7 +1718,7 @@ namespace FlashLFQ
                 }
 
                 double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
-                IndexedMassSpectralPeak unexpectedPeak = _peakIndexingEngine.GetIndexedPeak(unexpectedMass,
+                IndexedMassSpectralPeak unexpectedPeak = CurrentIndexingEngine.GetIndexedPeak(unexpectedMass,
                             peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                 if (unexpectedPeak == null)
@@ -1769,7 +1770,7 @@ namespace FlashLFQ
             var xic = new List<IndexedMassSpectralPeak>();
 
             // get precursor scan to start at
-            Ms1ScanInfo[] ms1Scans = _ms1Scans[spectraFileInfo];
+            Ms1ScanInfo[] ms1Scans = IndexingEngineDict[spectraFileInfo].Ms1ScanInfoArray; ;
             int precursorScanIndex = -1;
             foreach (Ms1ScanInfo ms1Scan in ms1Scans)
             {
@@ -1787,7 +1788,7 @@ namespace FlashLFQ
             int missedScans = 0;
             for (int t = precursorScanIndex; t < ms1Scans.Length; t++)
             {
-                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = CurrentIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
 
                 if (peak == null && t != precursorScanIndex)
                 {
@@ -1809,7 +1810,7 @@ namespace FlashLFQ
             missedScans = 0;
             for (int t = precursorScanIndex - 1; t >= 0; t--)
             {
-                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = CurrentIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
 
                 if (peak == null && t != precursorScanIndex)
                 {

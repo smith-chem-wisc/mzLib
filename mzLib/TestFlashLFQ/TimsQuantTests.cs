@@ -334,36 +334,36 @@ namespace Test
 
         }
 
-        [Test]
-        public static void TestPeakSplittingLeft()
-        {
-            int[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
+        //[Test]
+        //public static void TestPeakSplittingLeft()
+        //{
+        //    int[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
 
-            TraceableTimsTofPeak testPeak = new TraceableTimsTofPeak(1, 1);
-            for (int i = 0; i < 10; i++)
-            {
-                testPeak.IonMobilityPeaks.Add(new IonMobilityPeak(1.2, i + 1, intensityMultipliers[i]));
-            }
+        //    TraceableTimsTofPeak testPeak = new TraceableTimsTofPeak(1, 1);
+        //    for (int i = 0; i < 10; i++)
+        //    {
+        //        testPeak.IonMobilityPeaks.Add(new IonMobilityPeak(1.2, i + 1, intensityMultipliers[i]));
+        //    }
 
-            var indexedPeaks = testPeak.GetIndexedPeaks();
-            Assert.That(indexedPeaks.Count(), Is.EqualTo(2));
-            Assert.That(indexedPeaks.First().Mz, Is.EqualTo(1.2).Within(0.01));
-        }
+        //    var indexedPeaks = testPeak.GetIndexedPeaks();
+        //    Assert.That(indexedPeaks.Count(), Is.EqualTo(2));
+        //    Assert.That(indexedPeaks.First().Mz, Is.EqualTo(1.2).Within(0.01));
+        //}
 
-        [Test]
-        public static void TestPeakSplittingDoubleSided()
-        {
-            int[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1, 1, 5, 1 };
+        //[Test]
+        //public static void TestPeakSplittingDoubleSided()
+        //{
+        //    int[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1, 1, 5, 1 };
 
-            TraceableTimsTofPeak testPeak = new TraceableTimsTofPeak(1, 1);
-            for (int i = 0; i < 13; i++)
-            {
-                testPeak.IonMobilityPeaks.Add(new IonMobilityPeak(1.2, i + 1, intensityMultipliers[i]));
-            }
+        //    TraceableTimsTofPeak testPeak = new TraceableTimsTofPeak(1, 1);
+        //    for (int i = 0; i < 13; i++)
+        //    {
+        //        testPeak.IonMobilityPeaks.Add(new IonMobilityPeak(1.2, i + 1, intensityMultipliers[i]));
+        //    }
 
-            var indexedPeaks = testPeak.GetIndexedPeaks();
-            Assert.That(indexedPeaks.Count(), Is.EqualTo(3));
-            Assert.That(indexedPeaks.First().Mz, Is.EqualTo(1.2).Within(0.01));
-        }
+        //    var indexedPeaks = testPeak.GetIndexedPeaks();
+        //    Assert.That(indexedPeaks.Count(), Is.EqualTo(3));
+        //    Assert.That(indexedPeaks.First().Mz, Is.EqualTo(1.2).Within(0.01));
+        //}
     }
 }

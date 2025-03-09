@@ -1460,7 +1460,7 @@ namespace Test
             string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"PSMsForMbrTest.psmtsv");
 
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r1_sliced_mbr.raw"), "a", 0, 0, 0);
-            //SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
 
             List<Identification> ids = new List<Identification>();
             Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
@@ -1481,8 +1481,8 @@ namespace Test
                 }
                 else if (split[0].Contains("f1r2"))
                 {
-                    //file = f1r2;
-                    continue;
+                    file = f1r2;
+                    
                 }
 
                 string baseSequence = split[12];
@@ -1516,22 +1516,22 @@ namespace Test
             string outputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
 
-            // Count the number of MBR results in each file
-            //var f1r1MbrResults = results
-            //    .PeptideModifiedSequences
-            //    .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS)
-            //    .ToList();
-            //var f1r2MbrResults = results
-            //    .PeptideModifiedSequences
-            //    .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR)
-            //    .ToList();
+            //Count the number of MBR results in each file
+            var f1r1MbrResults = results
+                .PeptideModifiedSequences
+                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS)
+                .ToList();
+            var f1r2MbrResults = results
+                .PeptideModifiedSequences
+                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR)
+                .ToList();
 
-            //// Due to the small number of results in the test data, the counts and correlation values can be quite variable.
-            //// Any change to ML.NET or the PEP Analysis engine will cause these to change.
-            //Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
-            //Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
-            //Assert.AreEqual(140, f1r1MbrResults.Count);
-            //Assert.AreEqual(77, f1r2MbrResults.Count);
+            // Due to the small number of results in the test data, the counts and correlation values can be quite variable.
+            // Any change to ML.NET or the PEP Analysis engine will cause these to change.
+            Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
+            Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
+            Assert.AreEqual(140, f1r1MbrResults.Count);
+            Assert.AreEqual(77, f1r2MbrResults.Count);
 
             //// Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
             //List<(double, double)> peptideIntensities = f1r1MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();

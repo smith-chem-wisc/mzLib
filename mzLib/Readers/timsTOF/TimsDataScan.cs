@@ -89,18 +89,10 @@ namespace MassSpectrometry
             IntensityArrays.Add(intensities);
         }
 
-        public MzSpectrum?[] Ms1SpectraIndexedByZeroBasedScanNumber { get; private set; }
+        public List<(int ScanIdx , TimsSpectrum Spectrum)>? TimsScanIdxMs1SpectraList { get; private set; }
 
-        public List<(int ScanIdx , MzSpectrum Spectrum)> TimsScanIdxMs1SpectraList { get; private set; }
-
-        public void AddMs1Spectrum(MzSpectrum spectrum, int scanNumber)
+        public void AddSpectrum(TimsSpectrum spectrum, int scanNumber)
         {
-            //if (Ms1SpectraIndexedByZeroBasedScanNumber.IsNullOrEmpty())
-            //{
-            //    Ms1SpectraIndexedByZeroBasedScanNumber = new MzSpectrum[ScanNumberEnd - ScanNumberStart + 1];
-            //}
-            //Ms1SpectraIndexedByZeroBasedScanNumber[scanNumber - ScanNumberStart] = spectrum;
-
             if (TimsScanIdxMs1SpectraList == null)
             {
                 TimsScanIdxMs1SpectraList = new();
@@ -109,14 +101,21 @@ namespace MassSpectrometry
         }
     }
 
-    public class TimsSpectrum : MzSpectrum
+    /// <summary>
+    /// This is similar to an mz spectrum, but much more lightweight
+    /// It stores intensities as ints and tof indices instead of mz values
+    /// </summary>
+    public class TimsSpectrum
     {
-        public TimsSpectrum(double[] mzArray, double[] intensityArray, double ionMobilityIndex, bool shouldCopy = false) :
-            base(mzArray, intensityArray, shouldCopy)
-        {
-            IonMobilityIndex = ionMobilityIndex;
-        }
+        public uint[] XArray { get; init; }
+        public int[] YArray { get; init; }
 
-        public double IonMobilityIndex { get; }
+        public int Size => XArray.Length;
+
+        public TimsSpectrum(uint[] tofIndices, int[] intensities)
+        {
+            XArray = tofIndices;
+            YArray = intensities;
+        }
     }
 }
