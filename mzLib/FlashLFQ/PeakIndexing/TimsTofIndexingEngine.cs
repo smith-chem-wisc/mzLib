@@ -1,23 +1,27 @@
 ﻿using Easy.Common.Extensions;
+using FlashLFQ.Interfaces;
 using MzLibUtil;
 using NetSerializer;
 using Readers;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FlashLFQ.PeakIndexing; 
 
-namespace FlashLFQ.PeakIndexing
+namespace FlashLFQ
 {
-    public class TimsTofIndexingEngine
+    public class TimsTofIndexingEngine : IIndexingEngine
     {
         private List<IndexedTimsTofPeak>[] _indexedPeaks;
         private readonly Serializer _serializer;
         private const int BinsPerDalton = 100;
         private readonly int _maxThreads;
         public SpectraFileInfo FileInfo { get; init; }
+        public Ms1ScanInfo[] Ms1ScanInfoArray { get; private set; }
 
         /// <summary>
         /// Used to convert the tofIndices stored in the .d file to m/z values
@@ -41,12 +45,13 @@ namespace FlashLFQ.PeakIndexing
             FileInfo = fileInfo;
         }
 
-        public bool IndexTimsTofPeaks(TimsTofFileReader file, SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
+        public bool IndexPeaks(SpectraFileInfo fileInfo, bool silent)
         {
+            TimsTofFileReader file = new TimsTofFileReader(fileInfo.FullFilePathWithExtension);
             file.InitiateDynamicConnection();
-            OneOverK0LookupArray = file.GetMzLookupTable();
+            MzLookupArray = file.GetMzLookupTable();
 
-            Ms1ScanInfo[] scanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
+            Ms1ScanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
             PpmTolerance tolerance = new PpmTolerance(20);
 
             ConcurrentDictionary<int, Dictionary<int, List<TraceableTimsTofPeak>>> binToFramePeakDict = new();
@@ -103,14 +108,12 @@ namespace FlashLFQ.PeakIndexing
                     
                 }
 
-                scanInfoArray[i] = new Ms1ScanInfo((int)ms1Scan.FrameId, i, ms1Scan.RetentionTime);
+                Ms1ScanInfoArray[i] = new Ms1ScanInfo((int)ms1Scan.FrameId, i, ms1Scan.RetentionTime);
                 frameArray[i] = null;
             }
 
             //_indexedPeaks = new List<IndexedTimsTofPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
            
-
-            _ms1Scans.Add(fileInfo, scanInfoArray);
 
             if (_indexedPeaks == null || _indexedPeaks.Length == 0)
             {
@@ -133,6 +136,33 @@ namespace FlashLFQ.PeakIndexing
             throw new NotImplementedException();
         }
 
+        public void ClearIndex()
+        {
+            _indexedPeaks = null;
+            Ms1ScanInfoArray = null;
+        }
+
+        public void SerializeIndex(SpectraFileInfo file)
+        {
+            using (var stream = File.OpenWrite(file.FilenameWithoutExtension + ".ind"))
+            {
+                _serializer.Serialize(stream, _indexedPeaks);
+            }
+        }
+
+        public void DeserializeIndex(SpectraFileInfo file)
+        {
+            using (var stream = File.OpenRead(file.FilenameWithoutExtension + ".ind"))
+            {
+                _indexedPeaks = (List<IndexedTimsTofPeak>[])_serializer.Deserialize(stream);
+            }
+        }
+
+        public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState)
+        {
+            // Implementation of GetIndexedPeak method
+            throw new NotImplementedException();
+        }
 
     }
 }

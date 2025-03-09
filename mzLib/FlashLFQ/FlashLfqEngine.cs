@@ -97,9 +97,9 @@ namespace FlashLFQ
         private Dictionary<string, List<(double massShift, double normalizedAbundance)>> _modifiedSequenceToIsotopicDistribution;
         private List<int> _chargeStates;
         private FlashLfqResults _results;
-        internal Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
-        internal PeakIndexingEngine CurrentIndexingEngine;
-        internal Dictionary<SpectraFileInfo, PeakIndexingEngine> IndexingEngineDict { get; private set; }
+
+        internal IIndexingEngine CurrentIndexingEngine;
+        internal Dictionary<SpectraFileInfo, IIndexingEngine> IndexingEngineDict { get; private set; }
         internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
 
         /// <summary>
@@ -213,7 +213,9 @@ namespace FlashLFQ
             // quantify each file
             foreach (var spectraFile in _spectraFileInfo)
             {
-                var indexingEngine = new PeakIndexingEngine(MaxThreads);
+                IIndexingEngine indexingEngine = spectraFile.IsTimsTofFile 
+                    ? new TimsTofIndexingEngine(spectraFile, MaxThreads) 
+                    : new PeakIndexingEngine(MaxThreads);
                 CurrentIndexingEngine = indexingEngine;
                 IndexingEngineDict.Add(spectraFile, indexingEngine);
 
