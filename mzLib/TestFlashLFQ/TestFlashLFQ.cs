@@ -1366,9 +1366,6 @@ namespace Test
 
             //check that all rows including header have the same number of elements
             Assert.AreEqual(1, peaksList.Select(l => l.Split('\t').Length).Distinct().ToList().Count);
-            var peakL = peaksList.Select(l => l.Split('\t').Length).ToList();
-            var nnn = peptidesList.Select(l => l.Split('\t').Length).ToList();
-            var nn = proteinsList.Select(l => l.Split('\t').Length).ToList();
             Assert.AreEqual(1, peptidesList.Select(l => l.Split('\t').Length).Distinct().ToList().Count);
             Assert.AreEqual(1, proteinsList.Select(l => l.Split('\t').Length).Distinct().ToList().Count);
 
