@@ -13,43 +13,53 @@ namespace FlashLFQ.Alex_project
 {
     public class XICGroups : IEnumerable<XICGroups>
     {
-        public XIC reference;
+        public XIC ReferenceXIC;
         public List<XIC> XICs;
         public Dictionary<int, double> RTDict;
-        public List<Extremum> sharedExtrema;
+        public List<Extremum> SharedExtrema;
         public Dictionary<double, double> ExtremaInRef; // the shared extrema in the reference XIC (time/intensity)
-        public List<Identification> XICGroup_IdList;
-        public readonly Dictionary<double, Tuple<double,double>> indexedPeaks;
+        public List<Identification> IdList;
+        public readonly Dictionary<double, Tuple<double,double>> SharedPeaks; //format: retention time < start time, end time>
 
         /// <summary>
         /// Build the XIC groups with the reference XIC
         /// </summary>
         /// <param name="xICs"> The xICs list </param>
-        /// <param name="extremaThreshold"> The minmun number to find the shared extrema </param>
+        /// <param name="sharedPeakThreshold"> The require number ratio to define the shared peaks, if threshold is 0.5, at lease 50% need to be tracked </param>
         /// <param name="tolerance"> The tolerance window to pick up shared exterma </param>
-        public XICGroups(List<XIC> xICs, double extremaThreshold = 0.55 , double tolerance = 0.10)
+        public XICGroups(List<XIC> xICs, double sharedPeakThreshold = 0.55 , double tolerance = 0.10, double cutoff = 30000)
         {
             XICs = xICs;
             //this.ids = ids;
-            reference = XICs.Where(p => p.Reference == true).First();    // set up the XIC reference
+            ReferenceXIC = XICs.Where(p => p.Reference == true).First();    // set up the XIC reference
             RTDict = new Dictionary<int, double>();                      // build a dictionary to store the retention time shift of each XIC
 
             int xicID = 0;
             foreach (var xic in XICs)
             {
-                RTDict.Add(xicID, xic.AlignXICs(reference)); //xic.AlignXICs(reference)
+                RTDict.Add(xicID, xic.AlignXICs(ReferenceXIC)); //xic.AlignXICs(reference)
                 xic.FindExtrema();
                 xicID++;
             }
 
-            sharedExtrema = new List<Extremum>();
-            buildSharedExtrema(extremaThreshold, tolerance);    // find the sharedExtrema
-            indexedPeaks = buildIndexedPeaks();                          // build the indexed peaks
-            sharedExtremaInRef(reference, sharedExtrema);
+            SharedExtrema = new List<Extremum>();
+            FindSharedExtrema(sharedPeakThreshold, tolerance, cutoff);    // find the sharedExtrema
+            ProjectExtremaInRef(ReferenceXIC, SharedExtrema);         // project the sharedExtrema in the reference XIC
+            SharedPeaks = BuildSharedPeaks();                   // build the indexed peaks
+            
             BuildIdList();
         }
 
-        public void buildSharedExtrema(double count_threshold, double tolerance, double cutOff = 30000) 
+        /// <summary>
+        /// Iterate the extrema from each XIC and generate the shared extrema from the XICs, the criteria are below
+        /// (1) the intensity of the extrema should be larger the cutOff and
+        /// (2) the time difference between each run should be within the tolerance
+        /// (3) the number of the shared extrema should be larger than the threshold * number of XICs
+        /// </summary>
+        /// <param name="count_threshold"> the minimum number for share tracking </param>
+        /// <param name="tolerance"> Time difference tolerance</param>
+        /// <param name="cutOff"> Intensity cutoff</param>
+        public void FindSharedExtrema(double count_threshold, double tolerance, double cutOff) 
         {
             List<Extremum> shared_min = new List<Extremum>();
             List<Extremum> shared_max = new List<Extremum>();
@@ -65,14 +75,20 @@ namespace FlashLFQ.Alex_project
             var group_min = SortExtrema(shared_min, tolerance, count_threshold);
             var group_max = SortExtrema(shared_max, tolerance, count_threshold);
 
-            sharedExtrema = group_min.Concat(group_max).ToList();
-            sharedExtrema.Sort((p1, p2) => p1.RetentionTime.CompareTo(p2.RetentionTime));
-            Triming();
-            int iii = 0;
+            SharedExtrema = group_min.Concat(group_max).ToList();
+            SharedExtrema.Sort((p1, p2) => p1.RetentionTime.CompareTo(p2.RetentionTime)); // sort the shared extrema by the retention time
+            SharePeakTrimming();
 
 
         }
 
+        /// <summary>
+        /// Sort the extrema into groups based on the tolerance and the count threshold
+        /// </summary>
+        /// <param name="extremaList"></param>
+        /// <param name="tolerance"></param>
+        /// <param name="count_threshold"></param>
+        /// <returns></returns>
         private List<Extremum> SortExtrema(List<Extremum> extremaList, double tolerance, double count_threshold) 
         {
             int index = 0;
@@ -112,18 +128,22 @@ namespace FlashLFQ.Alex_project
                                  .Select(p => p.Key).ToList();
         }
 
-        private void Triming(double cutOff = 0.3) 
+        /// <summary>
+        /// Trim the shared extremas in the close time range. Ex. if the two minimums are close and the intensity is going up, remove the first one
+        /// </summary>
+        /// <param name="cutOff"> The time range for trimming</param>
+        private void SharePeakTrimming(double cutOff = 0.3) 
         {
             int removeIndex = 0;
-            int count = sharedExtrema.Count();
+            int count = SharedExtrema.Count();
 
             while (removeIndex < count - 1)
             {
-                Extremum extre = sharedExtrema[removeIndex];
-                Extremum extre_next = sharedExtrema[removeIndex + 1];
+                Extremum extre = SharedExtrema[removeIndex];
+                Extremum extre_next = SharedExtrema[removeIndex + 1];
 
-                double intensity = reference.SmoothedCubicSpline.Interpolate(extre.RetentionTime);
-                double intensity_next = reference.SmoothedCubicSpline.Interpolate(extre_next.RetentionTime);
+                double intensity = ReferenceXIC.SmoothedCubicSpline.Interpolate(extre.RetentionTime);
+                double intensity_next = ReferenceXIC.SmoothedCubicSpline.Interpolate(extre_next.RetentionTime);
                 double timeDiff = extre_next.RetentionTime - extre.RetentionTime;
                 
                 bool same_Min = extre.Type == ExtremumType.Minimum && extre.Type == extre_next.Type; // the constective minimum
@@ -135,12 +155,12 @@ namespace FlashLFQ.Alex_project
 
                 if (same_Min && goUp && WithinTimeWindow)
                 {
-                    sharedExtrema.RemoveAt(removeIndex);
+                    SharedExtrema.RemoveAt(removeIndex);
                     count--;
                 }
                 else if (same_Max && goDown && WithinTimeWindow) 
                 {
-                    sharedExtrema.RemoveAt(removeIndex);
+                    SharedExtrema.RemoveAt(removeIndex);
                     count--;
                 }
                 else
@@ -153,11 +173,15 @@ namespace FlashLFQ.Alex_project
             
         }
 
-
-        public void sharedExtremaInRef(XIC reference, List<Extremum> sharedExtre)
+        /// <summary>
+        /// Generate the shared extrema information (retention and intensity) in the reference XIC
+        /// </summary>
+        /// <param name="reference"></param>
+        /// <param name="sharedExtre"></param>
+        public void ProjectExtremaInRef(XIC reference, List<Extremum> sharedExtrema)
         {
             ExtremaInRef = new Dictionary<double, double>();
-            foreach (var extre in sharedExtre)
+            foreach (var extre in sharedExtrema)
             {
                 double extreTime = extre.RetentionTime;
                 double extreIntensity = reference.SmoothedCubicSpline.Interpolate(extreTime);
@@ -166,77 +190,84 @@ namespace FlashLFQ.Alex_project
         }
 
         /// <summary>
-        /// Divide the shared extrema into individual peaks as indexed peaks
+        /// Use the shared extrema to build the shared peaks, group the peaks with consecutive minimum , maximum and minimum.
         /// </summary>
+        /// /// <param name="windowLimit"> The minimum time window to generate a peak region</param>
         /// <returns></returns>
-        public Dictionary<double, Tuple<double, double>> buildIndexedPeaks(double windowLimit = 0.3)
+        public Dictionary<double, Tuple<double, double>> BuildSharedPeaks(double windowLimit = 0.3)
         {
-            var indexedPeaks = new Dictionary<double, Tuple<double, double>>();
-            foreach (var extremPoint in sharedExtrema.Where(p=>p.Type == ExtremumType.Maximum))
+            var sharedPeaks = new Dictionary<double, Tuple<double, double>>();
+            foreach (var extremPoint in SharedExtrema.Where(p=>p.Type == ExtremumType.Maximum))
             {
-                double startTime = sharedExtrema.First().RetentionTime - 1;
-                double endTime = sharedExtrema.Last().RetentionTime + 1;        
-                int index_Peak = sharedExtrema.IndexOf(extremPoint);
+                double startTime = SharedExtrema.First().RetentionTime - 1;
+                double endTime = SharedExtrema.Last().RetentionTime + 1;        
+                int maxPointIndex = SharedExtrema.IndexOf(extremPoint);
 
-                if (index_Peak - 1 >= 0 && sharedExtrema[index_Peak - 1].Type == ExtremumType.Minimum) // if the previous one is minimum, the start time is the minimum
+                if (maxPointIndex - 1 >= 0 && SharedExtrema[maxPointIndex - 1].Type == ExtremumType.Minimum) // if the previous one is minimum, the start time is the minimum
                 {
-                    int indexLeft = index_Peak - 1;
-                    startTime = sharedExtrema[indexLeft].RetentionTime;
+                    int indexLeft = maxPointIndex - 1;
+                    startTime = SharedExtrema[indexLeft].RetentionTime;
                 }
 
-                else if(index_Peak - 1 >= 0)                                                          // if the previous one is maximum, the start time is the the midpint of the two maximum
+                else if(maxPointIndex - 1 >= 0)                                                          // if the previous one is maximum, the start time is the the midpint of the two maximum
                 {
-                    startTime = (sharedExtrema[index_Peak].RetentionTime + sharedExtrema[index_Peak - 1].RetentionTime)/2;
-                }
-
-
-                if (index_Peak + 1 < sharedExtrema.Count() && sharedExtrema[index_Peak + 1].Type == ExtremumType.Minimum) // if the next one is minimum, the end time is the minimum
-                {
-                    int indexRight = index_Peak + 1;
-                    endTime = sharedExtrema[indexRight].RetentionTime;
-                }
-
-                else if(index_Peak + 1 < sharedExtrema.Count())                                                          // if the next one is maximum, the end time is the the midpint of the two maximum
-                {
-                    endTime = (sharedExtrema[index_Peak].RetentionTime + sharedExtrema[index_Peak + 1].RetentionTime)/2;
+                    startTime = (SharedExtrema[maxPointIndex].RetentionTime + SharedExtrema[maxPointIndex - 1].RetentionTime)/2;
                 }
 
 
-                indexedPeaks.Add(extremPoint.RetentionTime, new Tuple<double, double> (startTime, endTime));
+                if (maxPointIndex + 1 < SharedExtrema.Count() && SharedExtrema[maxPointIndex + 1].Type == ExtremumType.Minimum) // if the next one is minimum, the end time is the minimum
+                {
+                    int indexRight = maxPointIndex + 1;
+                    endTime = SharedExtrema[indexRight].RetentionTime;
+                }
+
+                else if(maxPointIndex + 1 < SharedExtrema.Count())                                                          // if the next one is maximum, the end time is the the midpint of the two maximum
+                {
+                    endTime = (SharedExtrema[maxPointIndex].RetentionTime + SharedExtrema[maxPointIndex + 1].RetentionTime)/2;
+                }
+
+
+                sharedPeaks.Add(extremPoint.RetentionTime, new Tuple<double, double> (startTime, endTime));
             }
-            
-            List<double> removeKeys = new List<double>();
-            foreach (var window in indexedPeaks) 
+
+            // remove the peaks with the time window less than the window limit
+            List<double> removedPeaks = new List<double>();
+            foreach (var window in sharedPeaks) 
             {
                 double windowGap = window.Value.Item2 - window.Value.Item1;
                 if (windowGap < windowLimit) 
                 {
-                    removeKeys.Add(window.Key);
+                    removedPeaks.Add(window.Key);
                 }
             }
 
-            foreach (var key in removeKeys)
+            foreach (var removedPeak in removedPeaks)
             {
-                indexedPeaks.Remove(key);
+                sharedPeaks.Remove(removedPeak);
             }
 
-            return indexedPeaks;
+            return sharedPeaks;
         }
 
-
+        /// <summary>
+        /// Because IsoTracker need the id from each runs for id sharing, we need to build the id list for each XIC group
+        /// Note: in order to compare the id, we need to modify the retention time of the id based on the XIC shift. The timeline is Reference XIC
+        /// </summary>
         public void BuildIdList() 
         {
-            XICGroup_IdList = new List<Identification>();
+            IdList = new List<Identification>();
             foreach (var xic in XICs) 
             {
                 if (xic.Ids != null) 
                 {
                     foreach (var id in xic.Ids.Where(p=> p.FileInfo.Equals(xic.SpectraFile))) // Collect and modified the identifications in the XIC, Ignore the borrowed Id
                     {
+                        // The moved id is the id with the modified retention time,
+                        // ex. XIC no.1 (TimeShift is 0.5 min, id retentionTime is 10 mins), then the moved id retention time is 10.5 mins in reference XIC
                         MovedIdentification moveId = new MovedIdentification(id.FileInfo, id.BaseSequence, id.ModifiedSequence,
                             id.MonoisotopicMass, id.Ms2RetentionTimeInMinutes, id.PrecursorChargeState, id.ProteinGroups.ToList(), xic.RtShift);
                         moveId.PeakfindingMass = id.PeakfindingMass;
-                        XICGroup_IdList.Add(moveId);
+                        IdList.Add(moveId);
                     }
                 }
             }

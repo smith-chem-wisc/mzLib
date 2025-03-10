@@ -23,9 +23,6 @@ namespace FlashLFQ.Alex_project
             Type = type;
         }
 
-
-
-        
         public int CompareTo(Extremum others)
         {
             if (others == null)

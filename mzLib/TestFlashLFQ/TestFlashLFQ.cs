@@ -1432,69 +1432,79 @@ namespace Test
             CollectionAssert.AreEquivalent(results.PeptideModifiedSequences.Select(kvp => kvp.Key), peptidesToUse);
         }
 
-        //[Test]
-        //public static void RealDataMbrTest_IsobaricCase_noRtShift()
-        //{
-        //    string psmFile = "E:\\MBR\\testRawFile\\PSMsForIsobaricCase_noRtShift.psmtsv";
-        //    string outputPeptide = "E:\\MBR\\testRawFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeptide_NoRtShift.tsv";
-        //    string outputPeak = "E:\\MBR\\testRawFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeak_NoRtShift.tsv";
-        //    string outputProtein = "E:\\MBR\\testRawFile\\testingOutput\\IsoTracker_turnOff_noRt\\QProtein_NoRtShift.tsv";
+        [Test]
+        public static void RealDataMbrTest_IsobaricCase_noRtShift()
+        {
+            string psmFile = "E:\\MBR\\testRawFile\\PSMsForIsobaricCase_noRtShift.psmtsv";
+            string outputPeptide = "E:\\MBR\\testRawFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeptide_NoRtShift.tsv";
+            string outputPeak = "E:\\MBR\\testRawFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeak_NoRtShift.tsv";
+            string outputProtein = "E:\\MBR\\testRawFile\\testingOutput\\IsoTracker_turnOff_noRt\\QProtein_NoRtShift.tsv";
 
-        //    SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\testRawFile\\20100604_Velos1_TaGe_SA_A549_3_first.mzML", "a", 0, 0, 0);
-        //    SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\testRawFile\\20100604_Velos1_TaGe_SA_A549_3_second.mzML", "a", 1, 0, 0);
+            SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\testRawFile\\20100604_Velos1_TaGe_SA_A549_3_first.mzML", "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\testRawFile\\20100604_Velos1_TaGe_SA_A549_3_second.mzML", "a", 1, 0, 0);
 
-        //    List<Identification> ids = new List<Identification>();
-        //    Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
-        //    foreach (string line in File.ReadAllLines(psmFile))
-        //    {
-        //        var split = line.Split(new char[] { '\t' });
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
 
-        //        if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
-        //        {
-        //            continue;
-        //        }
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
 
-        //        SpectraFileInfo file = null;
+                SpectraFileInfo file = null;
 
-        //        if (split[0].Contains("first"))
-        //        {
-        //            file = f1r1;
-        //        }
-        //        else if (split[0].Contains("second"))
-        //        {
-        //            file = f1r2;
-        //        }
+                if (split[0].Contains("first"))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains("second"))
+                {
+                    file = f1r2;
+                }
+                var target =  split[38];
+                var qvalue = double.Parse(split[50]);
+                var pepQvalue = double.Parse(split[53]);
+                string baseSequence = split[12];
+                string fullSequence = split[13];
 
-        //        string baseSequence = split[12];
-        //        string fullSequence = split[13];
-        //        double monoMass = double.Parse(split[22].Split(new char[] { '|' }).First());
-        //        double rt = double.Parse(split[2]);
-        //        int z = (int)double.Parse(split[6]);
-        //        var proteins = split[25].Split(new char[] { '|' });
-        //        List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
-        //        foreach (var protein in proteins)
-        //        {
-        //            if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
-        //            {
-        //                proteinGroups.Add(proteinGroup);
-        //            }
-        //            else
-        //            {
-        //                allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
-        //                proteinGroups.Add(allProteinGroups[protein]);
-        //            }
-        //        }
+                if ( baseSequence.Contains("|") || fullSequence.Contains("|"))
+                {
+                    continue;
+                }
+                if (split[38].Contains("D") || split[38].Contains("C") || double.Parse(split[50]) > 0.01 || double.Parse(split[53]) > 0.01)
+                {
+                    continue;
+                }
 
-        //        Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
-        //        ids.Add(id);
-        //    }
+                double monoMass = double.Parse(split[22].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[25].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
 
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isoTracker: false);
+            var results = engine.Run();
+            results.WriteResults(outputPeak, outputPeptide, outputProtein, null, true);
 
-        //    var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isobaricCase: false);
-        //    var results = engine.Run();
-        //    results.WriteResults(outputPeak, outputPeptide, outputProtein, null, true);
-
-        //}
+        }
 
 
         [Test]

@@ -153,11 +153,6 @@ namespace FlashLFQ
                 foreach (var sequenceWithPeaks in groupedPeaks)
                 {
                     string sequence = sequenceWithPeaks.Key;
-                    if (sequence == "AAASTDYYK")
-                    {
-                        int iiiii = 0;
-                    }
-
                     double intensity = sequenceWithPeaks.Value.Max(p => p.Intensity);
                     ChromatographicPeak bestPeak = sequenceWithPeaks.Value.First(p => p.Intensity == intensity);
                     DetectionType detectionType;
@@ -230,6 +225,7 @@ namespace FlashLFQ
 
             if (IsoTracker && IsobaricPeakInDifferentRun != null)
             {
+                // We view each Isobaric peak as an individual peptide, so we need to add them to the peptide list
                 RevisedModifiedPeptides();
             }
 
@@ -791,20 +787,23 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// This method is used to revise the modified peptides that have isobaric peaks in different runs.
+        /// This method is used to re-edit the peptide List by adding the isobaric peptides and remove the formal peptide.
         /// </summary>
         internal void RevisedModifiedPeptides()
         {
             foreach (var isoPeptides in IsobaricPeakInDifferentRun)
             {
+                // Remove the formal peptide from the peptide list
                 string peptideSequence = isoPeptides.Key;
-                Peptide reference = PeptideModifiedSequences[peptideSequence];
+                Peptide originalPeptide = PeptideModifiedSequences[peptideSequence];
                 PeptideModifiedSequences.Remove(peptideSequence);
                 int peakIndex = 1;
+
+                // Add the isobaric peptides to the peptide list
                 foreach (var isoPeptidePeaks in isoPeptides.Value.Values.ToList())
                 {
-                    Peptide peptide = new Peptide(reference.Sequence + "_Peak " + peakIndex, reference.BaseSequence, reference.UseForProteinQuant, reference.ProteinGroups);
-                    peptide.SetIsobaricPeptide(isoPeptidePeaks); //When we set the peptide as IsobaricPeptide, then the retention time and intensity will be got from the chromPeak.
+                    Peptide peptide = new Peptide(originalPeptide.Sequence + "_Peak " + peakIndex, originalPeptide.BaseSequence, originalPeptide.UseForProteinQuant, originalPeptide.ProteinGroups);
+                    peptide.SetIsobaricPeptide(isoPeptidePeaks); //When we set the peptide as IsobaricPeptide, then the retention time, intensity and detectionType will be set from the chromPeak automatically.
                     PeptideModifiedSequences[peptide.Sequence] = peptide;
                     peakIndex++;
                 }

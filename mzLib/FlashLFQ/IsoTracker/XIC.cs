@@ -47,7 +47,7 @@ namespace FlashLFQ.Alex_project
             SpectraFile = spectraFile;
             Reference = Isreference;
             Ids = ids;
-            BulidLinearSpline();
+            BuildLinearSpline();
             if (peaks.Count >= 5)
             {
                 BuildSmoothedCubicSpline(smoothDegree);
@@ -58,6 +58,7 @@ namespace FlashLFQ.Alex_project
             }
 
         }
+
 
         /// <summary>
         /// Pad the XIC with 5 peaks before the first peak and 5 peaks after the last peak. The intensity of the padded peaks is 0.
@@ -90,13 +91,10 @@ namespace FlashLFQ.Alex_project
                 paddedPeaks.Add(new IndexedMassSpectralPeak(0, 0, 0, lastPeak.RetentionTime + gap * i));
             }
 
-
-
             return paddedPeaks;
-
         }
 
-        internal void BulidLinearSpline()
+        internal void BuildLinearSpline()
         {
             double[] x = PadPeaks().Select(p => p.RetentionTime).ToArray();
             double[] y = PadPeaks().Select(p => p.Intensity).ToArray();
@@ -157,6 +155,7 @@ namespace FlashLFQ.Alex_project
             // Example
         }
 
+
         /// <summary>
         /// Try to smooth the XIC by averaging the intensity of the points (weight averaging then sum averaging).
         /// Using the smoothedXIC to generate the cubic spline date for Extremum finding.
@@ -168,9 +167,8 @@ namespace FlashLFQ.Alex_project
             double[] retentionTime = Ms1Peaks.Select(p => p.RetentionTime).ToArray();
             double[] intensity = Ms1Peaks.Select(p => p.Intensity).ToArray();
 
-            //SmoothedIntensity = IntesitySmoothing_normal(intensity, smoothDegree).ToList();
-            SmoothedIntensity = IntesitySmoothing_weight(intensity, smoothDegree).ToList();
-            SmoothedIntensity = IntesitySmoothing_normal(SmoothedIntensity.ToArray(), smoothDegree).ToList();
+            SmoothedIntensity = IntensitySmoothing_weight(intensity, smoothDegree).ToList();
+            SmoothedIntensity = IntensitySmoothing_normal(SmoothedIntensity.ToArray(), smoothDegree).ToList();
 
 
             SmoothedRetentionTime = retentionTime.ToList();
@@ -178,7 +176,14 @@ namespace FlashLFQ.Alex_project
         }
 
 
-        public double[] IntesitySmoothing_weight(double[] intensity, int pointsToAverage)
+        /// <summary>
+        /// Smooth the intensity of the XIC by averaging the intensity of the points (weight averaging then sum averaging).
+        /// </summary>
+        /// <param name="intensity"></param>
+        /// <param name="pointsToAverage"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public double[] IntensitySmoothing_weight(double[] intensity, int pointsToAverage)
         {
             if (pointsToAverage <= 0)
             {
@@ -225,7 +230,14 @@ namespace FlashLFQ.Alex_project
             return smoothedIntensity;
         }
 
-        public double[] IntesitySmoothing_normal(double[] intensity, int pointsToAverage) 
+        /// <summary>
+        /// Smooth the intensity of the XIC by averaging the intensity of the points (normal averaging).
+        /// </summary>
+        /// <param name="intensity"></param>
+        /// <param name="pointsToAverage"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public double[] IntensitySmoothing_normal(double[] intensity, int pointsToAverage) 
         {
             if (pointsToAverage <= 0)
             {
@@ -270,6 +282,11 @@ namespace FlashLFQ.Alex_project
         public void FindExtrema()
         {
             Extrema = new List<Extremum>();
+            if (SmoothedCubicSpline == null)
+            {
+                return;
+            }
+
             double[] extrePoints = SmoothedCubicSpline.StationaryPoints().Order().ToArray(); //extrePoint is the retentionTime for the point's first derivative is zero
             foreach (var point in extrePoints) 
             {

@@ -17,7 +17,6 @@ namespace FlashLFQ
         private Dictionary<SpectraFileInfo, double> Intensities;
         private Dictionary<SpectraFileInfo, double> RetentionTimes;
         private Dictionary<SpectraFileInfo, DetectionType> DetectionTypes;
-        private Dictionary<SpectraFileInfo, ChromatographicPeak> IsobaricPeaks;
         public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly bool UseForProteinQuant;
         public double IonizationEfficiency;
@@ -29,7 +28,6 @@ namespace FlashLFQ
             Intensities = new Dictionary<SpectraFileInfo, double>();
             RetentionTimes = new Dictionary<SpectraFileInfo, double>();
             DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
-            IsobaricPeaks = new Dictionary<SpectraFileInfo, ChromatographicPeak>();
             this.ProteinGroups = proteinGroups;
             this.UseForProteinQuant = useForProteinQuant;
 
@@ -153,19 +151,18 @@ namespace FlashLFQ
         {
             foreach (var peak in peakList.Where(p=>p != null))
             {
-                IsobaricPeaks[peak.SpectraFileInfo] = peak;
                 RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
                 Intensities[peak.SpectraFileInfo] = peak.Apex.Intensity;
                 DetectionType detectionType;
-                if (peak != null && peak.IsMbrPeak && peak.Intensity > 0)
+                if (peak.IsMbrPeak && peak.Intensity > 0)
                 {
                     detectionType = DetectionType.MBR;
                 }
-                else if (peak != null && !peak.IsMbrPeak && peak.Intensity > 0)
+                else if (!peak.IsMbrPeak && peak.Intensity > 0)
                 {
                     detectionType = DetectionType.MSMS;
                 }
-                else if (peak != null && !peak.IsMbrPeak && peak.Intensity == 0)
+                else if (!peak.IsMbrPeak && peak.Intensity == 0)
                 {
                     detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
                 }
@@ -177,24 +174,12 @@ namespace FlashLFQ
             }
         }
 
-        public ChromatographicPeak GetIsobaricPeak(SpectraFileInfo fileInfo)
-        {
-            if (IsobaricPeaks.TryGetValue(fileInfo, out ChromatographicPeak peak))
-            {
-                return peak;
-            }
-            else
-            {
-                return null;
-            }
-        }
 
 
         public string ToString(List<SpectraFileInfo> rawFiles, bool IsoTracker = false)
         {
-            if (IsoTracker) // There is a isobaric case in this peptide, then we need to write down them separately
+            if (IsoTracker) // For IsoTracker mode, we add the retention time to the output
             {
-                int countForNextLine = 0; // To count the line, and make sure we don't add a new line at the end of the file
                 StringBuilder str = new StringBuilder();
                 str.Append(Sequence + "\t");
                 str.Append(BaseSequence + "\t");
