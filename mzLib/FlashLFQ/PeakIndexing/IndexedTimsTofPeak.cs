@@ -23,10 +23,6 @@ namespace FlashLFQ
         /// The given m/z can be observed in multiple ion mobility scans, each with a different intensity
         /// This information is stored in the IonMobilityPeaks list
         /// </summary>
-        /// <param name="mz"></param>
-        /// <param name="zeroBasedMs1FrameIndex">One</param>
-        /// <param name="retentionTime"></param>
-        /// <param name="ionMobilityPeak"></param>
         public IndexedTimsTofPeak(uint tofIndex, int timsIndex, int intensity, int rtIndex) 
         {
             TofIndex = tofIndex;

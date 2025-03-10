@@ -277,17 +277,23 @@ namespace Readers
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
+            int scansPerChunk = NumberOfScansPerFrame / 10; // 10 spectra per frame
+            int approxNumScans = 10 * scansPerChunk;
+
             //var scanCollection = new BlockingCollection<TimsDataScan>();
             TimsDataScan[] scans = new TimsDataScan[Ms1FrameIds.Count];
             // It's assumed that every MS1 frame will contain the same number of scans
             int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
-            Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count),
+            Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count, Ms1FrameIds.Count / (maxThreads * 4)),
                 new ParallelOptions() { MaxDegreeOfParallelism = maxThreads },
                 (range) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
+                        //for (int i = 0; i< Ms1FrameIds.Count; i++)
+                        //{ 
                         FrameProxy frame = FrameProxyFactory.GetFrameProxy(Ms1FrameIds[i]);
+                        int extraScans = frame.NumberOfScans - approxNumScans;
                         TimsDataScan dataScan = new TimsDataScan(
                             massSpectrum: null,
                             oneBasedScanNumber: -1, // This gets adjusted once all data has been read
@@ -308,32 +314,36 @@ namespace Readers
                             medianOneOverK0: -1,
                             precursorId: null);
 
-                        // Want to change this to group 10 scans at a time
-                        int previousScan = 1;
-                        List<uint[]> indexArrays = new();
-                        List<int[]> intensityArrays = new();
-                        while (previousScan < numberOfScans)
+                        // Every Frame gets simplified into ten spectra
+                        // First spectra picks up extra scans, as the least is going on at low scan numbers/CCS
+                        List<uint[]> indexArrays = new(10);
+                        List<int[]> intensityArrays = new(10);
+                        int previousScanIdx = 0;
+                        for (int nextScanIdx = scansPerChunk + extraScans; nextScanIdx < frame.NumberOfScans + scansPerChunk; nextScanIdx += scansPerChunk)
                         {
-                            int nextScan = Math.Min(previousScan + 10, numberOfScans);
-
+                            // Step 1: Get the scans    
+                            nextScanIdx = Math.Min(frame.NumberOfScans - 1, nextScanIdx);
                             indexArrays.Clear();
                             intensityArrays.Clear();
-                            for (int scan = previousScan; scan < nextScan; scan++)
+                            for (int scan = previousScanIdx; scan < nextScanIdx; scan++)
                             {
-                                indexArrays.Add(frame.GetScanIndices(scan - 1));
-                                intensityArrays.Add(frame.GetScanIntensities(scan - 1));
+                                indexArrays.Add(frame.GetScanIndices(scan));
+                                intensityArrays.Add(frame.GetScanIntensities(scan));
                             }
                             // Step 2: Average those suckers
                             TimsSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays);
                             if (averagedSpectrum.Size > 1)
                             {
-                                dataScan.AddSpectrum(averagedSpectrum, (nextScan + previousScan) / 2);
+                                dataScan.AddSpectrum(averagedSpectrum, (nextScanIdx + previousScanIdx) / 2);
                             }
-                            previousScan = nextScan;
+                            if (nextScanIdx == frame.NumberOfScans - 1) break;
+                            previousScanIdx = nextScanIdx;
                         }
+
                         scans[i] = dataScan;
+                        //}
+                        Console.WriteLine("Scan Getter Range: " + range.Item1 + "-" + range.Item2);
                     }
-                    Console.WriteLine("Scan Getter Range: " + range.Item1 + "-" + range.Item2);
                 });
 
             return scans;

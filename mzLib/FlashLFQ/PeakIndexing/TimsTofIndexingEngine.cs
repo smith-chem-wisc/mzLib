@@ -68,7 +68,7 @@ namespace FlashLFQ
             for (int i = 0; i < frameArray.Length; i++)
             {
                 var ms1Scan = frameArray[i];
-                Dictionary<int, List<TraceableTimsTofPeak>> binPeakDictionary = new();
+                //Dictionary<int, List<TraceableTimsTofPeak>> binPeakDictionary = new();
 
                 for (int j = 0; j < ms1Scan.TimsScanIdxMs1SpectraList.Count; j++)
                 {
@@ -78,35 +78,37 @@ namespace FlashLFQ
                     // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
                     for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
                     {
-                        var ionMobilityPeak = new IonMobilityPeak(spectrum.XArray[spectrumIdx], spectrum.YArray[spectrumIdx], timsIndex);
-                        double peakMz = MzLookupArray[ionMobilityPeak.TofIndex];
+                        double peakMz = MzLookupArray[spectrum.XArray[spectrumIdx]];
                         int roundedMz = (int)Math.Round(peakMz * BinsPerDalton, 0);
+                        _indexedPeaks[roundedMz] ??= new List<IndexedTimsTofPeak>(frameArray.Length / 100);
+                        _indexedPeaks[roundedMz].Add(new IndexedTimsTofPeak(spectrum.XArray[spectrumIdx], timsIndex, spectrum.YArray[spectrumIdx], i));
 
-                        if (binPeakDictionary.TryGetValue(roundedMz, out var framePeaks))
-                        {
-                            var matchingPeak = framePeaks
-                                .MinBy(p => Math.Abs(peakMz - MzLookupArray[p.TofIndex])); // This could probably be optimized
-                            if (tolerance.Within(matchingPeak.TofIndex, peakMz)) matchingPeak.AddIonMobilityPeak(ionMobilityPeak);
-                            else framePeaks.Add(new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak));
-                        }
-                        else
-                        {
-                            binPeakDictionary[roundedMz] = new List<TraceableTimsTofPeak> { new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak) };
-                        }
+
+                        //if (binPeakDictionary.TryGetValue(roundedMz, out var framePeaks))
+                        //{
+                        //    var matchingPeak = framePeaks
+                        //        .MinBy(p => Math.Abs(peakMz - MzLookupArray[p.TofIndex])); // This could probably be optimized
+                        //    if (tolerance.Within(matchingPeak.TofIndex, peakMz)) matchingPeak.AddIonMobilityPeak(ionMobilityPeak);
+                        //    else framePeaks.Add(new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak));
+                        //}
+                        //else
+                        //{
+                        //    binPeakDictionary[roundedMz] = new List<TraceableTimsTofPeak> { new TraceableTimsTofPeak(i, ms1Scan.RetentionTime, ionMobilityPeak) };
+                        //}
                     }
                 }
 
-                foreach(var kvp in binPeakDictionary)
-                {
-                    _indexedPeaks[kvp.Key] ??= new List<IndexedTimsTofPeak>();
-                    foreach(var traceablePeak in kvp.Value)
-                    {
-                        var ittPeaks = traceablePeak.GetIndexedPeaks();
-                        if (ittPeaks.IsNotNullOrEmpty())
-                            _indexedPeaks[kvp.Key].AddRange(ittPeaks);
-                    }
+                //foreach(var kvp in binPeakDictionary)
+                //{
+                //    _indexedPeaks[kvp.Key] ??= new List<IndexedTimsTofPeak>();
+                //    foreach(var traceablePeak in kvp.Value)
+                //    {
+                //        var ittPeaks = traceablePeak.GetIndexedPeaks();
+                //        if (ittPeaks.IsNotNullOrEmpty())
+                //            _indexedPeaks[kvp.Key].AddRange(ittPeaks);
+                //    }
                     
-                }
+                //}
 
                 Ms1ScanInfoArray[i] = new Ms1ScanInfo((int)ms1Scan.FrameId, i, ms1Scan.RetentionTime);
                 frameArray[i] = null;
@@ -124,6 +126,8 @@ namespace FlashLFQ
 
                 return false;
             }
+
+            throw new MzLibException("Done indexing");
 
             return true;
         }
