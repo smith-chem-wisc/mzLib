@@ -566,6 +566,7 @@
 
   <ItemGroup>
     <Folder Include="TestData\" />
+    <Folder Include="XICData\" />
   </ItemGroup>
 
 </Project>
