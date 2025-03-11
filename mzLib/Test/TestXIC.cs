@@ -17,6 +17,8 @@ using static Plotly.NET.StyleParam;
 
 namespace Test
 {
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestXIC
     {
         [Test]
@@ -511,13 +513,13 @@ namespace Test
         //[Test]
         //public static void RealDataMbrTest_IsobaricCase_noRtShift()
         //{
-        //    string psmFile = "E:\\MBR\\TestingFile\\PSMsForIsobaricCase_noRtShift.psmtsv";
-        //    string outputPeptide = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeptide_NoRtShift.tsv";
-        //    string outputPeak = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeak_NoRtShift.tsv";
-        //    string outputProtein = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QProtein_NoRtShift.tsv";
+        //    string psmFile = "E:\\MBR\\TestingFile\\DataSet_forLFQ\\RTshift\\MetaSearch\\Task1-SearchTask\\AllPSMs.psmtsv";
+        //    string outputPeptide = "E:\\MBR\\TestingFile\\DataSet_forLFQ\\RTshift\\IsoTrackeerSearch\\QPeptide_NoRtShift.tsv";
+        //    string outputPeak = "E:\\MBR\\TestingFile\\DataSet_forLFQ\\RTshift\\IsoTrackeerSearch\\QPeak_NoRtShift.tsv";
+        //    string outputProtein = "E:\\MBR\\TestingFile\\DataSet_forLFQ\\RTshift\\IsoTrackeerSearch\\QProtein_NoRtShift.tsv";
 
-        //    SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\TestingFile\\DataSet_forLFQ\\noRTshift\\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML", "a", 0, 0, 0);
-        //    SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\TestingFile\\DataSet_forLFQ\\noRTshift\\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML", "a", 1, 0, 0);
+        //    SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\TestingFile\\DataSet_forLFQ\\RTshift\\20100604_Velos1_TaGe_SA_A549_3_first_Rtshift.mzML", "a", 0, 0, 0);
+        //    SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\TestingFile\\DataSet_forLFQ\\RTshift\\20100604_Velos1_TaGe_SA_A549_3_second_Rtshift.mzML", "a", 1, 0, 0);
 
         //    List<Identification> ids = new List<Identification>();
         //    Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
@@ -540,25 +542,26 @@ namespace Test
         //        {
         //            file = f1r2;
         //        }
-        //        var target = split[38];
-        //        var qvalue = double.Parse(split[50]);
-        //        var pepQvalue = double.Parse(split[53]);
-        //        string baseSequence = split[12];
-        //        string fullSequence = split[13];
+        //        var decoy = split[33];
+        //        var contaminant = split[32];
+        //        var qvalue = double.Parse(split[51]);
+        //        var qvalueNotch = double.Parse(split[54]);
+        //        string baseSequence = split[13];
+        //        string fullSequence = split[14];
 
         //        if (baseSequence.Contains("|") || fullSequence.Contains("|"))
         //        {
         //            continue;
         //        }
-        //        if (split[38].Contains("D") || split[38].Contains("C") || double.Parse(split[50]) > 0.01 || double.Parse(split[53]) > 0.01)
+        //        if (decoy.Contains("Y") || contaminant.Contains("Y") || qvalue > 0.01 || qvalueNotch > 0.01)
         //        {
         //            continue;
         //        }
 
-        //        double monoMass = double.Parse(split[22].Split(new char[] { '|' }).First());
+        //        double monoMass = double.Parse(split[23].Split(new char[] { '|' }).First());
         //        double rt = double.Parse(split[2]);
         //        int z = (int)double.Parse(split[6]);
-        //        var proteins = split[25].Split(new char[] { '|' });
+        //        var proteins = split[26].Split(new char[] { '|' });
         //        List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
         //        foreach (var protein in proteins)
         //        {
@@ -576,7 +579,7 @@ namespace Test
         //        Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
         //        ids.Add(id);
         //    }
-        //    var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isoTracker: false);
+        //    var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isoTracker: true);
         //    var results = engine.Run();
         //    results.WriteResults(outputPeak, outputPeptide, outputProtein, null, true);
 
