@@ -297,6 +297,9 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\LibrarySpectrumTestOutput.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\protein.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
