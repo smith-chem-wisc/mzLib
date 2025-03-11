@@ -2125,7 +2125,7 @@ namespace FlashLFQ
         /// <param name="chromPeaksInThisSequence"> The resilt will store the inforamtion</param>
         internal void CollectChromPeakInRuns(KeyValuePair<double,Tuple<double,double>> sharedPeak, List<ChromatographicPeak> chromPeaksInSharedPeak, XICGroups xICGroups)
         {
-            foreach (var xic in xICGroups.XICs)
+            foreach (var xic in xICGroups)
             {
                 double peakStart = sharedPeak.Value.Item1 ;
                 double PeakEnd = sharedPeak.Value.Item2 ;

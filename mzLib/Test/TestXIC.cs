@@ -325,18 +325,21 @@ namespace Test
         [Test]
         public static void TestXICGroup_Tracking()
         {
-            List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0).ToList(); //The timeLine from 10 to 30 mins
+            List<double>
+                timesPoints =
+                    Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0)
+                        .ToList(); //The timeLine from 10 to 30 mins
 
             List<double> intensities_P1 = new List<double>();
             List<double> intensities_P2 = new List<double>();
             List<double> intensities_P3 = new List<double>();
 
-            var peak_1 = new Normal(20, 0.6);    // first peak
+            var peak_1 = new Normal(20, 0.6); // first peak
             var intesity = 1E6; // In order to make the peak intensity high enough to be detected
             // Create three peaks with different retention times
             for (int k = 0; k < 200; k++)
             {
-                intensities_P1.Add(( peak_1.Density(timesPoints[k])));
+                intensities_P1.Add((peak_1.Density(timesPoints[k])));
                 intensities_P2.Add((peak_1.Density(timesPoints[k] - 3)));
                 intensities_P3.Add((peak_1.Density(timesPoints[k] + 3)));
             }
@@ -358,6 +361,7 @@ namespace Test
 
             var xicGroup = new XICGroups(new List<XIC> { xic, xic_2, xic_3 }, cutoff: 0);
 
+
             // Assert RT shift
             Assert.AreEqual(xicGroup.RTDict[0], 0, 0.001);
             Assert.AreEqual(xicGroup.RTDict[1], -3, 0.001);
@@ -378,10 +382,6 @@ namespace Test
             var sharedPeaks = xicGroup.SharedPeaks;
             Assert.IsNotNull(sharedPeaks);
             Assert.IsNotNull(sharedPeaks[Apex.RetentionTime]); // The shared peak should contain the apex peak
-
-
-
-
         }
 
     }

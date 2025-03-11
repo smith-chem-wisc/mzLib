@@ -1,17 +1,11 @@
-﻿using Easy.Common.Extensions;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using TopDownProteomics.IO.MzIdentMl;
 
 namespace FlashLFQ.Alex_project
 {
-    public class XICGroups : IEnumerable<XICGroups>
+    public class XICGroups : IEnumerable<XIC>
     {
         public XIC ReferenceXIC;
         public List<XIC> XICs;
@@ -274,16 +268,8 @@ namespace FlashLFQ.Alex_project
         }
 
 
-        public IEnumerator<XICGroups> GetEnumerator()
-        {
-            throw new NotImplementedException();
-        }
+        public IEnumerator<XIC> GetEnumerator() => XICs.GetEnumerator();
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            throw new NotImplementedException();
-        }
-
-
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

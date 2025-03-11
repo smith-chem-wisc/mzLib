@@ -1,21 +1,9 @@
 ﻿using MathNet.Numerics.Interpolation;
-using MathNet.Numerics.Providers.LinearAlgebra;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using MathNet.Numerics.IntegralTransforms;
-using System.Runtime.CompilerServices;
 using System.Numerics;
-using Omics.Fragmentation;
-using Readers.Generated;
-using System.Threading;
-using Easy.Common.Extensions;
-using System.Timers;
-using CsvHelper.Configuration.Attributes;
-using Chemistry;
-using System.Security.AccessControl;
 
 namespace FlashLFQ.Alex_project
 {
@@ -32,7 +20,7 @@ namespace FlashLFQ.Alex_project
         public double PeakFindingMz { get; init; } //The peak-finding mz used to detect the imsPeaks. Every peak should have this m/z+- tolerance
         public SpectraFileInfo SpectraFile { get; init; } // The spectra file the XIC came from
         public bool Reference { get; set; } //For a collection of XICs, one should be the reference for time alignment. We picked the XIC with the most MS2ID.
-        public MathNet.Numerics.Interpolation.LinearSpline LinearSpline { get; private set; } //A spline will be use for data interpolation.
+        public LinearSpline LinearSpline { get; private set; } //A spline will be use for data interpolation.
         public CubicSpline SmoothedCubicSpline { get; private set; }
         public double RtShift { get; private set; } // The time shift from the reference XIC
         public List<Extremum> Extrema { get; set; }
