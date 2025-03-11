@@ -93,7 +93,8 @@ namespace Omics.SpectrumMatch
         public string ToFraggerLibraryString(string proteinAccession, string geneName)
         {
             StringBuilder spectrum = new StringBuilder();
-            foreach (MatchedFragmentIon matchedIon in MatchedFragmentIons)
+            //for now we ignore any ions with neutral loss
+            foreach (MatchedFragmentIon matchedIon in MatchedFragmentIons.Where(mfi=>mfi.NeutralTheoreticalProduct.NeutralLoss == 0))
             {
                 StringBuilder spectrumRow = new StringBuilder();
                 spectrumRow.Append(PrecursorMz + "\t"); // PrecursorMz
