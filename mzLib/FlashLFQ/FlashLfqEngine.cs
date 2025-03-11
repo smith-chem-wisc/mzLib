@@ -1766,9 +1766,9 @@ namespace FlashLFQ
         /// is then repeated in the forward direction.
         /// </summary>
         /// <param name="zeroBasedStartIndex"> the scan where peak searching behaviour begins </param>
-        /// <param name="maxRT"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
+        /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns></returns>
-        public static List<IndexedMassSpectralPeak> GetXIC(double mz, int zeroBasedStartIndex, PeakIndexingEngine peakIndexingEngine, int scansLength, Tolerance ppmTolerance, int missedScansAllowed, double maxRT = double.MaxValue)
+        public static List<IndexedMassSpectralPeak> GetXIC(double mz, int zeroBasedStartIndex, PeakIndexingEngine peakIndexingEngine, int scansLength, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
         {
             var xic = new List<IndexedMassSpectralPeak>();
 
@@ -1787,7 +1787,7 @@ namespace FlashLFQ
                     missedScans = 0;
                     xic.Add(peak);
 
-                    if (peak.RetentionTime - xic.First().RetentionTime > maxRT)
+                    if (peak.RetentionTime - xic.First().RetentionTime > maxPeakHalfWidth)
                     {
                         break;
                     }
@@ -1814,7 +1814,7 @@ namespace FlashLFQ
                     missedScans = 0;
                     xic.Add(peak);
 
-                    if (xic.First().RetentionTime - peak.RetentionTime > maxRT)
+                    if (xic.First().RetentionTime - peak.RetentionTime > maxPeakHalfWidth)
                     {
                         break;
                     }
