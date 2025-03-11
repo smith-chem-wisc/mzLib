@@ -190,7 +190,8 @@ namespace Test
 
     }
 
-
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestXICGroup
     {
         [Test]
@@ -389,6 +390,8 @@ namespace Test
 
     }
 
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestFlashLFQResult()
     {
         [Test]
