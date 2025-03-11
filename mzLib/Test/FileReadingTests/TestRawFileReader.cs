@@ -2,33 +2,10 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Windows.Automation.Peers;
-using Easy.Common.Extensions;
-using FlashLFQ.Alex_project;
 using MassSpectrometry;
 using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using OxyPlot.Axes;
 using Readers;
-using Plotly.NET;
-using Plotly.NET.CSharp;
-using Chart = Plotly.NET.CSharp.Chart;
-using GenericChartExtensions = Plotly.NET.CSharp.GenericChartExtensions;
-using Plotly.NET.LayoutObjects;
-using Plotly.NET.TraceObjects;
-using System.ComponentModel;
-using System.Drawing;
-using Color = Plotly.NET.Color;
-using System.Collections;
-using System.Security.Policy;
-using System.Collections.Generic;
-using System.Xml.Schema;
-using FlashLFQ;
-using Microsoft.FSharp.Collections;
-using OxyPlot.Wpf;
-using mzPlot;
-using Readers.Generated;
-using System.Reflection;
 
 
 
