@@ -50,7 +50,10 @@ namespace Test
         [Test]
         public static void TestLinearSpline()
         {
-            // Arrange
+            //Description: Test the linear spline interpolation and differentiation
+            //The testing model is a linear function y = 100x, where x is the time point and y is the intensity
+            //The slope will be 100 and the second derivative will be 0
+
             var peaks = new List<IndexedMassSpectralPeak>
             {
                 new IndexedMassSpectralPeak(100, 100, 0, 1.0),
@@ -79,7 +82,10 @@ namespace Test
         [Test]
         public static void TestPeakAlignment()
         {
-            // Arrange
+            //Description: Test the peak alignment function
+            //The testing model is a triangle peak with the Apex.
+            //The Apex of three peaks are 3, 3.1, 2.9 min
+            //The time shift should be 0.1 min for the peak2 and -0.1 min for the peak3
 
             //The Apex of the peak1 is at 3.0
             var peaks1 = new List<IndexedMassSpectralPeak>
@@ -125,6 +131,10 @@ namespace Test
         [Test]
         public static void TestBuildSmoothedCubicSpline_LessPoint()
         {
+            //Description: Test the cubic spline interpolation
+            //The testing model has less than 5 points that cannot build the cubic spline
+            //The cubic spline should be null
+
             // Arrange
             var peaks = new List<IndexedMassSpectralPeak>
             {
@@ -142,11 +152,7 @@ namespace Test
         [Test]
         public static void TestBuildSmoothedCubicSpline()
         {
-            //
-
-            //Create a normal distribution peak with the retention time of 20 min
-
-            //Peak setting
+            //Peak setting: normal disstriubtion with mean 20 and standard deviation 0.6
             var peak = new Normal(20, 0.6);
             double peakFindingMass = 100.0;
             List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0).ToList(); //The timeLine from 10 to 30 mins
@@ -159,7 +165,7 @@ namespace Test
 
             var spectraFile = new SpectraFileInfo("test.raw", "TestCondition", 1, 1, 1);
             var xic = new XIC(peaks, peakFindingMass, spectraFile);
-
+            
             // Assert
             Assert.IsNotNull(xic.SmoothedCubicSpline);
             Assert.AreEqual(xic.SmoothedCubicSpline.GetType(), typeof(CubicSpline));
@@ -168,6 +174,7 @@ namespace Test
         [Test]
         public static void TestExtrema()
         {
+            //Peak setting: normal disstriubtion with mean 20 and standard deviation 0.6
             var peak = new Normal(20, 0.6);
             double peakFindingMass = 100.0;
             List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0).ToList(); //The timeLine from 10 to 30 mins
@@ -182,6 +189,10 @@ namespace Test
             var xic = new XIC(peaks, peakFindingMass, spectraFile);
             xic.FindExtrema();
             Assert.IsNotNull(xic.Extrema);
+
+            var Apex = xic.Extrema.Where(p => p.Type == ExtremumType.Maximum).OrderBy(p => p.Intensity).Last(); // The apex should be located at 20 min
+            Assert.AreEqual(Apex.RetentionTime, 20, 0.1);
+            
         }
 
     }
@@ -193,7 +204,7 @@ namespace Test
         [Test]
         public static void TestXICGroupConstructor()
         {
-            // Arrange
+            // XIC building
             var peaks = new List<IndexedMassSpectralPeak>
             {
                 new IndexedMassSpectralPeak(100, 200, 0, 1.0),
@@ -237,7 +248,6 @@ namespace Test
             Assert.IsNotNull(xicGroup.IdList);
             Assert.AreEqual(xicGroup.IdList.Count, 2);
             var idList = new List<Identification>() { id1, id2};
-            var movedIdList = new List<Identification>() { id1, id2 };
             CollectionAssert.AreEqual(idList.Select(p=>p.ModifiedSequence), xicGroup.IdList.Select(p => p.ModifiedSequence));
             // Because the XICGroup will create a new MovedId base on the original Id, so the IdList should be the same as the original IdList. But cannot use the Assert to test.
 
@@ -246,7 +256,10 @@ namespace Test
         [Test]
         public static void TestXICGroup_RtDict()
         {
-            // Arrange
+            //Description: Test the peakAlignment function in the XICGroup
+            //The testing has three normal distribution XIC peaks.
+            //The Apex of three peaks are 3, 3.1, 2.9 min
+            //The time shift should be 0.1 min for the peak2 and -0.1 min for the peak3
 
             //The Apex of the peak1 is at 3.0
             var peaks1 = new List<IndexedMassSpectralPeak>
@@ -294,7 +307,11 @@ namespace Test
         [Test]
         public static void TestXICGroup_IdList()
         {
-            // Arrange
+            //Description: Test the IdList in the XICGroup
+            //The testing model has three XICs, one of this XIC has no Id, then it borrows one Id from the first XIC
+            //If the Id is borrowed, the Id will not be added into the IdList
+            //The IdList should contain the Ids from the first and the third XIC
+
             var peaks = new List<IndexedMassSpectralPeak>
             {
                 new IndexedMassSpectralPeak(100, 10, 0, 1),
@@ -325,23 +342,28 @@ namespace Test
         [Test]
         public static void TestXICGroup_Tracking()
         {
-            List<double>
-                timesPoints =
-                    Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0)
-                        .ToList(); //The timeLine from 10 to 30 mins
+            //Description: Test the peak tracking function in the XICGroup
+            //The testing has three normal distribution XIC peaks.
+            //The Apex of three peaks are 20, 23, 17 min
+            //The time shift should be +3 min for the peak2 and -3 min for the peak3
+            //One shared peak should contain the Apex at 20 min.
+
+            //The timeLine from 10 to 30 mins
+            List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0)
+                        .ToList(); 
 
             List<double> intensities_P1 = new List<double>();
             List<double> intensities_P2 = new List<double>();
             List<double> intensities_P3 = new List<double>();
 
-            var peak_1 = new Normal(20, 0.6); // first peak
-            var intesity = 1E6; // In order to make the peak intensity high enough to be detected
+            var peak = new Normal(20, 0.6); // first peak
+
             // Create three peaks with different retention times
             for (int k = 0; k < 200; k++)
             {
-                intensities_P1.Add((peak_1.Density(timesPoints[k])));
-                intensities_P2.Add((peak_1.Density(timesPoints[k] - 3)));
-                intensities_P3.Add((peak_1.Density(timesPoints[k] + 3)));
+                intensities_P1.Add((peak.Density(timesPoints[k])));
+                intensities_P2.Add((peak.Density(timesPoints[k] - 3)));
+                intensities_P3.Add((peak.Density(timesPoints[k] + 3)));
             }
 
             List<IndexedMassSpectralPeak> p1List = new List<IndexedMassSpectralPeak>(); // create the timepoints
@@ -371,17 +393,20 @@ namespace Test
             Assert.AreEqual(xicGroup.SharedExtrema.Count, xicGroup.ExtremaInRef.Count);
             Assert.AreEqual(xicGroup.SharedExtrema.Select(p=>p.RetentionTime), xicGroup.ExtremaInRef.Select(p=>p.Key));
 
-            // Assert the Apex in this case. The apex should be the maximum peak in the shared peaks
-            var ApexExetremum = xicGroup.SharedExtrema.Where(p => p.RetentionTime < 20.1 && p.RetentionTime > 19.9); // The apex should be around 20
-            Assert.IsNotNull(ApexExetremum);
-            Assert.AreEqual(ApexExetremum.Count(), 1);
-            Extremum Apex = ApexExetremum.First();
-            Assert.AreEqual(Apex.Type, ExtremumType.Maximum);
+            // Assert the Apex in this case. The apex should be the at 20 min and extremum type is maximum
+            var Apex = xicGroup.SharedExtrema.Where(p=>p.Type == ExtremumType.Maximum).OrderBy(p=>p.Intensity).Last();
+            Assert.IsNotNull(Apex);
+            Assert.AreEqual(Apex.RetentionTime, 20, 0.1);
 
             // Assert shared peaks
             var sharedPeaks = xicGroup.SharedPeaks;
             Assert.IsNotNull(sharedPeaks);
-            Assert.IsNotNull(sharedPeaks[Apex.RetentionTime]); // The shared peak should contain the apex peak
+
+            //There should be only one peak that contains the apex
+            var ApexPeaks = sharedPeaks
+                .Where(p => p.Value.Item1 <= Apex.RetentionTime && p.Value.Item2 >= Apex.RetentionTime).ToList();
+            Assert.IsNotNull(ApexPeaks);
+            Assert.AreEqual(ApexPeaks.Count, 1);
         }
 
     }
@@ -393,6 +418,9 @@ namespace Test
         [Test]
         public static void TestPeakOutput()
         {
+            //Description: Test the IsoTracker in the FlashLFQ, checking items include the peak tracking and the peak output
+            //There are three XIC included isobaric peaks that with 3 min gap.
+
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
@@ -489,7 +517,9 @@ namespace Test
             CollectionAssert.AreEqual(expectedPeptideHeaders, peptideHeaderList);
 
             //Assert the isopeaks data
-            // Only modified sequences can have isobaric peaks
+            //Only modified sequences can have isobaric peaks
+            //In this case the intensity and retention time of the isobaric peaks from two runs should be the same
+            //The detection type should be different, one from MSMSScan and the other from MBR
             foreach (var line in File.ReadLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1))
             {
                 var fullSeq = line.Split('\t')[0];
@@ -497,7 +527,17 @@ namespace Test
                 if (fullSeq.Contains("peak", StringComparison.OrdinalIgnoreCase)) // The full sequence for Isobaric case should contain the word "peak"
                 {
                     CollectionAssert.AreNotEqual(baseSeq, fullSeq);
+                    var intensityRun1 = line.Split('\t')[5];
+                    var intensityRun2 = line.Split('\t')[6];
+                    var retentionTimeRun1 = line.Split('\t')[7];
+                    var retentionTimeRun2 = line.Split('\t')[8];
+                    var detectionTypeRun1 = line.Split('\t')[9];
+                    var detectionTypeRun2 = line.Split('\t')[10];
+                    CollectionAssert.AreEqual(intensityRun1,intensityRun2);
+                    CollectionAssert.AreEqual(retentionTimeRun1, retentionTimeRun2);
+                    CollectionAssert.AreNotEqual(detectionTypeRun1, detectionTypeRun2);
                 }
+                
             }
 
             //check that all rows including header have the same number of elements
