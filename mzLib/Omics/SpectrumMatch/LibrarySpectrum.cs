@@ -20,10 +20,10 @@ namespace Omics.SpectrumMatch
             get { return Sequence + "/" + ChargeState; }
         }
 
-        public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false) 
+        public LibrarySpectrum(string fullSequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false) 
             : base(peaks.Select(p => p.Mz).ToArray(), peaks.Select(p => p.Intensity).ToArray(), false)
         {
-            Sequence = sequence;
+            Sequence = fullSequence;
             PrecursorMz = precursorMz;
             MatchedFragmentIons = peaks;
             ChargeState = chargeState;
@@ -89,6 +89,68 @@ namespace Omics.SpectrumMatch
             }
 
             return spectrum.ToString();
+        }
+        public string ToFraggerLibraryString(string proteinAccession, string geneName)
+        {
+            StringBuilder spectrum = new StringBuilder();
+            foreach (MatchedFragmentIon matchedIon in MatchedFragmentIons)
+            {
+                StringBuilder spectrumRow = new StringBuilder();
+                spectrumRow.Append(PrecursorMz + "\t"); // PrecursorMz
+                spectrumRow.Append(matchedIon.Mz + "\t"); // ProductMz
+                spectrumRow.Append(matchedIon.Annotation.Replace('+', '^') + "\t"); // Annotation
+                spectrumRow.Append(proteinAccession + "\t"); // ProteinId
+                spectrumRow.Append(geneName + "\t"); // GeneName
+                spectrumRow.Append(BaseSequenceFromFullSequence() + "\t"); // PeptideSequence
+                spectrumRow.Append(Sequence + "\t"); // ModifiedPeptideSequence
+                spectrumRow.Append(ChargeState + "\t"); // PrecursorCharge
+                spectrumRow.Append(matchedIon.Intensity + "\t"); // LibraryIntensity
+                spectrumRow.Append(RetentionTime + "\t"); // NormalizedRetentionTime
+                spectrumRow.Append("" + "\t"); // PrecursorIonMobility
+                spectrumRow.Append(matchedIon.NeutralTheoreticalProduct.ProductType + "\t"); // FragmentType
+                spectrumRow.Append(matchedIon.Charge + "\t"); // FragmentCharge
+                spectrumRow.Append(matchedIon.NeutralTheoreticalProduct.FragmentNumber + "\t"); // FragmentSeriesNumber
+                spectrumRow.Append("" + "\t"); // FragmentLossType
+                spectrumRow.Append(RetentionTime + "\t"); // AverageExperimentalRetentionTime
+                spectrumRow.Append("sp|" + proteinAccession + "|" + geneName + "\t"); // AllMappedProteins
+                spectrumRow.Append(geneName + "\t"); // AllMappedGenes
+                spectrumRow.Append(1); // Proteotypic
+                 
+
+                spectrum.Append(spectrumRow + "\n");
+            }
+
+            return spectrum.ToString();
+        }
+        public string FraggerLibraryHeader()
+        {
+            return "PrecursorMz\tProductMz\tAnnotation\tProteinId\tGeneName\tPeptideSequence\tModifiedPeptideSequence\tPrecursorCharge\tLibraryIntensity\tNormalizedRetentionTime\tPrecursorIonMobility\tFragmentType\tFragmentCharge\tFragmentSeriesNumber\tFragmentLossType\tAverageExperimentalRetentionTime\tAllMappedProteins\tAllMappedGenes\tProteotypic";
+        }
+        public string BaseSequenceFromFullSequence()
+        {
+            StringBuilder result = new StringBuilder();
+            int bracketLevel = 0;
+
+            foreach (char c in Sequence)
+            {
+                if (c == '[')
+                {
+                    bracketLevel++;
+                }
+                else if (c == ']')
+                {
+                    if (bracketLevel > 0)
+                    {
+                        bracketLevel--;
+                    }
+                }
+                else if (bracketLevel == 0)
+                {
+                    result.Append(c);
+                }
+            }
+
+            return result.ToString();
         }
     }
 }
