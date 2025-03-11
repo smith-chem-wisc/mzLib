@@ -280,7 +280,7 @@ namespace Readers
                 ms1Scan.SetOneBasedScanNumber(oneBasedScanIndex);
                 scanArray[oneBasedScanIndex - 1] = ms1Scan;
                 oneBasedScanIndex++;
-                //if (ms1Scan.PrecursorId == -1) continue; // Continue if the scan didn't have any precursors (as there will be no MS2 scans)
+                if (ms1Scan.PrecursorId == -1) continue; // Continue if the scan didn't have any precursors (as there will be no MS2 scans)
                 
                 // This assumes that there is a one to one correspondence between the MS1 scans and the PASEF scans
                 var pasefScan = localPasefScans[pasefScanIndex];
@@ -299,13 +299,8 @@ namespace Readers
                 }
             }
 
-            if(oneBasedScanIndex < scanArray.Length)
-            {
-                // Some MS1 scans contain no peaks where the precursor was identified, so they are not included in the scanArray
-                scanArray = scanArray.Where(scan => scan != null).ToArray();
-            }
-
-            Scans = scanArray;
+            // Some MS1 scans contain no peaks where the precursor was identified, so they are not included in the scanArray
+            Scans = scanArray.Where(scan => scan != null).ToArray();
         }
 
         /// <summary>

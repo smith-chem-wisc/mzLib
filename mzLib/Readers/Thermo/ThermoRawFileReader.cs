@@ -44,8 +44,6 @@ namespace Readers
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
 
@@ -130,8 +128,6 @@ namespace Readers
             {
                 throw new FileNotFoundException();
             }
-
-            Loaders.LoadElements();
 
             if (dynamicConnection != null)
             {

@@ -39,6 +39,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\SingleEntry_ModOrder1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
