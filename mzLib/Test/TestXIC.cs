@@ -13,6 +13,7 @@ using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using System.Security;
 using MassSpectrometry;
 using Readers;
+using static Plotly.NET.StyleParam;
 
 namespace Test
 {
@@ -478,7 +479,7 @@ namespace Test
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).ToList();
             List<string> proteinsList = File.ReadAllLines(Path.Combine(outputDirectory, "proteins.tsv")).ToList();
 
-            // Assert headers
+            // Assert new peptide headers for the Isotracker
             var peptideHeader = File.ReadLines(Path.Combine(outputDirectory, "peptides.tsv")).ToList();
             List<string> peptideHeaderList = peptideHeader[0].Split('\t').ToList();
             List<string> expectedPeptideHeaders = new List<string> { "Sequence", "Base Sequence", "Protein Groups", "Gene Names", "Organism", "Intensity_" + file1, "Intensity_" + file2, 
@@ -486,7 +487,17 @@ namespace Test
             Assert.AreEqual(11,peptideHeaderList.Count);
             CollectionAssert.AreEqual(expectedPeptideHeaders, peptideHeaderList);
 
-
+            //Assert the isopeaks data
+            // Only modified sequences can have isobaric peaks
+            foreach (var line in File.ReadLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1))
+            {
+                var fullSeq = line.Split('\t')[0];
+                var baseSeq = line.Split('\t')[1];
+                if (fullSeq.Contains("peak", StringComparison.OrdinalIgnoreCase)) // The full sequence for Isobaric case should contain the word "peak"
+                {
+                    CollectionAssert.AreNotEqual(baseSeq, fullSeq);
+                }
+            }
 
             //check that all rows including header have the same number of elements
             Assert.AreEqual(1, peaksList.Select(l => l.Split('\t').Length).Distinct().ToList().Count);
@@ -497,258 +508,80 @@ namespace Test
         }
 
 
-        [Test]
-        public static void RealDataMbrTest_IsobaricCase_noRtShift()
-        {
-            string psmFile = "E:\\MBR\\TestingFile\\PSMsForIsobaricCase_noRtShift.psmtsv";
-            string outputPeptide = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeptide_NoRtShift.tsv";
-            string outputPeak = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeak_NoRtShift.tsv";
-            string outputProtein = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QProtein_NoRtShift.tsv";
+        //[Test]
+        //public static void RealDataMbrTest_IsobaricCase_noRtShift()
+        //{
+        //    string psmFile = "E:\\MBR\\TestingFile\\PSMsForIsobaricCase_noRtShift.psmtsv";
+        //    string outputPeptide = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeptide_NoRtShift.tsv";
+        //    string outputPeak = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QPeak_NoRtShift.tsv";
+        //    string outputProtein = "E:\\MBR\\TestingFile\\testingOutput\\IsoTracker_turnOff_noRt\\QProtein_NoRtShift.tsv";
 
-            SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\TestingFile\\DataSet_forLFQ\\noRTshift\\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML", "a", 0, 0, 0);
-            SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\TestingFile\\DataSet_forLFQ\\noRTshift\\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML", "a", 1, 0, 0);
+        //    SpectraFileInfo f1r1 = new SpectraFileInfo("E:\\MBR\\TestingFile\\DataSet_forLFQ\\noRTshift\\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML", "a", 0, 0, 0);
+        //    SpectraFileInfo f1r2 = new SpectraFileInfo("E:\\MBR\\TestingFile\\DataSet_forLFQ\\noRTshift\\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML", "a", 1, 0, 0);
 
-            List<Identification> ids = new List<Identification>();
-            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
-            foreach (string line in File.ReadAllLines(psmFile))
-            {
-                var split = line.Split(new char[] { '\t' });
+        //    List<Identification> ids = new List<Identification>();
+        //    Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+        //    foreach (string line in File.ReadAllLines(psmFile))
+        //    {
+        //        var split = line.Split(new char[] { '\t' });
 
-                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
+        //        if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+        //        {
+        //            continue;
+        //        }
 
-                SpectraFileInfo file = null;
+        //        SpectraFileInfo file = null;
 
-                if (split[0].Contains("first"))
-                {
-                    file = f1r1;
-                }
-                else if (split[0].Contains("second"))
-                {
-                    file = f1r2;
-                }
-                var target = split[38];
-                var qvalue = double.Parse(split[50]);
-                var pepQvalue = double.Parse(split[53]);
-                string baseSequence = split[12];
-                string fullSequence = split[13];
+        //        if (split[0].Contains("first"))
+        //        {
+        //            file = f1r1;
+        //        }
+        //        else if (split[0].Contains("second"))
+        //        {
+        //            file = f1r2;
+        //        }
+        //        var target = split[38];
+        //        var qvalue = double.Parse(split[50]);
+        //        var pepQvalue = double.Parse(split[53]);
+        //        string baseSequence = split[12];
+        //        string fullSequence = split[13];
 
-                if (baseSequence.Contains("|") || fullSequence.Contains("|"))
-                {
-                    continue;
-                }
-                if (split[38].Contains("D") || split[38].Contains("C") || double.Parse(split[50]) > 0.01 || double.Parse(split[53]) > 0.01)
-                {
-                    continue;
-                }
+        //        if (baseSequence.Contains("|") || fullSequence.Contains("|"))
+        //        {
+        //            continue;
+        //        }
+        //        if (split[38].Contains("D") || split[38].Contains("C") || double.Parse(split[50]) > 0.01 || double.Parse(split[53]) > 0.01)
+        //        {
+        //            continue;
+        //        }
 
-                double monoMass = double.Parse(split[22].Split(new char[] { '|' }).First());
-                double rt = double.Parse(split[2]);
-                int z = (int)double.Parse(split[6]);
-                var proteins = split[25].Split(new char[] { '|' });
-                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
-                foreach (var protein in proteins)
-                {
-                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
-                    {
-                        proteinGroups.Add(proteinGroup);
-                    }
-                    else
-                    {
-                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
-                        proteinGroups.Add(allProteinGroups[protein]);
-                    }
-                }
+        //        double monoMass = double.Parse(split[22].Split(new char[] { '|' }).First());
+        //        double rt = double.Parse(split[2]);
+        //        int z = (int)double.Parse(split[6]);
+        //        var proteins = split[25].Split(new char[] { '|' });
+        //        List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+        //        foreach (var protein in proteins)
+        //        {
+        //            if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+        //            {
+        //                proteinGroups.Add(proteinGroup);
+        //            }
+        //            else
+        //            {
+        //                allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+        //                proteinGroups.Add(allProteinGroups[protein]);
+        //            }
+        //        }
 
-                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
-                ids.Add(id);
-            }
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isoTracker: false);
-            var results = engine.Run();
-            results.WriteResults(outputPeak, outputPeptide, outputProtein, null, true);
+        //        Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+        //        ids.Add(id);
+        //    }
+        //    var engine = new FlashLfqEngine(ids, matchBetweenRuns: false, requireMsmsIdInCondition: false, maxThreads: 5, isoTracker: false);
+        //    var results = engine.Run();
+        //    results.WriteResults(outputPeak, outputPeptide, outputProtein, null, true);
 
-        }
+        //}
 
     }
 
-
-    internal class SnippFab
-    {
-        [Test]
-        public static void SnippSpecae()
-        {
-            string file1 = "E:\\MBR\\TestingFile\\Raw Files\\SnippedFiles\\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML";
-            string file2 = "E:\\MBR\\TestingFile\\Raw Files\\SnippedFiles\\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML";
-            SnipMzMl(file1, 16000, 16800);
-            SnipMzMl(file2, 16000, 16800);
-
-        }
-
-        public static void SnipRaw(string origDataFile, int startScan, int endScan)
-        {
-
-            FilteringParams filter = new FilteringParams(200, 0.01, 1, null, false, false, true);
-            var reader = MsDataFileReader.GetDataFile(origDataFile);
-            reader.LoadAllStaticData(filter, 1);
-
-            var scans = reader.GetAllScansList();
-            var scansToKeep = scans.Where(x => x.OneBasedScanNumber >= startScan && x.OneBasedScanNumber <= endScan).ToList();
-
-            List<(int oneBasedScanNumber, int? oneBasedPrecursorScanNumber)> scanNumbers = new List<(int oneBasedScanNumber, int? oneBasedPrecursorScanNumber)>();
-
-            foreach (var scan in scansToKeep)
-            {
-                if (scan.OneBasedPrecursorScanNumber.HasValue && (scan.OneBasedPrecursorScanNumber.Value - startScan + 1) >= 0)
-                {
-                    scanNumbers.Add((scan.OneBasedScanNumber, scan.OneBasedPrecursorScanNumber));
-                }
-            }
-
-            Dictionary<int, int> scanNumberMap = new Dictionary<int, int>();
-
-            foreach (var scanNumber in scanNumbers)
-            {
-                if (!scanNumberMap.ContainsKey(scanNumber.oneBasedScanNumber))
-                {
-                    scanNumberMap.Add(scanNumber.oneBasedScanNumber, scanNumber.oneBasedScanNumber - startScan + 1);
-                }
-                if (scanNumber.oneBasedPrecursorScanNumber.HasValue && !scanNumberMap.ContainsKey(scanNumber.oneBasedPrecursorScanNumber.Value))
-                {
-                    scanNumberMap.Add(scanNumber.oneBasedPrecursorScanNumber.Value, scanNumber.oneBasedPrecursorScanNumber.Value - startScan + 1);
-                }
-            }
-            List<MsDataScan> scansForTheNewFile = new List<MsDataScan>();
-
-
-            foreach (var scanNumber in scanNumbers)
-            {
-                MsDataScan scan = scansToKeep.First(x => x.OneBasedScanNumber == scanNumber.oneBasedScanNumber);
-
-                MsDataScan newDataScan = new MsDataScan(
-                    scan.MassSpectrum,
-                    scanNumberMap[scan.OneBasedScanNumber],
-                    scan.MsnOrder,
-                    scan.IsCentroid,
-                    scan.Polarity,
-                    scan.RetentionTime,
-                    scan.ScanWindowRange,
-                    scan.ScanFilter,
-                    scan.MzAnalyzer,
-                    scan.TotalIonCurrent,
-                    scan.InjectionTime,
-                    scan.NoiseData,
-                    scan.NativeId.Replace(scan.OneBasedPrecursorScanNumber.ToString(), scanNumberMap[scan.OneBasedScanNumber].ToString()),
-                    scan.SelectedIonMZ,
-                    scan.SelectedIonChargeStateGuess,
-                    scan.SelectedIonIntensity,
-                    scan.IsolationMz,
-                    scan.IsolationWidth,
-                    scan.DissociationType,
-                    scanNumberMap[scan.OneBasedPrecursorScanNumber.Value],
-                    scan.SelectedIonMonoisotopicGuessMz,
-                    scan.HcdEnergy
-                );
-                scansForTheNewFile.Add(newDataScan);
-            }
-
-            string outPath = origDataFile.Replace(".mzML", "_snip.mzML");
-
-            SourceFile sourceFile = new SourceFile(reader.SourceFile.NativeIdFormat,
-                reader.SourceFile.MassSpectrometerFileFormat, reader.SourceFile.CheckSum, reader.SourceFile.Uri.ToString(),
-                reader.SourceFile.FileName);
-
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scansForTheNewFile.ToArray(), sourceFile), outPath, false);
-        }
-
-
-
-
-        private static void SnipMzMl(string filePath, int startScan, int endScan)
-        {
-            string origDataFile = filePath;
-            FilteringParams filter = new FilteringParams(200, 0.01, 1, null, false, false, true);
-            var reader = MsDataFileReader.GetDataFile(origDataFile);
-            reader.LoadAllStaticData(filter, 1);
-
-            var scans = reader.GetAllScansList();
-            var scansToKeep = scans.Where(x => x.OneBasedScanNumber >= startScan && x.OneBasedScanNumber <= endScan).ToList();
-
-            List<(int oneBasedScanNumber, int? oneBasedPrecursorScanNumber)> scanNumbers = new List<(int oneBasedScanNumber, int? oneBasedPrecursorScanNumber)>();
-            foreach (var scan in scansToKeep)
-            {
-                if (scan.OneBasedPrecursorScanNumber.HasValue)
-                {
-                    scanNumbers.Add((scan.OneBasedScanNumber, scan.OneBasedPrecursorScanNumber.Value));
-                }
-                else
-                {
-                    scanNumbers.Add((scan.OneBasedScanNumber, null));
-                }
-            }
-
-            Dictionary<int, int> scanNumberMap = new Dictionary<int, int>();
-
-            foreach (var scanNumber in scanNumbers)
-            {
-                if (!scanNumberMap.ContainsKey(scanNumber.oneBasedScanNumber) && (scanNumber.oneBasedScanNumber - startScan + 1) > 0)
-                {
-                    scanNumberMap.Add(scanNumber.oneBasedScanNumber, scanNumber.oneBasedScanNumber - startScan + 1);
-                }
-                if (scanNumber.oneBasedPrecursorScanNumber.HasValue && !scanNumberMap.ContainsKey(scanNumber.oneBasedPrecursorScanNumber.Value) && (scanNumber.oneBasedPrecursorScanNumber.Value - startScan + 1) > 0)
-                {
-                    scanNumberMap.Add(scanNumber.oneBasedPrecursorScanNumber.Value, scanNumber.oneBasedPrecursorScanNumber.Value - startScan + 1);
-                }
-            }
-            List<MsDataScan> scansForTheNewFile = new List<MsDataScan>();
-
-
-            foreach (var scanNumber in scanNumbers)
-            {
-                MsDataScan scan = scansToKeep.First(x => x.OneBasedScanNumber == scanNumber.oneBasedScanNumber);
-
-                int? newOneBasedPrecursorScanNumber = null;
-                if (scan.OneBasedPrecursorScanNumber.HasValue && scanNumberMap.ContainsKey(scan.OneBasedPrecursorScanNumber.Value))
-                {
-                    newOneBasedPrecursorScanNumber = scanNumberMap[scan.OneBasedPrecursorScanNumber.Value];
-                }
-                MsDataScan newDataScan = new MsDataScan(
-                    scan.MassSpectrum,
-                    scanNumberMap[scan.OneBasedScanNumber],
-                    scan.MsnOrder,
-                    scan.IsCentroid,
-                    scan.Polarity,
-                    scan.RetentionTime,
-                    scan.ScanWindowRange,
-                    scan.ScanFilter,
-                    scan.MzAnalyzer,
-                    scan.TotalIonCurrent,
-                    scan.InjectionTime,
-                    scan.NoiseData,
-                    scan.NativeId.Replace(scan.OneBasedScanNumber.ToString(), scanNumberMap[scan.OneBasedScanNumber].ToString()),
-                    scan.SelectedIonMZ,
-                    scan.SelectedIonChargeStateGuess,
-                    scan.SelectedIonIntensity,
-                    scan.IsolationMz,
-                    scan.IsolationWidth,
-                    scan.DissociationType,
-                    newOneBasedPrecursorScanNumber,
-                    scan.SelectedIonMonoisotopicGuessMz,
-                    scan.HcdEnergy
-                );
-                scansForTheNewFile.Add(newDataScan);
-            }
-
-            string outPath = origDataFile.Replace(".raw", "_snip.mzML").ToString();
-
-            SourceFile sourceFile = new SourceFile(reader.SourceFile.NativeIdFormat,
-                reader.SourceFile.MassSpectrometerFileFormat, reader.SourceFile.CheckSum, reader.SourceFile.FileChecksumType, reader.SourceFile.Uri, reader.SourceFile.Id, reader.SourceFile.FileName);
-
-
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new GenericMsDataFile(scansForTheNewFile.ToArray(), sourceFile), outPath, false);
-
-            //Assert.IsTrue(True);
-        }
-    }
 }
