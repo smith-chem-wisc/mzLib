@@ -27,42 +27,35 @@ namespace MzLibUtil
     public static class ClassExtensions
     {
         /// <summary>
-        /// Parses the full sequence to identify mods.
+        /// Parses the full sequence to identify mods. Note: This method has been updated to NOT handle ambiguous mods on a given position (e.g. M[modA]|[modB]).
+        /// If ambiguity exists, generate a separate full sequence for each mod and parse each separately.
         /// </summary>
         /// <param name="fullSequence"> Full sequence of the peptide in question.</param>
         /// <param name="ignoreTerminusMod"> If true, terminal modifications will be ignored.</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(this string fullSequence, bool ignoreTerminusMod = false)
+        public static Dictionary<int, string> ParseModifications(this string fullSequence, bool ignoreTerminusMod = false)
         {
             // use a regex to get modifications
-            string pattern = @"\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
-            Regex regex = new(pattern);
+            string modPattern = @"-?\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
+            Regex modRegex = new(modPattern);
 
-            // remove each match after adding to the dict. Otherwise, getting positions
-            // of the modifications will be rather difficult.
-            //int patternMatches = regex.Matches(fullSequence).Count;
-            Dictionary<int, List<string>> modDict = new();
+            // use a regex to find C-terminus modification
+            var cTerminusPattern = @"(?<=[A-Z\]])-(?=\[)";
+            Regex cTerminusRegex = new(cTerminusPattern);
 
-            string temp = fullSequence;
-            RemoveSpecialCharacters(ref temp);
-            string splitAtCTerminusPattern = @"(?<=[A-Z\]])-(?=\[)";
-            var splitAtCTerminus = Regex.Split(temp, splitAtCTerminusPattern);
+            var fullSeq = fullSequence;
+            Dictionary<int, string> modDict = new();
 
-            // If the sequence is split at the C-terminus, we need to remove the special character  
-            var fullSeq = splitAtCTerminus[0];
-
-            MatchCollection matches = regex.Matches(fullSeq);
+            MatchCollection matches = modRegex.Matches(fullSeq);
             int captureLengthSum = 0;
             int positionToAddToDict = 0;
             foreach (Match match in matches)
             {
                 GroupCollection group = match.Groups;
-                string val = group[1].Value;
+                string rawModString = group[0].Value;
+                string mod = group[1].Value;
                 int startIndex = group[0].Index;
                 int captureLength = group[0].Length;
-
-                List<string> modList = new List<string>();
-                modList.Add(val);
 
                 // The position of the amino acids is tracked by the positionToAddToDict variable. It takes the 
                 // startIndex of the modification Match and removes the cumulative length of the modifications
@@ -70,32 +63,19 @@ namespace MzLibUtil
                 // or the number of amino acids prior to the startIndex in the sequence. 
                 positionToAddToDict = startIndex - captureLengthSum;
 
-                if ((positionToAddToDict == 0) && ignoreTerminusMod)
+                if (((positionToAddToDict == 0) || rawModString.StartsWith("-")) && ignoreTerminusMod) // ignore terminal mods
                 {
-                    captureLengthSum += captureLength;  
+                    captureLengthSum += captureLength;
                     continue;
                 }
 
-                // check to see if key already exist
-                // if the already key exists, update the current position with the capture length + 1.
-                // otherwise, add the modification to the dict.
-                if (modDict.ContainsKey(positionToAddToDict))
+                if (rawModString.StartsWith("-"))
                 {
-                    modDict[positionToAddToDict].Add(val);
+                    positionToAddToDict++;
                 }
-                else
-                {
-                    modDict.Add(positionToAddToDict, modList);
-                }
+
+                modDict.Add(positionToAddToDict, mod);
                 captureLengthSum += captureLength;
-            }
-
-            if (splitAtCTerminus.Length > 1 && !ignoreTerminusMod)
-            {
-                positionToAddToDict = regex.Replace(fullSeq, "").Length+1;
-                var cTerminusModMatches = regex.Matches(splitAtCTerminus[1]);
-
-                modDict.Add(positionToAddToDict, cTerminusModMatches.Select(x => x.Groups[1].Value).ToList());
             }
             return modDict;
         }
