@@ -19,7 +19,7 @@ namespace FlashLFQ
         /// e.g., retention time, ion mobility
         /// </summary>
         public double RetentionTime { get; }
-        public int ZeroBasedScanIndex { get; }
+        public int ZeroBasedMs1ScanIndex { get; }
         public double Mz { get; }
     }
 }

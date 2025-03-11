@@ -256,26 +256,30 @@ namespace Test
                 {
                     file = f1r1;
                 }
-                else if (split[0].Contains("_891"))
-                {
-                    file = f1r2;
-                }
-                else if (split[0].Contains("_892"))
-                {
-                    file = f1r3;
-                }
                 else if (split[0].Contains("_893"))
                 {
                     file = g1r1;
                 }
-                else if (split[0].Contains("_894"))
-                {
-                    file = g1r2;
-                }
-                else if (split[0].Contains("_895"))
-                {
-                    file = g1r3;
-                }
+                else
+                    continue;
+
+                //else if (split[0].Contains("_891"))
+                //{
+                //    file = f1r2;
+                //}
+                //else if (split[0].Contains("_892"))
+                //{
+                //    file = f1r3;
+                //}
+                
+                //else if (split[0].Contains("_894"))
+                //{
+                //    file = g1r2;
+                //}
+                //else if (split[0].Contains("_895"))
+                //{
+                //    file = g1r3;
+                //}
 
                 if (split[23].Contains("|") || double.Parse(split[56]) > 0.01)
                 {

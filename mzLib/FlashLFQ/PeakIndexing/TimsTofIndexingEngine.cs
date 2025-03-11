@@ -76,7 +76,7 @@ namespace FlashLFQ
                     // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
                     for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
                     {
-                        if (spectrum.YArray[spectrumIdx] < 200) continue;
+                        if (spectrum.YArray[spectrumIdx] < 150) continue;
                         double peakMz = MzLookupArray[spectrum.XArray[spectrumIdx]];
                         int roundedMz = (int)Math.Round(peakMz * BinsPerDalton, 0);
                         _indexedPeaks[roundedMz] ??= new List<IndexedTimsTofPeak>(frameArray.Length / 100);
@@ -147,7 +147,7 @@ namespace FlashLFQ
             return MergeTimsTofPeaks(peaksInFrame, theorMass.ToMz(chargeState));
         }
 
-        private IndexedMassSpectralPeak MergeTimsTofPeaks(Dictionary<int, List<IndexedTimsTofPeak>> peaksInFrame, double targetMz, int? targetTimsScanIndex = null)
+        private IndexedIonMobilityPeak MergeTimsTofPeaks(Dictionary<int, List<IndexedTimsTofPeak>> peaksInFrame, double targetMz, int? targetTimsScanIndex = null)
         {
             if (!peaksInFrame.Any()) return null;
 
@@ -207,11 +207,12 @@ namespace FlashLFQ
             if(rightIndex >= peaksByTimsScanIndex.Count) rightIndex = peaksByTimsScanIndex.Count - 1; // if we are at the end of the list, we don't want to go out of bounds (rightIndex++)
 
 
-            return new IndexedMassSpectralPeak(
+            return new IndexedIonMobilityPeak(
                 MzLookupArray[apex.TofIndex], 
                 peaksByTimsScanIndex[leftIndex..(rightIndex+1)].Sum(p => p.Intensity),
                 apex.ZeroBasedMs1FrameIndex,
-                Ms1ScanInfoArray[apex.ZeroBasedMs1FrameIndex].RetentionTime);
+                Ms1ScanInfoArray[apex.ZeroBasedMs1FrameIndex].RetentionTime,
+                ionMobilityValue: apex.TimsIndex);
         }
 
         private int BinarySearchForIndexedPeak(List<IndexedTimsTofPeak> bin, int zeroBasedScanIndex)

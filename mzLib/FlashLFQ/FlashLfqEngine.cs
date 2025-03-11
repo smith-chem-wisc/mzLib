@@ -499,7 +499,7 @@ namespace FlashLFQ
                             {
                                 continue;
                             }
-                            List<IndexedMassSpectralPeak> xic = Peakfind(
+                            List<IIndexedPeak> xic = Peakfind(
                                     identification.Ms2RetentionTimeInMinutes,
                                     identification.PeakfindingMass,
                                     chargeState,
@@ -1367,6 +1367,10 @@ namespace FlashLFQ
                         {
                             if (PeptideModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
                             {
+                                if(storedPeak.Identifications.First().ModifiedSequence != tryPeak.Identifications.First().ModifiedSequence)
+                                {
+                                    int placheolder = 1;
+                                }
                                 storedPeak.MergeFeatureWith(tryPeak, Integrate);
                             }
                             else
@@ -1563,7 +1567,7 @@ namespace FlashLFQ
         /// <param name="xic"> List of imsPeaks, where the mass of each peak is the peak finding mass (most abundant isotope) </param>
         /// <returns> A list of IsotopicEnvelopes, where each envelope contains the sum of the isotopic peak intensities from one scan </returns>
         public List<IsotopicEnvelope> GetIsotopicEnvelopes(
-            List<IndexedMassSpectralPeak> xic,
+            List<IIndexedPeak> xic,
             Identification identification,
             int chargeState)
         {
@@ -1629,7 +1633,7 @@ namespace FlashLFQ
                                                  theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
-                            IndexedMassSpectralPeak isotopePeak = CurrentIndexingEngine.GetIndexedPeak(isotopeMass,
+                            IIndexedPeak isotopePeak = CurrentIndexingEngine.GetIndexedPeak(isotopeMass,
                                 peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                             if (isotopePeak == null
@@ -1686,7 +1690,7 @@ namespace FlashLFQ
         /// <returns>True if experimental data is a good match to the expected isotopic distribution </returns>
         public bool CheckIsotopicEnvelopeCorrelation(
             Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>> massShiftToIsotopePeaks,
-            IndexedMassSpectralPeak peak,
+            IIndexedPeak peak,
             int chargeState,
             Tolerance isotopeTolerance,
             out double pearsonCorrelation)
@@ -1705,7 +1709,7 @@ namespace FlashLFQ
                 }
 
                 double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
-                IndexedMassSpectralPeak unexpectedPeak = CurrentIndexingEngine.GetIndexedPeak(unexpectedMass,
+                IIndexedPeak unexpectedPeak = CurrentIndexingEngine.GetIndexedPeak(unexpectedMass,
                             peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                 if (unexpectedPeak == null)
@@ -1752,12 +1756,12 @@ namespace FlashLFQ
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
         /// <param name="mass"> Peakfinding mass </param>
         /// <returns></returns>
-        public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
+        public List<IIndexedPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
-            var xic = new List<IndexedMassSpectralPeak>();
+            var xic = new List<IIndexedPeak>();
 
             // get precursor scan to start at
-            Ms1ScanInfo[] ms1Scans = IndexingEngineDict[spectraFileInfo].Ms1ScanInfoArray; ;
+            Ms1ScanInfo[] ms1Scans = IndexingEngineDict[spectraFileInfo].Ms1ScanInfoArray;
             int precursorScanIndex = -1;
             foreach (Ms1ScanInfo ms1Scan in ms1Scans)
             {

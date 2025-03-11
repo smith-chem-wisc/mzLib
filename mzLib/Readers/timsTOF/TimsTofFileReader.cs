@@ -277,9 +277,10 @@ namespace Readers
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
-            int numberOfScansToCombine = NumberOfScansPerFrame / 10; // 10 spectra per frame
+            int spectraPerFrame = 12;
+            int numberOfScansToCombine = NumberOfScansPerFrame / spectraPerFrame; // 10 spectra per frame
             scansPerSpectrum = numberOfScansToCombine;
-            int approxNumScans = 10 * scansPerSpectrum;
+            int approxNumScans = spectraPerFrame * scansPerSpectrum;
 
             //var scanCollection = new BlockingCollection<TimsDataScan>();
             TimsDataScan[] scans = new TimsDataScan[Ms1FrameIds.Count];
