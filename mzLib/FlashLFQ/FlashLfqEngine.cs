@@ -499,12 +499,7 @@ namespace FlashLFQ
                             {
                                 continue;
                             }
-                            List<IndexedMassSpectralPeak> xic;
-                            try
-                            {
-                                // get XIC (peakfinding)
-                                //List<IndexedMassSpectralPeak> 
-                                xic = Peakfind(
+                            List<IndexedMassSpectralPeak> xic = Peakfind(
                                     identification.Ms2RetentionTimeInMinutes,
                                     identification.PeakfindingMass,
                                     chargeState,
@@ -512,26 +507,16 @@ namespace FlashLFQ
                                     peakfindingTol)
                                 .OrderBy(p => p.RetentionTime)
                                 .ToList();
-                            }
-                            catch (Exception ex) {
-                                Console.WriteLine("Error in peakfinding: " + ex.Message);
-                                continue;
-                            }
 
                             // filter by smaller mass tolerance
                             xic.RemoveAll(p => 
                                 !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.PeakfindingMass));
-                            try
-                            {
-                                // filter by isotopic distribution
-                                List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
+                            // filter by isotopic distribution
+                            List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
 
-                                // add isotopic envelopes to the chromatographic peak
-                                msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
-                            } catch (Exception ex) {
-                                Console.WriteLine("Error in isotopic envelope creation: " + ex.Message);
-                            }
-                            
+                            // add isotopic envelopes to the chromatographic peak
+                            msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
+ 
                         }
                         if (!msmsFeature.IsotopicEnvelopes.Any())
                         {
@@ -1257,11 +1242,11 @@ namespace FlashLFQ
 
             foreach (int z in chargesToMatch)
             {
-                List<IndexedMassSpectralPeak> chargeXic = new List<IndexedMassSpectralPeak>();
+                List<IIndexedPeak> chargeXic = new List<IIndexedPeak>();
 
                 for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
                 {
-                    IndexedMassSpectralPeak peak = CurrentIndexingEngine.GetIndexedPeak(donorIdentification.PeakfindingMass, j, fileSpecificTol, z);
+                    IIndexedPeak peak = CurrentIndexingEngine.GetIndexedPeak(donorIdentification.PeakfindingMass, j, fileSpecificTol, z);
                     if (peak != null)
                         chargeXic.Add(peak);
                 }

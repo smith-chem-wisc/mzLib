@@ -277,7 +277,8 @@ namespace Readers
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
-            scansPerSpectrum = NumberOfScansPerFrame / 10; // 10 spectra per frame
+            int numberOfScansToCombine = NumberOfScansPerFrame / 10; // 10 spectra per frame
+            scansPerSpectrum = numberOfScansToCombine;
             int approxNumScans = 10 * scansPerSpectrum;
 
             //var scanCollection = new BlockingCollection<TimsDataScan>();
@@ -319,7 +320,7 @@ namespace Readers
                         List<uint[]> indexArrays = new(10);
                         List<int[]> intensityArrays = new(10);
                         int previousScanIdx = 0;
-                        for (int nextScanIdx = scansPerSpectrum + extraScans; nextScanIdx < frame.NumberOfScans + scansPerSpectrum; nextScanIdx += scansPerSpectrum)
+                        for (int nextScanIdx = numberOfScansToCombine + extraScans; nextScanIdx < frame.NumberOfScans + numberOfScansToCombine; nextScanIdx += numberOfScansToCombine)
                         {
                             // Step 1: Get the scans    
                             nextScanIdx = Math.Min(frame.NumberOfScans - 1, nextScanIdx);

@@ -3,7 +3,7 @@
 namespace FlashLFQ
 {
     [Serializable]
-    public class IndexedMassSpectralPeak : ISingleScanDatum
+    public class IndexedMassSpectralPeak : ISingleScanDatum, IIndexedPeak
     {
         public int ZeroBasedMs1ScanIndex { get; init; }
         public double Mz { get; init; }
@@ -38,6 +38,22 @@ namespace FlashLFQ
         public override string ToString()
         {
             return Mz.ToString("F3") + "; " + ZeroBasedMs1ScanIndex;
+        }
+    }
+
+    public class IndexedIonMobilityPeak : IndexedMassSpectralPeak, IIndexedPeak
+    {
+        public double IonMobilityValue { get; init; }
+
+        public IndexedIonMobilityPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime, double ionMobilityValue) 
+            : base(mz, intensity, zeroBasedMs1ScanIndex, retentionTime)
+           
+        {
+            this.Mz = mz;
+            this.ZeroBasedMs1ScanIndex = zeroBasedMs1ScanIndex;
+            this.RetentionTime = retentionTime;
+            this.Intensity = intensity;
+            this.IonMobilityValue = ionMobilityValue;
         }
     }
 }
