@@ -272,13 +272,13 @@ namespace Readers
         /// </summary>
         /// <returns> DataScans with populated Ms1SpectraIndexedByZeroBasedScanNumber arrays </returns>
         //public IEnumerable<TimsDataScan> GetMs1InfoFrameByFrame(int maxThreads)
-        public TimsDataScan[] GetMs1InfoFrameByFrame(int maxThreads = 1)
+        public TimsDataScan[] GetMs1InfoFrameByFrame(out int scansPerSpectrum, int maxThreads = 1)
         {
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
-            int scansPerChunk = NumberOfScansPerFrame / 10; // 10 spectra per frame
-            int approxNumScans = 10 * scansPerChunk;
+            scansPerSpectrum = NumberOfScansPerFrame / 10; // 10 spectra per frame
+            int approxNumScans = 10 * scansPerSpectrum;
 
             //var scanCollection = new BlockingCollection<TimsDataScan>();
             TimsDataScan[] scans = new TimsDataScan[Ms1FrameIds.Count];
@@ -319,7 +319,7 @@ namespace Readers
                         List<uint[]> indexArrays = new(10);
                         List<int[]> intensityArrays = new(10);
                         int previousScanIdx = 0;
-                        for (int nextScanIdx = scansPerChunk + extraScans; nextScanIdx < frame.NumberOfScans + scansPerChunk; nextScanIdx += scansPerChunk)
+                        for (int nextScanIdx = scansPerSpectrum + extraScans; nextScanIdx < frame.NumberOfScans + scansPerSpectrum; nextScanIdx += scansPerSpectrum)
                         {
                             // Step 1: Get the scans    
                             nextScanIdx = Math.Min(frame.NumberOfScans - 1, nextScanIdx);

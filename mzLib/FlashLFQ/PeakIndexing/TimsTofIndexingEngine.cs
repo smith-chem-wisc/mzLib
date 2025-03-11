@@ -10,7 +10,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using FlashLFQ.PeakIndexing; 
+using MzLibUtil;
+using FlashLFQ.PeakIndexing;
+using Chemistry;
 
 namespace FlashLFQ
 {
@@ -22,6 +24,12 @@ namespace FlashLFQ
         private readonly int _maxThreads;
         public SpectraFileInfo FileInfo { get; init; }
         public Ms1ScanInfo[] Ms1ScanInfoArray { get; private set; }
+        /// <summary>
+        /// This int represents the number of tims scans that are averaged to create a single IMS scan
+        /// Every spectrum from the same frame will have a different timsIndex that is at least
+        /// ImsResolution scans apart from the previous one and no more than 2x ImsResolution apart from the previous one
+        /// </summary>
+        public int ImsResolution { get; private set; }
 
         /// <summary>
         /// Used to convert the tofIndices stored in the .d file to m/z values
@@ -52,11 +60,12 @@ namespace FlashLFQ
             MzLookupArray = file.GetMzLookupTable();
 
             Ms1ScanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
-            PpmTolerance tolerance = new PpmTolerance(20);
 
-            ConcurrentDictionary<int, Dictionary<int, List<TraceableTimsTofPeak>>> binToFramePeakDict = new();
+            //ConcurrentDictionary<int, Dictionary<int, List<TraceableTimsTofPeak>>> binToFramePeakDict = new();
 
-            var frameArray = file.GetMs1InfoFrameByFrame(maxThreads: _maxThreads);
+            
+            var frameArray = file.GetMs1InfoFrameByFrame(out int scansPerSpectra, maxThreads: _maxThreads);
+            ImsResolution = scansPerSpectra;
             _indexedPeaks = new List<IndexedTimsTofPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
 
             // Read in a chunk of frames
@@ -136,8 +145,79 @@ namespace FlashLFQ
 
         public IndexedMassSpectralPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState, int? timsIndex = null)
         {
-            // Here, we'll need to convert between tofIndices for the stored peaks and mz values
-            throw new NotImplementedException();
+            IndexedMassSpectralPeak bestPeak = null;
+            double floorMz = tolerance.GetMinimumValue(theorMass).ToMz(chargeState);
+            double ceilingMz = tolerance.GetMaximumValue(theorMass).ToMz(chargeState);
+
+            int floorBin = (int)Math.Floor(floorMz);
+            int ceilingBin = (int)Math.Ceiling(ceilingMz);
+
+
+            //List<IndexedTimsTofPeak> peaksInFrame = new(); 
+
+            //We can have multiple peaks, each corresponding to different IMS scans in the same frame
+            Dictionary<int, List<IndexedTimsTofPeak>> peaksInFrame = new();
+            for (int j = floorBin; j <= ceilingBin; j++)
+            {
+                if (j < _indexedPeaks.Length && _indexedPeaks[j] != null)
+                {
+                    List<IndexedTimsTofPeak> bin = _indexedPeaks[j];
+                    if (bin == null || bin.Count == 0) return null;
+                  
+                    int index = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
+
+                    for (int i = index; i < bin.Count; i++)
+                    {
+                        IndexedTimsTofPeak peak = bin[i];
+
+                        if (peak.ZeroBasedMs1FrameIndex > zeroBasedScanIndex)
+                            break;
+
+                        double expMass = MzLookupArray[peak.TofIndex].ToMass(chargeState);
+                        if (tolerance.Within(expMass, theorMass) && peak.ZeroBasedMs1FrameIndex == zeroBasedScanIndex)
+                        {
+                            if (peaksInFrame.TryGetValue(peak.TimsIndex, out var peaksAtIms))
+                                peaksAtIms.Add(peak);
+                            else
+                                peaksInFrame[peak.TimsIndex] = new List<IndexedTimsTofPeak> { peak };
+                        }
+                    }
+                }
+            }
+
+            return bestPeak;
+        }
+
+        private 
+
+        private int BinarySearchForIndexedPeak(List<IndexedTimsTofPeak> bin, int zeroBasedScanIndex)
+        {
+            int min = 0;
+            int max = bin.Count - 1;
+
+            while (min <= max)
+            {
+                int mid = (min + max) / 2;
+                if (bin[mid].ZeroBasedMs1FrameIndex == zeroBasedScanIndex)
+                {
+                    while (mid - 1 >=0 && bin[mid - 1].ZeroBasedMs1FrameIndex == zeroBasedScanIndex)
+                    {
+                        mid--;
+                    }
+                    return mid;
+                }
+
+                if (bin[mid].ZeroBasedMs1FrameIndex < zeroBasedScanIndex)
+                {
+                    min = mid + 1;
+                }
+                else
+                {
+                    max = mid - 1;
+                }
+            }
+
+            return min;
         }
 
         public void ClearIndex()
