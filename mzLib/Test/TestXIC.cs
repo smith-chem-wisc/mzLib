@@ -4,21 +4,17 @@ using MathNet.Numerics.Distributions;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using MathNet.Numerics.Interpolation;
-using NUnit.Framework.Internal.Execution;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
-using System.Security;
-using MassSpectrometry;
-using Readers;
-using static Plotly.NET.StyleParam;
 
 namespace Test
 {
     [TestFixture]
-    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    [ExcludeFromCodeCoverage]
     internal class TestXIC
     {
         [Test]
@@ -191,7 +187,7 @@ namespace Test
     }
 
     [TestFixture]
-    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    [ExcludeFromCodeCoverage]
     internal class TestXICGroup
     {
         [Test]
@@ -391,7 +387,7 @@ namespace Test
     }
 
     [TestFixture]
-    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    [ExcludeFromCodeCoverage]
     internal class TestFlashLFQResult()
     {
         [Test]
