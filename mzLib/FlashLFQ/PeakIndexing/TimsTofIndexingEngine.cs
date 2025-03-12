@@ -63,6 +63,7 @@ namespace FlashLFQ
             var frameArray = file.GetMs1InfoFrameByFrame(out int scansPerSpectra, maxThreads: _maxThreads);
             ImsResolution = scansPerSpectra;
             _indexedPeaks = new List<IndexedTimsTofPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
+            file.CloseDynamicConnection();
 
             for (int i = 0; i < frameArray.Length; i++)
             {
@@ -101,6 +102,7 @@ namespace FlashLFQ
             //throw new MzLibException("Done indexing");
 
             return true;
+            
         }
 
 
@@ -248,23 +250,31 @@ namespace FlashLFQ
         public void ClearIndex()
         {
             _indexedPeaks = null;
-            Ms1ScanInfoArray = null;
+            GC.Collect();
         }
 
         public void SerializeIndex(SpectraFileInfo file)
         {
-            using (var stream = File.OpenWrite(file.FilenameWithoutExtension + ".ind"))
+            string dir = Path.GetDirectoryName(file.FullFilePathWithExtension);
+            string indexPath = Path.Combine(dir, file.FilenameWithoutExtension + ".ind");
+
+            using (var indexFile = File.Create(indexPath))
             {
-                _serializer.Serialize(stream, _indexedPeaks);
+                _serializer.Serialize(indexFile, _indexedPeaks);
             }
         }
 
         public void DeserializeIndex(SpectraFileInfo file)
         {
-            using (var stream = File.OpenRead(file.FilenameWithoutExtension + ".ind"))
+            string dir = Path.GetDirectoryName(file.FullFilePathWithExtension);
+            string indexPath = Path.Combine(dir, file.FilenameWithoutExtension + ".ind");
+
+            using (var indexFile = File.OpenRead(indexPath))
             {
-                _indexedPeaks = (List<IndexedTimsTofPeak>[])_serializer.Deserialize(stream);
+                _indexedPeaks = (List<IndexedTimsTofPeak>[])_serializer.Deserialize(indexFile);
             }
+
+            File.Delete(indexPath);
         }
 
         public IIndexedPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState)

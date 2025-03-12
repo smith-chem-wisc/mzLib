@@ -282,18 +282,15 @@ namespace Readers
             scansPerSpectrum = numberOfScansToCombine;
             int approxNumScans = spectraPerFrame * scansPerSpectrum;
 
-            //var scanCollection = new BlockingCollection<TimsDataScan>();
             TimsDataScan[] scans = new TimsDataScan[Ms1FrameIds.Count];
             // It's assumed that every MS1 frame will contain the same number of scans
             int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
-            Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count, Ms1FrameIds.Count / (maxThreads * 4)),
+            Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count, Math.Max(Ms1FrameIds.Count / (maxThreads * 4), 2)),
                 new ParallelOptions() { MaxDegreeOfParallelism = maxThreads },
                 (range) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        //for (int i = 0; i< Ms1FrameIds.Count; i++)
-                        //{ 
                         FrameProxy frame = FrameProxyFactory.GetFrameProxy(Ms1FrameIds[i]);
                         int extraScans = frame.NumberOfScans - approxNumScans;
                         TimsDataScan dataScan = new TimsDataScan(
@@ -343,8 +340,6 @@ namespace Readers
                         }
 
                         scans[i] = dataScan;
-                        //}
-                        Console.WriteLine("Scan Getter Range: " + range.Item1 + "-" + range.Item2);
                     }
                 });
 
