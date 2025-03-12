@@ -13,7 +13,7 @@ namespace FlashLFQ.Interfaces
     /// </summary>
     public interface IIndexingEngine
     {
-        public Ms1ScanInfo[] Ms1ScanInfoArray { get; }
+        public Ms1ScanInfo[] ScanInfoArray { get; }
         public bool IndexPeaks(bool silent);
         public void ClearIndex();
         public void SerializeIndex();

@@ -1188,7 +1188,7 @@ namespace FlashLFQ
             double? randomRt = null)
         {
             // get the MS1 scan info for this region so we can look up indexed peaks
-            Ms1ScanInfo[] ms1ScanInfos = IndexingEngineDictionary[acceptorFile].Ms1ScanInfoArray;
+            Ms1ScanInfo[] ms1ScanInfos = IndexingEngineDictionary[acceptorFile].ScanInfoArray;
             Ms1ScanInfo start = ms1ScanInfos[0];
             Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
             double rtStartHypothesis = randomRt == null ? rtInfo.RtStartHypothesis : (double)randomRt - (rtInfo.Width / 2.0);
@@ -1729,7 +1729,7 @@ namespace FlashLFQ
         public List<IIndexedMzPeak> GetXIC(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFile, PpmTolerance tolerance)
         {
             // get precursor scan to start at
-            Ms1ScanInfo[] ms1Scans = IndexingEngineDictionary[spectraFile].Ms1ScanInfoArray;
+            Ms1ScanInfo[] ms1Scans = IndexingEngineDictionary[spectraFile].ScanInfoArray;
             int precursorScanIndex = -1;
             foreach (Ms1ScanInfo ms1Scan in ms1Scans)
             {

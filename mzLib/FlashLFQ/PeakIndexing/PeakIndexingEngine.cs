@@ -16,7 +16,7 @@ namespace FlashLFQ
         private List<IndexedMzMassSpectralPeak>[] _indexedPeaks;
         private readonly Serializer _serializer;
         private const int BinsPerDalton = 100;
-        public Ms1ScanInfo[] Ms1ScanInfoArray { get; private set; }
+        public Ms1ScanInfo[] ScanInfoArray { get; private set; }
         public SpectraFileInfo SpectraFile { get; init; }
 
         public PeakIndexingEngine(SpectraFileInfo file)
@@ -86,11 +86,11 @@ namespace FlashLFQ
         {
             _indexedPeaks = new List<IndexedMzMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
-            Ms1ScanInfoArray = new Ms1ScanInfo[msDataScans.Length];
+            ScanInfoArray = new Ms1ScanInfo[msDataScans.Length];
 
             for (int scanIndex = 0; scanIndex < msDataScans.Length; scanIndex++)
             {
-                Ms1ScanInfoArray[scanIndex] = new Ms1ScanInfo(msDataScans[scanIndex].OneBasedScanNumber, scanIndex, msDataScans[scanIndex].RetentionTime);
+                ScanInfoArray[scanIndex] = new Ms1ScanInfo(msDataScans[scanIndex].OneBasedScanNumber, scanIndex, msDataScans[scanIndex].RetentionTime);
 
                 for (int j = 0; j < msDataScans[scanIndex].MassSpectrum.XArray.Length; j++)
                 {
