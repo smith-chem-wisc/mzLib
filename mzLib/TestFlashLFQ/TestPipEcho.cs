@@ -87,8 +87,8 @@ namespace Test
             var donorPeak = new ChromatographicPeak(donorId, isMbrPeak: false, fakeDonorFile, randomRt: false);
             var acceptorPeak = new ChromatographicPeak(donorId, isMbrPeak: true, fakeFile, randomRt: false);
 
-            IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak((idMass + 0.001).ToMz(1), 1.1, 1, 25);
-            IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak((idMass - 0.001).ToMz(1), 1, 2, 26);
+            IndexedMzMassSpectralPeak imsPeak = new IndexedMzMassSpectralPeak((idMass + 0.001).ToMz(1), 1.1, 1, 25);
+            IndexedMzMassSpectralPeak imsPeak2 = new IndexedMzMassSpectralPeak((idMass - 0.001).ToMz(1), 1, 2, 26);
             var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1, 0.98);
             var iso2 = new FlashLFQ.IsotopicEnvelope(imsPeak2, 1, 1, 0.9);
 
@@ -107,7 +107,7 @@ namespace Test
 
 
             var peakList = new List<ChromatographicPeak> { peak1, peak4 };
-            var peakDict = peakList.ToDictionary(keySelector: p => p.Apex.IndexedPeak, elementSelector: p => p);
+            var peakDict = peakList.ToDictionary(keySelector: p => p.Apex.IndexedMzPeak, elementSelector: p => p);
 
             // Builds a scorer. Ppm Error and Intensity distributions both have mean and std-dev of 1
             MbrScorer scorer = new MbrScorer(peakDict, peakList, new MathNet.Numerics.Distributions.Normal(1, 1), new MathNet.Numerics.Distributions.Normal(1,1));
@@ -143,8 +143,8 @@ namespace Test
             var peak3 = new ChromatographicPeak(id2, isMbrPeak: true, fakeFile, randomRt: false);
             var peak4 = new ChromatographicPeak(id, isMbrPeak: true, fakeFile, randomRt: false);
 
-            IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak(1, 1, 1, 25);
-            IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak(1, 1, 1, 50);
+            IndexedMzMassSpectralPeak imsPeak = new IndexedMzMassSpectralPeak(1, 1, 1, 25);
+            IndexedMzMassSpectralPeak imsPeak2 = new IndexedMzMassSpectralPeak(1, 1, 1, 50);
             var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1, 1);
             var iso2 = new FlashLFQ.IsotopicEnvelope(imsPeak2, 1, 1, 1);
 

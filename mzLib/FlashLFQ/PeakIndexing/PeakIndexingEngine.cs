@@ -13,7 +13,7 @@ namespace FlashLFQ
 {
     public class PeakIndexingEngine : IIndexingEngine
     {
-        private List<IndexedMassSpectralPeak>[] _indexedPeaks;
+        private List<IndexedMzMassSpectralPeak>[] _indexedPeaks;
         private readonly Serializer _serializer;
         private const int BinsPerDalton = 100;
         public Ms1ScanInfo[] Ms1ScanInfoArray { get; private set; }
@@ -23,8 +23,8 @@ namespace FlashLFQ
         {
             var messageTypes = new List<Type>
             {
-                typeof(List<IndexedMassSpectralPeak>[]), typeof(List<IndexedMassSpectralPeak>),
-                typeof(IndexedMassSpectralPeak)
+                typeof(List<IndexedMzMassSpectralPeak>[]), typeof(List<IndexedMzMassSpectralPeak>),
+                typeof(IndexedMzMassSpectralPeak)
             };
             _serializer = new Serializer(messageTypes);
             SpectraFile = file;
@@ -84,7 +84,7 @@ namespace FlashLFQ
         /// <param name="scanInfo">Outputs a list of scan information for each scan which is needed for FlashLfq
         public void PeakIndexing(MsDataScan[] msDataScans)
         {
-            _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
+            _indexedPeaks = new List<IndexedMzMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
             Ms1ScanInfoArray = new Ms1ScanInfo[msDataScans.Length];
 
@@ -95,9 +95,9 @@ namespace FlashLFQ
                 for (int j = 0; j < msDataScans[scanIndex].MassSpectrum.XArray.Length; j++)
                 {
                     int roundedMz = (int)Math.Round(msDataScans[scanIndex].MassSpectrum.XArray[j] * BinsPerDalton, 0);
-                    _indexedPeaks[roundedMz] ??= new List<IndexedMassSpectralPeak>();
+                    _indexedPeaks[roundedMz] ??= new List<IndexedMzMassSpectralPeak>();
                     _indexedPeaks[roundedMz].Add(
-                        new IndexedMassSpectralPeak(
+                        new IndexedMzMassSpectralPeak(
                             msDataScans[scanIndex].MassSpectrum.XArray[j],
                             msDataScans[scanIndex].MassSpectrum.YArray[j], 
                             scanIndex, 
@@ -132,21 +132,21 @@ namespace FlashLFQ
 
             using (var indexFile = File.OpenRead(indexPath))
             {
-                _indexedPeaks = (List<IndexedMassSpectralPeak>[])_serializer.Deserialize(indexFile);
+                _indexedPeaks = (List<IndexedMzMassSpectralPeak>[])_serializer.Deserialize(indexFile);
             }
 
             File.Delete(indexPath);
         }
 
-        public IIndexedPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
+        public IIndexedMzPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
             GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, ppmTolerance);
 
         /// <summary>
         /// A generic method for finding the closest peak with a specified m/z and in a specified scan. Returns null if no peaks within tolerance are found.
         /// </summary>
-        public IIndexedPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
+        public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
         {
-            IndexedMassSpectralPeak bestPeak = null;
+            IndexedMzMassSpectralPeak bestPeak = null;
             int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(mz) * BinsPerDalton);
             int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(mz) * BinsPerDalton);
 
@@ -154,19 +154,19 @@ namespace FlashLFQ
             {
                 if (j < _indexedPeaks.Length && _indexedPeaks[j] != null)
                 {
-                    List<IndexedMassSpectralPeak> bin = _indexedPeaks[j];
+                    List<IndexedMzMassSpectralPeak> bin = _indexedPeaks[j];
                     int index = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
 
                     for (int i = index; i < bin.Count; i++)
                     {
-                        IndexedMassSpectralPeak peak = bin[i];
+                        IndexedMzMassSpectralPeak peak = bin[i];
 
-                        if (peak.ZeroBasedMs1ScanIndex > zeroBasedScanIndex)
+                        if (peak.ZeroBasedScanIndex > zeroBasedScanIndex)
                         {
                             break;
                         }
 
-                        if (ppmTolerance.Within(peak.Mz, mz) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
+                        if (ppmTolerance.Within(peak.Mz, mz) && peak.ZeroBasedScanIndex == zeroBasedScanIndex && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
                         {
                             bestPeak = peak;
                         }
@@ -177,7 +177,7 @@ namespace FlashLFQ
             return bestPeak;
         }
 
-        private static int BinarySearchForIndexedPeak(List<IndexedMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
+        private static int BinarySearchForIndexedPeak(List<IndexedMzMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
         {
             int m = 0;
             int l = 0;
@@ -191,7 +191,7 @@ namespace FlashLFQ
                 {
                     break;
                 }
-                if (indexedPeaks[m].ZeroBasedMs1ScanIndex < zeroBasedScanIndex)
+                if (indexedPeaks[m].ZeroBasedScanIndex < zeroBasedScanIndex)
                 {
                     l = m + 1;
                 }
@@ -203,7 +203,7 @@ namespace FlashLFQ
 
             for (int i = m; i >= 0; i--)
             {
-                if (indexedPeaks[i].ZeroBasedMs1ScanIndex < zeroBasedScanIndex)
+                if (indexedPeaks[i].ZeroBasedScanIndex < zeroBasedScanIndex)
                 {
                     break;
                 }

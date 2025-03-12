@@ -10,7 +10,7 @@ namespace FlashLFQ
     public class ChromatographicPeak
     {
         public double Intensity;
-        public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
+        public double ApexRetentionTime => Apex?.IndexedMzPeak.RetentionTime ?? -1;
         public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public int ScanCount => IsotopicEnvelopes.Count;
@@ -85,7 +85,7 @@ namespace FlashLFQ
 
                 foreach (Identification id in Identifications)
                 {
-                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
+                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedMzPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
 
                     if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < Math.Abs(MassError))
                     {
@@ -113,14 +113,14 @@ namespace FlashLFQ
         {
             if (otherFeature != this)
             {
-                var thisFeaturesPeaks = new HashSet<IIndexedPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
+                var thisFeaturesPeaks = new HashSet<IIndexedMzPeak>(IsotopicEnvelopes.Select(p => p.IndexedMzPeak));
                 this.Identifications = this.Identifications
                     .Union(otherFeature.Identifications)
                     .Distinct()
                     .ToList();
                 ResolveIdentifications();
                 this.IsotopicEnvelopes.AddRange(otherFeature.IsotopicEnvelopes
-                    .Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
+                    .Where(p => !thisFeaturesPeaks.Contains(p.IndexedMzPeak)));
                 this.CalculateIntensityForThisFeature(integrate);
             }
         }
@@ -221,11 +221,11 @@ namespace FlashLFQ
 
             if (Apex != null)
             {
-                sb.Append("" + IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime) + "\t");
-                sb.Append("" + Apex.IndexedPeak.RetentionTime + "\t");
-                sb.Append("" + IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime) + "\t");
+                sb.Append("" + IsotopicEnvelopes.Min(p => p.IndexedMzPeak.RetentionTime) + "\t");
+                sb.Append("" + Apex.IndexedMzPeak.RetentionTime + "\t");
+                sb.Append("" + IsotopicEnvelopes.Max(p => p.IndexedMzPeak.RetentionTime) + "\t");
 
-                sb.Append("" + Apex.IndexedPeak.Mz + "\t");
+                sb.Append("" + Apex.IndexedMzPeak.Mz + "\t");
                 sb.Append("" + Apex.ChargeState + "\t");
             }
             else

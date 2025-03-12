@@ -4,38 +4,38 @@ using System;
 namespace FlashLFQ
 {
     [Serializable]
-    public class IndexedMassSpectralPeak : IIndexedPeak
+    public class IndexedMzMassSpectralPeak : IIndexedMzPeak
     {
-        public int ZeroBasedMs1ScanIndex { get; init; }
+        public int ZeroBasedScanIndex { get; init; }
         public double Mz { get; init; }
         public double RetentionTime { get; init; }
         public double Intensity { get; init; }
 
-        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
+        public IndexedMzMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
         {
             this.Mz = mz;
-            this.ZeroBasedMs1ScanIndex = zeroBasedMs1ScanIndex;
+            this.ZeroBasedScanIndex = zeroBasedMs1ScanIndex;
             this.RetentionTime = retentionTime;
             this.Intensity = intensity;
         }
 
         public override bool Equals(object obj)
         {
-            var otherPeak = (IndexedMassSpectralPeak)obj;
+            var otherPeak = (IndexedMzMassSpectralPeak)obj;
 
             return otherPeak != null
                 && otherPeak.Mz == this.Mz
-                && otherPeak.ZeroBasedMs1ScanIndex == this.ZeroBasedMs1ScanIndex;
+                && otherPeak.ZeroBasedScanIndex == this.ZeroBasedScanIndex;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Mz, ZeroBasedMs1ScanIndex);
+            return HashCode.Combine(Mz, ZeroBasedScanIndex);
         }
 
         public override string ToString()
         {
-            return Mz.ToString("F3") + "; " + ZeroBasedMs1ScanIndex;
+            return Mz.ToString("F3") + "; " + ZeroBasedScanIndex;
         }
     }
 }

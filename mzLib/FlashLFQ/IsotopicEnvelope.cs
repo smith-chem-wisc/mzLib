@@ -8,12 +8,12 @@
         /// <summary>
         /// The most abundant isotopic peak used for peak finding.
         /// </summary>
-        public readonly IIndexedPeak IndexedPeak;
+        public readonly IIndexedMzPeak IndexedMzPeak;
         public readonly int ChargeState;
 
-        public IsotopicEnvelope(IIndexedPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
-            IndexedPeak = monoisotopicPeak;
+            IndexedMzPeak = monoisotopicPeak;
             ChargeState = chargeState;
             Intensity = intensity / chargeState;
             PearsonCorrelation = pearsonCorrelation;
@@ -36,7 +36,7 @@
 
         public override string ToString()
         {
-            return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedPeak.RetentionTime.ToString("F3") + "|" + IndexedPeak.ZeroBasedMs1ScanIndex;
+            return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedMzPeak.RetentionTime.ToString("F3") + "|" + IndexedMzPeak.ZeroBasedScanIndex;
         }
 
         public override bool Equals(object obj)
@@ -45,12 +45,12 @@
 
             return otherEnv != null
                 && otherEnv.ChargeState == this.ChargeState
-                && otherEnv.IndexedPeak.Equals(this.IndexedPeak);
+                && otherEnv.IndexedMzPeak.Equals(this.IndexedMzPeak);
         }
 
         public override int GetHashCode()
         {
-            return ChargeState.GetHashCode() + IndexedPeak.GetHashCode();
+            return ChargeState.GetHashCode() + IndexedMzPeak.GetHashCode();
         }
     }
 }

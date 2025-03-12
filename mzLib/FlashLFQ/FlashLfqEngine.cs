@@ -480,7 +480,7 @@ namespace FlashLFQ
                             }
 
                             // get XIC (peakfinding)
-                            List<IIndexedPeak> xic = GetXIC(
+                            List<IIndexedMzPeak> xic = GetXIC(
                                     identification.Ms2RetentionTimeInMinutes,
                                     identification.PeakfindingMass,
                                     chargeState,
@@ -516,10 +516,10 @@ namespace FlashLFQ
                             continue;
                         }
 
-                        int min = precursorXic.Min(p => p.IndexedPeak.ZeroBasedMs1ScanIndex);
-                        int max = precursorXic.Max(p => p.IndexedPeak.ZeroBasedMs1ScanIndex);
-                        msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedMs1ScanIndex < min);
-                        msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedMs1ScanIndex > max);
+                        int min = precursorXic.Min(p => p.IndexedMzPeak.ZeroBasedScanIndex);
+                        int max = precursorXic.Max(p => p.IndexedMzPeak.ZeroBasedScanIndex);
+                        msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedMzPeak.ZeroBasedScanIndex < min);
+                        msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedMzPeak.ZeroBasedScanIndex > max);
                         msmsFeature.CalculateIntensityForThisFeature(Integrate);
                     }
                 });
@@ -600,7 +600,7 @@ namespace FlashLFQ
             scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs, _numberOfAnchorPeptidesForMbr);
             donorFileBestMsmsPeaksOrderedByMass = donorFileBestMsmsPeaks.Select(kvp => kvp.Value).OrderBy(p => p.Identifications.First().PeakfindingMass).ToList();
 
-            return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
+            return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedMzPeak.RetentionTime).ToArray();
         }
 
         /// <summary>
@@ -727,7 +727,7 @@ namespace FlashLFQ
             // gather nearby data points
             for (int r = index + 1; r < rtCalibrationCurve.Length; r++)
             {
-                double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
+                double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedMzPeak.RetentionTime - donorPeak.Apex.IndexedMzPeak.RetentionTime;
                 if (rtCalibrationCurve[r].AcceptorFilePeak != null
                     && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
@@ -747,7 +747,7 @@ namespace FlashLFQ
             int numberOfBackwardsAnchors = 0;
             for (int r = index - 1; r >= 0; r--)
             {
-                double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
+                double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedMzPeak.RetentionTime - donorPeak.Apex.IndexedMzPeak.RetentionTime;
                 if (rtCalibrationCurve[r].AcceptorFilePeak != null
                     && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
@@ -767,7 +767,7 @@ namespace FlashLFQ
             if (!nearbyCalibrationPoints.Any())
             {
                 // If there are no nearby calibration points, return the donor peak's RT and a width of 15 seconds
-                return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime, width: 0.25);
+                return new RtInfo(predictedRt: donorPeak.Apex.IndexedMzPeak.RetentionTime, width: 0.25);
             }
 
             // calculate difference between acceptor and donor RTs for these RT region
@@ -779,14 +779,14 @@ namespace FlashLFQ
             if(rtDiffs.Count == 1)
             {
                 // If there are no nearby calibration points, return the donor peak's RT and a width of 15 seconds
-                return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime - medianRtDiff, width: 0.25);
+                return new RtInfo(predictedRt: donorPeak.Apex.IndexedMzPeak.RetentionTime - medianRtDiff, width: 0.25);
             }
 
             double rtRange = rtDiffs.StandardDeviation() * 6;
 
             rtRange = Math.Min(rtRange, MbrRtWindow);
 
-            return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime - medianRtDiff, width: rtRange);
+            return new RtInfo(predictedRt: donorPeak.Apex.IndexedMzPeak.RetentionTime - medianRtDiff, width: rtRange);
         }
 
         /// <summary>
@@ -798,15 +798,15 @@ namespace FlashLFQ
         private MbrScorer BuildMbrScorer(List<ChromatographicPeak> acceptorFileIdentifiedPeaks, out PpmTolerance fileSpecificMbrTolerance)
         {
             // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
-            var apexToAcceptorFilePeakDict = new Dictionary<IIndexedPeak, ChromatographicPeak>();
+            var apexToAcceptorFilePeakDict = new Dictionary<IIndexedMzPeak, ChromatographicPeak>();
             List<double> ppmErrors = new List<double>();
             foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null
                 && PeptideModifiedSequencesToQuantify.Contains(p.Identifications.First().ModifiedSequence)
                 && p.Identifications.First().QValue < DonorQValueThreshold)) 
             {
-                if (!apexToAcceptorFilePeakDict.ContainsKey(peak.Apex.IndexedPeak))
+                if (!apexToAcceptorFilePeakDict.ContainsKey(peak.Apex.IndexedMzPeak))
                 {
-                    apexToAcceptorFilePeakDict.Add(peak.Apex.IndexedPeak, peak);
+                    apexToAcceptorFilePeakDict.Add(peak.Apex.IndexedMzPeak, peak);
                 }
 
                 ppmErrors.Add(peak.MassError);
@@ -1056,13 +1056,13 @@ namespace FlashLFQ
             }
 
             // Create a dictionary that stores imsPeak associated with an ms/ms identified peptide
-            Dictionary<int, List<IIndexedPeak>> msmsImsPeaks = _results.Peaks[acceptorFile]
+            Dictionary<int, List<IIndexedMzPeak>> msmsImsPeaks = _results.Peaks[acceptorFile]
                 .Where(peak => 
                         !peak.DecoyPeptide 
-                        && peak.Apex?.IndexedPeak != null 
+                        && peak.Apex?.IndexedMzPeak != null 
                         && PeptideModifiedSequencesToQuantify.Contains(peak.Identifications.First().ModifiedSequence))
-                .Select(peak => peak.Apex.IndexedPeak)
-                .GroupBy(imsPeak => imsPeak.ZeroBasedMs1ScanIndex)
+                .Select(peak => peak.Apex.IndexedMzPeak)
+                .GroupBy(imsPeak => imsPeak.ZeroBasedScanIndex)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
             // take the best result (highest scoring) for each peptide after we've matched from all the donor files
@@ -1081,9 +1081,9 @@ namespace FlashLFQ
                     peakHypotheses.Remove(best);
 
                     // Discard any peaks that are already associated with an ms/ms identified peptide
-                    while (best?.Apex?.IndexedPeak != null && msmsImsPeaks.TryGetValue(best.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList))
+                    while (best?.Apex?.IndexedMzPeak != null && msmsImsPeaks.TryGetValue(best.Apex.IndexedMzPeak.ZeroBasedScanIndex, out var peakList))
                     {
-                        if (peakList.Contains(best.Apex.IndexedPeak))
+                        if (peakList.Contains(best.Apex.IndexedMzPeak))
                         {
                             if (!peakHypotheses.Any())
                             {
@@ -1103,17 +1103,17 @@ namespace FlashLFQ
                     // merge peaks with different charge states
                     if (peakHypotheses.Count > 0)
                     {
-                        double start = best.IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime);
-                        double end = best.IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime);
+                        double start = best.IsotopicEnvelopes.Min(p => p.IndexedMzPeak.RetentionTime);
+                        double end = best.IsotopicEnvelopes.Max(p => p.IndexedMzPeak.RetentionTime);
 
                         _results.Peaks[acceptorFile].Add(best);
                         foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
                         {
-                            if (peak.Apex.IndexedPeak.RetentionTime >= start
-                                && peak.Apex.IndexedPeak.RetentionTime <= end)
+                            if (peak.Apex.IndexedMzPeak.RetentionTime >= start
+                                && peak.Apex.IndexedMzPeak.RetentionTime <= end)
                                 //&& Math.Abs(peak.MbrScore - best.MbrScore) / best.MbrScore < 0.25)// 25% difference is a rough heuristic, but I don't want super shitty peaks being able to supercede the intensity of a good peak!
                             {
-                                if (msmsImsPeaks.TryGetValue(peak.Apex.IndexedPeak.ZeroBasedMs1ScanIndex, out var peakList) && peakList.Contains(peak.Apex.IndexedPeak))
+                                if (msmsImsPeaks.TryGetValue(peak.Apex.IndexedMzPeak.ZeroBasedScanIndex, out var peakList) && peakList.Contains(peak.Apex.IndexedMzPeak))
                                 {
                                     continue; // If the peak is already accounted for, skip it.
                                 }
@@ -1221,11 +1221,11 @@ namespace FlashLFQ
 
             foreach (int z in chargesToMatch)
             {
-                List<IIndexedPeak> chargeXic = new List<IIndexedPeak>();
+                List<IIndexedMzPeak> chargeXic = new List<IIndexedMzPeak>();
 
                 for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
                 {
-                    IIndexedPeak peak = IndexingEngineDictionary[acceptorFile]
+                    IIndexedMzPeak peak = IndexingEngineDictionary[acceptorFile]
                         .GetIndexedPeak(donorIdentification.PeakfindingMass.ToMz(z), j, fileSpecificTol);
                     if (peak != null)
                         chargeXic.Add(peak);
@@ -1278,21 +1278,21 @@ namespace FlashLFQ
 
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
-            var xic = GetXIC(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, acceptorFile, mbrTol);
+            var xic = GetXIC(seedEnv.IndexedMzPeak.RetentionTime, donorId.PeakfindingMass, z, acceptorFile, mbrTol);
             List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z, acceptorFile);
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
 
-            CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
+            CutPeak(acceptorPeak, seedEnv.IndexedMzPeak.RetentionTime);
 
-            var claimedPeaks = new HashSet<IIndexedPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak))
+            var claimedPeaks = new HashSet<IIndexedMzPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedMzPeak))
             {
-                seedEnv.IndexedPeak // prevents infinite loops
+                seedEnv.IndexedMzPeak // prevents infinite loops
             };
-            chargeEnvelopes.RemoveAll(p => claimedPeaks.Contains(p.IndexedPeak));
+            chargeEnvelopes.RemoveAll(p => claimedPeaks.Contains(p.IndexedMzPeak));
 
             // peak has already been identified by MSMS - skip it
-            if (scorer.ApexToAcceptorFilePeakDict.ContainsKey(seedEnv.IndexedPeak))
+            if (scorer.ApexToAcceptorFilePeakDict.ContainsKey(seedEnv.IndexedMzPeak))
             {
                 return null;
             }
@@ -1304,7 +1304,7 @@ namespace FlashLFQ
 
 
         /// <summary>
-        /// Checks for and resolves situations where one IndexedMassSpectralPeak is defined as the apex 
+        /// Checks for and resolves situations where one IndexedMzMassSpectralPeak is defined as the apex 
         /// for multiple ChromatographicPeaks. In these situations, the two peaks are merged and the merged
         /// peak is stored in the FlashLFQ results.
         /// </summary>
@@ -1319,7 +1319,7 @@ namespace FlashLFQ
             _results.Peaks[spectraFile].RemoveAll(p => p == null || p.IsMbrPeak && !p.IsotopicEnvelopes.Any());
 
             // merge duplicate peaks and handle MBR/MSMS peakfinding conflicts
-            var errorCheckedPeaksGroupedByApex = new Dictionary<IIndexedPeak, ChromatographicPeak>();
+            var errorCheckedPeaksGroupedByApex = new Dictionary<IIndexedMzPeak, ChromatographicPeak>();
             var errorCheckedPeaks = new List<ChromatographicPeak>();
             
             foreach (ChromatographicPeak tryPeak in _results.Peaks[spectraFile].OrderBy(p => p.IsMbrPeak))
@@ -1338,7 +1338,7 @@ namespace FlashLFQ
                     continue;
                 }
 
-                IIndexedPeak apexImsPeak = tryPeak.Apex.IndexedPeak;
+                IIndexedMzPeak apexImsPeak = tryPeak.Apex.IndexedMzPeak;
                 if (errorCheckedPeaksGroupedByApex.TryGetValue(apexImsPeak, out ChromatographicPeak storedPeak) && storedPeak != null)
                 {
                     if (!tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
@@ -1352,7 +1352,7 @@ namespace FlashLFQ
                             else
                             {
                                 // If the stored peak id isn't in the list of peptides to quantify, overwrite it
-                                errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
+                                errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedMzPeak] = tryPeak;
                             }
                         }
                     }
@@ -1367,7 +1367,7 @@ namespace FlashLFQ
                         // In this case, we keep the MBR peak.
                         if (storedPeak.DecoyPeptide || !PeptideModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
                         {
-                            errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
+                            errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedMzPeak] = tryPeak;
                         }
                         else
                         {
@@ -1382,7 +1382,7 @@ namespace FlashLFQ
                         }
                         else if (tryPeak.MbrScore > storedPeak.MbrScore)
                         {
-                            errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
+                            errorCheckedPeaksGroupedByApex[tryPeak.Apex.IndexedMzPeak] = tryPeak;
                         }
                     }
                 }
@@ -1538,7 +1538,7 @@ namespace FlashLFQ
         /// <param name="xic"> List of imsPeaks, where the mass of each peak is the peak finding mass (most abundant isotope) </param>
         /// <returns> A list of IsotopicEnvelopes, where each envelope contains the sum of the isotopic peak intensities from one scan </returns>
         public List<IsotopicEnvelope> GetIsotopicEnvelopes(
-            List<IIndexedPeak> xic,
+            List<IIndexedMzPeak> xic,
             Identification identification,
             int chargeState,
             SpectraFileInfo spectraFile)
@@ -1572,7 +1572,7 @@ namespace FlashLFQ
 
             // For each peak (most abundant mass peak), we check for the possibility that the peak was mis-assigned,
             // i.e. that the peak belongs to a species with a different mass than the identification mass
-            foreach (IIndexedPeak peak in xic)
+            foreach (IIndexedMzPeak peak in xic)
             {
                 Array.Clear(experimentalIsotopeIntensities, 0, experimentalIsotopeIntensities.Length);
                 foreach (var kvp in massShiftToIsotopePeaks)
@@ -1605,8 +1605,8 @@ namespace FlashLFQ
                                                  theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
-                            IIndexedPeak isotopePeak = IndexingEngineDictionary[spectraFile]
-                                .GetIndexedPeak(isotopeMass.ToMz(chargeState), peak.ZeroBasedMs1ScanIndex, isotopeTolerance);
+                            IIndexedMzPeak isotopePeak = IndexingEngineDictionary[spectraFile]
+                                .GetIndexedPeak(isotopeMass.ToMz(chargeState), peak.ZeroBasedScanIndex, isotopeTolerance);
 
                             if (isotopePeak == null
                                 || isotopePeak.Intensity < theoreticalIsotopeIntensity / 4.0
@@ -1662,7 +1662,7 @@ namespace FlashLFQ
         /// <returns>True if experimental data is a good match to the expected isotopic distribution </returns>
         public bool CheckIsotopicEnvelopeCorrelation(
             Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>> massShiftToIsotopePeaks,
-            IIndexedPeak peak,
+            IIndexedMzPeak peak,
             int chargeState,
             PpmTolerance isotopeTolerance,
             SpectraFileInfo spectraFile,
@@ -1682,8 +1682,8 @@ namespace FlashLFQ
                 }
 
                 double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
-                IIndexedPeak unexpectedPeak = IndexingEngineDictionary[spectraFile]
-                    .GetIndexedPeak(unexpectedMass.ToMz(chargeState), peak.ZeroBasedMs1ScanIndex, isotopeTolerance);
+                IIndexedMzPeak unexpectedPeak = IndexingEngineDictionary[spectraFile]
+                    .GetIndexedPeak(unexpectedMass.ToMz(chargeState), peak.ZeroBasedScanIndex, isotopeTolerance);
 
                 if (unexpectedPeak == null)
                 {
@@ -1726,7 +1726,7 @@ namespace FlashLFQ
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
         /// <param name="mass"> Peakfinding mass </param>
         /// <returns></returns>
-        public List<IIndexedPeak> GetXIC(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFile, PpmTolerance tolerance)
+        public List<IIndexedMzPeak> GetXIC(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFile, PpmTolerance tolerance)
         {
             // get precursor scan to start at
             Ms1ScanInfo[] ms1Scans = IndexingEngineDictionary[spectraFile].Ms1ScanInfoArray;
@@ -1758,9 +1758,9 @@ namespace FlashLFQ
         /// <param name="zeroBasedStartIndex"> the scan where peak searching behaviour begins </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns></returns>
-        public static List<IIndexedPeak> GetXIC(double mz, int zeroBasedStartIndex, IIndexingEngine peakIndexingEngine, int scansLength, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
+        public static List<IIndexedMzPeak> GetXIC(double mz, int zeroBasedStartIndex, IIndexingEngine peakIndexingEngine, int scansLength, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
         {
-            var xic = new List<IIndexedPeak>();
+            var xic = new List<IIndexedMzPeak>();
 
             // go right
             int missedScans = 0;
@@ -1843,7 +1843,7 @@ namespace FlashLFQ
             // Ordered list of all time points where the apex charge state had a valid isotopic envelope
             List<IsotopicEnvelope> timePointsForApexZ = peak.IsotopicEnvelopes
                 .Where(p => p.ChargeState == peak.Apex.ChargeState).ToList();
-            HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedPeak.ZeroBasedMs1ScanIndex));
+            HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedMzPeak.ZeroBasedScanIndex));
             int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
             IsotopicEnvelope valleyEnvelope = null;
 
@@ -1881,7 +1881,7 @@ namespace FlashLFQ
 
                         // If the current timepoint is more intense than the second valley, we cut the peak
                         // If the scan following the valley isn't in the timePointsForApexZ list (i.e., no isotopic envelope is observed in the scan immediately after the valley), we also cut the peak
-                        if (discriminationFactor > DiscriminationFactorToCutPeak || !scanNumbers.Contains(valleyEnvelope.IndexedPeak.ZeroBasedMs1ScanIndex + direction))
+                        if (discriminationFactor > DiscriminationFactorToCutPeak || !scanNumbers.Contains(valleyEnvelope.IndexedMzPeak.ZeroBasedScanIndex + direction))
                         {
                             cutThisPeak = true;
                             break;
@@ -1898,22 +1898,22 @@ namespace FlashLFQ
             // cut
             if (cutThisPeak)
             {
-                if (identificationTime > valleyEnvelope.IndexedPeak.RetentionTime)
+                if (identificationTime > valleyEnvelope.IndexedMzPeak.RetentionTime)
                 {
                     // MS2 identification is to the right of the valley; remove all peaks left of the valley
                     peak.IsotopicEnvelopes.RemoveAll(p => 
-                        p.IndexedPeak.RetentionTime <= valleyEnvelope.IndexedPeak.RetentionTime);
+                        p.IndexedMzPeak.RetentionTime <= valleyEnvelope.IndexedMzPeak.RetentionTime);
                 }
                 else
                 {
                     // MS2 identification is to the left of the valley; remove all peaks right of the valley
                     peak.IsotopicEnvelopes.RemoveAll(p => 
-                        p.IndexedPeak.RetentionTime >= valleyEnvelope.IndexedPeak.RetentionTime);
+                        p.IndexedMzPeak.RetentionTime >= valleyEnvelope.IndexedMzPeak.RetentionTime);
                 }
 
                 // recalculate intensity for the peak
                 peak.CalculateIntensityForThisFeature(Integrate);
-                peak.SplitRT = valleyEnvelope.IndexedPeak.RetentionTime;
+                peak.SplitRT = valleyEnvelope.IndexedMzPeak.RetentionTime;
 
                 // recursively cut
                 CutPeak(peak, identificationTime);

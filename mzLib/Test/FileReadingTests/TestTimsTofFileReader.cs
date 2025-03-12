@@ -191,6 +191,14 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void localTest()
+        {
+            var newReader = MsDataFileReader.GetDataFile(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d");
+            newReader.LoadAllStaticData();
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(newReader, @"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.mzml", true);
+        }
+
+        [Test]
         public void TestFileDoesntExist()
         {
             string fakePath = "fakePath.d";

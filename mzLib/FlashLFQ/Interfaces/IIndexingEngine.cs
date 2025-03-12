@@ -18,6 +18,6 @@ namespace FlashLFQ.Interfaces
         public void ClearIndex();
         public void SerializeIndex();
         public void DeserializeIndex();
-        public IIndexedPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance tolerance);
+        public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance tolerance);
     }
 }
