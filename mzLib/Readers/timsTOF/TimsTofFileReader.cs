@@ -271,7 +271,6 @@ namespace Readers
         /// Missing fields: TotalIonCurrent, NoiseData, NativeId, PrecursorId.
         /// </summary>
         /// <returns> DataScans with populated Ms1SpectraIndexedByZeroBasedScanNumber arrays </returns>
-        //public IEnumerable<TimsDataScan> GetMs1InfoFrameByFrame(int maxThreads)
         public TimsDataScan[] GetMs1InfoFrameByFrame(out int scansPerSpectrum, int maxThreads = 1)
         {
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
