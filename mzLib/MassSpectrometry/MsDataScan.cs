@@ -82,7 +82,7 @@ namespace MassSpectrometry
         public MzSpectrum MassSpectrum { get; protected set; }
 
         public int OneBasedScanNumber { get; protected set; }
-        public int MsnOrder { get; }
+        public int MsnOrder { get; private set; }
         public double RetentionTime { get; }
         public Polarity Polarity { get; }
         public MZAnalyzerType MzAnalyzer { get; }
@@ -268,6 +268,11 @@ namespace MassSpectrometry
         public void SetOneBasedScanNumber(int value)
         {
             this.OneBasedScanNumber = value;
+        }
+
+        public void SetMsnOrder(int value)
+        {
+            this.MsnOrder = value;
         }
 
         public void SetNativeID(string value)
