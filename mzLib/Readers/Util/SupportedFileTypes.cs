@@ -8,6 +8,7 @@ namespace Readers
         Ms2Feature,
         Mzrt_TopFd,
         Ms1Tsv_FlashDeconv,
+        msp,
         Tsv_FlashDeconv,
         ThermoRaw,
         MzML,
@@ -47,6 +48,7 @@ namespace Readers
                 SupportedFileType.Ms2Feature => "_ms2.feature",
                 SupportedFileType.Mzrt_TopFd => ".mzrt.csv",
                 SupportedFileType.Ms1Tsv_FlashDeconv => "_ms1.tsv",
+                SupportedFileType.msp => ".msp",
                 SupportedFileType.Tsv_FlashDeconv => ".tsv",
                 SupportedFileType.ThermoRaw => ".raw",
                 SupportedFileType.MzML => ".mzML",
@@ -95,6 +97,8 @@ namespace Readers
                         return SupportedFileType.Ms2Feature;
                     throw new MzLibException("Feature file type not supported");
 
+                case ".msp": 
+                        return SupportedFileType.msp;
                 case ".csv":
                     if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Mzrt_TopFd;
