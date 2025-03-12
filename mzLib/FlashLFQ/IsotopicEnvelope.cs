@@ -8,10 +8,10 @@
         /// <summary>
         /// The most abundant isotopic peak used for peak finding.
         /// </summary>
-        public readonly IndexedMassSpectralPeak IndexedPeak;
+        public readonly IIndexedPeak IndexedPeak;
         public readonly int ChargeState;
 
-        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        public IsotopicEnvelope(IIndexedPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
