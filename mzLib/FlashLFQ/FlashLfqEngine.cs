@@ -485,14 +485,6 @@ namespace FlashLFQ
                         ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, false, fileInfo);
                         chromatographicPeaks[i] = msmsFeature;
 
-                //if(identification.BaseSequence.Equals("EMGQMQVLQMK")
-                //    || identification.BaseSequence.Equals("ALEAEQVEITVGR")
-                //    || identification.BaseSequence.Equals("TLVSAVPEESEMDPHVR")
-                //    )
-                //{
-                //    int xyz = 1;
-                //}
-
                         foreach (var chargeState in _chargeStates)
                         {
                             if (IdSpecificChargeState && chargeState != identification.PrecursorChargeState)
@@ -815,7 +807,7 @@ namespace FlashLFQ
         private MbrScorer BuildMbrScorer(List<ChromatographicPeak> acceptorFileIdentifiedPeaks, out Tolerance fileSpecificMbrTolerance)
         {
             // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
-            var apexToAcceptorFilePeakDict = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
+            var apexToAcceptorFilePeakDict = new Dictionary<IIndexedPeak, ChromatographicPeak>();
             List<double> ppmErrors = new List<double>();
             foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null
                 && PeptideModifiedSequencesToQuantify.Contains(p.Identifications.First().ModifiedSequence)
@@ -1077,7 +1069,7 @@ namespace FlashLFQ
             }
 
             // Create a dictionary that stores imsPeak associated with an ms/ms identified peptide
-            Dictionary<int, List<IndexedMassSpectralPeak>> msmsImsPeaks = _results.Peaks[idAcceptorFile]
+            Dictionary<int, List<IIndexedPeak>> msmsImsPeaks = _results.Peaks[idAcceptorFile]
                 .Where(peak => 
                         !peak.DecoyPeptide 
                         && peak.Apex?.IndexedPeak != null 
@@ -1305,7 +1297,7 @@ namespace FlashLFQ
 
             acceptorPeak.CutPeak(seedEnv.IndexedPeak.RetentionTime, DiscriminationFactorToCutPeak, Integrate);
 
-            var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak))
+            var claimedPeaks = new HashSet<IIndexedPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak))
             {
                 seedEnv.IndexedPeak // prevents infinite loops
             };
@@ -1339,7 +1331,7 @@ namespace FlashLFQ
             _results.Peaks[spectraFile].RemoveAll(p => p == null || p.IsMbrPeak && !p.IsotopicEnvelopes.Any());
 
             // merge duplicate peaks and handle MBR/MSMS peakfinding conflicts
-            var errorCheckedPeaksGroupedByApex = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
+            var errorCheckedPeaksGroupedByApex = new Dictionary<IIndexedPeak, ChromatographicPeak>();
             var errorCheckedPeaks = new List<ChromatographicPeak>();
             
             foreach (ChromatographicPeak tryPeak in _results.Peaks[spectraFile].OrderBy(p => p.IsMbrPeak))
@@ -1358,7 +1350,7 @@ namespace FlashLFQ
                     continue;
                 }
 
-                IndexedMassSpectralPeak apexImsPeak = tryPeak.Apex.IndexedPeak;
+                IIndexedPeak apexImsPeak = tryPeak.Apex.IndexedPeak;
                 if (errorCheckedPeaksGroupedByApex.TryGetValue(apexImsPeak, out ChromatographicPeak storedPeak) && storedPeak != null)
                 {
                     if (!tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
@@ -1597,10 +1589,11 @@ namespace FlashLFQ
             };
 
             List<int> directions = new List<int> { -1, 1 };
+            IIndexedPeak xicApex = xic.MaxBy(p => p.Intensity);
 
             // For each peak (most abundant mass peak), we check for the possibility that the peak was mis-assigned,
             // i.e. that the peak belongs to a species with a different mass than the identification mass
-            foreach (IndexedMassSpectralPeak peak in xic)
+            foreach (IIndexedPeak peak in xic)
             {
                 Array.Clear(experimentalIsotopeIntensities, 0, experimentalIsotopeIntensities.Length);
                 foreach (var kvp in massShiftToIsotopePeaks)
@@ -1633,8 +1626,12 @@ namespace FlashLFQ
                                                  theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
-                            IIndexedPeak isotopePeak = CurrentIndexingEngine.GetIndexedPeak(isotopeMass,
-                                peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+                            IIndexedPeak isotopePeak;
+                            if (CurrentIndexingEngine is TimsTofIndexingEngine timsEngine && xicApex is IndexedIonMobilityPeak ionMobilityPeak)
+                                isotopePeak = timsEngine.GetIndexedPeak(isotopeMass, peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState, ionMobilityPeak.ApexIonMobilityValue);
+                            else
+                                isotopePeak = CurrentIndexingEngine.GetIndexedPeak(isotopeMass,
+                                    peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                             if (isotopePeak == null
                                 || isotopePeak.Intensity < theoreticalIsotopeIntensity / 4.0

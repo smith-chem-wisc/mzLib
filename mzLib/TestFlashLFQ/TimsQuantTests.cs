@@ -5,17 +5,8 @@ using System.Linq;
 using FlashLFQ;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
-using FlashLFQ.PEP;
-using System;
-using System.Windows.Documents;
 using Chemistry;
-using MassSpectrometry;
 using MzLibUtil;
-using Test.FileReadingTests;
-using UsefulProteomicsDatabases;
-using NUnit.Framework.Legacy;
-using FlashLFQ.PeakIndexing;
-
 
 namespace Test
 {
@@ -24,6 +15,52 @@ namespace Test
 
     public class TimsQuantTests
     {
+
+        [Test]
+        public static void TestGetIndexedPeak()
+        {
+            // First peak in ion mobility space
+            IndexedTimsTofPeak peak1 = new IndexedTimsTofPeak(1, 1, 2, 0);
+            IndexedTimsTofPeak peak2 = new IndexedTimsTofPeak(1, 2, 5, 0);
+            IndexedTimsTofPeak peak3 = new IndexedTimsTofPeak(1, 3, 2, 0);
+
+            //Second peak in ion mobility space
+            IndexedTimsTofPeak peak4 = new IndexedTimsTofPeak(1, 7, 1, 0);
+            IndexedTimsTofPeak peak5 = new IndexedTimsTofPeak(1, 8, 3, 0);
+            IndexedTimsTofPeak peak6 = new IndexedTimsTofPeak(1, 9, 1, 0);
+
+            SpectraFileInfo fakeFile = new SpectraFileInfo("fake.d", "A", 1, 1, 1);
+            TimsTofIndexingEngine timsEngine = new TimsTofIndexingEngine(fakeFile, 1);
+
+            var indexedArray = timsEngine.GetType().GetField("_indexedPeaks", System.Reflection.BindingFlags.NonPublic
+                                                  | System.Reflection.BindingFlags.Instance);
+            List<IndexedTimsTofPeak>[] indexedPeaks = new List<IndexedTimsTofPeak>[101];
+            indexedPeaks[100] = new List<IndexedTimsTofPeak> { peak1, peak2, peak3, peak4, peak5, peak6 };
+            indexedArray.SetValue(timsEngine, indexedPeaks);
+
+
+            var lookupArray = timsEngine.GetType().GetProperty("MzLookupArray", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            double[] mzLookupTable = new double[2];
+            mzLookupTable[1] = 1.0;
+            lookupArray.SetValue(timsEngine, mzLookupTable);
+
+            var resolutionProp = timsEngine.GetType().GetProperty("ImsResolution",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            resolutionProp.SetValue(timsEngine, 1);
+
+            var scanInfoArray = timsEngine.GetType().GetProperty("Ms1ScanInfoArray",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            Ms1ScanInfo[] scanInfo = new Ms1ScanInfo[1];
+            scanInfo[0] = new Ms1ScanInfo(1, 0, 1);
+            scanInfoArray.SetValue(timsEngine, scanInfo);
+
+            double mz = 1;
+            var indexedIonMobilityPeak = timsEngine.GetIndexedPeak(mz.ToMass(1), 0, new PpmTolerance(5), 1, timsIndex: 7);
+
+            Assert.That(indexedIonMobilityPeak.ApexIonMobilityValue == 8);
+            Assert.That(indexedIonMobilityPeak.IonMobilityValues.Count == 3);
+        }
 
         [Test]
         public static void LocalDataTinyTest()

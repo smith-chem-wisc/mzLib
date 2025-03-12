@@ -10,14 +10,14 @@ namespace FlashLFQ
         /// <summary>
         /// The most abundant isotopic peak used for peak finding.
         /// </summary>
-        public readonly IndexedMassSpectralPeak IndexedPeak;
+        public readonly IIndexedPeak IndexedPeak;
         public readonly int ChargeState;
 
         public double Mz => IndexedPeak.Mz;
         public double RelativeSeparationValue => IndexedPeak.RetentionTime;
         public int ZeroBasedScanIndex => IndexedPeak.ZeroBasedMs1ScanIndex;
 
-        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        public IsotopicEnvelope(IIndexedPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
