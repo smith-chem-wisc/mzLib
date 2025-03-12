@@ -360,26 +360,23 @@ namespace Test
                 {
                     file = g1r1;
                 }
-                else
-                    continue;
+                else if (split[0].Contains("_891"))
+                {
+                    file = f1r2;
+                }
+                else if (split[0].Contains("_892"))
+                {
+                    file = f1r3;
+                }
 
-                //else if (split[0].Contains("_891"))
-                //{
-                //    file = f1r2;
-                //}
-                //else if (split[0].Contains("_892"))
-                //{
-                //    file = f1r3;
-                //}
-                
-                //else if (split[0].Contains("_894"))
-                //{
-                //    file = g1r2;
-                //}
-                //else if (split[0].Contains("_895"))
-                //{
-                //    file = g1r3;
-                //}
+                else if (split[0].Contains("_894"))
+                {
+                    file = g1r2;
+                }
+                else if (split[0].Contains("_895"))
+                {
+                    file = g1r3;
+                }
 
                 if (split[23].Contains("|") || double.Parse(split[56]) > 0.01)
                 {
@@ -422,7 +419,7 @@ namespace Test
                 matchBetweenRuns: true,
                 ppmTolerance: 15,
                 isotopeTolerancePpm: 15,
-                matchBetweenRunsFdrThreshold: 0.01,
+                matchBetweenRunsFdrThreshold: 0.15,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: true,
                 maxThreads: 20);

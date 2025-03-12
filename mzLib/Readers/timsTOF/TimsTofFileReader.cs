@@ -277,8 +277,8 @@ namespace Readers
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
-            int spectraPerFrame = 12;
-            int numberOfScansToCombine = NumberOfScansPerFrame / spectraPerFrame; // 10 spectra per frame
+            int spectraPerFrame = 15;
+            int numberOfScansToCombine = NumberOfScansPerFrame / spectraPerFrame; 
             scansPerSpectrum = numberOfScansToCombine;
             int approxNumScans = spectraPerFrame * scansPerSpectrum;
 

@@ -1819,6 +1819,12 @@ namespace FlashLFQ
                 }
             }
 
+            if (xic.Any() && xic.First() is IndexedIonMobilityPeak)
+            {
+                var apex = (IndexedIonMobilityPeak)xic.MaxBy(p => p.Intensity);
+                xic.RemoveAll(p => !((IndexedIonMobilityPeak)p).IonMobilityValues.Contains(apex.ApexIonMobilityValue));
+            }
+
             // Sorts the list by RT in-place. (OrderBy does not sort in place, but creates a copy instead)
             xic.Sort((x, y) => x.RetentionTime.CompareTo(y.RetentionTime));
 

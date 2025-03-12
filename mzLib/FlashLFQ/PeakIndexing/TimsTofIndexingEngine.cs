@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using MzLibUtil;
 using FlashLFQ.PeakIndexing;
 using Chemistry;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -65,6 +66,8 @@ namespace FlashLFQ
             _indexedPeaks = new List<IndexedTimsTofPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
             file.CloseDynamicConnection();
 
+            int noiseBaseline = GetApproximateNoiseLevel(frameArray) * 3;
+
             for (int i = 0; i < frameArray.Length; i++)
             {
                 var ms1Scan = frameArray[i];
@@ -77,7 +80,7 @@ namespace FlashLFQ
                     // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
                     for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
                     {
-                        if (spectrum.YArray[spectrumIdx] < 150) continue;
+                        if (spectrum.YArray[spectrumIdx] < noiseBaseline) continue;
                         double peakMz = MzLookupArray[spectrum.XArray[spectrumIdx]];
                         int roundedMz = (int)Math.Round(peakMz * BinsPerDalton, 0);
                         _indexedPeaks[roundedMz] ??= new List<IndexedTimsTofPeak>(frameArray.Length / 100);
@@ -105,7 +108,27 @@ namespace FlashLFQ
             
         }
 
-
+        public static int GetApproximateNoiseLevel(TimsDataScan[] frameArray)
+        {
+            //Grab 20 frames, create an intensity histogram, and find the most frequent intensity level. That's the noise floor
+            int maxNoiseIntensity = 20000;
+            int[] intensityFrequencyArray = new int[maxNoiseIntensity]; //implicit assumption that the noise floor is below 300
+            for(int i = 0; i < frameArray.Length; i += frameArray.Length/20)
+            {
+                foreach(var scanSpectrumTuple in frameArray[i].TimsScanIdxMs1SpectraList)
+                {
+                    var intensitySpectrum = scanSpectrumTuple.Spectrum.YArray;
+                    for(int j = 0; j < intensitySpectrum.Length; j++)
+                    {
+                        if (intensitySpectrum[j] < maxNoiseIntensity)
+                            intensityFrequencyArray[(int)intensitySpectrum[j]]++;
+                    }
+                }
+            }
+            var frequencySortedList = intensityFrequencyArray.Where(x => x > 0).OrderByDescending(x => x).ToList();
+            int point1PercentileFrequency = frequencySortedList[frequencySortedList.Count / 1000];
+            return intensityFrequencyArray.IndexOf(point1PercentileFrequency);
+        }
 
         public IndexedIonMobilityPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState, int? timsIndex = null)
         {
@@ -214,7 +237,8 @@ namespace FlashLFQ
                 peaksByTimsScanIndex[leftIndex..(rightIndex+1)].Sum(p => p.Intensity),
                 apex.ZeroBasedMs1FrameIndex,
                 Ms1ScanInfoArray[apex.ZeroBasedMs1FrameIndex].RetentionTime,
-                ionMobilityValue: apex.TimsIndex);
+                ionMobilityValues: peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].Select(p => p.TimsIndex).ToHashSet(),
+                apexIonMobilityValue: apex.TimsIndex);
         }
 
         private int BinarySearchForIndexedPeak(List<IndexedTimsTofPeak> bin, int zeroBasedScanIndex)

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Security.Cryptography.X509Certificates;
 
 namespace FlashLFQ
 {
@@ -43,9 +45,10 @@ namespace FlashLFQ
 
     public class IndexedIonMobilityPeak : IndexedMassSpectralPeak, IIndexedPeak
     {
-        public double IonMobilityValue { get; init; }
+        public HashSet<int> IonMobilityValues { get; init; }
+        public int ApexIonMobilityValue { get; init; }
 
-        public IndexedIonMobilityPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime, double ionMobilityValue) 
+        public IndexedIonMobilityPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime, HashSet<int> ionMobilityValues, int apexIonMobilityValue) 
             : base(mz, intensity, zeroBasedMs1ScanIndex, retentionTime)
            
         {
@@ -53,7 +56,8 @@ namespace FlashLFQ
             this.ZeroBasedMs1ScanIndex = zeroBasedMs1ScanIndex;
             this.RetentionTime = retentionTime;
             this.Intensity = intensity;
-            this.IonMobilityValue = ionMobilityValue;
+            this.IonMobilityValues = ionMobilityValues;
+            this.ApexIonMobilityValue = apexIonMobilityValue;
         }
     }
 }

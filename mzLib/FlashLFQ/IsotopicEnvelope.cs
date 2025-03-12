@@ -21,7 +21,7 @@ namespace FlashLFQ
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
-            Intensity = monoisotopicPeak is IndexedTimsTofPeak ?  intensity  : intensity / chargeState; // The charge state/intensity relationship isn't relevant for timsTOF data
+            Intensity = monoisotopicPeak is IndexedIonMobilityPeak ?  intensity  : intensity / chargeState; // The charge state/intensity relationship isn't relevant for timsTOF data
             PearsonCorrelation = pearsonCorrelation;
         }
 
