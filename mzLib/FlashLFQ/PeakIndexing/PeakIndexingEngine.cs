@@ -30,6 +30,12 @@ namespace FlashLFQ
             SpectraFile = file;
         }
 
+        public PeakIndexingEngine(MsDataScan[] scans)
+        {
+            PeakIndexing(scans);
+        }
+
+
         public bool IndexPeaks(bool silent)
         {
             if (!silent)
@@ -40,6 +46,7 @@ namespace FlashLFQ
             // read spectra file
             string fileName = SpectraFile.FullFilePathWithExtension;
             var reader = MsDataFileReader.GetDataFile(fileName); 
+
             reader.LoadAllStaticData();
             // retrieve only the ms1s. 
             MsDataScan[] msDataScans = reader.GetMS1Scans()
@@ -47,17 +54,39 @@ namespace FlashLFQ
                 .OrderBy(i => i.OneBasedScanNumber)
                 .ToArray(); 
             
+
             if (msDataScans.All(p => p == null))
             {
                 _indexedPeaks = null;
                 return false;
             }
 
+            PeakIndexing(msDataScans);
+
+
+            if (_indexedPeaks == null || _indexedPeaks.Length == 0)
+            {
+                if (!silent)
+                {
+                    Console.WriteLine("FlashLFQ Error: The file " + SpectraFile.FilenameWithoutExtension + " contained no MS1 peaks!");
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Read in all spectral peaks from scans, index the peaks and store them in a list ordered by m/z
+        /// </summary>
+        /// <param name="msDataScans">An array of raw data scans</param>
+        /// <param name="scanInfo">Outputs a list of scan information for each scan which is needed for FlashLfq
+        public void PeakIndexing(MsDataScan[] msDataScans)
+        {
             _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
             Ms1ScanInfoArray = new Ms1ScanInfo[msDataScans.Length];
-
-            List<Ms1ScanInfo> scanInfo = new List<Ms1ScanInfo>();
 
             for (int scanIndex = 0; scanIndex < msDataScans.Length; scanIndex++)
             {
@@ -76,18 +105,6 @@ namespace FlashLFQ
                 }
 
             }
-
-            if (_indexedPeaks == null || _indexedPeaks.Length == 0)
-            {
-                if (!silent)
-                {
-                    Console.WriteLine("FlashLFQ Error: The file " + SpectraFile.FilenameWithoutExtension + " contained no MS1 peaks!");
-                }
-
-                return false;
-            }
-
-            return true;
         }
 
         public void ClearIndex()
@@ -121,11 +138,17 @@ namespace FlashLFQ
             File.Delete(indexPath);
         }
 
-        public IIndexedPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState)
+        public IIndexedPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
+            GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, ppmTolerance);
+
+        /// <summary>
+        /// A generic method for finding the closest peak with a specified m/z and in a specified scan. Returns null if no peaks within tolerance are found.
+        /// </summary>
+        public IIndexedPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
         {
             IndexedMassSpectralPeak bestPeak = null;
-            int ceilingMz = (int)Math.Ceiling(tolerance.GetMaximumValue(theorMass).ToMz(chargeState) * BinsPerDalton);
-            int floorMz = (int)Math.Floor(tolerance.GetMinimumValue(theorMass).ToMz(chargeState) * BinsPerDalton);
+            int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(mz) * BinsPerDalton);
+            int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(mz) * BinsPerDalton);
 
             for (int j = floorMz; j <= ceilingMz; j++)
             {
@@ -143,10 +166,7 @@ namespace FlashLFQ
                             break;
                         }
 
-                        double expMass = peak.Mz.ToMass(chargeState);
-
-                        if (tolerance.Within(expMass, theorMass) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex
-                            && (bestPeak == null || Math.Abs(expMass - theorMass) < Math.Abs(bestPeak.Mz.ToMass(chargeState) - theorMass)))
+                        if (ppmTolerance.Within(peak.Mz, mz) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
                         {
                             bestPeak = peak;
                         }
@@ -157,7 +177,7 @@ namespace FlashLFQ
             return bestPeak;
         }
 
-        private int BinarySearchForIndexedPeak(List<IndexedMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
+        private static int BinarySearchForIndexedPeak(List<IndexedMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
         {
             int m = 0;
             int l = 0;

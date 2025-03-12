@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
 using FlashLFQ.PEP;
 using System.IO;
+using MassSpectrometry;
 using System.Threading;
 using FlashLFQ.Interfaces;
 
@@ -457,8 +458,8 @@ namespace FlashLFQ
                 return;
             }
 
-            Tolerance peakfindingTol = new PpmTolerance(PeakfindingPpmTolerance); // Peak finding tolerance is generally higher than ppmTolerance
-            Tolerance ppmTolerance = new PpmTolerance(PpmTolerance);
+            PpmTolerance peakfindingTol = new PpmTolerance(PeakfindingPpmTolerance); // Peak finding tolerance is generally higher than ppmTolerance
+            PpmTolerance ppmTolerance = new PpmTolerance(PpmTolerance);
             ChromatographicPeak[] chromatographicPeaks = new ChromatographicPeak[ms2IdsForThisFile.Count];
 
             Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
@@ -479,7 +480,7 @@ namespace FlashLFQ
                             }
 
                             // get XIC (peakfinding)
-                            List<IIndexedPeak> xic = Peakfind(
+                            List<IIndexedPeak> xic = GetXIC(
                                     identification.Ms2RetentionTimeInMinutes,
                                     identification.PeakfindingMass,
                                     chargeState,
@@ -794,7 +795,7 @@ namespace FlashLFQ
         /// <param name="acceptorFileIdentifiedPeaks"> All MSMS identified peaks in the acceptor file </param>
         /// <param name="fileSpecificMbrTolerance">A ppm tolerance specific to the given file</param>
         /// <returns> A MbrScorer object </returns>
-        private MbrScorer BuildMbrScorer(List<ChromatographicPeak> acceptorFileIdentifiedPeaks, out Tolerance fileSpecificMbrTolerance)
+        private MbrScorer BuildMbrScorer(List<ChromatographicPeak> acceptorFileIdentifiedPeaks, out PpmTolerance fileSpecificMbrTolerance)
         {
             // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
             var apexToAcceptorFilePeakDict = new Dictionary<IIndexedPeak, ChromatographicPeak>();
@@ -1181,7 +1182,7 @@ namespace FlashLFQ
             SpectraFileInfo acceptorFile, 
             MbrScorer scorer,
             RtInfo rtInfo,
-            Tolerance fileSpecificTol,
+            PpmTolerance fileSpecificTol,
             ChromatographicPeak donorPeak,
             out ChromatographicPeak bestAcceptor,
             double? randomRt = null)
@@ -1224,7 +1225,8 @@ namespace FlashLFQ
 
                 for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
                 {
-                    IIndexedPeak peak = IndexingEngineDictionary[acceptorFile].GetIndexedPeak(donorIdentification.PeakfindingMass, j, fileSpecificTol, z);
+                    IIndexedPeak peak = IndexingEngineDictionary[acceptorFile]
+                        .GetIndexedPeak(donorIdentification.PeakfindingMass.ToMz(z), j, fileSpecificTol);
                     if (peak != null)
                         chargeXic.Add(peak);
                 }
@@ -1254,7 +1256,7 @@ namespace FlashLFQ
         /// Grabs the first isotopic envelope in the list of chargeEnvelopes as a potential seed for a chromatographic peak.
         /// remove the isotopic envelope from chargeEnvelopes afterward.
         /// </summary>
-        /// <param name="idAcceptorFile"></param>
+        /// <param name="acceptorFile"></param>
         /// <param name="mbrTol"></param>
         /// <param name="rtInfo"></param>
         /// <param name="rtScoringDistribution"></param>
@@ -1262,22 +1264,22 @@ namespace FlashLFQ
         /// <param name="chargeEnvelopes"></param>
         /// <returns> An acceptor chromatographic peak, unless the peak found was already linked to an MS/MS id, in which case it return null. </returns>
         internal ChromatographicPeak FindIndividualAcceptorPeak(
-            SpectraFileInfo idAcceptorFile,
+            SpectraFileInfo acceptorFile,
             MbrScorer scorer,
             ChromatographicPeak donorPeak,
-            Tolerance mbrTol,
+            PpmTolerance mbrTol,
             RtInfo rtInfo,
             int z,
             List<IsotopicEnvelope> chargeEnvelopes,
             double? randomRt = null)
         {
             var donorId = donorPeak.Identifications.OrderBy(p => p.QValue).First();
-            var acceptorPeak = new ChromatographicPeak(donorId, true, idAcceptorFile, randomRt != null);
+            var acceptorPeak = new ChromatographicPeak(donorId, true, acceptorFile, randomRt != null);
 
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
-            var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, idAcceptorFile, mbrTol);
-            List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z, idAcceptorFile);
+            var xic = GetXIC(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, acceptorFile, mbrTol);
+            List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z, acceptorFile);
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
 
@@ -1603,8 +1605,8 @@ namespace FlashLFQ
                                                  theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
-                            IIndexedPeak isotopePeak = IndexingEngineDictionary[spectraFile].GetIndexedPeak(isotopeMass,
-                                peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+                            IIndexedPeak isotopePeak = IndexingEngineDictionary[spectraFile]
+                                .GetIndexedPeak(isotopeMass.ToMz(chargeState), peak.ZeroBasedMs1ScanIndex, isotopeTolerance);
 
                             if (isotopePeak == null
                                 || isotopePeak.Intensity < theoreticalIsotopeIntensity / 4.0
@@ -1662,7 +1664,7 @@ namespace FlashLFQ
             Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>> massShiftToIsotopePeaks,
             IIndexedPeak peak,
             int chargeState,
-            Tolerance isotopeTolerance,
+            PpmTolerance isotopeTolerance,
             SpectraFileInfo spectraFile,
             out double pearsonCorrelation)
         {
@@ -1680,8 +1682,8 @@ namespace FlashLFQ
                 }
 
                 double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
-                IIndexedPeak unexpectedPeak = IndexingEngineDictionary[spectraFile].GetIndexedPeak(unexpectedMass,
-                            peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+                IIndexedPeak unexpectedPeak = IndexingEngineDictionary[spectraFile]
+                    .GetIndexedPeak(unexpectedMass.ToMz(chargeState), peak.ZeroBasedMs1ScanIndex, isotopeTolerance);
 
                 if (unexpectedPeak == null)
                 {
@@ -1719,18 +1721,13 @@ namespace FlashLFQ
 
         /// <summary>
         /// Finds peaks with a given mz (mass/charge + H) that occur on either side of a given
-        /// retention time. Peak searching iterates backwards through MS1 scans until the peak 
-        /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
-        /// MissedScansAllowed property. Missed scans don't have to be sequential. The same procedure
-        /// is then repeated in the forward direction.
+        /// retention time for FlashLfq related tasks. Calls GetXIC to find a list of indexedSpectralPeak.
         /// </summary>
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
         /// <param name="mass"> Peakfinding mass </param>
         /// <returns></returns>
-        public List<IIndexedPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFile, Tolerance tolerance)
+        public List<IIndexedPeak> GetXIC(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFile, PpmTolerance tolerance)
         {
-            var xic = new List<IIndexedPeak>();
-
             // get precursor scan to start at
             Ms1ScanInfo[] ms1Scans = IndexingEngineDictionary[spectraFile].Ms1ScanInfoArray;
             int precursorScanIndex = -1;
@@ -1746,13 +1743,32 @@ namespace FlashLFQ
                 }
             }
 
+            var xic = GetXIC(mass.ToMz(charge), precursorScanIndex, IndexingEngineDictionary[spectraFile], ms1Scans.Length, tolerance, MissedScansAllowed);
+
+            return xic;
+        }
+
+        /// <summary>
+        /// A generic method of peak tracing across the retention time. Finds peaks with a given mz that occur on either side of a given
+        /// retention time. Peak searching iterates backwards through the scans until the peak 
+        /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
+        /// missedScansAllowed parameter. Missed scans don't have to be sequential. The same procedure
+        /// is then repeated in the forward direction.
+        /// </summary>
+        /// <param name="zeroBasedStartIndex"> the scan where peak searching behaviour begins </param>
+        /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
+        /// <returns></returns>
+        public static List<IIndexedPeak> GetXIC(double mz, int zeroBasedStartIndex, IIndexingEngine peakIndexingEngine, int scansLength, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
+        {
+            var xic = new List<IIndexedPeak>();
+
             // go right
             int missedScans = 0;
-            for (int t = precursorScanIndex; t < ms1Scans.Length; t++)
+            for (int t = zeroBasedStartIndex; t < scansLength; t++)
             {
-                var peak = IndexingEngineDictionary[spectraFile].GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, ppmTolerance);
 
-                if (peak == null && t != precursorScanIndex)
+                if (peak == null && t != zeroBasedStartIndex)
                 {
                     missedScans++;
                 }
@@ -1760,9 +1776,14 @@ namespace FlashLFQ
                 {
                     missedScans = 0;
                     xic.Add(peak);
+
+                    if (peak.RetentionTime - xic.First().RetentionTime > maxPeakHalfWidth)
+                    {
+                        break;
+                    }
                 }
 
-                if (missedScans > MissedScansAllowed)
+                if (missedScans > missedScansAllowed)
                 {
                     break;
                 }
@@ -1770,11 +1791,11 @@ namespace FlashLFQ
 
             // go left
             missedScans = 0;
-            for (int t = precursorScanIndex - 1; t >= 0; t--)
+            for (int t = zeroBasedStartIndex - 1; t >= 0; t--)
             {
-                var peak = IndexingEngineDictionary[spectraFile].GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, ppmTolerance);
 
-                if (peak == null && t != precursorScanIndex)
+                if (peak == null && t != zeroBasedStartIndex)
                 {
                     missedScans++;
                 }
@@ -1782,9 +1803,14 @@ namespace FlashLFQ
                 {
                     missedScans = 0;
                     xic.Add(peak);
+
+                    if (xic.First().RetentionTime - peak.RetentionTime > maxPeakHalfWidth)
+                    {
+                        break;
+                    }
                 }
 
-                if (missedScans > MissedScansAllowed)
+                if (missedScans > missedScansAllowed)
                 {
                     break;
                 }
