@@ -683,9 +683,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedMzPeak.RetentionTime == 1.6);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
             Assert.That(peak.SplitRT == 1.3);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedMzPeak.RetentionTime < 1.3));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -735,9 +735,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedMzPeak.RetentionTime == 1.3);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
             Assert.That(peak.SplitRT == 1.6);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedMzPeak.RetentionTime > 1.6));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -793,9 +793,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedMzPeak.RetentionTime == 1.3);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
             Assert.That(peak.SplitRT == 1.6);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedMzPeak.RetentionTime > 1.6));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -851,9 +851,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedMzPeak.RetentionTime == 1.6);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
             Assert.That(peak.SplitRT == 1.3);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedMzPeak.RetentionTime < 1.3));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -920,9 +920,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedMzPeak.RetentionTime == 1.3);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
             Assert.That(peak.SplitRT == 1.6);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedMzPeak.RetentionTime > 1.6));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -989,9 +989,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedMzPeak.RetentionTime == 1.6);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
             Assert.That(peak.SplitRT == 1.3);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedMzPeak.RetentionTime < 1.3));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 

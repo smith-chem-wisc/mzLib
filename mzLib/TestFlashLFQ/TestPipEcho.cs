@@ -107,7 +107,7 @@ namespace Test
 
 
             var peakList = new List<ChromatographicPeak> { peak1, peak4 };
-            var peakDict = peakList.ToDictionary(keySelector: p => p.Apex.IndexedMzPeak, elementSelector: p => p);
+            var peakDict = peakList.ToDictionary(keySelector: p => p.Apex.IndexedPeak, elementSelector: p => p);
 
             // Builds a scorer. Ppm Error and Intensity distributions both have mean and std-dev of 1
             MbrScorer scorer = new MbrScorer(peakDict, peakList, new MathNet.Numerics.Distributions.Normal(1, 1), new MathNet.Numerics.Distributions.Normal(1,1));

@@ -15,7 +15,7 @@ namespace FlashLFQ
 
             if (donorFilePeak != null && acceptorFilePeak != null)
             {
-                RtDiff = acceptorFilePeak.Apex.IndexedMzPeak.RetentionTime - donorFilePeak.Apex.IndexedMzPeak.RetentionTime;
+                RtDiff = acceptorFilePeak.Apex.IndexedPeak.RetentionTime - donorFilePeak.Apex.IndexedPeak.RetentionTime;
             }
             else
             {
@@ -27,14 +27,14 @@ namespace FlashLFQ
         {
             var otherPoint = (RetentionTimeCalibDataPoint)obj;
 
-            return this.DonorFilePeak.Apex.IndexedMzPeak.RetentionTime.CompareTo(otherPoint.DonorFilePeak.Apex.IndexedMzPeak.RetentionTime);
+            return this.DonorFilePeak.Apex.IndexedPeak.RetentionTime.CompareTo(otherPoint.DonorFilePeak.Apex.IndexedPeak.RetentionTime);
         }
 
         // for debugging
         public override string ToString()
         {
-            return "DonorRT: " + DonorFilePeak.Apex.IndexedMzPeak.RetentionTime.ToString("F3")
-                 + " AcceptorRT: " + AcceptorFilePeak.Apex.IndexedMzPeak.RetentionTime.ToString("F3")
+            return "DonorRT: " + DonorFilePeak.Apex.IndexedPeak.RetentionTime.ToString("F3")
+                 + " AcceptorRT: " + AcceptorFilePeak.Apex.IndexedPeak.RetentionTime.ToString("F3")
                  + " Diff: " + RtDiff.ToString("F3");
         }
     }
