@@ -477,6 +477,9 @@
     <None Update="DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\metamorpheusSpectrumLibraryExample.msp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\SearchResults\NewHeader.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
