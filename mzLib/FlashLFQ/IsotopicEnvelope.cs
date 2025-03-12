@@ -19,6 +19,14 @@
             PearsonCorrelation = pearsonCorrelation;
         }
 
+        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        {
+            IndexedMzPeak = monoisotopicPeak;
+            ChargeState = chargeState;
+            Intensity = intensity / chargeState;
+            PearsonCorrelation = pearsonCorrelation;
+        }
+
         /// <summary>
         /// The summed intensity of all isotope peaks detected in one MS1 scan. This sum may contain 
         /// imputed intensity values for expected isotopes that weren't observed, but only if the observed 

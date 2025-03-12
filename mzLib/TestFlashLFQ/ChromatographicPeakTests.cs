@@ -22,8 +22,8 @@ namespace Test
             // Create a ChromatographicPeak instance
             ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, false, spectraFileInfo);
 
-            IndexedMzMassSpectralPeak peak1 = new IndexedMzMassSpectralPeak(100, 300, 1, 9.5);
-            IndexedMzMassSpectralPeak peak2 = new IndexedMzMassSpectralPeak(100, 300, 1, 10.5);
+            IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5);
+            IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);
 
             // Add sample IsotopicEnvelopes
             chromatographicPeak.IsotopicEnvelopes = new List<IsotopicEnvelope>()

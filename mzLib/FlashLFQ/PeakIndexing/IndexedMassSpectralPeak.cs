@@ -4,14 +4,14 @@ using System;
 namespace FlashLFQ
 {
     [Serializable]
-    public class IndexedMzMassSpectralPeak : IIndexedMzPeak
+    public class IndexedMassSpectralPeak : IIndexedMzPeak
     {
         public int ZeroBasedScanIndex { get; init; }
         public double Mz { get; init; }
         public double RetentionTime { get; init; }
         public double Intensity { get; init; }
 
-        public IndexedMzMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
+        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
         {
             this.Mz = mz;
             this.ZeroBasedScanIndex = zeroBasedMs1ScanIndex;
@@ -21,7 +21,7 @@ namespace FlashLFQ
 
         public override bool Equals(object obj)
         {
-            var otherPeak = (IndexedMzMassSpectralPeak)obj;
+            var otherPeak = (IndexedMassSpectralPeak)obj;
 
             return otherPeak != null
                 && otherPeak.Mz == this.Mz

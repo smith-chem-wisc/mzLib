@@ -1304,7 +1304,7 @@ namespace FlashLFQ
 
 
         /// <summary>
-        /// Checks for and resolves situations where one IndexedMzMassSpectralPeak is defined as the apex 
+        /// Checks for and resolves situations where one IndexedMassSpectralPeak is defined as the apex 
         /// for multiple ChromatographicPeaks. In these situations, the two peaks are merged and the merged
         /// peak is stored in the FlashLFQ results.
         /// </summary>

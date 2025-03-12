@@ -13,7 +13,7 @@ namespace FlashLFQ
 {
     public class PeakIndexingEngine : IIndexingEngine
     {
-        private List<IndexedMzMassSpectralPeak>[] _indexedPeaks;
+        private List<IndexedMassSpectralPeak>[] _indexedPeaks;
         private readonly Serializer _serializer;
         private const int BinsPerDalton = 100;
         public Ms1ScanInfo[] ScanInfoArray { get; private set; }
@@ -23,8 +23,8 @@ namespace FlashLFQ
         {
             var messageTypes = new List<Type>
             {
-                typeof(List<IndexedMzMassSpectralPeak>[]), typeof(List<IndexedMzMassSpectralPeak>),
-                typeof(IndexedMzMassSpectralPeak)
+                typeof(List<IndexedMassSpectralPeak>[]), typeof(List<IndexedMassSpectralPeak>),
+                typeof(IndexedMassSpectralPeak)
             };
             _serializer = new Serializer(messageTypes);
             SpectraFile = file;
@@ -84,7 +84,7 @@ namespace FlashLFQ
         /// <param name="scanInfo">Outputs a list of scan information for each scan which is needed for FlashLfq
         public void PeakIndexing(MsDataScan[] msDataScans)
         {
-            _indexedPeaks = new List<IndexedMzMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
+            _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
             ScanInfoArray = new Ms1ScanInfo[msDataScans.Length];
 
@@ -95,9 +95,9 @@ namespace FlashLFQ
                 for (int j = 0; j < msDataScans[scanIndex].MassSpectrum.XArray.Length; j++)
                 {
                     int roundedMz = (int)Math.Round(msDataScans[scanIndex].MassSpectrum.XArray[j] * BinsPerDalton, 0);
-                    _indexedPeaks[roundedMz] ??= new List<IndexedMzMassSpectralPeak>();
+                    _indexedPeaks[roundedMz] ??= new List<IndexedMassSpectralPeak>();
                     _indexedPeaks[roundedMz].Add(
-                        new IndexedMzMassSpectralPeak(
+                        new IndexedMassSpectralPeak(
                             msDataScans[scanIndex].MassSpectrum.XArray[j],
                             msDataScans[scanIndex].MassSpectrum.YArray[j], 
                             scanIndex, 
@@ -132,7 +132,7 @@ namespace FlashLFQ
 
             using (var indexFile = File.OpenRead(indexPath))
             {
-                _indexedPeaks = (List<IndexedMzMassSpectralPeak>[])_serializer.Deserialize(indexFile);
+                _indexedPeaks = (List<IndexedMassSpectralPeak>[])_serializer.Deserialize(indexFile);
             }
 
             File.Delete(indexPath);
@@ -146,7 +146,7 @@ namespace FlashLFQ
         /// </summary>
         public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
         {
-            IndexedMzMassSpectralPeak bestPeak = null;
+            IndexedMassSpectralPeak bestPeak = null;
             int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(mz) * BinsPerDalton);
             int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(mz) * BinsPerDalton);
 
@@ -154,12 +154,12 @@ namespace FlashLFQ
             {
                 if (j < _indexedPeaks.Length && _indexedPeaks[j] != null)
                 {
-                    List<IndexedMzMassSpectralPeak> bin = _indexedPeaks[j];
+                    List<IndexedMassSpectralPeak> bin = _indexedPeaks[j];
                     int index = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
 
                     for (int i = index; i < bin.Count; i++)
                     {
-                        IndexedMzMassSpectralPeak peak = bin[i];
+                        IndexedMassSpectralPeak peak = bin[i];
 
                         if (peak.ZeroBasedScanIndex > zeroBasedScanIndex)
                         {
@@ -177,7 +177,7 @@ namespace FlashLFQ
             return bestPeak;
         }
 
-        private static int BinarySearchForIndexedPeak(List<IndexedMzMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
+        private static int BinarySearchForIndexedPeak(List<IndexedMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
         {
             int m = 0;
             int l = 0;
