@@ -27,7 +27,7 @@ namespace Test.FileReadingTests
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
+            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 1);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
         }
@@ -232,6 +232,16 @@ namespace Test.FileReadingTests
             Assert.AreEqual(_testMs2Scan.ScanNumberEnd, ms1Scan.ScanNumberEnd);
             Assert.AreEqual(_testMs2Scan.OneOverK0, ms1Scan.OneOverK0);
 
+        }
+
+        [Test]
+        public void TestGetMs1ScanByScan()
+        {
+            //var reader = new TimsTofFileReader(_testDataPath);
+            //foreach(var frame in reader.GetMs1InfoFrameByFrame())
+            //{
+            //    Assert.That(frame.Ms1SpectraIndexedByZeroBasedScanNumber.Length, Is.EqualTo(reader.FrameProxyFactory.MaxScanOneBasedIndex));
+            //}
         }
 
         [Test]

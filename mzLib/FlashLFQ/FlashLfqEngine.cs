@@ -15,6 +15,8 @@ using Easy.Common.Extensions;
 using FlashLFQ.PEP;
 using System.IO;
 using System.Threading;
+using FlashLFQ.Interfaces;
+using MassSpectrometry;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
@@ -95,8 +97,9 @@ namespace FlashLFQ
         private Dictionary<string, List<(double massShift, double normalizedAbundance)>> _modifiedSequenceToIsotopicDistribution;
         private List<int> _chargeStates;
         private FlashLfqResults _results;
-        internal Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
-        internal PeakIndexingEngine _peakIndexingEngine;
+
+        internal IIndexingEngine CurrentIndexingEngine;
+        internal Dictionary<SpectraFileInfo, IIndexingEngine> IndexingEngineDict { get; private set; }
         internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
 
         /// <summary>
@@ -140,7 +143,7 @@ namespace FlashLFQ
         {
             _globalStopwatch = new Stopwatch();
             _chargeStates = new List<int>();
-            _peakIndexingEngine = new PeakIndexingEngine();
+            
 
             _spectraFileInfo = allIdentifications.Select(p => p.FileInfo).Distinct()
                 .OrderBy(p => p.Condition)
@@ -190,6 +193,8 @@ namespace FlashLFQ
                 MaxThreads = 1;
             }
 
+            CurrentIndexingEngine = new PeakIndexingEngine(MaxThreads);
+            IndexingEngineDict = new();
             PeakfindingPpmTolerance = 20.0;
             MissedScansAllowed = 1;
             DiscriminationFactorToCutPeak = 0.6;
@@ -198,7 +203,6 @@ namespace FlashLFQ
         public FlashLfqResults Run()
         {
             _globalStopwatch.Start();
-            _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
             _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, MbrDetectionQValueThreshold, PeptideModifiedSequencesToQuantify);
 
             // build m/z index keys
@@ -207,8 +211,14 @@ namespace FlashLFQ
             // quantify each file
             foreach (var spectraFile in _spectraFileInfo)
             {
+                IIndexingEngine indexingEngine = spectraFile.IsTimsTofFile 
+                    ? new TimsTofIndexingEngine(spectraFile, MaxThreads) 
+                    : new PeakIndexingEngine(MaxThreads);
+                CurrentIndexingEngine = indexingEngine;
+                IndexingEngineDict.Add(spectraFile, indexingEngine);
+
                 // fill lookup-table with peaks from the spectra file
-                if (!_peakIndexingEngine.IndexMassSpectralPeaks(spectraFile, Silent, _ms1Scans))
+                if (!indexingEngine.IndexPeaks(spectraFile, Silent))
                 {
                     // something went wrong finding/opening/indexing the file...
                     continue;
@@ -220,7 +230,7 @@ namespace FlashLFQ
                 // write the indexed peaks for MBR later
                 if (MatchBetweenRuns)
                 {
-                    _peakIndexingEngine.SerializeIndex(spectraFile);
+                    indexingEngine.SerializeIndex(spectraFile);
                 }
 
                 // error checking function
@@ -233,7 +243,7 @@ namespace FlashLFQ
                 }
 
                 // some memory-saving stuff
-                _peakIndexingEngine.ClearIndex();
+                indexingEngine.ClearIndex();
             }
 
             // do MBR
@@ -248,8 +258,9 @@ namespace FlashLFQ
                         Console.WriteLine("Doing match-between-runs for " + spectraFile.FilenameWithoutExtension);
                     }
 
+                    CurrentIndexingEngine = IndexingEngineDict[spectraFile];
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
-                    _peakIndexingEngine.ClearIndex();
+                    IndexingEngineDict[spectraFile].ClearIndex();
 
                     if (!Silent)
                     {
@@ -315,11 +326,6 @@ namespace FlashLFQ
             }
 
             return _results;
-        }
-
-        public PeakIndexingEngine GetIndexingEngine()
-        {
-            return _peakIndexingEngine;
         }
 
         /// <summary>
@@ -471,10 +477,19 @@ namespace FlashLFQ
                 (range, loopState) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
+                    //for (int i = 0; i < ms2IdsForThisFile.Count; i++)
                     {
                         var identification = ms2IdsForThisFile[i];
                         ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, false, fileInfo);
                         chromatographicPeaks[i] = msmsFeature;
+
+                //if(identification.BaseSequence.Equals("EMGQMQVLQMK")
+                //    || identification.BaseSequence.Equals("ALEAEQVEITVGR")
+                //    || identification.BaseSequence.Equals("TLVSAVPEESEMDPHVR")
+                //    )
+                //{
+                //    int xyz = 1;
+                //}
 
                         foreach (var chargeState in _chargeStates)
                         {
@@ -482,9 +497,7 @@ namespace FlashLFQ
                             {
                                 continue;
                             }
-
-                            // get XIC (peakfinding)
-                            List<IndexedMassSpectralPeak> xic = Peakfind(
+                            List<IIndexedPeak> xic = Peakfind(
                                     identification.Ms2RetentionTimeInMinutes,
                                     identification.PeakfindingMass,
                                     chargeState,
@@ -496,24 +509,22 @@ namespace FlashLFQ
                             // filter by smaller mass tolerance
                             xic.RemoveAll(p => 
                                 !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.PeakfindingMass));
-
                             // filter by isotopic distribution
                             List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
 
                             // add isotopic envelopes to the chromatographic peak
                             msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
+ 
                         }
-
-                        msmsFeature.CalculateIntensityForThisFeature(Integrate);
-                        CutPeak(msmsFeature, identification.Ms2RetentionTimeInMinutes);
-
                         if (!msmsFeature.IsotopicEnvelopes.Any())
                         {
                             continue;
                         }
+                        msmsFeature.CalculateIntensityForThisFeature(Integrate);
+                        msmsFeature.CutPeak(identification.Ms2RetentionTimeInMinutes, DiscriminationFactorToCutPeak, Integrate);
+        
 
                         var precursorXic = msmsFeature.IsotopicEnvelopes.Where(p => p.ChargeState == identification.PrecursorChargeState).ToList();
-
                         if (!precursorXic.Any())
                         {
                             msmsFeature.IsotopicEnvelopes.Clear();
@@ -916,7 +927,7 @@ namespace FlashLFQ
             mbrTol = new PpmTolerance(MbrPpmTolerance);
 
             // deserialize the file's indexed mass spectral peaks. these were stored and serialized to a file earlier
-            _peakIndexingEngine.DeserializeIndex(idAcceptorFile);
+            CurrentIndexingEngine.DeserializeIndex(idAcceptorFile);
 
             HashSet<ProteinGroup> thisFilesMsmsIdentifiedProteins = new HashSet<ProteinGroup>();
             if (RequireMsmsIdInCondition)
@@ -1196,7 +1207,7 @@ namespace FlashLFQ
             double? randomRt = null)
         {
             // get the MS1 scan info for this region so we can look up indexed peaks
-            Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
+            Ms1ScanInfo[] ms1ScanInfos = IndexingEngineDict[idAcceptorFile].Ms1ScanInfoArray;
             Ms1ScanInfo start = ms1ScanInfos[0];
             Ms1ScanInfo end = ms1ScanInfos[ms1ScanInfos.Length - 1];
             double rtStartHypothesis = randomRt == null ? rtInfo.RtStartHypothesis : (double)randomRt - (rtInfo.Width / 2.0);
@@ -1229,11 +1240,11 @@ namespace FlashLFQ
 
             foreach (int z in chargesToMatch)
             {
-                List<IndexedMassSpectralPeak> chargeXic = new List<IndexedMassSpectralPeak>();
+                List<IIndexedPeak> chargeXic = new List<IIndexedPeak>();
 
                 for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
                 {
-                    IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(donorIdentification.PeakfindingMass, j, fileSpecificTol, z);
+                    IIndexedPeak peak = CurrentIndexingEngine.GetIndexedPeak(donorIdentification.PeakfindingMass, j, fileSpecificTol, z);
                     if (peak != null)
                         chargeXic.Add(peak);
                 }
@@ -1290,7 +1301,7 @@ namespace FlashLFQ
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
 
-            CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
+            acceptorPeak.CutPeak(seedEnv.IndexedPeak.RetentionTime, DiscriminationFactorToCutPeak, Integrate);
 
             var claimedPeaks = new HashSet<IndexedMassSpectralPeak>(acceptorPeak.IsotopicEnvelopes.Select(p => p.IndexedPeak))
             {
@@ -1354,6 +1365,10 @@ namespace FlashLFQ
                         {
                             if (PeptideModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
                             {
+                                if(storedPeak.Identifications.First().ModifiedSequence != tryPeak.Identifications.First().ModifiedSequence)
+                                {
+                                    int placheolder = 1;
+                                }
                                 storedPeak.MergeFeatureWith(tryPeak, Integrate);
                             }
                             else
@@ -1550,7 +1565,7 @@ namespace FlashLFQ
         /// <param name="xic"> List of imsPeaks, where the mass of each peak is the peak finding mass (most abundant isotope) </param>
         /// <returns> A list of IsotopicEnvelopes, where each envelope contains the sum of the isotopic peak intensities from one scan </returns>
         public List<IsotopicEnvelope> GetIsotopicEnvelopes(
-            List<IndexedMassSpectralPeak> xic,
+            List<IIndexedPeak> xic,
             Identification identification,
             int chargeState)
         {
@@ -1616,7 +1631,7 @@ namespace FlashLFQ
                                                  theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
-                            IndexedMassSpectralPeak isotopePeak = _peakIndexingEngine.GetIndexedPeak(isotopeMass,
+                            IIndexedPeak isotopePeak = CurrentIndexingEngine.GetIndexedPeak(isotopeMass,
                                 peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                             if (isotopePeak == null
@@ -1673,7 +1688,7 @@ namespace FlashLFQ
         /// <returns>True if experimental data is a good match to the expected isotopic distribution </returns>
         public bool CheckIsotopicEnvelopeCorrelation(
             Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>> massShiftToIsotopePeaks,
-            IndexedMassSpectralPeak peak,
+            IIndexedPeak peak,
             int chargeState,
             Tolerance isotopeTolerance,
             out double pearsonCorrelation)
@@ -1692,7 +1707,7 @@ namespace FlashLFQ
                 }
 
                 double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
-                IndexedMassSpectralPeak unexpectedPeak = _peakIndexingEngine.GetIndexedPeak(unexpectedMass,
+                IIndexedPeak unexpectedPeak = CurrentIndexingEngine.GetIndexedPeak(unexpectedMass,
                             peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                 if (unexpectedPeak == null)
@@ -1739,12 +1754,12 @@ namespace FlashLFQ
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
         /// <param name="mass"> Peakfinding mass </param>
         /// <returns></returns>
-        public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
+        public List<IIndexedPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
-            var xic = new List<IndexedMassSpectralPeak>();
+            var xic = new List<IIndexedPeak>();
 
             // get precursor scan to start at
-            Ms1ScanInfo[] ms1Scans = _ms1Scans[spectraFileInfo];
+            Ms1ScanInfo[] ms1Scans = IndexingEngineDict[spectraFileInfo].Ms1ScanInfoArray;
             int precursorScanIndex = -1;
             foreach (Ms1ScanInfo ms1Scan in ms1Scans)
             {
@@ -1762,7 +1777,7 @@ namespace FlashLFQ
             int missedScans = 0;
             for (int t = precursorScanIndex; t < ms1Scans.Length; t++)
             {
-                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = CurrentIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
 
                 if (peak == null && t != precursorScanIndex)
                 {
@@ -1784,7 +1799,7 @@ namespace FlashLFQ
             missedScans = 0;
             for (int t = precursorScanIndex - 1; t >= 0; t--)
             {
-                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = CurrentIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
 
                 if (peak == null && t != precursorScanIndex)
                 {
@@ -1808,102 +1823,5 @@ namespace FlashLFQ
             return xic;
         }
 
-        /// <summary>
-        /// Recursively cuts ChromatographicPeaks, removing all IsotopicEnvelopes
-        /// that occur before or after potential "valleys" surrounding the identification's
-        /// MS2 retention time. Then, the peak intensity is recalculated
-        /// </summary>
-        /// <param name="peak"> Peak to be cut, where envelopes are sorted by MS1 scan number </param>
-        /// <param name="identificationTime"> MS2 scan retention time </param>
-        private void CutPeak(ChromatographicPeak peak, double identificationTime)
-        {
-            // find out if we need to split this peak by using the discrimination factor
-            // this method assumes that the isotope envelopes in a chromatographic peak are already sorted by MS1 scan number
-            bool cutThisPeak = false;
-
-            if (peak.IsotopicEnvelopes.Count < 5)
-            {
-                return;
-            }
-
-            // Ordered list of all time points where the apex charge state had a valid isotopic envelope
-            List<IsotopicEnvelope> timePointsForApexZ = peak.IsotopicEnvelopes
-                .Where(p => p.ChargeState == peak.Apex.ChargeState).ToList();
-            HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedPeak.ZeroBasedMs1ScanIndex));
-            int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
-            IsotopicEnvelope valleyEnvelope = null;
-
-            // -1 checks the left side, +1 checks the right side
-            int[] directions = { 1, -1 };
-            foreach (int direction in directions)
-            {
-                valleyEnvelope = null;
-                int indexOfValley = 0;
-
-                for (int i = apexIndex + direction; i < timePointsForApexZ.Count && i >= 0; i += direction)
-                {
-                    IsotopicEnvelope timepoint = timePointsForApexZ[i];
-
-                    // Valley envelope is the lowest intensity point that has been encountered thus far
-                    if (valleyEnvelope == null || timepoint.Intensity < valleyEnvelope.Intensity)
-                    {
-                        valleyEnvelope = timepoint;
-                        indexOfValley = timePointsForApexZ.IndexOf(valleyEnvelope);
-                    }
-
-                    double discriminationFactor =
-                        (timepoint.Intensity - valleyEnvelope.Intensity) / timepoint.Intensity;
-
-                    // If the time point is at least discriminationFactor times more intense than the valley
-                    // We perform an additional check to see if the time point is more intense than the point next to the valley
-                    if (discriminationFactor > DiscriminationFactorToCutPeak &&
-                        (indexOfValley + direction < timePointsForApexZ.Count && indexOfValley + direction >= 0))
-                    {
-
-                        IsotopicEnvelope secondValleyTimepoint = timePointsForApexZ[indexOfValley + direction];
-
-                        discriminationFactor =
-                            (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
-
-                        // If the current timepoint is more intense than the second valley, we cut the peak
-                        // If the scan following the valley isn't in the timePointsForApexZ list (i.e., no isotopic envelope is observed in the scan immediately after the valley), we also cut the peak
-                        if (discriminationFactor > DiscriminationFactorToCutPeak || !scanNumbers.Contains(valleyEnvelope.IndexedPeak.ZeroBasedMs1ScanIndex + direction))
-                        {
-                            cutThisPeak = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (cutThisPeak)
-                {
-                    break;
-                }
-            }
-
-            // cut
-            if (cutThisPeak)
-            {
-                if (identificationTime > valleyEnvelope.IndexedPeak.RetentionTime)
-                {
-                    // MS2 identification is to the right of the valley; remove all peaks left of the valley
-                    peak.IsotopicEnvelopes.RemoveAll(p => 
-                        p.IndexedPeak.RetentionTime <= valleyEnvelope.IndexedPeak.RetentionTime);
-                }
-                else
-                {
-                    // MS2 identification is to the left of the valley; remove all peaks right of the valley
-                    peak.IsotopicEnvelopes.RemoveAll(p => 
-                        p.IndexedPeak.RetentionTime >= valleyEnvelope.IndexedPeak.RetentionTime);
-                }
-
-                // recalculate intensity for the peak
-                peak.CalculateIntensityForThisFeature(Integrate);
-                peak.SplitRT = valleyEnvelope.IndexedPeak.RetentionTime;
-
-                // recursively cut
-                CutPeak(peak, identificationTime);
-            }
-        }
     }
 }

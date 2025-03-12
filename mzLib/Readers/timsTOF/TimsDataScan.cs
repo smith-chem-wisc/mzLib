@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ThermoFisher.CommonCore.Data;
 
 namespace MassSpectrometry
 {
@@ -68,26 +69,53 @@ namespace MassSpectrometry
 
         internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
         {
-            MassSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(mzArrays, intensityArrays, filteringParams);
+            MassSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(MzArrays, IntensityArrays, filteringParams);
             TotalIonCurrent = MassSpectrum.SumOfAllY;
-            mzArrays.Clear();
-            intensityArrays.Clear();
+            MzArrays.Clear();
+            IntensityArrays.Clear();
         }
 
-        internal List<double[]> mzArrays;
-        internal List<int[]> intensityArrays;
+        internal List<double[]> MzArrays;
+        internal List<int[]> IntensityArrays;
 
         internal void AddComponentArrays(double[] mzs, int[] intensities)
         {
-            if (mzArrays == null)
+            if (MzArrays == null)
             {
-                mzArrays = new();
-                intensityArrays = new();
+                MzArrays = new();
+                IntensityArrays = new();
             }
-            mzArrays.Add(mzs);
-            intensityArrays.Add(intensities);
+            MzArrays.Add(mzs);
+            IntensityArrays.Add(intensities);
         }
 
+        public List<(int ScanIdx , TimsSpectrum Spectrum)>? TimsScanIdxMs1SpectraList { get; private set; }
 
+        public void AddSpectrum(TimsSpectrum spectrum, int scanNumber)
+        {
+            if (TimsScanIdxMs1SpectraList == null)
+            {
+                TimsScanIdxMs1SpectraList = new();
+            }
+            TimsScanIdxMs1SpectraList.Add((scanNumber, spectrum));
+        }
+    }
+
+    /// <summary>
+    /// This is similar to an mz spectrum, but much more lightweight
+    /// It stores intensities as ints and tof indices instead of mz values
+    /// </summary>
+    public class TimsSpectrum
+    {
+        public uint[] XArray { get; init; }
+        public int[] YArray { get; init; }
+
+        public int Size => XArray.Length;
+
+        public TimsSpectrum(uint[] tofIndices, int[] intensities)
+        {
+            XArray = tofIndices;
+            YArray = intensities;
+        }
     }
 }

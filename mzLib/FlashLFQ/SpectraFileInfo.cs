@@ -20,6 +20,7 @@ namespace FlashLFQ
         public int BiologicalReplicate { get; set; }
         public int TechnicalReplicate { get; set; }
         public int Fraction { get; set; }
+        public bool IsTimsTofFile => Path.GetExtension(FullFilePathWithExtension) == ".d";
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {

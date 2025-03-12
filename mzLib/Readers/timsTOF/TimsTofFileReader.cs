@@ -14,9 +14,7 @@ using ThermoFisher.CommonCore.Data.Business;
 using Polarity = MassSpectrometry.Polarity;
 using System.Security.AccessControl;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Security.Permissions;
-using System.ComponentModel;
+using System.Threading.Tasks.Dataflow;
 
 namespace Readers
 { 
@@ -24,7 +22,7 @@ namespace Readers
     {
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
         // over multiple scans with each scan corresponding to the same retention time but different
-        // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
+        // ion mobility values. When reading the file, multiple scans from the same frame are collapsed into 
         // a single spectrum
 
         public TimsTofFileReader(string filePath) : base (filePath) { }
@@ -32,9 +30,10 @@ namespace Readers
         private UInt64? _fileHandle;
         private Object _fileLock;
         private SQLiteConnection? _sqlConnection;
-        private int _maxThreads;
         public int NumberOfFrames { get; private set; }
         public List<long> Ms1FrameIds { get; private set; }
+        public int NumberOfMs1Frames => Ms1FrameIds.Count;
+        public int NumberOfScansPerFrame => FrameProxyFactory.FramesTable.NumScans.Max();
         internal FrameProxyFactory FrameProxyFactory { get; private set; }
         
         // I don't know what the default scan range is, and at this point I'm too afraid to ask...
@@ -49,6 +48,8 @@ namespace Readers
                 throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
             }
 
+            _sqlConnection?.Dispose();
+            _sqlConnection = null;
             OpenSqlConnection();
 
             if(_fileHandle != null) tims_close((UInt64)_fileHandle);
@@ -56,7 +57,16 @@ namespace Readers
             _fileLock = new();
 
             CountFrames();
+            CountMS1Frames();
             BuildProxyFactory();
+        }
+
+        public double[] GetMzLookupTable()
+        {
+            if(FrameProxyFactory == null)
+                throw new MzLibException("The dynamic connection has not been created yet!");
+
+            return FrameProxyFactory.MzLookupArray;
         }
 
         internal void OpenSqlConnection()
@@ -169,6 +179,7 @@ namespace Readers
         internal void CountMS1Frames()
         {
             if (_sqlConnection == null) return;
+
             using var command = new SQLiteCommand(_sqlConnection);
             command.CommandText = @"SELECT f.Id FROM Frames f WHERE f.MsMsType = 0;";
             using var sqliteReader = command.ExecuteReader();
@@ -235,11 +246,10 @@ namespace Readers
             CountMS1Frames();
             CountPrecursors();
             
-            _maxThreads = maxThreads;
             Ms1ScansNoPrecursorsBag = new();
             Parallel.ForEach(
                 Partitioner.Create(0, Ms1FrameIds.Count),
-                new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
+                new ParallelOptions() { MaxDegreeOfParallelism = maxThreads },
                 (range) =>
             {
                 for (int i = range.Item1; i < range.Item2; i++)
@@ -252,6 +262,88 @@ namespace Readers
             AssignOneBasedPrecursorsToPasefScans();
             SourceFile = GetSourceFile();
             return this;
+        }
+
+        /// <summary>
+        /// Constructs one timsDataScan for every scan in every MS1 frame in the timsTOF data file
+        /// This comes out to ~1000 scans per frame
+        /// These TimsDataScans are missing some fields that aren't needed for quant
+        /// Missing fields: TotalIonCurrent, NoiseData, NativeId, PrecursorId.
+        /// </summary>
+        /// <returns> DataScans with populated Ms1SpectraIndexedByZeroBasedScanNumber arrays </returns>
+        //public IEnumerable<TimsDataScan> GetMs1InfoFrameByFrame(int maxThreads)
+        public TimsDataScan[] GetMs1InfoFrameByFrame(out int scansPerSpectrum, int maxThreads = 1)
+        {
+            if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
+                InitiateDynamicConnection();
+
+            int spectraPerFrame = 12;
+            int numberOfScansToCombine = NumberOfScansPerFrame / spectraPerFrame; // 10 spectra per frame
+            scansPerSpectrum = numberOfScansToCombine;
+            int approxNumScans = spectraPerFrame * scansPerSpectrum;
+
+            TimsDataScan[] scans = new TimsDataScan[Ms1FrameIds.Count];
+            // It's assumed that every MS1 frame will contain the same number of scans
+            int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
+            Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count, Math.Max(Ms1FrameIds.Count / (maxThreads * 4), 2)),
+                new ParallelOptions() { MaxDegreeOfParallelism = maxThreads },
+                (range) =>
+                {
+                    for (int i = range.Item1; i < range.Item2; i++)
+                    {
+                        FrameProxy frame = FrameProxyFactory.GetFrameProxy(Ms1FrameIds[i]);
+                        int extraScans = frame.NumberOfScans - approxNumScans;
+                        TimsDataScan dataScan = new TimsDataScan(
+                            massSpectrum: null,
+                            oneBasedScanNumber: -1, // This gets adjusted once all data has been read
+                            msnOrder: 1,
+                            isCentroid: true,
+                            polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+                            retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+                            scanWindowRange: ScanWindow,
+                            scanFilter: ScanFilter,
+                            mzAnalyzer: MZAnalyzerType.TOF,
+                            totalIonCurrent: -1,
+                            injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+                            noiseData: null,
+                            nativeId: null,
+                            frameId: frame.FrameId,
+                            scanNumberStart: 1,
+                            scanNumberEnd: numberOfScans,
+                            medianOneOverK0: -1,
+                            precursorId: null);
+
+                        // Every Frame gets simplified into ten spectra
+                        // First spectra picks up extra scans, as the least is going on at low scan numbers/CCS
+                        List<uint[]> indexArrays = new(10);
+                        List<int[]> intensityArrays = new(10);
+                        int previousScanIdx = 0;
+                        for (int nextScanIdx = numberOfScansToCombine + extraScans; nextScanIdx < frame.NumberOfScans + numberOfScansToCombine; nextScanIdx += numberOfScansToCombine)
+                        {
+                            // Step 1: Get the scans    
+                            nextScanIdx = Math.Min(frame.NumberOfScans - 1, nextScanIdx);
+                            indexArrays.Clear();
+                            intensityArrays.Clear();
+                            for (int scan = previousScanIdx; scan < nextScanIdx; scan++)
+                            {
+                                indexArrays.Add(frame.GetScanIndices(scan));
+                                intensityArrays.Add(frame.GetScanIntensities(scan));
+                            }
+                            // Step 2: Average those suckers
+                            TimsSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays);
+                            if (averagedSpectrum.Size > 1)
+                            {
+                                dataScan.AddSpectrum(averagedSpectrum, (nextScanIdx + previousScanIdx) / 2);
+                            }
+                            if (nextScanIdx == frame.NumberOfScans - 1) break;
+                            previousScanIdx = nextScanIdx;
+                        }
+
+                        scans[i] = dataScan;
+                    }
+                });
+
+            return scans;
         }
 
         internal void AssignOneBasedPrecursorsToPasefScans()

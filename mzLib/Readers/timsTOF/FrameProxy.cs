@@ -13,6 +13,16 @@ namespace Readers
         internal Object FileLock { get; }
         internal TimsConversion Converter { get; }
         public int MaxIndex { get; init; } 
+        public int MaxScanOneBasedIndex
+        {
+            get
+            {
+                _maxScanOneBasedIndex ??= FramesTable.NumScans.Max();
+                return (int)_maxScanOneBasedIndex;
+            }
+        }
+
+        private int? _maxScanOneBasedIndex;
         /// <summary>
         /// Used to convert the tofIndices stored in the .d file to m/z values
         /// </summary>
@@ -75,7 +85,7 @@ namespace Readers
             // Populate the 1/K0 lookup array
             int scanMax = FramesTable.NumScans.Max();
             double[] oneOverK0LookupIndices = Array
-                .ConvertAll(Enumerable.Range(0, scanMax).ToArray(), entry => (double)entry);
+                .ConvertAll(Enumerable.Range(0, MaxScanOneBasedIndex).ToArray(), entry => (double)entry);
             OneOverK0LookupArray = Converter.DoTransformation(handle, medianFrameId, oneOverK0LookupIndices, ConversionFunctions.ScanToOneOverK0);
         }
 
@@ -99,7 +109,7 @@ namespace Readers
 
         internal double GetRetentionTime(long frameId)
         {
-            return (double)FramesTable.RetentionTime[frameId - 1];
+            return Math.Round(FramesTable.RetentionTime[frameId - 1] / 60.0, 4, MidpointRounding.AwayFromZero);
         }
 
         internal double GetInjectionTime(long frameId)

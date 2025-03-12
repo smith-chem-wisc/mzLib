@@ -189,6 +189,39 @@ namespace Readers
         }
 
         /// <summary>
+        /// Merges multiple index and intensity arrays into an MS1 spectrum.
+        /// This operation is somewhere between averaging and centroiding
+        /// In the TimsTofFileReader, MS1 scans are kept as index arrays and intensity arrays.
+        /// </summary>
+        /// <param name="indexArrays">List of index arrays.</param>
+        /// <param name="intensityArrays">List of intensity arrays.</param>
+        /// <param name="proxyFactory">Frame proxy factory.</param>
+        /// <param name="filteringParams">Filtering parameters (optional).</param>
+        /// <returns>A merged MS1 spectrum.</returns>
+        internal static TimsSpectrum MergeArraysToTimsSpectrum(
+            List<uint[]> indexArrays,
+            List<int[]> intensityArrays)
+        {
+            if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
+                return null;
+
+            // Merge all index arrays and intensity arrays into a single array
+            uint[] combinedIndices = indexArrays[0];
+            int[] combinedIntensities = intensityArrays[0];
+            for (int i = 1; i < indexArrays.Count(); i++)
+            {
+                var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
+                combinedIndices = mergeResults.Indices;
+                combinedIntensities = mergeResults.Intensities;
+            }
+
+            // Collapse the combined arrays into a single array (centroiding, more or less)
+            var centroidedResults = CollapseArrays(combinedIndices, combinedIntensities);
+
+            return new TimsSpectrum(centroidedResults.Indices, centroidedResults.Intensities);
+        }
+
+        /// <summary>
         /// Merges multiple m/z and intensity arrays into an MS2 spectrum.
         /// This operation is somewhere between averaging and centroiding.
         /// In the TimsTofFileReader, MS2 component spectrum are stored as 
