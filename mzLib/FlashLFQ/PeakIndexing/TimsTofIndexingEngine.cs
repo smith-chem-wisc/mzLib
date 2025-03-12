@@ -169,32 +169,35 @@ namespace FlashLFQ
                 }
             }
 
-            return MergeTimsTofPeaks(peaksInFrame, theorMass.ToMz(chargeState));
+            return MergeTimsTofPeaks(peaksInFrame, theorMass.ToMz(chargeState), timsIndex);
         }
 
         private IndexedIonMobilityPeak MergeTimsTofPeaks(Dictionary<int, List<IndexedTimsTofPeak>> peaksInFrame, double targetMz, int? targetTimsScanIndex = null)
         {
             if (!peaksInFrame.Any()) return null;
 
-            IndexedTimsTofPeak apex = default(IndexedTimsTofPeak);
             List<IndexedTimsTofPeak> peaksByTimsScanIndex = new();
             foreach (var peakList in peaksInFrame.OrderBy(kvp => kvp.Key).Select(kvp => kvp.Value))
             {
-                if(peakList.Count > 1)
+                if (peakList.Count > 1)
                 {
                     var bestPeak = peakList.MinBy(p => Math.Abs(targetMz - MzLookupArray[p.TofIndex]));
                     peaksByTimsScanIndex.Add(bestPeak);
-                    if(bestPeak.Intensity > apex.Intensity) 
-                        apex = bestPeak;
                 }
                 else
                 {
                     peaksByTimsScanIndex.Add(peakList[0]);
-                    if(peakList[0].Intensity > apex.Intensity)
-                          apex = peakList[0];
                 }
             }
 
+            return MergeTimsTofPeaksHelper(peaksByTimsScanIndex, targetTimsScanIndex);
+        }
+
+        private IndexedIonMobilityPeak MergeTimsTofPeaksHelper(List<IndexedTimsTofPeak> peaksByTimsScanIndex, int? targetTimsScanIndex)
+        {
+            if(peaksByTimsScanIndex.Count < 1) return null;
+
+            IndexedTimsTofPeak apex = peaksByTimsScanIndex.MaxBy(p => p.Intensity);
             int apexIndex = peaksByTimsScanIndex.IndexOf(apex);
 
             int leftIndex = apexIndex - 1;
@@ -212,7 +215,7 @@ namespace FlashLFQ
                     break;
                 }
             }
-            if(leftIndex < 0) leftIndex = 0; // if we are at the beginning of the list, we don't want to go out of bounds (leftIndex--)
+            if (leftIndex < 0) leftIndex = 0; // if we are at the beginning of the list, we don't want to go out of bounds (leftIndex--)
 
             int rightIndex = apexIndex + 1;
             previousTimsIndex = apex.TimsIndex;
@@ -229,16 +232,40 @@ namespace FlashLFQ
                     break;
                 }
             }
-            if(rightIndex >= peaksByTimsScanIndex.Count) rightIndex = peaksByTimsScanIndex.Count - 1; // if we are at the end of the list, we don't want to go out of bounds (rightIndex++)
+            if (rightIndex >= peaksByTimsScanIndex.Count) rightIndex = peaksByTimsScanIndex.Count - 1; // if we are at the end of the list, we don't want to go out of bounds (rightIndex++)
 
+            if (targetTimsScanIndex == null || 
+                (targetTimsScanIndex >= peaksByTimsScanIndex[leftIndex].TimsIndex
+                && targetTimsScanIndex <= peaksByTimsScanIndex[rightIndex].TimsIndex) )
+            {
+                return new IndexedIonMobilityPeak(
+                    MzLookupArray[apex.TofIndex],
+                    peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].Sum(p => p.Intensity),
+                    apex.ZeroBasedMs1FrameIndex,
+                    Ms1ScanInfoArray[apex.ZeroBasedMs1FrameIndex].RetentionTime,
+                    ionMobilityValues: peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].Select(p => p.TimsIndex).ToHashSet(),
+                    apexIonMobilityValue: apex.TimsIndex);
+            }
 
-            return new IndexedIonMobilityPeak(
-                MzLookupArray[apex.TofIndex], 
-                peaksByTimsScanIndex[leftIndex..(rightIndex+1)].Sum(p => p.Intensity),
-                apex.ZeroBasedMs1FrameIndex,
-                Ms1ScanInfoArray[apex.ZeroBasedMs1FrameIndex].RetentionTime,
-                ionMobilityValues: peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].Select(p => p.TimsIndex).ToHashSet(),
-                apexIonMobilityValue: apex.TimsIndex);
+            if (targetTimsScanIndex > peaksByTimsScanIndex[rightIndex].TimsIndex)
+            {
+                if (rightIndex + 1 < peaksByTimsScanIndex.Count)
+                {
+                    peaksByTimsScanIndex = peaksByTimsScanIndex[(rightIndex + 1)..].ToList();
+                    return MergeTimsTofPeaksHelper(peaksByTimsScanIndex, targetTimsScanIndex);
+                }
+                return null;
+            }
+            if(targetTimsScanIndex < peaksByTimsScanIndex[leftIndex].TimsIndex)
+            {
+                if(leftIndex - 1 >= 0)
+                {
+                    peaksByTimsScanIndex = peaksByTimsScanIndex[..leftIndex].ToList();
+                    return MergeTimsTofPeaksHelper(peaksByTimsScanIndex, targetTimsScanIndex);
+                }
+                return null;
+            }
+            return null; // This should never happen
         }
 
         private int BinarySearchForIndexedPeak(List<IndexedTimsTofPeak> bin, int zeroBasedScanIndex)
