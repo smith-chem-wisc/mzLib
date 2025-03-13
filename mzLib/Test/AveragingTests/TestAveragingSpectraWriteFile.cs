@@ -110,10 +110,18 @@ namespace Test.AveragingTests
         [Test]
         public static void TestOutputToCustomDirectoryAndNameMzML()
         {
+            
             // output to a different directory than the files were originally in
             Parameters.OutputType = OutputType.MzML;
             string customDestinationDirectory = Path.Combine(OutputDirectory, "NewTestingDirectory");
             string customDestinationDirectory2 = Path.Combine(OutputDirectory, "NewTestingDirectory2");
+
+            // clean up from any previous tests, if they exist
+            if (Directory.Exists(customDestinationDirectory))
+            {
+                Directory.Delete(customDestinationDirectory, true);
+                Directory.CreateDirectory(customDestinationDirectory);
+            }
             Directory.CreateDirectory(customDestinationDirectory);
             string customName = "AveragedSpectra";
 

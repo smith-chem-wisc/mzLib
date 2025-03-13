@@ -2242,9 +2242,9 @@ namespace FlashLFQ
                     .Where(peak => peak != null && peak.SpectraFileInfo.Equals(fileInfo))
                     .ToList();
                 //remove the repeated peaks from FlashLFQ with the same identification list
-                foreach (var peaks in allChromPeaksInFile)
+                foreach (var peak in allChromPeaksInFile)
                 {
-                    _results.Peaks[fileInfo].RemoveAll(p => p.Identifications.SequenceEqual(peaks.Identifications));
+                    _results.Peaks[fileInfo].RemoveAll(p => IDsEqual(p.Identifications,peak.Identifications));
                 }
 
                 // Add the peaks into the result dictionary, and remove the duplicated peaks.
@@ -2252,6 +2252,34 @@ namespace FlashLFQ
                 _results.Peaks[fileInfo] = _results.Peaks[fileInfo]
                     .DistinctBy(peak => new { peak.ApexRetentionTime, peak.SpectraFileInfo, peak.Identifications.First().BaseSequence }).ToList();
             }
+        }
+
+        /// <summary>
+        /// Check if two lists of identifications are equal, where equality is defined as base sequence, modified sequence, and fileInfo.
+        /// Only for IsobaricPeptide comparison.
+        /// </summary>
+        /// <param name="idList1"></param>
+        /// <param name="idList2"></param>
+        /// <returns></returns>
+        private bool IDsEqual(List<Identification> idList1, List<Identification> idList2)
+        {
+            if (idList1.Count != idList2.Count)
+            {
+                return false;
+            }
+
+            var sortedIdList1 = idList1.OrderBy(id => id.ModifiedSequence).ToList();
+            var sortedIdList2 = idList2.OrderBy(id => id.ModifiedSequence).ToList();
+
+            for (int i = 0; i < sortedIdList1.Count; i++)
+            {
+                if (!sortedIdList1[i].IsoEquals(sortedIdList2[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
     }

@@ -44,7 +44,7 @@ namespace FlashLFQ
             return ModifiedSequence;
         }
 
-        public override bool Equals(object obj)
+        public bool IsoEquals(object obj)
         {
             if (obj is Identification other)
             {
@@ -53,18 +53,6 @@ namespace FlashLFQ
                        this.ProteinGroups.SetEquals(other.ProteinGroups);
             }
             return false;
-        }
-
-        public override int GetHashCode()
-        {
-            int hash = 17;
-            hash = hash * 23 + BaseSequence.GetHashCode();
-            hash = hash * 23 + ModifiedSequence.GetHashCode();
-            foreach (var proteinGroup in ProteinGroups)
-            {
-                hash = hash * 23 + proteinGroup.GetHashCode();
-            }
-            return hash;
         }
     }
 }
