@@ -67,9 +67,9 @@ namespace MassSpectrometry
             ComponentSpectraTotalPeaks = 0;
         }
 
-        internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
+        internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, TofSpectraMerger spectraMerger, FilteringParams filteringParams = null)
         {
-            MassSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(MzArrays, IntensityArrays, filteringParams);
+            MassSpectrum = spectraMerger.MergeArraysToMs2Spectrum(MzArrays, IntensityArrays, filteringParams);
             TotalIonCurrent = MassSpectrum.SumOfAllY;
             MzArrays.Clear();
             IntensityArrays.Clear();

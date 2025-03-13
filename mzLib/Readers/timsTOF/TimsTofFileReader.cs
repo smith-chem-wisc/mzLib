@@ -1,20 +1,10 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Runtime.InteropServices;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
 using MzLibUtil;
-using UsefulProteomicsDatabases;
-using System.Data.Common;
-using Readers;
-using System.Data.SqlClient;
 using System.Data;
-using ThermoFisher.CommonCore.Data.Business;
-using Polarity = MassSpectrometry.Polarity;
-using System.Security.AccessControl;
 using System.Collections.Concurrent;
-using System.Threading.Tasks.Dataflow;
 
 namespace Readers
 { 
@@ -35,6 +25,7 @@ namespace Readers
         public int NumberOfMs1Frames => Ms1FrameIds.Count;
         public int NumberOfScansPerFrame => FrameProxyFactory.FramesTable.NumScans.Max();
         internal FrameProxyFactory FrameProxyFactory { get; private set; }
+        internal TofSpectraMerger TofSpectraMerger { get; private set; }
         
         // I don't know what the default scan range is, and at this point I'm too afraid to ask...
         private MzRange? _scanWindow;
@@ -206,6 +197,7 @@ namespace Readers
 
             int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
             FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs);
+            TofSpectraMerger = new TofSpectraMerger(FrameProxyFactory.MzLookupArray);
         }
 
         internal void CountPrecursors()
@@ -276,7 +268,7 @@ namespace Readers
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
-            int spectraPerFrame = 16;
+            int spectraPerFrame = 12;
             int numberOfScansToCombine = NumberOfScansPerFrame / spectraPerFrame; 
             scansPerSpectrum = numberOfScansToCombine;
             int approxNumScans = spectraPerFrame * scansPerSpectrum;
@@ -329,7 +321,7 @@ namespace Readers
                                 intensityArrays.Add(frame.GetScanIntensities(scan));
                             }
                             // Step 2: Average those suckers
-                            TimsSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays);
+                            TimsSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays, FrameProxyFactory.MzLookupArray);
                             if (averagedSpectrum.Size > 1)
                             {
                                 dataScan.AddSpectrum(averagedSpectrum, (nextScanIdx + previousScanIdx) / 2);
@@ -575,7 +567,7 @@ namespace Readers
             // to yield one spectrum per precursor
             foreach (TimsDataScan scan in pasefScans)
             {
-                scan.AverageComponentSpectra(FrameProxyFactory, filteringParams);
+                scan.AverageComponentSpectra(FrameProxyFactory, TofSpectraMerger, filteringParams);
             }
 
             return pasefScans;

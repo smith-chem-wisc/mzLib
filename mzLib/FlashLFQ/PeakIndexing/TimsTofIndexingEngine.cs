@@ -14,6 +14,7 @@ using MzLibUtil;
 using FlashLFQ.PeakIndexing;
 using Chemistry;
 using MassSpectrometry;
+using System.CodeDom;
 
 namespace FlashLFQ
 {
@@ -66,7 +67,7 @@ namespace FlashLFQ
             _indexedPeaks = new List<IndexedTimsTofPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
             file.CloseDynamicConnection();
 
-            int noiseBaseline = GetApproximateNoiseLevel(frameArray) * 3;
+            int noiseBaseline = GetApproximateNoiseLevel(frameArray) / 2;
 
             for (int i = 0; i < frameArray.Length; i++)
             {
@@ -82,7 +83,7 @@ namespace FlashLFQ
                     {
                         if (spectrum.YArray[spectrumIdx] < noiseBaseline) continue;
                         double peakMz = MzLookupArray[spectrum.XArray[spectrumIdx]];
-                        int roundedMz = (int)Math.Round(peakMz * BinsPerDalton, 0);
+                        int roundedMz = (int)Math.Floor(peakMz * BinsPerDalton);
                         _indexedPeaks[roundedMz] ??= new List<IndexedTimsTofPeak>(frameArray.Length / 100);
                         _indexedPeaks[roundedMz].Add(new IndexedTimsTofPeak(spectrum.XArray[spectrumIdx], timsIndex, spectrum.YArray[spectrumIdx], i));
                     }
@@ -197,11 +198,23 @@ namespace FlashLFQ
         {
             if(peaksByTimsScanIndex.Count < 1) return null;
 
-            IndexedTimsTofPeak apex = peaksByTimsScanIndex.MaxBy(p => p.Intensity);
-            int apexIndex = peaksByTimsScanIndex.IndexOf(apex);
+            IndexedTimsTofPeak peakCenter = default(IndexedTimsTofPeak);
+            if(targetTimsScanIndex == null)
+                peakCenter = peaksByTimsScanIndex.MaxBy(p => p.Intensity);
+            else
+            {
+                peakCenter = peaksByTimsScanIndex.MinBy(p => Math.Abs(p.TimsIndex - targetTimsScanIndex.Value));
+                if (Math.Abs(peakCenter.TimsIndex - (int)targetTimsScanIndex) > 2.5 * ImsResolution)
+                    return null;
+            }
+                
 
-            int leftIndex = apexIndex - 1;
-            int previousTimsIndex = apex.TimsIndex;
+            if(peakCenter.)
+
+            int centerIndex = peaksByTimsScanIndex.IndexOf(peakCenter);
+
+            int leftIndex = centerIndex - 1;
+            int previousTimsIndex = peakCenter.TimsIndex;
             while (leftIndex >= 0)
             {
                 if (previousTimsIndex - peaksByTimsScanIndex[leftIndex].TimsIndex < 1.5 * ImsResolution)
@@ -217,8 +230,8 @@ namespace FlashLFQ
             }
             if (leftIndex < 0) leftIndex = 0; // if we are at the beginning of the list, we don't want to go out of bounds (leftIndex--)
 
-            int rightIndex = apexIndex + 1;
-            previousTimsIndex = apex.TimsIndex;
+            int rightIndex = centerIndex + 1;
+            previousTimsIndex = peakCenter.TimsIndex;
             while (rightIndex < peaksByTimsScanIndex.Count)
             {
                 if (peaksByTimsScanIndex[rightIndex].TimsIndex - previousTimsIndex < 1.5 * ImsResolution)
@@ -235,16 +248,16 @@ namespace FlashLFQ
             if (rightIndex >= peaksByTimsScanIndex.Count) rightIndex = peaksByTimsScanIndex.Count - 1; // if we are at the end of the list, we don't want to go out of bounds (rightIndex++)
 
             if (targetTimsScanIndex == null || 
-                (targetTimsScanIndex >= peaksByTimsScanIndex[leftIndex].TimsIndex
-                && targetTimsScanIndex <= peaksByTimsScanIndex[rightIndex].TimsIndex) )
+                (targetTimsScanIndex >= peaksByTimsScanIndex[leftIndex].TimsIndex - 1.5 * ImsResolution
+                && targetTimsScanIndex <= peaksByTimsScanIndex[rightIndex].TimsIndex + 1.5 * ImsResolution) )
             {
                 return new IndexedIonMobilityPeak(
-                    MzLookupArray[apex.TofIndex],
+                    MzLookupArray[peakCenter.TofIndex],
                     peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].Sum(p => p.Intensity),
-                    apex.ZeroBasedMs1FrameIndex,
-                    Ms1ScanInfoArray[apex.ZeroBasedMs1FrameIndex].RetentionTime,
+                    peakCenter.ZeroBasedMs1FrameIndex,
+                    Ms1ScanInfoArray[peakCenter.ZeroBasedMs1FrameIndex].RetentionTime,
                     ionMobilityValues: peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].Select(p => p.TimsIndex).ToHashSet(),
-                    apexIonMobilityValue: apex.TimsIndex);
+                    apexIonMobilityValue: peakCenter.TimsIndex);
             }
 
             if (targetTimsScanIndex > peaksByTimsScanIndex[rightIndex].TimsIndex)

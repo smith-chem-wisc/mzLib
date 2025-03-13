@@ -1704,10 +1704,16 @@ namespace FlashLFQ
                 {
                     continue;
                 }
+                //IIndexedPeak unexpectedPeak = CurrentIndexingEngine.GetIndexedPeak(unexpectedMass,
+                //            peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                 double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
-                IIndexedPeak unexpectedPeak = CurrentIndexingEngine.GetIndexedPeak(unexpectedMass,
-                            peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+                IIndexedPeak unexpectedPeak;
+                if (CurrentIndexingEngine is TimsTofIndexingEngine timsEngine && peak is IndexedIonMobilityPeak ionMobilityPeak)
+                    unexpectedPeak = timsEngine.GetIndexedPeak(unexpectedMass, peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState, ionMobilityPeak.ApexIonMobilityValue);
+                else
+                    unexpectedPeak = CurrentIndexingEngine.GetIndexedPeak(unexpectedMass,
+                        peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                 if (unexpectedPeak == null)
                 {

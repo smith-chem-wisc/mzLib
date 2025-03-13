@@ -7,6 +7,7 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
 using Chemistry;
 using MzLibUtil;
+using System;
 
 namespace Test
 {
@@ -141,14 +142,21 @@ namespace Test
                 useSharedPeptidesForProteinQuant: true,
                 ppmTolerance: 15,
                 isotopeTolerancePpm: 15,
-                maxThreads: 5);
+                maxThreads: 5,
+                silent:true);
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
 
-            var peaks = results.Peaks.Values.ToList();
+
             var peptides = results.PeptideModifiedSequences.Values.ToList();
             var proteins = results.ProteinGroups.Values.ToList();
+
+            Console.WriteLine("Undetected peptides: " + peptides.Count(p => 
+                p.GetDetectionType(f1r1) == DetectionType.MSMSIdentifiedButNotQuantified));
+
+            Console.WriteLine("Ambiguous peptides: " + peptides.Count(p =>
+                p.GetDetectionType(f1r1) == DetectionType.MSMSAmbiguousPeakfinding));
 
             Assert.Pass();
 
@@ -342,7 +350,8 @@ namespace Test
                 matchBetweenRuns: false,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: true,
-                maxThreads: -1);
+                maxThreads: -1,
+                silent: true);
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
@@ -350,6 +359,15 @@ namespace Test
             var peaks = results.Peaks.Values.ToList();
             var peptides = results.PeptideModifiedSequences.Values.ToList();
             var proteins = results.ProteinGroups.Values.ToList();
+
+            Console.WriteLine("Quantified peptides: " + peptides.Count(p =>
+                p.GetDetectionType(f1r3) == DetectionType.MSMS));
+
+            Console.WriteLine("Undetected peptides: " + peptides.Count(p =>
+                p.GetDetectionType(f1r3) == DetectionType.MSMSIdentifiedButNotQuantified));
+
+            Console.WriteLine("Ambiguous peptides: " + peptides.Count(p =>
+                p.GetDetectionType(f1r3) == DetectionType.MSMSAmbiguousPeakfinding));
 
             Assert.Pass();
 

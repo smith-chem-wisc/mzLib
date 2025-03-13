@@ -4,9 +4,34 @@ using MzLibUtil;
 
 namespace Readers
 {
-    public static class TofSpectraMerger
+    public class TofSpectraMerger
     {
-        public static readonly double DefaultPpmTolerance = 10;
+        public readonly double DefaultPpmTolerance = 3;
+        public uint[] TofIndexDelta { get; init; }
+
+        public TofSpectraMerger(double[] mzLookupArray)
+        {
+            PpmTolerance tolerance = new(DefaultPpmTolerance);
+            TofIndexDelta = new uint[mzLookupArray.Length];
+
+            // Initialize pointers to the first two elements in the index array
+            for (uint i = 0; i < mzLookupArray.Length; i++)
+            {
+                double maxMz = tolerance.GetMaximumValue(mzLookupArray[i]);
+                uint maxTofIdx = i + 1;
+                while (maxTofIdx < mzLookupArray.Length)
+                {
+                    if (mzLookupArray[maxTofIdx] < maxMz)
+                        maxTofIdx++;
+                    else
+                    {
+                        maxTofIdx--;
+                        break;
+                    }
+                }
+                TofIndexDelta[i] = maxTofIdx - i;
+            }
+        }
 
         #region IndexLevelOperations
         // The following methods are used to merge and collapse index arrays and intensity arrays
@@ -22,7 +47,7 @@ namespace Readers
         /// <param name="intensityArray1">First intensity array.</param>
         /// <param name="intensityArray2">Second intensity array.</param>
         /// <returns>A tuple containing the merged indices and intensities.</returns>
-        public static (uint[] Indices, int[] Intensities) TwoPointerMerge(uint[] indexArray1, uint[] indexArray2, int[] intensityArray1, int[] intensityArray2)
+        public (uint[] Indices, int[] Intensities) TwoPointerMerge(uint[] indexArray1, uint[] indexArray2, int[] intensityArray1, int[] intensityArray2)
         {
             int p1 = 0;
             int p2 = 0;
@@ -75,27 +100,30 @@ namespace Readers
         /// <param name="indexArray">The index array to collapse.</param>
         /// <param name="intensityArray">The intensity array to collapse.</param>
         /// <returns>A tuple containing the collapsed indices and intensities.</returns>
-        public static (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray)
+        public (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray, double[] mzLookupArray)
         {
             // Define lists to store the collapsed indices and intensities
             List<uint> collapsedIndices = new List<uint>(indexArray.Length);
             List<int> collapsedIntensities = new List<int>(intensityArray.Length);
+            PpmTolerance tolerance = new(DefaultPpmTolerance);
 
             // Initialize pointers to the first two elements in the index array
             int p1 = 0;
             int p2 = 1;
             while (p1 < indexArray.Length)
             {
-                uint currentIdx = indexArray[p1];
+
+                uint maxTofIdx = indexArray[p1] + TofIndexDelta[indexArray[p1]];
 
                 // Find clusters of indices that are close together
-                // increment pointer 2 until the cluster ends and we're further than 3 indices away
-                while (p2 < indexArray.Length && (2 + currentIdx) >= indexArray[p2])
+                // increment pointer 2 until the cluster ends and we're further than DefaultPpmTolerance away
+                while (p2 < indexArray.Length && indexArray[p2] <= maxTofIdx)
                 {
                     p2++;
                 }
                 p2--; // Move the pointer back by one
                 int medianPointer = (p1 + p2) / 2;
+
                 // Use the median index in each cluster as the collapsed index
                 collapsedIndices.Add(indexArray[medianPointer]);
 
@@ -104,6 +132,7 @@ namespace Readers
                 for (int i = p1; i <= p2; i++)
                 {
                     summedIntensity += intensityArray[i];
+                    //if (intensityArray2.Length > 1) summedIntensity += 10;
                 }
                 collapsedIntensities.Add(summedIntensity);
 
@@ -121,7 +150,7 @@ namespace Readers
         #endregion
         #region MzLevelOperations
 
-        internal static MzSpectrum CreateFilteredSpectrum(IList<double> mzs, IList<int> intensities,
+        internal MzSpectrum CreateFilteredSpectrum(IList<double> mzs, IList<int> intensities,
             FilteringParams filteringParams = null, int msnLevel = 1)
         {
             double[] mzsArray;
@@ -159,7 +188,7 @@ namespace Readers
         /// <param name="proxyFactory">Frame proxy factory.</param>
         /// <param name="filteringParams">Filtering parameters (optional).</param>
         /// <returns>A merged MS1 spectrum.</returns>
-        internal static MzSpectrum MergeArraysToMs1Spectrum(
+        internal MzSpectrum MergeArraysToMs1Spectrum(
             List<uint[]> indexArrays, 
             List<int[]> intensityArrays, 
             FrameProxyFactory proxyFactory,
@@ -198,9 +227,10 @@ namespace Readers
         /// <param name="proxyFactory">Frame proxy factory.</param>
         /// <param name="filteringParams">Filtering parameters (optional).</param>
         /// <returns>A merged MS1 spectrum.</returns>
-        internal static TimsSpectrum MergeArraysToTimsSpectrum(
+        internal TimsSpectrum MergeArraysToTimsSpectrum(
             List<uint[]> indexArrays,
-            List<int[]> intensityArrays)
+            List<int[]> intensityArrays,
+            double[] mzLookupArray)
         {
             if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
                 return null;
@@ -216,7 +246,7 @@ namespace Readers
             }
 
             // Collapse the combined arrays into a single array (centroiding, more or less)
-            var centroidedResults = CollapseArrays(combinedIndices, combinedIntensities);
+            var centroidedResults = CollapseArrays(combinedIndices, combinedIntensities, mzLookupArray);
 
             return new TimsSpectrum(centroidedResults.Indices, centroidedResults.Intensities);
         }
@@ -233,7 +263,7 @@ namespace Readers
         /// <param name="filteringParams">Filtering parameters (optional).</param>
         /// <param name="ppmTolerance">PPM tolerance value (default is -1).</param>
         /// <returns>A merged MS2 spectrum.</returns>
-        internal static MzSpectrum MergeArraysToMs2Spectrum(
+        internal MzSpectrum MergeArraysToMs2Spectrum(
             List<double[]> mzArrays,
             List<int[]> intensityArrays,
             FilteringParams filteringParams = null,
@@ -271,7 +301,7 @@ namespace Readers
         /// <param name="intensityArray1">First intensity array.</param>
         /// <param name="intensityArray2">Second intensity array.</param>
         /// <returns>A tuple containing the merged m/z values and intensities.</returns>
-        public static (double[] Mzs, int[] Intensities) TwoPointerMerge(double[] mzArray1, double[] mzArray2, int[] intensityArray1, int[] intensityArray2)
+        public (double[] Mzs, int[] Intensities) TwoPointerMerge(double[] mzArray1, double[] mzArray2, int[] intensityArray1, int[] intensityArray2)
         {
             int p1 = 0;
             int p2 = 0;
@@ -325,7 +355,7 @@ namespace Readers
         /// <param name="intensityArray">The intensity array to collapse.</param>
         /// /// <param name="ppmTolerance">PPM tolerance value (default is 10).</param>
         /// <returns>A tuple containing the collapsed mz and intensities.</returns>
-        internal static (double[] Mzs, int[] Intensities) CollapseArrays(double[] mzArray, int[] intensityArray, double ppmTolerance = 10)
+        internal (double[] Mzs, int[] Intensities) CollapseArrays(double[] mzArray, int[] intensityArray, double ppmTolerance = 10)
         {
             // Define lists to store the collapsed indices and intensities
             List<double> collapsedMzs = new();
@@ -391,7 +421,7 @@ namespace Readers
         /// <param name="intensityArrays">List of intensity arrays.</param>
         /// <param name="proxyFactory">Frame proxy factory.</param>
         /// <returns>A tuple containing the merged m/z values and intensities.</returns>
-        internal static (double[] Mzs, int[] Intensities) MergeArraysToMzArray(List<uint[]> indexArrays, List<int[]> intensityArrays, FrameProxyFactory proxyFactory)
+        internal (double[] Mzs, int[] Intensities) MergeArraysToMzArray(List<uint[]> indexArrays, List<int[]> intensityArrays, FrameProxyFactory proxyFactory)
         {
             if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
                 return (new double[0], new int[0]);
