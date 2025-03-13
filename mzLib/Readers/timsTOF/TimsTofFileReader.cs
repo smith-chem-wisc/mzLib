@@ -268,7 +268,7 @@ namespace Readers
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
-            int spectraPerFrame = 12;
+            int spectraPerFrame = 8;
             int numberOfScansToCombine = NumberOfScansPerFrame / spectraPerFrame; 
             scansPerSpectrum = numberOfScansToCombine;
             int approxNumScans = spectraPerFrame * scansPerSpectrum;
@@ -557,8 +557,9 @@ namespace Readers
                         }
                         // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
                         // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
-                        (double[] Mzs, int[] Intensities) summedArrays = TofSpectraMerger.MergeArraysToMzArray(indexArrays, intensityArrays, FrameProxyFactory);
-                        scan.AddComponentArrays(summedArrays.Mzs, summedArrays.Intensities);
+                        //(double[] Mzs, int[] Intensities) summedArrays = TofSpectraMerger.MergeArraysToMzArray(indexArrays, intensityArrays, FrameProxyFactory);
+                        scan.AddTimsSpectrum(TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays));
+                        //scan.AddComponentArrays(summedArrays.Mzs, summedArrays.Intensities);
                     }
                 }
             }

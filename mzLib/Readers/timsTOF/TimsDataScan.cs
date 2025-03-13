@@ -89,6 +89,16 @@ namespace MassSpectrometry
             IntensityArrays.Add(intensities);
         }
 
+        List<TimsSpectrum> TimsSpectra { get; set; }
+        internal void AddTimsSpectrum(TimsSpectrum spectrum)
+        {             
+            if (TimsSpectra == null)
+            {
+                TimsSpectra = new();
+            }
+            TimsSpectra.Add(spectrum);
+        }
+
         public List<(int ScanIdx , TimsSpectrum Spectrum)>? TimsScanIdxMs1SpectraList { get; private set; }
 
         public void AddSpectrum(TimsSpectrum spectrum, int scanNumber)

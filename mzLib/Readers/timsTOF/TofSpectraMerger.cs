@@ -100,7 +100,7 @@ namespace Readers
         /// <param name="indexArray">The index array to collapse.</param>
         /// <param name="intensityArray">The intensity array to collapse.</param>
         /// <returns>A tuple containing the collapsed indices and intensities.</returns>
-        public (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray, double[] mzLookupArray)
+        public (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray)
         {
             // Define lists to store the collapsed indices and intensities
             List<uint> collapsedIndices = new List<uint>(indexArray.Length);
@@ -229,8 +229,7 @@ namespace Readers
         /// <returns>A merged MS1 spectrum.</returns>
         internal TimsSpectrum MergeArraysToTimsSpectrum(
             List<uint[]> indexArrays,
-            List<int[]> intensityArrays,
-            double[] mzLookupArray)
+            List<int[]> intensityArrays)
         {
             if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
                 return null;
@@ -246,7 +245,7 @@ namespace Readers
             }
 
             // Collapse the combined arrays into a single array (centroiding, more or less)
-            var centroidedResults = CollapseArrays(combinedIndices, combinedIntensities, mzLookupArray);
+            var centroidedResults = CollapseArrays(combinedIndices, combinedIntensities);
 
             return new TimsSpectrum(centroidedResults.Indices, centroidedResults.Intensities);
         }
