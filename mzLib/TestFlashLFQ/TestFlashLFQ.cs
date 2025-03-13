@@ -1514,7 +1514,7 @@ namespace Test
             Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
             Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
             Assert.AreEqual(141, f1r1MbrResults.Count);
-            Assert.AreEqual(78, f1r2MbrResults.Count);
+            Assert.AreEqual(77, f1r2MbrResults.Count);
 
             // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
             List<(double, double)> peptideIntensities = f1r1MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();
@@ -2174,6 +2174,28 @@ namespace Test
                 engine.Run();
             });
         }
-        
+
+        [Test]
+        public static void TestGetXICWithMaxRtLimit()
+        {
+            var scan1 = new MsDataScan(new MzSpectrum(new double[] { 400, 500, 1000 }, new double[] { 10, 20, 30 }, false),
+                1, 1, true, Polarity.Positive, 0.1, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scan2 = new MsDataScan(new MzSpectrum(new double[] { 400.001, 500.001, 1000.001 }, new double[] { 1001, 2001, 3000 }, false),
+                3, 1, true, Polarity.Positive, 0.2, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scan3 = new MsDataScan(new MzSpectrum(new double[] { 400.002, 500.002, 1000.002 }, new double[] { 100, 200, 300 }, false),
+                5, 1, true, Polarity.Positive, 0.3, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scan4 = new MsDataScan(new MzSpectrum(new double[] { 400.005, 500.0025, 1000.003 }, new double[] { 1000, 2000, 3001 }, false),
+                7, 1, true, Polarity.Positive, 0.4, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scan5 = new MsDataScan(new MzSpectrum(new double[] { 400.0065, 500.0015, 1000.005 }, new double[] { 100, 200, 300 }, false),
+                9, 1, true, Polarity.Positive, 0.5, null, "", MZAnalyzerType.Orbitrap, 1, null, null, null);
+            var scans = new MsDataScan[] { scan1, scan2, scan3, scan4, scan5 };
+
+            //This tests if the length of XIC is limited by the maxRT parameter. Peak finding starts at mz 1000.003 from scan4 and maxRT limit is set to 0.15.
+            //Without RT limit, the XIC would find 5 peaks, but with the limit, the peak from scan1 will be excluded.
+            var indexedPeaks = new PeakIndexingEngine(scans);
+            var xic = FlashLfqEngine.GetXIC(1000.003, 3, indexedPeaks, 5, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
+            Assert.That(xic.Count == 4);
+            Assert.That(xic.First().Mz == 1000.001);
+        }
     }
 }
