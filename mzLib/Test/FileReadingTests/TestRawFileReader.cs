@@ -175,8 +175,8 @@ namespace Test.FileReadingTests
 
                 for (int j = 0; j < mzmlScan.MassSpectrum.XArray.Length; j++)
                 {
-                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 2);
-                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 2);
+                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 4);
+                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 4);
 
                     Assert.AreEqual(roundedMzmlMz, roundedRawMz);
 

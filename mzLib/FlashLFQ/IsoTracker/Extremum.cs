@@ -8,15 +8,27 @@ using System.Threading.Tasks;
 namespace FlashLFQ.IsoTracker
 {
     /// <summary>
+    /// The type of the Extremum point, either a minimum or maximum
+    /// </summary>
+    public enum ExtremumType { Minimum, Maximum };
+
+    /// <summary>
     /// An Extremum object stores the location of a local maxima or minima in an XIC
     /// </summary>
-    public enum ExtremumType { Minimum, Maximum }; //The spectra file the XIC came from
-
     public class Extremum : IComparable<Extremum>, IEquatable<Extremum>
     {
-        public readonly double Intensity;     //The aligned intensity of the Extremum point
-        public readonly double RetentionTime; //The interpolated intensity of the Extremum point
-        public readonly ExtremumType Type;    //The type of the Extremum point
+        /// <summary>
+        /// The interpolated intensity of the Extremum point
+        /// </summary>
+        public readonly double Intensity;
+        /// <summary>
+        /// The retention time of the Extremum point
+        /// </summary>
+        public readonly double RetentionTime;
+        /// <summary>
+        /// The type of the Extremum point
+        /// </summary>
+        public readonly ExtremumType Type;
 
         public Extremum(double intensity, double retentionTime, ExtremumType type)
         {

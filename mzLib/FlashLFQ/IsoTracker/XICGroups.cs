@@ -11,12 +11,30 @@ namespace FlashLFQ.IsoTracker
     /// </summary>
     public class XICGroups : IEnumerable<XIC>
     {
+        /// <summary>
+        /// The reference XIC for alignment
+        /// </summary>
         public XIC ReferenceXIC;
+        /// <summary>
+        /// The XICs list
+        /// </summary>
         public List<XIC> XICs;
+        /// <summary>
+        /// The retention time shift of each XIC
+        /// </summary>
         public Dictionary<int, double> RTDict;
+        /// <summary>
+        /// The shared extrema in the XICs, time project to the reference XIC
+        /// </summary>
         public List<Extremum> SharedExtrema;
-        public Dictionary<double, double> ExtremaInRef; // the shared extrema in the reference XIC (time/intensity)
+        /// <summary>
+        /// The shared extrema in the reference XIC, we project the shared extrema in the reference XIC
+        /// </summary>
+        public Dictionary<double, double> ExtremaInRef;
         public List<Identification> IdList;
+        /// <summary>
+        /// The shared peak region in the XICGroups
+        /// </summary>
         public List<PeakRegion> SharedPeaks { get; private set; }
 
         /// <summary>
@@ -50,9 +68,9 @@ namespace FlashLFQ.IsoTracker
 
         /// <summary>
         /// Iterate the extrema from each XIC and generate the shared extrema from the XICs, the criteria are below
-        /// (1) the intensity of the extrema should be larger the cutOff and
-        /// (2) the time difference between each run should be within the tolerance
-        /// (3) the number of the shared extrema should be larger than the threshold * number of XICs
+        /// (1) The intensity of the extrema should be larger the cutOff
+        /// (2) The time difference between each run should be within the tolerance
+        /// (3) The number of the shared extrema should be larger than the threshold * number of XICs
         /// </summary>
         /// <param name="count_threshold"> the minimum number for share tracking </param>
         /// <param name="tolerance"> Time difference tolerance</param>

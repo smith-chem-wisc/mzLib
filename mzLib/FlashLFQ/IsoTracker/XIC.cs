@@ -13,16 +13,46 @@ namespace FlashLFQ.IsoTracker
     /// </summary>
     public class XIC
     {
+        /// <summary>
+        /// A list of smoothed intensity values.
+        /// </summary>
         public List<double> SmoothedIntensity { get; set; }
+        /// <summary>
+        /// A list of smoothed retention time values.
+        /// </summary>
         public List<double> SmoothedRetentionTime { get; set; }
 
-        public List<IndexedMassSpectralPeak> Ms1Peaks { get; init; } //A list of imsPeak objects
-        public double PeakFindingMz { get; init; } //The peak-finding mz used to detect the imsPeaks. Every peak should have this m/z+- tolerance
-        public SpectraFileInfo SpectraFile { get; init; } // The spectra file the XIC came from
-        public bool Reference { get; set; } //For a collection of XICs, one should be the reference for time alignment. We picked the XIC with the most MS2ID.
-        public LinearSpline LinearSpline { get; private set; } //A spline will be use for data interpolation.
+        /// <summary>
+        /// A list of imsPeak objects.
+        /// </summary>
+        public List<IndexedMassSpectralPeak> Ms1Peaks { get; init; }
+        /// <summary>
+        /// The peak-finding mz used to detect the imsPeaks. Every peak should have this m/z+- tolerance.
+        /// </summary>
+        public double PeakFindingMz { get; init; }
+        /// <summary>
+        /// The spectra file the XIC came from.
+        /// </summary>
+        public SpectraFileInfo SpectraFile { get; init; }
+        /// <summary>
+        /// For a collection of XICs, one should be the reference for time alignment. We picked the XIC with the most MS2ID.
+        /// </summary>
+        public bool Reference { get; set; }
+        /// <summary>
+        /// A spline will be used for data interpolation.
+        /// </summary>
+        public LinearSpline LinearSpline { get; private set; }
+        /// <summary>
+        /// A cubic spline for smoothed data interpolation.
+        /// </summary>
         public CubicSpline SmoothedCubicSpline { get; private set; }
-        public double RtShift { get; private set; } // The time shift from the reference XIC
+        /// <summary>
+        /// The time shift from the reference XIC.
+        /// </summary>
+        public double RtShift { get; private set; }
+        /// <summary>
+        /// A list of extrema points.
+        /// </summary>
         public List<Extremum> Extrema { get; set; }
 
         public List<Identification> Ids;

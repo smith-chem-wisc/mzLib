@@ -14,7 +14,11 @@ namespace FlashLFQ.IsoTracker
         public double ApexRT { get; private set; }
         public double StartRT { get; private set; }
         public double EndRT { get; private set; }
+        /// <summary>
+        /// This property calculates the width of the peak region by subtracting the start retention time from the end retention time.
+        /// </summary>
         public double Width { get { return EndRT - StartRT; } }
+
 
 
         public PeakRegion(double apexRT, double startRT, double endRT)
