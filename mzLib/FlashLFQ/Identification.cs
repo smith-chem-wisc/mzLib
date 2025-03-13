@@ -43,5 +43,28 @@ namespace FlashLFQ
         {
             return ModifiedSequence;
         }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is Identification other)
+            {
+                return this.BaseSequence == other.BaseSequence &&
+                       this.ModifiedSequence == other.ModifiedSequence &&
+                       this.ProteinGroups.SetEquals(other.ProteinGroups);
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            int hash = 17;
+            hash = hash * 23 + BaseSequence.GetHashCode();
+            hash = hash * 23 + ModifiedSequence.GetHashCode();
+            foreach (var proteinGroup in ProteinGroups)
+            {
+                hash = hash * 23 + proteinGroup.GetHashCode();
+            }
+            return hash;
+        }
     }
 }

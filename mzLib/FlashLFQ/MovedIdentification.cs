@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices.Marshalling;
 using System.Text;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -18,6 +19,19 @@ namespace FlashLFQ
         {
             
             this.TimeShift = timeShift;
+        }
+
+
+        public bool Equal(Identification id)
+        {
+            if (this.BaseSequence != id.BaseSequence || 
+                this.ModifiedSequence != id.ModifiedSequence || 
+                this.UseForProteinQuant != id.UseForProteinQuant)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

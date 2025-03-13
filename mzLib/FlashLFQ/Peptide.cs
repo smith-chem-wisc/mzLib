@@ -8,6 +8,8 @@ namespace FlashLFQ
     {
         public readonly string Sequence;
         public readonly string BaseSequence;
+        public readonly int? PeakOrder; // only used in IsoTracker mode
+        public readonly int? IsoGroupIndex; // only used in IsoTracker mode for output grouping
         private Dictionary<SpectraFileInfo, double> Intensities;
         private Dictionary<SpectraFileInfo, double> RetentionTimes;
         private Dictionary<SpectraFileInfo, DetectionType> DetectionTypes;
@@ -24,8 +26,22 @@ namespace FlashLFQ
             DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
             this.ProteinGroups = proteinGroups;
             this.UseForProteinQuant = useForProteinQuant;
+        }
 
-
+        /// <summary>
+        /// The constructor for IsoPeptide
+        /// </summary>
+        /// <param name="sequence"></param>
+        /// <param name="baseSequence"></param>
+        /// <param name="useForProteinQuant"></param>
+        /// <param name="proteinGroups"></param>
+        /// <param name="isoGroupIndex"></param>
+        /// <param name="peakOrder"></param>
+        public Peptide(string sequence, string baseSequence, bool useForProteinQuant, HashSet<ProteinGroup> proteinGroups, int isoGroupIndex,int peakOrder):
+            this(sequence, baseSequence, useForProteinQuant, proteinGroups)
+        {
+            IsoGroupIndex = isoGroupIndex;
+            PeakOrder = peakOrder;
         }
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
@@ -52,6 +68,7 @@ namespace FlashLFQ
             var sb = new StringBuilder();
             sb.Append("Sequence" + "\t");
             sb.Append("Base Sequence" + "\t");
+            sb.Append("Peak Order" + "\t");
             sb.Append("Protein Groups" + "\t");
             sb.Append("Gene Names" + "\t");
             sb.Append("Organism" + "\t");
@@ -147,24 +164,7 @@ namespace FlashLFQ
             {
                 RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
                 Intensities[peak.SpectraFileInfo] = peak.Apex.Intensity;
-                DetectionType detectionType;
-                if (peak.IsMbrPeak && peak.Intensity > 0)
-                {
-                    detectionType = DetectionType.MBR;
-                }
-                else if (!peak.IsMbrPeak && peak.Intensity > 0)
-                {
-                    detectionType = DetectionType.MSMS;
-                }
-                else if (!peak.IsMbrPeak && peak.Intensity == 0)
-                {
-                    detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
-                }
-                else
-                {
-                    detectionType = DetectionType.NotDetected;
-                }
-                DetectionTypes[peak.SpectraFileInfo] = detectionType;
+                DetectionTypes[peak.SpectraFileInfo] = peak.DetectionType;
             }
         }
 
@@ -177,6 +177,7 @@ namespace FlashLFQ
                 StringBuilder str = new StringBuilder();
                 str.Append(Sequence + "\t");
                 str.Append(BaseSequence + "\t");
+                str.Append(PeakOrder != null ? PeakOrder + "\t" : "" + "\t");
 
                 var orderedProteinGroups = ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();
 

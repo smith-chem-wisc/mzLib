@@ -5,7 +5,7 @@ using System.Linq;
 using MathNet.Numerics.IntegralTransforms;
 using System.Numerics;
 
-namespace FlashLFQ.Alex_project
+namespace FlashLFQ.IsoTracker
 {
     /// <summary>
     /// An XIC should contain a list of every indexed Mass Spectral Peak (imsPeak) that corresponds to the MS1 signal
@@ -101,12 +101,14 @@ namespace FlashLFQ.Alex_project
             var referSpline = referenceXIC.LinearSpline;
             var toAlignSpline = this.LinearSpline;
 
-            double timegap = (this.Ms1Peaks.Last().RetentionTime - this.Ms1Peaks[0].RetentionTime) / (this.Ms1Peaks.Count - 1);
-            double initialTime = this.Ms1Peaks[0].RetentionTime - 5.0 * timegap; //after the padding, the first peak move ahead 5 timegap
-            double FinalTime = this.Ms1Peaks.Last().RetentionTime + 5.0 * timegap; //after the padding, the last peak move back 5 timegap
+            double timegap = (Ms1Peaks.Last().RetentionTime - Ms1Peaks[0].RetentionTime) / (Ms1Peaks.Count - 1);
+            double initialTime = Ms1Peaks[0].RetentionTime - 5.0 * timegap; //after the padding, the first peak move ahead 5 timegap
+            double FinalTime = Ms1Peaks.Last().RetentionTime + 5.0 * timegap; //after the padding, the last peak move back 5 timegap
             double time = initialTime;
 
-            // create two arrays to store the interpolated values of the two XICs
+            // Create two intensity arrays of the reference and target XICs by interpolating the time point. 
+            // The number of timePoints depend on the resolution.
+            // If the resolution is 1000, the timePoint is 1/1000 = 0.001s.
             Complex[] reference = new Complex[(int)((FinalTime - initialTime) * resolution + 2)];
             Complex[] toAlign = new Complex[(int)((FinalTime - initialTime) * resolution + 2)];
             int index = 0;
@@ -139,8 +141,6 @@ namespace FlashLFQ.Alex_project
             double rtShift = -(product.Length / 2 - indexForTheMaxValue) * (1.0 / resolution);
             RtShift = rtShift;
             return rtShift;
-
-            // Example
         }
 
 

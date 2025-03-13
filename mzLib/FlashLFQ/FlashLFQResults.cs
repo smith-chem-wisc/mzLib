@@ -6,6 +6,8 @@ using System.Data.Entity.Core.Objects.DataClasses;
 using System.IO;
 using System.Linq;
 using System.Text;
+using FlashLFQ.IsoTracker;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -17,7 +19,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
         private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
-        public Dictionary<string, Dictionary<Tuple<int, double, double>, List<ChromatographicPeak>>> IsobaricPeakInDifferentRun = null;
+        public Dictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict = null;
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }
 
@@ -223,7 +225,7 @@ namespace FlashLFQ
                 
             }
 
-            if (IsoTracker && IsobaricPeakInDifferentRun != null)
+            if (IsoTracker && IsobaricPeptideDict != null)
             {
                 // We view each Isobaric peak as an individual peptide, so we need to add them to the peptide list
                 RevisedModifiedPeptides();
@@ -612,16 +614,21 @@ namespace FlashLFQ
                     if (IsoTracker)
                     {
                         output.WriteLine(Peptide.TabSeparatedHeader_IsoTracker(SpectraFiles));
+
+                        foreach (var peptide in PeptideModifiedSequences
+                                     .OrderBy(p => p.Value.IsoGroupIndex ?? int.MaxValue)
+                                     .ThenBy(p => p.Value.PeakOrder ?? int.MinValue))
+                        {
+                            output.WriteLine(peptide.Value.ToString(SpectraFiles, IsoTracker));
+                        }
                     }
                     else
                     {
                         output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
-                    }
-
-
-                    foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
-                    {
-                        output.WriteLine(peptide.Value.ToString(SpectraFiles, IsoTracker));
+                        foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
+                        {
+                            output.WriteLine(peptide.Value.ToString(SpectraFiles, IsoTracker));
+                        }
                     }
                 }
             }
@@ -791,22 +798,41 @@ namespace FlashLFQ
         /// </summary>
         internal void RevisedModifiedPeptides()
         {
-            foreach (var isoPeptides in IsobaricPeakInDifferentRun)
+            int isoGroupIndex = 1;
+            foreach (var isoPeptides in IsobaricPeptideDict)
             {
-                // Remove the formal peptide from the peptide list
                 string peptideSequence = isoPeptides.Key;
                 Peptide originalPeptide = PeptideModifiedSequences[peptideSequence];
-                PeptideModifiedSequences.Remove(peptideSequence);
-                int peakIndex = 1;
+
+
+                // Remove the formal peptide from the peptide list
+                var allIDs = isoPeptides.Value.Values
+                    .SelectMany(p => p)
+                    .SelectMany(p=>p.Identifications)
+                    .DistinctBy(p=>p.ModifiedSequence)
+                    .Select(p=>p.ModifiedSequence)
+                    .ToList();
+                foreach (var modSeq in allIDs)
+                {
+                    PeptideModifiedSequences.Remove(modSeq);
+                }
 
                 // Add the isobaric peptides to the peptide list
+                int peakIndex = 1;
                 foreach (var isoPeptidePeaks in isoPeptides.Value.Values.ToList())
                 {
-                    Peptide peptide = new Peptide(originalPeptide.Sequence + "_Peak " + peakIndex, originalPeptide.BaseSequence, originalPeptide.UseForProteinQuant, originalPeptide.ProteinGroups);
+                    var allSeq = isoPeptidePeaks
+                        .SelectMany(p => p.Identifications)
+                        .Select(p=>  p.ModifiedSequence)
+                        .Distinct()
+                        .ToList();
+                    Peptide peptide = new Peptide( string.Join(" | ", allSeq) + " Isopeptide_peak" + peakIndex, originalPeptide.BaseSequence, originalPeptide.UseForProteinQuant, originalPeptide.ProteinGroups, isoGroupIndex, peakIndex);
                     peptide.SetIsobaricPeptide(isoPeptidePeaks); //When we set the peptide as IsobaricPeptide, then the retention time, intensity and detectionType will be set from the chromPeak automatically.
                     PeptideModifiedSequences[peptide.Sequence] = peptide;
                     peakIndex++;
                 }
+
+                isoGroupIndex++;
             }
         }
     }

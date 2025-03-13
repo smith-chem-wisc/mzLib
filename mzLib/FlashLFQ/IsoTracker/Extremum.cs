@@ -5,9 +5,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FlashLFQ.Alex_project
+namespace FlashLFQ.IsoTracker
 {
-
+    /// <summary>
+    /// An Extremum object stores the location of a local maxima or minima in an XIC
+    /// </summary>
     public enum ExtremumType { Minimum, Maximum }; //The spectra file the XIC came from
 
     public class Extremum : IComparable<Extremum>, IEquatable<Extremum>
