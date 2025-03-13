@@ -321,7 +321,7 @@ namespace Readers
                                 intensityArrays.Add(frame.GetScanIntensities(scan));
                             }
                             // Step 2: Average those suckers
-                            TimsSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays, FrameProxyFactory.MzLookupArray);
+                            TimsSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays);
                             if (averagedSpectrum.Size > 1)
                             {
                                 dataScan.AddSpectrum(averagedSpectrum, (nextScanIdx + previousScanIdx) / 2);

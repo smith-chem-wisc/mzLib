@@ -6,7 +6,7 @@ namespace Readers
 {
     public class TofSpectraMerger
     {
-        public readonly double DefaultPpmTolerance = 3;
+        public readonly double DefaultPpmTolerance = 10;
         public uint[] TofIndexDelta { get; init; }
 
         public TofSpectraMerger(double[] mzLookupArray)
@@ -208,10 +208,11 @@ namespace Readers
             }
 
             // Collapse the combined arrays into a single array (centroiding, more or less)
-            var centroidedResults = CollapseArrays(proxyFactory.ConvertIndicesToMz(combinedIndices), combinedIntensities);
+            //var centroidedResults = CollapseArrays(proxyFactory.ConvertIndicesToMz(combinedIndices), combinedIntensities);
+            var centroidedResults = CollapseArrays(combinedIndices, combinedIntensities);
 
             return CreateFilteredSpectrum(
-                centroidedResults.Mzs,
+                proxyFactory.ConvertIndicesToMz(centroidedResults.Indices),
                 centroidedResults.Intensities,
                 filteringParams,
                 msnLevel: 1);
@@ -290,6 +291,48 @@ namespace Readers
                 filteringParams,
                 msnLevel: 2);
         }
+        
+        /// <summary>
+        /// Merges multiple m/z and intensity arrays into an MS2 spectrum.
+        /// This operation is somewhere between averaging and centroiding.
+        /// In the TimsTofFileReader, MS2 component spectrum are stored as 
+        /// double[] m/z arrays and int[] intensity arrays.
+        /// Each component scan 
+        /// </summary>
+        /// <param name="mzArrays">List of m/z arrays.</param>
+        /// <param name="intensityArrays">List of intensity arrays.</param>
+        /// <param name="filteringParams">Filtering parameters (optional).</param>
+        /// <param name="ppmTolerance">PPM tolerance value (default is -1).</param>
+        /// <returns>A merged MS2 spectrum.</returns>
+        internal MzSpectrum MergeArraysToMs2Spectrum(
+            List<TimsSpectrum> timsSpectra,
+            FrameProxyFactory proxyFactory,
+            FilteringParams filteringParams = null,
+            double ppmTolerance = -1)
+        {
+            if (!timsSpectra.IsNotNullOrEmpty())
+                return null;
+
+            // Merge all index arrays and intensity arrays into a single array
+            uint[] combinedIndices = timsSpectra[0].XArray;
+            int[] combinedIntensities = timsSpectra[0].YArray;
+            for (int i = 1; i < timsSpectra.Count(); i++)
+            {
+                var mergeResults = TwoPointerMerge(combinedIndices, timsSpectra[i].XArray, combinedIntensities, timsSpectra[i].YArray);
+                combinedIndices = mergeResults.Indices;
+                combinedIntensities = mergeResults.Intensities;
+            }
+
+            // Collapse the combined arrays into a single array (centroiding, more or less)
+            var centroidedResults = CollapseArrays(combinedIndices, combinedIntensities);
+
+            return CreateFilteredSpectrum(
+                proxyFactory.ConvertIndicesToMz(centroidedResults.Indices),
+                centroidedResults.Intensities,
+                filteringParams,
+                msnLevel: 2);
+        }
+
 
         /// <summary>
         /// Merges two m/z and intensity arrays using a two-pointer technique.

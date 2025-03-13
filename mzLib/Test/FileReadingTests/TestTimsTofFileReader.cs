@@ -24,7 +24,7 @@ namespace Test.FileReadingTests
         public FilteringParams _filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
         public TofSpectraMerger TofSpectraMerger = new TofSpectraMerger(new double[0]);
 
-        [OneTimeSetUp]
+        [Test]
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
@@ -212,7 +212,7 @@ namespace Test.FileReadingTests
 
             Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
             Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
-            Assert.That(_testMs2Scan.TotalIonCurrent == 25130);
+            Assert.That(_testMs2Scan.TotalIonCurrent, Is.EqualTo(20389));
             Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
             Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
             Assert.That(_testMs2Scan.MsnOrder == 2);
