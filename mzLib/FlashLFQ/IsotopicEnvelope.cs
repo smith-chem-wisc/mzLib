@@ -8,8 +8,16 @@
         /// <summary>
         /// The most abundant isotopic peak used for peak finding.
         /// </summary>
-        public readonly IndexedMassSpectralPeak IndexedPeak;
+        public readonly IIndexedMzPeak IndexedPeak;
         public readonly int ChargeState;
+
+        public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        {
+            IndexedPeak = monoisotopicPeak;
+            ChargeState = chargeState;
+            Intensity = intensity / chargeState;
+            PearsonCorrelation = pearsonCorrelation;
+        }
 
         public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
@@ -36,7 +44,7 @@
 
         public override string ToString()
         {
-            return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedPeak.RetentionTime.ToString("F3") + "|" + IndexedPeak.ZeroBasedMs1ScanIndex;
+            return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedPeak.RetentionTime.ToString("F3") + "|" + IndexedPeak.ZeroBasedScanIndex;
         }
 
         public override bool Equals(object obj)
