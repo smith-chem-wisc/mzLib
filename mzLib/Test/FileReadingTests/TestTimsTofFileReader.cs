@@ -28,7 +28,7 @@ namespace Test.FileReadingTests
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 1);
+            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
         }
@@ -209,10 +209,9 @@ namespace Test.FileReadingTests
         public void TestLoadAllStaticData()
         {
             Assert.That(_testReader.NumSpectra, Is.EqualTo(4096));
-
             Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
             Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
-            Assert.That(_testMs2Scan.TotalIonCurrent, Is.EqualTo(20389));
+            Assert.That(_testMs2Scan.TotalIonCurrent, Is.EqualTo(25130));
             Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
             Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
             Assert.That(_testMs2Scan.MsnOrder == 2);

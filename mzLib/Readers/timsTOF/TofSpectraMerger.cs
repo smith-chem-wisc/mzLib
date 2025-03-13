@@ -112,29 +112,31 @@ namespace Readers
             int p2 = 1;
             while (p1 < indexArray.Length)
             {
-
-                uint maxTofIdx = indexArray[p1] + TofIndexDelta[indexArray[p1]];
+                uint tofIdxDelta = TofIndexDelta[indexArray[p1]];
+                uint maxTofIdx = indexArray[p1] + tofIdxDelta;
 
                 // Find clusters of indices that are close together
                 // increment pointer 2 until the cluster ends and we're further than DefaultPpmTolerance away
                 while (p2 < indexArray.Length && indexArray[p2] <= maxTofIdx)
                 {
+                    maxTofIdx = indexArray[p2] + tofIdxDelta;
                     p2++;
                 }
                 p2--; // Move the pointer back by one
-                int medianPointer = (p1 + p2) / 2;
-
-                // Use the median index in each cluster as the collapsed index
-                collapsedIndices.Add(indexArray[medianPointer]);
 
                 // Sum the intensities in each cluster to get the collapsed intensity
                 int summedIntensity = 0;
+                int idxOfMaxIntensity = p1;
                 for (int i = p1; i <= p2; i++)
                 {
                     summedIntensity += intensityArray[i];
-                    //if (intensityArray2.Length > 1) summedIntensity += 10;
+                    if (intensityArray[i] > intensityArray[idxOfMaxIntensity])
+                        idxOfMaxIntensity = i;
                 }
                 collapsedIntensities.Add(summedIntensity);
+
+                // Use the index of the most intense peak as the collapsed index
+                collapsedIndices.Add(indexArray[idxOfMaxIntensity]);
 
                 // Move the pointers forward
                 p1 = p2 + 1;
