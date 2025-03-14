@@ -28,7 +28,7 @@ namespace Test.FileReadingTests
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
+            _testReader.LoadAllStaticData(ppmToleranceForCentroiding: 4, filteringParams: _filteringParams, maxThreads: 10);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
         }

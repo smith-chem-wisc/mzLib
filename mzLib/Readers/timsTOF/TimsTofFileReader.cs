@@ -32,7 +32,9 @@ namespace Readers
         public MzRange ScanWindow => _scanWindow ??= new MzRange(20, 2000);
         public const string ScanFilter = "f";
 
-        public override void InitiateDynamicConnection()
+        public override void InitiateDynamicConnection() => InitiateDynamicConnection();
+
+        public void InitiateDynamicConnection(int ppmToleranceForCentroiding = 10)
         {
             if (!File.Exists(FilePath + @"\analysis.tdf") | !File.Exists(FilePath + @"\analysis.tdf_bin"))
             {
@@ -49,7 +51,7 @@ namespace Readers
 
             CountFrames();
             CountMS1Frames();
-            BuildProxyFactory();
+            BuildProxyFactory(ppmToleranceForCentroiding);
         }
 
         public double[] GetMzLookupTable()
@@ -188,7 +190,7 @@ namespace Readers
         /// and sets the FrameProxyFactory property 
         /// </summary>
         /// <exception cref="MzLibException"></exception>
-        internal void BuildProxyFactory()
+        internal void BuildProxyFactory(int ppmToleranceForCentroiding)
         {
             if (_sqlConnection == null || _fileHandle == null) return;
             var framesTable = new FrameTable(_sqlConnection, NumberOfFrames);
@@ -197,7 +199,7 @@ namespace Readers
 
             int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
             FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs);
-            TofSpectraMerger = new TofSpectraMerger(FrameProxyFactory.MzLookupArray);
+            TofSpectraMerger = new TofSpectraMerger(FrameProxyFactory.MzLookupArray, defaultPpmTolerance: ppmToleranceForCentroiding);
         }
 
         internal void CountPrecursors()
@@ -233,22 +235,26 @@ namespace Readers
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
-            InitiateDynamicConnection();
+            return LoadAllStaticData(ppmToleranceForCentroiding: 10, filteringParams, maxThreads);
+        }
 
+        public MsDataFile LoadAllStaticData(int ppmToleranceForCentroiding, FilteringParams filteringParams = null, int maxThreads = 1)
+        {
+            InitiateDynamicConnection(ppmToleranceForCentroiding);
             CountMS1Frames();
             CountPrecursors();
-            
+
             Ms1ScansNoPrecursorsBag = new();
             Parallel.ForEach(
                 Partitioner.Create(0, Ms1FrameIds.Count),
                 new ParallelOptions() { MaxDegreeOfParallelism = maxThreads },
                 (range) =>
-            {
-                for (int i = range.Item1; i < range.Item2; i++)
                 {
-                    BuildAllScans(Ms1FrameIds[i], filteringParams);
-                }
-            });
+                    for (int i = range.Item1; i < range.Item2; i++)
+                    {
+                        BuildAllScans(Ms1FrameIds[i], filteringParams);
+                    }
+                });
 
             CloseDynamicConnection();
             AssignOneBasedPrecursorsToPasefScans();
@@ -306,8 +312,8 @@ namespace Readers
 
                         // Every Frame gets simplified into ten spectra
                         // First spectra picks up extra scans, as the least is going on at low scan numbers/CCS
-                        List<uint[]> indexArrays = new(10);
-                        List<int[]> intensityArrays = new(10);
+                        List<uint[]> indexArrays = new(numberOfScansToCombine);
+                        List<int[]> intensityArrays = new(numberOfScansToCombine);
                         int previousScanIdx = 0;
                         for (int nextScanIdx = numberOfScansToCombine + extraScans; nextScanIdx < frame.NumberOfScans + numberOfScansToCombine; nextScanIdx += numberOfScansToCombine)
                         {

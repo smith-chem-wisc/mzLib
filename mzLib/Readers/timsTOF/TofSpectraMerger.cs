@@ -6,11 +6,12 @@ namespace Readers
 {
     public class TofSpectraMerger
     {
-        public readonly double DefaultPpmTolerance = 10;
+        public double DefaultPpmTolerance { get; init; }
         public uint[] TofIndexDelta { get; init; }
 
-        public TofSpectraMerger(double[] mzLookupArray)
+        public TofSpectraMerger(double[] mzLookupArray, int defaultPpmTolerance = 5)
         {
+            DefaultPpmTolerance = defaultPpmTolerance;
             PpmTolerance tolerance = new(DefaultPpmTolerance);
             TofIndexDelta = new uint[mzLookupArray.Length];
 
