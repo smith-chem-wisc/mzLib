@@ -17,19 +17,82 @@ namespace Test.FileReadingTests
     public class TestTimsTofFileReader
     {
 
-        public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
+        //public string _testDataPath = @"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_891.d";
+        public string _testDataPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d";
+        //public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
         public TimsTofFileReader _testReader;
         public TimsDataScan _testMs2Scan;
         public TimsDataScan _testMs1Scan;
-        public FilteringParams _filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
+        public FilteringParams _filteringParams = null;//new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
 
         [OneTimeSetUp]
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
+            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 20);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
+        }
+
+        [Test]
+        public void HistogramAnalysis()
+        {
+            var ms1Scans = _testReader.Scans.Where(s => s.MsnOrder == 1);
+            var ms2Scans = _testReader.Scans.Where(s => s.MsnOrder == 2);
+
+            Dictionary<int, int> ms1IntensityDict = new Dictionary<int, int>();
+            foreach (var scan in ms1Scans)
+            {
+                foreach (var intensity in scan.MassSpectrum.YArray)
+                {
+                    int intInt = (int)intensity;
+                    if (ms1IntensityDict.ContainsKey(intInt))
+                    {
+                        ms1IntensityDict[intInt]++;
+                    }
+                    else
+                    {
+                        ms1IntensityDict[intInt] = 1;
+                    }
+                }
+            }
+
+            Dictionary<int, int> ms2IntensityDict = new Dictionary<int, int>();
+            foreach (var scan in ms2Scans)
+            {
+                foreach (var intensity in scan.MassSpectrum.YArray)
+                {
+                    int intInt = (int)intensity;
+                    if (ms2IntensityDict.ContainsKey(intInt))
+                    {
+                        ms2IntensityDict[intInt]++;
+                    }
+                    else
+                    {
+                        ms2IntensityDict[intInt] = 1;
+                    }
+                }
+            }
+
+            var outputFolder = @"C:\Users\Alex\Documents\R_Files\timsTof";
+            using (StreamWriter sw = new StreamWriter(Path.Combine(outputFolder, "Ms1Intensities.tsv")))
+            {
+                sw.WriteLine("Intensity\tFrequency\t");
+                foreach (var kvp in ms1IntensityDict.OrderBy(kvp => kvp.Key))
+                {
+                    sw.WriteLine($"{kvp.Key}\t{kvp.Value}");
+                }
+            }
+
+            using (StreamWriter sw = new StreamWriter(Path.Combine(outputFolder, "Ms2Intensities.tsv")))
+            {
+                sw.WriteLine("Intensity\tFrequency\t");
+                foreach (var kvp in ms2IntensityDict.OrderBy(kvp => kvp.Key))
+                {
+                    sw.WriteLine($"{kvp.Key}\t{kvp.Value}");
+                }
+            }
+
         }
 
         [Test]

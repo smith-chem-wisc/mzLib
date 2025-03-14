@@ -87,7 +87,23 @@ namespace MassSpectrometry
             mzArrays.Add(mzs);
             intensityArrays.Add(intensities);
         }
+    }
 
+    /// <summary>
+    /// This is similar to an mz spectrum, but much more lightweight
+    /// It stores intensities as ints and tof indices instead of mz values
+    /// </summary>
+    public class TimsSpectrum
+    {
+        public uint[] XArray { get; init; }
+        public int[] YArray { get; init; }
 
+        public int Size => XArray.Length;
+
+        public TimsSpectrum(uint[] tofIndices, int[] intensities)
+        {
+            XArray = tofIndices;
+            YArray = intensities;
+        }
     }
 }

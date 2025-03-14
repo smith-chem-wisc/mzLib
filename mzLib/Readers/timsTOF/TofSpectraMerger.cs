@@ -68,6 +68,60 @@ namespace Readers
         }
 
         /// <summary>
+        /// Merges two m/z and intensity arrays using a two-pointer technique.
+        /// Used when merging component spectra into one MS2 spectrum
+        /// </summary>
+        /// <param name="mzArray1">First m/z array.</param>
+        /// <param name="mzArray2">Second m/z array.</param>
+        /// <param name="intensityArray1">First intensity array.</param>
+        /// <param name="intensityArray2">Second intensity array.</param>
+        /// <returns>A tuple containing the merged m/z values and intensities.</returns>
+        public static (double[] Mzs, int[] Intensities) TwoPointerMerge(double[] mzArray1, double[] mzArray2, int[] intensityArray1, int[] intensityArray2)
+        {
+            int p1 = 0;
+            int p2 = 0;
+
+            double[] mergedMzs = new double[mzArray1.Length + mzArray2.Length];
+            int[] mergedIntensities = new int[intensityArray1.Length + intensityArray2.Length];
+
+            while (p1 < mzArray1.Length || p2 < mzArray2.Length)
+            {
+                if (p1 == mzArray1.Length)
+                {
+                    while (p2 < mzArray2.Length)
+                    {
+                        mergedMzs[p1 + p2] = mzArray2[p2];
+                        mergedIntensities[p1 + p2] = intensityArray2[p2];
+                        p2++;
+                    }
+                }
+                else if (p2 == mzArray2.Length)
+                {
+                    while (p1 < mzArray1.Length)
+                    {
+                        mergedMzs[p1 + p2] = mzArray1[p1];
+                        mergedIntensities[p1 + p2] = intensityArray1[p1];
+                        p1++;
+                    }
+                }
+                else if (mzArray1[p1] < mzArray2[p2])
+                {
+                    mergedMzs[p1 + p2] = mzArray1[p1];
+                    mergedIntensities[p1 + p2] = intensityArray1[p1];
+                    p1++;
+                }
+                else
+                {
+                    mergedMzs[p1 + p2] = mzArray2[p2];
+                    mergedIntensities[p1 + p2] = intensityArray2[p2];
+                    p2++;
+                }
+            }
+
+            return (mergedMzs, mergedIntensities);
+        }
+
+        /// <summary>
         /// Collapses the given index and intensity arrays. 
         /// Adjacent index values (and their corresponding intensity values) are merged. 
         /// The idea here is to centroid a spectrum
@@ -118,6 +172,74 @@ namespace Readers
             return (collapsedIndices.ToArray(), collapsedIntensities.ToArray());
         }
 
+        /// <summary>
+        /// Collapses the given mz and intensity arrays. 
+        /// mz values within ppmTolerance (and their corresponding intensity values) are merged. 
+        /// The idea here is to centroid a spectrum
+        /// </summary>
+        /// <param name="mzArray">The mz array to collapse.</param>
+        /// <param name="intensityArray">The intensity array to collapse.</param>
+        /// /// <param name="ppmTolerance">PPM tolerance value (default is 10).</param>
+        /// <returns>A tuple containing the collapsed mz and intensities.</returns>
+        internal static (double[] Mzs, int[] Intensities) CollapseArrays(double[] mzArray, int[] intensityArray, double ppmTolerance = 10)
+        {
+            // Define lists to store the collapsed indices and intensities
+            List<double> collapsedMzs = new();
+            List<int> collapsedIntensities = new();
+
+            PpmTolerance tol = new(ppmTolerance < 1 ? DefaultPpmTolerance : ppmTolerance);
+
+            // Initialize pointers to the first two elements in the index array
+            int p1 = 0;
+            int p2 = 1;
+            while (p1 < mzArray.Length)
+            {
+                double currentMz = mzArray[p1];
+                double upperBoundMz = tol.GetMaximumValue(currentMz);
+
+                // Find clusters of indices that are close together
+                // increment pointer 2 until the cluster ends and we're further than 3 indices away
+                while (p2 < mzArray.Length && upperBoundMz >= mzArray[p2])
+                {
+                    upperBoundMz = tol.GetMaximumValue(mzArray[p2]);
+                    p2++;
+                }
+                p2--; // Move the pointer back by one
+
+                if (p1 == p2)
+                {
+                    collapsedIntensities.Add(intensityArray[p1]);
+                    collapsedMzs.Add(mzArray[p1]);
+                }
+                else
+                {
+                    // Calculate the summed intensity in the cluster
+                    int summedIntensity = 0;
+                    for (int i = p1; i <= p2; i++)
+                    {
+                        summedIntensity += intensityArray[i];
+                    }
+                    collapsedIntensities.Add(summedIntensity);
+
+                    // weighted averaging to determine the collapsed m/z of the cluster
+                    double collapsedMz = 0;
+                    for (int i = p1; i <= p2; i++)
+                    {
+                        double weight = (double)intensityArray[i] / (double)summedIntensity;
+                        collapsedMz += weight * mzArray[i];
+                    }
+                    collapsedMzs.Add(collapsedMz);
+                }
+
+                // Move the pointers forward
+                p1 = p2 + 1;
+                p2 = p1 + 1;
+            }
+
+            return (collapsedMzs.ToArray(), collapsedIntensities.ToArray());
+        }
+
+
         #endregion
         #region MzLevelOperations
 
@@ -148,6 +270,9 @@ namespace Readers
             // TODO: This would be more performant if we kept the intensities as ints
             return new MzSpectrum(mzsArray, intensitiesArray, shouldCopy: false);
         }
+
+
+
 
         /// <summary>
         /// Merges multiple index and intensity arrays into an MS1 spectrum.
@@ -229,126 +354,7 @@ namespace Readers
                 msnLevel: 2);
         }
 
-        /// <summary>
-        /// Merges two m/z and intensity arrays using a two-pointer technique.
-        /// Used when merging component spectra into one MS2 spectrum
-        /// </summary>
-        /// <param name="mzArray1">First m/z array.</param>
-        /// <param name="mzArray2">Second m/z array.</param>
-        /// <param name="intensityArray1">First intensity array.</param>
-        /// <param name="intensityArray2">Second intensity array.</param>
-        /// <returns>A tuple containing the merged m/z values and intensities.</returns>
-        public static (double[] Mzs, int[] Intensities) TwoPointerMerge(double[] mzArray1, double[] mzArray2, int[] intensityArray1, int[] intensityArray2)
-        {
-            int p1 = 0;
-            int p2 = 0;
 
-            double[] mergedMzs = new double[mzArray1.Length + mzArray2.Length];
-            int[] mergedIntensities = new int[intensityArray1.Length + intensityArray2.Length];
-
-            while (p1 < mzArray1.Length || p2 < mzArray2.Length)
-            {
-                if (p1 == mzArray1.Length)
-                {
-                    while (p2 < mzArray2.Length)
-                    {
-                        mergedMzs[p1 + p2] = mzArray2[p2];
-                        mergedIntensities[p1 + p2] = intensityArray2[p2];
-                        p2++;
-                    }
-                }
-                else if (p2 == mzArray2.Length)
-                {
-                    while (p1 < mzArray1.Length)
-                    {
-                        mergedMzs[p1 + p2] = mzArray1[p1];
-                        mergedIntensities[p1 + p2] = intensityArray1[p1];
-                        p1++;
-                    }
-                }
-                else if (mzArray1[p1] < mzArray2[p2])
-                {
-                    mergedMzs[p1 + p2] = mzArray1[p1];
-                    mergedIntensities[p1 + p2] = intensityArray1[p1];
-                    p1++;
-                }
-                else
-                {
-                    mergedMzs[p1 + p2] = mzArray2[p2];
-                    mergedIntensities[p1 + p2] = intensityArray2[p2];
-                    p2++;
-                }
-            }
-
-            return (mergedMzs, mergedIntensities);
-        }
-
-        /// <summary>
-        /// Collapses the given mz and intensity arrays. 
-        /// mz values within ppmTolerance (and their corresponding intensity values) are merged. 
-        /// The idea here is to centroid a spectrum
-        /// </summary>
-        /// <param name="mzArray">The mz array to collapse.</param>
-        /// <param name="intensityArray">The intensity array to collapse.</param>
-        /// /// <param name="ppmTolerance">PPM tolerance value (default is 10).</param>
-        /// <returns>A tuple containing the collapsed mz and intensities.</returns>
-        internal static (double[] Mzs, int[] Intensities) CollapseArrays(double[] mzArray, int[] intensityArray, double ppmTolerance = 10)
-        {
-            // Define lists to store the collapsed indices and intensities
-            List<double> collapsedMzs = new();
-            List<int> collapsedIntensities = new();
-
-            PpmTolerance tol = new(ppmTolerance < 1 ? DefaultPpmTolerance : ppmTolerance);
-
-            // Initialize pointers to the first two elements in the index array
-            int p1 = 0;
-            int p2 = 1;
-            while (p1 < mzArray.Length)
-            {
-                double currentMz = mzArray[p1];
-                double upperBoundMz = tol.GetMaximumValue(currentMz);
-
-                // Find clusters of indices that are close together
-                // increment pointer 2 until the cluster ends and we're further than 3 indices away
-                while (p2 < mzArray.Length && upperBoundMz >= mzArray[p2])
-                {
-                    upperBoundMz = tol.GetMaximumValue(mzArray[p2]);
-                    p2++;
-                }
-                p2--; // Move the pointer back by one
-
-                if(p1 == p2)
-                {
-                    collapsedIntensities.Add(intensityArray[p1]);
-                    collapsedMzs.Add(mzArray[p1]);
-                }
-                else
-                {
-                    // Calculate the summed intensity in the cluster
-                    int summedIntensity = 0;
-                    for (int i = p1; i <= p2; i++)
-                    {
-                        summedIntensity += intensityArray[i];
-                    }
-                    collapsedIntensities.Add(summedIntensity);
-
-                    // weighted averaging to determine the collapsed m/z of the cluster
-                    double collapsedMz = 0;
-                    for (int i = p1; i <= p2; i++)
-                    {
-                        double weight = (double)intensityArray[i] / (double)summedIntensity;
-                        collapsedMz += weight * mzArray[i];
-                    }
-                    collapsedMzs.Add(collapsedMz);
-                }
-
-                // Move the pointers forward
-                p1 = p2 + 1;
-                p2 = p1 + 1;
-            }
-
-            return (collapsedMzs.ToArray(), collapsedIntensities.ToArray());
-        }
 
         /// <summary>
         /// Merges multiple index and intensity arrays into an m/z array.
