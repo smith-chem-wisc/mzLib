@@ -25,7 +25,7 @@ namespace FlashLFQ.IsoTracker
         /// <summary>
         /// A list of imsPeak objects.
         /// </summary>
-        public List<IndexedMassSpectralPeak> Ms1Peaks { get; init; }
+        public List<IIndexedMzPeak> Ms1Peaks { get; init; }
         /// <summary>
         /// The peak-finding mz used to detect the imsPeaks. Every peak should have this m/z+- tolerance.
         /// </summary>
@@ -57,7 +57,7 @@ namespace FlashLFQ.IsoTracker
 
         public List<Identification> Ids;
 
-        public XIC(List<IndexedMassSpectralPeak> peaks, double peakFindingMass, SpectraFileInfo spectraFile, bool Isreference = false, List<Identification> ids = null, int smoothDegree = 5)
+        public XIC(List<IIndexedMzPeak> peaks, double peakFindingMass, SpectraFileInfo spectraFile, bool Isreference = false, List<Identification> ids = null, int smoothDegree = 5)
         {
 
             Ms1Peaks = peaks;
@@ -82,10 +82,10 @@ namespace FlashLFQ.IsoTracker
         /// Pad the XIC with 5 peaks before the first peak and 5 peaks after the last peak. The intensity of the padded peaks is 0.
         /// </summary>
         /// <returns></returns>
-        private List<IndexedMassSpectralPeak> PadPeaks()
+        private List<IIndexedMzPeak> PadPeaks()
 
         {
-            var paddedPeaks = new List<IndexedMassSpectralPeak>();
+            var paddedPeaks = new List<IIndexedMzPeak>();
             var firstPeak = Ms1Peaks[0];
             var lastPeak = Ms1Peaks[Ms1Peaks.Count - 1];
             double gap = (lastPeak.RetentionTime - firstPeak.RetentionTime) / (Ms1Peaks.Count - 1);

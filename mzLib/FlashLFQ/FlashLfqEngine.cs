@@ -50,7 +50,6 @@ namespace FlashLFQ
         public readonly bool IsoTracker; // s searching parameter for the IsoTracker
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
         public Dictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
-        public Dictionary<SpectraFileInfo, PeakIndexingEngine> IndexEngineDict = new Dictionary<SpectraFileInfo, PeakIndexingEngine>(); // The dictionary of the indexEngine for each file, only used in the isobaric case
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -213,7 +212,7 @@ namespace FlashLFQ
         public FlashLfqResults Run()
         {
             _globalStopwatch.Start();
-            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, MbrDetectionQValueThreshold, PeptideModifiedSequencesToQuantify);
+            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, MbrDetectionQValueThreshold, PeptideModifiedSequencesToQuantify,IsoTracker);
 
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
@@ -235,8 +234,10 @@ namespace FlashLFQ
                 // write the indexed peaks for MBR later
                 if (MatchBetweenRuns)
                     IndexingEngineDictionary[spectraFile].SerializeIndex();
-                else
+                else if(!IsoTracker)
                     IndexingEngineDictionary[spectraFile].ClearIndex();
+                else
+                    ;
 
                 // error checking function
                 // handles features with multiple identifying scans and scans that are associated with more than one feature
@@ -2036,9 +2037,9 @@ namespace FlashLFQ
         internal XIC BuildXIC(List<Identification> ids, SpectraFileInfo spectraFile, bool isReference, double start, double end)
         {
             Identification id = ids.FirstOrDefault(); 
-            var peakIndexingEngine = IndexEngineDict[spectraFile];
+            var peakIndexingEngine = IndexingEngineDictionary[spectraFile];
             PpmTolerance isotopeTolerance = new PpmTolerance(PpmTolerance);
-            Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[spectraFile];
+            Ms1ScanInfo[] ms1ScanInfos = peakIndexingEngine.ScanInfoArray;
 
             Ms1ScanInfo startScan = ms1ScanInfos
                 .Where(p => p.RetentionTime < start)
@@ -2053,10 +2054,11 @@ namespace FlashLFQ
                 ?? ms1ScanInfos.OrderBy(p => p.RetentionTime).Last(); // If the end time is after the last scan, use the last scan
 
             // Collect all peaks from the Ms1 scans in the given time window, then build the XIC
-            List<IndexedMassSpectralPeak> peaks = new List<IndexedMassSpectralPeak>();
+            List<IIndexedMzPeak> peaks = new List<IIndexedMzPeak>();
             for (int j = startScan.ZeroBasedMs1ScanIndex; j <= endScan.ZeroBasedMs1ScanIndex; j++)
             {
-                IndexedMassSpectralPeak peak = peakIndexingEngine.GetIndexedPeak(id.PeakfindingMass, j, isotopeTolerance, id.PrecursorChargeState);
+                double mz = id.PeakfindingMass.ToMz(id.PrecursorChargeState);
+                IIndexedMzPeak peak = peakIndexingEngine.GetIndexedPeak(mz , j, isotopeTolerance);
                 if (peak != null)
                 {
                     peaks.Add(peak);
@@ -2153,7 +2155,7 @@ namespace FlashLFQ
         internal ChromatographicPeak FindChromPeak(Tuple<double, double, double> rtInfo, XIC xic, List<Identification> idsForChrom, bool isMBR = false, DetectionType detectionType = DetectionType.Default) 
         {
             // Get the snippedPeaks from the window, then used for finding the isotopic envelope.
-            List<IndexedMassSpectralPeak> snippedPeaks = new List<IndexedMassSpectralPeak>();
+            List<IIndexedMzPeak> snippedPeaks = new ();
             Identification id = idsForChrom.FirstOrDefault();
             SpectraFileInfo spectraFile = xic.SpectraFile;
 

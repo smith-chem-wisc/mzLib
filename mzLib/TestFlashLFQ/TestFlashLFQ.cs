@@ -17,9 +17,6 @@ using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using TopDownProteomics;
-using System.Web;
-using static Microsoft.FSharp.Core.ByRefKinds;
-using System.Text.RegularExpressions;
 
 namespace Test
 {
