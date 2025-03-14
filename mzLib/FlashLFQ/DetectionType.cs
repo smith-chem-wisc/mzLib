@@ -4,9 +4,12 @@
     {
         MSMS,
         MBR,
+        IsoTrack_MBR,
+        IsoTrack_Ambiguous,
         NotDetected,
         MSMSAmbiguousPeakfinding,
         MSMSIdentifiedButNotQuantified,
-        Imputed
+        Imputed,
+        Default
     }
 }

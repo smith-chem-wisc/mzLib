@@ -174,7 +174,7 @@ namespace Test.FileReadingTests
                     double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 4);
                     double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 4);
 
-                    //  XArray is rounded to the 4th digit during CreateAndWrite
+                    // XArray is rounded to the 4th digit during CreateAndWrite
                     Assert.AreEqual(roundedMzmlMz, roundedRawMz);
 
                     double roundedMzmlIntensity = Math.Round(mzmlScan.MassSpectrum.XArray[j], 0);
