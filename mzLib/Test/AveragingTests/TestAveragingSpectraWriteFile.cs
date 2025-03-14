@@ -110,7 +110,6 @@ namespace Test.AveragingTests
         [Test]
         public static void TestOutputToCustomDirectoryAndNameMzML()
         {
-            
             // output to a different directory than the files were originally in
             Parameters.OutputType = OutputType.MzML;
             string customDestinationDirectory = Path.Combine(OutputDirectory, "NewTestingDirectory");

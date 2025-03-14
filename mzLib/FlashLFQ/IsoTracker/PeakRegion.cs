@@ -19,8 +19,6 @@ namespace FlashLFQ.IsoTracker
         /// </summary>
         public double Width { get { return EndRT - StartRT; } }
 
-
-
         public PeakRegion(double apexRT, double startRT, double endRT)
         {
             this.ApexRT = apexRT;

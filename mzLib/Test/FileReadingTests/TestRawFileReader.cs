@@ -7,8 +7,6 @@ using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Readers;
 
-
-
 namespace Test.FileReadingTests
 {
     [TestFixture]
@@ -92,8 +90,6 @@ namespace Test.FileReadingTests
             Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
-
-
         [Test]
         public void TestThermoGetSourceFile()
         {
@@ -175,9 +171,10 @@ namespace Test.FileReadingTests
 
                 for (int j = 0; j < mzmlScan.MassSpectrum.XArray.Length; j++)
                 {
-                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 4);
                     double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 4);
+                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 4);
 
+                    // XArray is rounded to the 4th digit during CreateAndWrite
                     Assert.AreEqual(roundedMzmlMz, roundedRawMz);
 
                     double roundedMzmlIntensity = Math.Round(mzmlScan.MassSpectrum.XArray[j], 0);

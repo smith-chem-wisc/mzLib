@@ -47,7 +47,7 @@ namespace FlashLFQ
         public readonly bool QuantifyAmbiguousPeptides;
 
         //IsoTracker settings
-        public readonly bool IsoTracker; // s searching parameter for the IsoTracker
+        public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
         public Dictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
 
@@ -57,7 +57,6 @@ namespace FlashLFQ
         public readonly double MbrPpmTolerance;
         public readonly double MbrDetectionQValueThreshold;
         private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
-        
 
         // New MBR Settings
         public readonly double RtWindowIncrease = 0;
@@ -170,8 +169,6 @@ namespace FlashLFQ
             Silent = silent;
             IdSpecificChargeState = idSpecificChargeState;
             MbrRtWindow = maxMbrWindow;
-            
-
             RequireMsmsIdInCondition = requireMsmsIdInCondition;
             Normalize = normalize;
             MaxThreads = maxThreads;
@@ -249,9 +246,7 @@ namespace FlashLFQ
                 }
             }
 
-
             //IsoTracker
-            //
             if (IsoTracker)
             {
                 IsoTrackerIsRunning = true; // Turn on the flag, then we will use the separate indexEngine for each files
@@ -260,7 +255,6 @@ namespace FlashLFQ
                 _results.IsobaricPeptideDict = IsobaricPeptideDict;
                 AddIsoPeaks();
             }
-
             IsoTrackerIsRunning = false;
 
             // do MBR
@@ -343,7 +337,6 @@ namespace FlashLFQ
                                   _globalStopwatch.Elapsed.Seconds + "s");
             }
 
-            
             return _results;
         }
 
@@ -994,8 +987,6 @@ namespace FlashLFQ
                 // generate RT calibration curve
                 RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(donorFilePeakListKvp.Key, acceptorFile, scorer, out var donorPeaksMassOrdered);
 
-                // Store these curves in a dictionary
-
                 // break if MBR transfers can't be scored
                 if (!scorer.IsValid(donorFilePeakListKvp.Key)) continue;
 
@@ -1225,7 +1216,7 @@ namespace FlashLFQ
             double rtStartHypothesis = randomRt == null ? rtInfo.RtStartHypothesis : (double)randomRt - (rtInfo.Width / 2.0);
             double rtEndHypothesis = randomRt == null ? rtInfo.RtEndHypothesis : (double)randomRt + (rtInfo.Width / 2.0);
 
-            // Try to snipped the MS1 scans to the region where the analyte should appear
+            // Try to snip the MS1 scans to the region where the analyte should appear
             for (int j = 0; j < ms1ScanInfos.Length; j++)
             {
                 Ms1ScanInfo scan = ms1ScanInfos[j];
@@ -1634,7 +1625,7 @@ namespace FlashLFQ
                         for (int i = start; i < theoreticalIsotopeAbundances.Length && i >= 0; i += direction)
                         {
                             double isotopeMass = identification.MonoisotopicMass + observedMassError +
-                                                 theoreticalIsotopeMassShifts[i] + shift.Key * Chemistry.Constants.C13MinusC12;
+                                                 theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
                             IIndexedMzPeak isotopePeak = IndexingEngineDictionary[spectraFile]
@@ -1952,7 +1943,6 @@ namespace FlashLFQ
             }
         }
 
-
         private void QuantifyIsobaricPeaks()
         {
             var idGroupedBySeq = _allIdentifications
@@ -1965,7 +1955,6 @@ namespace FlashLFQ
                 List<XIC> xicGroup = new List<XIC>();
                 var mostCommonChargeIdGroup = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
                 var id = mostCommonChargeIdGroup.First();
-
 
                 // Try to get the primitive window for the XIC , from the (firstOne - 2) ->  (lastOne + 2)
                 double rightWindow = mostCommonChargeIdGroup.Select(p => p.Ms2RetentionTimeInMinutes).Max() + 2;
@@ -2065,7 +2054,6 @@ namespace FlashLFQ
                     peaks.Add(peak);
                 }
             }
-
 
             XIC xIC = null;
             if (peaks.Count > 0)
@@ -2246,7 +2234,6 @@ namespace FlashLFQ
 
             return true;
         }
-
     }
 
 }

@@ -81,9 +81,5 @@ namespace FlashLFQ.IsoTracker
             double rtDiff = extremun1.RetentionTime - extrenum2.RetentionTime;
             return rtDiff;
         }
-
-
-        
-    
     }
 }

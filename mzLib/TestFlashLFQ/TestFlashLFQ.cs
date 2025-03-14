@@ -1549,8 +1549,6 @@ namespace Test
             CollectionAssert.AreEquivalent(results.PeptideModifiedSequences.Select(kvp => kvp.Key), peptidesToUse);
         }
 
-
-
         [Test]
         public static void ProteoformPeakfindingTest()
         {
@@ -1617,7 +1615,7 @@ namespace Test
 
             Assert.That((int)results.PeptideModifiedSequences[sequence].GetIntensity(file1) == 1386491);
             ChromatographicPeak peak = results.Peaks[file1].First(p => p.Identifications.First().ModifiedSequence == sequence);
-            Assert.That(Math.Round(peak.MassError, 3) == 0);
+            Assert.That(Math.Round(peak.MassError, 3), Is.EqualTo(0));
             Assert.That(peak.IsotopicEnvelopes.Count == 10);
         }
 

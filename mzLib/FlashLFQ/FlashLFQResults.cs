@@ -231,8 +231,6 @@ namespace FlashLFQ
                 RevisedModifiedPeptides();
             }
 
-            
-
             if (!quantifyAmbiguousPeptides)
             {
                 HandleAmbiguityInFractions();
@@ -614,7 +612,7 @@ namespace FlashLFQ
                     if (IsoTracker)
                     {
                         output.WriteLine(Peptide.TabSeparatedHeader_IsoTracker(SpectraFiles));
-
+                        // we want to output with same iso group index followed by peak order.
                         foreach (var peptide in PeptideModifiedSequences
                                      .OrderBy(p => p.Value.IsoGroupIndex ?? int.MaxValue)
                                      .ThenBy(p => p.Value.PeakOrder ?? int.MinValue))
@@ -831,7 +829,6 @@ namespace FlashLFQ
                     PeptideModifiedSequences[peptide.Sequence] = peptide;
                     peakIndex++;
                 }
-
                 isoGroupIndex++;
             }
         }

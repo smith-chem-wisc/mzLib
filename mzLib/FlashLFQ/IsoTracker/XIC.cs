@@ -21,7 +21,6 @@ namespace FlashLFQ.IsoTracker
         /// A list of smoothed retention time values.
         /// </summary>
         public List<double> SmoothedRetentionTime { get; set; }
-
         /// <summary>
         /// A list of imsPeak objects.
         /// </summary>
@@ -54,7 +53,6 @@ namespace FlashLFQ.IsoTracker
         /// A list of extrema points.
         /// </summary>
         public List<Extremum> Extrema { get; set; }
-
         public List<Identification> Ids;
 
         public XIC(List<IIndexedMzPeak> peaks, double peakFindingMass, SpectraFileInfo spectraFile, bool Isreference = false, List<Identification> ids = null, int smoothDegree = 5)
@@ -76,7 +74,6 @@ namespace FlashLFQ.IsoTracker
             }
 
         }
-
 
         /// <summary>
         /// Pad the XIC with 5 peaks before the first peak and 5 peaks after the last peak. The intensity of the padded peaks is 0.
@@ -118,7 +115,6 @@ namespace FlashLFQ.IsoTracker
             double[] y = PadPeaks().Select(p => p.Intensity).ToArray();
             this.LinearSpline = LinearSpline.InterpolateSorted(x, y);  // I am not sure what to put in the last parameter
         }
-
 
         /// <summary>
         /// calculate the retention time shift among the reference. Then store the value in the RtShift property.
@@ -173,7 +169,6 @@ namespace FlashLFQ.IsoTracker
             return rtShift;
         }
 
-
         /// <summary>
         /// Try to smooth the XIC by averaging the intensity of the points (weight averaging then sum averaging).
         /// Using the smoothedXIC to generate the cubic spline date for Extremum finding.
@@ -192,7 +187,6 @@ namespace FlashLFQ.IsoTracker
             SmoothedRetentionTime = retentionTime.ToList();
             this.SmoothedCubicSpline = CubicSpline.InterpolateAkimaSorted(retentionTime, SmoothedIntensity.ToArray());
         }
-
 
         /// <summary>
         /// Smooth the intensity of the XIC by averaging the intensity of the points (weight averaging then sum averaging).
@@ -323,7 +317,5 @@ namespace FlashLFQ.IsoTracker
             Extrema.Sort();
 
         }
-
-
     }
 }
