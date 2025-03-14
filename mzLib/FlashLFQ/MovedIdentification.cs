@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.Marshalling;
-using System.Text;
-using System.Threading.Tasks;
-using System.Transactions;
+﻿using System.Collections.Generic;
 
 namespace FlashLFQ
 {
@@ -37,13 +30,12 @@ namespace FlashLFQ
         /// <returns></returns>
         public bool Equal(Identification id)
         {
-            if (this.BaseSequence != id.BaseSequence || 
-                this.ModifiedSequence != id.ModifiedSequence || 
-                this.UseForProteinQuant != id.UseForProteinQuant)
+            if (BaseSequence != id.BaseSequence || 
+                ModifiedSequence != id.ModifiedSequence || 
+                UseForProteinQuant != id.UseForProteinQuant)
             {
                 return false;
             }
-
             return true;
         }
     }

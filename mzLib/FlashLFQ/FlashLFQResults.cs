@@ -2,12 +2,10 @@
 using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
-using System.Data.Entity.Core.Objects.DataClasses;
 using System.IO;
 using System.Linq;
 using System.Text;
 using FlashLFQ.IsoTracker;
-using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -175,7 +173,6 @@ namespace FlashLFQ
                     {
                         detectionType = DetectionType.NotDetected;
                     }
-
 
                     PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, intensity);
                     PeptideModifiedSequences[sequence].SetRetentionTime(filePeaks.Key, bestPeak.ApexRetentionTime);

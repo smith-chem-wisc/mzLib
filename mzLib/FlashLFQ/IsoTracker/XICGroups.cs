@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using FlashLFQ.IsoTracker;
 
 namespace FlashLFQ.IsoTracker
 {
@@ -184,9 +182,6 @@ namespace FlashLFQ.IsoTracker
                     removeIndex++;
                 }
             }
-
-            int iii = 0;
-            
         }
 
         /// <summary>

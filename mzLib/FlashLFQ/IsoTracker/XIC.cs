@@ -313,9 +313,7 @@ namespace FlashLFQ.IsoTracker
                     Extrema.Add(new Extremum(intensity_atPoint, point + RtShift, ExtremumType.Minimum));                   
                 }
             }
-
             Extrema.Sort();
-
         }
     }
 }
