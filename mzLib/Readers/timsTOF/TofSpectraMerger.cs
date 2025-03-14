@@ -139,7 +139,7 @@ namespace Readers
             return (collapsedIndices, collapsedIntensities);
         }
 
-        public const int AssumedNoiseLevel = 42;
+        public const int AssumedNoiseLevel = 56;
 
         /// <summary>
         /// Collapses the given index and intensity arrays. 

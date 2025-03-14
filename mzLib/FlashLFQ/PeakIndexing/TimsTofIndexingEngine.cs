@@ -70,7 +70,7 @@ namespace FlashLFQ
             _indexedPeaks = new List<IndexedTimsTofPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
             file.CloseDynamicConnection();
 
-            int noiseBaseline = GetApproximateNoiseLevel(frameArray);
+            //int noiseBaseline = GetApproximateNoiseLevel(frameArray);
 
             for (int i = 0; i < frameArray.Length; i++)
             {
@@ -84,7 +84,7 @@ namespace FlashLFQ
                     // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
                     for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
                     {
-                        if (spectrum.YArray[spectrumIdx] < noiseBaseline) continue;
+                        //if (spectrum.YArray[spectrumIdx] < noiseBaseline) continue;
                         double peakMz = MzLookupArray[spectrum.XArray[spectrumIdx]];
                         int roundedMz = (int)Math.Floor(peakMz * BinsPerDalton);
                         _indexedPeaks[roundedMz] ??= new List<IndexedTimsTofPeak>(frameArray.Length / 100);

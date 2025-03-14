@@ -1675,10 +1675,16 @@ namespace FlashLFQ
 
                     isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum(), pearsonCorr));
                 }
+                else
+                {
+                    FailedIsotopeCount++;
+                }
             }
 
             return isotopicEnvelopes;
         }
+
+        public int FailedIsotopeCount = 0;
 
         /// <summary>
         /// This function checks the correlation between experimental and actual abundances of isotopes

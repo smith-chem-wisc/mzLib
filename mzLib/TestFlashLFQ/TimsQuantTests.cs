@@ -271,7 +271,7 @@ namespace Test
         public static void LocalDataSmallTest()
         {
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
-            string outputDirectory = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\FlashLFQ_Test_5ppmCentroiding_merging";
+            string outputDirectory = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\FlashLFQ_Test_SNRCentroiding_10ppm_merging";
             Directory.CreateDirectory(outputDirectory);
 
             string psmFile = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\Task1-SearchTask\AllPSMs.psmtsv";
@@ -351,8 +351,8 @@ namespace Test
                 ids.Add(id);
             }
 
-            //int[] spectraPerFrameArray = new int[] { 1, 2, 4, 8, 10, 12, 16, 20, 24, 32, 40, 48, 56, 64 };
-            int[] spectraPerFrameArray = new int[] {     24,  };
+            int[] spectraPerFrameArray = new int[] { 1, 2, 4, 8, 10, 12, 16, 20, 24, 32, 40, 48, 56, 64 };
+            //int[] spectraPerFrameArray = new int[] {     24,  };
 
             StringBuilder sb = new();
             sb.AppendLine("Spectra per Frame\tQuantifiedPeptides\tUndetectedPeptides\tAmbiguousPeptides");
@@ -510,10 +510,11 @@ namespace Test
                 matchBetweenRuns: true,
                 ppmTolerance: 15,
                 isotopeTolerancePpm: 15,
-                matchBetweenRunsFdrThreshold: 0.15,
+                matchBetweenRunsFdrThreshold: 0.05,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: true,
-                maxThreads: 20);
+                spectraPerFrame: 24,
+                maxThreads: 23);
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
