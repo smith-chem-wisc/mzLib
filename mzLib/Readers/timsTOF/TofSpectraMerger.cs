@@ -30,6 +30,10 @@ namespace Readers
                         break;
                     }
                 }
+                //double maxMz2 = mzLookupArray[maxTofIdx];
+                //double minMz = mzLookupArray[i];
+                //if (maxMz2 > minMz && maxMz > 800)
+                //    maxTofIdx--;
                 TofIndexDelta[i] = maxTofIdx - i;
             }
         }
@@ -93,6 +97,50 @@ namespace Readers
             return (mergedIndices, mergedIntensities);
         }
 
+        public (List<uint> Indices, List<int> Intensities) CollapseArraysTofIndexResolution(uint[] indexArray, int[] intensityArray)
+        {
+            // Define lists to store the collapsed indices and intensities
+            List<uint> collapsedIndices = new List<uint>(indexArray.Length);
+            List<int> collapsedIntensities = new List<int>(intensityArray.Length);
+
+            // Initialize pointers to the first two elements in the index array
+            int p1 = 0;
+            int p2 = 1;
+            while (p1 < indexArray.Length)
+            {
+
+                // Find clusters of indices that are close together
+                // increment pointer 2 until the cluster ends and we're further than DefaultPpmTolerance away
+                while (p2 < indexArray.Length && indexArray[p2] == indexArray[p1])
+                {
+                    p2++;
+                }
+                p2--; // Move the pointer back by one
+
+                // Sum the intensities in each cluster to get the collapsed intensity
+                int summedIntensity = 0;
+                for (int i = p1; i <= p2; i++)
+                {
+                    summedIntensity += intensityArray[i];
+
+                }
+                if(summedIntensity > AssumedNoiseLevel)
+                {
+                    collapsedIntensities.Add(summedIntensity);
+                    collapsedIndices.Add(indexArray[p1]);
+
+                }
+
+                // Move the pointers forward
+                p1 = p2 + 1;
+                p2 = p1 + 1;
+            }
+
+            return (collapsedIndices, collapsedIntensities);
+        }
+
+        public const int AssumedNoiseLevel = 42;
+
         /// <summary>
         /// Collapses the given index and intensity arrays. 
         /// Adjacent index values (and their corresponding intensity values) are merged. 
@@ -104,23 +152,25 @@ namespace Readers
         public (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray)
         {
             // Define lists to store the collapsed indices and intensities
-            List<uint> collapsedIndices = new List<uint>(indexArray.Length);
-            List<int> collapsedIntensities = new List<int>(intensityArray.Length);
-            PpmTolerance tolerance = new(DefaultPpmTolerance);
+            var collapseOneTuple = CollapseArraysTofIndexResolution(indexArray, intensityArray);
+            var indexList = collapseOneTuple.Indices;
+            var intensityList = collapseOneTuple.Intensities;
+            List<uint> collapsedIndices = new List<uint>(indexList.Count);
+            List<int> collapsedIntensities = new List<int>(intensityList.Count);
 
             // Initialize pointers to the first two elements in the index array
             int p1 = 0;
             int p2 = 1;
-            while (p1 < indexArray.Length)
+            while (p1 < indexList.Count)
             {
-                uint tofIdxDelta = TofIndexDelta[indexArray[p1]];
-                uint maxTofIdx = indexArray[p1] + tofIdxDelta;
+                uint tofIdxDelta = TofIndexDelta[indexList[p1]];
+                uint maxTofIdx = indexList[p1] + tofIdxDelta;
 
                 // Find clusters of indices that are close together
                 // increment pointer 2 until the cluster ends and we're further than DefaultPpmTolerance away
-                while (p2 < indexArray.Length && indexArray[p2] <= maxTofIdx)
+                while (p2 < indexList.Count && indexList[p2] <= maxTofIdx)
                 {
-                    maxTofIdx = indexArray[p2] + tofIdxDelta;
+                    maxTofIdx = indexList[p2] + tofIdxDelta;
                     p2++;
                 }
                 p2--; // Move the pointer back by one
@@ -130,14 +180,14 @@ namespace Readers
                 int idxOfMaxIntensity = p1;
                 for (int i = p1; i <= p2; i++)
                 {
-                    summedIntensity += intensityArray[i];
-                    if (intensityArray[i] > intensityArray[idxOfMaxIntensity])
+                    summedIntensity += intensityList[i];
+                    if (intensityList[i] > intensityList[idxOfMaxIntensity])
                         idxOfMaxIntensity = i;
                 }
                 collapsedIntensities.Add(summedIntensity);
 
                 // Use the index of the most intense peak as the collapsed index
-                collapsedIndices.Add(indexArray[idxOfMaxIntensity]);
+                collapsedIndices.Add(indexList[idxOfMaxIntensity]);
 
                 // Move the pointers forward
                 p1 = p2 + 1;

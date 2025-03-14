@@ -42,7 +42,7 @@ namespace FlashLFQ
         /// </summary>
         public double[] OneOverK0LookupArray { get; set; }
 
-        public TimsTofIndexingEngine(SpectraFileInfo fileInfo, int maxThreads)
+        public TimsTofIndexingEngine(SpectraFileInfo fileInfo, int maxThreads, int spectraPerFrame = 8)
         {
             var messageTypes = new List<Type>
             {
@@ -53,16 +53,19 @@ namespace FlashLFQ
             _serializer = new Serializer(messageTypes);
             _maxThreads = maxThreads;
             FileInfo = fileInfo;
+            SpectraPerFrame = spectraPerFrame;
         }
+
+        public int SpectraPerFrame { get; init; }
 
         public bool IndexPeaks(SpectraFileInfo fileInfo, bool silent)
         {
             TimsTofFileReader file = new TimsTofFileReader(fileInfo.FullFilePathWithExtension);
-            file.InitiateDynamicConnection();
+            file.InitiateDynamicConnection(ppmToleranceForCentroiding: 5);
             MzLookupArray = file.GetMzLookupTable();
 
             Ms1ScanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
-            var frameArray = file.GetMs1InfoFrameByFrame(out int scansPerSpectra, maxThreads: _maxThreads);
+            var frameArray = file.GetMs1InfoFrameByFrame(SpectraPerFrame, out int scansPerSpectra, maxThreads: _maxThreads);
             ImsResolution = scansPerSpectra;
             _indexedPeaks = new List<IndexedTimsTofPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
             file.CloseDynamicConnection();
@@ -173,6 +176,8 @@ namespace FlashLFQ
             return MergeTimsTofPeaks(peaksInFrame, theorMass.ToMz(chargeState), timsIndex);
         }
 
+        private PpmTolerance mergeTolerance = new PpmTolerance(15);
+
         private IndexedIonMobilityPeak MergeTimsTofPeaks(Dictionary<int, List<IndexedTimsTofPeak>> peaksInFrame, double targetMz, int? targetTimsScanIndex = null)
         {
             if (!peaksInFrame.Any()) return null;
@@ -184,6 +189,19 @@ namespace FlashLFQ
                 {
                     var bestPeak = peakList.MinBy(p => Math.Abs(targetMz - MzLookupArray[p.TofIndex]));
                     peaksByTimsScanIndex.Add(bestPeak);
+                    //if(peakList.Count >= 2)
+                    //{
+                    //    peakList.Remove(bestPeak);
+                    //    var secondBestPeak = peakList.MinBy(p => Math.Abs(targetMz - MzLookupArray[p.TofIndex]));
+                    //    double bestMz = MzLookupArray[bestPeak.TofIndex];
+                    //    double secondBestMz = MzLookupArray[secondBestPeak.TofIndex];
+
+                    //    if (mergeTolerance.Within(bestMz, secondBestMz))
+                    //    {
+                    //        peaksByTimsScanIndex.Add(secondBestPeak);
+                    //    }
+                    //}
+                    
                 }
                 else
                 {

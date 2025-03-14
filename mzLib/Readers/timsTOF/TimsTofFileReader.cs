@@ -269,12 +269,12 @@ namespace Readers
         /// Missing fields: TotalIonCurrent, NoiseData, NativeId, PrecursorId.
         /// </summary>
         /// <returns> DataScans with populated Ms1SpectraIndexedByZeroBasedScanNumber arrays </returns>
-        public TimsDataScan[] GetMs1InfoFrameByFrame(out int scansPerSpectrum, int maxThreads = 1)
+        public TimsDataScan[] GetMs1InfoFrameByFrame(int spectraPerFrame, out int scansPerSpectrum, int maxThreads = 1)
         {
             if (_fileHandle == null || _sqlConnection == null || _sqlConnection.State != ConnectionState.Open)
                 InitiateDynamicConnection();
 
-            int spectraPerFrame = 8;
+            //int spectraPerFrame = 8;
             int numberOfScansToCombine = NumberOfScansPerFrame / spectraPerFrame; 
             scansPerSpectrum = numberOfScansToCombine;
             int approxNumScans = spectraPerFrame * scansPerSpectrum;

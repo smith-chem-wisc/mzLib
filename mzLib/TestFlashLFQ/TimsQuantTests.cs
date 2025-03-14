@@ -8,6 +8,7 @@ using System.IO;
 using Chemistry;
 using MzLibUtil;
 using System;
+using System.Text;
 
 namespace Test
 {
@@ -64,7 +65,10 @@ namespace Test
         }
 
         [Test]
-        public static void LocalDataTinyTest()
+        [TestCase(4)]
+        [TestCase(8)]
+        [TestCase(12)]
+        public static void LocalDataTinyTest(int spectraPerFrame)
         {
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
             string outputDirectory = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\FlashLFQ_Test";
@@ -142,7 +146,8 @@ namespace Test
                 useSharedPeptidesForProteinQuant: true,
                 ppmTolerance: 15,
                 isotopeTolerancePpm: 15,
-                maxThreads: 5,
+                maxThreads: 20,
+                spectraPerFrame: spectraPerFrame,
                 silent:true);
             var results = engine.Run();
 
@@ -266,7 +271,7 @@ namespace Test
         public static void LocalDataSmallTest()
         {
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
-            string outputDirectory = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\FlashLFQ_Test";
+            string outputDirectory = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\FlashLFQ_Test_5ppmCentroiding_merging";
             Directory.CreateDirectory(outputDirectory);
 
             string psmFile = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\Task1-SearchTask\AllPSMs.psmtsv";
@@ -346,28 +351,59 @@ namespace Test
                 ids.Add(id);
             }
 
-            var engine = new FlashLfqEngine(ids,
-                matchBetweenRuns: false,
-                requireMsmsIdInCondition: false,
-                useSharedPeptidesForProteinQuant: true,
-                maxThreads: -1,
-                silent: true);
-            var results = engine.Run();
+            //int[] spectraPerFrameArray = new int[] { 1, 2, 4, 8, 10, 12, 16, 20, 24, 32, 40, 48, 56, 64 };
+            int[] spectraPerFrameArray = new int[] {     24,  };
 
-            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
+            StringBuilder sb = new();
+            sb.AppendLine("Spectra per Frame\tQuantifiedPeptides\tUndetectedPeptides\tAmbiguousPeptides");
+            foreach(int spectraPerFrame in spectraPerFrameArray)
+            {
+                var engine = new FlashLfqEngine(ids,
+                    matchBetweenRuns: false,
+                    requireMsmsIdInCondition: false,
+                    useSharedPeptidesForProteinQuant: true,
+                    maxThreads: -1,
+                    spectraPerFrame: spectraPerFrame,
+                    silent: true);
+                var results = engine.Run();
 
-            var peaks = results.Peaks.Values.ToList();
-            var peptides = results.PeptideModifiedSequences.Values.ToList();
-            var proteins = results.ProteinGroups.Values.ToList();
+                results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), Path.Combine(outputDirectory, "bayesian.tsv"), true);
 
-            Console.WriteLine("Quantified peptides: " + peptides.Count(p =>
-                p.GetDetectionType(f1r3) == DetectionType.MSMS));
+                var peptides = results.PeptideModifiedSequences.Values.ToList();
 
-            Console.WriteLine("Undetected peptides: " + peptides.Count(p =>
-                p.GetDetectionType(f1r3) == DetectionType.MSMSIdentifiedButNotQuantified));
+                int qPep = peptides.Count(p =>
+                    p.GetDetectionType(f1r3) == DetectionType.MSMS);
+                Console.WriteLine("Quantified peptides: " + peptides.Count(p =>
+                    p.GetDetectionType(f1r3) == DetectionType.MSMS));
 
-            Console.WriteLine("Ambiguous peptides: " + peptides.Count(p =>
-                p.GetDetectionType(f1r3) == DetectionType.MSMSAmbiguousPeakfinding));
+                int unPep = peptides.Count(p =>
+                    p.GetDetectionType(f1r3) == DetectionType.MSMSIdentifiedButNotQuantified);
+                Console.WriteLine("Undetected peptides: " + peptides.Count(p =>
+                    p.GetDetectionType(f1r3) == DetectionType.MSMSIdentifiedButNotQuantified));
+
+                int amPep = peptides.Count(p => p.GetDetectionType(f1r3) == DetectionType.MSMSAmbiguousPeakfinding);
+                Console.WriteLine("Ambiguous peptides: " + peptides.Count(p =>
+                    p.GetDetectionType(f1r3) == DetectionType.MSMSAmbiguousPeakfinding));
+
+                sb.AppendLine($"{spectraPerFrame}\t{qPep}\t{unPep}\t{amPep}");
+                
+            }
+            
+            using (StreamWriter writer = new StreamWriter(Path.Combine(outputDirectory, "ResolutionAnalysis.tsv")))
+            {
+                writer.WriteLine(sb.ToString());
+            }
+
+            //var proteins = results.ProteinGroups.Values.ToList();
+
+            //Console.WriteLine("Quantified peptides: " + peptides.Count(p =>
+            //    p.GetDetectionType(f1r3) == DetectionType.MSMS));
+
+            //Console.WriteLine("Undetected peptides: " + peptides.Count(p =>
+            //    p.GetDetectionType(f1r3) == DetectionType.MSMSIdentifiedButNotQuantified));
+
+            //Console.WriteLine("Ambiguous peptides: " + peptides.Count(p =>
+            //    p.GetDetectionType(f1r3) == DetectionType.MSMSAmbiguousPeakfinding));
 
             Assert.Pass();
 

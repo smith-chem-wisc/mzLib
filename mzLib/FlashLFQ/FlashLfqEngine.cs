@@ -102,6 +102,8 @@ namespace FlashLFQ
         internal Dictionary<SpectraFileInfo, IIndexingEngine> IndexingEngineDict { get; private set; }
         internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
 
+        public int SpectraPerFrame { get; private set; }    
+
         /// <summary>
         /// Create an instance of FlashLFQ that will quantify peptides based on their precursor intensity in MS1 spectra
         /// </summary>
@@ -139,7 +141,8 @@ namespace FlashLFQ
             int? randomSeed = null,
             DonorCriterion donorCriterion = DonorCriterion.Score,
             double donorQValueThreshold = 0.01,
-            List<string> peptideSequencesToQuantify = null)
+            List<string> peptideSequencesToQuantify = null,
+            int spectraPerFrame = 8)
         {
             Loaders.LoadElements();
 
@@ -200,6 +203,8 @@ namespace FlashLFQ
             PeakfindingPpmTolerance = 20.0;
             MissedScansAllowed = 1;
             DiscriminationFactorToCutPeak = 0.6;
+
+            SpectraPerFrame = spectraPerFrame;
         }
 
         public FlashLfqResults Run()
@@ -214,7 +219,7 @@ namespace FlashLFQ
             foreach (var spectraFile in _spectraFileInfo)
             {
                 IIndexingEngine indexingEngine = spectraFile.IsTimsTofFile 
-                    ? new TimsTofIndexingEngine(spectraFile, MaxThreads) 
+                    ? new TimsTofIndexingEngine(spectraFile, MaxThreads, SpectraPerFrame) 
                     : new PeakIndexingEngine(MaxThreads);
                 CurrentIndexingEngine = indexingEngine;
                 IndexingEngineDict.Add(spectraFile, indexingEngine);
