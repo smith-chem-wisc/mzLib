@@ -2081,7 +2081,10 @@ namespace FlashLFQ
 
                 // Check is there any Id in the XIC within the time window.
                 // Yes: use the Id from the same file. No: use the Id from other file, then set the detection type property as MBR.
-                var idsForThisPeak = xICGroups.IdList.Where(p=>Within(p.Ms2RetentionTimeInMinutes, peakStart, PeakEnd) && p.FileInfo.Equals(xic.SpectraFile)).ToList();
+                var idsForThisPeak = xICGroups.IdList
+                    .Where(p=>Within(p.Ms2RetentionTimeInMinutes, peakStart, PeakEnd) && p.FileInfo.Equals(xic.SpectraFile))
+                    .DistinctBy(p=>p.ModifiedSequence)
+                    .ToList();
                 switch (idsForThisPeak.Count)
                 {
                     case 0: // If there is no any Id from the same file in the time window, then we borrow one from others files.
@@ -2091,7 +2094,8 @@ namespace FlashLFQ
                             .ToList();
                         isMBR = true;
                         detectionType = DetectionType.IsoTrack_MBR;
-                        if (idsForThisPeak.Count > 1)
+                        // If there are more than one Id from other files in the time window, then detectionType should be IsoTrack_Ambiguous.
+                        if (idsForThisPeak.Count > 1) 
                         {
                             detectionType = DetectionType.IsoTrack_Ambiguous;
                         }

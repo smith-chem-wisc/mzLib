@@ -802,10 +802,10 @@ namespace FlashLFQ
                 string peptideSequence = isoPeptides.Key;
                 Peptide originalPeptide = PeptideModifiedSequences[peptideSequence];
 
-
                 // Remove the formal peptide from the peptide list
                 var allIDs = isoPeptides.Value.Values
                     .SelectMany(p => p)
+                    .Where(p => p != null)
                     .SelectMany(p=>p.Identifications)
                     .DistinctBy(p=>p.ModifiedSequence)
                     .Select(p=>p.ModifiedSequence)
@@ -820,6 +820,7 @@ namespace FlashLFQ
                 foreach (var isoPeptidePeaks in isoPeptides.Value.Values.ToList())
                 {
                     var allSeq = isoPeptidePeaks
+                        .Where(p => p != null)
                         .SelectMany(p => p.Identifications)
                         .Select(p=>  p.ModifiedSequence)
                         .Distinct()
