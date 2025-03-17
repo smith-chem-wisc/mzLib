@@ -789,7 +789,7 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// This method is used to re-edit the peptide List by adding the isobaric peptides and remove the formal peptide.
+        /// This method is used to re-edit the peptide List by adding the isobaric peptides and remove the former peptide.
         /// </summary>
         internal void RevisedModifiedPeptides()
         {

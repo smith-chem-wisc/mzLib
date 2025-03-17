@@ -15,8 +15,10 @@ namespace Test
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    internal class TestXIC
+    internal class TestIsoTracker
     {
+        // Test the XIC class
+
         [Test]
         public static void TestXICConstructor()
         {
@@ -195,12 +197,8 @@ namespace Test
             
         }
 
-    }
 
-    [TestFixture]
-    [ExcludeFromCodeCoverage]
-    internal class TestXICGroup
-    {
+        // Test the XICGroup class
         [Test]
         public static void TestXICGroupConstructor()
         {
@@ -227,10 +225,10 @@ namespace Test
 
             var id1 = new Identification(spectraFile, "BaseSequence1", "ModifiedSequence1", 100.0, 1.0, 1, new List<ProteinGroup>(), null, true, 0, 0, false);
             var id2 = new Identification(spectraFile, "BaseSequence2", "ModifiedSequence2", 200.0, 2.0, 2, new List<ProteinGroup>(), null, true, 0, 0, false);
-            
-            var xic = new XIC(peaks, 100.0, spectraFile, true, new List<Identification>(){ id1 });
-            var xic2 = new XIC(peaks2, 100.0, spectraFile, false, new List<Identification>(){ id2 });
-            var xicGroup = new XICGroups(new List<XIC>(){ xic, xic2 });
+
+            var xic = new XIC(peaks, 100.0, spectraFile, true, new List<Identification>() { id1 });
+            var xic2 = new XIC(peaks2, 100.0, spectraFile, false, new List<Identification>() { id2 });
+            var xicGroup = new XICGroups(new List<XIC>() { xic, xic2 });
             // Assert
             Assert.IsNotNull(xicGroup);
             Assert.AreEqual(xicGroup.ReferenceXIC, xic);
@@ -247,8 +245,8 @@ namespace Test
 
             Assert.IsNotNull(xicGroup.IdList);
             Assert.AreEqual(xicGroup.IdList.Count, 2);
-            var idList = new List<Identification>() { id1, id2};
-            CollectionAssert.AreEqual(idList.Select(p=>p.ModifiedSequence), xicGroup.IdList.Select(p => p.ModifiedSequence));
+            var idList = new List<Identification>() { id1, id2 };
+            CollectionAssert.AreEqual(idList.Select(p => p.ModifiedSequence), xicGroup.IdList.Select(p => p.ModifiedSequence));
             // Because the XICGroup will create a new MovedId base on the original Id, so the IdList should be the same as the original IdList. But cannot use the Assert to test.
 
         }
@@ -299,9 +297,9 @@ namespace Test
             var xicGroup = new XICGroups(new List<XIC> { xic1, xic2, xic3 });
 
             // Assert
-            Assert.AreEqual(xicGroup.RTDict[0], xic1.AlignXICs(xic1)); 
-            Assert.AreEqual(xicGroup.RTDict[1], xic2.AlignXICs(xic1)); 
-            Assert.AreEqual(xicGroup.RTDict[2], xic3.AlignXICs(xic1)); 
+            Assert.AreEqual(xicGroup.RTDict[0], xic1.AlignXICs(xic1));
+            Assert.AreEqual(xicGroup.RTDict[1], xic2.AlignXICs(xic1));
+            Assert.AreEqual(xicGroup.RTDict[2], xic3.AlignXICs(xic1));
         }
 
         [Test]
@@ -350,7 +348,7 @@ namespace Test
 
             //The timeLine from 10 to 30 mins
             List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0)
-                        .ToList(); 
+                        .ToList();
 
             List<double> intensities_P1 = new List<double>();
             List<double> intensities_P2 = new List<double>();
@@ -391,10 +389,10 @@ namespace Test
 
             // Assert the sharedPeak projection, the time point should be the same as the reference XIC
             Assert.AreEqual(xicGroup.SharedExtrema.Count, xicGroup.ExtremaInRef.Count);
-            Assert.AreEqual(xicGroup.SharedExtrema.Select(p=>p.RetentionTime), xicGroup.ExtremaInRef.Select(p=>p.Key));
+            Assert.AreEqual(xicGroup.SharedExtrema.Select(p => p.RetentionTime), xicGroup.ExtremaInRef.Select(p => p.Key));
 
             // Assert the Apex in this case. The apex should be the at 20 min and extremum type is maximum
-            var Apex = xicGroup.SharedExtrema.Where(p=>p.Type == ExtremumType.Maximum).OrderBy(p=>p.Intensity).Last();
+            var Apex = xicGroup.SharedExtrema.Where(p => p.Type == ExtremumType.Maximum).OrderBy(p => p.Intensity).Last();
             Assert.IsNotNull(Apex);
             Assert.AreEqual(Apex.RetentionTime, 20, 0.1);
 
@@ -409,12 +407,8 @@ namespace Test
             Assert.AreEqual(ApexPeaks.Count, 1);
         }
 
-    }
 
-    [TestFixture]
-    [ExcludeFromCodeCoverage]
-    internal class TestFlashLFQResult()
-    {
+        // Test the IsoTracker search function
         [Test]
         public static void TestPeakOutput()
         {
@@ -428,8 +422,8 @@ namespace Test
             string psmFile = Path.Combine(testDataDirectory, "AllPSMs.psmtsv");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
             string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
-            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1+".mzML"), "one", 1, 1, 1);
-            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2+".mzML"), "two", 1, 1, 1);
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "two", 1, 1, 1);
 
             List<Identification> ids = new List<Identification>();
             Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
@@ -511,9 +505,9 @@ namespace Test
             // Assert new peptide headers for the Isotracker
             var peptideHeader = File.ReadLines(Path.Combine(outputDirectory, "peptides.tsv")).ToList();
             List<string> peptideHeaderList = peptideHeader[0].Split('\t').ToList();
-            List<string> expectedPeptideHeaders = new List<string> { "Sequence", "Base Sequence", "Peak Order","Protein Groups", "Gene Names", "Organism", "Intensity_" + file1, "Intensity_" + file2, 
+            List<string> expectedPeptideHeaders = new List<string> { "Sequence", "Base Sequence", "Peak Order","Protein Groups", "Gene Names", "Organism", "Intensity_" + file1, "Intensity_" + file2,
                 "RetentionTime (min)_"+file1, "RetentionTime (min)_" + file2, "Detection Type_"+file1, "Detection Type_" + file2 };
-            Assert.AreEqual(12,peptideHeaderList.Count);
+            Assert.AreEqual(12, peptideHeaderList.Count);
             CollectionAssert.AreEqual(expectedPeptideHeaders, peptideHeaderList);
 
             //Assert the isopeaks data
@@ -533,11 +527,11 @@ namespace Test
                     var retentionTimeRun2 = line.Split('\t')[9];
                     var detectionTypeRun1 = line.Split('\t')[10];
                     var detectionTypeRun2 = line.Split('\t')[11];
-                    CollectionAssert.AreEqual(intensityRun1,intensityRun2);
+                    CollectionAssert.AreEqual(intensityRun1, intensityRun2);
                     CollectionAssert.AreEqual(retentionTimeRun1, retentionTimeRun2);
                     CollectionAssert.AreNotEqual(detectionTypeRun1, detectionTypeRun2);
                 }
-                
+
             }
 
             //check that all rows including header have the same number of elements
@@ -636,7 +630,7 @@ namespace Test
                 maxThreads: 1);
             var results = engine.Run();
 
-            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"),null, true);
+            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
 
 
             List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
@@ -645,7 +639,7 @@ namespace Test
 
 
             // Check the output: there are one kind of IsoID(modifiedPeptide), then two isobaricPeptide, and four isobaricPeaks
-            int modifiedPeptideNum = ids.GroupBy(p => new{ p.BaseSequence , p.MonoisotopicMass}).Count();
+            int modifiedPeptideNum = ids.GroupBy(p => new { p.BaseSequence, p.MonoisotopicMass }).Count();
             int isobaricPeptideNum = modifiedPeptideNum * 2;
             int isobaricPeakNum = isobaricPeptideNum * 2;
 
@@ -897,13 +891,13 @@ namespace Test
             Assert.AreEqual(peaksList.Count, isobaricPeakNum);
             List<string> expectedSequence_Peak1 = new List<string> { "DIVENYFM[Common Variable:Oxidation on M]R" };
             List<string> expectedSequence_Peak2 = new List<string> { "DIVENYF[Common Variable:Oxidation on M]MR", "DIVENY[Common Variable:Oxidation on M]FMR" };
-            
+
 
             //Check the detectionType of each peptide, in this case all peptides are IsoTrack_Ambiguous
             //The output sequence should be the same as the expected sequence
             foreach (var peptide in peptidesList)
             {
-                string outputSequence = peptide.Split('\t')[0]; 
+                string outputSequence = peptide.Split('\t')[0];
                 var peakOrder = int.Parse(peptide.Split('\t')[2]);
 
                 if (peakOrder == 1)
@@ -945,7 +939,7 @@ namespace Test
         public static void TestIsoSequence_CombinedTesting()
         {
             //In this test, there are two unmodifiedPeptide, one ambiguous isoPeptide set, and two normal isobaric peptides.
-            
+
 
             //Try to turn on the MBR and Isotracker at the same time
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
@@ -1037,14 +1031,14 @@ namespace Test
 
             // Check the output: there are one kind of IsoID(modifiedPeptide), then two isobaricPeptide, and four isobaricPeaks
             int ambiguityPeptideNum = ids.GroupBy(p => new { p.BaseSequence, p.MonoisotopicMass })
-                .Where(p=>p.Count() > 2).Count();
+                .Where(p => p.Count() > 2).Count();
             int normalIsoPeptideNum = ids.GroupBy(p => new { p.BaseSequence, p.MonoisotopicMass })
                 .Where(p => p.Count() == 2).Count();
             int unModifiedPeptideNum = ids.Where(p => p.BaseSequence == p.ModifiedSequence).Count();
 
             Assert.AreEqual(ambiguityPeptideNum, 1);
             Assert.AreEqual(normalIsoPeptideNum, 2);
-            Assert.AreEqual(unModifiedPeptideNum,2);
+            Assert.AreEqual(unModifiedPeptideNum, 2);
 
             int QPeptideNum = ambiguityPeptideNum * 2 + normalIsoPeptideNum * 2 + unModifiedPeptideNum;
             Assert.IsTrue(QPeptideNum == 8 && QPeptideNum == peptidesList.Count);
@@ -1103,6 +1097,7 @@ namespace Test
 
             Directory.Delete(outputDirectory, true);
         }
+
     }
 
 }

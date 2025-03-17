@@ -53,9 +53,8 @@ namespace FlashLFQ
         {
             if (obj is Identification other)
             {
-                return this.BaseSequence == other.BaseSequence &&
-                       this.ModifiedSequence == other.ModifiedSequence &&
-                       this.ProteinGroups.SetEquals(other.ProteinGroups);
+                return BaseSequence == other.BaseSequence &&
+                       ModifiedSequence == other.ModifiedSequence;
             }
             return false;
         }
