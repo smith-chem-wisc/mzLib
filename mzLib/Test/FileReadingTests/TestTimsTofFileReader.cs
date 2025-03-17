@@ -18,8 +18,8 @@ namespace Test.FileReadingTests
     {
 
         //public string _testDataPath = @"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_891.d";
-        public string _testDataPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d";
-        //public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
+        //public string _testDataPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d";
+        public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
         public TimsTofFileReader _testReader;
         public TimsDataScan _testMs2Scan;
         public TimsDataScan _testMs1Scan;
@@ -34,7 +34,7 @@ namespace Test.FileReadingTests
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
         }
 
-        [Test]
+        //[Test]
         public void HistogramAnalysis()
         {
             var ms1Scans = _testReader.Scans.Where(s => s.MsnOrder == 1);
@@ -266,6 +266,11 @@ namespace Test.FileReadingTests
               reader.LoadAllStaticData());
         }
 
+        [Test]
+        public void WriteToMzml()
+        {
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(_testReader, @"D:\timsTOF_Data_Bruker\ddaPASEF_data\OutputTests\SnippetTest_100noise.mzML", true);
+        }
 
         [Test]
         public void TestLoadAllStaticData()
@@ -274,7 +279,7 @@ namespace Test.FileReadingTests
 
             Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
             Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
-            Assert.That(_testMs2Scan.TotalIonCurrent == 25130);
+            Assert.That(_testMs2Scan.TotalIonCurrent, Is.EqualTo(25130));
             Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
             Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
             Assert.That(_testMs2Scan.MsnOrder == 2);

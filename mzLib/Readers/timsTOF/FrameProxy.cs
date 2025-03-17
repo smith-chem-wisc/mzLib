@@ -42,11 +42,17 @@ namespace Readers
             double[] mzArray = new double[indices.Count()];
             for (int idx = 0; idx < indices.Count(); idx++)
             {
-                if (indices[idx] >= MzLookupArray.Length)
-                    throw new ArgumentException("Index out of range");
-                mzArray[idx] = MzLookupArray[indices[idx]];
+                mzArray[idx] = ConvertIndexToMz(indices[idx]);
             }
             return mzArray;
+        }
+
+        internal double ConvertIndexToMz(uint index)
+        {
+            if (index > MzLookupArray.Length)
+                throw new ArgumentException("Index out of range");
+
+            return MzLookupArray[index];
         }
 
         /// <summary>

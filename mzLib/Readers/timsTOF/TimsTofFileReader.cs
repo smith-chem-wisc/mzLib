@@ -380,7 +380,7 @@ namespace Readers
                 intensityArrays.Add(frame.GetScanIntensities(scan-1));
             }
             // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
+            MzSpectrum averagedSpectrum = TofSpectraMerger.CreateMzSpectrum(indexArrays, intensityArrays, FrameProxyFactory, msnLevel: 1, filteringParams: filteringParams);
             if (averagedSpectrum.Size < 1)
             {
                 return null;
@@ -472,10 +472,8 @@ namespace Readers
                             indexArrays.Add(frame.GetScanIndices(mobilityScanIdx-1));
                             intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx-1));
                         }
-                        // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
-                        // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
-                        (double[] Mzs, int[] Intensities) summedArrays = TofSpectraMerger.MergeArraysToMzArray(indexArrays, intensityArrays, FrameProxyFactory);
-                        scan.AddComponentArrays(summedArrays.Mzs, summedArrays.Intensities);
+
+                        scan.AddComponentSpectrum(TofSpectraMerger.CreateTimsSpectrum(indexArrays, intensityArrays));
                     }
                 }
             }
