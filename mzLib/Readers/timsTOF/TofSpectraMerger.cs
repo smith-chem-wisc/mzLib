@@ -111,7 +111,6 @@ namespace Readers
                     summedIntensity += intensityArray[i];
                 }
 
-
                 if (!removeLowIntensityPeaks || summedIntensity > noiseFloor)
                 { 
                     collapsedIndices.Add(currentIdx);
