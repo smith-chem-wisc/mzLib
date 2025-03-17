@@ -199,7 +199,7 @@ namespace Readers
         /// <param name="intensityArrays"></param>
         /// <param name="zeroIndexedTimsScanNumber"></param>
         /// <returns></returns>
-        internal static TimsSpectrum CreateTimsSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays)
+        internal static TimsSpectrum CreateTimsSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays, int msnLevel = 2, int timsScanIndex = -1)
         {
             if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
                 return null;
@@ -214,8 +214,8 @@ namespace Readers
                 combinedIntensities = mergeResults.Intensities;
             }
 
-            var collapsedResults = CollapseArrays(combinedIndices, combinedIntensities, msnLevel: 2, removeLowIntensityPeaks: false);
-            return new TimsSpectrum(collapsedResults.Indices, collapsedResults.Intensities);
+            var collapsedResults = CollapseArrays(combinedIndices, combinedIntensities, msnLevel: msnLevel, removeLowIntensityPeaks: msnLevel == 1);
+            return new TimsSpectrum(collapsedResults.Indices, collapsedResults.Intensities, timsScanIndex);
         }
 
         /// <summary>

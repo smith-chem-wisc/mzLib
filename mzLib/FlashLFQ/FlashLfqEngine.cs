@@ -1767,8 +1767,6 @@ namespace FlashLFQ
         /// <returns></returns>
         public List<IIndexedPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
-            var xic = new List<IIndexedPeak>();
-
             // get precursor scan to start at
             Ms1ScanInfo[] ms1Scans = IndexingEngineDict[spectraFileInfo].Ms1ScanInfoArray;
             int precursorScanIndex = -1;
@@ -1784,7 +1782,7 @@ namespace FlashLFQ
                 }
             }
 
-            var xic = GetXIC(mass.ToMz(charge), precursorScanIndex, _peakIndexingEngine, ms1Scans.Length, tolerance, MissedScansAllowed);
+            var xic = GetXIC(mass.ToMz(charge), precursorScanIndex, IndexingEngineDict[spectraFileInfo], ms1Scans.Length, tolerance, MissedScansAllowed);
 
             return xic;
         }
@@ -1799,15 +1797,16 @@ namespace FlashLFQ
         /// <param name="zeroBasedStartIndex"> the scan where peak searching behaviour begins </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns></returns>
-        public static List<IndexedMassSpectralPeak> GetXIC(double mz, int zeroBasedStartIndex, PeakIndexingEngine peakIndexingEngine, int scansLength, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
+        public static List<IIndexedPeak> GetXIC(double mz, int zeroBasedStartIndex, IIndexingEngine peakIndexingEngine, int scansLength, Tolerance ppmTolerance, 
+            int missedScansAllowed = 1, double maxPeakHalfWidth = double.MaxValue)
         {
-            var xic = new List<IndexedMassSpectralPeak>();
+            var xic = new List<IIndexedPeak>();
 
             // go right
             int missedScans = 0;
             for (int t = zeroBasedStartIndex; t < scansLength; t++)
             {
-                var peak = CurrentIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, ppmTolerance);
 
                 if (peak == null && t != zeroBasedStartIndex)
                 {
@@ -1834,7 +1833,7 @@ namespace FlashLFQ
             missedScans = 0;
             for (int t = zeroBasedStartIndex - 1; t >= 0; t--)
             {
-                var peak = CurrentIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
+                var peak = peakIndexingEngine.GetIndexedPeak(mz, t, ppmTolerance);
 
                 if (peak == null && t != zeroBasedStartIndex)
                 {

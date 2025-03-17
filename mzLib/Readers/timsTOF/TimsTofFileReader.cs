@@ -5,6 +5,7 @@ using Easy.Common.Extensions;
 using MzLibUtil;
 using System.Data;
 using System.Collections.Concurrent;
+using ThermoFisher.CommonCore.Data.Business;
 
 namespace Readers
 { 
@@ -25,7 +26,6 @@ namespace Readers
         public int NumberOfMs1Frames => Ms1FrameIds.Count;
         public int NumberOfScansPerFrame => FrameProxyFactory.FramesTable.NumScans.Max();
         internal FrameProxyFactory FrameProxyFactory { get; private set; }
-        internal TofSpectraMerger TofSpectraMerger { get; private set; }
         
         // I don't know what the default scan range is, and at this point I'm too afraid to ask...
         private MzRange? _scanWindow;
@@ -199,7 +199,7 @@ namespace Readers
 
             int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
             FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs);
-            TofSpectraMerger = new TofSpectraMerger(FrameProxyFactory.MzLookupArray, defaultPpmTolerance: ppmToleranceForCentroiding);
+            //TofSpectraMerger = new TofSpectraMerger(FrameProxyFactory.MzLookupArray, defaultPpmTolerance: ppmToleranceForCentroiding);
         }
 
         internal void CountPrecursors()
@@ -317,7 +317,7 @@ namespace Readers
                         int previousScanIdx = 0;
                         for (int nextScanIdx = numberOfScansToCombine + extraScans; nextScanIdx < frame.NumberOfScans + numberOfScansToCombine; nextScanIdx += numberOfScansToCombine)
                         {
-                            // Step 1: Get the scans    
+                            // Step 1: Get the raw data from the scans    
                             nextScanIdx = Math.Min(frame.NumberOfScans - 1, nextScanIdx);
                             indexArrays.Clear();
                             intensityArrays.Clear();
@@ -326,12 +326,8 @@ namespace Readers
                                 indexArrays.Add(frame.GetScanIndices(scan));
                                 intensityArrays.Add(frame.GetScanIntensities(scan));
                             }
-                            // Step 2: Average those suckers
-                            TimsSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(indexArrays, intensityArrays);
-                            if (averagedSpectrum.Size > 1)
-                            {
-                                dataScan.AddSpectrum(averagedSpectrum, (nextScanIdx + previousScanIdx) / 2);
-                            }
+                            
+                            dataScan.AddComponentSpectrum(TofSpectraMerger.CreateTimsSpectrum(indexArrays, intensityArrays, msnLevel: 1, (nextScanIdx + previousScanIdx) / 2));
                             if (nextScanIdx == frame.NumberOfScans - 1) break;
                             previousScanIdx = nextScanIdx;
                         }
@@ -571,7 +567,7 @@ namespace Readers
             // to yield one spectrum per precursor
             foreach (TimsDataScan scan in pasefScans)
             {
-                scan.AverageComponentSpectra(FrameProxyFactory, TofSpectraMerger, filteringParams);
+                scan.AverageComponentSpectra(FrameProxyFactory, filteringParams);
             }
 
             return pasefScans;

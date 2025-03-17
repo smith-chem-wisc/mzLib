@@ -14,6 +14,6 @@ namespace FlashLFQ.Interfaces
         public void ClearIndex();
         public void SerializeIndex(SpectraFileInfo file);
         public void DeserializeIndex(SpectraFileInfo file);
-        public IIndexedPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState);
+        public IIndexedPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, Tolerance tolerance);
     }
 }
