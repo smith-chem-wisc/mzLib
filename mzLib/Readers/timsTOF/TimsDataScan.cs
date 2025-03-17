@@ -67,49 +67,26 @@ namespace MassSpectrometry
             ComponentSpectraTotalPeaks = 0;
         }
 
-        internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, TofSpectraMerger spectraMerger, FilteringParams filteringParams = null)
+        public List<TimsSpectrum> ComponentSpectra { get; private set; }
+
+        /// <summary>
+        /// Average component MS2 spectra to create a single MS2 spectrum
+        /// </summary>
+        /// <param name="proxyFactory"></param>
+        /// <param name="filteringParams"></param>
+        internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
         {
-            //MassSpectrum = spectraMerger.MergeArraysToMs2Spectrum(MzArrays, IntensityArrays, filteringParams);
-            MassSpectrum = spectraMerger.MergeArraysToMs2Spectrum(TimsSpectra, proxyFactory, filteringParams);
+            MassSpectrum = TofSpectraMerger.CreateMzSpectrum(ComponentSpectra, proxyFactory, msnLevel: 2, filteringParams);
             TotalIonCurrent = MassSpectrum.SumOfAllY;
-            TimsSpectra = null;
-            //MzArrays.Clear();
-            //IntensityArrays.Clear();
+            ComponentSpectraTotalPeaks = ComponentSpectra.Sum(s => s.Size);
+            ComponentSpectra = null;
         }
 
-        internal List<double[]> MzArrays;
-        internal List<int[]> IntensityArrays;
-
-        internal void AddComponentArrays(double[] mzs, int[] intensities)
+        internal void AddComponentSpectrum(TimsSpectrum spectrum)
         {
-            if (MzArrays == null)
-            {
-                MzArrays = new();
-                IntensityArrays = new();
-            }
-            MzArrays.Add(mzs);
-            IntensityArrays.Add(intensities);
-        }
-
-        List<TimsSpectrum> TimsSpectra { get; set; }
-        internal void AddTimsSpectrum(TimsSpectrum spectrum)
-        {             
-            if (TimsSpectra == null)
-            {
-                TimsSpectra = new();
-            }
-            TimsSpectra.Add(spectrum);
-        }
-
-        public List<(int ScanIdx , TimsSpectrum Spectrum)>? TimsScanIdxMs1SpectraList { get; private set; }
-
-        public void AddSpectrum(TimsSpectrum spectrum, int scanNumber)
-        {
-            if (TimsScanIdxMs1SpectraList == null)
-            {
-                TimsScanIdxMs1SpectraList = new();
-            }
-            TimsScanIdxMs1SpectraList.Add((scanNumber, spectrum));
+            if(spectrum==null) return;
+            ComponentSpectra ??= new();
+            ComponentSpectra.Add(spectrum);
         }
     }
 
@@ -123,11 +100,20 @@ namespace MassSpectrometry
         public int[] YArray { get; init; }
 
         public int Size => XArray.Length;
+        public int ZeroIndexedIonMobilityScanNumber { get; init; }
 
         public TimsSpectrum(uint[] tofIndices, int[] intensities)
         {
             XArray = tofIndices;
             YArray = intensities;
+            ZeroIndexedIonMobilityScanNumber =  -1;
+        }
+
+        public TimsSpectrum(uint[] tofIndices, int[] intensities, int zeroIndexedTimsScanIndex)
+        {
+            XArray = tofIndices;
+            YArray = intensities;
+            ZeroIndexedIonMobilityScanNumber = zeroIndexedTimsScanIndex;
         }
     }
 }

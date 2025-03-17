@@ -144,8 +144,6 @@ namespace FlashLFQ
             List<string> peptideSequencesToQuantify = null,
             int spectraPerFrame = 8)
         {
-            Loaders.LoadElements();
-
             _globalStopwatch = new Stopwatch();
             _chargeStates = new List<int>();
             
@@ -1295,7 +1293,7 @@ namespace FlashLFQ
 
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
-            var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, idAcceptorFile, mbrTol);
+            var xic = GetXIC(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, idAcceptorFile, mbrTol);
             List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z);
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
@@ -1762,10 +1760,7 @@ namespace FlashLFQ
 
         /// <summary>
         /// Finds peaks with a given mz (mass/charge + H) that occur on either side of a given
-        /// retention time. Peak searching iterates backwards through MS1 scans until the peak 
-        /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
-        /// MissedScansAllowed property. Missed scans don't have to be sequential. The same procedure
-        /// is then repeated in the forward direction.
+        /// retention time for FlashLfq related tasks. Calls GetXIC to find a list of indexedSpectralPeak.
         /// </summary>
         /// <param name="idRetentionTime"> Time where peak searching behaviour begins </param>
         /// <param name="mass"> Peakfinding mass </param>
@@ -1789,13 +1784,32 @@ namespace FlashLFQ
                 }
             }
 
+            var xic = GetXIC(mass.ToMz(charge), precursorScanIndex, _peakIndexingEngine, ms1Scans.Length, tolerance, MissedScansAllowed);
+
+            return xic;
+        }
+
+        /// <summary>
+        /// A generic method of peak tracing across the retention time. Finds peaks with a given mz that occur on either side of a given
+        /// retention time. Peak searching iterates backwards through the scans until the peak 
+        /// is no longer observed (i.e., is absent in more scans than allowed, as defined by the
+        /// missedScansAllowed parameter. Missed scans don't have to be sequential. The same procedure
+        /// is then repeated in the forward direction.
+        /// </summary>
+        /// <param name="zeroBasedStartIndex"> the scan where peak searching behaviour begins </param>
+        /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
+        /// <returns></returns>
+        public static List<IndexedMassSpectralPeak> GetXIC(double mz, int zeroBasedStartIndex, PeakIndexingEngine peakIndexingEngine, int scansLength, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
+        {
+            var xic = new List<IndexedMassSpectralPeak>();
+
             // go right
             int missedScans = 0;
-            for (int t = precursorScanIndex; t < ms1Scans.Length; t++)
+            for (int t = zeroBasedStartIndex; t < scansLength; t++)
             {
                 var peak = CurrentIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
 
-                if (peak == null && t != precursorScanIndex)
+                if (peak == null && t != zeroBasedStartIndex)
                 {
                     missedScans++;
                 }
@@ -1803,9 +1817,14 @@ namespace FlashLFQ
                 {
                     missedScans = 0;
                     xic.Add(peak);
+
+                    if (peak.RetentionTime - xic.First().RetentionTime > maxPeakHalfWidth)
+                    {
+                        break;
+                    }
                 }
 
-                if (missedScans > MissedScansAllowed)
+                if (missedScans > missedScansAllowed)
                 {
                     break;
                 }
@@ -1813,11 +1832,11 @@ namespace FlashLFQ
 
             // go left
             missedScans = 0;
-            for (int t = precursorScanIndex - 1; t >= 0; t--)
+            for (int t = zeroBasedStartIndex - 1; t >= 0; t--)
             {
                 var peak = CurrentIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
 
-                if (peak == null && t != precursorScanIndex)
+                if (peak == null && t != zeroBasedStartIndex)
                 {
                     missedScans++;
                 }
@@ -1825,9 +1844,14 @@ namespace FlashLFQ
                 {
                     missedScans = 0;
                     xic.Add(peak);
+
+                    if (xic.First().RetentionTime - peak.RetentionTime > maxPeakHalfWidth)
+                    {
+                        break;
+                    }
                 }
 
-                if (missedScans > MissedScansAllowed)
+                if (missedScans > missedScansAllowed)
                 {
                     break;
                 }

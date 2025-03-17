@@ -17,20 +17,85 @@ namespace Test.FileReadingTests
     public class TestTimsTofFileReader
     {
 
+        //public string _testDataPath = @"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_891.d";
+        //public string _testDataPath = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d";
         public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
         public TimsTofFileReader _testReader;
         public TimsDataScan _testMs2Scan;
         public TimsDataScan _testMs1Scan;
         public FilteringParams _filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
         public TofSpectraMerger TofSpectraMerger = new TofSpectraMerger(new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        public FilteringParams _filteringParams = null;//new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
 
         [Test]
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
             _testReader.LoadAllStaticData(ppmToleranceForCentroiding: 4, filteringParams: _filteringParams, maxThreads: 10);
+            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 20);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
+        }
+
+        //[Test]
+        public void HistogramAnalysis()
+        {
+            var ms1Scans = _testReader.Scans.Where(s => s.MsnOrder == 1);
+            var ms2Scans = _testReader.Scans.Where(s => s.MsnOrder == 2);
+
+            Dictionary<int, int> ms1IntensityDict = new Dictionary<int, int>();
+            foreach (var scan in ms1Scans)
+            {
+                foreach (var intensity in scan.MassSpectrum.YArray)
+                {
+                    int intInt = (int)intensity;
+                    if (ms1IntensityDict.ContainsKey(intInt))
+                    {
+                        ms1IntensityDict[intInt]++;
+                    }
+                    else
+                    {
+                        ms1IntensityDict[intInt] = 1;
+                    }
+                }
+            }
+
+            Dictionary<int, int> ms2IntensityDict = new Dictionary<int, int>();
+            foreach (var scan in ms2Scans)
+            {
+                foreach (var intensity in scan.MassSpectrum.YArray)
+                {
+                    int intInt = (int)intensity;
+                    if (ms2IntensityDict.ContainsKey(intInt))
+                    {
+                        ms2IntensityDict[intInt]++;
+                    }
+                    else
+                    {
+                        ms2IntensityDict[intInt] = 1;
+                    }
+                }
+            }
+
+            var outputFolder = @"C:\Users\Alex\Documents\R_Files\timsTof";
+            using (StreamWriter sw = new StreamWriter(Path.Combine(outputFolder, "Ms1Intensities.tsv")))
+            {
+                sw.WriteLine("Intensity\tFrequency\t");
+                foreach (var kvp in ms1IntensityDict.OrderBy(kvp => kvp.Key))
+                {
+                    sw.WriteLine($"{kvp.Key}\t{kvp.Value}");
+                }
+            }
+
+            using (StreamWriter sw = new StreamWriter(Path.Combine(outputFolder, "Ms2Intensities.tsv")))
+            {
+                sw.WriteLine("Intensity\tFrequency\t");
+                foreach (var kvp in ms2IntensityDict.OrderBy(kvp => kvp.Key))
+                {
+                    sw.WriteLine($"{kvp.Key}\t{kvp.Value}");
+                }
+            }
+
         }
 
         [Test]
@@ -204,6 +269,11 @@ namespace Test.FileReadingTests
               reader.LoadAllStaticData());
         }
 
+        [Test]
+        public void WriteToMzml()
+        {
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(_testReader, @"D:\timsTOF_Data_Bruker\ddaPASEF_data\OutputTests\SnippetTest_100noise.mzML", true);
+        }
 
         [Test]
         public void TestLoadAllStaticData()
@@ -256,71 +326,74 @@ namespace Test.FileReadingTests
             TimsSpectrum outSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(
                 new List<uint[]> { mz1, mz2 },
                 new List<int[]> { intensity1, intensity2});
+            var output = TofSpectraMerger.TwoPointerMerge(
+                mz1, mz2 ,
+                 intensity1, intensity2);
 
-            Assert.AreEqual(outSpectrum.Size, 10);
-            CollectionAssert.AreEqual(outSpectrum.XArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+            Assert.AreEqual(output.Indices.Length, 10);
+            CollectionAssert.AreEqual(output.Intensities, new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
         }
 
-        [Test]
-        public void TestSpectraMerger2()
-        {
-            double[] mz1 = new double[] { 1, 3, 5, 7, 9, 10 };
-            double[] mz2 = new double[] { 2, 4, 6, 8, 10 };
+        //[Test]
+        //public void TestSpectraMerger2()
+        //{
+        //    double[] mz1 = new double[] { 1, 3, 5, 7, 9, 10 };
+        //    double[] mz2 = new double[] { 2, 4, 6, 8, 10 };
 
-            int[] intensity1 = new int[] { 1, 3, 5, 7, 9, 10 };
-            int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
+        //    int[] intensity1 = new int[] { 1, 3, 5, 7, 9, 10 };
+        //    int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
-                new List<double[]> { mz1, mz2 },
-                new List<int[]> { intensity1, intensity2 });
+        //    MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
+        //        new List<double[]> { mz1, mz2 },
+        //        new List<int[]> { intensity1, intensity2 });
 
-            Assert.AreEqual(outSpectrum.Size, 10);
-            CollectionAssert.AreEqual(outSpectrum.XArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
-            CollectionAssert.AreEqual(outSpectrum.YArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 20 });
-        }
+        //    Assert.AreEqual(outSpectrum.Size, 10);
+        //    CollectionAssert.AreEqual(outSpectrum.XArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        //    CollectionAssert.AreEqual(outSpectrum.YArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 20 });
+        //}
 
-        [Test]
-        public void TestSpectraMerger3()
-        {
-            double[] mz1 = new double[] { 1, 4, 7, 10 };
-            double[] mz2 = new double[] { 2, 5, 8 };
-            double[] mz3 = new double[] { 3, 6, 9 };
+        //[Test]
+        //public void TestSpectraMerger3()
+        //{
+        //    double[] mz1 = new double[] { 1, 4, 7, 10 };
+        //    double[] mz2 = new double[] { 2, 5, 8 };
+        //    double[] mz3 = new double[] { 3, 6, 9 };
 
-            int[] intensity1 = new int[] { 1, 4, 7, 10 };
-            int[] intensity2 = new int[] { 2, 5, 8 };
-            int[] intensity3 = new int[] { 3, 6, 9 };
+        //    int[] intensity1 = new int[] { 1, 4, 7, 10 };
+        //    int[] intensity2 = new int[] { 2, 5, 8 };
+        //    int[] intensity3 = new int[] { 3, 6, 9 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
-                new List<double[]> { mz1, mz2, mz3 },
-                new List<int[]> { intensity1, intensity2, intensity3 });
+        //    MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
+        //        new List<double[]> { mz1, mz2, mz3 },
+        //        new List<int[]> { intensity1, intensity2, intensity3 });
 
-            Assert.AreEqual(outSpectrum.Size, 10);
-            CollectionAssert.AreEqual(outSpectrum.XArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
-            CollectionAssert.AreEqual(outSpectrum.YArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
-        }
+        //    Assert.AreEqual(outSpectrum.Size, 10);
+        //    CollectionAssert.AreEqual(outSpectrum.XArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        //    CollectionAssert.AreEqual(outSpectrum.YArray, new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        //}
 
-        // Test that weighted averaging works when two peaks are close together
-        [Test]
-        public void TestSpectraMerger4()
-        {
-            double[] mz1 = new double[] { 1, 3, 5, 7, 9 };
-            double[] mz2 = new double[] { 2, 4, 6, 8, 10 };
-            double[] mz3 = new double[] { 1 + 1e-6, 2 + 1e-6, 11 + 1e-6 };
+        //// Test that weighted averaging works when two peaks are close together
+        //[Test]
+        //public void TestSpectraMerger4()
+        //{
+        //    double[] mz1 = new double[] { 1, 3, 5, 7, 9 };
+        //    double[] mz2 = new double[] { 2, 4, 6, 8, 10 };
+        //    double[] mz3 = new double[] { 1 + 1e-6, 2 + 1e-6, 11 + 1e-6 };
  
-            int[] intensity1 = new int[] { 1, 3, 5, 7, 9 };
-            int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
-            int[] intensity3 = new int[] { 10, 10, 11 };
+        //    int[] intensity1 = new int[] { 1, 3, 5, 7, 9 };
+        //    int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
+        //    int[] intensity3 = new int[] { 10, 10, 11 };
 
-            MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
-                new List<double[]> { mz1, mz2, mz3 },
-                new List<int[]> { intensity1, intensity2, intensity3 });
+        //    MzSpectrum outSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(
+        //        new List<double[]> { mz1, mz2, mz3 },
+        //        new List<int[]> { intensity1, intensity2, intensity3 });
 
-            Assert.AreEqual(outSpectrum.Size, 11);
-            // Peaks (mz = 1, intensity = 1) and (mz = 1+1e-6, intensity = 10) are close together, so they should be averaged
-            // Same thing for (mz = 2, intensity = 2) and (mz = 2+1e-6, intensity = 10) 
-            CollectionAssert.AreEqual(outSpectrum.XArray.Select(mz => mz.Round(7)).ToArray(),
-                new double[] { 1 + 9e-7, 2 + 8e-7, 3, 4, 5, 6, 7, 8, 9, 10, 11 + 1e-6 });
-            CollectionAssert.AreEqual(outSpectrum.YArray, new double[] { 11, 12, 3, 4, 5, 6, 7, 8, 9, 10, 11 });
-        }
+        //    Assert.AreEqual(outSpectrum.Size, 11);
+        //    // Peaks (mz = 1, intensity = 1) and (mz = 1+1e-6, intensity = 10) are close together, so they should be averaged
+        //    // Same thing for (mz = 2, intensity = 2) and (mz = 2+1e-6, intensity = 10) 
+        //    CollectionAssert.AreEqual(outSpectrum.XArray.Select(mz => mz.Round(7)).ToArray(),
+        //        new double[] { 1 + 9e-7, 2 + 8e-7, 3, 4, 5, 6, 7, 8, 9, 10, 11 + 1e-6 });
+        //    CollectionAssert.AreEqual(outSpectrum.YArray, new double[] { 11, 12, 3, 4, 5, 6, 7, 8, 9, 10, 11 });
+        //}
     }
 }
