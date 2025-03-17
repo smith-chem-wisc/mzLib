@@ -13,7 +13,7 @@ namespace Readers
         // The timsTOF data format doesn't store m/z values directly, but rather indices in a lookup table where the mz values are stored 
         // Keeping these indices as ints allows for more efficient storage and processing of the data
 
-        public const int NoiseFloor = 100;
+        public const int NoiseFloor = 75;
 
         // The general workflow is to read in individual scans as index and intensity arrays
         // Then, merge these arrays into a single array sorted by tofIndex, ascending
@@ -83,7 +83,7 @@ namespace Readers
         /// <param name="intensityArray"></param>
         /// <param name="zeroIndexedTimsScanNumber"></param>
         /// <returns></returns>
-        internal static (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray)
+        internal static (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray, bool removeLowIntensityPeaks = true)
         {
             // Define lists to store the collapsed indices and intensities
             List<uint> collapsedIndices = new List<uint>(indexArray.Length);
@@ -110,7 +110,7 @@ namespace Readers
                     summedIntensity += intensityArray[i];
                 }
 
-                if (summedIntensity > NoiseFloor)
+                if (!removeLowIntensityPeaks || summedIntensity > NoiseFloor)
                 {
                     collapsedIndices.Add(currentIdx);
                     collapsedIntensities.Add(summedIntensity);
@@ -148,13 +148,13 @@ namespace Readers
             {
                 // We could do this based on tolerance
                 // Now, i'm testing what happens if we say grouped points must have adjacent tof indices
-                uint upperBoundTofIndex = indexArray[p1] + 1;
+                uint upperBoundTofIndex = indexArray[p1] + 2;
 
                 // Find clusters of indices that are close together
                 // increment pointer 2 until the cluster ends and we're further than 3 indices away
                 while (p2 < indexArray.Length && indexArray[p2] <= upperBoundTofIndex)
                 {
-                    upperBoundTofIndex = indexArray[p2] + 1;
+                    upperBoundTofIndex = indexArray[p2] + 2;
                     p2++;
                 }
                 p2--; 
@@ -194,6 +194,8 @@ namespace Readers
 
         /// <summary>
         /// Combines multiple scans into a single TimsSpectrum object without performing centroiding
+        /// This is called when analyzing MS2 scans, where the same precursor is selected for fragmentation over multiple frames
+        /// Each framge gets one TimsSpectrum
         /// </summary>
         /// <param name="indexArrays"></param>
         /// <param name="intensityArrays"></param>
@@ -214,7 +216,7 @@ namespace Readers
                 combinedIntensities = mergeResults.Intensities;
             }
 
-            var collapsedResults = CollapseArrays(combinedIndices, combinedIntensities);
+            var collapsedResults = CollapseArrays(combinedIndices, combinedIntensities, removeLowIntensityPeaks: false);
             return new TimsSpectrum(collapsedResults.Indices, collapsedResults.Intensities);
         }
 
