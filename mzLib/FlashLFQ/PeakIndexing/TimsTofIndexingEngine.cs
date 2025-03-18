@@ -25,7 +25,7 @@ namespace FlashLFQ
         private const int BinsPerDalton = 100;
         private readonly int _maxThreads;
         public SpectraFileInfo FileInfo { get; init; }
-        public Ms1ScanInfo[] Ms1ScanInfoArray { get; private set; }
+        public Ms1ScanInfo[] ScanInfoArray { get; private set; }
         /// <summary>
         /// This int represents the number of tims scans that are averaged to create a single IMS scan
         /// Every spectrum from the same frame will have a different timsIndex that is at least
@@ -42,6 +42,8 @@ namespace FlashLFQ
         /// </summary>
         public double[] OneOverK0LookupArray { get; set; }
 
+        public TimsTofIndexingEngine(SpectraFileInfo fileInfo) : this(fileInfo, -1, 24) { }
+
         public TimsTofIndexingEngine(SpectraFileInfo fileInfo, int maxThreads, int spectraPerFrame = 8)
         {
             var messageTypes = new List<Type>
@@ -51,6 +53,7 @@ namespace FlashLFQ
                 typeof(IndexedTimsTofPeak)
             };
             _serializer = new Serializer(messageTypes);
+            if(maxThreads <= 0) maxThreads = Environment.ProcessorCount - 1;
             _maxThreads = maxThreads;
             FileInfo = fileInfo;
             SpectraPerFrame = spectraPerFrame;
@@ -58,13 +61,13 @@ namespace FlashLFQ
 
         public int SpectraPerFrame { get; init; }
 
-        public bool IndexPeaks(SpectraFileInfo fileInfo, bool silent)
+        public bool IndexPeaks(bool silent)
         {
-            TimsTofFileReader file = new TimsTofFileReader(fileInfo.FullFilePathWithExtension);
+            TimsTofFileReader file = new TimsTofFileReader(FileInfo.FullFilePathWithExtension);
             file.InitiateDynamicConnection(ppmToleranceForCentroiding: 5);
             MzLookupArray = file.GetMzLookupTable();
 
-            Ms1ScanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
+            ScanInfoArray = new Ms1ScanInfo[file.NumberOfMs1Frames];
             var frameArray = file.GetMs1InfoFrameByFrame(SpectraPerFrame, out int scansPerSpectra, maxThreads: _maxThreads);
             ImsResolution = scansPerSpectra;
             _indexedPeaks = new List<IndexedTimsTofPeak>[(int)Math.Ceiling(file.ScanWindow.Maximum) * BinsPerDalton + 1];
@@ -76,10 +79,10 @@ namespace FlashLFQ
             {
                 var ms1Scan = frameArray[i];
 
-                for (int j = 0; j < ms1Scan.TimsScanIdxMs1SpectraList.Count; j++)
+                for (int j = 0; j < ms1Scan.ComponentSpectra.Count; j++)
                 {
-                    var spectrum = ms1Scan.TimsScanIdxMs1SpectraList[j].Spectrum;
-                    int timsIndex = ms1Scan.TimsScanIdxMs1SpectraList[j].ScanIdx;
+                    var spectrum = ms1Scan.ComponentSpectra[j];
+                    int timsIndex = ms1Scan.ComponentSpectra[j].ZeroIndexedIonMobilityScanNumber;
 
                     // for every mz peak, create an IonMobilityPeak and assign it to the appropriate TraceableTimsTofPeak
                     for (int spectrumIdx = 0; spectrumIdx < spectrum.Size; spectrumIdx++)
@@ -92,7 +95,7 @@ namespace FlashLFQ
                     }
                 }
 
-                Ms1ScanInfoArray[i] = new Ms1ScanInfo((int)ms1Scan.FrameId, i, ms1Scan.RetentionTime);
+                ScanInfoArray[i] = new Ms1ScanInfo((int)ms1Scan.FrameId, i, ms1Scan.RetentionTime);
                 frameArray[i] = null;
             }
 
@@ -100,7 +103,7 @@ namespace FlashLFQ
             {
                 if (!silent)
                 {
-                    Console.WriteLine("FlashLFQ Error: The file " + fileInfo.FilenameWithoutExtension + " contained no MS1 peaks!");
+                    Console.WriteLine("FlashLFQ Error: The file " + FileInfo.FilenameWithoutExtension + " contained no MS1 peaks!");
                 }
 
                 return false;
@@ -119,9 +122,9 @@ namespace FlashLFQ
             int[] intensityFrequencyArray = new int[maxNoiseIntensity]; //implicit assumption that the noise floor is below 300
             for(int i = 0; i < frameArray.Length; i += frameArray.Length/20)
             {
-                foreach(var scanSpectrumTuple in frameArray[i].TimsScanIdxMs1SpectraList)
+                foreach(var scanSpectrumTuple in frameArray[i].ComponentSpectra)
                 {
-                    var intensitySpectrum = scanSpectrumTuple.Spectrum.YArray;
+                    var intensitySpectrum = scanSpectrumTuple.YArray;
                     for(int j = 0; j < intensitySpectrum.Length; j++)
                     {
                         if (intensitySpectrum[j] < maxNoiseIntensity)
@@ -134,11 +137,11 @@ namespace FlashLFQ
             return intensityFrequencyArray.IndexOf(point1PercentileFrequency);
         }
 
-        public IndexedIonMobilityPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState, int? timsIndex = null)
+        public IndexedIonMobilityPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance tolerance,  int? timsIndex = null)
         {
             IndexedMassSpectralPeak bestPeak = null;
-            double floorMz = tolerance.GetMinimumValue(theorMass).ToMz(chargeState);
-            double ceilingMz = tolerance.GetMaximumValue(theorMass).ToMz(chargeState);
+            double floorMz = tolerance.GetMinimumValue(mz);
+            double ceilingMz = tolerance.GetMaximumValue(mz);
 
             int floorBin = (int)Math.Floor(floorMz * BinsPerDalton);
             int ceilingBin = (int)Math.Ceiling(ceilingMz * BinsPerDalton);
@@ -161,8 +164,8 @@ namespace FlashLFQ
                         if (peak.ZeroBasedMs1FrameIndex > zeroBasedScanIndex)
                             break;
 
-                        double expMass = MzLookupArray[peak.TofIndex].ToMass(chargeState);
-                        if (tolerance.Within(expMass, theorMass) && peak.ZeroBasedMs1FrameIndex == zeroBasedScanIndex)
+                        double expMz = MzLookupArray[peak.TofIndex];
+                        if (tolerance.Within(expMz, mz) && peak.ZeroBasedMs1FrameIndex == zeroBasedScanIndex)
                         {
                             if (peaksInFrame.TryGetValue(peak.TimsIndex, out var peaksAtIms))
                                 peaksAtIms.Add(peak);
@@ -173,7 +176,7 @@ namespace FlashLFQ
                 }
             }
 
-            return MergeTimsTofPeaks(peaksInFrame, theorMass.ToMz(chargeState), timsIndex);
+            return MergeTimsTofPeaks(peaksInFrame, mz, timsIndex);
         }
 
         private PpmTolerance mergeTolerance = new PpmTolerance(15);
@@ -187,21 +190,18 @@ namespace FlashLFQ
             {
                 if (peakList.Count > 1)
                 {
+                    
                     var bestPeak = peakList.MinBy(p => Math.Abs(targetMz - MzLookupArray[p.TofIndex]));
                     peaksByTimsScanIndex.Add(bestPeak);
-                    //if(peakList.Count >= 2)
-                    //{
-                    //    peakList.Remove(bestPeak);
-                    //    var secondBestPeak = peakList.MinBy(p => Math.Abs(targetMz - MzLookupArray[p.TofIndex]));
-                    //    double bestMz = MzLookupArray[bestPeak.TofIndex];
-                    //    double secondBestMz = MzLookupArray[secondBestPeak.TofIndex];
-
-                    //    if (mergeTolerance.Within(bestMz, secondBestMz))
-                    //    {
-                    //        peaksByTimsScanIndex.Add(secondBestPeak);
-                    //    }
-                    //}
-                    
+                    if (peakList.Count >= 2)
+                    {
+                        peakList.Remove(bestPeak);
+                        uint minTofIndex = bestPeak.TofIndex - 2;
+                        uint maxTofIndex = bestPeak.TofIndex + 2;
+                        var otherPeaks = peakList.Where(p => p.TofIndex >= minTofIndex && p.TofIndex <= maxTofIndex).ToList();
+                        if(otherPeaks.IsNotNullOrEmpty())
+                            peaksByTimsScanIndex.AddRange(otherPeaks);
+                    }
                 }
                 else
                 {
@@ -263,15 +263,28 @@ namespace FlashLFQ
             }
             if (rightIndex >= peaksByTimsScanIndex.Count) rightIndex = peaksByTimsScanIndex.Count - 1; // if we are at the end of the list, we don't want to go out of bounds (rightIndex++)
 
+            var apex = peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].MaxBy(p => p.Intensity);
+            // TODO: can probably calculate the summed intensity and find the apex in the loops above
 
             return new IndexedIonMobilityPeak(
-                MzLookupArray[peakCenter.TofIndex],
-                peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].Sum(p => p.Intensity),
+                GetWeightedAverageMz(peaksByTimsScanIndex[leftIndex..(rightIndex + 1)], out int summedIntensity),
+                summedIntensity,
                 peakCenter.ZeroBasedMs1FrameIndex,
-                Ms1ScanInfoArray[peakCenter.ZeroBasedMs1FrameIndex].RetentionTime,
+                ScanInfoArray[peakCenter.ZeroBasedMs1FrameIndex].RetentionTime,
                 ionMobilityValues: peaksByTimsScanIndex[leftIndex..(rightIndex + 1)].Select(p => p.TimsIndex).ToHashSet(),
-                apexIonMobilityValue: peakCenter.TimsIndex);
-            
+                apexIonMobilityValue: apex.TimsIndex);
+        }
+
+        public double GetWeightedAverageMz(List<IndexedTimsTofPeak> timsTofPeaks, out int summedIntensity)
+        {
+            summedIntensity = timsTofPeaks.Sum(p => p.Intensity);
+            double averagedMz = 0;
+            foreach(var peak in timsTofPeaks)
+            {
+                double weight = (double)peak.Intensity / (double)summedIntensity;
+                averagedMz += weight * MzLookupArray[peak.TofIndex];
+            }
+            return averagedMz;
         }
 
         private int BinarySearchForIndexedPeak(List<IndexedTimsTofPeak> bin, int zeroBasedScanIndex)
@@ -310,10 +323,10 @@ namespace FlashLFQ
             GC.Collect();
         }
 
-        public void SerializeIndex(SpectraFileInfo file)
+        public void SerializeIndex()
         {
-            string dir = Path.GetDirectoryName(file.FullFilePathWithExtension);
-            string indexPath = Path.Combine(dir, file.FilenameWithoutExtension + ".ind");
+            string dir = Path.GetDirectoryName(FileInfo.FullFilePathWithExtension);
+            string indexPath = Path.Combine(dir, FileInfo.FilenameWithoutExtension + ".ind");
 
             using (var indexFile = File.Create(indexPath))
             {
@@ -321,10 +334,10 @@ namespace FlashLFQ
             }
         }
 
-        public void DeserializeIndex(SpectraFileInfo file)
+        public void DeserializeIndex()
         {
-            string dir = Path.GetDirectoryName(file.FullFilePathWithExtension);
-            string indexPath = Path.Combine(dir, file.FilenameWithoutExtension + ".ind");
+            string dir = Path.GetDirectoryName(FileInfo.FullFilePathWithExtension);
+            string indexPath = Path.Combine(dir, FileInfo.FilenameWithoutExtension + ".ind");
 
             using (var indexFile = File.OpenRead(indexPath))
             {
@@ -334,9 +347,9 @@ namespace FlashLFQ
             File.Delete(indexPath);
         }
 
-        public IIndexedPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance tolerance, int chargeState)
+        public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance tolerance)
         {
-            return GetIndexedPeak(theorMass, zeroBasedScanIndex, tolerance, chargeState, timsIndex: null);
+            return GetIndexedPeak(mz, zeroBasedScanIndex, tolerance, timsIndex: null);
         }
 
     }

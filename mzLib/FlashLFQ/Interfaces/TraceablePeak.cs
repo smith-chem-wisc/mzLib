@@ -104,7 +104,7 @@ namespace FlashLFQ.Interfaces
         public virtual void CutPeak(double discriminationFactorToCutPeak = 0.6)
         {
             var peakBoundaries = FindPeakSplits(ScanOrderedPoints, ScanOrderedPoints.IndexOf(Apex), discriminationFactorToCutPeak);
-            CutPeak(peakBoundaries, Apex.RelativeSeparationValue);
+            CutPeak(peakBoundaries, Apex.RetentionTime);
         }
 
         /// <summary>
@@ -119,13 +119,13 @@ namespace FlashLFQ.Interfaces
             {
                 foreach (var boundary in peakBoundaries)
                 {
-                    if (boundary.RelativeSeparationValue > separationValueAtPeakCenter)
+                    if (boundary.RetentionTime > separationValueAtPeakCenter)
                     {
-                        ScanOrderedPoints.RemoveAll(d => d.RelativeSeparationValue >= boundary.RelativeSeparationValue);
+                        ScanOrderedPoints.RemoveAll(d => d.RetentionTime >= boundary.RetentionTime);
                     }
                     else
                     {
-                        ScanOrderedPoints.RemoveAll(d => d.RelativeSeparationValue <= boundary.RelativeSeparationValue);
+                        ScanOrderedPoints.RemoveAll(d => d.RetentionTime <= boundary.RetentionTime);
                     }
                 }
             }

@@ -12,6 +12,8 @@ namespace FlashLFQ
         /// </summary>
         public readonly IIndexedMzPeak IndexedPeak;
         public readonly int ChargeState;
+        public double RetentionTime => IndexedPeak.RetentionTime;
+        public int ZeroBasedScanIndex => IndexedPeak.ZeroBasedScanIndex;
 
         public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {

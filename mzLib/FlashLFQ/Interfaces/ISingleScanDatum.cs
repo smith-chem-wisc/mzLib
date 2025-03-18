@@ -18,7 +18,7 @@ namespace FlashLFQ
         /// The position of the datum in the separation domain,
         /// e.g., retention time, ion mobility
         /// </summary>
-        public double RelativeSeparationValue { get; }
+        public double RetentionTime { get; }
         public int ZeroBasedScanIndex { get; }
     }
 }

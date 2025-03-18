@@ -109,7 +109,7 @@ namespace FlashLFQ
                 CalculateIntensityForThisFeature(integrate);
                 // technically, there could be two "SplitRT" values if the peak is split into two separate peaks
                 // however, this edge case wasn't handled in the legacy code and won't be handled here
-                SplitRT = peakSplits.Count > 0 ? peakSplits.Last().RelativeSeparationValue : 0;
+                SplitRT = peakSplits.Count > 0 ? peakSplits.Last().RetentionTime : 0;
 
                 // Update the list of envelopes for the apex charge state (as some were removed during the peak cutting)
                 envelopesForApexCharge = IsotopicEnvelopes.Where(e => e.ChargeState == Apex.ChargeState).ToList();

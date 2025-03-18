@@ -51,17 +51,18 @@ namespace Test
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             resolutionProp.SetValue(timsEngine, 1);
 
-            var scanInfoArray = timsEngine.GetType().GetProperty("Ms1ScanInfoArray",
+            var scanInfoArray = timsEngine.GetType().GetProperty("ScanInfoArray",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             Ms1ScanInfo[] scanInfo = new Ms1ScanInfo[1];
             scanInfo[0] = new Ms1ScanInfo(1, 0, 1);
             scanInfoArray.SetValue(timsEngine, scanInfo);
 
             double mz = 1;
-            var indexedIonMobilityPeak = timsEngine.GetIndexedPeak(mz.ToMass(1), 0, new PpmTolerance(5), 1, timsIndex: 7);
+            var indexedIonMobilityPeak = timsEngine.GetIndexedPeak(mz, 0, new PpmTolerance(5), timsIndex: 7);
 
             Assert.That(indexedIonMobilityPeak.ApexIonMobilityValue == 8);
             Assert.That(indexedIonMobilityPeak.IonMobilityValues.Count == 3);
+            Assert.That(indexedIonMobilityPeak.Intensity == 5);
         }
 
         [Test]
@@ -271,10 +272,10 @@ namespace Test
         public static void LocalDataSmallTest()
         {
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
-            string outputDirectory = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\FlashLFQ_Test_SNRCentroiding_10ppm_merging";
+            string outputDirectory = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\mzLib614\FlashLFQ_6Minute";
             Directory.CreateDirectory(outputDirectory);
 
-            string psmFile = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\MM_15_20_Tolerance\Task1-SearchTask\AllPSMs.psmtsv";
+            string psmFile = @"D:\timsTOF_Data_Bruker\ddaPASEF_data\mzLib614\Task1-SearchTask\AllPSMs.psmtsv";
 
             //SpectraFileInfo f1r1 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\200ngHeLaPASEF_1min.d", "one", 1, 1, 1);
             //SpectraFileInfo f1r2 = new SpectraFileInfo(@"D:\timsTOF_Data_Bruker\ddaPASEF_data\50ng_K562_extreme_3min.d", "two", 1, 1, 1);
@@ -352,7 +353,7 @@ namespace Test
             }
 
             int[] spectraPerFrameArray = new int[] { 1, 2, 4, 8, 10, 12, 16, 20, 24, 32, 40, 48, 56, 64 };
-            //int[] spectraPerFrameArray = new int[] {     24,  };
+            //int[] spectraPerFrameArray = new int[] { 12, };
 
             StringBuilder sb = new();
             sb.AppendLine("Spectra per Frame\tQuantifiedPeptides\tUndetectedPeptides\tAmbiguousPeptides");

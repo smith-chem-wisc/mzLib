@@ -24,8 +24,8 @@ namespace Test.FileReadingTests
         public TimsDataScan _testMs2Scan;
         public TimsDataScan _testMs1Scan;
         public FilteringParams _filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
-        public TofSpectraMerger TofSpectraMerger = new TofSpectraMerger(new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
-        public FilteringParams _filteringParams = null;//new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
+        //public TofSpectraMerger TofSpectraMerger = new TofSpectraMerger(new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        //public FilteringParams _filteringParams = null;//new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
 
         [Test]
         public void SetUp()
@@ -323,9 +323,6 @@ namespace Test.FileReadingTests
             int[] intensity1 = new int[] { 1, 3, 5, 7, 9 };
             int[] intensity2 = new int[] { 2, 4, 6, 8, 10 };
 
-            TimsSpectrum outSpectrum = TofSpectraMerger.MergeArraysToTimsSpectrum(
-                new List<uint[]> { mz1, mz2 },
-                new List<int[]> { intensity1, intensity2});
             var output = TofSpectraMerger.TwoPointerMerge(
                 mz1, mz2 ,
                  intensity1, intensity2);

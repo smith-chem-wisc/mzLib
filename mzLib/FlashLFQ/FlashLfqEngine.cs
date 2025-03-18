@@ -98,7 +98,6 @@ namespace FlashLFQ
         private List<int> _chargeStates;
         private FlashLfqResults _results;
 
-        internal IIndexingEngine CurrentIndexingEngine;
         internal Dictionary<SpectraFileInfo, IIndexingEngine> IndexingEngineDict { get; private set; }
         internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
 
@@ -218,7 +217,6 @@ namespace FlashLFQ
                 IIndexingEngine indexingEngine = spectraFile.IsTimsTofFile 
                     ? new TimsTofIndexingEngine(spectraFile, MaxThreads, SpectraPerFrame) 
                     : new PeakIndexingEngine(spectraFile);
-                CurrentIndexingEngine = indexingEngine;
                 IndexingEngineDict.Add(spectraFile, indexingEngine);
 
                 // fill lookup-table with peaks from the spectra file
@@ -236,6 +234,12 @@ namespace FlashLFQ
                 {
                     indexingEngine.SerializeIndex();
                 }
+                else
+                {
+
+                    // some memory-saving stuff
+                    indexingEngine.ClearIndex();
+                }
 
                 // error checking function
                 // handles features with multiple identifying scans and scans that are associated with more than one feature
@@ -246,8 +250,6 @@ namespace FlashLFQ
                     Console.WriteLine("Finished " + spectraFile.FilenameWithoutExtension);
                 }
 
-                // some memory-saving stuff
-                indexingEngine.ClearIndex();
             }
 
             // do MBR
@@ -262,7 +264,7 @@ namespace FlashLFQ
                         Console.WriteLine("Doing match-between-runs for " + spectraFile.FilenameWithoutExtension);
                     }
 
-                    CurrentIndexingEngine = IndexingEngineDict[spectraFile];
+                    IndexingEngineDict[spectraFile].DeserializeIndex();
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
                     IndexingEngineDict[spectraFile].ClearIndex();
 
@@ -506,7 +508,7 @@ namespace FlashLFQ
                             xic.RemoveAll(p => 
                                 !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.PeakfindingMass));
                             // filter by isotopic distribution
-                            List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
+                            List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState, fileInfo);
 
                             // add isotopic envelopes to the chromatographic peak
                             msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
@@ -1237,14 +1239,14 @@ namespace FlashLFQ
 
                 for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
                 {
-                    IIndexedMzPeak peak = CurrentIndexingEngine.GetIndexedPeak(donorIdentification.PeakfindingMass.ToMz(z), j, fileSpecificTol);
+                    IIndexedMzPeak peak = IndexingEngineDict[idAcceptorFile].GetIndexedPeak(donorIdentification.PeakfindingMass.ToMz(z), j, fileSpecificTol);
                     if (peak != null)
                         chargeXic.Add(peak);
                 }
                 if (!chargeXic.Any())
                     continue;
 
-                List<IsotopicEnvelope> chargeEnvelopes = GetIsotopicEnvelopes(chargeXic, donorIdentification, z).OrderBy(env => env.Intensity).ToList();
+                List<IsotopicEnvelope> chargeEnvelopes = GetIsotopicEnvelopes(chargeXic, donorIdentification, z, idAcceptorFile).OrderBy(env => env.Intensity).ToList();
 
                 // treat each isotopic envelope in the valid region as a potential seed for a chromatographic peak.
                 // remove the clustered isotopic envelopes from the list of seeds after each iteration
@@ -1290,7 +1292,7 @@ namespace FlashLFQ
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
             var xic = GetXIC(donorId.PeakfindingMass.ToMz(z), seedEnv.IndexedPeak.ZeroBasedScanIndex, IndexingEngineDict[idAcceptorFile], mbrTol);
-            List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z);
+            List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z, idAcceptorFile);
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
 
@@ -1560,7 +1562,8 @@ namespace FlashLFQ
         public List<IsotopicEnvelope> GetIsotopicEnvelopes(
             List<IIndexedMzPeak> xic,
             Identification identification,
-            int chargeState)
+            int chargeState,
+            SpectraFileInfo spectraFile)
         {
             var isotopicEnvelopes = new List<IsotopicEnvelope>();
             var isotopeMassShifts = _modifiedSequenceToIsotopicDistribution[identification.ModifiedSequence];
@@ -1589,6 +1592,7 @@ namespace FlashLFQ
 
             List<int> directions = new List<int> { -1, 1 };
             IIndexedMzPeak xicApex = xic.MaxBy(p => p.Intensity);
+            var indexingEngine = IndexingEngineDict[spectraFile];
 
             // For each peak (most abundant mass peak), we check for the possibility that the peak was mis-assigned,
             // i.e. that the peak belongs to a species with a different mass than the identification mass
@@ -1626,10 +1630,10 @@ namespace FlashLFQ
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
                             IIndexedMzPeak isotopePeak;
-                            if (CurrentIndexingEngine is TimsTofIndexingEngine timsEngine && xicApex is IndexedIonMobilityPeak ionMobilityPeak)
-                                isotopePeak = timsEngine.GetIndexedPeak(isotopeMass, peak.ZeroBasedScanIndex, isotopeTolerance, chargeState, ionMobilityPeak.ApexIonMobilityValue);
+                            if (indexingEngine is TimsTofIndexingEngine timsEngine && xicApex is IndexedIonMobilityPeak ionMobilityPeak)
+                                isotopePeak = timsEngine.GetIndexedPeak(isotopeMass.ToMz(chargeState), peak.ZeroBasedScanIndex, isotopeTolerance, ionMobilityPeak.ApexIonMobilityValue);
                             else
-                                isotopePeak = CurrentIndexingEngine.GetIndexedPeak(isotopeMass, peak.ZeroBasedScanIndex, isotopeTolerance);
+                                isotopePeak = indexingEngine.GetIndexedPeak(isotopeMass.ToMz(chargeState), peak.ZeroBasedScanIndex, isotopeTolerance);
 
                             if (isotopePeak == null
                                 || isotopePeak.Intensity < theoreticalIsotopeIntensity / 4.0
@@ -1654,7 +1658,7 @@ namespace FlashLFQ
                 }
 
                 // Check that the experimental envelope matches the theoretical
-                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance, out var pearsonCorr))
+                if (CheckIsotopicEnvelopeCorrelation(massShiftToIsotopePeaks, peak, chargeState, isotopeTolerance, indexingEngine, out var pearsonCorr))
                 {
                     // impute unobserved isotope peak intensities
                     // TODO: Figure out why value imputation is performed. Build a toggle?
@@ -1694,6 +1698,7 @@ namespace FlashLFQ
             IIndexedMzPeak peak,
             int chargeState,
             PpmTolerance isotopeTolerance,
+            IIndexingEngine indexingEngine,
             out double pearsonCorrelation)
         {
             pearsonCorrelation = Correlation.Pearson(
@@ -1713,10 +1718,10 @@ namespace FlashLFQ
 
                 double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
                 IIndexedMzPeak unexpectedPeak;
-                if (CurrentIndexingEngine is TimsTofIndexingEngine timsEngine && peak is IndexedIonMobilityPeak ionMobilityPeak)
-                    unexpectedPeak = timsEngine.GetIndexedPeak(unexpectedMass, peak.ZeroBasedScanIndex, isotopeTolerance, chargeState, ionMobilityPeak.ApexIonMobilityValue);
+                if (indexingEngine is TimsTofIndexingEngine timsEngine && peak is IndexedIonMobilityPeak ionMobilityPeak)
+                    unexpectedPeak = timsEngine.GetIndexedPeak(unexpectedMass.ToMz(chargeState), peak.ZeroBasedScanIndex, isotopeTolerance, ionMobilityPeak.ApexIonMobilityValue);
                 else
-                    unexpectedPeak = CurrentIndexingEngine.GetIndexedPeak(unexpectedMass, peak.ZeroBasedScanIndex, isotopeTolerance);
+                    unexpectedPeak = indexingEngine.GetIndexedPeak(unexpectedMass, peak.ZeroBasedScanIndex, isotopeTolerance);
 
                 if (unexpectedPeak == null)
                 {

@@ -36,6 +36,7 @@ namespace FlashLFQ
                 typeof(IndexedTimsTofPeak)
             };
             _serializer = new Serializer(messageTypes);
+            SpectraFile = file;
             
         }
 
