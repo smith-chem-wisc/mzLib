@@ -39,4 +39,22 @@ namespace FlashLFQ
             return Mz.ToString("F3") + "; " + ZeroBasedScanIndex;
         }
     }
+
+    public class IndexedIonMobilityPeak : IndexedMassSpectralPeak, IIndexedMzPeak
+    {
+        public HashSet<int> IonMobilityValues { get; init; }
+        public int ApexIonMobilityValue { get; init; }
+
+        public IndexedIonMobilityPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime, HashSet<int> ionMobilityValues, int apexIonMobilityValue)
+            : base(mz, intensity, zeroBasedMs1ScanIndex, retentionTime)
+
+        {
+            this.Mz = mz;
+            this.ZeroBasedScanIndex = zeroBasedMs1ScanIndex;
+            this.RetentionTime = retentionTime;
+            this.Intensity = intensity;
+            this.IonMobilityValues = ionMobilityValues;
+            this.ApexIonMobilityValue = apexIonMobilityValue;
+        }
+    }
 }
