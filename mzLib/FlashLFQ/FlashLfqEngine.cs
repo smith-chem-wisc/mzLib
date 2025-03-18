@@ -1945,7 +1945,7 @@ namespace FlashLFQ
         private void QuantifyIsobaricPeaks()
         {
             var idGroupedBySeq = _allIdentifications
-                .Where(p => p.BaseSequence != p.ModifiedSequence)
+                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
                 .GroupBy(p => new
                     { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) });
             // We only consider the modified sequence in the IsoTracker
