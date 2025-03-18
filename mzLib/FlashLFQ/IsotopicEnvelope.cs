@@ -10,14 +10,18 @@ namespace FlashLFQ
         /// <summary>
         /// The most abundant isotopic peak used for peak finding.
         /// </summary>
-        public readonly IIndexedPeak IndexedPeak;
+        public readonly IIndexedMzPeak IndexedPeak;
         public readonly int ChargeState;
 
-        public double Mz => IndexedPeak.Mz;
-        public double RelativeSeparationValue => IndexedPeak.RetentionTime;
-        public int ZeroBasedScanIndex => IndexedPeak.ZeroBasedMs1ScanIndex;
+        public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        {
+            IndexedPeak = monoisotopicPeak;
+            ChargeState = chargeState;
+            Intensity = intensity / chargeState;
+            PearsonCorrelation = pearsonCorrelation;
+        }
 
-        public IsotopicEnvelope(IIndexedPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
@@ -41,7 +45,7 @@ namespace FlashLFQ
 
         public override string ToString()
         {
-            return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedPeak.RetentionTime.ToString("F3") + "|" + IndexedPeak.ZeroBasedMs1ScanIndex;
+            return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedPeak.RetentionTime.ToString("F3") + "|" + IndexedPeak.ZeroBasedScanIndex;
         }
 
         public override bool Equals(object obj)
