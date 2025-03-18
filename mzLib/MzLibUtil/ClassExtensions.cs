@@ -39,10 +39,6 @@ namespace MzLibUtil
             string modPattern = @"-?\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
             Regex modRegex = new(modPattern);
 
-            // use a regex to find C-terminus modification
-            var cTerminusPattern = @"(?<=[A-Z\]])-(?=\[)";
-            Regex cTerminusRegex = new(cTerminusPattern);
-
             var fullSeq = fullSequence;
             Dictionary<int, string> modDict = new();
 
