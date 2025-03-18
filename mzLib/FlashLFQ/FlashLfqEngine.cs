@@ -1155,7 +1155,7 @@ namespace FlashLFQ
             ChromatographicPeak peakToSave,
             Identification donorIdentification)
         {
-            if(peakToSave == null)
+            if(peakToSave?.Apex == null)
             {
                 return;
             }
@@ -1340,7 +1340,7 @@ namespace FlashLFQ
                 tryPeak.CalculateIntensityForThisFeature(Integrate);
                 tryPeak.ResolveIdentifications();
 
-                if (tryPeak.Apex == null)
+                if (tryPeak.Apex?.IndexedPeak == null)
                 {
                     if (tryPeak.IsMbrPeak)
                     {

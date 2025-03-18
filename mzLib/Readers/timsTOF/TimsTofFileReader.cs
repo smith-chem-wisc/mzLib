@@ -282,7 +282,7 @@ namespace Readers
             TimsDataScan[] scans = new TimsDataScan[Ms1FrameIds.Count];
             // It's assumed that every MS1 frame will contain the same number of scans
             int numberOfScans = FrameProxyFactory.FramesTable.NumScans[Ms1FrameIds.First() - 1];
-            Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count, Math.Max(Ms1FrameIds.Count / (maxThreads * 4), 2)),
+            Parallel.ForEach(Partitioner.Create(0, Ms1FrameIds.Count),
                 new ParallelOptions() { MaxDegreeOfParallelism = maxThreads },
                 (range) =>
                 {
