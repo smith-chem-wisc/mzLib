@@ -19,7 +19,7 @@ namespace Readers
         // Finally, perform centroiding by grouping adjacent tofIndices, summing their intensities, and then calculating a weighted average of the m/z values in the cluster
 
         public const int Ms2NoiseFloor = 25;
-        public const int Ms1NoiseFloor = 50;
+        public const int Ms1NoiseFloor = 100;
 
         /// <summary>
         /// Merges two index and intensity arrays using a two-pointer technique.

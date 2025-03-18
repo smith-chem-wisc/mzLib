@@ -417,7 +417,7 @@ namespace Test
             string outputDirectory = @"D:\PXD014777_timsTOF_spikeIn\FlashLFQ_LocalDataBigTest";
             Directory.CreateDirectory(outputDirectory);
 
-            string psmFile = @"D:\PXD014777_timsTOF_spikeIn\MMSearch_2_18_25\Task1-SearchTask\AllPSMs.psmtsv";
+            string psmFile = @"D:\PXD014777_timsTOF_spikeIn\mzLib614\Task1-SearchTask\AllPSMs.psmtsv";
 
             SpectraFileInfo f1r1 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_890.d", 
                 "A", 1, 1, 1);
