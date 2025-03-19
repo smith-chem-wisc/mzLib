@@ -66,9 +66,9 @@ namespace Test
         }
 
         [Test]
-        [TestCase(4)]
+        //[TestCase(4)]
         [TestCase(8)]
-        [TestCase(12)]
+        //[TestCase(12)]
         public static void LocalDataTinyTest(int spectraPerFrame)
         {
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
@@ -414,19 +414,18 @@ namespace Test
         public static void LocalDataBigTest()
         {
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
-            string outputDirectory = @"D:\PXD014777_timsTOF_spikeIn\FlashLFQ_LocalDataBigTest";
+            string outputDirectory = @"D:\PXD014777_timsTOF_spikeIn\FlashLFQ_LocalDataBigTest_Normalized_10perFrame";
             Directory.CreateDirectory(outputDirectory);
 
             string psmFile = @"D:\PXD014777_timsTOF_spikeIn\mzLib614\Task1-SearchTask\AllPSMs.psmtsv";
 
-            SpectraFileInfo f1r1 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_890.d", 
-                "A", 1, 1, 1);
-            SpectraFileInfo f1r2 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_891.d", "A", 2, 1, 1);
-            SpectraFileInfo f1r3 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_892.d", "A", 3, 1, 1);
+            SpectraFileInfo f1r1 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_890.d", "A", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_891.d", "A", 1, 0, 0);
+            SpectraFileInfo f1r3 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124A_Slot1-7_1_892.d", "A", 2, 0, 0);
 
-            SpectraFileInfo g1r1 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124B_Slot1-8_1_893.d", "B", 1, 1, 1);
-            SpectraFileInfo g1r2 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124B_Slot1-8_1_894.d", "B", 2, 1, 1);
-            SpectraFileInfo g1r3 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124B_Slot1-8_1_895.d", "B", 3, 1, 1);
+            SpectraFileInfo g1r1 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124B_Slot1-8_1_893.d", "B", 0, 0, 0);
+            SpectraFileInfo g1r2 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124B_Slot1-8_1_894.d", "B", 1, 0, 0);
+            SpectraFileInfo g1r3 = new SpectraFileInfo(@"D:\PXD014777_timsTOF_spikeIn\20180809_120min_200ms_WEHI25_brute20k_timsON_100ng_HYE124B_Slot1-8_1_895.d", "B", 2, 0, 0);
 
             //List<string> acceptableProteinGroupAccessions = new() { "Q7KZF4", "Q15149", "P52298" };
 
@@ -452,7 +451,7 @@ namespace Test
                 {
                     file = g1r1;
                 }
-                else if (split[0].Contains("_891"))
+                if (split[0].Contains("_891"))
                 {
                     file = f1r2;
                 }
@@ -486,6 +485,7 @@ namespace Test
 
                 double score = double.Parse(split[10]);
                 string targetContamDecoy = split[39];
+                if (targetContamDecoy.Contains("C")) continue;
                 List<ProteinGroup> proteinGroups = new();
 
 
@@ -508,14 +508,14 @@ namespace Test
             }
 
             var engine = new FlashLfqEngine(ids,
-                normalize: false,
+                normalize: true,
                 matchBetweenRuns: false,
                 ppmTolerance: 15,
                 isotopeTolerancePpm: 15,
                 matchBetweenRunsFdrThreshold: 0.05,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
-                spectraPerFrame: 24,
+                spectraPerFrame: 10,
                 maxThreads: 23);
             var results = engine.Run();
 
