@@ -228,12 +228,17 @@ namespace FlashLFQ
                 QuantifyMs2IdentifiedPeptides(spectraFile);
 
                 // write the indexed peaks for MBR later
-                if (MatchBetweenRuns)
+                // Situation 1: IsoTracker is on, we don't need to serialize the index for each file.
+                if (IsoTracker) ;
+
+                // Situation 2: IsoTracker is off, and MBR is on then we need to serialize the index to save the memory.
+                else if (MatchBetweenRuns)
                     IndexingEngineDictionary[spectraFile].SerializeIndex();
-                else if(!IsoTracker)
-                    IndexingEngineDictionary[spectraFile].ClearIndex();
+
+                // Situation 3: IsoTracker is off, and MBR is off then we don't need indexEngine so we clear it right now.
                 else
-                    ;
+                    IndexingEngineDictionary[spectraFile].ClearIndex();
+                ;
 
                 // error checking function
                 // handles features with multiple identifying scans and scans that are associated with more than one feature
