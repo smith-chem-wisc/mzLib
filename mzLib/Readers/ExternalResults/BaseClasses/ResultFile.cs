@@ -7,7 +7,7 @@ namespace Readers
     /// Generic abstract class for all types of result files in MzLib
     /// </summary>
     /// <typeparam name="TResult">type of result being contained</typeparam>
-    public abstract class ResultFile<TResult> : IResultFile, IEquatable<ResultFile<TResult>>, IEnumerable<TResult> 
+    public abstract class ResultFile<TResult> : IResultFile, IEquatable<ResultFile<TResult>>, IEnumerable<TResult>
     {
         #region Base Properties
         public string FilePath { get; set; }
@@ -50,7 +50,7 @@ namespace Readers
         #region Abstract Members
 
         public abstract SupportedFileType FileType { get; }
-        public abstract Software Software { get; set; } 
+        public abstract Software Software { get; set; }
 
         /// <summary>
         /// Load Results to the Results List from the given filepath
@@ -65,7 +65,7 @@ namespace Readers
 
         #endregion
 
-        #region Methods
+        #region Methods and Operators
 
         /// <summary>
         /// Determines whether the specified file type and extension of filepath align
@@ -75,6 +75,44 @@ namespace Readers
         public bool CanRead(string filePath)
         {
             return filePath.EndsWith(FileType.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        public static ResultFile<TResult> operator +(ResultFile<TResult> file, TResult result)
+        {
+            file.Results.Add(result);
+            return file;
+        }
+
+        public static ResultFile<TResult> operator +(ResultFile<TResult> file, IEnumerable<TResult> results)
+        {
+            file.Results.AddRange(results);
+            return file;
+        }
+
+        public static ResultFile<TResult> operator +(ResultFile<TResult> file, ResultFile<TResult> results)
+        {
+            file.Results.AddRange(results.Results);
+            return file;
+        }
+
+        public static ResultFile<TResult> operator -(ResultFile<TResult> file, TResult result)
+        {
+            file.Results.Remove(result);
+            return file;
+        }
+
+        public static ResultFile<TResult> operator -(ResultFile<TResult> file, IEnumerable<TResult> results)
+        {
+            foreach (var result in results)
+                file.Results.Remove(result);
+            return file;
+        }
+
+        public static ResultFile<TResult> operator -(ResultFile<TResult> file, ResultFile<TResult> results)
+        {
+            foreach (var result in results.Results)
+                file.Results.Remove(result);
+            return file;
         }
 
         #endregion
@@ -106,8 +144,5 @@ namespace Readers
         }
 
         #endregion
-
-
-
     }
 }
