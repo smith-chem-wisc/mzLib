@@ -68,7 +68,7 @@ namespace Readers
         #region Methods and Operators
 
         /// <summary>
-        /// Determines whether the specified file type and extension of filepath align
+        /// Determines whether the specified thisFile type and extension of filepath align
         /// </summary>
         /// <param name="filePath"></param>
         /// <returns></returns>
@@ -77,42 +77,42 @@ namespace Readers
             return filePath.EndsWith(FileType.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase);
         }
 
-        public static ResultFile<TResult> operator +(ResultFile<TResult> file, TResult result)
+        public static ResultFile<TResult> operator +(ResultFile<TResult> thisFile, TResult resultToAdd)
         {
-            file.Results.Add(result);
-            return file;
+            thisFile.Results.Add(resultToAdd);
+            return thisFile;
         }
 
-        public static ResultFile<TResult> operator +(ResultFile<TResult> file, IEnumerable<TResult> results)
+        public static ResultFile<TResult> operator +(ResultFile<TResult> thisFile, IEnumerable<TResult> resultsToAdd)
         {
-            file.Results.AddRange(results);
-            return file;
+            thisFile.Results.AddRange(resultsToAdd);
+            return thisFile;
         }
 
-        public static ResultFile<TResult> operator +(ResultFile<TResult> file, ResultFile<TResult> results)
+        public static ResultFile<TResult> operator +(ResultFile<TResult> thisFile, ResultFile<TResult> fileToAdd)
         {
-            file.Results.AddRange(results.Results);
-            return file;
+            thisFile.Results.AddRange(fileToAdd.Results);
+            return thisFile;
         }
 
-        public static ResultFile<TResult> operator -(ResultFile<TResult> file, TResult result)
+        public static ResultFile<TResult> operator -(ResultFile<TResult> thisFile, TResult resultToRemove)
         {
-            file.Results.Remove(result);
-            return file;
+            thisFile.Results.Remove(resultToRemove);
+            return thisFile;
         }
 
-        public static ResultFile<TResult> operator -(ResultFile<TResult> file, IEnumerable<TResult> results)
+        public static ResultFile<TResult> operator -(ResultFile<TResult> thisFile, IEnumerable<TResult> resultsToRemove)
         {
-            foreach (var result in results)
-                file.Results.Remove(result);
-            return file;
+            foreach (var result in resultsToRemove)
+                thisFile.Results.Remove(result);
+            return thisFile;
         }
 
-        public static ResultFile<TResult> operator -(ResultFile<TResult> file, ResultFile<TResult> results)
+        public static ResultFile<TResult> operator -(ResultFile<TResult> thisFile, ResultFile<TResult> fileToRemove)
         {
-            foreach (var result in results.Results)
-                file.Results.Remove(result);
-            return file;
+            foreach (var result in fileToRemove.Results)
+                thisFile.Results.Remove(result);
+            return thisFile;
         }
 
         #endregion
