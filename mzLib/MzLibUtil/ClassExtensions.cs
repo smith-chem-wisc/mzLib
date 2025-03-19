@@ -19,6 +19,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 using System.Text.RegularExpressions;
 
 namespace MzLibUtil
@@ -26,66 +27,50 @@ namespace MzLibUtil
     public static class ClassExtensions
     {
         /// <summary>
-        /// Parses the full sequence to identify mods.
+        /// Parses the full sequence to identify mods. Note: This method has been updated to NOT handle ambiguous mods on a given position (e.g. M[modA]|[modB]).
+        /// If ambiguity exists, generate a separate full sequence for each mod and parse each separately.
         /// </summary>
         /// <param name="fullSequence"> Full sequence of the peptide in question.</param>
         /// <param name="ignoreTerminusMod"> If true, terminal modifications will be ignored.</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(this string fullSequence, bool ignoreTerminusMod=false)
+        public static Dictionary<int, string> ParseModifications(this string fullSequence, bool ignoreTerminusMod = false)
         {
             // use a regex to get modifications
-            string pattern = @"\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
-            Regex regex = new(pattern);
+            string modPattern = @"-?\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
+            Regex modRegex = new(modPattern);
 
-            // remove each match after adding to the dict. Otherwise, getting positions
-            // of the modifications will be rather difficult.
-            //int patternMatches = regex.Matches(fullSequence).Count;
-            Dictionary<int, List<string>> modDict = new();
+            var fullSeq = fullSequence;
+            Dictionary<int, string> modDict = new();
 
-            string fullSeq = fullSequence;
-            RemoveSpecialCharacters(ref fullSeq);
-            MatchCollection matches = regex.Matches(fullSeq);
+            MatchCollection matches = modRegex.Matches(fullSeq);
             int captureLengthSum = 0;
+            int positionToAddToDict = 0;
             foreach (Match match in matches)
             {
                 GroupCollection group = match.Groups;
-                string val = group[1].Value;
+                string rawModString = group[0].Value;
+                string mod = group[1].Value;
                 int startIndex = group[0].Index;
                 int captureLength = group[0].Length;
-
-                List<string> modList = new List<string>();
-                modList.Add(val);
 
                 // The position of the amino acids is tracked by the positionToAddToDict variable. It takes the 
                 // startIndex of the modification Match and removes the cumulative length of the modifications
                 // found (including the brackets). The difference will be the number of nonmodification characters, 
                 // or the number of amino acids prior to the startIndex in the sequence. 
-                int positionToAddToDict = startIndex - captureLengthSum;
+                positionToAddToDict = startIndex - captureLengthSum;
 
-                if ((positionToAddToDict == 0 || (fullSeq.Length == startIndex + captureLength)) && ignoreTerminusMod)
+                if (((positionToAddToDict == 0) || rawModString.StartsWith("-")) && ignoreTerminusMod) // ignore terminal mods
                 {
                     captureLengthSum += captureLength;
                     continue;
                 }
 
-                // The C-terminus is ambiguous when it comes to how a modification is included in the full sequence string. 
-                // So, extra logic is needed to read the  
-                if ((fullSeq.Length == startIndex + captureLength) && val.Contains("terminal")) 
+                if (rawModString.StartsWith("-"))
                 {
                     positionToAddToDict++;
                 }
 
-                // check to see if key already exist
-                // if the already key exists, update the current position with the capture length + 1.
-                // otherwise, add the modification to the dict.
-                if (modDict.ContainsKey(positionToAddToDict))
-                {
-                    modDict[positionToAddToDict].Add(val);
-                }
-                else
-                {
-                    modDict.Add(positionToAddToDict, modList);
-                }
+                modDict.Add(positionToAddToDict, mod);
                 captureLengthSum += captureLength;
             }
             return modDict;
