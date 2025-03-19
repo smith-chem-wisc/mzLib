@@ -14,7 +14,6 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics;
 using static System.Net.Mime.MediaTypeNames;
 using ThermoFisher.CommonCore.Data.Interfaces;
-using Readers.ExternalResults.BaseClasses;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
