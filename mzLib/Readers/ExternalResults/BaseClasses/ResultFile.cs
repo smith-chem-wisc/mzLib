@@ -68,7 +68,7 @@ namespace Readers
         #region Methods and Operators
 
         /// <summary>
-        /// Determines whether the specified thisFile type and extension of filepath align
+        /// Determines whether the specified file type and extension of filepath align
         /// </summary>
         /// <param name="filePath"></param>
         /// <returns></returns>
