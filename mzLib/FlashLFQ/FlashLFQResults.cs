@@ -1,5 +1,7 @@
 ﻿using Easy.Common.Extensions;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
+using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
