@@ -65,7 +65,7 @@ namespace Readers
 
         #endregion
 
-        #region Methods and Operators
+        #region Methods
 
         /// <summary>
         /// Determines whether the specified file type and extension of filepath align
@@ -76,6 +76,10 @@ namespace Readers
         {
             return filePath.EndsWith(FileType.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase);
         }
+
+        #endregion
+
+        #region Operators
 
         public static ResultFile<TResult> operator +(ResultFile<TResult> thisFile, TResult resultToAdd)
         {
