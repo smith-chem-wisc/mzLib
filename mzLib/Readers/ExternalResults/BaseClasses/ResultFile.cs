@@ -79,6 +79,48 @@ namespace Readers
 
         #endregion
 
+        #region Operators
+
+        public static ResultFile<TResult> operator +(ResultFile<TResult> thisFile, TResult resultToAdd)
+        {
+            thisFile.Results.Add(resultToAdd);
+            return thisFile;
+        }
+
+        public static ResultFile<TResult> operator +(ResultFile<TResult> thisFile, IEnumerable<TResult> resultsToAdd)
+        {
+            thisFile.Results.AddRange(resultsToAdd);
+            return thisFile;
+        }
+
+        public static ResultFile<TResult> operator +(ResultFile<TResult> thisFile, ResultFile<TResult> fileToAdd)
+        {
+            thisFile.Results.AddRange(fileToAdd.Results);
+            return thisFile;
+        }
+
+        public static ResultFile<TResult> operator -(ResultFile<TResult> thisFile, TResult resultToRemove)
+        {
+            thisFile.Results.Remove(resultToRemove);
+            return thisFile;
+        }
+
+        public static ResultFile<TResult> operator -(ResultFile<TResult> thisFile, IEnumerable<TResult> resultsToRemove)
+        {
+            foreach (var result in resultsToRemove)
+                thisFile.Results.Remove(result);
+            return thisFile;
+        }
+
+        public static ResultFile<TResult> operator -(ResultFile<TResult> thisFile, ResultFile<TResult> fileToRemove)
+        {
+            foreach (var result in fileToRemove.Results)
+                thisFile.Results.Remove(result);
+            return thisFile;
+        }
+
+        #endregion
+
         #region Interface Implementations
 
         public IEnumerator<TResult> GetEnumerator() => Results.GetEnumerator();
@@ -106,8 +148,5 @@ namespace Readers
         }
 
         #endregion
-
-
-
     }
 }
