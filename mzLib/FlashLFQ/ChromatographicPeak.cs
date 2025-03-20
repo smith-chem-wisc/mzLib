@@ -7,7 +7,7 @@ using FlashLFQ.PEP;
 
 namespace FlashLFQ
 {
-    public class ChromatographicPeak
+    public class ChromatographicPeak : IEquatable<ChromatographicPeak>
     {
         public double Intensity;
         public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;

@@ -43,20 +43,5 @@ namespace FlashLFQ
         {
             return ModifiedSequence;
         }
-
-        /// <summary>
-        /// The method to compare two IsoIdentifications by their BaseSequence, ModifiedSequence, and ProteinGroups
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public bool IsoEquals(object obj)
-        {
-            if (obj is Identification other)
-            {
-                return BaseSequence == other.BaseSequence &&
-                       ModifiedSequence == other.ModifiedSequence;
-            }
-            return false;
-        }
     }
 }

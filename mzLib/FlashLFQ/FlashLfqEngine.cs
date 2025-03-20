@@ -2219,8 +2219,8 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Check if two lists of identifications are equal, where equality is defined as base sequence, modified sequence, and fileInfo.
-        /// Only for IsobaricPeptide comparison.
+        /// Check if two lists of identifications are equal, to be compatible for MovId as well, we only consider modified sequence, and fileInfo.
+        /// Only for chromatographicPeaks comparison.
         /// </summary>
         /// <param name="idList1"></param>
         /// <param name="idList2"></param>
@@ -2237,12 +2237,11 @@ namespace FlashLFQ
 
             for (int i = 0; i < sortedIdList1.Count; i++)
             {
-                if (!sortedIdList1[i].IsoEquals(sortedIdList2[i]))
+                if (!sortedIdList1[i].ModifiedSequence.Equals(sortedIdList2[i].ModifiedSequence))
                 {
                     return false;
                 }
             }
-
             return true;
         }
     }

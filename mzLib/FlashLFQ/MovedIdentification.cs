@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿#nullable enable 
+using System;
+using System.Collections.Generic;
 
 namespace FlashLFQ
 {
@@ -6,7 +8,7 @@ namespace FlashLFQ
     /// A peuso-identification object that stores the information of a peptide identification, use for peak tracking
     /// The only difference is that it has a time shift from alignment
     /// </summary>
-    internal class MovedIdentification : Identification
+    internal class MovedIdentification : Identification, IEquatable<Identification>
     {
         /// <summary>
         /// The time shift from alignment
@@ -28,8 +30,10 @@ namespace FlashLFQ
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        public bool Equal(Identification id)
+        public bool Equals(Identification? id)
         {
+            if (id is null) return false;
+            if (ReferenceEquals(this, id)) return true;
             if (BaseSequence != id.BaseSequence || 
                 ModifiedSequence != id.ModifiedSequence || 
                 UseForProteinQuant != id.UseForProteinQuant)

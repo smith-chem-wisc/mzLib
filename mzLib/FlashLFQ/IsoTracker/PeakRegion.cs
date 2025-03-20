@@ -5,7 +5,7 @@ namespace FlashLFQ.IsoTracker
     /// <summary>  
     /// An PeakRegion should contain Apex Retention Time, Start and End Retention Time in the region.  
     /// </summary>  
-    public class PeakRegion
+    public class PeakRegion : IEquatable<PeakRegion>
     {
         public double ApexRT { get; private set; }
         public double StartRT { get; private set; }
@@ -22,13 +22,9 @@ namespace FlashLFQ.IsoTracker
             this.EndRT = endRT;
         }
 
-        public override bool Equals(object obj)
+        public bool Equals(PeakRegion other)
         {
-            if (obj is PeakRegion other)
-            {
-                return ApexRT == other.ApexRT && StartRT == other.StartRT && EndRT == other.EndRT;
-            }
-            return false;
+            return ApexRT == other.ApexRT && StartRT == other.StartRT && EndRT == other.EndRT;
         }
 
         public override int GetHashCode()
