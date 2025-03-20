@@ -274,7 +274,10 @@ namespace FlashLFQ
                     }
 
                     //Deserialize the relevant index prior to MBR
-                    IndexingEngineDictionary[spectraFile].DeserializeIndex();
+                    if (!IsoTracker) //If IsoTracker is on, there is no serializer then we don't need to deserialize the index
+                    {
+                        IndexingEngineDictionary[spectraFile].DeserializeIndex();
+                    }
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
                     IndexingEngineDictionary[spectraFile].ClearIndex();
 
