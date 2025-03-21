@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MzLibUtil
 {
@@ -55,6 +56,18 @@ namespace MzLibUtil
             T[] result = new T[length];
             Array.Copy(data, index, result, 0, length);
             return result;
+        }
+
+        public static bool ToEnum<T>(this int modeInt, out T result) where T : Enum
+        {
+            Type enumType = typeof(T);
+            if (!Enum.IsDefined(enumType, modeInt))
+            {
+                result = default(T);
+                return false;
+            }
+            result = (T)Enum.ToObject(enumType, modeInt);
+            return true;
         }
 
         /// <summary>
@@ -101,6 +114,28 @@ namespace MzLibUtil
 
             return true;
         }
+
+        /// <summary>
+        /// Finds the index of all instances of a specified substring within the source string.
+        /// The index returned is the position of the first character of the substring within the source tring
+        /// </summary>
+        /// <param name="sourceString">Haystack: string to be searched</param>
+        /// <param name="subString">Needle: substring to be located</param>
+        public static IEnumerable<int> IndexOfAll(this string sourceString, string subString)
+        {
+            return Regex.Matches(sourceString, subString).Cast<Match>().Select(m => m.Index);
+        }
+
+        /// <summary>
+        /// Extension method to invoke the GetPeriodTolerantFileNameWithoutExtension method
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static string GetPeriodTolerantFilenameWithoutExtension(this string filePath)
+        {
+            return PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(filePath);
+        }
+
         
         /// <summary>
         /// Transcribes a DNA sequence into an RNA sequence

@@ -1,5 +1,7 @@
 ﻿using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System;
@@ -8,6 +10,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using Omics.Digestion;
+using Omics.Fragmentation;
 using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -567,8 +570,8 @@ namespace Test
             //check that there are no duplicates
             Assert.IsTrue(pwsms.Count == hashset.Count);
             //Speedy semi specific test
-            DigestionParams speedySemiN = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Omics.Fragmentation.FragmentationTerminus.N);
-            DigestionParams speedySemiC = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Omics.Fragmentation.FragmentationTerminus.C);
+            DigestionParams speedySemiN = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, FragmentationTerminus.N);
+            DigestionParams speedySemiC = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, FragmentationTerminus.C);
             List<PeptideWithSetModifications> pwsmsN = humanInsulin.Digest(speedySemiN, null, null).ToList();
             List<PeptideWithSetModifications> pwsmsC = humanInsulin.Digest(speedySemiC, null, null).ToList();
             Assert.IsTrue(pwsmsN.Count == 7);
@@ -592,6 +595,50 @@ namespace Test
 
             digestionParams.MaxModsForPeptide = 3;
             Assert.That(digestionParams.MaxMods, Is.EqualTo(digestionParams.MaxModsForPeptide));
+        }
+
+        private class TestDigestionAgent : DigestionAgent
+        {
+            public TestDigestionAgent(string name, CleavageSpecificity cleavageSpecificity, List<DigestionMotif> motifList, Modification cleavageMod)
+                : base(name, cleavageSpecificity, motifList, cleavageMod)
+            {
+            }
+        }
+
+        [Test]
+        public void Equals_SameName_ReturnsTrue()
+        {
+            var agent1 = ProteaseDictionary.Dictionary["trypsin"];
+            var agent2 = ProteaseDictionary.Dictionary["trypsin"];
+
+            Assert.That(agent1.Equals(agent2), Is.True);
+        }
+
+        [Test]
+        public void Equals_DifferentName_ReturnsFalse()
+        {
+            var agent1 = ProteaseDictionary.Dictionary["trypsin"];
+            var agent2 = ProteaseDictionary.Dictionary["Arg-C"];
+
+            Assert.That(agent1.Equals(agent2), Is.False);
+        }
+
+        [Test]
+        public void GetHashCode_SameName_ReturnsSameHashCode()
+        {
+            var agent1 = ProteaseDictionary.Dictionary["trypsin"];
+            var agent2 = ProteaseDictionary.Dictionary["trypsin"];
+
+            Assert.That(agent1.GetHashCode(), Is.EqualTo(agent2.GetHashCode()));
+        }
+
+        [Test]
+        public void GetHashCode_DifferentName_ReturnsDifferentHashCode()
+        {
+            var agent1 = ProteaseDictionary.Dictionary["trypsin"];
+            var agent2 = ProteaseDictionary.Dictionary["Arg-C"];
+
+            Assert.That(agent1.GetHashCode(), Is.Not.EqualTo(agent2.GetHashCode()));
         }
     }
 }

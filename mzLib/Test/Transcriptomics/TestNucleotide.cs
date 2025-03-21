@@ -9,15 +9,13 @@ using UsefulProteomicsDatabases;
 namespace Test.Transcriptomics
 {
     [ExcludeFromCodeCoverage]
-    internal class TestNucleotide
+    public class TestNucleotide
     {
-        internal record NucleotideTestCase(Nucleotide Nucleotide, string Name, char OneLetterCode, string Symbol, ChemicalFormula Formula, double Mass,
+        public record NucleotideTestCase(Nucleotide Nucleotide, string Name, char OneLetterCode, string Symbol, ChemicalFormula Formula, double Mass,
             ChemicalFormula nucleosideFormula);
 
-        internal static IEnumerable<NucleotideTestCase> GetNucleotideTestCases()
+        public static IEnumerable<NucleotideTestCase> GetNucleotideTestCases()
         {
-            Loaders.LoadElements();
-
             yield return new NucleotideTestCase(Nucleotide.AdenineBase, "Adenine", 'A', "Ade",
                 ChemicalFormula.ParseFormula("C5H4N5"), 329.052523, ChemicalFormula.ParseFormula("C10H13N5O4"));
             yield return new NucleotideTestCase(Nucleotide.CytosineBase, "Cytosine", 'C',

@@ -1,10 +1,7 @@
 ﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MzLibUtil;
+using Readers;
 
 namespace Test
 {
@@ -28,10 +25,40 @@ namespace Test
         [TestCase("penguin", "penguin")]
         [TestCase("penguin.jpg.gz", "penguin")]
         [TestCase("penguin.jpg.zip", "penguin")]
+        [TestCase("penguin.jpg.mzXML", "penguin.jpg")]
         public static void TestPeriodTolerantFilenameWithoutExtension(string filenameAndOrPath, string expectedResult)
         {
             string result = PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(filenameAndOrPath);
+            string extensionResult = filenameAndOrPath.GetPeriodTolerantFilenameWithoutExtension();
             Assert.AreEqual(expectedResult, result);
+            Assert.AreEqual(expectedResult, extensionResult);
+        }
+
+        [Test]
+        public static void TestToEnum()
+        {
+            Assert.IsTrue(0.ToEnum<TimsTofMsMsType>(out var result));
+            Assert.AreEqual(TimsTofMsMsType.MS, result);
+
+            Assert.IsTrue(2.ToEnum<TimsTofMsMsType>(out result));
+            Assert.AreEqual(TimsTofMsMsType.MSMSFragment, result);
+
+            Assert.IsTrue(8.ToEnum<TimsTofMsMsType>(out result));
+            Assert.AreEqual(TimsTofMsMsType.PASEF, result);
+
+            Assert.IsTrue(9.ToEnum<TimsTofMsMsType>(out result));
+            Assert.AreEqual(TimsTofMsMsType.DIA, result);
+
+            Assert.IsTrue(10.ToEnum<TimsTofMsMsType>(out result));
+            Assert.AreEqual(TimsTofMsMsType.PRM, result);
+
+            Assert.IsTrue(0.ToEnum<TimsTofAcquisitionMode>(out var result2));
+            Assert.AreEqual(TimsTofAcquisitionMode.MS, result2);
+
+            Assert.IsFalse(1.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsFalse(11.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsFalse(7.ToEnum<TimsTofMsMsType>(out result));
+            
         }
     }
 }

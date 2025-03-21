@@ -237,7 +237,7 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        public RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
+        internal RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
             IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             RNA result = null;
@@ -249,7 +249,7 @@ namespace UsefulProteomicsDatabases
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Name, Accession, Organism, rnaDbLocation, null,
-                    null, OneBasedModifications, isContaminant, false, null);
+                    null, OneBasedModifications, isContaminant, false, GeneNames, null);
             }
             Clear();
             return result;
@@ -273,6 +273,11 @@ namespace UsefulProteomicsDatabases
         public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
+            {
+                FeatureDescription = FeatureDescription.Split(';')[0];
+                AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
+            }
+            else if (FeatureType == "lipid moiety-binding region")
             {
                 FeatureDescription = FeatureDescription.Split(';')[0];
                 AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
@@ -404,19 +409,6 @@ namespace UsefulProteomicsDatabases
                         unknownModifications.Add(annotatedId, new Modification(annotatedId));
                     }
                 }
-            }
-        }
-
-        private static ModificationMotif GetMotif(string proteinSequence, int position)
-        {
-            string aminoAcid = proteinSequence.Substring(position - 1, 1);
-            if (ModificationMotif.TryGetMotif(aminoAcid, out ModificationMotif motif))
-            {
-                return motif;
-            }
-            else
-            {
-                return null;
             }
         }
 

@@ -19,11 +19,11 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using SharpLearning.Containers.Matrices;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test

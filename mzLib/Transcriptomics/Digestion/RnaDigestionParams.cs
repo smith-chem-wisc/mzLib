@@ -7,14 +7,13 @@ namespace Transcriptomics.Digestion
     {
 
         // this parameterless constructor needs to exist to read the toml.
-        // if you can figure out a way to get rid of it, feel free...
         public RnaDigestionParams() : this("top-down")
         {
         }
 
-        public RnaDigestionParams(string rnase = "top-down", int maxMissedCleavages = 0, int minLength = 3, 
+        public RnaDigestionParams(string rnase = "top-down", int maxMissedCleavages = 0, int minLength = 3,
             int maxLength = int.MaxValue, int maxModificationIsoforms = 1024, int maxMods = 2,
-            FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both) 
+            FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both)
         {
             Rnase = RnaseDictionary.Dictionary[rnase];
             MaxMissedCleavages = maxMissedCleavages;

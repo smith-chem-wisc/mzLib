@@ -228,7 +228,8 @@ namespace Omics.SpectrumMatch
                             TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
                         else
-                            terminus = Omics.Fragmentation.Oligo.DissociationTypeCollection.GetRnaTerminusType(productType);
+                            Omics.Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                                out terminus);
 
 
                         //get amino acid position
@@ -253,7 +254,7 @@ namespace Omics.SpectrumMatch
                     double neutralTheoreticalMass = neutralExperimentalMass - errorDa; //theoretical mass is measured mass - measured error
 
                     //The product created here is the theoretical product, with the mass back-calculated from the measured mass and measured error
-                    Product theoreticalProduct = new Product(productType,
+                    Product theoreticalProduct = new ProductWithCache(productType,
                       terminus,
                       neutralTheoreticalMass,
                       fragmentNumber,
@@ -262,7 +263,7 @@ namespace Omics.SpectrumMatch
                       secondaryProductType,
                       secondaryFragmentNumber);
 
-                    matchedIons.Add(new MatchedFragmentIon(theoreticalProduct, mz, intensity, z));
+                    matchedIons.Add(new MatchedFragmentIonWithCache(theoreticalProduct, mz, intensity, z));
                 }
             }
             return matchedIons;

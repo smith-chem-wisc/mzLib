@@ -1,0 +1,8 @@
+Peptide	Prev AA	Next AA	Peptide Length	Protein Start	Protein End	Charges	Probability	Spectral Count	Intensity	Assigned Modifications	Observed Modifications	Protein	Protein ID	Entry Name	Gene	Protein Description	Mapped Genes	Mapped Proteins
+AAAAVVEFQR	M	A	10	2	11	2	0.9473	1	0.000000	N-term(42.0106)		sp|O00231|PSD11_HUMAN	O00231	PSD11_HUMAN	PSMD11	26S proteasome non-ATPase regulatory subunit 11		
+AAAIGIDLGTTYSCVGVFQHGK	K	V	22	4	25	3	1.0000	2	0.000000	14C(57.0214)		sp|P0DMV8|HS71A_HUMAN	P0DMV8	HS71A_HUMAN	HSPA1A	Heat shock 70 kDa protein 1A	HSPA1B	sp|P0DMV9|HS71B_HUMAN
+AAALEAMK	K	D	8	435	442	2	0.9961	1	0.000000			sp|P31948|STIP1_HUMAN	P31948	STIP1_HUMAN	STIP1	Stress-induced-phosphoprotein 1		
+AAAQCYIDLIIK	K	E	12	280	291	2	0.9997	1	0.000000	5C(57.0214)		sp|P53618|COPB_HUMAN	P53618	COPB_HUMAN	COPB1	Coatomer subunit beta		
+AAASTDYYK	R	R	9	236	244	2	0.9995	1	0.000000			sp|P08559|ODPA_HUMAN	P08559	ODPA_HUMAN	PDHA1	Pyruvate dehydrogenase E1 component subunit alpha, somatic form, mitochondrial		
+AAAVPVEFQEHHLSEVQNMASEEK	K	L	24	73	96	4	1.0000	1	0.000000			sp|O43837|IDH3B_HUMAN	O43837	IDH3B_HUMAN	IDH3B	Isocitrate dehydrogenase [NAD] subunit beta, mitochondrial		
+AACLCFR	R	S	7	21	27	2	0.9553	1	0.000000	3C(57.0214), 5C(57.0214)		sp|Q9NZJ9|NUDT4_HUMAN	Q9NZJ9	NUDT4_HUMAN	NUDT4	Diphosphoinositol polyphosphate phosphohydrolase 2	NUDT10, NUDT11, NUDT3, NUDT4B	sp|A0A024RBG1|NUD4B_HUMAN, sp|O95989|NUDT3_HUMAN, sp|Q8NFP7|NUD10_HUMAN, sp|Q96G61|NUD11_HUMAN

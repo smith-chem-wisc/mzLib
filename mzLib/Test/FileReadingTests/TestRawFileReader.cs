@@ -1,12 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
-using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Readers;
 
 namespace Test.FileReadingTests
@@ -173,9 +171,10 @@ namespace Test.FileReadingTests
 
                 for (int j = 0; j < mzmlScan.MassSpectrum.XArray.Length; j++)
                 {
-                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 2);
-                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 2);
+                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 4);
+                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 4);
 
+                    //  XArray is rounded to the 4th digit during CreateAndWrite
                     Assert.AreEqual(roundedMzmlMz, roundedRawMz);
 
                     double roundedMzmlIntensity = Math.Round(mzmlScan.MassSpectrum.XArray[j], 0);

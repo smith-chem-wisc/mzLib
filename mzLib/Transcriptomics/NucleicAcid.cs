@@ -3,6 +3,9 @@ using Chemistry;
 using Omics;
 using Omics.Digestion;
 using Omics.Modifications;
+using Omics;
+using System.Text;
+using MzLibUtil;
 using Transcriptomics.Digestion;
 
 namespace Transcriptomics
@@ -10,7 +13,7 @@ namespace Transcriptomics
     /// <summary>
     /// A linear polymer of Nucleic acids
     /// </summary>
-    public abstract class NucleicAcid :  INucleicAcid, IBioPolymer, IEquatable<NucleicAcid>
+    public abstract class NucleicAcid : INucleicAcid, IBioPolymer, IEquatable<NucleicAcid>
     {
 
         #region Static Properties
@@ -39,6 +42,9 @@ namespace Transcriptomics
 
         #region Constuctors
 
+        /// <summary>
+        /// For creating an RNA programatically
+        /// </summary>
         protected NucleicAcid(string sequence, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null)
         {
@@ -50,16 +56,18 @@ namespace Transcriptomics
             _oneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
             GeneNames = new List<Tuple<string, string>>();
 
-
-            ParseSequence(sequence);
+            ParseSequenceString(sequence);
         }
 
-        protected NucleicAcid(string sequence, string name, string identifier, string organism, string databaseFilePath, 
+        /// <summary>
+        /// For Reading in from rna database
+        /// </summary>
+        protected NucleicAcid(string sequence, string name, string identifier, string organism, string databaseFilePath,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
-            bool isContaminant = false, bool isDecoy = false,
-            Dictionary<string, string>? additionalDatabaseFields = null) 
-            : this (sequence, fivePrimeTerm, threePrimeTerm, oneBasedPossibleLocalizedModifications)
+            bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>>? geneNames = null,
+            Dictionary<string, string>? additionalDatabaseFields = null)
+            : this(sequence, fivePrimeTerm, threePrimeTerm, oneBasedPossibleLocalizedModifications)
         {
             Name = name;
             DatabaseFilePath = databaseFilePath;
@@ -68,6 +76,7 @@ namespace Transcriptomics
             Organism = organism;
             Accession = identifier;
             AdditionalDatabaseFields = additionalDatabaseFields;
+            GeneNames = geneNames ?? new List<Tuple<string, string>>();
         }
 
         #endregion
@@ -178,25 +187,25 @@ namespace Transcriptomics
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         #endregion
-        
+
         #region Digestion
 
         public IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParameters, List<Modification> allKnownFixedMods,
-            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, 
+            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null,
             bool topDownTruncationSearch = false)
         {
             if (digestionParameters is not RnaDigestionParams digestionParams)
-                throw new ArgumentException(
-                    "DigestionParameters must be of type DigestionParams for protein digestion");
+                throw new MzLibException(
+                    "DigestionParameters must be of type DigestionParams for protein digestion", new ArgumentException());
             allKnownFixedMods ??= new();
             variableModifications ??= new();
 
             // digest based upon base sequence
-            foreach (var unmodifiedOligo in digestionParams.Rnase.GetUnmodifiedOligos(this, 
+            foreach (var unmodifiedOligo in digestionParams.Rnase.GetUnmodifiedOligos(this,
                          digestionParams.MaxMissedCleavages, digestionParams.MinLength, digestionParams.MaxLength))
             {
                 // add fixed and variable mods to base sequence digestion products
-                foreach (var modifiedOligo in unmodifiedOligo.GetModifiedOligos(allKnownFixedMods, digestionParams,
+                foreach (var modifiedOligo in unmodifiedOligo.GenerateModifiedOligos(allKnownFixedMods, digestionParams,
                              variableModifications))
                 {
                     yield return modifiedOligo;
@@ -220,10 +229,11 @@ namespace Transcriptomics
 
         public IEnumerable<double> GetElectrospraySeries(int minCharge, int maxCharge)
         {
-            for (int i = minCharge; i < maxCharge; i++)
-            {
-                yield return this.ToMz(i);
-            }
+            if (minCharge > maxCharge)
+                (minCharge, maxCharge) = (maxCharge, minCharge);
+            
+            for (int i = maxCharge; i > minCharge - 1; i--)
+                yield return this.ToMz(i); 
         }
 
         #endregion
@@ -253,10 +263,10 @@ namespace Transcriptomics
 
         #region Private Methods
 
-        bool ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
+        private void ReplaceTerminus(ref IHasChemicalFormula? terminus, IHasChemicalFormula? value)
         {
             if (Equals(value, terminus))
-                return false;
+                return;
 
             if (terminus != null)
                 MonoisotopicMass -= terminus.MonoisotopicMass;
@@ -265,19 +275,17 @@ namespace Transcriptomics
 
             if (value != null)
                 MonoisotopicMass += value.MonoisotopicMass;
-
-            return true;
         }
 
         /// <summary>
-        /// Parses a string sequence of nucleic acids characters into a peptide object
+        /// Parses a string sequence of nucleic acid characters into an array of Nucleotide objects,
+        /// updates the sequence string, and calculates the monoisotopic mass.
         /// </summary>
-        /// <param name="sequence"></param>
-        /// <returns></returns>
-        private bool ParseSequence(string sequence)
+        /// <param name="sequence">The string sequence of nucleic acid characters to parse.</param>
+        private void ParseSequenceString(string sequence)
         {
             if (string.IsNullOrEmpty(sequence))
-                return false;
+                return;
 
             int index = 0;
 
@@ -286,7 +294,7 @@ namespace Transcriptomics
 
             StringBuilder sb = null;
             sb = new StringBuilder(sequence.Length);
-            
+
             foreach (char letter in sequence)
             {
                 Nucleotide residue;
@@ -318,8 +326,6 @@ namespace Transcriptomics
             Length = index;
             MonoisotopicMass += monoMass;
             Array.Resize(ref _nucleicAcids, Length);
-
-            return true;
         }
 
         #endregion
@@ -328,18 +334,19 @@ namespace Transcriptomics
 
         public bool Equals(NucleicAcid? other)
         {
-            if (ReferenceEquals(null, other)) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return _5PrimeTerminus.Equals(other._5PrimeTerminus)
+            // interface equals first because it does null and reference checks
+            return (this as IBioPolymer).Equals(other)
+                   && _5PrimeTerminus.Equals(other._5PrimeTerminus)
                    && _3PrimeTerminus.Equals(other._3PrimeTerminus);
         }
 
         public override bool Equals(object? obj)
         {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((NucleicAcid)obj);
+            if (obj is NucleicAcid oligo)
+            {
+                return Equals(oligo);
+            }
+            return false;
         }
 
         public override int GetHashCode()

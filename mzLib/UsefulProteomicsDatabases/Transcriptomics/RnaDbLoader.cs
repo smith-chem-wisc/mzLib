@@ -13,7 +13,10 @@ using Chemistry;
 using Easy.Common.Extensions;
 using Omics.Modifications;
 using Proteomics;
+using System.Threading.Tasks;
 using System.Xml;
+using Chemistry;
+using Transcriptomics;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -26,6 +29,19 @@ namespace UsefulProteomicsDatabases.Transcriptomics
     public static class RnaDbLoader
     {
 
+        #region Header Detection and Property Regexes
+
+        public static RnaFastaHeaderType DetectRnaFastaHeaderType(string line)
+        {
+            if (line.StartsWith(">id"))
+                return RnaFastaHeaderType.Modomics;
+
+            return RnaFastaHeaderType.Unknown;
+        }
+
+        /// <summary>
+        /// Dictionary that extract accession number, species, name, and additional dataField of modomics
+        /// </summary>
         public static readonly Dictionary<string, FastaHeaderFieldRegex> ModomicsFieldRegexes =
             new Dictionary<string, FastaHeaderFieldRegex>()
             {
@@ -39,6 +55,20 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 { "Cellular Localization", new FastaHeaderFieldRegex("CellularLocalization", @"Cellular_Localization:(?<Cellular_Localization>.+?)\|", 0, 1) },
             };
 
+        #endregion
+
+        /// <summary>
+        /// Loads an RNA file from the specified location, optionally generating decoys and adding error tracking
+        /// </summary>
+        /// <param name="rnaDbLocation">The file path to the RNA FASTA database</param>
+        /// <param name="generateTargets">Flag indicating whether to generate targets or not</param>
+        /// <param name="decoyType">The type of decoy generation to apply</param>
+        /// <param name="isContaminant">Indicates if the RNA sequence is a contaminant</param>
+        /// <param name="errors">Outputs any errors encountered during the process</param>
+        /// <param name="fivePrimeTerm">An optional 5' prime chemical modification term</param>
+        /// <param name="threePrimeTerm">An optional 3' prime chemical modification term</param>
+        /// <returns>A list of RNA sequences loaded from the FASTA database</returns>
+        /// <exception cref="MzLibUtil.MzLibException">Thrown if the FASTA header format is unknown or other issues occur during loading.</exception>
 
         public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
@@ -82,7 +112,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                     {
                         if (headerType is null)
                         {
-                            headerType = DetectFastaHeaderType(line);
+                            headerType = DetectRnaFastaHeaderType(line);
 
                             switch (headerType)
                             {
@@ -109,9 +139,9 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
                         sb = new StringBuilder();
                     }
-                    else if (sb is not null)
+                    else
                     {
-                        sb.Append(line.Trim());
+                        sb?.Append(line.Trim());
                     }
 
                     if ((fasta.Peek() == '>' || fasta.Peek() == -1) /*&& accession != null*/ && sb != null)
@@ -124,7 +154,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
                         RNA rna = new RNA(sequence, name, identifier, organism, rnaDbLocation,
                             fivePrimeTerm, threePrimeTerm, null,
-                            isContaminant, false, additonalDatabaseFields );
+                            isContaminant, false, null, additonalDatabaseFields);
                         if (rna.Length == 0)
                             errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
                         else
@@ -149,7 +179,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
             if (!targets.Any())
                 errors.Add("No targets were loaded from database: " + rnaDbLocation);
-            
+
             List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType);
             return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
@@ -160,7 +190,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 return RnaFastaHeaderType.Unknown;
 
             // modomics -> >id:1|Name:tdbR00000010|SOterm:SO:0000254
-
+        
             return RnaFastaHeaderType.Modomics;
         }
 
@@ -171,7 +201,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
             foreach (var regex in regexes)
             {
-                string match = ProteinDbLoader.ApplyRegex(regex.Value, line);
+                string match = regex.Value.ApplyRegex(line);
                 fields.Add(regex.Key, match);
             }
 
@@ -184,7 +214,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
         public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, IEnumerable<Modification> allKnownModifications,
-            IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, 
+            IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
             int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
         {
             var prespecified = ProteinDbLoader.GetPtmListFromProteinXml(rnaDbLocation);

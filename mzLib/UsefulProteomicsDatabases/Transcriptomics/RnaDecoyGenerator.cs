@@ -11,10 +11,16 @@ using Transcriptomics;
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
     /// <summary>
-    /// Generates Decoy Nucleic Acids from any implementor of INucleicAcid
-    /// TODO: Implement Shuffle and Slide Decoys
-    /// TODO: Consider passing digestion motif as optional parameter to leave digestion sites intact
+    /// Provides methods for generating decoy nucleic acids from any implementor of <see cref="INucleicAcid"/>.
     /// </summary>
+    /// <remarks>
+    /// This class supports various types of decoy generation, including reversing, sliding, and shuffling sequences.
+    /// It allows for the creation of decoy sequences while preserving certain characteristics such as modification sites and termini.
+    /// The <c>GenerateDecoys</c> method serves as the main entry point, delegating to specific decoy generation methods based on the specified <see cref="DecoyType"/>.
+    /// TODO: Implement Shuffle and Slide Decoys
+    /// TODO: Consider passing digestion motif as optional parameter to leave digestion sites intact. Currently leaving the 3' intact as it is the predominant cleavage motif.
+    /// TODO: Consider palindromic sequences and the result they have on fragment ions (d/z are identical, c/y are identical). This will be particularly important for slided decoys
+    /// </remarks>
     public static class RnaDecoyGenerator
     {
         public static List<T> GenerateDecoys<T>(List<T> nucleicAcids, DecoyType decoyType, int maxThreads = -1) where T : INucleicAcid
@@ -37,7 +43,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
         /// <summary>
         /// Generated decoys in which the sequence is reversed,
-        /// leaving modification on their nucleic acid of origin, and 3' termini intact
+        /// leaving modification on their nucleic acid of origin,
+        /// and 3' termini intact as it is the most likely cleavage site. 
         /// </summary>
         /// <param name="nucleicAcids"></param>
         /// <param name="maxThreads"></param>

@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Text;
 using MassSpectrometry;
-using MzLibUtil;
 using NUnit.Framework;
-using Proteomics.ProteolyticDigestion;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Readers;
 using SpectralAveraging;
 
@@ -249,7 +244,7 @@ namespace Test.AveragingTests
         #endregion
 
         public static List<MsDataScan> ActualScans => MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"AveragingTestData\TDYeastFractionMS1.mzML")).GetAllScansList().Take(50).ToList();
+                @"AveragingTests\TestData\TDYeastFractionMS1.mzML")).GetAllScansList().Take(50).ToList();
 
         public static string NativeId;
 

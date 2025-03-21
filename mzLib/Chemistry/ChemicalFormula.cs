@@ -19,9 +19,11 @@
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace Chemistry
@@ -65,7 +67,7 @@ namespace Chemistry
             Elements = new Dictionary<Element, int>(capFormula.ThisChemicalFormula.Elements);
         }
 
-        public ChemicalFormula ThisChemicalFormula => this;
+        [JsonIgnore] public ChemicalFormula ThisChemicalFormula => this;
 
         /// <summary>
         /// Gets the average mass of this chemical formula

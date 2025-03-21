@@ -1,16 +1,13 @@
 ﻿using NUnit.Framework;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
 using Proteomics.ProteolyticDigestion;
 using Transcriptomics.Digestion;
 
 namespace Test.Transcriptomics
 {
     [ExcludeFromCodeCoverage]
-    internal class TestRnase
+    public class TestRnase
     {
         public static string rnaseTsvpath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Digestion\rnases.tsv");
 
@@ -18,7 +15,7 @@ namespace Test.Transcriptomics
         public void TestRnaseDictionaryLoading()
         {
             var rnaseCountFromTsv = File.ReadAllLines(rnaseTsvpath).Length - 1;
-            Assert.AreEqual(RnaseDictionary.Dictionary.Count, rnaseCountFromTsv);
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(rnaseCountFromTsv));
         }
 
         [Test]

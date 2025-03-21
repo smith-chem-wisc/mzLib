@@ -7,10 +7,12 @@ using System.Threading.Tasks;
 using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 using Transcriptomics;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
+using Transcriptomics;
 using Transcriptomics.Digestion;
 
 namespace Test.Transcriptomics
@@ -22,7 +24,7 @@ namespace Test.Transcriptomics
         [Test]
         [TestCase(DissociationType.HCD, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.b, ProductType.c, ProductType.d,
             ProductType.dWaterLoss, ProductType.w, ProductType.x, ProductType.y, ProductType.z, ProductType.M })]
-        [TestCase(DissociationType.CID, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss, 
+        [TestCase(DissociationType.CID, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss,
             ProductType.w, ProductType.y, ProductType.yWaterLoss, ProductType.M })]
         public void TestProductTypes_Dissociation(DissociationType dissociation, ProductType[] products)
         {
@@ -50,17 +52,17 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.FivePrime, new[] 
+        [TestCase(DissociationType.HCD, FragmentationTerminus.FivePrime, new[]
         { ProductType.a, ProductType.aBaseLoss, ProductType.b, ProductType.c, ProductType.d, ProductType.dWaterLoss, })]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.ThreePrime, new[] 
+        [TestCase(DissociationType.HCD, FragmentationTerminus.ThreePrime, new[]
             { ProductType.w, ProductType.x, ProductType.y, ProductType.z, })]
-        [TestCase(DissociationType.HCD, FragmentationTerminus.Both, new[] 
+        [TestCase(DissociationType.HCD, FragmentationTerminus.Both, new[]
             { ProductType.a, ProductType.aBaseLoss, ProductType.b, ProductType.c, ProductType.d, ProductType.dWaterLoss, ProductType.w, ProductType.x, ProductType.y, ProductType.z, ProductType.M })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.FivePrime, new[] 
+        [TestCase(DissociationType.CID, FragmentationTerminus.FivePrime, new[]
             { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.ThreePrime, new[] 
+        [TestCase(DissociationType.CID, FragmentationTerminus.ThreePrime, new[]
             { ProductType.w, ProductType.y, ProductType.yWaterLoss })]
-        [TestCase(DissociationType.CID, FragmentationTerminus.Both, new[] 
+        [TestCase(DissociationType.CID, FragmentationTerminus.Both, new[]
             { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss, ProductType.w, ProductType.y, ProductType.yWaterLoss, ProductType.M })]
         public void TestProductTypes_TerminusAndDissociation(DissociationType dissociation, FragmentationTerminus terminus, ProductType[] products)
         {
@@ -76,116 +78,116 @@ namespace Test.Transcriptomics
                 switch (p)
                 {
                     case ProductType.a:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("H").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.b:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("OH").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("OH").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.c:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3H2P").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O3H2P").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.x:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-1H").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-1H").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.y:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-3P-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-3P-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.zWaterLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-5H-2P-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-5H-2P-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.aWaterLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-1O-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("H-1O-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.aBaseLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-2").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("H-2").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.bBaseLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O1H-2").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O1H-2").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.cWaterLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O2P").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O2P").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.cBaseLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3H-1P").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O3H-1P").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.d:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O4H2P").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O4H2P").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.dWaterLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O3P").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O3P").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.dBaseLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O4H-1P").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O4H-1P").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
 
                     case ProductType.w:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("H").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.wWaterLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-1O-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("H-1O-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.xWaterLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-2H-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-2H-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.yWaterLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-4H-2P-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-4H-2P-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.z:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-4P-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-4P-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
 
                     case ProductType.wBaseLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("H-2").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("H-2").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
                     case ProductType.xBaseLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-1H-2").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-1H-2").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
                     case ProductType.yBaseLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-3H-2P-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-3H-2P-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
                     case ProductType.zBaseLoss:
-                        mass = ClassExtensions.RoundedDouble(p.GetRnaMassShiftFromProductType(), 2).Value;
-                        Assert.AreEqual(ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O-4H-3P-1").MonoisotopicMass, 2).Value, mass);
+                        mass = p.GetRnaMassShiftFromProductType().RoundedDouble(2).Value;
+                        Assert.That(ChemicalFormula.ParseFormula("O-4H-3P-1").MonoisotopicMass.RoundedDouble(2).Value, Is.EqualTo(mass));
                         break;
                 }
             }
@@ -229,7 +231,7 @@ namespace Test.Transcriptomics
                         break;
 
                     case ProductType.M:
-                        Assert.That(type.GetRnaTerminusType(), Is.EqualTo(FragmentationTerminus.None));
+                        Assert.That(type.GetRnaTerminusType(), Is.EqualTo(FragmentationTerminus.Both));
                         break;
 
                     case ProductType.aStar:

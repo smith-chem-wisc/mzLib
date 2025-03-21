@@ -19,6 +19,7 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
 using System;
@@ -617,7 +618,6 @@ namespace Test
         {
             string testSequenceForThisTest = "PEPTIDEa";
 
-            Loaders.LoadElements();
             Residue x = new Residue("a", 'a', "a", new ChemicalFormula(), ModificationSites.All); 
             Residue.AddNewResiduesToDictionary(new List<Residue> { x });
 

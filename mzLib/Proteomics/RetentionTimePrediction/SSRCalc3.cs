@@ -568,9 +568,11 @@ namespace Proteomics.RetentionTimePrediction
             get { return 0; }
         }
 
-        public double ScoreSequence(PeptideWithSetModifications item)
+        public double ScoreSequence(PeptideWithSetModifications item) => ScoreSequence(item.BaseSequence);
+
+        public double ScoreSequence(string baseSequence)
         {
-            var seq = item.BaseSequence; //PTMs are not yet implemented
+            var seq = baseSequence; //PTMs are not yet implemented
             double tsum3 = 0.0;
             int i;
 

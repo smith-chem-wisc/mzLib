@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using static Test.Transcriptomics.TestNucleicAcid;
 using Transcriptomics;
 using MassSpectrometry;
+using Omics;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
@@ -22,15 +23,15 @@ namespace Test.Transcriptomics
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    internal class TestFragmentation
+    public class TestFragmentation
     {
 
-        internal static IEnumerable<SixmerTestCase> GetSixMerIndividualFragmentTypeTestCases() =>
+        public static IEnumerable<TestNucleicAcid.SixmerTestCase> GetSixMerIndividualFragmentTypeTestCases() =>
             TestNucleicAcid.GetSixmerIndividualFragmentTypeTestCases();
 
         [Test]
         [TestCaseSource(nameof(GetSixMerIndividualFragmentTypeTestCases))]
-        public void TestGetNeutralFragments(SixmerTestCase testCase)
+        public void TestGetNeutralFragments(TestNucleicAcid.SixmerTestCase testCase)
         {
             var rna = new RNA("GUACUG")
                 .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
@@ -82,11 +83,11 @@ namespace Test.Transcriptomics
             {
                 foreach (var oligoWithSetMods in rnaToTest.Select(rna => rna.Digest(digestionparams, fixedMods, variableMods).First()))
                 {
-                    var terminalSpecifc = term == FragmentationTerminus.Both 
-                        ? potentialProducts 
+                    var terminalSpecifc = term == FragmentationTerminus.Both
+                        ? potentialProducts
                         : potentialProducts.Where(p => p.GetRnaTerminusType() == term).ToList();
 
-                    var expectedProductCount = term == FragmentationTerminus.Both 
+                    var expectedProductCount = term == FragmentationTerminus.Both
                         ? (oligoWithSetMods.Length - 1) * (terminalSpecifc.Count - 1) + 1 // there is only one M ion, so for both, remove that form muliplier and add one
                         : (oligoWithSetMods.Length - 1) * terminalSpecifc.Count;
 
@@ -138,18 +139,25 @@ namespace Test.Transcriptomics
             ProductType productType, double[] unmodifiedFragmentMass, double[] modifiedFragmentMasses)
         {
             var mods = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).ToList();
+            var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
             var rna = new RNA(sequence);
 
-            var unmodifiedOligo = rna.Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
-                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+            var unmodifiedOligo = new OligoWithSetMods(sequence, new Dictionary<string, Modification>(),
+                 0, new RnaDigestionParams(), rna, 1, rna.Length);
             Assert.That(unmodifiedOligo.AllModsOneIsNterminus.Count, Is.EqualTo(0));
             Assert.That(unmodifiedOligo.FullSequence, Is.EqualTo(sequence));
+            Assert.That(unmodifiedOligo.SequenceWithChemicalFormulas, Is.EqualTo(sequence));
+            Assert.That(unmodifiedOligo.FullSequenceWithMassShift(), Is.EqualTo(sequence));
             Assert.That(unmodifiedOligo.MonoisotopicMass, Is.EqualTo(unmodifiedMass).Within(0.01));
 
-            var modifiedOligo = rna.Digest(new RnaDigestionParams(), mods, new List<Modification>())
-                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+            var modifiedOligo = new OligoWithSetMods(fullSequence, modDict,
+                0, new RnaDigestionParams(), rna, 1, rna.Length);
+            var formulaSequence = fullSequence.Replace("Metal:Sodium on A", "H-1Na");
+            var massShiftSequence = fullSequence.Replace("Metal:Sodium on A", "+21.981944");
             Assert.That(modifiedOligo.AllModsOneIsNterminus.Count, Is.EqualTo(mods.Count));
             Assert.That(modifiedOligo.FullSequence, Is.EqualTo(fullSequence));
+            Assert.That(modifiedOligo.SequenceWithChemicalFormulas, Is.EqualTo(formulaSequence));
+            Assert.That(modifiedOligo.FullSequenceWithMassShift(), Is.EqualTo(massShiftSequence));
             Assert.That(modifiedOligo.MonoisotopicMass, Is.EqualTo(modifiedMass).Within(0.01));
 
             var unmodifiedProducts = unmodifiedOligo.GetNeutralFragments(productType).ToList();
@@ -171,7 +179,7 @@ namespace Test.Transcriptomics
 
         [Test]
         [TestCaseSource(nameof(GetSixMerIndividualFragmentTypeTestCases))]
-        public void TestRnaFragments(SixmerTestCase testCase)
+        public void TestRnaFragments(TestNucleicAcid.SixmerTestCase testCase)
         {
             var rna = new RNA("GUACUG")
                 .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
@@ -187,6 +195,7 @@ namespace Test.Transcriptomics
                 Assert.That(testCase.NeutralMasses[i], Is.EqualTo(product.MonoisotopicMass).Within(0.01));
                 Assert.That(0, Is.EqualTo(product.NeutralLoss));
                 Assert.That(null, Is.EqualTo(product.SecondaryProductType));
+                Assert.That(!product.IsInternalFragment);
                 Assert.That(0, Is.EqualTo(product.SecondaryFragmentNumber));
 
                 string annotation = $"{product.ProductType}{product.FragmentNumber}";
@@ -199,7 +208,7 @@ namespace Test.Transcriptomics
 
         [Test]
         [TestCaseSource(nameof(GetSixMerIndividualFragmentTypeTestCases))]
-        public void TestRnaFragmentNumbers(SixmerTestCase testCase)
+        public void TestRnaFragmentNumbers(TestNucleicAcid.SixmerTestCase testCase)
         {
             var rna = new RNA("GUACUG")
                 .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
