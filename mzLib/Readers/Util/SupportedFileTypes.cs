@@ -91,17 +91,14 @@ namespace Readers
                 case ".psmtsv": return SupportedFileType.psmtsv;
                 case ".osmtsv": return SupportedFileType.osmtsv;
                 case ".feature":
-                    if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(),
-                            StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;
-                    if (filePath.EndsWith(SupportedFileType.Ms2Feature.GetFileExtension(),
-                            StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Ms2Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms2Feature;
                     throw new MzLibException("Feature file type not supported");
 
                 case ".csv":
-                    if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(),
-                            StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Mzrt_TopFd;
                     throw new MzLibException("Csv file type not supported");
 

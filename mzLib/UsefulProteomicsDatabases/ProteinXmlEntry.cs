@@ -216,7 +216,6 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-
         /// <summary>
         /// Finish parsing an entry
         /// </summary>

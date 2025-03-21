@@ -22,7 +22,6 @@ namespace Test.Transcriptomics
         [TestCase(DissociationType.HCD, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.b, ProductType.c, ProductType.d,
             ProductType.dWaterLoss, ProductType.w, ProductType.x, ProductType.y, ProductType.z, ProductType.M })]
         [TestCase(DissociationType.CID, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss,
-
             ProductType.w, ProductType.y, ProductType.yWaterLoss, ProductType.M })]
         public void TestProductTypes_Dissociation(DissociationType dissociation, ProductType[] products)
         {

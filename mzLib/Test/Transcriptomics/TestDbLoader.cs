@@ -7,10 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using MzLibUtil;
 using UsefulProteomicsDatabases.Transcriptomics;
-using NUnit.Framework;
-using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Transcriptomics;
 

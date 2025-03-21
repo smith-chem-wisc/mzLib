@@ -4,14 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
-using NUnit.Framework;
 using Omics.Fragmentation;
 using Transcriptomics;
 using UsefulProteomicsDatabases;
-using Constants = Chemistry.Constants;
 
 namespace Test.Transcriptomics
 {
@@ -26,8 +22,6 @@ namespace Test.Transcriptomics
 
         public static IEnumerable<SixmerTestCase> GetSixmerIndividualFragmentTypeTestCases()
         {
-            Loaders.LoadElements();
-
             yield return new SixmerTestCase("GUACUG", ProductType.a,
                 new[] { 267.089, 573.114, 902.167, 1207.208, 1513.233 },
                 new[] { "C10H13N5O4", "C19H24N7O12P", "C29H36N12O18P2", "C38H48N15O25P3", "C47H59N17O33P4" });
@@ -147,7 +141,6 @@ namespace Test.Transcriptomics
 
             Assert.Throws<ArgumentException>(() => new RNA("GUA~CUG"));
         }
-
 
         [Test]
         [TestCase("GUACUG", new[] { -1, -2, -3, -4, -5 }, new[] { 1873.273, 936.133, 623.752, 467.562, 373.848 })]

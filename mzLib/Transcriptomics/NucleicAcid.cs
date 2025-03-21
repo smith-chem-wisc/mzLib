@@ -1,6 +1,4 @@
-﻿using System.Text;
-using Chemistry;
-using Omics;
+﻿using Chemistry;
 using Omics.Digestion;
 using Omics.Modifications;
 using Omics;
@@ -104,7 +102,6 @@ namespace Transcriptomics
         private IDictionary<int, List<Modification>> _oneBasedPossibleLocalizedModifications;
 
         #endregion
-
 
         #region Public Properties
 

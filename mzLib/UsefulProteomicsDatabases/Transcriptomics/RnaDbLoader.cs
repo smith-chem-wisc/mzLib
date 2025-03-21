@@ -1,14 +1,14 @@
 ﻿#nullable enable
+using Omics.Modifications;
 using System.Collections.Generic;
 using System.IO.Compression;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Transcriptomics;
 using System.Text.RegularExpressions;
-using Chemistry;
-using Omics.Modifications;
 using System.Xml;
+using Chemistry;
+using Transcriptomics;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {

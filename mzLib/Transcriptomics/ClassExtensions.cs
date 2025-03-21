@@ -16,45 +16,51 @@ namespace Transcriptomics
             IDictionary<int, List<Modification>> newModifications = modifications ?? target.OneBasedPossibleLocalizedModifications;
 
 
-            if (target is RNA rna)
+            switch (target)
             {
-                bool newIsDecoy = isDecoy ?? rna.IsDecoy;
-                returnObj = new RNA(newSequence, rna.Name, rna.Accession, rna.Organism, rna.DatabaseFilePath,
-                    rna.FivePrimeTerminus, rna.ThreePrimeTerminus, newModifications, rna.IsContaminant, newIsDecoy, rna.GeneNames.ToList(), rna.AdditionalDatabaseFields);
-            }
-            else if (target is OligoWithSetMods oligo)
-            {
-                var oldParent = oligo.Parent as RNA ?? throw new NullReferenceException();
-                var newParent = new RNA(
-                    newSequence,
-                    oldParent.Name,
-                    oldParent.Accession,
-                    oldParent.Organism,
-                    oldParent.DatabaseFilePath,
-                    oldParent.FivePrimeTerminus,
-                    oldParent.ThreePrimeTerminus,
-                    newModifications,
-                    oldParent.IsContaminant,
-                    oldParent.IsDecoy,
-                    oldParent.GeneNames.ToList(),
-                    oldParent.AdditionalDatabaseFields);
+                case RNA rna:
+                {
+                    bool newIsDecoy = isDecoy ?? rna.IsDecoy;
+                    returnObj = new RNA(newSequence, rna.Name, rna.Accession, rna.Organism, rna.DatabaseFilePath,
+                        rna.FivePrimeTerminus, rna.ThreePrimeTerminus, newModifications, rna.IsContaminant, newIsDecoy, rna.GeneNames.ToList(), rna.AdditionalDatabaseFields);
+                    break;
+                }
+                case OligoWithSetMods oligo:
+                {
+                    var oldParent = oligo.Parent as RNA ?? throw new NullReferenceException();
+                    bool newIsDecoy = isDecoy ?? oldParent.IsDecoy;
+                    var newParent = new RNA(
+                        newSequence,
+                        oldParent.Name,
+                        oldParent.Accession,
+                        oldParent.Organism,
+                        oldParent.DatabaseFilePath,
+                        oldParent.FivePrimeTerminus,
+                        oldParent.ThreePrimeTerminus,
+                        newModifications,
+                        oldParent.IsContaminant,
+                        newIsDecoy,
+                        oldParent.GeneNames.ToList(),
+                        oldParent.AdditionalDatabaseFields);
 
-                returnObj = new OligoWithSetMods(
-                    newParent,
-                    oligo.DigestionParams as RnaDigestionParams,
-                    oligo.OneBasedStartResidue,
-                    oligo.OneBasedEndResidue,
-                    oligo.MissedCleavages,
-                    oligo.CleavageSpecificityForFdrCategory,
-                    newModifications.ToDictionary(p => p.Key, p => p.Value.First()),
-                    oligo.NumFixedMods,
-                    oligo.FivePrimeTerminus,
-                    oligo.ThreePrimeTerminus);
+                    returnObj = new OligoWithSetMods(
+                        newParent,
+                        (oligo.DigestionParams as RnaDigestionParams)!,
+                        oligo.OneBasedStartResidue,
+                        oligo.OneBasedEndResidue,
+                        oligo.MissedCleavages,
+                        oligo.CleavageSpecificityForFdrCategory,
+                        newModifications.ToDictionary(p => p.Key, p => p.Value.First()),
+                        oligo.NumFixedMods,
+                        oligo.FivePrimeTerminus,
+                        oligo.ThreePrimeTerminus);
+                    break;
+                }
+                default:
+                    throw new ArgumentException("INucleicAcid type not yet implemented");
             }
-            else
-                throw new ArgumentException("Target must be RNA or OligoWithSetMods");
 
-            return (T)returnObj ?? throw new NullReferenceException();
+            return (T)returnObj ?? throw new NullReferenceException("Error creating new INucleicAcid");
         }
 
         /// <summary>

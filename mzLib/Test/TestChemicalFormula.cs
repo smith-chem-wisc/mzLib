@@ -1099,8 +1099,6 @@ namespace Test
             Assert.That(f.MonoisotopicMass, Is.EqualTo(-131.95423157613).Within(0.001));
         }
 
-      
-
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
             public PhysicalObjectWithChemicalFormula(string v)
