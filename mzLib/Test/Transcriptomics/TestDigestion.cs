@@ -304,8 +304,6 @@ namespace Test.Transcriptomics
                 List<Product> fragments = new();
                 digestionProduct.Fragment(DissociationType.CID, FragmentationTerminus.Both, fragments);
 
-                List<(int FragmentNumber, ProductType Type, double Mass)[]> ughh = new();
-
                 // test that fragments are correct
                 var fragmentsToCompare = DigestFragmentTestCases
                     .Where(p => p.Sequence.Equals(digestionProduct.BaseSequence)).ToList();

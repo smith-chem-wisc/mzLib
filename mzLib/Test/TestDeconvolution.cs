@@ -9,14 +9,12 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using MassSpectrometry.Deconvolution;
 using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Test.FileReadingTests;
-using UsefulProteomicsDatabases;
 
 namespace Test
 {

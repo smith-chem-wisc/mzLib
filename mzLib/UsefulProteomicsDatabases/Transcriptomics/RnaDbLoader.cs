@@ -1,11 +1,12 @@
-﻿#nullable enable
-using Omics.Modifications;
+﻿using Omics.Modifications;
+using System;
 using System.Collections.Generic;
 using System.IO.Compression;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Xml;
 using Chemistry;
 using Transcriptomics;
@@ -112,9 +113,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                                     regexes = ModomicsFieldRegexes;
                                     identifierHeader = "SOterm";
                                     break;
-
-                                case RnaFastaHeaderType.Unknown:
-                                case null:
                                 default:
                                     throw new MzLibUtil.MzLibException("Unknown fasta header format: " + line);
                             }

@@ -1,10 +1,10 @@
 ﻿using Chemistry;
-using Easy.Common.Extensions;
 using MassSpectrometry;
-using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics;
+using Easy.Common.Extensions;
 using Omics.Fragmentation.Oligo;
 using System.Text;
 

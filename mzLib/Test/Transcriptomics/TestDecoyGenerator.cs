@@ -127,86 +127,154 @@ namespace Test.Transcriptomics
             }
         }
 
-        //[Test]
-        //public void TestShuffledDecoy_Simple()
-        //{
-        //    var oligos = new List<RNA>()
-        //    {
-        //        new RNA("GUACUG"),
-        //        new RNA("GUACUA"),
-        //    };
-        //    var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Shuffle);
-        //    Assert.That(decoys.Count, Is.EqualTo(2));
+
+        // TODO: Implement these test once other decoy generation methods are availiable
+
+        [Test]
+        public void TestShuffledDecoy_Simple()
+        {
+            var oligos = new List<RNA>()
+            {
+                new RNA("GUACUG"),
+                new RNA("GUACUA"),
+            };
+            Assert.Throws<NotImplementedException>(() =>
+            {
+                var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Shuffle);
+            });
 
 
-        //    Assert.Fail();
-        //}
+            //var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Shuffle);
+            //Assert.That(decoys.Count, Is.EqualTo(2));
+        }
 
-        //[Test]
-        //public void TestShuffledDecoy_SimpleWithMods()
-        //{
-        //    var oligos = new List<RNA>()
-        //    {
-        //        new RNA("GUACUG"),
-        //        new RNA("GUACUA"),
-        //    };
-        //    var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Shuffle);
-        //    Assert.That(decoys.Count, Is.EqualTo(2));
+        [Test]
+        public void TestShuffledDecoy_SimpleWithMods()
+        {
+            var oligos = new List<RNA>()
+            {
+                new RNA("GUACUG"),
+                new RNA("GUACUA"),
+            };
+            Assert.Throws<NotImplementedException>(() =>
+            {
+                var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Shuffle);
+            });
+            //var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Shuffle);
+            //Assert.That(decoys.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void TestShuffledDecoy_FromDatabase()
+        {
+            Assert.Throws<NotImplementedException>(() =>
+            {
+                var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifiedFastaPath, true, DecoyType.Shuffle, false, out var errors);
+            });
+
+            //var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifiedFastaPath, true, DecoyType.Shuffle, false, out var errors);
+            //Assert.That(errors.Count, Is.EqualTo(0));
+            //Assert.That(oligos.Count, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void TestSlideDecoy_Simple()
+        {
+            var oligos = new List<RNA>()
+            {
+                new RNA("GUACUG"),
+                new RNA("GUACUA"),
+            };
+            Assert.Throws<NotImplementedException>(() =>
+            {
+                var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Slide);
+            });
+
+            //var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Slide);
+            //Assert.That(decoys.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void TestSlideDecoy_SimpleWithMods()
+        {
+            var oligos = new List<RNA>()
+            {
+                new RNA("GUACUG"),
+                new RNA("GUACUA"),
+            };
+
+            Assert.Throws<NotImplementedException>(() =>
+            {
+                var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Slide);
+            });
+
+            //var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Slide);
+            //Assert.That(decoys.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void TestSlideDecoy_FromDatabase()
+        {
+            Assert.Throws<NotImplementedException>(() =>
+            {
+                var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifiedFastaPath, true, DecoyType.Shuffle, false, out var errors);
+            });
+
+            //var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifiedFastaPath, true, DecoyType.Slide, false, out var errors);
+            //Assert.That(errors.Count, Is.EqualTo(0));
+            //Assert.That(oligos.Count, Is.EqualTo(10));
+        }
 
 
-        //    Assert.Fail();
-        //}
+        [Test]
+        public void TestCreateNew()
+        {
+            var mods = PtmListLoader.ReadModsFromString(
+                "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//",
+                out List<(Modification, string)> modsOut).ToList();
+            var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
+            var oneBasedPossibleLocalizedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 1, new List<Modification>() { modDict["Sodium on A"] } },
+                { 3, new List<Modification>() { modDict["Sodium on A"] } },
+            };
 
-        //[Test]
-        //public void TestShuffledDecoy_FromDatabase()
-        //{
-        //    //var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifiedFastaPath, true, DecoyType.Shuffle, false,
-        //    //                   out var errors);
-        //    //Assert.That(errors.Count, Is.EqualTo(0));
-        //    //Assert.That(oligos.Count, Is.EqualTo(10));
+            var rna = new RNA("GAACUG", "name", "accession", "organism", "databaseFilePath",
+                null, null, oneBasedPossibleLocalizedModifications, false, false, new List<Tuple<string, string>>(),
+                new Dictionary<string, string>());
+            var oligos = rna
+                .Digest(new RnaDigestionParams(maxMods: 1), new List<Modification>(), mods)
+                .ToList();
+
+            var clonedRna = rna.CreateNew(null, null, true);
+            var clonedOligo =  oligos.First().CreateNew(null, null, true);
+
+            // ensure they are identical except for the isDecoy field
+            Assert.That(rna.BaseSequence, Is.EqualTo(clonedRna.BaseSequence));
+            Assert.That(rna.OneBasedPossibleLocalizedModifications, Is.EqualTo(clonedRna.OneBasedPossibleLocalizedModifications));
+            Assert.That(rna.IsDecoy, Is.Not.EqualTo(clonedRna.IsDecoy));
+
+            Assert.That(oligos.First().BaseSequence, Is.EqualTo(clonedOligo.BaseSequence));
+            Assert.That(oligos.First().OneBasedPossibleLocalizedModifications, Is.EqualTo(clonedOligo.OneBasedPossibleLocalizedModifications));
+            Assert.That(oligos.First().Parent.IsDecoy, Is.Not.EqualTo(clonedOligo.Parent.IsDecoy));
 
 
-        //    Assert.Fail();
-        //}
+            var newMods = new Dictionary<int, List<Modification>>()
+            {
+                { 1, new List<Modification>() { modDict["Sodium on A"] } },
+                { 2, new List<Modification>() { modDict["Sodium on A"] } },
+                { 3, new List<Modification>() { modDict["Sodium on A"] } },
+            };
+            clonedRna = rna.CreateNew("AAAAAA", newMods, null);
+            clonedOligo = oligos.First().CreateNew("AAAAAA", newMods, null);
 
-        //[Test]
-        //public void TestSlideDecoy_Simple()
-        //{
-        //    var oligos = new List<RNA>()
-        //    {
-        //        new RNA("GUACUG"),
-        //        new RNA("GUACUA"),
-        //    };
-        //    var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Slide);
-        //    Assert.That(decoys.Count, Is.EqualTo(2));
+            Assert.That(rna.BaseSequence, Is.Not.EqualTo(clonedRna.BaseSequence));
+            Assert.That(rna.OneBasedPossibleLocalizedModifications, Is.Not.EqualTo(clonedRna.OneBasedPossibleLocalizedModifications));
+            Assert.That(rna.IsDecoy, Is.EqualTo(clonedRna.IsDecoy));
 
-        //    Assert.Fail();
-        //}
-
-        //[Test]
-        //public void TestSlideDecoy_SimpleWithMods()
-        //{
-        //    var oligos = new List<RNA>()
-        //    {
-        //        new RNA("GUACUG"),
-        //        new RNA("GUACUA"),
-        //    };
-        //    var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Slide);
-        //    Assert.That(decoys.Count, Is.EqualTo(2));
-
-        //    Assert.Fail();
-        //}
-
-        //[Test]
-        //public void TestSlideDecoy_FromDatabase()
-        //{
-        //    //var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifiedFastaPath, true, DecoyType.Slide, false,
-        //    //                                  out var errors);
-        //    //Assert.That(errors.Count, Is.EqualTo(0));
-        //    //Assert.That(oligos.Count, Is.EqualTo(10));
-
-        //    Assert.Fail();
-
-        //}
+            Assert.That(oligos.First().BaseSequence, Is.Not.EqualTo(clonedOligo.BaseSequence));
+            Assert.That(oligos.First().OneBasedPossibleLocalizedModifications, Is.Not.EqualTo(clonedOligo.OneBasedPossibleLocalizedModifications));
+            Assert.That(oligos.First().Parent.IsDecoy, Is.EqualTo(clonedOligo.Parent.IsDecoy));
+        }
     }
 }
