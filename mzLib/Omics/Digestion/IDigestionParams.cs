@@ -2,7 +2,7 @@
 
 namespace Omics.Digestion
 {
-    public interface IDigestionParams 
+    public interface IDigestionParams
     {
         int MaxMissedCleavages { get; set; }
         int MinLength { get; set; }

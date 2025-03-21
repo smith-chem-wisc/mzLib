@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
-using Chemistry;
 using MassSpectrometry.Deconvolution;
 using MzLibUtil;
 

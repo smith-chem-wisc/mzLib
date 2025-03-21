@@ -15,10 +15,7 @@ namespace Omics.SpectrumMatch
         public List<MatchedFragmentIon> MatchedFragmentIons { get; set; }
         public bool IsDecoy { get; set; }
 
-        public virtual string Name
-        {
-            get { return Sequence + "/" + ChargeState; }
-        }
+        public virtual string Name => Sequence + "/" + ChargeState;
 
         public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false) 
             : base(peaks.Select(p => p.Mz).ToArray(), peaks.Select(p => p.Intensity).ToArray(), false)
