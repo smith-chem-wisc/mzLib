@@ -6,7 +6,7 @@ using FlashLFQ;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
 
-namespace TestFlashLFQ
+namespace Test
 {
     internal class TestIdentificationAdapter
     {
@@ -62,7 +62,7 @@ namespace TestFlashLFQ
             fullFilePath.Add(fullFilePath1);
             fullFilePath.Add(fullFilePath2);
 
-            Dictionary<string, string> allFiles = file.FileNametoFilePath(fullFilePath);
+            Dictionary<string, string> allFiles = file.FileNameToFilePath(fullFilePath);
 
             Assert.That(allFiles.TryGetValue(fileName, out var output));
             Assert.AreEqual(output, fullFilePath1);
@@ -81,7 +81,7 @@ namespace TestFlashLFQ
             string rawFilePath = @"DataFiles\SmallCalibratibleYeast.mzml";
             fullFilePath.Add(rawFilePath);
 
-            Dictionary<string, string> allFiles = file.FileNametoFilePath(fullFilePath);
+            Dictionary<string, string> allFiles = file.FileNameToFilePath(fullFilePath);
 
             Assert.That(allFiles.TryGetValue(fileName, out var output));
             Assert.AreEqual(output, rawFilePath);

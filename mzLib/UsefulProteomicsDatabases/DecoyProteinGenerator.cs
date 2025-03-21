@@ -180,6 +180,7 @@ namespace UsefulProteomicsDatabases
 
                 lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
             });
+            decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
             return decoyProteins;
         }
 
@@ -359,6 +360,7 @@ namespace UsefulProteomicsDatabases
                     protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
             });
+            decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
             return decoyProteins;
         }
 

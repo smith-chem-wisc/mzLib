@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="Proteomics.ProteolyticDigestion.PeptideWithSetModifications">
+    <Position X="6" Y="9.25" Width="3" />
+    <TypeIdentifier />
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Transcriptomics.OligoWithSetMods">
+    <Position X="9.75" Y="9.25" Width="2.5" />
+    <TypeIdentifier />
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Transcriptomics.NucleicAcid">
+    <Position X="26.75" Y="1" Width="2.25" />
+    <TypeIdentifier />
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Proteomics.Protein" Collapsed="true">
+    <Position X="23.25" Y="1" Width="3.25" />
+    <TypeIdentifier />
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Proteomics.ProteolyticDigestion.Protease">
+    <Position X="14.5" Y="4.5" Width="2" />
+    <TypeIdentifier />
+  </Class>
+  <Class Name="Transcriptomics.Rnase">
+    <Position X="18" Y="4.5" Width="1.75" />
+    <TypeIdentifier />
+  </Class>
+  <Class Name="Transcriptomics.RnaDigestionParams">
+    <Position X="35.25" Y="1" Width="1.75" />
+    <TypeIdentifier />
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Proteomics.ProteolyticDigestion.DigestionParams">
+    <Position X="32.25" Y="1" Width="2.75" />
+    <TypeIdentifier />
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Proteomics.ProteolyticDigestion.ProteolyticPeptide">
+    <Position X="6.75" Y="5.75" Width="2.5" />
+    <TypeIdentifier />
+  </Class>
+  <Class Name="Transcriptomics.NucleolyticOligo">
+    <Position X="10" Y="5.75" Width="1.75" />
+    <TypeIdentifier />
+  </Class>
+  <Class Name="Omics.Digestion.LysisProduct">
+    <Position X="8.5" Y="1" Width="1.5" />
+    <TypeIdentifier />
+  </Class>
+  <Class Name="Omics.Digestion.DigestionAgent">
+    <Position X="16.5" Y="1" Width="1.5" />
+    <TypeIdentifier />
+  </Class>
+  <Class Name="Omics.BioPolymerWithSetModsExtensions">
+    <Position X="1.25" Y="9.25" Width="2.75" />
+    <TypeIdentifier />
+  </Class>
+  <Interface Name="Omics.IBioPolymer" Collapsed="true">
+    <Position X="21.5" Y="1" Width="1.5" />
+    <TypeIdentifier />
+  </Interface>
+  <Interface Name="Omics.IBioPolymerWithSetMods">
+    <Position X="4.25" Y="9.25" Width="1.5" />
+    <TypeIdentifier />
+  </Interface>
+  <Interface Name="Omics.Digestion.IDigestionParams">
+    <Position X="30.5" Y="1" Width="1.5" />
+    <TypeIdentifier />
+  </Interface>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

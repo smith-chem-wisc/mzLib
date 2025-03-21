@@ -15,6 +15,7 @@ namespace Omics.Fragmentation
         public ProductType? SecondaryProductType { get; } //used for internal fragment ions
         public int SecondaryFragmentNumber { get; } //used for internal fragment ions
         public double MonoisotopicMass => NeutralMass;
+        public bool IsInternalFragment => SecondaryProductType != null;
 
         /// <summary>
         /// A product is the individual neutral fragment from an MS dissociation. A fragmentation product here contains one of the two termini (N- or C-). 
@@ -31,15 +32,17 @@ namespace Omics.Fragmentation
             Terminus = terminus;
             FragmentNumber = fragmentNumber;
             ResiduePosition = residuePosition;
+
+            // These two are set for internal ions only.
             SecondaryProductType = secondaryProductType;
             SecondaryFragmentNumber = secondaryFragmentNumber;
         }
 
-        public string Annotation
+        public virtual string Annotation
         {
             get
             {
-                StringBuilder sb = new StringBuilder();
+                StringBuilder sb = new StringBuilder(8);
 
                 if (SecondaryProductType == null)
                 {
@@ -84,7 +87,7 @@ namespace Omics.Fragmentation
             }
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is Product other && Equals(other);
         }
@@ -107,5 +110,18 @@ namespace Omics.Fragmentation
         {
             return NeutralMass.GetHashCode();
         }
+    }
+
+
+    /// <summary>
+    /// Product Class that caches the annotation information to avoid repeated calculations
+    /// </summary>
+    public class ProductWithCache(ProductType productType, FragmentationTerminus terminus, double neutralMass, int fragmentNumber,
+        int residuePosition, double neutralLoss, ProductType? secondaryProductType = null, int secondaryFragmentNumber = 0)
+        : Product(productType, terminus, neutralMass, fragmentNumber, residuePosition, neutralLoss,
+            secondaryProductType, secondaryFragmentNumber)
+    {
+        private string? _annotation;
+        public override string Annotation => _annotation ??= base.Annotation;
     }
 }

@@ -225,11 +225,13 @@ namespace Omics.SpectrumMatch
                         }
 
                         //get terminus
-
                         if (isProtein)
-                            TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType, out terminus);
+                            TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                                out terminus);
                         else
-                            terminus = Omics.Fragmentation.Oligo.TerminusSpecificProductTypes.GetRnaTerminusType(productType);
+                            Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                                out terminus);
+
 
                         //get amino acid position
                         aminoAcidPosition = terminus is FragmentationTerminus.C or FragmentationTerminus.ThreePrime ?
@@ -253,7 +255,7 @@ namespace Omics.SpectrumMatch
                     double neutralTheoreticalMass = neutralExperimentalMass - errorDa; //theoretical mass is measured mass - measured error
 
                     //The product created here is the theoretical product, with the mass back-calculated from the measured mass and measured error
-                    Product theoreticalProduct = new Product(productType,
+                    Product theoreticalProduct = new ProductWithCache(productType,
                       terminus,
                       neutralTheoreticalMass,
                       fragmentNumber,
@@ -262,7 +264,7 @@ namespace Omics.SpectrumMatch
                       secondaryProductType,
                       secondaryFragmentNumber);
 
-                    matchedIons.Add(new MatchedFragmentIon(theoreticalProduct, mz, intensity, z));
+                    matchedIons.Add(new MatchedFragmentIonWithCache(theoreticalProduct, mz, intensity, z));
                 }
             }
             return matchedIons;
@@ -368,6 +370,7 @@ namespace Omics.SpectrumMatch
         {
             return FullSequence;
         }
+
         public virtual LibrarySpectrum ToLibrarySpectrum()
         {
             bool isDecoy = this.DecoyContamTarget == "D";

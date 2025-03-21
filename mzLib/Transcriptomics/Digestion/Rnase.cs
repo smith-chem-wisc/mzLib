@@ -9,7 +9,6 @@ namespace Transcriptomics.Digestion
         public Rnase(string name, CleavageSpecificity cleaveSpecificity, List<DigestionMotif> motifList, Modification cleavageMod = null) :
             base(name, cleaveSpecificity, motifList, cleavageMod)
         {
-            Name = name;
             CleavageSpecificity = cleaveSpecificity;
             DigestionMotifs = motifList;
         }

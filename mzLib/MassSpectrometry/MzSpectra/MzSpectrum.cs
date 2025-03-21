@@ -22,10 +22,8 @@ using MzLibUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 
 namespace MassSpectrometry
 {
@@ -126,7 +124,7 @@ namespace MassSpectrometry
             }
         }
 
-        public double? FirstX
+        public virtual double? FirstX
         {
             get
             {
@@ -138,7 +136,7 @@ namespace MassSpectrometry
             }
         }
 
-        public double? LastX
+        public virtual double? LastX
         {
             get
             {
@@ -373,7 +371,7 @@ namespace MassSpectrometry
                 }
             }
 
-            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, Statistics.StandardDeviation(listOfRatios), massIndex);
+            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, listOfRatios.StandardDeviation());
         }
 
         [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
@@ -611,6 +609,26 @@ namespace MassSpectrometry
             return XArray.GetClosestIndex(x);
         }
 
+        public List<int> GetPeakIndicesWithinTolerance(double x, Tolerance tolerance)
+        {
+            if (XArray.Length == 0)
+                return [];
+
+            // find min and max allowed
+            var minX = tolerance.GetMinimumValue(x);
+            var maxX = tolerance.GetMaximumValue(x);
+
+            // check if min and max are possible to find in this spectrum
+            if (XArray.First() > maxX || XArray.Last() < minX)
+                return [];
+
+            // find index closest to extrema
+            int startingIndex = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
+            int endIndex = XArray.GetClosestIndex(maxX, ArraySearchOption.Previous);
+
+            return Enumerable.Range(startingIndex, endIndex - startingIndex + 1).ToList();
+        }
+
         public void ReplaceXbyApplyingFunction(Func<MzPeak, double> convertor)
         {
             for (int i = 0; i < Size; i++)
@@ -796,7 +814,12 @@ namespace MassSpectrometry
             return peakList[index];
         }
 
-        private MzPeak GeneratePeak(int index)
+        /// <summary>
+        /// The source of all peaks which populate the peakList
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        protected virtual MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
         }

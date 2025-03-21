@@ -44,8 +44,6 @@ namespace Readers
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
 
@@ -130,8 +128,6 @@ namespace Readers
             {
                 throw new FileNotFoundException();
             }
-
-            Loaders.LoadElements();
 
             if (dynamicConnection != null)
             {
@@ -525,8 +521,6 @@ namespace Readers
                 default: return DissociationType.Unknown;
             }
         }
-
-
 
         /// <summary>
         /// Gets all the MS orders of all scans in a dynamic connection. This is useful if you want to open all MS1 scans

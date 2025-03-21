@@ -16,7 +16,8 @@ namespace Test.FileReadingTests
         [TestCase("DataFiles/sliced_ethcd.raw", SupportedFileType.ThermoRaw)]
         [TestCase("DataFiles/SmallCalibratibleYeast.mzml", SupportedFileType.MzML)]
         [TestCase("DataFiles/tester.mgf", SupportedFileType.Mgf)]
-        [TestCase("DataFiles/tester.d", SupportedFileType.BrukerD)]
+        [TestCase("DataFiles/centroid_1x_MS1_4x_autoMS2.d", SupportedFileType.BrukerD)]
+        [TestCase("DataFiles/timsTOF_snippet.d", SupportedFileType.BrukerTimsTof)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms2Feature_FlashDeconvjurkat_td_rep1_fract2_ms2.feature", SupportedFileType.Ms2Feature)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature", SupportedFileType.Ms1Feature)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_jurkat_td_rep1_fract2_frac.mzrt.csv", SupportedFileType.Mzrt_TopFd)]
@@ -37,8 +38,7 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv", SupportedFileType.MsPathFinderTDecoys)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv", SupportedFileType.MsPathFinderTAllResults)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\crux.txt", SupportedFileType.CruxResult)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\XL_Intralinks.tsv", SupportedFileType.IntralinkResults)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\XLink.psmtsv", SupportedFileType.psmtsv)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv", SupportedFileType.ExperimentAnnotation)]
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();
@@ -58,6 +58,7 @@ namespace Test.FileReadingTests
         [Test]
         public static void TestSupportedFileTypeExtension_Errors()
         {
+
             string badTest = "badFile.taco";
             Exception e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"File type not supported"));
