@@ -119,7 +119,5 @@ namespace Omics.Digestion
                 HashSetPool.Return(indices);
             }
         }
-
-       
     }
 }

@@ -1,6 +1,5 @@
 ﻿using Chemistry;
 using System.Globalization;
-using Chemistry;
 
 namespace Transcriptomics
 {

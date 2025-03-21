@@ -1,22 +1,14 @@
 ﻿#nullable enable
-using System;
 using System.Collections.Generic;
 using System.IO.Compression;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Transcriptomics;
-using Easy.Common;
 using System.Text.RegularExpressions;
 using Chemistry;
-using Easy.Common.Extensions;
 using Omics.Modifications;
-using Proteomics;
-using System.Threading.Tasks;
 using System.Xml;
-using Chemistry;
-using Transcriptomics;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -184,16 +176,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
 
-        private static RnaFastaHeaderType DetectFastaHeaderType(string line)
-        {
-            if (!line.StartsWith(">"))
-                return RnaFastaHeaderType.Unknown;
-
-            // modomics -> >id:1|Name:tdbR00000010|SOterm:SO:0000254
-        
-            return RnaFastaHeaderType.Modomics;
-        }
-
         private static Dictionary<string, string> ParseRegexFields(string line,
             Dictionary<string, FastaHeaderFieldRegex> regexes)
         {
@@ -207,7 +189,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
             return fields;
         }
-
 
         public static Dictionary<string, IList<Modification>> IdToPossibleMods = new Dictionary<string, IList<Modification>>();
         public static Dictionary<string, Modification> IdWithMotifToMod = new Dictionary<string, Modification>();

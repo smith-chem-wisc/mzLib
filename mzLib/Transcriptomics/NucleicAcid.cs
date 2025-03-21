@@ -15,7 +15,6 @@ namespace Transcriptomics
     /// </summary>
     public abstract class NucleicAcid : INucleicAcid, IBioPolymer, IEquatable<NucleicAcid>
     {
-
         #region Static Properties
 
         /// <summary>
@@ -49,8 +48,7 @@ namespace Transcriptomics
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null)
         {
             MonoisotopicMass = 0;
-            Length = sequence.Length;
-            _nucleicAcids = new Nucleotide[Length];
+            _nucleicAcids = new Nucleotide[sequence.Length];
             ThreePrimeTerminus = threePrimeTerm ??= DefaultThreePrimeTerminus;
             FivePrimeTerminus = fivePrimeTerm ??= DefaultFivePrimeTerminus;
             _oneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
@@ -131,10 +129,8 @@ namespace Transcriptomics
         /// <summary>
         /// Gets the number of nucleic acids in this nucleic acid polymer
         /// </summary>
-        public int Length { get; private set; }
+        public int Length => BaseSequence.Length;
 
-
-        // TODO: These interface members
         public string Name { get; }
         public string FullName => Name; // TODO: Consider if this needs to be different from the name
         public string DatabaseFilePath { get; }
@@ -288,9 +284,7 @@ namespace Transcriptomics
                 return;
 
             int index = 0;
-
             double monoMass = 0;
-            ChemicalFormula chemFormula = new();
 
             StringBuilder sb = null;
             sb = new StringBuilder(sequence.Length);
@@ -323,7 +317,6 @@ namespace Transcriptomics
             }
 
             _sequence = sb.ToString();
-            Length = index;
             MonoisotopicMass += monoMass;
             Array.Resize(ref _nucleicAcids, Length);
         }

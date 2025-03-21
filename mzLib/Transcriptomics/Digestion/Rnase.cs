@@ -12,6 +12,7 @@ namespace Transcriptomics.Digestion
             CleavageSpecificity = cleaveSpecificity;
             DigestionMotifs = motifList;
         }
+
         public List<NucleolyticOligo> GetUnmodifiedOligos(NucleicAcid nucleicAcid, int maxMissedCleavages, int minLength,
             int maxLength)
         {

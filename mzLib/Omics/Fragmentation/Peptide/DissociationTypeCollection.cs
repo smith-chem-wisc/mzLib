@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using MassSpectrometry;
+using Omics.Fragmentation;
 
 namespace Omics.Fragmentation.Peptide
 {

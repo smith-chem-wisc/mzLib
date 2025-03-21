@@ -2,13 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
-using Transcriptomics;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
@@ -25,6 +22,7 @@ namespace Test.Transcriptomics
         [TestCase(DissociationType.HCD, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.b, ProductType.c, ProductType.d,
             ProductType.dWaterLoss, ProductType.w, ProductType.x, ProductType.y, ProductType.z, ProductType.M })]
         [TestCase(DissociationType.CID, new[] { ProductType.a, ProductType.aBaseLoss, ProductType.c, ProductType.dWaterLoss,
+
             ProductType.w, ProductType.y, ProductType.yWaterLoss, ProductType.M })]
         public void TestProductTypes_Dissociation(DissociationType dissociation, ProductType[] products)
         {

@@ -53,7 +53,6 @@ namespace Transcriptomics.Digestion
 
             FullSequence = sequence;
             _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
-            GetModsAfterDeserialization(allKnownMods);
             _allModsOneIsNterminus = GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
@@ -445,4 +444,3 @@ namespace Transcriptomics.Digestion
         }
     }
 }
-

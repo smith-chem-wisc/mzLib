@@ -3,6 +3,7 @@ using Omics.Fragmentation;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Chemistry;
+using Omics.Fragmentation.Peptide;
 
 namespace Omics.SpectrumMatch
 {
@@ -228,7 +229,7 @@ namespace Omics.SpectrumMatch
                             TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
                         else
-                            Omics.Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                            Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
 
 

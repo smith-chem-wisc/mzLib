@@ -28,7 +28,12 @@ namespace UsefulProteomicsDatabases
         /// <returns>A dictionary of new modification residue entries.</returns>
         public static Dictionary<string, int> WriteXmlDatabase(
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<RNA> bioPolymerList, string outputFileName) => WriteNucleicAcidXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<NucleicAcid>().ToList(), outputFileName);
+            List<IBioPolymer> bioPolymerList, string outputFileName)
+        {
+            return bioPolymerList.Any(p => p is Protein) 
+                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName) 
+                : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName);
+        }
 
         /// <summary>
         /// Writes an XML database for a list of nucleic acid sequences, including additional modifications.
@@ -41,9 +46,9 @@ namespace UsefulProteomicsDatabases
         /// Several chunks of code are commented out. These are blocks that are intended to be implmented in the future, but
         /// are not necessary for the bare bones implementation of Transcriptomics
         /// </remarks>
-        private static Dictionary<string, int> WriteNucleicAcidXmlDatabase(
+        public static Dictionary<string, int> WriteXmlDatabase(
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<NucleicAcid> nucleicAcidList, string outputFileName)
+            List<RNA> nucleicAcidList, string outputFileName)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             var xmlWriterSettings = new XmlWriterSettings
@@ -298,7 +303,7 @@ namespace UsefulProteomicsDatabases
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
-            // write nonvariant proteins (for cases where variants aren't applied, this just gets the nucleicAcid itself)
+            // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
             List<Protein> nonVariantProteins = proteinList.Select(p => p.NonVariantProtein).Distinct().ToList();
 
             var xmlWriterSettings = new XmlWriterSettings

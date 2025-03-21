@@ -110,17 +110,13 @@ namespace Readers
                     // these tsv cases have a specialized ending before the .tsv
                     if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Tsv_FlashDeconv;
-                    if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(),
-                            StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicPrsm;
-                    if (filePath.EndsWith(SupportedFileType.ToppicProteoform.GetFileExtension(),
-                            StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.ToppicProteoform.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicProteoform;
-                    if (filePath.EndsWith(SupportedFileType.ToppicPrsmSingle.GetFileExtension(),
-                            StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.ToppicPrsmSingle.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicPrsmSingle;
-                    if (filePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension(),
-                            StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.ToppicProteoformSingle.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ToppicProteoformSingle;
                     if (filePath.EndsWith(SupportedFileType.MsFraggerPsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsFraggerPsm;
@@ -160,5 +156,4 @@ namespace Readers
             }
         }
     }
-    
 }

@@ -10,13 +10,6 @@ namespace Omics.Fragmentation.Oligo
     {
         /// <summary>
         /// Product Ion types by dissociation method
-        /// HCD ions were taken from the following paper: https://www.nature.com/articles/s41598-023-36193-2
-        /// 
-        /// Ion types below here should be validated with experimental results.
-        /// Base and water losses occur very frequently and may also be present in these activation types.
-        /// CID, UVPD, and aEPD ions were taken from the following paper: https://pubs.acs.org/doi/10.1021/acs.analchem.3c05428?ref=PDF
-        /// NETD ions were taken from the following paper: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7161943/
-        /// TODO: find thermo poster for lowCID ions
         /// </summary>
         /// <remarks>
         /// HCD ions were taken from the following paper: https://www.nature.com/articles/s41598-023-36193-2
@@ -85,7 +78,6 @@ namespace Omics.Fragmentation.Oligo
                         ProductType.y, ProductType.yWaterLoss, ProductType.M
                     }
                 },
-                { DissociationType.LowCID, new List<ProductType>() { } },
                 { DissociationType.IRMPD, new List<ProductType>() { } },
                 { DissociationType.ECD, new List<ProductType> { } },
                 { DissociationType.PQD, new List<ProductType> { } },

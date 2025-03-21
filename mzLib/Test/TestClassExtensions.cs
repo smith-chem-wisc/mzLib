@@ -6,6 +6,7 @@ using System;
 using MassSpectrometry;
 using System.Collections.Generic;
 using Chemistry;
+using Transcriptomics;
 
 namespace Test
 {

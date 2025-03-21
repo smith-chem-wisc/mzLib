@@ -184,7 +184,7 @@ namespace UsefulProteomicsDatabases
             return protein;
         }
 
-        public RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
+        internal RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications,
             bool isContaminant, string rnaDbLocation)
         {

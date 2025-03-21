@@ -2,7 +2,7 @@
 {
     public class SpectrumMatchFromTsvHeader
     {
-        public static readonly string[] AcceptedSpectraFormats = { ".raw", ".mzML", ".mgf" };
+        public static readonly string[] AcceptedSpectraFormats = { ".raw", ".mzML", ".mgf", ".d" };
 
         // File and scan information
         public const string FileName = "File Name";
