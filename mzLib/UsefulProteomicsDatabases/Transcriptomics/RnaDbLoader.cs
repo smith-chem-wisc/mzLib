@@ -174,6 +174,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
 
+
+
         private static Dictionary<string, string> ParseRegexFields(string line,
             Dictionary<string, FastaHeaderFieldRegex> regexes)
         {

@@ -549,12 +549,6 @@
     <None Update="Transcriptomics\TestData\ModomicsUnmodifiedTrimmed.fasta.gz">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Transcriptomics\TestData\GRCh38_TrimmedExample_rna.fna">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\modomicsmods%281%29.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="Transcriptomics\TestData\ModomicsUnmodifiedTrimmed.fasta">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

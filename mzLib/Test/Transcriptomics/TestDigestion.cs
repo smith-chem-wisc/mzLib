@@ -696,11 +696,6 @@ namespace Test.Transcriptomics
         [Test]
         public static void TestVariableModsCountCorrect()
         {
-            string modText = "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//";
-            var sodiumAdducts = PtmListLoader.ReadModsFromString(modText, out List<(Modification, string)> mods)
-                .ToList();
-            Assert.That(sodiumAdducts.Count, Is.EqualTo(4));
-
             var rna = new RNA("GUACUG");
             var rnaDigestionParams = new RnaDigestionParams()
             {
@@ -778,16 +773,6 @@ namespace Test.Transcriptomics
         [Test]
         public static void TestFixedAndVariableMods()
         {
-            string modText = "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//";
-            string modText2 = "ID   Potassium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   K1H-1\r\n" + @"//";
-            var sodiumAdducts = PtmListLoader.ReadModsFromString(modText, out List<(Modification, string)> mods)
-                .ToList();
-            var potassiumAdducts = PtmListLoader.ReadModsFromString(modText2, out mods)
-                .ToList();
-
-            Assert.That(sodiumAdducts.Count, Is.EqualTo(4));
-            Assert.That(potassiumAdducts.Count, Is.EqualTo(4));
-
             var rna = new RNA("GUACUG");
             var rnaDigestionParams = new RnaDigestionParams();
 

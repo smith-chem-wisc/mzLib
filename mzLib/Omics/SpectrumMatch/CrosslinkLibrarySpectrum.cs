@@ -1,6 +1,10 @@
 ﻿using Omics.Fragmentation;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Omics.SpectrumMatch;
 public class CrosslinkLibrarySpectrum : LibrarySpectrum
@@ -116,3 +120,4 @@ public class CrosslinkLibrarySpectrum : LibrarySpectrum
         return spectrum.ToString().Trim();
     }
 }
+    }
