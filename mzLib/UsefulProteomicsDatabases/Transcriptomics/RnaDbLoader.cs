@@ -175,7 +175,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         }
 
 
-
         private static Dictionary<string, string> ParseRegexFields(string line,
             Dictionary<string, FastaHeaderFieldRegex> regexes)
         {
