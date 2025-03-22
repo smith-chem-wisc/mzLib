@@ -58,7 +58,12 @@ namespace Omics.SpectrumMatch
 
         public List<MatchedFragmentIon> VariantCrossingIons { get; protected set; }
 
-
+        /// <summary>
+        /// Constructor used for reading from file
+        /// </summary>
+        /// <param name="line"></param>
+        /// <param name="split">what to split on</param>
+        /// <param name="parsedHeader">index of each potential column in the header</param>
         protected SpectrumMatchFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
         {
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
