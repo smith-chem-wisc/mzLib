@@ -11,6 +11,7 @@ using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Proteomics.ProteolyticDigestion;
 using Transcriptomics;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
@@ -137,17 +138,25 @@ namespace Test.Transcriptomics
             Rnase t1 = RnaseDictionary.Dictionary["RNase T1"];
             Rnase t1Duplicate = RnaseDictionary.Dictionary["RNase T1"];
             Rnase t2 = RnaseDictionary.Dictionary["RNase T2"];
+            Protease trypsin = ProteaseDictionary.Dictionary["trypsin"];
 
             Assert.That(t1.Equals(t1Duplicate));
             Assert.That(t1.Equals(t1));
             Assert.That(!t1.Equals(t2));
             Assert.That(!t1.Equals(null));
+            Assert.That(!t1.Equals(trypsin));
             Assert.That(t1.GetHashCode(), Is.EqualTo(t1Duplicate.GetHashCode()));
             Assert.That(t1.GetHashCode(), Is.Not.EqualTo(t2.GetHashCode()));
+            Assert.That(t1.Equals((DigestionAgent)t1Duplicate));
+            Assert.That(t1.Equals((DigestionAgent)t1));
+            Assert.That(!t1.Equals((DigestionAgent)t2));
+            Assert.That(!t1.Equals((DigestionAgent)null));
+            Assert.That(!t1.Equals((DigestionAgent)trypsin));
             Assert.That(t1.Equals((object)t1Duplicate));
             Assert.That(t1.Equals((object)t1));
             Assert.That(!t1.Equals((object)t2));
             Assert.That(!t1.Equals((object)null));
+            Assert.That(!t1.Equals((object)trypsin));
             // ReSharper disable once SuspiciousTypeConversion.Global
             Assert.That(!t1.Equals((object)new RNA("GUA")));
         }
