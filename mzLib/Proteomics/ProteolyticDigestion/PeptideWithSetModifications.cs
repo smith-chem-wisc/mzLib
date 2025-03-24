@@ -944,27 +944,16 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
         /// </summary>
-        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein, DigestionParams dp)
+        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> idToMod, IDictionary<string, IBioPolymer> accessionToProtein, DigestionParams dp)
         {
             _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, idToMod);
-            GetProteinAfterDeserialization(accessionToProtein);
+            SetParentAfterDeserialization(ProteinAccession, accessionToProtein);
             _digestionParams = dp;
         }
 
-        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod,
-            Dictionary<string, Protein> accessionToProtein, IDigestionParams dp) => 
+        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> idToMod,
+            IDictionary<string, IBioPolymer> accessionToProtein, IDigestionParams dp) => 
             SetNonSerializedPeptideInfo(idToMod, accessionToProtein, (DigestionParams)dp);
-
-        private void GetProteinAfterDeserialization(Dictionary<string, Protein> idToProtein)
-        {
-            Protein protein = null;
-
-            if (ProteinAccession != null && !idToProtein.TryGetValue(ProteinAccession, out protein))
-            {
-                throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + ProteinAccession);
-            }
-            Protein = protein;
-        }
 
         private void UpdateCleavageSpecificity()
         {

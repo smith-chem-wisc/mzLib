@@ -18,7 +18,7 @@ namespace Omics.Digestion
             OneBasedEndResidue = oneBasedEndResidue;
             MissedCleavages = missedCleavages;
             CleavageSpecificityForFdrCategory = cleavageSpecificityForFdrCategory;
-            Description = description;
+            Description = description ?? "";
             _baseSequence = baseSequence;
         }
 
@@ -38,6 +38,22 @@ namespace Omics.Digestion
         public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } //structured explanation of source
         public int Length => BaseSequence.Length; //how many residues long the peptide is
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
+
+        /// <summary>
+        /// Used to set the Protein/RNA object after deserialization. 
+        /// </summary>
+        /// <param name="accession">accession of this DigestionProduct's parent object</param>
+        /// <param name="accessionToBioPolymerDict">dictionary of all IBioPolymer keyed by their accessions</param>
+        /// <exception cref="MzLibUtil.MzLibException">thrown if accession is not found</exception>
+        protected void SetParentAfterDeserialization(string? accession, IDictionary<string, IBioPolymer> accessionToBioPolymerDict)
+        {
+            IBioPolymer parent = null!;
+            if (accession != null && !accessionToBioPolymerDict.TryGetValue(accession, out parent))
+            {
+                throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + accession);
+            }
+            Parent = parent;
+        }
 
         #region Digestion Helper Methods
 
