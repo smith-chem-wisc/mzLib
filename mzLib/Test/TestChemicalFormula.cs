@@ -92,9 +92,9 @@ namespace Test
         [Test]
         public static void AddFormulaToFormula()
         {
-            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
-            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H2O");
-            ChemicalFormula formulaC = ChemicalFormula.ParseFormula("C2H5NO2");
+            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaB = new ChemicalFormula("H2O");
+            ChemicalFormula formulaC = new ChemicalFormula("C2H5NO2");
 
             formulaA.Add(formulaB);
 
