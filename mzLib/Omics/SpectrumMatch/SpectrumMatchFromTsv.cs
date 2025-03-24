@@ -102,19 +102,6 @@ namespace Omics.SpectrumMatch
             return fullSeq.ParseModifications(ignoreTerminusMod);
         }
 
-        /// <summary>
-        /// Fixes an issue where the | appears and throws off the numbering if there are multiple mods on a single amino acid.
-        /// </summary>
-        /// <param name="fullSeq"></param>
-        /// <param name="replacement"></param>
-        /// <param name="specialCharacter"></param>
-        /// <returns></returns>
-        public static void RemoveSpecialCharacters(ref string fullSeq, string replacement = @"", string specialCharacter = @"\|")
-        {
-            MzLibUtil.ClassExtensions.RemoveSpecialCharacters(ref fullSeq, replacement, specialCharacter);
-        }
-
-
         protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string matchedMassErrorDaString = null)
         {
             List<MatchedFragmentIon> matchedIons = new List<MatchedFragmentIon>();
