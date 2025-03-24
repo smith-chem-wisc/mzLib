@@ -34,7 +34,7 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private ChemicalFormula _fullChemicalFormula;
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
-        private readonly string ProteinAccession; // used to get protein object after deserialization
+
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
@@ -47,7 +47,6 @@ namespace Proteomics.ProteolyticDigestion
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
             FullSequence = this.DetermineFullSequence();
-            ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
             PairedTargetDecoySequence = pairedTargetDecoySequence;
         }
@@ -73,11 +72,6 @@ namespace Proteomics.ProteolyticDigestion
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
             PairedTargetDecoySequence = pairedTargetDecoySequence; 
-
-            if (p != null)
-            {
-                ProteinAccession = p.Accession;
-            }
         }
 
         public IDigestionParams DigestionParams => _digestionParams;
@@ -944,10 +938,10 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
         /// </summary>
-        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> idToMod, IDictionary<string, IBioPolymer> accessionToProtein, DigestionParams dp)
+        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> allKnownMods, IDictionary<string, IBioPolymer> accessionToProtein, DigestionParams dp)
         {
-            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, idToMod);
-            SetParentAfterDeserialization(ProteinAccession, accessionToProtein);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, allKnownMods);
+            SetParentAfterDeserialization(accessionToProtein);
             _digestionParams = dp;
         }
 

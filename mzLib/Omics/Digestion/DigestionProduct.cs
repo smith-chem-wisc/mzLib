@@ -8,6 +8,7 @@ namespace Omics.Digestion
         protected static readonly DictionaryPool<int, SortedSet<Modification>> DictionaryPool = new();
         protected static readonly DictionaryPool<int, Modification> FixedModDictionaryPool = new(8);
 
+        protected string? _parentAccession; // used to get Protein/NucleicAcid after deserialization
         protected string _baseSequence;
 
         protected DigestionProduct(IBioPolymer parent, int oneBasedStartResidue, int oneBasedEndResidue, int missedCleavages, 
@@ -20,6 +21,11 @@ namespace Omics.Digestion
             CleavageSpecificityForFdrCategory = cleavageSpecificityForFdrCategory;
             Description = description ?? "";
             _baseSequence = baseSequence;
+
+            if (parent is not null)
+            {
+                _parentAccession = parent.Accession;
+            }
         }
 
         [field: NonSerialized] public IBioPolymer Parent { get; protected set; } // BioPolymer that this lysis product is a digestion product of
@@ -45,15 +51,17 @@ namespace Omics.Digestion
         /// <param name="accession">accession of this DigestionProduct's parent object</param>
         /// <param name="accessionToBioPolymerDict">dictionary of all IBioPolymer keyed by their accessions</param>
         /// <exception cref="MzLibUtil.MzLibException">thrown if accession is not found</exception>
-        protected void SetParentAfterDeserialization(string? accession, IDictionary<string, IBioPolymer> accessionToBioPolymerDict)
+        protected void SetParentAfterDeserialization(IDictionary<string, IBioPolymer> accessionToBioPolymerDict)
         {
             IBioPolymer parent = null!;
-            if (accession != null && !accessionToBioPolymerDict.TryGetValue(accession, out parent))
+            if (_parentAccession != null && !accessionToBioPolymerDict.TryGetValue(_parentAccession, out parent))
             {
-                throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + accession);
+                throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + _parentAccession);
             }
             Parent = parent;
         }
+
+        public virtual Type[] GetTypesToSerialize() => [GetType()];
 
         #region Digestion Helper Methods
 
