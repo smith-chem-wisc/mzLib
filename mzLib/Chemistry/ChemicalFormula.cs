@@ -75,11 +75,17 @@ namespace Chemistry
             _isotopes = new Dictionary<Isotope, int>(isotopes);
         }
 
+        /// <summary>
+        /// Constructor that ensures the private formulaString is intact for serialization. 
+        /// We do not want it populated all the time as it is rarely used. 
+        /// </summary>
+        /// <param name="formula"></param>
         public ChemicalFormula(string formula)
         {
             var dictionaries = ParseFormulaToDictionaries(formula);
             _elements = dictionaries.Elements;
             _isotopes = dictionaries.Isotopes;
+            formulaString = GetHillNotation();
         }
 
         [JsonIgnore] public ChemicalFormula ThisChemicalFormula => this;
