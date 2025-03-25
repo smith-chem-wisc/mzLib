@@ -1004,6 +1004,48 @@ public class TestPeptideSerializer
     }
 
     [Test]
+    public static void TestGetSequenceSerializer_ListOfSequences_Peptide_FromEmptyCollection()
+    {
+        var dbpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "uniprot_aifm1.fasta");
+        var protein = ProteinDbLoader.LoadProteinFasta(dbpath, true, DecoyType.Reverse, false, out _);
+        Dictionary<string, IBioPolymer> proteinToAccession = protein.ToDictionary(p => p.Accession, p => p as IBioPolymer);
+        DigestionParams digestionParams = new DigestionParams();
+        List<PeptideWithSetModifications> peptides = new();
+
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationPeptideFromProtein_Collection");
+        RefreshDirectory(dir);
+        string path = Path.Combine(dir, "myPeptideIndex.ind");
+        Serializer ser = peptides.GetSequenceSerializer();
+        peptides = protein.SelectMany(p => p.Digest(digestionParams, [], [])).ToList();
+        // Serialize
+        using (var file = File.Create(path))
+        {
+            ser.Serialize(file, peptides);
+        }
+
+        // Deserialize
+        List<PeptideWithSetModifications> deserializedPeptides = null;
+        using (var file = File.OpenRead(path))
+        {
+            deserializedPeptides = (List<PeptideWithSetModifications>)ser.Deserialize(file);
+        }
+
+        foreach (var pep in deserializedPeptides)
+        {
+            pep.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), proteinToAccession, digestionParams);
+        }
+
+        Assert.That(peptides.Count == deserializedPeptides.Count);
+        for (int i = 0; i < peptides.Count; i++)
+        {
+            Assert.That(peptides[i].Equals(deserializedPeptides[i]));
+            Assert.That(deserializedPeptides[i].MonoisotopicMass == peptides[i].MonoisotopicMass);
+            Assert.That(deserializedPeptides[i].SequenceWithChemicalFormulas == peptides[i].SequenceWithChemicalFormulas);
+        }
+        Directory.Delete(dir, true);
+    }
+
+    [Test]
     public static void TestGetSequenceSerializer_ListOfSequences_PeptideAsIBioPolymerWithSetMods()
     {
         var dbpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "uniprot_aifm1.fasta");
@@ -1091,6 +1133,51 @@ public class TestPeptideSerializer
         Directory.Delete(dir, true);
     }
 
+    [Test]
+    public static void TestGetSequenceSerializer_ListOfSequences_Oligo_FromEmptyCollection()
+    {
+        var dbpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "ModomicsUnmodifiedTrimmed.fasta");
+        var rna = RnaDbLoader.LoadRnaFasta(dbpath, true, DecoyType.Reverse, false, out _);
+        Dictionary<string, IBioPolymer> rnaToAccession = rna.ToDictionary(p => p.Accession, p => p as IBioPolymer);
+        RnaDigestionParams digestionParams = new RnaDigestionParams();
+        var oligos = new List<OligoWithSetMods>(); 
+
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationOligoFromRna_Collection");
+        RefreshDirectory(dir);
+        string path = Path.Combine(dir, "myPeptideIndex.ind");
+        Serializer ser = oligos.GetSequenceSerializer();
+        oligos = rna.SelectMany(p => p.Digest(digestionParams, [], [])).ToList();
+        // Serialize
+        using (var file = File.Create(path))
+        {
+            ser.Serialize(file, oligos);
+        }
+
+        // Deserialize
+        List<OligoWithSetMods> deserializedOligos = null;
+        using (var file = File.OpenRead(path))
+        {
+            deserializedOligos = (List<OligoWithSetMods>)ser.Deserialize(file);
+        }
+
+        foreach (var pep in deserializedOligos)
+        {
+            pep.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), rnaToAccession, digestionParams);
+        }
+
+        Assert.That(oligos.Count == deserializedOligos.Count);
+        for (int i = 0; i < oligos.Count; i++)
+        {
+            Assert.That(oligos[i].DigestionParams.Equals(deserializedOligos[i].DigestionParams));
+            Assert.That(deserializedOligos[i].Parent.Name == oligos[i].Parent.Name);
+            Assert.That(oligos[i].Equals(deserializedOligos[i]), Is.True);
+            Assert.That(deserializedOligos[i].MonoisotopicMass, Is.EqualTo(oligos[i].MonoisotopicMass));
+            Assert.That(deserializedOligos[i].SequenceWithChemicalFormulas, Is.EqualTo(oligos[i].SequenceWithChemicalFormulas));
+            Assert.That(deserializedOligos[i].FivePrimeTerminus, Is.EqualTo(oligos[i].FivePrimeTerminus));
+            Assert.That(deserializedOligos[i].ThreePrimeTerminus, Is.EqualTo(oligos[i].ThreePrimeTerminus));
+        }
+        Directory.Delete(dir, true);
+    }
     [Test]
     public static void TestGetSequenceSerializer_ListOfSequences_OligoAsIBioPolymerWithSetMods()
     {
