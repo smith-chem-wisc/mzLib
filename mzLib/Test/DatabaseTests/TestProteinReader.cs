@@ -252,6 +252,22 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public static void FastaWithCustomDecoyIdentifier()
+        {
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out var a,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, decoyIdentifier: "rev");
+
+            foreach (var prot in prots)
+            {
+                if (!prot.IsDecoy) continue;
+
+                Assert.That(prot.Accession, Does.StartWith("rev_"));
+                Assert.That(prot.Accession, Does.Not.StartWith("DECOY_"));
+            }
+        }
+
+        [Test]
         public static void BadFastaTest()
         {
             ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad4.fasta"), true, DecoyType.Reverse, false, out var a,
@@ -378,6 +394,46 @@ CF   O1
             {
                 Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
                 Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
+            }
+        }
+
+        [Test]
+        public static void TestReverseDecoyXML_WithCustomIdentifier()
+        {
+            var nice = new List<Modification>();
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false,
+                new string[] { "exclude_me" }, out Dictionary<string, Modification> un, decoyIdentifier: "rev");
+
+            foreach (var protein in proteins)
+            {
+                if (!protein.IsDecoy) continue;
+
+                Assert.That(protein.Accession, Does.StartWith("rev_"));
+                Assert.That(protein.Accession, Does.Not.StartWith("DECOY_"));
+
+                foreach (var truncationProduct in protein.ProteolysisProducts)
+                {
+                    Assert.That(truncationProduct.Type, Does.StartWith("rev"));
+                    Assert.That(truncationProduct.Type, Does.Not.StartWith("DECOY"));
+                }
+
+                foreach (var variant in protein.AppliedSequenceVariations)
+                {
+                    Assert.That(variant.Description, Does.StartWith("rev"));
+                    Assert.That(variant.Description, Does.Not.StartWith("DECOY"));
+                }
+
+                foreach (var bond in protein.DisulfideBonds)
+                {
+                    Assert.That(bond.Description, Does.StartWith("rev"));
+                    Assert.That(bond.Description, Does.Not.StartWith("DECOY"));
+                }
+
+                foreach (var spliceSite in protein.SpliceSites)
+                {
+                    Assert.That(spliceSite.Description, Does.StartWith("rev"));
+                    Assert.That(spliceSite.Description, Does.Not.StartWith("DECOY"));
+                }
             }
         }
 
