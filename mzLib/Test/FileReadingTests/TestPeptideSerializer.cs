@@ -16,6 +16,7 @@ using System.IO;
 using NetSerializer;
 using MzLibUtil;
 using NUnit.Framework.Legacy;
+using Omics.Digestion;
 
 namespace Test.FileReadingTests;
 
@@ -180,6 +181,162 @@ public class TestPeptideSerializer
         List<double> deserializedPeptideFragments = products.Select(v => v.NeutralMass).ToList();
 
         peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+        List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+        Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
+        Directory.Delete(dir, true);
+    }
+
+    // Oligo Tests that are a copy of the above peptide tests
+    [Test]
+    public static void TestSerializationOligoFromString()
+    {
+        // purpose of this test is to serialize/deserialize a OligoWithSetModifications and make sure the deserialized oligo
+        // has the same properties as before it was serialized. This oligo is unmodified and generated from reading in a string
+        string sequence = "GUACUGAGUCUACUAGAUCA";
+        OligoWithSetMods oligo = new OligoWithSetMods(sequence, new Dictionary<string, Modification>(), 0, null, null, 1, 7, 0);
+        OligoWithSetMods deserializeOligo = null;
+
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerialization_OligoWithSetMods_FromString");
+        RefreshDirectory(dir);
+        string path = Path.Combine(dir, "myOligoIndex.ind");
+
+        var ser = new NetSerializer.Serializer(new List<Type> { typeof(OligoWithSetMods), typeof(ChemicalFormula) });
+
+        using (var file = File.Create(path))
+        {
+            ser.Serialize(file, oligo);
+        }
+
+        using (var file = File.OpenRead(path))
+        {
+            deserializeOligo = (OligoWithSetMods)ser.Deserialize(file);
+        }
+
+        deserializeOligo.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), new Dictionary<string, IBioPolymer>(), null);
+
+        // not asserting any rna properties - since the oligo was created from a sequence string it didn't have a rna to begin with
+
+        Assert.That(oligo.Equals(deserializeOligo), Is.True);
+        Assert.That(deserializeOligo.MonoisotopicMass, Is.EqualTo(oligo.MonoisotopicMass));
+        Assert.That(deserializeOligo.SequenceWithChemicalFormulas, Is.EqualTo(oligo.SequenceWithChemicalFormulas));
+        Assert.That(deserializeOligo.FivePrimeTerminus, Is.EqualTo(oligo.FivePrimeTerminus));
+        Assert.That(deserializeOligo.ThreePrimeTerminus, Is.EqualTo(oligo.ThreePrimeTerminus));
+
+        var products = new List<Product>();
+
+        deserializeOligo.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+        List<double> deserializedPeptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+        oligo.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+        List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+        Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
+        Directory.Delete(dir, true);
+    }
+
+    [Test]
+    public static void TestSerializationOligoFromRna()
+    {
+        // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized oligo
+        // has the same properties as before it was serialized. This oligo is unmodified and generated from digesting a rna
+        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "");
+
+        OligoWithSetMods oligo = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(), new List<Modification>()).First();
+        OligoWithSetMods deserializeOligo = null;
+
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerialization_OligoWithSetMods_FromRNA");
+        RefreshDirectory(dir);
+        string path = Path.Combine(dir, "myPeptideIndex.ind");
+        var ser = new Serializer(new List<Type> { typeof(OligoWithSetMods), typeof(ChemicalFormula) });
+
+        using (var file = File.Create(path))
+        {
+            ser.Serialize(file, oligo);
+        }
+
+        using (var file = File.OpenRead(path))
+        {
+            deserializeOligo = (OligoWithSetMods)ser.Deserialize(file);
+        }
+        deserializeOligo.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), new Dictionary<string, IBioPolymer> { { rna.Accession, rna } }, oligo.DigestionParams);
+
+        Assert.That(oligo.DigestionParams.Equals(deserializeOligo.DigestionParams));
+        Assert.That(deserializeOligo.Parent.Name == oligo.Parent.Name);
+        Assert.That(oligo.Equals(deserializeOligo), Is.True);
+        Assert.That(deserializeOligo.MonoisotopicMass, Is.EqualTo(oligo.MonoisotopicMass));
+        Assert.That(deserializeOligo.SequenceWithChemicalFormulas, Is.EqualTo(oligo.SequenceWithChemicalFormulas));
+        Assert.That(deserializeOligo.FivePrimeTerminus, Is.EqualTo(oligo.FivePrimeTerminus));
+        Assert.That(deserializeOligo.ThreePrimeTerminus, Is.EqualTo(oligo.ThreePrimeTerminus));
+
+        var products = new List<Product>();
+
+        deserializeOligo.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+        List<double> deserializedPeptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+        oligo.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+        List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+        Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
+        Directory.Delete(dir, true);
+    }
+
+    [Test]
+    public static void TestSerializationOligoFromRnaWithMod()
+    {
+        // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized oligo
+        // has the same properties as before it was serialized. This oligo is modified with a phosphorylation
+
+        ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
+
+        Dictionary<DissociationType, List<double>> myNeutralLosses = new Dictionary<DissociationType, List<double>>()
+        {
+            { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } },
+            { DissociationType.ETD, new List<double>() { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } // this makes no sense in real life, it's just for a unit test
+        };
+
+        Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
+
+        Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
+
+        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "", null, null, mods);
+
+        OligoWithSetMods oligo = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(), new List<Modification>()).First();
+        OligoWithSetMods deserializeOligo = null;
+
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerialization_OligoWithSetMods_FromRNA_WithMod");
+        RefreshDirectory(dir);
+        string path = Path.Combine(dir, "myPeptideIndex.ind");
+        var ser = new Serializer(new List<Type> { typeof(OligoWithSetMods), typeof(ChemicalFormula) });
+
+        using (var file = File.Create(path))
+        {
+            ser.Serialize(file, oligo);
+        }
+
+        using (var file = File.OpenRead(path))
+        {
+            deserializeOligo = (OligoWithSetMods)ser.Deserialize(file);
+        }
+
+        Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().IdWithMotif, mods.Values.First().First() } };
+
+        deserializeOligo.SetNonSerializedPeptideInfo(stringToMod, new Dictionary<string, IBioPolymer> { { rna.Accession, rna } }, oligo.DigestionParams);
+
+        Assert.That(oligo.Equals(deserializeOligo));
+        Assert.That(deserializeOligo.Parent.Name == oligo.Parent.Name);
+        Assert.That(deserializeOligo.Parent.Equals(oligo.Parent));
+        Assert.That(deserializeOligo.MonoisotopicMass, Is.EqualTo(oligo.MonoisotopicMass));
+        Assert.That(deserializeOligo.SequenceWithChemicalFormulas, Is.EqualTo(oligo.SequenceWithChemicalFormulas));
+        Assert.That(deserializeOligo.FivePrimeTerminus, Is.EqualTo(oligo.FivePrimeTerminus));
+        Assert.That(deserializeOligo.ThreePrimeTerminus, Is.EqualTo(oligo.ThreePrimeTerminus));
+
+        var products = new List<Product>();
+
+        deserializeOligo.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+        List<double> deserializedPeptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+        oligo.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
         List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
 
         Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
@@ -486,37 +643,57 @@ public class TestPeptideSerializer
     }
 
 
-    // Oligo Tests that are a copy of the above oligo tests
+    // Oligo Tests with legacy and serializable sequence interface
     [Test]
-    public static void TestSerializationOligoFromString()
+    [TestCase(1, TestName = "All Manually")]
+    [TestCase(2, TestName = "Serializer Manually - Types from Interface")]
+    [TestCase(3, TestName = "All From Interface")]
+    public static void TestSerializationOligoFromString_Interface(int serializerConstructionMethod)
     {
-        // purpose of this test is to serialize/deserialize a OligoWithSetModifications and make sure the deserialized oligo
-        // has the same properties as before it was serialized. This oligo is unmodified and generated from reading in a string
         string sequence = "GUACUGAGUCUACUAGAUCA";
         OligoWithSetMods oligo = new OligoWithSetMods(sequence, new Dictionary<string, Modification>(), 0, null, null, 1, 7, 0);
         OligoWithSetMods deserializeOligo = null;
 
-        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerialization_OligoWithSetMods_FromString");
+        // Load serializer
+        Serializer ser;
+        Type[] messagingTypes;
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationOligoFromString_new");
         RefreshDirectory(dir);
         string path = Path.Combine(dir, "myOligoIndex.ind");
+        switch (serializerConstructionMethod)
+        {
+            case 1:
+                messagingTypes = new Type[] { typeof(OligoWithSetMods), typeof(ChemicalFormula) };
+                ser = new Serializer(messagingTypes);
+                break;
 
-        var ser = new NetSerializer.Serializer(new List<Type> { typeof(OligoWithSetMods), typeof(ChemicalFormula) });
-        var typeMap = ser.GetTypeMap();
+            case 2:
+                messagingTypes = oligo.GetTypesToSerialize();
+                ser = new Serializer(messagingTypes);
+                break;
 
+            case 3:
+                ser = oligo.GetSequenceSerializer();
+                break;
+
+            default:
+                throw new MzLibException("Test Case Not Implemented");
+        }
+
+        // Serialize
         using (var file = File.Create(path))
         {
             ser.Serialize(file, oligo);
         }
 
+        // Deserialize
         using (var file = File.OpenRead(path))
         {
             deserializeOligo = (OligoWithSetMods)ser.Deserialize(file);
         }
-
         deserializeOligo.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), new Dictionary<string, IBioPolymer>(), null);
 
         // not asserting any rna properties - since the oligo was created from a sequence string it didn't have a rna to begin with
-
         Assert.That(oligo.Equals(deserializeOligo), Is.True);
         Assert.That(deserializeOligo.MonoisotopicMass, Is.EqualTo(oligo.MonoisotopicMass));
         Assert.That(deserializeOligo.SequenceWithChemicalFormulas, Is.EqualTo(oligo.SequenceWithChemicalFormulas));
@@ -536,7 +713,10 @@ public class TestPeptideSerializer
     }
 
     [Test]
-    public static void TestSerializationOligoFromRna()
+    [TestCase(1, TestName = "All Manually")]
+    [TestCase(2, TestName = "Serializer Manually - Types from Interface")]
+    [TestCase(3, TestName = "All From Interface")]
+    public static void TestSerializationOligoFromRna_Interface(int serializerConstructionMethod)
     {
         // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized oligo
         // has the same properties as before it was serialized. This oligo is unmodified and generated from digesting a rna
@@ -545,16 +725,39 @@ public class TestPeptideSerializer
         OligoWithSetMods oligo = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(), new List<Modification>()).First();
         OligoWithSetMods deserializeOligo = null;
 
-        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerialization_OligoWithSetMods_FromRNA");
+        // Load serializer
+        Serializer ser;
+        Type[] messagingTypes;
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationOligoFromRna_new");
         RefreshDirectory(dir);
         string path = Path.Combine(dir, "myPeptideIndex.ind");
-        var ser = new Serializer(new List<Type> { typeof(OligoWithSetMods), typeof(ChemicalFormula) });
+        switch (serializerConstructionMethod)
+        {
+            case 1:
+                messagingTypes = new Type[] { typeof(OligoWithSetMods), typeof(ChemicalFormula) };
+                ser = new Serializer(messagingTypes);
+                break;
 
+            case 2:
+                messagingTypes = oligo.GetTypesToSerialize();
+                ser = new Serializer(messagingTypes);
+                break;
+
+            case 3:
+                ser = oligo.GetSequenceSerializer();
+                break;
+
+            default:
+                throw new MzLibException("Test Case Not Implemented");
+        }
+
+        // Serialize
         using (var file = File.Create(path))
         {
             ser.Serialize(file, oligo);
         }
 
+        // Deserialize
         using (var file = File.OpenRead(path))
         {
             deserializeOligo = (OligoWithSetMods)ser.Deserialize(file);
@@ -581,15 +784,16 @@ public class TestPeptideSerializer
         Directory.Delete(dir, true);
     }
 
-
-
     [Test]
-    public static void TestSerializationOligoFromRnaWithMod()
+    [TestCase(1, TestName = "All Manually")]
+    [TestCase(2, TestName = "Serializer Manually - Types from Interface")]
+    [TestCase(3, TestName = "All From Interface")]
+    public static void TestSerializationOligoFromRnaWithMod_Interface(int serializerConstructionMethod)
     {
         // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized oligo
         // has the same properties as before it was serialized. This oligo is modified with a phosphorylation
 
-        ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
+        ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
 
         Dictionary<DissociationType, List<double>> myNeutralLosses = new Dictionary<DissociationType, List<double>>()
         {
@@ -601,36 +805,145 @@ public class TestPeptideSerializer
 
         Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
 
-        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "");
-
+        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "", null, null, mods);
         OligoWithSetMods oligo = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(), new List<Modification>()).First();
         OligoWithSetMods deserializeOligo = null;
 
-        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerialization_OligoWithSetMods_FromRNA_WithMod");
+        // Load serializer
+        Serializer ser;
+        Type[] messagingTypes;
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationOligoFromRnaWithMod_new");
         RefreshDirectory(dir);
         string path = Path.Combine(dir, "myPeptideIndex.ind");
-        var ser = new Serializer(new List<Type> { typeof(OligoWithSetMods), typeof(ChemicalFormula) });
+        switch (serializerConstructionMethod)
+        {
+            case 1:
+                messagingTypes = new Type[] { typeof(OligoWithSetMods), typeof(ChemicalFormula) };
+                ser = new Serializer(messagingTypes);
+                break;
 
+            case 2:
+                messagingTypes = oligo.GetTypesToSerialize();
+                ser = new Serializer(messagingTypes);
+                break;
+
+            case 3:
+                ser = oligo.GetSequenceSerializer();
+                break;
+
+            default:
+                throw new MzLibException("Test Case Not Implemented");
+        }
+
+        // Serialize
         using (var file = File.Create(path))
         {
             ser.Serialize(file, oligo);
         }
 
+        // Deserialize
         using (var file = File.OpenRead(path))
         {
             deserializeOligo = (OligoWithSetMods)ser.Deserialize(file);
         }
-
         Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().IdWithMotif, mods.Values.First().First() } };
-
         deserializeOligo.SetNonSerializedPeptideInfo(stringToMod, new Dictionary<string, IBioPolymer> { { rna.Accession, rna } }, oligo.DigestionParams);
 
         Assert.That(oligo.Equals(deserializeOligo));
         Assert.That(deserializeOligo.Parent.Name == oligo.Parent.Name);
+        Assert.That(deserializeOligo.Parent.Equals(oligo.Parent));
         Assert.That(deserializeOligo.MonoisotopicMass, Is.EqualTo(oligo.MonoisotopicMass));
         Assert.That(deserializeOligo.SequenceWithChemicalFormulas, Is.EqualTo(oligo.SequenceWithChemicalFormulas));
         Assert.That(deserializeOligo.FivePrimeTerminus, Is.EqualTo(oligo.FivePrimeTerminus));
         Assert.That(deserializeOligo.ThreePrimeTerminus, Is.EqualTo(oligo.ThreePrimeTerminus));
+
+        var products = new List<Product>();
+
+        deserializeOligo.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+        List<double> deserializedPeptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+        oligo.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+        List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+        Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
+        Directory.Delete(dir, true);
+    }
+
+    [Test]
+    [TestCase(1, TestName = "All Manually")]
+    [TestCase(2, TestName = "Serializer Manually - Types from Interface")]
+    [TestCase(3, TestName = "All From Interface")]
+    public static void TestSerializationOligoFromRnaWithMod_InterfaceAsIBioPolymerWithSetMods(int serializerConstructionMethod)
+    {
+        // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized oligo
+        // has the same properties as before it was serialized. This oligo is modified with a phosphorylation
+
+        ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
+
+        Dictionary<DissociationType, List<double>> myNeutralLosses = new Dictionary<DissociationType, List<double>>()
+        {
+            { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } },
+            { DissociationType.ETD, new List<double>() { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } // this makes no sense in real life, it's just for a unit test
+        };
+
+        Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
+
+        Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
+
+        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "", null, null, mods);
+        IDigestionParams digestionParams = new RnaDigestionParams("RNase T1");
+        IBioPolymerWithSetMods oligo = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First(v => v.AllModsOneIsNterminus.Count == 1);
+        IBioPolymerWithSetMods deserializeOligo = null;
+
+        // Load serializer
+        Serializer ser;
+        Type[] messagingTypes;
+        string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationOligoFromRnaWithMod_new2");
+        RefreshDirectory(dir);
+        string path = Path.Combine(dir, "myPeptideIndex.ind");
+        switch (serializerConstructionMethod)
+        {
+            case 1:
+                messagingTypes = new Type[] { typeof(OligoWithSetMods), typeof(ChemicalFormula) };
+                ser = new Serializer(messagingTypes);
+                break;
+
+            case 2:
+                messagingTypes = oligo.GetTypesToSerialize();
+                ser = new Serializer(messagingTypes);
+                break;
+
+            case 3:
+                ser = oligo.GetSequenceSerializer();
+                break;
+
+            default:
+                throw new MzLibException("Test Case Not Implemented");
+        }
+
+        // Serialize
+        using (var file = File.Create(path))
+        {
+            ser.Serialize(file, oligo);
+        }
+
+        // Deserialize
+        using (var file = File.OpenRead(path))
+        {
+            deserializeOligo = (IBioPolymerWithSetMods)ser.Deserialize(file);
+        }
+        Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().IdWithMotif, mods.Values.First().First() } };
+        deserializeOligo.SetNonSerializedPeptideInfo(stringToMod, new Dictionary<string, IBioPolymer> { { rna.Accession, rna } }, oligo.DigestionParams);
+
+        Assert.That(oligo.Equals(deserializeOligo));
+        Assert.That(deserializeOligo.Parent.Name == oligo.Parent.Name);
+        Assert.That(deserializeOligo.Parent.Equals(oligo.Parent));
+        Assert.That(deserializeOligo.MonoisotopicMass, Is.EqualTo(oligo.MonoisotopicMass));
+        Assert.That(deserializeOligo.SequenceWithChemicalFormulas, Is.EqualTo(oligo.SequenceWithChemicalFormulas));
+
+        var deserializedAndCasted = (OligoWithSetMods)deserializeOligo;
+        Assert.That(deserializedAndCasted.FivePrimeTerminus, Is.EqualTo(((OligoWithSetMods)oligo).FivePrimeTerminus));
+        Assert.That(deserializedAndCasted.ThreePrimeTerminus, Is.EqualTo(((OligoWithSetMods)oligo).ThreePrimeTerminus));
 
         var products = new List<Product>();
 

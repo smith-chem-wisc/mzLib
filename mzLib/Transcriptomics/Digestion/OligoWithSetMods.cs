@@ -299,6 +299,8 @@ namespace Transcriptomics.Digestion
             _digestionParams = (digestionParams as RnaDigestionParams)!;
         }
 
+        public override Type[] GetTypesToSerialize() => [typeof(OligoWithSetMods), typeof(ChemicalFormula)];
+
         #endregion
 
         /// <summary>
