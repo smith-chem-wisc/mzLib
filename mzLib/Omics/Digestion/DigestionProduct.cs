@@ -61,8 +61,6 @@ namespace Omics.Digestion
             Parent = parent;
         }
 
-        public virtual Type[] GetTypesToSerialize() => [GetType()];
-
         #region Digestion Helper Methods
 
         /// <summary>

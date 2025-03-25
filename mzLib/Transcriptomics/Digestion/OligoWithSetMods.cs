@@ -299,7 +299,7 @@ namespace Transcriptomics.Digestion
             _digestionParams = (digestionParams as RnaDigestionParams)!;
         }
 
-        public override Type[] GetTypesToSerialize() => [typeof(OligoWithSetMods), typeof(ChemicalFormula)];
+        public Type[] GetTypesToSerialize() => [typeof(List<OligoWithSetMods>), typeof(OligoWithSetMods), typeof(ChemicalFormula)];
 
         // private construct only used to prevent serialization errors on type checking
         private OligoWithSetMods() : base(null, 0, 0, 0, CleavageSpecificity.Full, null, null) { }

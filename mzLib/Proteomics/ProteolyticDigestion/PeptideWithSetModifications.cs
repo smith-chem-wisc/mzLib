@@ -947,6 +947,8 @@ namespace Proteomics.ProteolyticDigestion
             _digestionParams = dp as DigestionParams;
         }
 
+        public Type[] GetTypesToSerialize() => [typeof(List<PeptideWithSetModifications>), typeof(PeptideWithSetModifications)];
+
         // private construct only used to prevent serialization errors on type checking
         private PeptideWithSetModifications() : base(null, 0, 0, 0, CleavageSpecificity.Full) { }
 

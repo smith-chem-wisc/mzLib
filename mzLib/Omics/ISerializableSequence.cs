@@ -9,32 +9,52 @@ namespace Omics;
 /// </summary>
 public interface ISerializableSequence
 {
+    /// <summary>
+    /// Types required for Nett Serializer to function properly
+    /// </summary>
+    /// <returns>An array of types required for serialization.</returns>
     Type[] GetTypesToSerialize();
-    void SetNonSerializedPeptideInfo(IDictionary<string, Modification> allKnownMods, IDictionary<string, IBioPolymer> accessionToProtein, IDigestionParams digestionParams); 
-}
 
-public static class SerializableSequenceExtensions
-{
-    public static Serializer GetSequenceSerializer<T>(this T toSerialize) where T : ISerializableSequence
+    /// <summary>
+    /// Set non-serialized values that are retained in MetaMorpheus during runtime
+    /// </summary>
+    /// <param name="allKnownMods">Dictionary of all known modifications.</param>
+    /// <param name="accessionToProtein">Dictionary mapping accession to protein.</param>
+    /// <param name="digestionParams">Parameters for digestion.</param>
+    void SetNonSerializedPeptideInfo(IDictionary<string, Modification> allKnownMods, IDictionary<string, IBioPolymer> accessionToProtein, IDigestionParams digestionParams);
+
+    /// <summary>
+    /// Gets the types required for serialization for a specific implementation of ISerializableSequence.
+    /// </summary>
+    /// <typeparam name="T">The type implementing ISerializableSequence.</typeparam>
+    /// <returns>An array of types required for serialization.</returns>
+    static Type[] GetTypesToSerialize<T>() where T : ISerializableSequence
     {
-        var collectionType = typeof(List<T>);
-        var implementationSpecificTypes = toSerialize.GetTypesToSerialize();
+        var instance = (T)Activator.CreateInstance(typeof(T), true)!;
+        return instance.GetTypesToSerialize();
+    }
 
-        var types = new List<Type>(implementationSpecificTypes) { collectionType };
+    /// <summary>
+    /// Creates a serializer for a specific implementation of ISerializableSequence.
+    /// </summary>
+    /// <typeparam name="T">The type implementing ISerializableSequence.</typeparam>
+    /// <returns>A serializer for the specified type.</returns>
+    static Serializer GetSequenceSerializer<T>() where T : ISerializableSequence
+    {
+        var types = GetTypesToSerialize<T>();
         var serializer = new Serializer(types);
         return serializer;
     }
 
-    public static Serializer GetSequenceSerializer<T>(this List<T> toSerialize) where T : ISerializableSequence
+    /// <summary>
+    /// Creates a serializer for a list of a specific implementation of ISerializableSequence.
+    /// </summary>
+    /// <typeparam name="T">The type implementing ISerializableSequence.</typeparam>
+    /// <param name="values">A list of values to be serialized.</param>
+    /// <returns>A serializer for the specified type.</returns>
+    static Serializer GetSequenceSerializer<T>(List<T> values) where T : ISerializableSequence
     {
-        T instance = toSerialize.Count == 0 ?
-            (T)Activator.CreateInstance(typeof(T), true)!
-            : toSerialize[0];
-
-        var collectionType = toSerialize.GetType();
-        var implementationSpecificTypes = instance.GetTypesToSerialize();
-
-        var types = new List<Type>(implementationSpecificTypes) { collectionType };
+        var types = GetTypesToSerialize<T>();
         var serializer = new Serializer(types);
         return serializer;
     }
