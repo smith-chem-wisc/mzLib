@@ -29,6 +29,7 @@ using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using NUnit.Framework.Legacy;
+using Omics.BioPolymer;
 
 namespace Test.DatabaseTests
 {

@@ -9,12 +9,13 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using MzLibUtil;
 using Easy.Common.Extensions;
+using Omics.BioPolymer;
 
 namespace Proteomics
 {
-    public class Protein : IBioPolymer, IEquatable<Protein>
+    public class Protein : IBioPolymer, IEquatable<Protein>, IComparable<Protein>
     {
-        private List<ProteolysisProduct> _proteolysisProducts;
+        private List<TruncationProduct> _proteolysisProducts;
 
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
@@ -35,7 +36,7 @@ namespace Proteomics
         /// <param name="spliceSites"></param>
         /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
-            IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
+            IDictionary<int, List<Modification>> oneBasedModifications = null, List<TruncationProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false)
@@ -54,7 +55,7 @@ namespace Proteomics
             SampleNameForVariants = sampleNameForVariants;
 
             GeneNames = geneNames ?? new List<Tuple<string, string>>();
-            _proteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
+            _proteolysisProducts = proteolysisProducts ?? new List<TruncationProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
@@ -117,13 +118,13 @@ namespace Proteomics
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
             : this(variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
-                  proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts ?? new List<ProteolysisProduct>()),
+                  proteolysisProducts: new List<TruncationProduct>(applicableProteolysisProducts ?? new List<TruncationProduct>()),
                   name: GetName(appliedSequenceVariations, protein.Name),
                   fullName: GetName(appliedSequenceVariations, protein.FullName),
                   isDecoy: protein.IsDecoy,
@@ -167,11 +168,13 @@ namespace Proteomics
         public IEnumerable<SpliceSite> SpliceSites { get; }
 
         //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
-        public IEnumerable<ProteolysisProduct> ProteolysisProducts
+        public IEnumerable<TruncationProduct> ProteolysisProducts
         { get { return _proteolysisProducts; } }
 
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }
+
+        public IBioPolymer NonVariant => NonVariantProtein;
 
         /// <summary>
         /// Protein before applying variations.
@@ -542,6 +545,8 @@ namespace Proteomics
             return new Protein(this, updatedBaseSequence);
         }
 
+        #region Sequence Variants
+
         /// <summary>
         /// Gets proteins with applied variants from this protein
         /// </summary>
@@ -557,6 +562,24 @@ namespace Proteomics
         {
             OneBasedPossibleLocalizedModifications = OriginalNonVariantModifications;
         }
+
+        #endregion
+
+        private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
+        {
+            bool emptyVars = appliedVariations == null || appliedVariations.Count() == 0;
+            if (name == null && emptyVars)
+            {
+                return null;
+            }
+            else
+            {
+                string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
+                return name + variantTag;
+            }
+        }
+
+        #region Proteolysis Products and Truncations
 
         /// <summary>
         /// Filters modifications that do not match their target amino acid.
@@ -654,7 +677,7 @@ namespace Proteomics
                 int length = newEnd - fullProteinOneBasedBegin + 1;
                 if (length >= minProductBaseSequenceLength)
                 {
-                    _proteolysisProducts.Add(new ProteolysisProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
+                    _proteolysisProducts.Add(new TruncationProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
                 }
             }
         }
@@ -670,7 +693,7 @@ namespace Proteomics
                 int length = fullProteinOneBasedEnd - newBegin + 1;
                 if (length >= minProductBaseSequenceLength)
                 {
-                    _proteolysisProducts.Add(new ProteolysisProduct(newBegin, fullProteinOneBasedEnd, proteolyisisProductName));
+                    _proteolysisProducts.Add(new TruncationProduct(newBegin, fullProteinOneBasedEnd, proteolyisisProductName));
                 }
             }
         }
@@ -705,8 +728,8 @@ namespace Proteomics
 
             if (addForEachOrigninalProteolysisProduct) // this does not include the original intact proteoform
             {
-                List<ProteolysisProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
-                foreach (ProteolysisProduct product in existingProducts)
+                List<TruncationProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
+                foreach (TruncationProduct product in existingProducts)
                 {
                     if (product.OneBasedBeginPosition.HasValue && product.OneBasedEndPosition.HasValue)
                     {
@@ -737,7 +760,7 @@ namespace Proteomics
         {
             if (BaseSequence.Length >= minProductBaseSequenceLength)
             {
-                _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "full-length proteoform"));
+                _proteolysisProducts.Add(new TruncationProduct(1, BaseSequence.Length, "full-length proteoform"));
             }
         }
 
@@ -749,7 +772,7 @@ namespace Proteomics
         public void CleaveOnceBetweenProteolysisProducts(int minimumProductLength = 7)
         {
             List<int> cleavagePostions = new();
-            List<ProteolysisProduct> localProducts = _proteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
+            List<TruncationProduct> localProducts = _proteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
             List<int> proteolysisProductEndPositions = localProducts.Where(p => p.OneBasedEndPosition.HasValue).Select(p => p.OneBasedEndPosition.Value).ToList();
             if (proteolysisProductEndPositions.Count > 0)
             {
@@ -767,7 +790,7 @@ namespace Proteomics
                 if (position - 1 >= minimumProductLength)
                 {
                     string leftType = $"N-terminal Portion of Singly Cleaved Protein(1-{position})";
-                    ProteolysisProduct leftProduct = new(1, position, leftType);
+                    TruncationProduct leftProduct = new(1, position, leftType);
 
                     //here we're making sure a product with these begin/end positions isn't already present
                     if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == leftProduct.OneBasedBeginPosition && p.OneBasedEndPosition == leftProduct.OneBasedEndPosition))
@@ -779,7 +802,7 @@ namespace Proteomics
                 if (BaseSequence.Length - position - 1 >= minimumProductLength)
                 {
                     string rightType = $"C-terminal Portion of Singly Cleaved Protein({position + 1}-{BaseSequence.Length})";
-                    ProteolysisProduct rightProduct = new(position + 1, BaseSequence.Length, rightType);
+                    TruncationProduct rightProduct = new(position + 1, BaseSequence.Length, rightType);
 
                     //here we're making sure a product with these begin/end positions isn't already present
                     if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == rightProduct.OneBasedBeginPosition && p.OneBasedEndPosition == rightProduct.OneBasedEndPosition))
@@ -790,19 +813,8 @@ namespace Proteomics
             }
         }
 
-        private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
-        {
-            bool emptyVars = appliedVariations == null || appliedVariations.Count() == 0;
-            if (name == null && emptyVars)
-            {
-                return null;
-            }
-            else
-            {
-                string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
-                return name + variantTag;
-            }
-        }
+        #endregion
+
 
         /// <summary>
         /// This function takes in a decoy protein and a list of forbidden sequences that the decoy

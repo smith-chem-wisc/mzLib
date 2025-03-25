@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Omics.Modifications;
 using Proteomics;

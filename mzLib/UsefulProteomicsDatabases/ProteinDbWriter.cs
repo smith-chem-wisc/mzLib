@@ -7,6 +7,7 @@ using System.Linq;
 using System.Xml;
 using Easy.Common.Extensions;
 using Omics;
+using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
 
@@ -144,8 +145,8 @@ namespace UsefulProteomicsDatabases
 
                     ////for now we are not going to write top-down truncations generated for top-down truncation search. 
                     ////some day we could write those if observed
-                    ////the truncation designation is contained in the "type" field of ProteolysisProduct
-                    //List<ProteolysisProduct> proteolysisProducts = nucleicAcid.ProteolysisProducts.Where(p => !p.Type.Contains("truncation")).ToList();
+                    ////the truncation designation is contained in the "type" field of TruncationProduct
+                    //List<TruncationProduct> proteolysisProducts = nucleicAcid.ProteolysisProducts.Where(p => !p.Type.Contains("truncation")).ToList();
                     //foreach (var proteolysisProduct in proteolysisProducts)
                     //{
                     //    writer.WriteStartElement("feature");
@@ -405,8 +406,8 @@ namespace UsefulProteomicsDatabases
 
                     //for now we are not going to write top-down truncations generated for top-down truncation search. 
                     //some day we could write those if observed
-                    //the truncation designation is contained in the "type" field of ProteolysisProduct
-                    List<ProteolysisProduct> proteolysisProducts = protein.ProteolysisProducts.Where(p => !p.Type.Contains("truncation"))
+                    //the truncation designation is contained in the "type" field of TruncationProduct
+                    List<TruncationProduct> proteolysisProducts = protein.ProteolysisProducts.Where(p => !p.Type.Contains("truncation"))
                         .OrderBy(p => p.OneBasedBeginPosition).ToList();
                     foreach (var proteolysisProduct in proteolysisProducts)
                     {

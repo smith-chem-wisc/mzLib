@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Omics.Modifications;
 using Proteomics;
@@ -70,7 +71,7 @@ namespace Test.DatabaseTests
                 geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("gene", "name") },
                 databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
                 sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
-                proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
+                proteolysisProducts: new List<TruncationProduct> { new TruncationProduct(1, 2, "prod") },
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 1, null, null, null, null, null, null) } } }
                 );
 
@@ -84,7 +85,7 @@ namespace Test.DatabaseTests
                 geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("gene", "name") },
                 databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
                 sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
-                proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
+                proteolysisProducts: new List<TruncationProduct> { new TruncationProduct(1, 2, "prod") },
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null) } } }
                 );
 

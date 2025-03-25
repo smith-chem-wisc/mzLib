@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using MzLibUtil;
 using Omics;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
@@ -90,9 +91,9 @@ namespace Test
             protein2.Digest(nParams, null, null).ToList();
             protein2.Digest(cParams, null, null).ToList();
 
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            List<TruncationProduct> proteolysisProducts = new List<TruncationProduct>
             {
-                new ProteolysisProduct(5, 25, "asdf")
+                new TruncationProduct(5, 25, "asdf")
             };
 
             //speedy
@@ -475,9 +476,9 @@ namespace Test
         [Test]
         public static void TestTopDownDigestion()
         {
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            List<TruncationProduct> proteolysisProducts = new List<TruncationProduct>
             {
-                new ProteolysisProduct(5, 20, "asdf")
+                new TruncationProduct(5, 20, "asdf")
             };
             Protein protein = new Protein("MACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWY", "testProtein", "Mus", proteolysisProducts: proteolysisProducts);
             DigestionParams topdownParams = new DigestionParams("top-down");
@@ -508,7 +509,7 @@ namespace Test
             Assert.IsTrue(noneCleavageRetainMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.None);
 
             //Test with proteolytic cleavages
-            protein = new Protein("MACDEFGHIKLMNPQRST", "test", proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(3, 9, "chain") });
+            protein = new Protein("MACDEFGHIKLMNPQRST", "test", proteolysisProducts: new List<TruncationProduct> { new TruncationProduct(3, 9, "chain") });
             PeptideWithSetModifications fullProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
             Assert.IsTrue(fullProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Full);
             fullProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 10, CleavageSpecificity.Unknown, "", 0, empty, 0);

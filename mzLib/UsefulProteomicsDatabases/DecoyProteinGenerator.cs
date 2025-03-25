@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Omics.BioPolymer;
 using Omics.Modifications;
 
 namespace UsefulProteomicsDatabases
@@ -101,17 +102,17 @@ namespace UsefulProteomicsDatabases
                 }
 
                 // reverse proteolysis products
-                List<ProteolysisProduct> decoyPP = new List<ProteolysisProduct>();
-                foreach (ProteolysisProduct pp in protein.ProteolysisProducts)
+                List<TruncationProduct> decoyPP = new List<TruncationProduct>();
+                foreach (TruncationProduct pp in protein.ProteolysisProducts)
                 {
                     // maintain lengths and approx position
                     if (startsWithM)
                     {
-                        decoyPP.Add(new ProteolysisProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"DECOY {pp.Type}"));
+                        decoyPP.Add(new TruncationProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"DECOY {pp.Type}"));
                     }
                     else
                     {
-                        decoyPP.Add(new ProteolysisProduct(protein.BaseSequence.Length - pp.OneBasedEndPosition + 1, protein.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"DECOY {pp.Type}"));
+                        decoyPP.Add(new TruncationProduct(protein.BaseSequence.Length - pp.OneBasedEndPosition + 1, protein.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"DECOY {pp.Type}"));
                     }
                 }
 
@@ -294,8 +295,8 @@ namespace UsefulProteomicsDatabases
 
                 var slided_sequence = new string(sequenceArraySlided);
 
-                List<ProteolysisProduct> decoyPPSlide = new List<ProteolysisProduct>();
-                foreach (ProteolysisProduct pp in protein.ProteolysisProducts)  //can't keep all aa like you can with reverse, just keep it the same length
+                List<TruncationProduct> decoyPPSlide = new List<TruncationProduct>();
+                foreach (TruncationProduct pp in protein.ProteolysisProducts)  //can't keep all aa like you can with reverse, just keep it the same length
                 {
                     decoyPPSlide.Add(pp);
                 }

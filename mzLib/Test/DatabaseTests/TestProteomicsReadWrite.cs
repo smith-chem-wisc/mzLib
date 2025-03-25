@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Omics.Fragmentation;
 using Omics.Modifications;
@@ -265,7 +266,7 @@ namespace Test.DatabaseTests
             Protein ParentProtein = new Protein("MPEPTIDEKANTHE", "accession1", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null,
                 "name1", "fullname1", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
 
-            List<ProteolysisProduct> pp = new List<ProteolysisProduct> { new ProteolysisProduct(4, 8, "chain") };
+            List<TruncationProduct> pp = new List<TruncationProduct> { new TruncationProduct(4, 8, "chain") };
             Protein proteinWithChain = new Protein("MAACNNNCAA", "accession3", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), pp,
                 "name2", "fullname2", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
 
@@ -310,7 +311,7 @@ namespace Test.DatabaseTests
                 {4, new List<Modification>{mod2} },
                 {5, new List<Modification>{mod3} }
             };
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "propeptide") };
+            List<TruncationProduct> proteolysisProducts = new List<TruncationProduct> { new TruncationProduct(1, 2, "propeptide") };
 
             string name = "testName";
 
