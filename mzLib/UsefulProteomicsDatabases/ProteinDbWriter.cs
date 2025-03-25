@@ -30,8 +30,8 @@ namespace UsefulProteomicsDatabases
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
             List<IBioPolymer> bioPolymerList, string outputFileName)
         {
-            return bioPolymerList.Any(p => p is Protein) 
-                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName) 
+            return bioPolymerList.Any(p => p is Protein)
+                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName)
                 : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName);
         }
 

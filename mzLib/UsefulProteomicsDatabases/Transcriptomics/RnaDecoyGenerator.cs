@@ -23,18 +23,18 @@ namespace UsefulProteomicsDatabases.Transcriptomics
     /// </remarks>
     public static class RnaDecoyGenerator
     {
-        public static List<T> GenerateDecoys<T>(List<T> nucleicAcids, DecoyType decoyType, int maxThreads = -1) where T : INucleicAcid
+        public static List<T> GenerateDecoys<T>(List<T> nucleicAcids, DecoyType decoyType, int maxThreads = -1, string decoyIdentifier = "DECOY") where T : INucleicAcid
         {
             switch (decoyType)
             {
                 case DecoyType.None:
                     return new List<T>();
                 case DecoyType.Reverse:
-                    return GenerateReverseDecoys(nucleicAcids, maxThreads);
+                    return GenerateReverseDecoys(nucleicAcids, maxThreads, decoyIdentifier);
                 case DecoyType.Slide:
-                    return GenerateSlidedDecoys(nucleicAcids, maxThreads);
+                    return GenerateSlidedDecoys(nucleicAcids, maxThreads, decoyIdentifier);
                 case DecoyType.Shuffle:
-                    return GenerateShuffledDeocys(nucleicAcids, maxThreads);
+                    return GenerateShuffledDeocys(nucleicAcids, maxThreads, decoyIdentifier);
                 case DecoyType.Random:
                 default:
                     throw new ArgumentOutOfRangeException(nameof(decoyType), decoyType, null);
@@ -49,7 +49,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         /// <param name="nucleicAcids"></param>
         /// <param name="maxThreads"></param>
         /// <returns></returns>
-        private static List<T> GenerateReverseDecoys<T>(List<T> nucleicAcids, int maxThreads = -1) where T : INucleicAcid
+        private static List<T> GenerateReverseDecoys<T>(List<T> nucleicAcids, int maxThreads, string decoyIdentifier) where T : INucleicAcid
         {
             List<T> decoyNucleicAcids = new List<T>();
             Parallel.ForEach(nucleicAcids, new ParallelOptions() { MaxDegreeOfParallelism = maxThreads }, nucleicAcid =>
@@ -66,7 +66,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                     reverseModifications.Add(reverseKey, kvp.Value);
                 }
 
-                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true);
+                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, decoyIdentifier);
                 lock (decoyNucleicAcids)
                 {
                     decoyNucleicAcids.Add(newNucleicAcid);
@@ -75,12 +75,12 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             return decoyNucleicAcids;
         }
 
-        private static List<T> GenerateSlidedDecoys<T>(List<T> nucleicAcids, int maxThreads = -1) where T : INucleicAcid
+        private static List<T> GenerateSlidedDecoys<T>(List<T> nucleicAcids, int maxThreads, string decoyIdentifier) where T : INucleicAcid
         {
             throw new NotImplementedException();
         }
 
-        private static List<T> GenerateShuffledDeocys<T>(List<T> nucleicAcids, int maxThreads = -1) where T : INucleicAcid
+        private static List<T> GenerateShuffledDeocys<T>(List<T> nucleicAcids, int maxThreads, string decoyIdentifier) where T : INucleicAcid
         {
             throw new NotImplementedException();
         }
