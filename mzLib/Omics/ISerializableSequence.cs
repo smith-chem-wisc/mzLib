@@ -21,4 +21,15 @@ public static class SerializableSequenceExtensions
         var serializer = new Serializer(types);
         return serializer;
     }
+
+    public static Serializer GetSequenceSerializer<T>(this List<T> toSerialize) where T : ISerializableSequence
+    {
+        T first = toSerialize[0];
+        var collectionType = toSerialize.GetType();
+        var implementationSpecificTypes = first.GetTypesToSerialize();
+
+        var types = new List<Type>(implementationSpecificTypes) { collectionType };
+        var serializer = new Serializer(types);
+        return serializer;
+    }
 }
