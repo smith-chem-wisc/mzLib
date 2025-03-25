@@ -1,4 +1,5 @@
-﻿using NetSerializer;
+﻿using CsvHelper;
+using NetSerializer;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -17,16 +18,22 @@ public static class SerializableSequenceExtensions
 {
     public static Serializer GetSequenceSerializer<T>(this T toSerialize) where T : ISerializableSequence
     {
-        var types = toSerialize.GetTypesToSerialize();
+        var collectionType = typeof(List<T>);
+        var implementationSpecificTypes = toSerialize.GetTypesToSerialize();
+
+        var types = new List<Type>(implementationSpecificTypes) { collectionType };
         var serializer = new Serializer(types);
         return serializer;
     }
 
     public static Serializer GetSequenceSerializer<T>(this List<T> toSerialize) where T : ISerializableSequence
     {
-        T first = toSerialize[0];
+        T instance = toSerialize.Count == 0 ?
+            (T)Activator.CreateInstance(typeof(T), true)!
+            : toSerialize[0];
+
         var collectionType = toSerialize.GetType();
-        var implementationSpecificTypes = first.GetTypesToSerialize();
+        var implementationSpecificTypes = instance.GetTypesToSerialize();
 
         var types = new List<Type>(implementationSpecificTypes) { collectionType };
         var serializer = new Serializer(types);

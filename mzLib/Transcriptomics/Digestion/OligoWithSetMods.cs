@@ -301,6 +301,9 @@ namespace Transcriptomics.Digestion
 
         public override Type[] GetTypesToSerialize() => [typeof(OligoWithSetMods), typeof(ChemicalFormula)];
 
+        // private construct only used to prevent serialization errors on type checking
+        private OligoWithSetMods() : base(null, 0, 0, 0, CleavageSpecificity.Full, null, null) { }
+
         #endregion
 
         /// <summary>
