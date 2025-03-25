@@ -13,7 +13,7 @@ using Omics.BioPolymer;
 
 namespace Proteomics
 {
-    public class Protein : IBioPolymer, IEquatable<Protein>, IComparable<Protein>
+    public class Protein : IBioPolymer, IHasSequenceVariants, IEquatable<Protein>, IComparable<Protein>
     {
         private List<TruncationProduct> _proteolysisProducts;
 
@@ -174,8 +174,6 @@ namespace Proteomics
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }
 
-        public IBioPolymer NonVariant => NonVariantProtein;
-
         /// <summary>
         /// Protein before applying variations.
         /// </summary>
@@ -200,7 +198,7 @@ namespace Proteomics
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
-        internal IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
+        public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         /// <summary>
@@ -547,6 +545,14 @@ namespace Proteomics
 
         #region Sequence Variants
 
+        public IBioPolymer NonVariant => NonVariantProtein;
+
+        public IHasSequenceVariants CreateVariant(string variantBaseSequence, IHasSequenceVariants original, IEnumerable<SequenceVariation> appliedSequenceVariants,
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+        {
+            return new Protein(variantBaseSequence, original as Protein, appliedSequenceVariants, applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+        }
+
         /// <summary>
         /// Gets proteins with applied variants from this protein
         /// </summary>
@@ -579,7 +585,7 @@ namespace Proteomics
             }
         }
 
-        #region Proteolysis Products and Truncations
+        #region Truncation Products
 
         /// <summary>
         /// Filters modifications that do not match their target amino acid.

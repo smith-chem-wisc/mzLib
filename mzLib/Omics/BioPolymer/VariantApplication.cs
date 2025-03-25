@@ -14,7 +14,7 @@ namespace Omics.BioPolymer
         /// <param name="sequenceVariation"></param>
         public static string GetAccession(IHasSequenceVariants protein,IEnumerable<SequenceVariation> appliedSequenceVariations)
         {
-            return protein.NonVariantProtein.Accession + 
+            return protein.NonVariant.Accession + 
                 (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
         }
 
@@ -70,7 +70,7 @@ namespace Omics.BioPolymer
         /// </summary>
         /// <param name="variations"></param>
         /// <returns></returns>
-        internal static string CombineDescriptions(IEnumerable<SequenceVariation> variations)
+        public static string CombineDescriptions(IEnumerable<SequenceVariation> variations)
         {
             return variations == null || variations.Count() == 0 ? "" : string.Join(", variant:", variations.Select(d => d.Description));
         }
@@ -81,7 +81,7 @@ namespace Omics.BioPolymer
         /// <param name="protein"></param>
         /// <param name="uniqueEffectsToApply"></param>
         /// <returns></returns>
-        internal static List<IHasSequenceVariants> ApplyVariants(IHasSequenceVariants protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
+        public static List<IHasSequenceVariants> ApplyVariants(IHasSequenceVariants protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
         {
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
                 .GroupBy(v => v.SimpleString())
@@ -90,7 +90,7 @@ namespace Omics.BioPolymer
                 .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
                 .ToList();
 
-            Protein proteinCopy = new Protein(protein.BaseSequence, protein, null, protein.ProteolysisProducts, protein.OneBasedPossibleLocalizedModifications, null);
+            IHasSequenceVariants proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.ProteolysisProducts, protein.OneBasedPossibleLocalizedModifications, null);
 
             // If there aren't any variants to apply, just return the base protein
             if (uniqueEffectsToApply.Count == 0)
@@ -238,7 +238,7 @@ namespace Omics.BioPolymer
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
             List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
 
-            return new Protein(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            return protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
         }
 
         /// <summary>
