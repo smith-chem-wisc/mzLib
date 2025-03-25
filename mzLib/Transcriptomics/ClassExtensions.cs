@@ -34,7 +34,8 @@ namespace Transcriptomics
                 case RNA rna:
                 {
                     bool newIsDecoy = isDecoy ?? rna.IsDecoy;
-                    returnObj = new RNA(newSequence, rna.Name, rna.Accession, rna.Organism, rna.DatabaseFilePath,
+                    string accession = newIsDecoy ? $"DECOY_{rna.Accession}" : rna.Accession;
+                    returnObj = new RNA(newSequence, rna.Name, accession, rna.Organism, rna.DatabaseFilePath,
                         rna.FivePrimeTerminus, rna.ThreePrimeTerminus, newModifications, rna.IsContaminant, newIsDecoy, rna.GeneNames.ToList(), rna.AdditionalDatabaseFields);
                     break;
                 }
