@@ -23,7 +23,7 @@ namespace Transcriptomics
         /// phospho group, leaving only the hydroxyl. This formula will be used for the five prime cap, unless
         /// the nucleic acid is constructed with a different chemical formula
         /// </remarks>
-        public static readonly ChemicalFormula DefaultFivePrimeTerminus = ChemicalFormula.ParseFormula("O-3P-1");
+        public static readonly ChemicalFormula DefaultFivePrimeTerminus;
 
         /// <summary>
         /// The default chemical formula of the three prime terminus (hydroxyl group)
@@ -33,7 +33,13 @@ namespace Transcriptomics
         /// This formula will be used for the three prime cap, unless the nucleic acid is constructed with a different
         /// chemical formula
         /// </remarks>
-        public static readonly ChemicalFormula DefaultThreePrimeTerminus = ChemicalFormula.ParseFormula("OH");
+        public static readonly ChemicalFormula DefaultThreePrimeTerminus;
+
+        static NucleicAcid()
+        {
+            DefaultFivePrimeTerminus = new ChemicalFormula("O-3P-1");
+            DefaultThreePrimeTerminus = new ChemicalFormula("OH");
+        }
 
         #endregion
 
@@ -47,8 +53,8 @@ namespace Transcriptomics
         {
             MonoisotopicMass = 0;
             _nucleicAcids = new Nucleotide[sequence.Length];
-            ThreePrimeTerminus = threePrimeTerm ??= DefaultThreePrimeTerminus;
-            FivePrimeTerminus = fivePrimeTerm ??= DefaultFivePrimeTerminus;
+            ThreePrimeTerminus = threePrimeTerm ?? DefaultThreePrimeTerminus;
+            FivePrimeTerminus = fivePrimeTerm ?? DefaultFivePrimeTerminus;
             _oneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
             GeneNames = new List<Tuple<string, string>>();
 

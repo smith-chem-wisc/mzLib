@@ -6,6 +6,33 @@ namespace Transcriptomics.Digestion
 {
     public class Rnase : DigestionAgent, IEquatable<Rnase>
     {
+        #region Static Properties
+
+        /// <summary>
+        /// The default chemical formula of the five prime (hydroxyl group)
+        /// </summary>
+        /// <remarks>
+        /// This means that the five prime cap will remove the excess components of first nucleotides
+        /// phospho group, leaving only the hydroxyl. 
+        /// </remarks>
+        public static readonly ChemicalFormula DefaultFivePrimeTerminus;
+
+        /// <summary>
+        /// The default chemical formula of the three prime terminus (phosphate group)
+        /// </summary>
+        /// <remarks>
+        /// This is used to account for the mass of the additional hydroxyl group at the three end of most oligonucleotides.
+        /// </remarks>
+        public static readonly ChemicalFormula DefaultThreePrimeTerminus;
+
+        static Rnase()
+        {
+            DefaultFivePrimeTerminus = new ChemicalFormula("O-3P-1");
+            DefaultThreePrimeTerminus = new ChemicalFormula("H2O4P");
+        }
+
+        #endregion
+
         public Rnase(string name, CleavageSpecificity cleaveSpecificity, List<DigestionMotif> motifList, Modification cleavageMod = null) :
             base(name, cleaveSpecificity, motifList, cleavageMod)
         {
@@ -54,10 +81,10 @@ namespace Transcriptomics.Digestion
                         int oneBasedEndResidue = oneBasedIndicesToCleaveAfter[i + missedCleavages + 1];
 
                         // contains original 5' terminus ? keep it : set to OH
-                        IHasChemicalFormula fivePrimeTerminus = oneBasedStartResidue == 1 ? nucleicAcid.FivePrimeTerminus : ChemicalFormula.ParseFormula("O-3P-1");
+                        IHasChemicalFormula fivePrimeTerminus = oneBasedStartResidue == 1 ? nucleicAcid.FivePrimeTerminus : DefaultFivePrimeTerminus;
 
                         // contains original 3' terminus ? keep it : set to phosphate
-                        IHasChemicalFormula threePrimeTerminus = oneBasedEndResidue == nucleicAcid.Length ? nucleicAcid.ThreePrimeTerminus : ChemicalFormula.ParseFormula("H2O4P");
+                        IHasChemicalFormula threePrimeTerminus = oneBasedEndResidue == nucleicAcid.Length ? nucleicAcid.ThreePrimeTerminus : DefaultThreePrimeTerminus;
 
                         yield return new NucleolyticOligo(nucleicAcid, oneBasedStartResidue, oneBasedEndResidue,
                             missedCleavages, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus);
