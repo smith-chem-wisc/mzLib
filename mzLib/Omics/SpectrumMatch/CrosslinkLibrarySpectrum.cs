@@ -11,7 +11,7 @@ public class CrosslinkLibrarySpectrum : LibrarySpectrum
     public string UniqueSequence { get; private set; }
     public bool IsBetaPeptide { get; }
     public static Regex CrosslinkRegex = new Regex(@"\(\d+\)");
-    public new string Name => UniqueSequence + "/" + ChargeState;
+    public override string Name => UniqueSequence + "/" + ChargeState;
 
     public CrosslinkLibrarySpectrum(
         string uniqueSequence,
