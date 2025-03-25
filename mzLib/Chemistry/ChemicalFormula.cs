@@ -255,12 +255,12 @@ namespace Chemistry
                 if (match.Groups[2].Success) // Group 2 (optional): Isotope Mass Number
                 {
                     // Adding isotope!
-                    isotopes.Add(element[int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)], sign * numofelem);
+                    isotopes.Increment(element[int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)], sign * numofelem);
                 }
                 else
                 {
                     // Adding element!
-                    elements.Add(element, numofelem * sign);
+                    elements.Increment(element, numofelem * sign);
                 }
             }
             return (elements, isotopes);

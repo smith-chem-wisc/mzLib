@@ -2,6 +2,9 @@
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MzLibUtil;
 using Readers;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Test
 {
@@ -59,6 +62,169 @@ namespace Test
             Assert.IsFalse(11.ToEnum<TimsTofMsMsType>(out result));
             Assert.IsFalse(7.ToEnum<TimsTofMsMsType>(out result));
             
+        }
+
+        [Test]
+        public void Increment_IncrementsExistingKey()
+        {
+            // Arrange
+            var dictionary = new Dictionary<string, int>
+            {
+                { "key1", 1 }
+            };
+
+            // Act
+            dictionary.Increment("key1");
+
+            // Assert
+            Assert.That(dictionary["key1"], Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Increment_AddsNewKeyWithInitialValue()
+        {
+            // Arrange
+            var dictionary = new Dictionary<string, int>();
+
+            // Act
+            dictionary.Increment("key1");
+
+            // Assert
+            Assert.That(dictionary.ContainsKey("key1"));
+            Assert.That(dictionary["key1"], Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Increment_IncrementsMultipleTimes()
+        {
+            // Arrange
+            var dictionary = new Dictionary<string, int>
+            {
+                { "key1", 1 }
+            };
+
+            // Act
+            dictionary.Increment("key1");
+            dictionary.Increment("key1");
+            dictionary.Increment("key1");
+
+            // Assert
+            Assert.That(dictionary["key1"], Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Increment_AddsAndIncrementsNewKey()
+        {
+            // Arrange
+            var dictionary = new Dictionary<string, int>();
+
+            // Act
+            dictionary.Increment("key1");
+            dictionary.Increment("key1");
+
+            // Assert
+            Assert.That(dictionary.ContainsKey("key1"));
+            Assert.That(dictionary["key1"], Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Increment_ThreadSafeWithConcurrentDictionary()
+        {
+            // Arrange
+            var dictionary = new ConcurrentDictionary<string, int>();
+            var tasks = new List<Task>();
+
+            // Act
+            for (int i = 0; i < 1000; i++)
+            {
+                tasks.Add(Task.Run(() => dictionary.Increment("key1", 1)));
+            }
+            Task.WaitAll(tasks.ToArray());
+
+            // Assert
+            Assert.That(dictionary["key1"], Is.EqualTo(1000));
+        }
+
+        [Test]
+        public void Increment_IncrementsBySpecifiedValue()
+        {
+            // Arrange
+            var dictionary = new Dictionary<string, int>
+            {
+                { "key1", 1 }
+            };
+
+            // Act
+            dictionary.Increment("key1", 5);
+
+            // Assert
+            Assert.That(dictionary["key1"], Is.EqualTo(6));
+        }
+
+        [Test]
+        public void Increment_AddsNewKeyWithSpecifiedValue()
+        {
+            // Arrange
+            var dictionary = new Dictionary<string, int>();
+
+            // Act
+            dictionary.Increment("key1", 5);
+
+            // Assert
+            Assert.That(dictionary.ContainsKey("key1"));
+            Assert.That(dictionary["key1"], Is.EqualTo(5));
+        }
+
+        [Test]
+        public void Increment_IncrementsBySpecifiedValueMultipleTimes()
+        {
+            // Arrange
+            var dictionary = new Dictionary<string, int>
+            {
+                { "key1", 1 }
+            };
+
+            // Act
+            dictionary.Increment("key1", 2);
+            dictionary.Increment("key1", 3);
+            dictionary.Increment("key1", 4);
+
+            // Assert
+            Assert.That(dictionary["key1"], Is.EqualTo(10));
+        }
+
+        [Test]
+        public void Increment_AddsAndIncrementsNewKeyBySpecifiedValue()
+        {
+            // Arrange
+            var dictionary = new Dictionary<string, int>();
+
+            // Act
+            dictionary.Increment("key1", 2);
+            dictionary.Increment("key1", 3);
+
+            // Assert
+            Assert.That(dictionary.ContainsKey("key1"));
+            Assert.That(dictionary["key1"], Is.EqualTo(5));
+        }
+
+        [Test]
+        public void Increment_ThreadSafeWithConcurrentDictionaryBySpecifiedValue()
+        {
+            // Arrange
+            var dictionary = new ConcurrentDictionary<string, int>();
+            var tasks = new List<Task>();
+
+            // Act
+            for (int i = 0; i < 1000; i++)
+            {
+                int value = i % 10 + 1; // Increment by values from 1 to 10
+                tasks.Add(Task.Run(() => dictionary.Increment("key1", value)));
+            }
+            Task.WaitAll(tasks.ToArray());
+
+            // Assert
+            Assert.That(dictionary["key1"], Is.EqualTo(5500));
         }
     }
 }
