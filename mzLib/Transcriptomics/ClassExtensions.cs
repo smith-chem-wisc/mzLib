@@ -21,7 +21,7 @@ namespace Transcriptomics
         /// initialized with the provided or existing properties, enabling further analysis of modified sequences and future generation of decoys on the fly.
         /// </remarks>
         public static T CreateNew<T>(this T target, string? sequence = null, IDictionary<int, List<Modification>>? modifications = null,
-        bool? isDecoy = null)
+        bool? isDecoy = null, string decoyIdentifier = "DECOY")
             where T : INucleicAcid
         {
             // set new object parameters where not null
@@ -34,7 +34,8 @@ namespace Transcriptomics
                 case RNA rna:
                 {
                     bool newIsDecoy = isDecoy ?? rna.IsDecoy;
-                    returnObj = new RNA(newSequence, rna.Name, rna.Accession, rna.Organism, rna.DatabaseFilePath,
+                    string accession = newIsDecoy ? $"{decoyIdentifier}_{rna.Accession}" : rna.Accession;
+                    returnObj = new RNA(newSequence, rna.Name, accession, rna.Organism, rna.DatabaseFilePath,
                         rna.FivePrimeTerminus, rna.ThreePrimeTerminus, newModifications, rna.IsContaminant, newIsDecoy, rna.GeneNames.ToList(), rna.AdditionalDatabaseFields);
                     break;
                 }
