@@ -1,5 +1,4 @@
-﻿using CsvHelper;
-using NetSerializer;
+﻿using NetSerializer;
 using Omics.Digestion;
 using Omics.Modifications;
 
