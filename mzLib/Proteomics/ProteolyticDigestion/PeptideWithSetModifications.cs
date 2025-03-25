@@ -940,21 +940,18 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
         /// </summary>
-        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> allKnownMods, IDictionary<string, IBioPolymer> accessionToProtein, DigestionParams dp)
+        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> allKnownMods, IDictionary<string, IBioPolymer> accessionToProtein, IDigestionParams dp)
         {
             _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, allKnownMods);
             SetParentAfterDeserialization(accessionToProtein);
-            _digestionParams = dp;
+            _digestionParams = dp as DigestionParams;
         }
-
-        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> idToMod,
-            IDictionary<string, IBioPolymer> accessionToProtein, IDigestionParams dp) => 
-            SetNonSerializedPeptideInfo(idToMod, accessionToProtein, (DigestionParams)dp);
 
         // private construct only used to prevent serialization errors on type checking
         private PeptideWithSetModifications() : base(null, 0, 0, 0, CleavageSpecificity.Full) { }
 
         #endregion
+
         private void UpdateCleavageSpecificity()
         {
             if (CleavageSpecificityForFdrCategory == CleavageSpecificity.Unknown)
