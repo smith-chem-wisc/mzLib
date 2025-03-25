@@ -7,6 +7,7 @@ namespace Transcriptomics.Digestion
     /// <summary>
     /// The most basic form of a digested oligo, this class does not care about mass or formula, just base sequence
     /// </summary>
+    [Serializable]
     public class NucleolyticOligo : DigestionProduct
     {
         protected IHasChemicalFormula _fivePrimeTerminus;
