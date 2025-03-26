@@ -25,6 +25,19 @@ public static class VariantApplication
     }
 
     /// <summary>
+    /// Gets the name of a protein with applied variations
+    /// </summary>
+    public static string? GetVariantName(this IEnumerable<SequenceVariation> appliedVariations, string? name)
+    {
+        bool emptyVars = appliedVariations.IsNullOrEmpty();
+        if (name == null && emptyVars)
+            return null;
+
+        string variantTag = emptyVars ? "" : $" variant:{CombineDescriptions(appliedVariations)}";
+        return name + variantTag;
+    }
+
+    /// <summary>
     /// Gets the accession for a protein with applied variations
     /// </summary>
     public static string GetAccession(IHasSequenceVariants protein, IEnumerable<SequenceVariation>? appliedSequenceVariations)

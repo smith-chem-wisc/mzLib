@@ -124,8 +124,8 @@ namespace Proteomics
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
                   proteolysisProducts: new List<TruncationProduct>(applicableProteolysisProducts ?? new List<TruncationProduct>()),
-                  name: GetName(appliedSequenceVariations, protein.Name),
-                  fullName: GetName(appliedSequenceVariations, protein.FullName),
+                  name: appliedSequenceVariations.GetVariantName(protein.Name),
+                  fullName: appliedSequenceVariations.GetVariantName(protein.FullName),
                   isDecoy: protein.IsDecoy,
                   isContaminant: protein.IsContaminant,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
@@ -577,20 +577,6 @@ namespace Proteomics
         }
 
         #endregion
-
-        private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
-        {
-            bool emptyVars = appliedVariations == null || appliedVariations.Count() == 0;
-            if (name == null && emptyVars)
-            {
-                return null;
-            }
-            else
-            {
-                string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
-                return name + variantTag;
-            }
-        }
 
         #region Truncation Products
 
