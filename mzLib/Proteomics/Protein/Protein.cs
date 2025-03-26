@@ -87,7 +87,7 @@ namespace Proteomics
         {
             BaseSequence = newBaseSequence;
             Accession = originalProtein.Accession;
-            NonVariantProtein = originalProtein.NonVariantProtein;
+            NonVariantProtein = originalProtein.NonVariant as Protein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
             FullName = originalProtein.FullName;
@@ -134,8 +134,8 @@ namespace Proteomics
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath)
         {
-            NonVariantProtein = protein.NonVariantProtein;
-            OriginalNonVariantModifications = NonVariantProtein.OriginalNonVariantModifications;
+            NonVariantProtein = protein.NonVariant as Protein;
+            OriginalNonVariantModifications = NonVariant.OriginalNonVariantModifications;
             AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }
@@ -574,14 +574,6 @@ namespace Proteomics
             var variantProtein =  new Protein(variantBaseSequence, original as Protein, appliedSequenceVariants, 
                 applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
-        }
-
-        /// <summary>
-        /// Restore all modifications that were read in, including those that did not match their target amino acid.
-        /// </summary>
-        public void RestoreUnfilteredModifications()
-        {
-            OneBasedPossibleLocalizedModifications = OriginalNonVariantModifications;
         }
 
         #endregion

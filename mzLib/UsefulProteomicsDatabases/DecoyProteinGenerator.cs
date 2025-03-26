@@ -37,7 +37,7 @@ namespace UsefulProteomicsDatabases
         private static List<Protein> GenerateReverseDecoys(List<Protein> proteins, int maxThreads = -1, string decoyIdentifier = "DECOY")
         {
             List<Protein> decoyProteins = new List<Protein>();
-            Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
+            Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (Action<Protein>)(protein =>
             {
                 // reverse sequence
                 // Do not include the initiator methionine in reversal!!!
@@ -55,10 +55,10 @@ namespace UsefulProteomicsDatabases
 
                 // reverse nonvariant sequence
                 // Do not include the initiator methionine in reversal!!!
-                char[] nonVariantSequenceArray = protein.NonVariantProtein.BaseSequence.ToCharArray();
-                if (protein.NonVariantProtein.BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                char[] nonVariantSequenceArray = protein.NonVariant.BaseSequence.ToCharArray();
+                if (protein.NonVariant.BaseSequence.StartsWith("M", StringComparison.Ordinal))
                 {
-                    Array.Reverse(nonVariantSequenceArray, 1, protein.NonVariantProtein.BaseSequence.Length - 1);
+                    Array.Reverse(nonVariantSequenceArray, 1, (int)(protein.NonVariant.BaseSequence.Length - 1));
                 }
                 else
                 {
@@ -148,7 +148,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.NonVariantProtein, reversedNonVariantSequence);
+                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, (Protein)protein.NonVariant, reversedNonVariantSequence);
                 List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(protein.AppliedSequenceVariations, protein, reversedSequence);
 
                 var decoyProtein = new Protein(
@@ -171,7 +171,7 @@ namespace UsefulProteomicsDatabases
                     protein.DatabaseFilePath);
 
                 lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
-            });
+            }));
             decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
             return decoyProteins;
         }

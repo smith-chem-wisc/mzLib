@@ -48,7 +48,7 @@ namespace Test.DatabaseTests
         {
             Protein p = new Protein("MAAA", "accession");
             Protein v = new Protein("MAVA", p, new[] { new SequenceVariation(3, "A", "V", "desc", null) }, null, null, null);
-            Assert.AreEqual(p, v.NonVariantProtein);
+            Assert.AreEqual(p, v.NonVariant);
         }
 
         [Test]
@@ -57,14 +57,14 @@ namespace Test.DatabaseTests
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVar.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
-            Assert.AreEqual(5, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
+            Assert.AreEqual(5, variantProteins.First().NonVariant.SequenceVariations.Count());
             Assert.AreEqual(1, variantProteins.Count); // there is only one unique amino acid change
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.BaseSequence, variantProteins.First().BaseSequence);
-            Assert.AreEqual('C', variantProteins.First().NonVariantProtein.BaseSequence[116]);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.BaseSequence, variantProteins.First().BaseSequence);
+            Assert.AreEqual('C', variantProteins.First().NonVariant.BaseSequence[116]);
             Assert.AreEqual('Y', variantProteins.First().BaseSequence[116]);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Name, variantProteins.First().Name);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.FullName, variantProteins.First().FullName);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Accession, variantProteins.First().Accession);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.Name, variantProteins.First().Name);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.FullName, variantProteins.First().FullName);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.Accession, variantProteins.First().Accession);
 
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
@@ -473,14 +473,14 @@ namespace Test.DatabaseTests
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
-            Assert.AreEqual(12, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
-            Assert.AreEqual(2, variantProteins.First().NonVariantProtein.SequenceVariations.Count(v => v.Description.Heterozygous.Any(kv => kv.Value)));
+            Assert.AreEqual(12, variantProteins.First().NonVariant.SequenceVariations.Count());
+            Assert.AreEqual(2, variantProteins.First().NonVariant.SequenceVariations.Count(v => v.Description.Heterozygous.Any(kv => kv.Value)));
 
             Assert.AreEqual(1, variantProteins.Count); // Should be 2^2 from combinitorics of heterozygous, but the giant indels overwrite them
-            Assert.AreEqual(0, variantProteins.Where(v => v.BaseSequence == variantProteins.First().NonVariantProtein.BaseSequence).Count()); // Homozygous variations are included
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Name, variantProteins.First().Name);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.FullName, variantProteins.First().FullName);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Accession, variantProteins.First().Accession);
+            Assert.AreEqual(0, variantProteins.Where(v => v.BaseSequence == variantProteins.First().NonVariant.BaseSequence).Count()); // Homozygous variations are included
+            Assert.AreNotEqual(variantProteins.First().NonVariant.Name, variantProteins.First().Name);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.FullName, variantProteins.First().FullName);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.Accession, variantProteins.First().Accession);
 
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
@@ -491,20 +491,20 @@ namespace Test.DatabaseTests
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness2.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
-            Assert.AreEqual(1, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
+            Assert.AreEqual(1, variantProteins.First().NonVariant.SequenceVariations.Count());
             Assert.AreEqual(2, variantProteins.Count); // there is only one unique amino acid change
-            Assert.AreEqual(1, variantProteins.Where(v => v.BaseSequence == variantProteins.First().NonVariantProtein.BaseSequence).Count());
+            Assert.AreEqual(1, variantProteins.Where(v => v.BaseSequence == variantProteins.First().NonVariant.BaseSequence).Count());
             var variantProteinRef = variantProteins.First();
             var variantProteinAlt = variantProteins.Last();
-            Assert.AreEqual('R', variantProteins.First().NonVariantProtein.BaseSequence[2386]);
+            Assert.AreEqual('R', variantProteins.First().NonVariant.BaseSequence[2386]);
             Assert.AreEqual('R', variantProteinRef.BaseSequence[2386]);
             Assert.AreEqual('H', variantProteinAlt.BaseSequence[2386]);
-            Assert.AreEqual(variantProteins.First().NonVariantProtein.Name, variantProteinRef.Name);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Name, variantProteinAlt.Name);
-            Assert.AreEqual(variantProteins.First().NonVariantProtein.FullName, variantProteinRef.FullName);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.FullName, variantProteinAlt.FullName);
-            Assert.AreEqual(variantProteins.First().NonVariantProtein.Accession, variantProteinRef.Accession);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Accession, variantProteinAlt.Accession);
+            Assert.AreEqual(variantProteins.First().NonVariant.Name, variantProteinRef.Name);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.Name, variantProteinAlt.Name);
+            Assert.AreEqual(variantProteins.First().NonVariant.FullName, variantProteinRef.FullName);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.FullName, variantProteinAlt.FullName);
+            Assert.AreEqual(variantProteins.First().NonVariant.Accession, variantProteinRef.Accession);
+            Assert.AreNotEqual(variantProteins.First().NonVariant.Accession, variantProteinAlt.Accession);
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
@@ -516,10 +516,10 @@ namespace Test.DatabaseTests
             Assert.AreEqual(8, variantProteins.Count);
             var indelProtein = variantProteins[2];
             Assert.AreNotEqual(indelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, indelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
-            Assert.AreNotEqual(indelProtein.NonVariantProtein.Length, variantProteins[2].Length);
+            Assert.AreNotEqual(indelProtein.NonVariant.Length, variantProteins[2].Length);
             var decoyIndelProtein = variantProteins[5];
             Assert.AreNotEqual(decoyIndelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, decoyIndelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
-            Assert.AreNotEqual(decoyIndelProtein.NonVariantProtein.Length, variantProteins[2].Length);
+            Assert.AreNotEqual(decoyIndelProtein.NonVariant.Length, variantProteins[2].Length);
             Assert.AreEqual(indelProtein.Length - indelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition, decoyIndelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition);
             var variantSeq = indelProtein.AppliedSequenceVariations.Single().VariantSequence.ToCharArray();
             Array.Reverse(variantSeq);

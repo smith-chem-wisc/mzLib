@@ -304,7 +304,7 @@ namespace UsefulProteomicsDatabases
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
-            List<Protein> nonVariantProteins = proteinList.Select(p => p.NonVariantProtein).Distinct().ToList();
+            var nonVariantProteins = proteinList.Select(p => p.NonVariant).Distinct().ToList();
 
             var xmlWriterSettings = new XmlWriterSettings
             {
