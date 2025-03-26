@@ -176,13 +176,13 @@ namespace Readers.SpectrumLibraries
                                     modNameNoBrackets = modName.Substring(1, modName.Length - 2);
                                 }
 
-                                if (!GlobalVariables.AllModsKnownDictionary.ContainsKey(modNameNoBrackets))
-                                {
-                                    //if (PrositToMetaMorpheusModDictionary.TryGetValue(modName, out var metaMorpheusMod))
-                                    //{
-                                    //    modName = metaMorpheusMod;
-                                    //}
-                                }
+                                //if (!GlobalVariables.AllModsKnownDictionary.ContainsKey(modNameNoBrackets))
+                                //{
+                                //    //if (PrositToMetaMorpheusModDictionary.TryGetValue(modName, out var metaMorpheusMod))
+                                //    //{
+                                //    //    modName = metaMorpheusMod;
+                                //    //}
+                                //}
 
                                 // add the mod name into the sequence
                                 string leftSeq = sequence.Substring(0, modPosition + 1);
