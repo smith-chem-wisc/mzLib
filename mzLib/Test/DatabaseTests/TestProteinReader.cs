@@ -94,7 +94,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(1, merged.First().DatabaseReferences.Count());
             Assert.AreEqual(1, merged.First().GeneNames.Count());
             Assert.AreEqual(1, merged.First().SequenceVariations.Count());
-            Assert.AreEqual(1, merged.First().ProteolysisProducts.Count());
+            Assert.AreEqual(1, merged.First().TruncationProducts.Count());
             Assert.AreNotEqual(p.OneBasedPossibleLocalizedModifications.First().Value.First(), p2.OneBasedPossibleLocalizedModifications.First().Value.First());
             Assert.AreEqual(1, merged.First().OneBasedPossibleLocalizedModifications.Count());
             Assert.AreEqual(2, merged.First().OneBasedPossibleLocalizedModifications.First().Value.Count);
@@ -163,8 +163,8 @@ namespace Test.DatabaseTests
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             // proteolysis products check
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedEndPosition == null || d.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(d => d.OneBasedEndPosition == null || d.OneBasedEndPosition <= p.Length)));
 
             // base sequence check
             Assert.False(ok.All(p => p.BaseSequence.Contains(" ")));
@@ -369,7 +369,7 @@ CF   O1
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
             Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
-            Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
+            Assert.AreEqual(ok2[0].TruncationProducts.Count(), ok2[1].TruncationProducts.Count());
             foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
             {
                 Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
@@ -392,11 +392,11 @@ CF   O1
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
             Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
-            Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
-            for (int i = 0; i < ok2[0].ProteolysisProducts.Count(); i++)
+            Assert.AreEqual(ok2[0].TruncationProducts.Count(), ok2[1].TruncationProducts.Count());
+            for (int i = 0; i < ok2[0].TruncationProducts.Count(); i++)
             {
-                Assert.AreEqual(ok2[0].ProteolysisProducts.ToArray()[i].OneBasedBeginPosition, ok2[1].ProteolysisProducts.ToArray()[i].OneBasedBeginPosition);
-                Assert.AreEqual(ok2[0].ProteolysisProducts.ToArray()[i].OneBasedEndPosition, ok2[1].ProteolysisProducts.ToArray()[i].OneBasedEndPosition);
+                Assert.AreEqual(ok2[0].TruncationProducts.ToArray()[i].OneBasedBeginPosition, ok2[1].TruncationProducts.ToArray()[i].OneBasedBeginPosition);
+                Assert.AreEqual(ok2[0].TruncationProducts.ToArray()[i].OneBasedEndPosition, ok2[1].TruncationProducts.ToArray()[i].OneBasedEndPosition);
             }
             foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
             {

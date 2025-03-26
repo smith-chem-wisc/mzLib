@@ -173,26 +173,26 @@ namespace Test.DatabaseTests
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             var target = proteins[0];
-            Assert.AreEqual(1, target.ProteolysisProducts.Count());
-            Assert.AreEqual(beginIdx, target.ProteolysisProducts.Single().OneBasedBeginPosition); //P[start]EPTI[end]D, M[start]EPTI[end]D
-            Assert.AreEqual(endIdx, target.ProteolysisProducts.Single().OneBasedEndPosition);
+            Assert.AreEqual(1, target.TruncationProducts.Count());
+            Assert.AreEqual(beginIdx, target.TruncationProducts.Single().OneBasedBeginPosition); //P[start]EPTI[end]D, M[start]EPTI[end]D
+            Assert.AreEqual(endIdx, target.TruncationProducts.Single().OneBasedEndPosition);
             var decoy = proteins[1];
-            Assert.AreEqual(1, decoy.ProteolysisProducts.Count());
-            Assert.AreEqual(reversedBeginIdx, decoy.ProteolysisProducts.Single().OneBasedBeginPosition); //DI[start]TPEP[end], M[start]DITP[end]E
-            Assert.AreEqual(reversedEndIdx, decoy.ProteolysisProducts.Single().OneBasedEndPosition);
+            Assert.AreEqual(1, decoy.TruncationProducts.Count());
+            Assert.AreEqual(reversedBeginIdx, decoy.TruncationProducts.Single().OneBasedBeginPosition); //DI[start]TPEP[end], M[start]DITP[end]E
+            Assert.AreEqual(reversedEndIdx, decoy.TruncationProducts.Single().OneBasedEndPosition);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
-            Assert.AreEqual(1, target.ProteolysisProducts.Count());
-            Assert.AreEqual(beginIdx, target.ProteolysisProducts.Single().OneBasedBeginPosition);
-            Assert.AreEqual(endIdx, target.ProteolysisProducts.Single().OneBasedEndPosition);
+            Assert.AreEqual(1, target.TruncationProducts.Count());
+            Assert.AreEqual(beginIdx, target.TruncationProducts.Single().OneBasedBeginPosition);
+            Assert.AreEqual(endIdx, target.TruncationProducts.Single().OneBasedEndPosition);
             decoy = proteins[1];
-            Assert.AreEqual(1, decoy.ProteolysisProducts.Count());
-            Assert.AreEqual(reversedBeginIdx, decoy.ProteolysisProducts.Single().OneBasedBeginPosition);
-            Assert.AreEqual(reversedEndIdx, decoy.ProteolysisProducts.Single().OneBasedEndPosition);
+            Assert.AreEqual(1, decoy.TruncationProducts.Count());
+            Assert.AreEqual(reversedBeginIdx, decoy.TruncationProducts.Single().OneBasedBeginPosition);
+            Assert.AreEqual(reversedEndIdx, decoy.TruncationProducts.Single().OneBasedEndPosition);
         }
 
         [TestCase("bonds1.xml", 2, 3, "DICPCP", 4, 5)] // without starting methionine

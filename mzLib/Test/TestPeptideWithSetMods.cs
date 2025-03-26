@@ -863,7 +863,7 @@ namespace Test
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
-            Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(7));//moved T-phospho from 3 to 7
+            Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(7));//moved TBioPolymerType-phospho from 3 to 7
             Assert.IsTrue(p_tryp_reverse.Protein.IsDecoy);
             Assert.AreEqual(p_tryp.FullSequence, p_tryp_reverse.PeptideDescription);
 

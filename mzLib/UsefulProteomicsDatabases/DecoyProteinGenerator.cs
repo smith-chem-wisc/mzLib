@@ -103,7 +103,7 @@ namespace UsefulProteomicsDatabases
 
                 // reverse proteolysis products
                 List<TruncationProduct> decoyPP = new List<TruncationProduct>();
-                foreach (TruncationProduct pp in protein.ProteolysisProducts)
+                foreach (TruncationProduct pp in protein.TruncationProducts)
                 {
                     // maintain lengths and approx position
                     if (startsWithM)
@@ -296,7 +296,7 @@ namespace UsefulProteomicsDatabases
                 var slided_sequence = new string(sequenceArraySlided);
 
                 List<TruncationProduct> decoyPPSlide = new List<TruncationProduct>();
-                foreach (TruncationProduct pp in protein.ProteolysisProducts)  //can't keep all aa like you can with reverse, just keep it the same length
+                foreach (TruncationProduct pp in protein.TruncationProducts)  //can't keep all aa like you can with reverse, just keep it the same length
                 {
                     decoyPPSlide.Add(pp);
                 }

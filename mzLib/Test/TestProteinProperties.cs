@@ -98,8 +98,8 @@ namespace Test
                 });
 
             // RestoreModificationIndex translates the position of a modification in a variant protein to the equivalent location on the canonical protein
-            // Here, the variant is MPEPPPT[Modification on T: mt]IDE, with the mt mod at position 7
-            // and the canonical is MPEPT[[Modification on T: mt]IDE, with the mt mod at position 5
+            // Here, the variant is MPEPPPT[Modification on TBioPolymerType: mt]IDE, with the mt mod at position 7
+            // and the canonical is MPEPT[[Modification on TBioPolymerType: mt]IDE, with the mt mod at position 5
             Assert.AreEqual(VariantApplication.RestoreModificationIndex(protein2, mtModLocationInVariant), mtModLocationInCanonicalProtein);
         }
 
