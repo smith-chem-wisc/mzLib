@@ -8,7 +8,6 @@ using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
 using MzLibUtil;
-using Easy.Common.Extensions;
 using Omics.BioPolymer;
 
 namespace Proteomics
@@ -163,43 +162,42 @@ namespace Proteomics
 
         public string Organism { get; }
         public bool IsDecoy { get; }
-        public IEnumerable<SequenceVariation> SequenceVariations { get; }
-        public IEnumerable<DisulfideBond> DisulfideBonds { get; }
-        public IEnumerable<SpliceSite> SpliceSites { get; }
-
-        //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
-        public IEnumerable<TruncationProduct> ProteolysisProducts
-        { get { return _proteolysisProducts; } }
-
-        public IEnumerable<DatabaseReference> DatabaseReferences { get; }
-        public string DatabaseFilePath { get; }
-
-        /// <summary>
-        /// Protein before applying variations.
-        /// </summary>
-        public Protein NonVariantProtein { get; }
-
-        /// <summary>
-        /// Sequence variations that have been applied to the base sequence.
-        /// </summary>
-        public List<SequenceVariation> AppliedSequenceVariations { get; }
-
-        /// <summary>
-        /// Sample name from which applied variants came, e.g. tumor or normal.
-        /// </summary>
-        public string SampleNameForVariants { get; }
-
-        public double Probability { get; set; } // for protein pep project
-
         public int Length => BaseSequence.Length;
-
         public string FullDescription => Accession + "|" + Name + "|" + FullName;
-
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
-        public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
+
+        #region Database Handling and XML Parsed Fields
+
+        /// <summary>
+        /// Sequence Variants as defined in the parsed XML database
+        /// </summary>
+        public IEnumerable<SequenceVariation> SequenceVariations { get; }
+
+        /// <summary>
+        /// Disulfide Bonds as defined in the parsed XML database
+        /// </summary>
+        public IEnumerable<DisulfideBond> DisulfideBonds { get; }
+
+        /// <summary>
+        /// Splice Sites as defined in the parsed XML Database
+        /// </summary>
+        public IEnumerable<SpliceSite> SpliceSites { get; }
+
+        //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the TruncationProducts parameter
+        /// <summary>
+        /// Truncation products as defined in the parsed XML Database
+        /// </summary>
+        public IEnumerable<TruncationProduct> TruncationProducts => _proteolysisProducts;
+
+        /// <summary>
+        /// The references for a protein in the parsed XML Database
+        /// </summary>
+        public IEnumerable<DatabaseReference> DatabaseReferences { get; }
+
+        public string DatabaseFilePath { get; }
 
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
@@ -220,6 +218,8 @@ namespace Proteomics
         {
             return string.Format("{0} {1}", Accession, FullName);
         }
+
+        #endregion
 
         /// <summary>
         /// Gets peptides for digestion of a protein
@@ -500,7 +500,7 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// Only keep glycopeptides by filtering the NGlycopeptide motif 'NxS || NxT' or OGlycopeptide motif 'S || T'
+        /// Only keep glycopeptides by filtering the NGlycopeptide motif 'NxS || NxT' or OGlycopeptide motif 'S || TBioPolymerType'
         /// </summary>
         internal IEnumerable<ProteolyticPeptide> GetGlycoPeptides(IEnumerable<ProteolyticPeptide> originalPeptides, bool keepNGlycopeptide, bool keepOGlycopeptide)
         {
@@ -547,10 +547,29 @@ namespace Proteomics
 
         public IBioPolymer NonVariant => NonVariantProtein;
 
-        public IHasSequenceVariants CreateVariant(string variantBaseSequence, IHasSequenceVariants original, IEnumerable<SequenceVariation> appliedSequenceVariants,
+        /// <summary>
+        /// Protein before applying variations.
+        /// </summary>
+        public Protein NonVariantProtein { get; }
+
+        /// <summary>
+        /// Sequence variations that have been applied to the base sequence.
+        /// </summary>
+        public List<SequenceVariation> AppliedSequenceVariations { get; }
+
+        /// <summary>
+        /// Sample name from which applied variants came, e.g. tumor or normal.
+        /// </summary>
+        public string SampleNameForVariants { get; }
+        public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
+
+        public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
             IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            where TBioPolymerType : IHasSequenceVariants
         {
-            return new Protein(variantBaseSequence, original as Protein, appliedSequenceVariants, applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+            var variantProtein =  new Protein(variantBaseSequence, original as Protein, appliedSequenceVariants, 
+                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+            return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
 
         /// <summary>
@@ -706,7 +725,7 @@ namespace Proteomics
 
         /// <summary>
         /// This the main entry point for adding sequences in a top-down truncation search.
-        /// The way this is designed is such at all base sequences to be searched end up in the list Protein.ProteolysisProducts
+        /// The way this is designed is such at all base sequences to be searched end up in the list Protein.TruncationProducts
         /// This includes the intact protein. IT DOES NOT INCLUDE ANY DOUBLY (BOTH ENDS) DIGESTED PRODUCTS.
         /// The original proteolysis products (if any) are already in that list. These are annotated in protein.xml files.
         /// The options to keep in mind are present in the following variables
@@ -734,7 +753,7 @@ namespace Proteomics
 
             if (addForEachOrigninalProteolysisProduct) // this does not include the original intact proteoform
             {
-                List<TruncationProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
+                List<TruncationProduct> existingProducts = TruncationProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
                 foreach (TruncationProduct product in existingProducts)
                 {
                     if (product.OneBasedBeginPosition.HasValue && product.OneBasedEndPosition.HasValue)
