@@ -33,11 +33,12 @@ namespace Test.FileReadingTests
         public static void TestMspStyleSpectrumReadWrite()
         {
             var testFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"FileReadingTests\ExternalFileTypes\mspStyleSpectrumLibary");
-            var testOutputPath = Path.Combine(directoryPath, "ms1TsvOut_ms1.tsv");
+                @"FileReadingTests\ExternalFileTypes\mspStyleSpectrumLibary.msp");
+            var testOutputPath = Path.Combine(directoryPath, "mspStyleSpectrumLibary_out.msp");
 
             // load in file
             LibrarySpectrumFile mspSpectrumFile = FileReader.ReadFile<LibrarySpectrumFile>(testFilePath);
+            Assert.That(mspSpectrumFile.Results.Count, Is.EqualTo(10));
 
             // write and reread file
             mspSpectrumFile.WriteResults(testOutputPath);
@@ -57,6 +58,13 @@ namespace Test.FileReadingTests
             var testOutputPathWithoutExtension = Path.Combine(directoryPath, "ms1TsvOut");
             mspSpectrumFile.WriteResults(testOutputPathWithoutExtension);
             Assert.That(File.Exists(testOutputPath));
+        }
+
+        [Test]
+        public static void TestMspEntryWithNterminalMod()
+        {
+            //TOTO
+            // [common bio mod]PEPTIDE read does not work
         }
     }
 }

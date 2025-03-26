@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using Easy.Common.Extensions;
+using MzLibUtil;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
@@ -24,29 +25,75 @@ namespace Readers.SpectrumLibraries
         /// <param name="filePath"></param>
         /// <param name="warnings"></param>
         /// <returns></returns>
-        public static List<LibrarySpectrum> ReadMsp(string filePath, out List<string> warnings) =>
+        public static List<LibrarySpectrum> ReadMspMsp(string filePath, out List<string> warnings) =>
             ReadMsp(filePath, out warnings).Cast<LibrarySpectrum>().ToList();
-        public IEnumerable<LibrarySpectrum> GetAllLibrarySpectra()
-        {
-            foreach (var item in SequenceToFileAndLocation)
-            {
-                yield return ReadSpectrumFromLibraryFile(item.Value.filePath, item.Value.byteOffset);
-            }
-        }
-        private LibrarySpectrum ReadSpectrumFromLibraryFile(string path, long byteOffset)
-        {
-            if (!StreamReaders.TryGetValue(path, out var reader))
-            {
-                throw new Exception("????");
 
+
+
+        /// <summary>
+        /// Legacy method for reading PsmFromTsv files, creates a generic SpectrumMatchFromTsv object for each line
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="warnings"></param>
+        /// <returns></returns>
+        /// <exception cref="MzLibException"></exception>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public static List<LibrarySpectrum> ReadMsp(string filePath, out List<string> warnings)
+        {
+            List<LibrarySpectrum> spectra = new List<LibrarySpectrum>();
+            warnings = new List<string>();
+
+            StreamReader reader = null;
+            try
+            {
+                reader = new StreamReader(filePath);
+            }
+            catch (Exception e)
+            {
+                throw new MzLibException("Could not read file: " + e.Message, e);
             }
 
-            // seek to the byte of the scan
-            reader.BaseStream.Position = byteOffset;
-            reader.DiscardBufferedData();
-            return ReadLibrarySpectrum(reader);
+            int lineCount = 0;
+
+            string line;
+            Dictionary<string, int> parsedHeader = null;
+
+            var fileType = filePath.ParseFileType();
+            while (reader.Peek() > 0)
+            {
+                lineCount++;
+
+                line = reader.ReadLine();
+
+                // msp files have no header
+
+                try
+                {
+                    switch (filePath.ParseFileType())
+                    {
+                        case SupportedFileType.msp:
+                            spectra.Add(ReadLibrarySpectrum(reader));
+                            break;
+
+                        // TODO: Create an osmtsv case when transcriptomics is merged
+
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+                }
+                catch (Exception e)
+                {
+                    warnings.Add("Could not read line: " + lineCount);
+                }
+            }
+
+            reader.Close();
+
+            return spectra;
         }
-        private LibrarySpectrum ReadLibrarySpectrum(StreamReader reader, bool onlyReadHeader = false)
+
+
+        private static LibrarySpectrum ReadLibrarySpectrum(StreamReader reader, bool onlyReadHeader = false)
         {
             char[] nameSplit = new char[] { '/' };
             char[] mwSplit = new char[] { ':' };

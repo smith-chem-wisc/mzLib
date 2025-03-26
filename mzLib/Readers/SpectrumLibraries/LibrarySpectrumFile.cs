@@ -17,7 +17,7 @@ namespace Readers.SpectrumLibraries
 
         public override void LoadResults()
         {
-            Results = MspSpectrumLibraryReader.ReadMsp(FilePath, out List<string> warnings);
+            Results = MspSpectrumLibraryReader.ReadMspMsp(FilePath, out List<string> warnings);
         }
 
         public override void WriteResults(string outputPath) => throw new NotImplementedException();
