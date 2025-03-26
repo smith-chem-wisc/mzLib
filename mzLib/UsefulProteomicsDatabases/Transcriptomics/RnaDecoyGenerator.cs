@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using MassSpectrometry;
 using Omics.Modifications;
 using Transcriptomics;
+using Omics.BioPolymer;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -65,6 +66,25 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                     var reverseKey = kvp.Key == reverseSequence.Length ? kvp.Key : reverseSequence.Length - kvp.Key;
                     reverseModifications.Add(reverseKey, kvp.Value);
                 }
+
+                // reverse proteolysis products
+                List<TruncationProduct> decoyPP = new List<TruncationProduct>();
+                if (nucleicAcid is IHasSequenceVariants variantContaining)
+                {
+                    foreach (TruncationProduct pp in variantContaining.TruncationProducts)
+                    {
+                        // maintain lengths and approx position
+                        if (pp.OneBasedEndPosition == nucleicAcid.BaseSequence.Length) // contains original 3' term which is not reversed. 
+                        {
+                            decoyPP.Add(new TruncationProduct(nucleicAcid.BaseSequence.Length - pp.OneBasedEndPosition + 1, nucleicAcid.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"{decoyIdentifier} {pp.Type}"));
+                        }
+                        else
+                        {
+                            decoyPP.Add(new TruncationProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"{decoyIdentifier} {pp.Type}"));
+                        }
+                    }
+                }
+
 
                 T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, decoyIdentifier);
                 lock (decoyNucleicAcids)
