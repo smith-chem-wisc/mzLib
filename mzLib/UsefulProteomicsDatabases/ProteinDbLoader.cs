@@ -57,7 +57,7 @@ namespace UsefulProteomicsDatabases
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false)
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -121,7 +121,7 @@ namespace UsefulProteomicsDatabases
                 File.Delete(newProteinDbLocation);
             }
 
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
             return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
         }
@@ -181,7 +181,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
-            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false)
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -332,7 +332,7 @@ namespace UsefulProteomicsDatabases
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
 
