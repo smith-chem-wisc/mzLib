@@ -239,9 +239,9 @@ namespace Test.Transcriptomics
                 { 3, new List<Modification>() { modDict["Sodium on A"] } },
             };
 
-            var rna = new RNA("GAACUG", "name", "accession", "organism", "databaseFilePath",
-                null, null, oneBasedPossibleLocalizedModifications, false, false, new List<Tuple<string, string>>(),
-                new Dictionary<string, string>());
+            var rna = new RNA("GAACUG", "accession", "name", "organism",
+                "databaseFilePath", null, null, oneBasedPossibleLocalizedModifications, false, false,
+                new List<Tuple<string, string>>(), new Dictionary<string, string>());
             var oligos = rna
                 .Digest(new RnaDigestionParams(maxMods: 1), new List<Modification>(), mods)
                 .ToList();

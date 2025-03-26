@@ -18,16 +18,16 @@ namespace Transcriptomics
         /// <summary>
         /// For use with RNA loaded from a database
         /// </summary>
-        public RNA(string sequence, string name, string accession, string organism, string databaseFilePath,
+        public RNA(string sequence, string accession, string? name = null, string? organism = null, string? databaseFilePath = null,
             IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleModifications = null,
             bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>> geneNames = null,
             Dictionary<string, string>? databaseAdditionalFields = null, List<TruncationProduct>? truncationProducts = null,
             List<SequenceVariation>? sequenceVariations = null, List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null)
-            : base(sequence, name, accession, organism, databaseFilePath, fivePrimeTerminus, threePrimeTerminus,
-                oneBasedPossibleModifications, isContaminant, isDecoy, geneNames, databaseAdditionalFields, truncationProducts,
-                sequenceVariations, appliedSequenceVariations, sampleNameForVariants, fullName)
+            : base(sequence, accession, name, organism, databaseFilePath, fivePrimeTerminus,
+                threePrimeTerminus, oneBasedPossibleModifications, isContaminant, isDecoy, geneNames, databaseAdditionalFields,
+                truncationProducts, sequenceVariations, appliedSequenceVariations, sampleNameForVariants, fullName)
         {
         }
         
@@ -37,9 +37,9 @@ namespace Transcriptomics
         public RNA(string variantBaseSequence, NucleicAcid original, IEnumerable<SequenceVariation> appliedSequenceVariants,
             IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
 
-            : this(variantBaseSequence, original.Name, VariantApplication.GetAccession(original, appliedSequenceVariants), original.Organism, original.DatabaseFilePath,
-                original.FivePrimeTerminus, original.ThreePrimeTerminus, oneBasedModifications, original.IsContaminant, original.IsDecoy, original.GeneNames.ToList(),
-                original.AdditionalDatabaseFields, applicableProteolysisProducts.ToList(), original.SequenceVariations.ToList(), appliedSequenceVariants.ToList(), sampleNameForVariants, original.FullName)
+            : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants), original.Name, original.Organism,
+                original.DatabaseFilePath, original.FivePrimeTerminus, original.ThreePrimeTerminus, oneBasedModifications, original.IsContaminant, original.IsDecoy,
+                original.GeneNames.ToList(), original.AdditionalDatabaseFields, applicableProteolysisProducts.ToList(), original.SequenceVariations.ToList(), appliedSequenceVariants.ToList(), sampleNameForVariants, original.FullName)
         {
             NonVariant = original.NonVariant;
         }

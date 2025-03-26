@@ -62,20 +62,20 @@ namespace Transcriptomics
         /// <summary>
         /// For Reading in from rna database. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        protected NucleicAcid(string sequence, string name, string accession, string organism, string databaseFilePath,
-            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+        protected NucleicAcid(string sequence, string accession, string? name = null, string? organism = null,
+            string? databaseFilePath = null, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
             bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>>? geneNames = null,
             Dictionary<string, string>? additionalDatabaseFields = null, List<TruncationProduct>? truncationProducts = null,
-            List<SequenceVariation>? sequenceVariations = null, List<SequenceVariation>? appliedSequenceVariations = null, 
+            List<SequenceVariation>? sequenceVariations = null, List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null)
             : this(sequence, fivePrimeTerm, threePrimeTerm, oneBasedPossibleLocalizedModifications)
         {
-            Name = name;
-            DatabaseFilePath = databaseFilePath;
+            Name = name ?? "";
+            DatabaseFilePath = databaseFilePath ?? "";
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
-            Organism = organism;
+            Organism = organism ?? "";
             Accession = accession;
             AdditionalDatabaseFields = additionalDatabaseFields;
 
@@ -232,6 +232,7 @@ namespace Transcriptomics
         #region Sequence Variants
 
         public IBioPolymer NonVariant { get; init; }
+
         /// <summary>
         /// Sequence Variants as defined in the parsed XML database
         /// </summary>

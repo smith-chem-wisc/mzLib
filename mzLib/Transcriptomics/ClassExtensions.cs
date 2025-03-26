@@ -35,8 +35,8 @@ namespace Transcriptomics
                 {
                     bool newIsDecoy = isDecoy ?? rna.IsDecoy;
                     string accession = newIsDecoy ? $"{decoyIdentifier}_{rna.Accession}" : rna.Accession;
-                    returnObj = new RNA(newSequence, rna.Name, accession, rna.Organism, rna.DatabaseFilePath,
-                        rna.FivePrimeTerminus, rna.ThreePrimeTerminus, newModifications, rna.IsContaminant, newIsDecoy, rna.GeneNames.ToList(), rna.AdditionalDatabaseFields);
+                    returnObj = new RNA(newSequence, accession, rna.Name, rna.Organism,
+                        rna.DatabaseFilePath, rna.FivePrimeTerminus, rna.ThreePrimeTerminus, newModifications, rna.IsContaminant, newIsDecoy, rna.GeneNames.ToList(), rna.AdditionalDatabaseFields);
                     break;
                 }
                 case OligoWithSetMods oligo:
@@ -45,8 +45,8 @@ namespace Transcriptomics
                     bool newIsDecoy = isDecoy ?? oldParent.IsDecoy;
                     var newParent = new RNA(
                         newSequence,
-                        oldParent.Name,
                         oldParent.Accession,
+                        oldParent.Name,
                         oldParent.Organism,
                         oldParent.DatabaseFilePath,
                         oldParent.FivePrimeTerminus,
@@ -54,8 +54,7 @@ namespace Transcriptomics
                         newModifications,
                         oldParent.IsContaminant,
                         newIsDecoy,
-                        oldParent.GeneNames.ToList(),
-                        oldParent.AdditionalDatabaseFields);
+                        oldParent.GeneNames.ToList(), oldParent.AdditionalDatabaseFields);
 
                     returnObj = new OligoWithSetMods(
                         newParent,
