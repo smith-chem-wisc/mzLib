@@ -1,4 +1,5 @@
-﻿using Omics.SpectrumMatch;
+﻿using CsvHelper;
+using Omics.SpectrumMatch;
 
 namespace Readers.SpectrumLibraries
 {
@@ -19,8 +20,24 @@ namespace Readers.SpectrumLibraries
         {
             Results = MspSpectrumLibraryReader.ReadMspMsp(FilePath, out List<string> warnings);
         }
+        /// <summary>
+        /// Writes results to a specific output path
+        /// </summary>
+        /// <param name="outputPath">destination path</param>
+        public override void WriteResults(string outputPath)
+        {
+            if (!CanRead(outputPath))
+                outputPath += FileType.GetFileExtension();
 
-        public override void WriteResults(string outputPath) => throw new NotImplementedException();
+            using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), FlashDeconvTsv.CsvConfiguration);
+
+            csv.WriteHeader<FlashDeconvTsv>();
+            foreach (var result in Results)
+            {
+                csv.NextRecord();
+                csv.WriteRecord(result);
+            }
+        }
     }
 
 }
