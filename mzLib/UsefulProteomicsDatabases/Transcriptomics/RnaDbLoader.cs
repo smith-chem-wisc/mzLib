@@ -143,9 +143,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
                         // Do we need to sanitize the sequence? 
 
-                        RNA rna = new RNA(sequence, identifier, name, organism,
-                            rnaDbLocation, fivePrimeTerm, threePrimeTerm,
-                            null, isContaminant, false, null, additonalDatabaseFields);
+                        RNA rna = new RNA(sequence, identifier,
+                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: false, geneNames: null, databaseAdditionalFields: additonalDatabaseFields);
                         if (rna.Length == 0)
                             errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
                         else

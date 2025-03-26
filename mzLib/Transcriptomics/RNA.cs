@@ -1,10 +1,13 @@
 ﻿using Chemistry;
+using MathNet.Numerics.Distributions;
+using MzLibUtil;
+using Omics;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
 namespace Transcriptomics
 {
-    public class RNA : NucleicAcid
+    public class RNA : NucleicAcid, IEquatable<RNA>
     {
         /// <summary>
         /// For constructing RNA from a string
@@ -18,15 +21,18 @@ namespace Transcriptomics
         /// <summary>
         /// For use with RNA loaded from a database
         /// </summary>
-        public RNA(string sequence, string accession, string? name = null, string? organism = null, string? databaseFilePath = null,
-            IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null,
+        public RNA(string sequence, string accession,
             IDictionary<int, List<Modification>>? oneBasedPossibleModifications = null,
+            IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null,
+            string? name = null, string? organism = null, string? databaseFilePath = null,
             bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>> geneNames = null,
-            Dictionary<string, string>? databaseAdditionalFields = null, List<TruncationProduct>? truncationProducts = null,
-            List<SequenceVariation>? sequenceVariations = null, List<SequenceVariation>? appliedSequenceVariations = null,
+            Dictionary<string, string>? databaseAdditionalFields = null,
+            List<TruncationProduct>? truncationProducts = null,
+            List<SequenceVariation>? sequenceVariations = null,
+            List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null)
-            : base(sequence, accession, name, organism, databaseFilePath, fivePrimeTerminus,
-                threePrimeTerminus, oneBasedPossibleModifications, isContaminant, isDecoy, geneNames, databaseAdditionalFields,
+            : base(sequence, accession, oneBasedPossibleModifications, fivePrimeTerminus, threePrimeTerminus,
+                name, organism, databaseFilePath, isContaminant, isDecoy, geneNames, databaseAdditionalFields,
                 truncationProducts, sequenceVariations, appliedSequenceVariations, sampleNameForVariants, fullName)
         {
         }
@@ -35,20 +41,26 @@ namespace Transcriptomics
         /// For creating a variant of an existing nucleic acid. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
         public RNA(string variantBaseSequence, NucleicAcid original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
 
-            : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants), original.Name, original.Organism,
-                original.DatabaseFilePath, original.FivePrimeTerminus, original.ThreePrimeTerminus, oneBasedModifications, original.IsContaminant, original.IsDecoy,
-                original.GeneNames.ToList(), original.AdditionalDatabaseFields, applicableProteolysisProducts.ToList(), original.SequenceVariations.ToList(), appliedSequenceVariants.ToList(), sampleNameForVariants, original.FullName)
+            : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants), oneBasedModifications, original.FivePrimeTerminus, original.ThreePrimeTerminus,
+                  original.Name, original.Organism, original.DatabaseFilePath, original.IsContaminant, original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
+                  [..applicableTruncationProducts], original.SequenceVariations, [..appliedSequenceVariants], sampleNameForVariants, original.FullName)
         {
             NonVariant = original.NonVariant;
         }
 
         public override TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
         {
-            var variantRNA = new RNA(variantBaseSequence, original as RNA, appliedSequenceVariants, applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+            var variantRNA = new RNA(variantBaseSequence, original as RNA, appliedSequenceVariants, applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantRNA;
+        }
+
+        public bool Equals(RNA? other)
+        {
+            // interface equals first because it does null and reference checks
+            return (this as NucleicAcid).Equals(other);
         }
     }
 }

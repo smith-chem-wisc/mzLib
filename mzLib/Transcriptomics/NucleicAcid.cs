@@ -12,7 +12,7 @@ namespace Transcriptomics
     /// <summary>
     /// A linear polymer of Nucleic acids
     /// </summary>
-    public abstract class NucleicAcid : IHasSequenceVariants, INucleicAcid, IBioPolymer, IEquatable<NucleicAcid>
+    public abstract class NucleicAcid : INucleicAcid, IBioPolymer, IEquatable<NucleicAcid>
     {
         #region Static Properties
 
@@ -49,8 +49,8 @@ namespace Transcriptomics
             NonVariant = this;
             MonoisotopicMass = 0;
             _nucleicAcids = new Nucleotide[sequence.Length];
-            _3PrimeTerminus = threePrimeTerm ?? DefaultThreePrimeTerminus;
-            _5PrimeTerminus = fivePrimeTerm ?? DefaultFivePrimeTerminus;
+            ThreePrimeTerminus = threePrimeTerm ?? DefaultThreePrimeTerminus;
+            FivePrimeTerminus = fivePrimeTerm ?? DefaultFivePrimeTerminus;
             ParseSequenceString(sequence);
 
             OriginalNonVariantModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
@@ -62,12 +62,16 @@ namespace Transcriptomics
         /// <summary>
         /// For Reading in from rna database. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        protected NucleicAcid(string sequence, string accession, string? name = null, string? organism = null,
-            string? databaseFilePath = null, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+        protected NucleicAcid(string sequence, string accession,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            string? name = null, string? organism = null,
+            string? databaseFilePath = null,
             bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>>? geneNames = null,
-            Dictionary<string, string>? additionalDatabaseFields = null, List<TruncationProduct>? truncationProducts = null,
-            List<SequenceVariation>? sequenceVariations = null, List<SequenceVariation>? appliedSequenceVariations = null,
+            Dictionary<string, string>? additionalDatabaseFields = null,
+            List<TruncationProduct>? truncationProducts = null,
+            List<SequenceVariation>? sequenceVariations = null,
+            List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null)
             : this(sequence, fivePrimeTerm, threePrimeTerm, oneBasedPossibleLocalizedModifications)
         {
@@ -152,11 +156,11 @@ namespace Transcriptomics
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
         /// </summary>
-        public IEnumerable<Tuple<string, string>> GeneNames { get; }
+        public List<Tuple<string, string>> GeneNames { get; }
         public Dictionary<string, string>? AdditionalDatabaseFields { get; }
 
         /// <summary>
-        /// The total monoisotopic mass of this peptide and all of its modifications
+        /// The total monoisotopic mass of this nucleic acid and all of its modifications
         /// </summary>
         public double MonoisotopicMass { get; private set; }
 
@@ -236,12 +240,12 @@ namespace Transcriptomics
         /// <summary>
         /// Sequence Variants as defined in the parsed XML database
         /// </summary>
-        public IEnumerable<SequenceVariation> SequenceVariations { get; }
+        public List<SequenceVariation> SequenceVariations { get; }
 
         /// <summary>
         /// Truncation products as defined in the parsed XML Database
         /// </summary>
-        public IEnumerable<TruncationProduct> TruncationProducts { get; }
+        public List<TruncationProduct> TruncationProducts { get; }
 
         /// <summary>
         /// Sequence variations that have been applied to the base sequence.
@@ -262,14 +266,6 @@ namespace Transcriptomics
         public abstract TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
             IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
             where TBioPolymerType : IHasSequenceVariants;
-
-        /// <summary>
-        /// Restore all modifications that were read in, including those that did not match their target amino acid.
-        /// </summary>
-        public void RestoreUnfilteredModifications()
-        {
-            OneBasedPossibleLocalizedModifications = OriginalNonVariantModifications;
-        }
 
         #endregion
 

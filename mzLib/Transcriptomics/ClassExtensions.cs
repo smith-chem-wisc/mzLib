@@ -35,8 +35,10 @@ namespace Transcriptomics
                 {
                     bool newIsDecoy = isDecoy ?? rna.IsDecoy;
                     string accession = newIsDecoy ? $"{decoyIdentifier}_{rna.Accession}" : rna.Accession;
-                    returnObj = new RNA(newSequence, accession, rna.Name, rna.Organism,
-                        rna.DatabaseFilePath, rna.FivePrimeTerminus, rna.ThreePrimeTerminus, newModifications, rna.IsContaminant, newIsDecoy, rna.GeneNames.ToList(), rna.AdditionalDatabaseFields);
+                    returnObj = new RNA(newSequence, accession, newModifications, rna.FivePrimeTerminus,
+                        rna.ThreePrimeTerminus, rna.Name, rna.Organism, rna.DatabaseFilePath, rna.IsContaminant,
+                        newIsDecoy, rna.GeneNames, rna.AdditionalDatabaseFields, rna.TruncationProducts,
+                        rna.SequenceVariations, rna.AppliedSequenceVariations, rna.SampleNameForVariants, rna.FullName);
                     break;
                 }
                 case OligoWithSetMods oligo:
@@ -46,15 +48,10 @@ namespace Transcriptomics
                     var newParent = new RNA(
                         newSequence,
                         oldParent.Accession,
-                        oldParent.Name,
-                        oldParent.Organism,
-                        oldParent.DatabaseFilePath,
-                        oldParent.FivePrimeTerminus,
-                        oldParent.ThreePrimeTerminus,
                         newModifications,
-                        oldParent.IsContaminant,
-                        newIsDecoy,
-                        oldParent.GeneNames.ToList(), oldParent.AdditionalDatabaseFields);
+                        fivePrimeTerminus: oldParent.FivePrimeTerminus,
+                        threePrimeTerminus: oldParent.ThreePrimeTerminus,
+                        name: oldParent.Name, organism: oldParent.Organism, databaseFilePath: oldParent.DatabaseFilePath, isContaminant: oldParent.IsContaminant, isDecoy: newIsDecoy, geneNames: oldParent.GeneNames.ToList(), databaseAdditionalFields: oldParent.AdditionalDatabaseFields);
 
                     returnObj = new OligoWithSetMods(
                         newParent,

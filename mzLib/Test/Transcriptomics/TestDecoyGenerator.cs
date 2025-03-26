@@ -11,6 +11,7 @@ using Transcriptomics;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
+using Chemistry;
 
 namespace Test.Transcriptomics
 {
@@ -25,8 +26,8 @@ namespace Test.Transcriptomics
         {
             var oligos = new List<RNA>()
             {
-                new RNA("GUUCUG"),
-                new RNA("GUGCUA"),
+                new RNA("GUUCUG", ""),
+                new RNA("GUGCUA", ""),
             };
             var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Reverse, 1);
             Assert.That(decoys.Count, Is.EqualTo(2));
@@ -56,12 +57,14 @@ namespace Test.Transcriptomics
         [TestCase("GUUCUA", 6, "UCUUGA", 6)]
         public static void TestReverseDecoy_SimpleWithMods(string rnaSequence, int modPosition, string expectedDecoySequence, int expectedDecoyModPosition)
         {
-            var mod = new Modification();
+            var modifiedResidue = rnaSequence[modPosition - 1];
+            ModificationMotif.TryGetMotif(modifiedResidue.ToString(), out var motif);
+            var mod = new Modification("", "", "", "", motif, "Anywhere.", ChemicalFormula.ParseFormula("CH2"));
             var oligos = new List<RNA>()
             {
-                new RNA(rnaSequence, null, null,
+                new RNA(rnaSequence, "rna1", 
                     new Dictionary<int, List<Modification>>()
-                        { { modPosition, new List<Modification>() { mod } } }),
+                        { { modPosition, new List<Modification>() { mod } } }, null, null, "ugh", null, null),
             };
             var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Reverse, 1);
             Assert.That(decoys.Count, Is.EqualTo(1));
@@ -239,9 +242,8 @@ namespace Test.Transcriptomics
                 { 3, new List<Modification>() { modDict["Sodium on A"] } },
             };
 
-            var rna = new RNA("GAACUG", "accession", "name", "organism",
-                "databaseFilePath", null, null, oneBasedPossibleLocalizedModifications, false, false,
-                new List<Tuple<string, string>>(), new Dictionary<string, string>());
+            var rna = new RNA("GAACUG", "accession", oneBasedPossibleLocalizedModifications, fivePrimeTerminus: null, threePrimeTerminus: null,
+                name: "name", organism: "organism", databaseFilePath: "databaseFilePath", isContaminant: false, isDecoy: false, geneNames: new List<Tuple<string, string>>(), databaseAdditionalFields: new Dictionary<string, string>());
             var oligos = rna
                 .Digest(new RnaDigestionParams(maxMods: 1), new List<Modification>(), mods)
                 .ToList();
