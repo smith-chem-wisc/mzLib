@@ -60,7 +60,7 @@ namespace Proteomics
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
             if (oneBasedModifications != null)
             {
-                OneBasedPossibleLocalizedModifications = SelectValidOneBaseMods(oneBasedModifications);
+                OneBasedPossibleLocalizedModifications = ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications);
             }
             else
             {
@@ -602,40 +602,7 @@ namespace Proteomics
 
         #region Truncation Products
 
-        /// <summary>
-        /// Filters modifications that do not match their target amino acid.
-        /// </summary>
-        /// <param name="dict"></param>
-        /// <returns></returns>
-        private IDictionary<int, List<Modification>> SelectValidOneBaseMods(IDictionary<int, List<Modification>> dict)
-        {
-            Dictionary<int, List<Modification>> validModDictionary = new Dictionary<int, List<Modification>>();
-            foreach (KeyValuePair<int, List<Modification>> entry in dict)
-            {
-                List<Modification> validMods = new List<Modification>();
-                foreach (Modification m in entry.Value)
-                {
-                    //mod must be valid mod and the motif of the mod must be present in the protein at the specified location
-                    if (m.ValidModification && ModificationLocalization.ModFits(m, BaseSequence, 0, BaseSequence.Length, entry.Key))
-                    {
-                        validMods.Add(m);
-                    }
-                }
-
-                if (validMods.Any())
-                {
-                    if (validModDictionary.Keys.Contains(entry.Key))
-                    {
-                        validModDictionary[entry.Key].AddRange(validMods);
-                    }
-                    else
-                    {
-                        validModDictionary.Add(entry.Key, validMods);
-                    }
-                }
-            }
-            return validModDictionary;
-        }
+        
         /// <summary>
         /// Protein XML files contain annotated proteolysis products for many proteins (e.g. signal peptides, chain peptides).
         /// This method adds N- and C-terminal truncations to these products.
@@ -924,7 +891,7 @@ namespace Proteomics
 
             // Update the modifications using the scrambledModificationDictionary
             newProtein.OriginalNonVariantModifications = scrambledModificationDictionary;
-            newProtein.OneBasedPossibleLocalizedModifications = newProtein.SelectValidOneBaseMods(scrambledModificationDictionary);
+            newProtein.OneBasedPossibleLocalizedModifications = ((IBioPolymer)newProtein).SelectValidOneBaseMods(scrambledModificationDictionary);
             
             return newProtein;
         }

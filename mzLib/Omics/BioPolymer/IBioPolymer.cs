@@ -38,5 +38,40 @@ namespace Omics
             return Accession == other.Accession
                 && BaseSequence == other.BaseSequence;
         }
+
+        /// <summary>
+        /// Filters modifications that do not match their target amino acid.
+        /// </summary>
+        /// <param name="dict"></param>
+        /// <returns></returns>
+        IDictionary<int, List<Modification>> SelectValidOneBaseMods(IDictionary<int, List<Modification>> dict)
+        {
+            Dictionary<int, List<Modification>> validModDictionary = new Dictionary<int, List<Modification>>();
+            foreach (KeyValuePair<int, List<Modification>> entry in dict)
+            {
+                List<Modification> validMods = new List<Modification>();
+                foreach (Modification m in entry.Value)
+                {
+                    //mod must be valid mod and the motif of the mod must be present in the protein at the specified location
+                    if (m.ValidModification && ModificationLocalization.ModFits(m, BaseSequence, 0, BaseSequence.Length, entry.Key))
+                    {
+                        validMods.Add(m);
+                    }
+                }
+
+                if (validMods.Any())
+                {
+                    if (validModDictionary.Keys.Contains(entry.Key))
+                    {
+                        validModDictionary[entry.Key].AddRange(validMods);
+                    }
+                    else
+                    {
+                        validModDictionary.Add(entry.Key, validMods);
+                    }
+                }
+            }
+            return validModDictionary;
+        }
     }
 }
