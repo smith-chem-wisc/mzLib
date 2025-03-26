@@ -17,16 +17,11 @@ public static class VariantApplication
     /// <param name="protein">original to generate variants of</param>
     /// <param name="maxAllowedVariantsForCombinatorics"></param>
     /// <param name="minAlleleDepth"></param>
-    /// <returns></returns>
+    /// <remarks>This replaces a method call that was previously an instance method in Protein</remarks>
     public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
-        where TBioPolymerType : IBioPolymer
+        where TBioPolymerType : IHasSequenceVariants
     {
-        if (protein is not IHasSequenceVariants proteinWithVariants)
-            return [protein];
-        var variants = ApplyVariants(proteinWithVariants, proteinWithVariants.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
-        var casted = variants.Cast<TBioPolymerType>().ToList();
-
-        return casted;
+        return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
     }
 
     /// <summary>

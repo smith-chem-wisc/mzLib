@@ -12,7 +12,7 @@ using Omics.BioPolymer;
 
 namespace Proteomics
 {
-    public class Protein : IBioPolymer, IHasSequenceVariants, IEquatable<Protein>, IComparable<Protein>
+    public class Protein : IBioPolymer, IEquatable<Protein>, IComparable<Protein>
     {
         private List<TruncationProduct> _proteolysisProducts;
 
@@ -148,7 +148,7 @@ namespace Proteomics
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
         /// </summary>
-        public IEnumerable<Tuple<string, string>> GeneNames { get; }
+        public List<Tuple<string, string>> GeneNames { get; }
 
         /// <summary>
         /// Unique accession for this protein.
@@ -174,28 +174,28 @@ namespace Proteomics
         /// <summary>
         /// Sequence Variants as defined in the parsed XML database
         /// </summary>
-        public IEnumerable<SequenceVariation> SequenceVariations { get; }
+        public List<SequenceVariation> SequenceVariations { get; }
 
         /// <summary>
         /// Disulfide Bonds as defined in the parsed XML database
         /// </summary>
-        public IEnumerable<DisulfideBond> DisulfideBonds { get; }
+        public List<DisulfideBond> DisulfideBonds { get; }
 
         /// <summary>
         /// Splice Sites as defined in the parsed XML Database
         /// </summary>
-        public IEnumerable<SpliceSite> SpliceSites { get; }
+        public List<SpliceSite> SpliceSites { get; }
 
         //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the TruncationProducts parameter
         /// <summary>
         /// Truncation products as defined in the parsed XML Database
         /// </summary>
-        public IEnumerable<TruncationProduct> TruncationProducts => _proteolysisProducts;
+        public List<TruncationProduct> TruncationProducts => _proteolysisProducts;
 
         /// <summary>
         /// The references for a protein in the parsed XML Database
         /// </summary>
-        public IEnumerable<DatabaseReference> DatabaseReferences { get; }
+        public List<DatabaseReference> DatabaseReferences { get; }
 
         public string DatabaseFilePath { get; }
 

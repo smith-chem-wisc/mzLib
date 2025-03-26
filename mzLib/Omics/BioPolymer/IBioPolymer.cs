@@ -1,13 +1,14 @@
-﻿using Omics.Digestion;
+﻿using Omics.BioPolymer;
+using Omics.Digestion;
 using Omics.Modifications;
 
 namespace Omics
 {
-    public interface IBioPolymer : IEquatable<IBioPolymer>
+    public interface IBioPolymer : IEquatable<IBioPolymer>, IHasSequenceVariants
     {
         string Name { get; }
         string FullName { get; }
-        string BaseSequence { get; }
+        new string BaseSequence { get; }
         int Length { get; }
         string DatabaseFilePath { get; }
         bool IsDecoy { get; }
@@ -23,8 +24,8 @@ namespace Omics
         /// second part is an alternative. The word "ORF", which stands for open reading frame in the first part
         /// is also acceptable. Here, the second part will include a range, for example "AO055_05240"
         /// </summary>
-        IEnumerable<Tuple<string, string>> GeneNames { get; }
-        IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
+        List<Tuple<string, string>> GeneNames { get; }
+        new IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
         char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,

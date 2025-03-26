@@ -37,12 +37,12 @@ public interface IHasSequenceVariants
     /// <summary>
     /// Sequence Variants as defined in the parsed XML database
     /// </summary>
-    public IEnumerable<SequenceVariation> SequenceVariations { get; }
+    public List<SequenceVariation> SequenceVariations { get; }
 
     /// <summary>
     /// Truncation products as defined in the parsed XML Database
     /// </summary>
-    IEnumerable<TruncationProduct> TruncationProducts { get; }
+    List<TruncationProduct> TruncationProducts { get; }
 
     
     /// <summary>
