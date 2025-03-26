@@ -51,6 +51,10 @@ namespace UsefulProteomicsDatabases
             List<RNA> nucleicAcidList, string outputFileName)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            
+            // write nonvariant rna (for cases where variants aren't applied, this just gets the protein itself)
+            var nonVariantProteins = nucleicAcidList.Select(p => p.NonVariant).Distinct().ToList();
+
             var xmlWriterSettings = new XmlWriterSettings
             {
                 Indent = true,
@@ -64,7 +68,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartElement("mzLibProteinDb");
 
                 List<Modification> myModificationList = new List<Modification>();
-                foreach (var p in nucleicAcidList)
+                foreach (var p in nonVariantProteins)
                 {
                     foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
                     {
@@ -73,11 +77,17 @@ namespace UsefulProteomicsDatabases
                 }
 
                 // get modifications from nucleic acid list and concatenate the modifications discovered in GPTMDictionary
-                var allRelevantModifications =
-                    new HashSet<Modification>(nucleicAcidList
-                        .SelectMany(p => p.OneBasedPossibleLocalizedModifications.SelectMany(m => m.Value))
+                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
+                    nonVariantProteins
+                        .SelectMany(p => p.SequenceVariations
+                            .SelectMany(sv => sv.OneBasedModifications)
+                            .Concat(p.OneBasedPossibleLocalizedModifications)
+                            .SelectMany(kv => kv.Value))
                         .Concat(additionalModsToAddToProteins
-                            .Where(n => nucleicAcidList.Select(nu => nu.Accession).Contains(n.Key))
+                            .Where(kv => nonVariantProteins
+                                .SelectMany(p => p.SequenceVariations
+                                    .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
+                                .Contains(kv.Key))
                             .SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
@@ -87,7 +97,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteEndElement();
                 }
 
-                foreach (var nucleicAcid in nucleicAcidList)
+                foreach (var nucleicAcid in nonVariantProteins)
                 {
                     writer.WriteStartElement("entry");
                     writer.WriteStartElement("accession");
@@ -147,24 +157,21 @@ namespace UsefulProteomicsDatabases
                     //    writer.WriteEndElement();
                     //}
 
-                    ////for now we are not going to write top-down truncations generated for top-down truncation search. 
-                    ////some day we could write those if observed
-                    ////the truncation designation is contained in the "type" field of TruncationProduct
-                    //List<TruncationProduct> proteolysisProducts = nucleicAcid.TruncationProducts.Where(p => !p.Type.Contains("truncation")).ToList();
-                    //foreach (var proteolysisProduct in proteolysisProducts)
-                    //{
-                    //    writer.WriteStartElement("feature");
-                    //    writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
-                    //    writer.WriteStartElement("location");
-                    //    writer.WriteStartElement("begin");
-                    //    writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
-                    //    writer.WriteEndElement();
-                    //    writer.WriteStartElement("end");
-                    //    writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());
-                    //    writer.WriteEndElement();
-                    //    writer.WriteEndElement();
-                    //    writer.WriteEndElement();
-                    //}
+                    List<TruncationProduct> proteolysisProducts = nucleicAcid.TruncationProducts.Where(p => !p.Type.Contains("truncation")).ToList();
+                    foreach (var proteolysisProduct in proteolysisProducts)
+                    {
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
+                        writer.WriteStartElement("location");
+                        writer.WriteStartElement("begin");
+                        writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
+                        writer.WriteEndElement();
+                        writer.WriteStartElement("end");
+                        writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                    }
 
                     foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
@@ -182,76 +189,51 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
-                    //foreach (var hm in nucleicAcid.SequenceVariations)
-                    //{
-                    //    writer.WriteStartElement("feature");
-                    //    writer.WriteAttributeString("type", "sequence variant");
-                    //    writer.WriteAttributeString("description", hm.Description.ToString());
-                    //    writer.WriteStartElement("original");
-                    //    writer.WriteString(hm.OriginalSequence);
-                    //    writer.WriteEndElement(); // original
-                    //    writer.WriteStartElement("variation");
-                    //    writer.WriteString(hm.VariantSequence);
-                    //    writer.WriteEndElement(); // variation
-                    //    writer.WriteStartElement("location");
-                    //    if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                    //    {
-                    //        writer.WriteStartElement("position");
-                    //        writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //    }
-                    //    else
-                    //    {
-                    //        writer.WriteStartElement("begin");
-                    //        writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //        writer.WriteStartElement("end");
-                    //        writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //    }
-                    //    foreach (var hmm in GetModsForThisProtein(nucleicAcid, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
-                    //    {
-                    //        foreach (var modId in hmm.Value)
-                    //        {
-                    //            writer.WriteStartElement("subfeature");
-                    //            writer.WriteAttributeString("type", "modified residue");
-                    //            writer.WriteAttributeString("description", modId);
-                    //            writer.WriteStartElement("location");
-                    //            writer.WriteStartElement("subposition");
-                    //            writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
-                    //            writer.WriteEndElement();
-                    //            writer.WriteEndElement();
-                    //            writer.WriteEndElement();
-                    //        }
-                    //    }
-                    //    writer.WriteEndElement(); // location
-                    //    writer.WriteEndElement(); // feature
-                    //}
-
-                    //foreach (var hm in nucleicAcid.DisulfideBonds)
-                    //{
-                    //    writer.WriteStartElement("feature");
-                    //    writer.WriteAttributeString("type", "disulfide bond");
-                    //    writer.WriteAttributeString("description", hm.Description);
-                    //    writer.WriteStartElement("location");
-                    //    if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                    //    {
-                    //        writer.WriteStartElement("position");
-                    //        writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //    }
-                    //    else
-                    //    {
-                    //        writer.WriteStartElement("begin");
-                    //        writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //        writer.WriteStartElement("end");
-                    //        writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //    }
-                    //    writer.WriteEndElement(); // location
-                    //    writer.WriteEndElement(); // feature
-                    //}
+                    foreach (var hm in nucleicAcid.SequenceVariations.OrderBy(sv => sv.OneBasedBeginPosition).ThenBy(sv => sv.VariantSequence))
+                    {
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", "sequence variant");
+                        writer.WriteAttributeString("description", hm.Description.ToString());
+                        writer.WriteStartElement("original");
+                        writer.WriteString(hm.OriginalSequence);
+                        writer.WriteEndElement(); // original
+                        writer.WriteStartElement("variation");
+                        writer.WriteString(hm.VariantSequence);
+                        writer.WriteEndElement(); // variation
+                        writer.WriteStartElement("location");
+                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
+                        {
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        else
+                        {
+                            writer.WriteStartElement("begin");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                            writer.WriteStartElement("end");
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                        {
+                            foreach (var modId in hmm.Value)
+                            {
+                                writer.WriteStartElement("subfeature");
+                                writer.WriteAttributeString("type", "modified residue");
+                                writer.WriteAttributeString("description", modId);
+                                writer.WriteStartElement("location");
+                                writer.WriteStartElement("subposition");
+                                writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
+                                writer.WriteEndElement();
+                                writer.WriteEndElement();
+                                writer.WriteEndElement();
+                            }
+                        }
+                        writer.WriteEndElement(); // location
+                        writer.WriteEndElement(); // feature
+                    }
 
                     //foreach (var hm in nucleicAcid.SpliceSites)
                     //{
@@ -584,8 +566,7 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
-            // This cast to protein is okay as no sequence variation is programmed to RNA as of 9/24/24
-            string accession = seqvar == null ? protein.Accession : VariantApplication.GetAccession(protein as Protein, new[] { seqvar }); 
+            string accession = seqvar == null ? protein.Accession : VariantApplication.GetAccession(protein, new[] { seqvar }); 
             if (additionalModsToAddToProteins.ContainsKey(accession))
             {
                 foreach (var ye in additionalModsToAddToProteins[accession])

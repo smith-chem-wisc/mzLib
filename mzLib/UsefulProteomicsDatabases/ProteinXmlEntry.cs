@@ -248,7 +248,8 @@ namespace UsefulProteomicsDatabases
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
-                result = new RNA(Sequence, Accession, OneBasedModifications, fivePrimeTerminus: null, threePrimeTerminus: null, name: Name, organism: Organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: false, geneNames: GeneNames, databaseAdditionalFields: null);
+                result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
+                    isContaminant, false, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName);
             }
             Clear();
             return result;

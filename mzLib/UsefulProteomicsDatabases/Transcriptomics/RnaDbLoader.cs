@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using Chemistry;
 using Transcriptomics;
+using Omics.BioPolymer;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -196,6 +197,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, IEnumerable<Modification> allKnownModifications,
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
             int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             string decoyIdentifier = "DECOY")
         {
@@ -256,7 +258,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
             List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.ToList();
+            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
         }
     }
 }

@@ -40,14 +40,18 @@ namespace Transcriptomics
         /// <summary>
         /// For creating a variant of an existing nucleic acid. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        public RNA(string variantBaseSequence, NucleicAcid original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+        public RNA(string variantBaseSequence, NucleicAcid original, IEnumerable<SequenceVariation>? appliedSequenceVariants,
+            IEnumerable<TruncationProduct>? applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
 
             : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants), oneBasedModifications, original.FivePrimeTerminus, original.ThreePrimeTerminus,
-                  original.Name, original.Organism, original.DatabaseFilePath, original.IsContaminant, original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
-                  [..applicableTruncationProducts], original.SequenceVariations, [..appliedSequenceVariants], sampleNameForVariants, original.FullName)
+                  appliedSequenceVariants.GetVariantName(original.Name), original.Organism, original.DatabaseFilePath, original.IsContaminant, original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
+                  [..applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations, 
+                  [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants, appliedSequenceVariants.GetVariantName(original.FullName))
         {
             NonVariant = original.NonVariant;
+            OriginalNonVariantModifications = NonVariant.OriginalNonVariantModifications;
+            AppliedSequenceVariations = (appliedSequenceVariants ?? new List<SequenceVariation>()).ToList();
+            SampleNameForVariants = sampleNameForVariants;
         }
 
         public override TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,

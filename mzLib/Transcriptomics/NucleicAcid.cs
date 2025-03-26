@@ -141,7 +141,6 @@ namespace Transcriptomics
         /// Gets the number of nucleic acids in this nucleic acid polymer
         /// </summary>
         public int Length => BaseSequence.Length;
-
         public string Name { get; }
         public string FullName { get; } 
         public string DatabaseFilePath { get; }
@@ -240,22 +239,22 @@ namespace Transcriptomics
         /// <summary>
         /// Sequence Variants as defined in the parsed XML database
         /// </summary>
-        public List<SequenceVariation> SequenceVariations { get; }
+        public List<SequenceVariation> SequenceVariations { get; protected set; }
 
         /// <summary>
         /// Truncation products as defined in the parsed XML Database
         /// </summary>
-        public List<TruncationProduct> TruncationProducts { get; }
+        public List<TruncationProduct> TruncationProducts { get; protected set; }
 
         /// <summary>
         /// Sequence variations that have been applied to the base sequence.
         /// </summary>
-        public List<SequenceVariation> AppliedSequenceVariations { get; }
+        public List<SequenceVariation> AppliedSequenceVariations { get; protected set; }
 
         /// <summary>
         /// Sample name from which applied variants came, e.g. tumor or normal.
         /// </summary>
-        public string SampleNameForVariants { get; }
+        public string SampleNameForVariants { get; protected set; }
 
         /// <summary>
         /// Original modifications as defined in the Parsed XML database
