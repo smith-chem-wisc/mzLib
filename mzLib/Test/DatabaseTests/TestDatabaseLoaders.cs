@@ -160,7 +160,7 @@ namespace Test.DatabaseTests
             var protein = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oblm.xml"), true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             Assert.AreEqual(0, protein[0].OneBasedPossibleLocalizedModifications.Count);
-            var variant = protein[0].GetVariantProteins()[0];
+            var variant = protein[0].GetVariantBioPolymers()[0];
             protein[0].NonVariantProtein.RestoreUnfilteredModifications();
             Assert.AreEqual(1, protein[0].NonVariantProtein.OneBasedPossibleLocalizedModifications.Count);
         }

@@ -6,10 +6,24 @@ namespace Omics.BioPolymer;
 /// Provides methods for applying sequence variations to proteins and handling modifications on variant sequences.
 /// </summary>
 /// <remarks>
-/// Originally by A. Cesnik on 11/2/18, updated on 4/25/23. NB moved it and generalized on 3/25/25.
+/// Originally by A. Cesnik on 11/2/18, updated on 4/25/23. NB moved it and generalized for use in Transcriptomics on 3/25/25.
 /// </remarks>
 public static class VariantApplication
 {
+    /// <summary>
+    /// Creates a list of IBioPolymers of the same type as the original protein, each with applied variants from this protein.
+    /// </summary>
+    /// <typeparam name="TBioPolymerType">Type of BioPolymer to create variants of</typeparam>
+    /// <param name="protein">original to generate variants of</param>
+    /// <param name="maxAllowedVariantsForCombinatorics"></param>
+    /// <param name="minAlleleDepth"></param>
+    /// <returns></returns>
+    public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
+        where TBioPolymerType : IHasSequenceVariants, IBioPolymer
+    {
+        return ApplyVariants(protein, protein.AppliedSequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
+    }
+
     /// <summary>
     /// Gets the accession for a protein with applied variations
     /// </summary>
@@ -212,7 +226,7 @@ public static class VariantApplication
         string variantSequence = (seqBefore + seqVariant + seqAfter).Split('*')[0]; // there may be a stop gained
 
         // adjust indices
-        List<TruncationProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variantGettingApplied, variantSequence, protein, protein.TruncationProducts);
+        List<TruncationProduct> adjustedProteolysisProducts = AdjustTruncationProductIndices(variantGettingApplied, variantSequence, protein, protein.TruncationProducts);
         Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
         List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
 
@@ -274,7 +288,7 @@ public static class VariantApplication
     /// Since frameshift indels are written across the remaining sequence,
     /// this eliminates proteolysis products that conflict with large deletions and other structural variations.
     /// </summary>
-    private static List<TruncationProduct> AdjustProteolysisProductIndices(SequenceVariation variant, string variantAppliedProteinSequence, IHasSequenceVariants protein, IEnumerable<TruncationProduct> proteolysisProducts)
+    private static List<TruncationProduct> AdjustTruncationProductIndices(SequenceVariation variant, string variantAppliedProteinSequence, IHasSequenceVariants protein, IEnumerable<TruncationProduct> proteolysisProducts)
     {
         List<TruncationProduct> products = new List<TruncationProduct>();
         if (proteolysisProducts == null) { return products; }

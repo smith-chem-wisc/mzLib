@@ -573,14 +573,6 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// Gets proteins with applied variants from this protein
-        /// </summary>
-        public List<Protein> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4, int minAlleleDepth = 1)
-        {
-            return VariantApplication.ApplyVariants(this, SequenceVariations, maxAllowedVariantsForCombinitorics, minAlleleDepth);
-        }
-
-        /// <summary>
         /// Restore all modifications that were read in, including those that did not match their target amino acid.
         /// </summary>
         public void RestoreUnfilteredModifications()
@@ -839,7 +831,6 @@ namespace Proteomics
         }
 
         #endregion
-
 
         /// <summary>
         /// This function takes in a decoy protein and a list of forbidden sequences that the decoy
