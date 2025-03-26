@@ -7,13 +7,44 @@ namespace Omics.BioPolymer;
 /// </summary>
 public interface IHasSequenceVariants
 {
+    /// <summary>
+    /// Primary Sequence
+    /// </summary>
     string BaseSequence { get; }
-    IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
+
+    /// <summary>
+    /// Sample name from which applied variants came, e.g. tumor or normal.
+    /// </summary>
+    public string SampleNameForVariants { get; }
+
+    /// <summary>
+    /// Modifications (values) located at one-based protein positions (keys)
+    /// </summary>
     IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
+
+    /// <summary>
+    /// Original modifications as defined in the Parsed XML database
+    /// </summary>
+    IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
+
+    /// <summary>
+    /// Original BioPolymer used to construct all sequence variants. 
+    /// </summary>
     IBioPolymer NonVariant { get; }
+
     List<SequenceVariation> AppliedSequenceVariations { get; }
+
+    /// <summary>
+    /// Sequence Variants as defined in the parsed XML database
+    /// </summary>
+    public IEnumerable<SequenceVariation> SequenceVariations { get; }
+
+    /// <summary>
+    /// Truncation products as defined in the parsed XML Database
+    /// </summary>
     IEnumerable<TruncationProduct> TruncationProducts { get; }
 
+    
     /// <summary>
     /// Used to construct a new variant of the same type as the original and is called in <see cref="VariantApplication"/>
     /// </summary>

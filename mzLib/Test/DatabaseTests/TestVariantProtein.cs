@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -350,7 +351,13 @@ namespace Test.DatabaseTests
             ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
             var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
 
-            var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
+            var listArray = new List<IHasSequenceVariants>[] 
+            { 
+                proteinsWithAppliedVariants.Cast<IHasSequenceVariants>().ToList(), 
+                proteinsWithAppliedVariants2.Cast<IHasSequenceVariants>().ToList(), 
+                proteinsWithAppliedVariants3.Cast<IHasSequenceVariants>().ToList()
+            };
+
             for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
             {
                 // sequences

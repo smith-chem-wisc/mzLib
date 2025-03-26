@@ -412,7 +412,7 @@ CF   O1
                 Assert.That(protein.Accession, Does.StartWith("rev_"));
                 Assert.That(protein.Accession, Does.Not.StartWith("DECOY_"));
 
-                foreach (var truncationProduct in protein.ProteolysisProducts)
+                foreach (var truncationProduct in protein.TruncationProducts)
                 {
                     Assert.That(truncationProduct.Type, Does.StartWith("rev"));
                     Assert.That(truncationProduct.Type, Does.Not.StartWith("DECOY"));

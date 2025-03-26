@@ -561,6 +561,10 @@ namespace Proteomics
         /// Sample name from which applied variants came, e.g. tumor or normal.
         /// </summary>
         public string SampleNameForVariants { get; }
+
+        /// <summary>
+        /// Original modifications as defined in the Parsed XML database
+        /// </summary>
         public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
 
         public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,

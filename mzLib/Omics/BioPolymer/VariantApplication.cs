@@ -19,9 +19,14 @@ public static class VariantApplication
     /// <param name="minAlleleDepth"></param>
     /// <returns></returns>
     public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
-        where TBioPolymerType : IHasSequenceVariants, IBioPolymer
+        where TBioPolymerType : IBioPolymer
     {
-        return ApplyVariants(protein, protein.AppliedSequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
+        if (protein is not IHasSequenceVariants proteinWithVariants)
+            return [protein];
+        var variants = ApplyVariants(proteinWithVariants, proteinWithVariants.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
+        var casted = variants.Cast<TBioPolymerType>().ToList();
+
+        return casted;
     }
 
     /// <summary>
