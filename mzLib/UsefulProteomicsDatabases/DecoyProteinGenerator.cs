@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using Omics;
 
 namespace UsefulProteomicsDatabases
 {
@@ -37,7 +38,7 @@ namespace UsefulProteomicsDatabases
         private static List<Protein> GenerateReverseDecoys(List<Protein> proteins, int maxThreads = -1, string decoyIdentifier = "DECOY")
         {
             List<Protein> decoyProteins = new List<Protein>();
-            Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (Action<Protein>)(protein =>
+            Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
             {
                 // reverse sequence
                 // Do not include the initiator methionine in reversal!!!
@@ -58,7 +59,7 @@ namespace UsefulProteomicsDatabases
                 char[] nonVariantSequenceArray = protein.NonVariant.BaseSequence.ToCharArray();
                 if (protein.NonVariant.BaseSequence.StartsWith("M", StringComparison.Ordinal))
                 {
-                    Array.Reverse(nonVariantSequenceArray, 1, (int)(protein.NonVariant.BaseSequence.Length - 1));
+                    Array.Reverse(nonVariantSequenceArray, 1, protein.NonVariant.BaseSequence.Length - 1);
                 }
                 else
                 {
@@ -148,7 +149,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, (Protein)protein.NonVariant, reversedNonVariantSequence);
+                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.NonVariant, reversedNonVariantSequence);
                 List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(protein.AppliedSequenceVariations, protein, reversedSequence);
 
                 var decoyProtein = new Protein(
@@ -171,12 +172,12 @@ namespace UsefulProteomicsDatabases
                     protein.DatabaseFilePath);
 
                 lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
-            }));
+            });
             decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
             return decoyProteins;
         }
 
-        private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, Protein protein, string reversedSequence, string decoyIdentifier = "DECOY")
+        private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, IBioPolymer protein, string reversedSequence, string decoyIdentifier = "DECOY")
         {
             List<SequenceVariation> decoyVariations = new List<SequenceVariation>();
             foreach (SequenceVariation sv in forwardVariants)

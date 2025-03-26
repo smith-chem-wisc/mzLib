@@ -162,7 +162,7 @@ namespace Test
         public static void TestNoCleavage()
         {
             List<Modification> fixedModifications = new List<Modification>();
-            var prot = new Protein("MNNNKQQQQ", null, null, null, new Dictionary<int, List<Modification>>(), [new TruncationProduct(5, 6, "lala")]);
+            var prot = new Protein("MNNNKQQQQ", null, null, null, new Dictionary<int, List<Modification>>(), new List<TruncationProduct> { new TruncationProduct(5, 6, "lala") });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 5);
             var ye = prot.Digest(digestionParams, fixedModifications, new List<Modification>()).ToList();
             Assert.AreEqual(3, ye.Count);

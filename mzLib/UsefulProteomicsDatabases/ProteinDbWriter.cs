@@ -53,7 +53,7 @@ namespace UsefulProteomicsDatabases
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             
             // write nonvariant rna (for cases where variants aren't applied, this just gets the protein itself)
-            var nonVariantProteins = nucleicAcidList.Select(p => p.NonVariant).Distinct().ToList();
+            var nonVariantRna = nucleicAcidList.Select(p => p.NonVariant).Distinct().ToList();
 
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -68,7 +68,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartElement("mzLibProteinDb");
 
                 List<Modification> myModificationList = new List<Modification>();
-                foreach (var p in nonVariantProteins)
+                foreach (var p in nonVariantRna)
                 {
                     foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
                     {
@@ -78,13 +78,13 @@ namespace UsefulProteomicsDatabases
 
                 // get modifications from nucleic acid list and concatenate the modifications discovered in GPTMDictionary
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
-                    nonVariantProteins
+                    nonVariantRna
                         .SelectMany(p => p.SequenceVariations
                             .SelectMany(sv => sv.OneBasedModifications)
                             .Concat(p.OneBasedPossibleLocalizedModifications)
                             .SelectMany(kv => kv.Value))
                         .Concat(additionalModsToAddToProteins
-                            .Where(kv => nonVariantProteins
+                            .Where(kv => nonVariantRna
                                 .SelectMany(p => p.SequenceVariations
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
                                 .Contains(kv.Key))
@@ -97,7 +97,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteEndElement();
                 }
 
-                foreach (var nucleicAcid in nonVariantProteins)
+                foreach (var nucleicAcid in nonVariantRna)
                 {
                     writer.WriteStartElement("entry");
                     writer.WriteStartElement("accession");

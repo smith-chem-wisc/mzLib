@@ -500,7 +500,7 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// Only keep glycopeptides by filtering the NGlycopeptide motif 'NxS || NxT' or OGlycopeptide motif 'S || TBioPolymerType'
+        /// Only keep glycopeptides by filtering the NGlycopeptide motif 'NxS || NxT' or OGlycopeptide motif 'S || T'
         /// </summary>
         internal IEnumerable<ProteolyticPeptide> GetGlycoPeptides(IEnumerable<ProteolyticPeptide> originalPeptides, bool keepNGlycopeptide, bool keepOGlycopeptide)
         {

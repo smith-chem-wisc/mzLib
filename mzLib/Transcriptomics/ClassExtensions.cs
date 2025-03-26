@@ -45,13 +45,10 @@ namespace Transcriptomics
                 {
                     var oldParent = oligo.Parent as RNA ?? throw new NullReferenceException();
                     bool newIsDecoy = isDecoy ?? oldParent.IsDecoy;
-                    var newParent = new RNA(
-                        newSequence,
-                        oldParent.Accession,
-                        newModifications,
-                        fivePrimeTerminus: oldParent.FivePrimeTerminus,
-                        threePrimeTerminus: oldParent.ThreePrimeTerminus,
-                        name: oldParent.Name, organism: oldParent.Organism, databaseFilePath: oldParent.DatabaseFilePath, isContaminant: oldParent.IsContaminant, isDecoy: newIsDecoy, geneNames: oldParent.GeneNames.ToList(), databaseAdditionalFields: oldParent.AdditionalDatabaseFields);
+                    var newParent = new RNA(newSequence, oldParent.Accession, newModifications,oldParent.FivePrimeTerminus, oldParent.ThreePrimeTerminus, 
+                        oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
+                        oldParent.TruncationProducts, oldParent.SequenceVariations, oldParent.AppliedSequenceVariations, oldParent.SampleNameForVariants, oldParent.FullName);
+
 
                     returnObj = new OligoWithSetMods(
                         newParent,
