@@ -22,6 +22,7 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature", SupportedFileType.Ms1Feature)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_jurkat_td_rep1_fract2_frac.mzrt.csv", SupportedFileType.Mzrt_TopFd)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Tsv_FlashDeconvjurkat_td_rep1_fract2_ms1.tsv", SupportedFileType.Ms1Tsv_FlashDeconv)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\metamorpheusSpectrumLibraryExample.msp", SupportedFileType.msp)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Tsv_FlashDeconvOpenMs3.0.0.tsv", SupportedFileType.Tsv_FlashDeconv)]
         [TestCase(@"FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv", SupportedFileType.psmtsv)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv", SupportedFileType.ToppicPrsm)]

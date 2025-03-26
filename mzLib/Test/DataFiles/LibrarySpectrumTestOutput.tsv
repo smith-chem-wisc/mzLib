@@ -1,0 +1,5 @@
+PrecursorMz	ProductMz	Annotation	ProteinId	GeneName	PeptideSequence	ModifiedPeptideSequence	PrecursorCharge	LibraryIntensity	NormalizedRetentionTime	PrecursorIonMobility	FragmentType	FragmentCharge	FragmentSeriesNumber	FragmentLossType	AverageExperimentalRetentionTime	AllMappedProteins	AllMappedGenes	Proteotypic
+789.1	101	b1^1	Q1KMD3	HNRNPUL2	PEPTIDE	PEPT[Phosphorylation on T]IDE	3	10	79.3		b	1	1		79.3	sp|Q1KMD3|HNRNPUL2	HNRNPUL2	1
+789.1	201	b2^1	Q1KMD3	HNRNPUL2	PEPTIDE	PEPT[Phosphorylation on T]IDE	3	20	79.3		b	1	2		79.3	sp|Q1KMD3|HNRNPUL2	HNRNPUL2	1
+789.1	301	b3^1	Q1KMD3	HNRNPUL2	PEPTIDE	PEPT[Phosphorylation on T]IDE	3	30	79.3		b	1	3		79.3	sp|Q1KMD3|HNRNPUL2	HNRNPUL2	1
+789.1	401	b4^1	Q1KMD3	HNRNPUL2	PEPTIDE	PEPT[Phosphorylation on T]IDE	3	40	79.3		b	1	4		79.3	sp|Q1KMD3|HNRNPUL2	HNRNPUL2	1
