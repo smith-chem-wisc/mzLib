@@ -19,8 +19,8 @@ public class ChimerysPrecursorFile : ResultFile<ChimerysPrecursor>, IResultFile
     public override SupportedFileType FileType => SupportedFileType.ChimerysPrecursor;
     public override Software Software { get; set; } = Software.Chimerys;
 
-    public ChimerysPrecursorFile() : base() { }
-    public ChimerysPrecursorFile(string path) : base(path) { }
+    public ChimerysPrecursorFile() : base() { Software = Software.Chimerys; }
+    public ChimerysPrecursorFile(string path) : base(path, Software.Chimerys) { }
 
     public override void LoadResults()
     {

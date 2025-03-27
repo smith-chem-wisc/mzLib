@@ -19,8 +19,8 @@ public class ChimerysProteinGroupFile : ResultFile<ChimerysProteinGroup>, IResul
     public override SupportedFileType FileType => SupportedFileType.ChimerysProteinGroup;
     public override Software Software { get; set; } = Software.Chimerys;
 
-    public ChimerysProteinGroupFile() : base() { }
-    public ChimerysProteinGroupFile(string path) : base(path) { }
+    public ChimerysProteinGroupFile() : base() { Software = Software.Chimerys; }
+    public ChimerysProteinGroupFile(string path) : base(path, Software.Chimerys) { }
 
     public override void LoadResults()
     {

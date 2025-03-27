@@ -19,8 +19,8 @@ public class ChimerysPeptideFile : ResultFile<ChimerysPeptide>, IResultFile
     public override SupportedFileType FileType => SupportedFileType.ChimerysPeptide;
     public override Software Software { get; set; } = Software.Chimerys;
 
-    public ChimerysPeptideFile() : base() { }
-    public ChimerysPeptideFile(string path) : base(path) { }
+    public ChimerysPeptideFile() : base() { Software = Software.Chimerys; }
+    public ChimerysPeptideFile(string path) : base(path, Software.Chimerys) { }
 
     public override void LoadResults()
     {

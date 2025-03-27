@@ -19,8 +19,8 @@ public class ChimerysPsmFile : ResultFile<ChimerysPsm>, IResultFile
     public override SupportedFileType FileType => SupportedFileType.ChimerysPsm;
     public override Software Software { get; set; } = Software.Chimerys;
 
-    public ChimerysPsmFile() : base() { }
-    public ChimerysPsmFile(string path) : base(path) { }
+    public ChimerysPsmFile() : base() { Software = Software.Chimerys; }
+    public ChimerysPsmFile(string path) : base(path, Software.Chimerys) { }
 
     public override void LoadResults()
     {
