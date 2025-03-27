@@ -14,7 +14,6 @@ using System.IO;
 using Easy.Common.Extensions;
 using FlashLFQ.PEP;
 using FlashLFQ.IsoTracker;
-using MassSpectrometry;
 using System.Threading;
 using FlashLFQ.Interfaces;
 
@@ -48,7 +47,7 @@ namespace FlashLFQ
         //IsoTracker settings
         public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
-        public Dictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
+        public ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -254,7 +253,7 @@ namespace FlashLFQ
             if (IsoTracker)
             {
                 IsoTrackerIsRunning = true; // Turn on the flag, then we will use the separate indexEngine for each files
-                IsobaricPeptideDict = new Dictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
+                IsobaricPeptideDict = new ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
                 QuantifyIsobaricPeaks();
                 _results.IsobaricPeptideDict = IsobaricPeptideDict;
                 AddIsoPeaks();
@@ -1952,74 +1951,104 @@ namespace FlashLFQ
 
         private void QuantifyIsobaricPeaks()
         {
+            if(!Silent)
+                Console.WriteLine("Quantifying isobaric species...");
+            int isoGroupsSearched = 0;
+            double lastReportedProgress = 0;
+            double currentProgress = 0;
+
             var idGroupedBySeq = _allIdentifications
                 .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
                 .GroupBy(p => new
-                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) });
-            // We only consider the modified sequence in the IsoTracker
-            foreach (var idGroup in idGroupedBySeq) //Try to iterate the all ID in the group
-            {
-                List<XIC> xicGroup = new List<XIC>();
-                var mostCommonChargeIdGroup = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
-                var id = mostCommonChargeIdGroup.First();
+                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) })
+                .ToList();
 
-                // Try to get the primitive window for the XIC , from the (firstOne - 2) ->  (lastOne + 2)
-                double rightWindow = mostCommonChargeIdGroup.Select(p => p.Ms2RetentionTimeInMinutes).Max() + 2;
-                double leftWindow = mostCommonChargeIdGroup.Select(p => p.Ms2RetentionTimeInMinutes).Min() - 2;
-
-                //generate XIC from each file
-                foreach (var spectraFile in _spectraFileInfo)
+            Parallel.ForEach(Partitioner.Create(0, idGroupedBySeq.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
+                (range, loopState) =>
                 {
-                    var xicIds = mostCommonChargeIdGroup.Where(p => p.FileInfo.Equals(spectraFile)).ToList();
-
-                    //If in this run, there is no any ID, we will borrow the ID from other run to build the XIC.
-                    if (xicIds.Count == 0)
+                    for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        xicIds = mostCommonChargeIdGroup.Where(p => !p.IsDecoy).ToList();
-                    }
+                        var idGroup = idGroupedBySeq[i];
+                        List<XIC> xicGroup = new List<XIC>();
+                        var mostCommonChargeIdGroup = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
+                        var id = mostCommonChargeIdGroup.First();
 
-                    XIC xic = BuildXIC(xicIds, spectraFile, false, leftWindow, rightWindow);
-                    if (xic != null && xic.Ms1Peaks.Count() > 5) // each XIC should have at least 5 points
-                    {
-                        xicGroup.Add(xic);
-                    }
-                }
+                        // Try to get the primitive window for the XIC , from the (firstOne - 2) ->  (lastOne + 2)
+                        double rightWindow = mostCommonChargeIdGroup.Select(p => p.Ms2RetentionTimeInMinutes).Max() + 2;
+                        double leftWindow = mostCommonChargeIdGroup.Select(p => p.Ms2RetentionTimeInMinutes).Min() - 2;
 
-                // If we have more than one XIC, we can do the peak tracking
-                if (xicGroup.Count > 1)
-                {
-                    // Step 1: Find the XIC with most IDs then, set as reference XIC
-                    xicGroup.OrderBy(p => p.Ids.Count()).First().Reference = true;
-
-                    //Step 2: Build the XICGroups
-                    XICGroups xICGroups = new XICGroups(xicGroup);
-
-                    //Step 3: Build the peakPairChrom dictionary
-                    //The shared peak dictionary, each sharedPeak included serval ChromatographicPeak for each run [SharedPeak <-> ChromatographicPeaks]
-                    Dictionary<PeakRegion, List<ChromatographicPeak>> sharedPeaksDict = new Dictionary<PeakRegion, List<ChromatographicPeak>>();
-
-                    //Step 4: Iterate the shared peaks in the XICGroups
-                    foreach (var peak in xICGroups.SharedPeaks)
-                    {
-                        double peakWindow = peak.Width;
-                        if (peakWindow > 0.001) //make sure we have enough length of the window (0.001 min) for peak searching
+                        //generate XIC from each file
+                        foreach (var spectraFile in _spectraFileInfo)
                         {
-                            List<ChromatographicPeak> chromPeaksInSharedPeak = new List<ChromatographicPeak>();
-                            CollectChromPeakInRuns(peak, chromPeaksInSharedPeak, xICGroups);
+                            var xicIds = mostCommonChargeIdGroup.Where(p => p.FileInfo.Equals(spectraFile)).ToList();
 
-                            var allChromPeakInDict = sharedPeaksDict.SelectMany(pair => pair.Value).ToList();
-
-                            // ensuring no duplicates are added and only non-null peaks are considered.
-                            if (chromPeaksInSharedPeak.Where(p => p != null).Any() &&
-                                !chromPeaksInSharedPeak.Any(chromPeak => chromPeak != null && allChromPeakInDict.Any(peakInDict => peakInDict != null && peakInDict.Equals(chromPeak))))
+                            //If in this run, there is no any ID, we will borrow the ID from other run to build the XIC.
+                            if (xicIds.Count == 0)
                             {
-                                sharedPeaksDict[peak] = chromPeaksInSharedPeak;
+                                xicIds = mostCommonChargeIdGroup.Where(p => !p.IsDecoy).ToList();
+                            }
+
+                            XIC xic = BuildXIC(xicIds, spectraFile, false, leftWindow, rightWindow);
+                            if (xic != null && xic.Ms1Peaks.Count() > 5) // each XIC should have at least 5 points
+                            {
+                                xicGroup.Add(xic);
+                            }
+                        }
+
+                        // If we have more than one XIC, we can do the peak tracking
+                        if (xicGroup.Count > 1)
+                        {
+                            // Step 1: Find the XIC with most IDs then, set as reference XIC
+                            xicGroup.OrderBy(p => p.Ids.Count()).First().Reference = true;
+
+                            //Step 2: Build the XICGroups
+                            XICGroups xICGroups = new XICGroups(xicGroup);
+
+                            //Step 3: Build the peakPairChrom dictionary
+                            //The shared peak dictionary, each sharedPeak included serval ChromatographicPeak for each run [SharedPeak <-> ChromatographicPeaks]
+                            Dictionary<PeakRegion, List<ChromatographicPeak>> sharedPeaksDict = new Dictionary<PeakRegion, List<ChromatographicPeak>>();
+
+                            //Step 4: Iterate the shared peaks in the XICGroups
+                            foreach (var peak in xICGroups.SharedPeaks)
+                            {
+                                double peakWindow = peak.Width;
+                                if (peakWindow > 0.001) //make sure we have enough length of the window (0.001 min) for peak searching
+                                {
+                                    List<ChromatographicPeak> chromPeaksInSharedPeak = new List<ChromatographicPeak>();
+                                    CollectChromPeakInRuns(peak, chromPeaksInSharedPeak, xICGroups);
+
+                                    var allChromPeakInDict = sharedPeaksDict.SelectMany(pair => pair.Value).ToList();
+
+                                    // ensuring no duplicates are added and only non-null peaks are considered.
+                                    if (chromPeaksInSharedPeak.Where(p => p != null).Any() &&
+                                        !chromPeaksInSharedPeak.Any(chromPeak => chromPeak != null && allChromPeakInDict.Any(peakInDict => peakInDict != null && peakInDict.Equals(chromPeak))))
+                                    {
+                                        sharedPeaksDict[peak] = chromPeaksInSharedPeak;
+                                    }
+                                }
+                            }
+                            IsobaricPeptideDict.TryAdd(id.ModifiedSequence, sharedPeaksDict);
+                        }
+
+                        // report search progress (proteins searched so far out of total proteins in database)
+                        if (!Silent)
+                        {
+                            Interlocked.Increment(ref isoGroupsSearched);
+
+                            double percentProgress = ((double)isoGroupsSearched / idGroupedBySeq.Count * 100);
+                            currentProgress = Math.Max(percentProgress, currentProgress);
+
+                            if (currentProgress > lastReportedProgress + 10)
+                            {
+                                Console.WriteLine("{0:0.}% of isobaric species quantified", currentProgress);
+                                lastReportedProgress = currentProgress;
                             }
                         }
                     }
-                    IsobaricPeptideDict[id.ModifiedSequence] = sharedPeaksDict;
-                }
-            }
+                });
+            if (!Silent)
+                Console.WriteLine("Finished quantifying isobaric species!");
         }
 
         /// <summary>
