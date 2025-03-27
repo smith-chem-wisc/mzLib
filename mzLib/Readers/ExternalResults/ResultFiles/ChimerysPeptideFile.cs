@@ -30,9 +30,6 @@ public class ChimerysPeptideFile : ResultFile<ChimerysPeptide>, IResultFile
 
     public override void WriteResults(string outputPath)
     {
-        if (!CanRead(outputPath))
-            outputPath += FileType.GetFileExtension();
-
         using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), CsvConfiguration);
 
         csv.WriteHeader<ChimerysPeptide>();

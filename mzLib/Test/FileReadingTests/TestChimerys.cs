@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using Newtonsoft.Json;
+using NUnit.Framework;
 using Readers;
 using System;
 using System.Collections.Generic;
@@ -497,6 +498,126 @@ namespace Test.FileReadingTests
             Assert.That(last.ProteinSites, Is.EqualTo(""));
             Assert.That(last.CountPsms, Is.EqualTo(0));
             Assert.That(last.Quantification, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ChimerysPsm_ReadWrite()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_psms.tsv");
+            string outPath = Path.Combine(directoryPath, "ChimerysPsm.tsv");
+
+            ChimerysPsmFile ogFile = new(path);
+            ogFile.LoadResults();
+            ogFile.WriteResults(outPath);
+
+            ChimerysPsmFile newFile = new(outPath);
+            newFile.LoadResults();
+
+            Assert.That(ogFile.Count(), Is.EqualTo(newFile.Count()));
+            for (int i = 0; i < ogFile.Count(); i++)
+            {
+                var original = JsonConvert.SerializeObject(ogFile[i]);
+                var written = JsonConvert.SerializeObject(newFile[i]);
+
+                Assert.That(original, Is.EqualTo(written));
+            }
+        }
+
+        [Test]
+        public void ChimerysPeptides_ReadWrite()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_peptides.tsv");
+            string outPath = Path.Combine(directoryPath, "peptides.tsv");
+
+            ChimerysPeptideFile ogFile = new(path);
+            ogFile.LoadResults();
+            ogFile.WriteResults(outPath);
+
+            ChimerysPeptideFile newFile = new(outPath);
+            newFile.LoadResults();
+
+            Assert.That(ogFile.Count(), Is.EqualTo(newFile.Count()));
+            for (int i = 0; i < ogFile.Count(); i++)
+            {
+                var original = JsonConvert.SerializeObject(ogFile[i]);
+                var written = JsonConvert.SerializeObject(newFile[i]);
+
+                Assert.That(original, Is.EqualTo(written));
+            }
+        }
+
+        [Test]
+        public void ChimerysModifiedPeptides_ReadWrite()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_modified_peptides.tsv");
+            string outPath = Path.Combine(directoryPath, "modified_peptides.tsv");
+
+            ChimerysModifiedPeptideFile ogFile = new(path);
+            ogFile.LoadResults();
+            ogFile.WriteResults(outPath);
+
+            ChimerysModifiedPeptideFile newFile = new(outPath);
+            newFile.LoadResults();
+
+            Assert.That(ogFile.Count(), Is.EqualTo(newFile.Count()));
+            for (int i = 0; i < ogFile.Count(); i++)
+            {
+                var original = JsonConvert.SerializeObject(ogFile[i]);
+                var written = JsonConvert.SerializeObject(newFile[i]);
+
+                Assert.That(original, Is.EqualTo(written));
+            }
+        }
+
+        [Test]
+        public void ChimerysProteinGroups_ReadWrite()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_protein_groups.tsv");
+            string outPath = Path.Combine(directoryPath, "protein_groups.tsv");
+
+            ChimerysProteinGroupFile ogFile = new(path);
+            ogFile.LoadResults();
+            ogFile.WriteResults(outPath);
+
+            ChimerysProteinGroupFile newFile = new(outPath);
+            newFile.LoadResults();
+
+            Assert.That(ogFile.Count(), Is.EqualTo(newFile.Count()));
+            for (int i = 0; i < ogFile.Count(); i++)
+            {
+                var original = JsonConvert.SerializeObject(ogFile[i]);
+                var written = JsonConvert.SerializeObject(newFile[i]);
+
+                Assert.That(original, Is.EqualTo(written));
+            }
+        }
+
+        [Test]
+        public void ChimerysPrecursors_ReadWrite()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_precursors.tsv");
+            string outPath = Path.Combine(directoryPath, "precursors.tsv");
+
+            ChimerysPrecursorFile ogFile = new(path);
+            ogFile.LoadResults();
+            ogFile.WriteResults(outPath);
+
+            ChimerysPrecursorFile newFile = new(outPath);
+            newFile.LoadResults();
+
+            Assert.That(ogFile.Count(), Is.EqualTo(newFile.Count()));
+            for (int i = 0; i < ogFile.Count(); i++)
+            {
+                var original = JsonConvert.SerializeObject(ogFile[i]);
+                var written = JsonConvert.SerializeObject(newFile[i]);
+
+                Assert.That(original, Is.EqualTo(written));
+            }
         }
     }
 }
