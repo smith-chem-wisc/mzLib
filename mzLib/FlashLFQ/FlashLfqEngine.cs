@@ -1953,7 +1953,8 @@ namespace FlashLFQ
         {
             Console.WriteLine("Quantifying isobaric species...");
             int isoGroupsSearched = 0;
-            int oldPercentProgress = 0;
+            double lastReportedProgress = 0;
+            double currentProgress = 0;
 
             var idGroupedBySeq = _allIdentifications
                 .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
@@ -2032,12 +2033,13 @@ namespace FlashLFQ
                         // report search progress (proteins searched so far out of total proteins in database)
                         Interlocked.Increment(ref isoGroupsSearched);
 
-                        var percentProgress = (int)((isoGroupsSearched / idGroupedBySeq.Count) * 100);
+                        double percentProgress = ((double)isoGroupsSearched / idGroupedBySeq.Count * 100);
+                        currentProgress = Math.Max(percentProgress, currentProgress);
 
-                        if (percentProgress > oldPercentProgress)
+                        if (currentProgress > lastReportedProgress + 10)
                         {
-                            oldPercentProgress = percentProgress;
-                            Console.WriteLine("{0}% of isobaric species quantified", percentProgress);
+                            Console.WriteLine("{0:0.}% of isobaric species quantified", currentProgress);
+                            lastReportedProgress = currentProgress;
                         }
                     }
                 });
