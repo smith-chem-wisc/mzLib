@@ -1,13 +1,5 @@
-﻿namespace Omics.SpectrumMatch
+﻿namespace Readers
 {
-    //for glcyo
-    public enum LocalizationLevel
-    {
-        Level1,
-        Level1b,
-        Level2,
-        Level3
-    }
     public class SpectrumMatchFromTsvHeader
     {
         // File and scan information

@@ -1,9 +1,10 @@
 ﻿using CsvHelper;
+using Readers;
 
 namespace Readers.QuantificationResults;
 
 public class QuantifiedPeakFile : ResultFile<QuantifiedPeak>, IResultFile
-{
+{ 
     public override SupportedFileType FileType => SupportedFileType.FlashLFQQuantifiedPeak;
     public override Software Software { get; set; }
 

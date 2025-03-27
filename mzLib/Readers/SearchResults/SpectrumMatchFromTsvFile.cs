@@ -1,6 +1,4 @@
-﻿using Omics.SpectrumMatch;
-
-namespace Readers;
+﻿namespace Readers;
 
 public class SpectrumMatchFromTsvFile : ResultFile<SpectrumMatchFromTsv>, IResultFile
 {

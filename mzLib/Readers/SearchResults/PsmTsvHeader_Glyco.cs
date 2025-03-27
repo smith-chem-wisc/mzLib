@@ -1,4 +1,4 @@
-﻿namespace Proteomics.PSM
+﻿namespace Readers
 {
     public enum LocalizationLevel
     {
