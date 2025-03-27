@@ -36,8 +36,12 @@ namespace Test.FileReadingTests
         {
             var filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ChimerysPsmFile file = new(filePath);
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
             Assert.That(file.Count(), Is.EqualTo(count));
             Assert.That(file.CanRead(path));
+
+            file = new();
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
         }
 
         [Test]
@@ -46,8 +50,12 @@ namespace Test.FileReadingTests
         {
             var filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ChimerysPeptideFile file = new(filePath);
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
             Assert.That(file.Count(), Is.EqualTo(count));
             Assert.That(file.CanRead(path));
+
+            file = new();
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
         }
 
         [Test]
@@ -56,8 +64,12 @@ namespace Test.FileReadingTests
         {
             var filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ChimerysModifiedPeptideFile file = new(filePath);
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
             Assert.That(file.Count(), Is.EqualTo(count));
             Assert.That(file.CanRead(path));
+
+            file = new();
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
         }
 
         [Test]
@@ -66,8 +78,12 @@ namespace Test.FileReadingTests
         {
             var filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ChimerysPrecursorFile file = new(filePath);
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
             Assert.That(file.Count(), Is.EqualTo(count));
             Assert.That(file.CanRead(path));
+
+            file = new();
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
         }
 
         [Test]
@@ -76,8 +92,12 @@ namespace Test.FileReadingTests
         {
             var filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ChimerysProteinGroupFile file = new(filePath);
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
             Assert.That(file.Count(), Is.EqualTo(count));
             Assert.That(file.CanRead(path));
+
+            file = new();
+            Assert.That(file.Software, Is.EqualTo(Software.Chimerys));
         }
 
         [Test]
@@ -618,6 +638,76 @@ namespace Test.FileReadingTests
 
                 Assert.That(original, Is.EqualTo(written));
             }
+        }
+
+
+        [Test]
+        public void ChimerysResultDirectory_PathsParsedCorrectly()
+        {
+            string psmPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_psms.tsv");
+            string peptidePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_peptides.tsv");
+            string modifiedPeptidePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_modified_peptides.tsv");
+            string proteinGroupPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_protein_groups.tsv");
+            string precursorPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_precursors.tsv");
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\ExternalFileTypes");
+            ChimerysResultDirectory directory = new(path);
+
+            Assert.That(directory.PsmPath, Is.EqualTo(psmPath));
+            Assert.That(directory.PeptidePath, Is.EqualTo(peptidePath));
+            Assert.That(directory.ModifiedPeptidePath, Is.EqualTo(modifiedPeptidePath));
+            Assert.That(directory.ProteinGroupPath, Is.EqualTo(proteinGroupPath));
+            Assert.That(directory.PrecursorPath, Is.EqualTo(precursorPath));
+        }
+
+        [Test]
+        public void ChimerysResultDirectory_FilesLoadCorrectly()
+        {
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\ExternalFileTypes");
+            ChimerysResultDirectory directory = new(path);
+
+            Assert.That(directory.PsmPath, Is.Not.Null);
+            Assert.That(directory.PeptidePath, Is.Not.Null);
+            Assert.That(directory.ModifiedPeptidePath, Is.Not.Null);
+            Assert.That(directory.ProteinGroupPath, Is.Not.Null);
+            Assert.That(directory.PrecursorPath, Is.Not.Null);
+
+            Assert.That(directory.PsmFile, Is.Not.Null);
+            Assert.That(directory.PeptideFile, Is.Not.Null);
+            Assert.That(directory.ModifiedPeptideFile, Is.Not.Null);
+            Assert.That(directory.ProteinGroupFile, Is.Not.Null);
+            Assert.That(directory.PrecursorFile, Is.Not.Null);
+
+            Assert.That(directory.PsmFile.Count(), Is.EqualTo(6));
+            Assert.That(directory.PeptideFile.Count(), Is.EqualTo(5));
+            Assert.That(directory.ModifiedPeptideFile.Count(), Is.EqualTo(6));
+            Assert.That(directory.ProteinGroupFile.Count(), Is.EqualTo(4));
+            Assert.That(directory.PrecursorFile.Count(), Is.EqualTo(10));
+        }
+
+        [Test]
+        public void ChimerysResultDirectory_DirectoryHasNoAcceptableFiles()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTests");
+            ChimerysResultDirectory directory = new(path);
+
+            Assert.That(directory.PsmPath, Is.Null);
+            Assert.That(directory.PeptidePath, Is.Null);
+            Assert.That(directory.ModifiedPeptidePath, Is.Null);
+            Assert.That(directory.ProteinGroupPath, Is.Null);
+            Assert.That(directory.PrecursorPath, Is.Null);
+
+            Assert.That(directory.PsmFile, Is.Null);
+            Assert.That(directory.PeptideFile, Is.Null);
+            Assert.That(directory.ModifiedPeptideFile, Is.Null);
+            Assert.That(directory.ProteinGroupFile, Is.Null);
+            Assert.That(directory.PrecursorFile, Is.Null);
         }
     }
 }
