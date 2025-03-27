@@ -38,7 +38,12 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv", SupportedFileType.MsPathFinderTDecoys)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv", SupportedFileType.MsPathFinderTAllResults)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\crux.txt", SupportedFileType.CruxResult)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv", SupportedFileType.ExperimentAnnotation)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\experiment_annotation.tsv", SupportedFileType.ExperimentAnnotation)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_peptides.tsv", SupportedFileType.ChimerysPeptide)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_precursors.tsv", SupportedFileType.ChimerysPrecursor)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_protein_groups.tsv", SupportedFileType.ChimerysProteinGroup)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_psms.tsv", SupportedFileType.ChimerysPsm)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Chimerysv4.3.0_MsaidPlatformv1.5.6_modified_peptides.tsv", SupportedFileType.ChimerysModifiedPeptide)]
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();
