@@ -1,6 +1,7 @@
 ﻿using MzLibUtil;
 using Omics.SpectrumMatch;
 using Proteomics.PSM;
+using Transcriptomics;
 
 namespace Readers
 {
@@ -53,14 +54,15 @@ namespace Readers
                 {
                     switch (filePath.ParseFileType())
                     {
-                        case SupportedFileType.psmtsv:
-                            psms.Add(new PsmFromTsv(line, Split, parsedHeader));
+                        case SupportedFileType.osmtsv:
+                            psms.Add(new OsmFromTsv(line, Split, parsedHeader));
                             break;
 
-                        // TODO: Create an osmtsv case when transcriptomics is merged
-
+                        case SupportedFileType.psmtsv:
+                        case SupportedFileType.IntralinkResults:
                         default:
-                            throw new ArgumentOutOfRangeException();
+                            psms.Add(new PsmFromTsv(line, Split, parsedHeader));
+                            break;
                     }
                 }
                 catch (Exception e)
@@ -89,7 +91,14 @@ namespace Readers
         public static List<PsmFromTsv> ReadPsmTsv(string filePath, out List<string> warnings) =>
             ReadTsv(filePath, out warnings).Cast<PsmFromTsv>().ToList();
 
-        //TODO: Add a ReadOsmTsv method when transcriptomics is merged
+        /// <summary>
+        /// Reads a osmtsv file and returns OsmFromTsv objects
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="warnings"></param>
+        /// <returns></returns>
+        public static List<OsmFromTsv> ReadOsmTsv(string filePath, out List<string> warnings) =>
+            ReadTsv(filePath, out warnings).Cast<OsmFromTsv>().ToList();
 
         public static Dictionary<string, int> ParseHeader(string header)
         {
@@ -123,8 +132,8 @@ namespace Readers
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.Name, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Name));
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.Description, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Description));
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence));
-                parsedHeader.Add(SpectrumMatchFromTsvHeader.NextResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousResidue));
-                parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NumExperimentalPeaks));
+                parsedHeader.Add(SpectrumMatchFromTsvHeader.NextResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NextResidue));
+                parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousResidue));
             }
             else
             {
@@ -134,8 +143,8 @@ namespace Readers
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.Name, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ProteinName));
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.Description, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PeptideDescription));
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.StartAndEndResiduesInProtein));
-                parsedHeader.Add(SpectrumMatchFromTsvHeader.NextResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousAminoAcid));
-                parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NextAminoAcid));
+                parsedHeader.Add(SpectrumMatchFromTsvHeader.NextResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NextAminoAcid));
+                parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousAminoAcid));
             }
 
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GeneName, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GeneName));
