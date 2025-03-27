@@ -7,7 +7,7 @@ using FlashLFQ.PEP;
 
 namespace FlashLFQ
 {
-    public class ChromatographicPeak
+    public class ChromatographicPeak : IEquatable<ChromatographicPeak>
     {
         public double Intensity;
         public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
@@ -16,6 +16,8 @@ namespace FlashLFQ
         public int ScanCount => IsotopicEnvelopes.Count;
         public double SplitRT;
         public readonly bool IsMbrPeak;
+        public DetectionType DetectionType { get; set; }
+        public double PredictedRetentionTime { get; init; }
         public double MbrScore;
         public double PpmScore { get; set; }
         public double IntensityScore { get; set; }
@@ -44,6 +46,33 @@ namespace FlashLFQ
             IsMbrPeak = isMbrPeak;
             SpectraFileInfo = fileInfo;
             RandomRt = randomRt;
+        }
+
+        /// <summary>
+        /// overloaded constructor for Isobaric_ambiguity peaks. In this case, the peak is identified by multiple identifications
+        /// </summary>
+        /// <param name="ids"></param>
+        /// <param name="isMbrPeak"></param>
+        /// <param name="fileInfo"></param>
+        /// <param name="randomRt"></param>
+        public ChromatographicPeak(List<Identification> ids, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime, DetectionType detectionType = DetectionType.Imputed) :
+            this(null, isMbrPeak, fileInfo)
+        {
+            PredictedRetentionTime = predictedRetentionTime;
+            DetectionType = detectionType; // default to imputed
+            Identifications = ids;
+        }
+
+        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime, DetectionType detectionType = DetectionType.Default) :
+            this(id, isMbrPeak, fileInfo)
+        {
+            PredictedRetentionTime = predictedRetentionTime;
+            DetectionType = detectionType; // default to imputed
+
+            if (detectionType == DetectionType.Default && isMbrPeak)
+            {
+                DetectionType = DetectionType.MBR;
+            }
         }
 
         public bool Equals(ChromatographicPeak peak)
@@ -113,7 +142,7 @@ namespace FlashLFQ
         {
             if (otherFeature != this)
             {
-                var thisFeaturesPeaks = new HashSet<IndexedMassSpectralPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
+                var thisFeaturesPeaks = new HashSet<IIndexedMzPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
                 this.Identifications = this.Identifications
                     .Union(otherFeature.Identifications)
                     .Distinct()
@@ -240,7 +269,18 @@ namespace FlashLFQ
 
             sb.Append("" + NumChargeStatesObserved + "\t");
 
-            if (IsMbrPeak)
+            // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous and MSMS peaks
+            if (IsMbrPeak && DetectionType == DetectionType.IsoTrack_MBR)
+            {
+                sb.Append("" + "MBR_IsoTrack" + "\t");
+            }
+
+            else if (IsMbrPeak && DetectionType == DetectionType.IsoTrack_Ambiguous)
+            {
+                sb.Append("" + "IsoTrack_Ambiguous" + "\t");
+            }
+
+            else if (IsMbrPeak)
             {
                 sb.Append("" + "MBR" + "\t");
             }

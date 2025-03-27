@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Chemistry;
 using Omics.Fragmentation.Peptide;
+using MzLibUtil;
 
 namespace Omics.SpectrumMatch
 {
@@ -92,69 +93,14 @@ namespace Omics.SpectrumMatch
         }
 
         /// <summary>
-        /// Parses the full sequence to identify mods
+        /// Parses the full sequence to identify mods.
         /// </summary>
-        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
+        /// <param name="fullSeq"> Full sequence of the peptide in question</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(string fullSeq)
+        public static Dictionary<int, string> ParseModifications(string fullSeq, bool ignoreTerminusMod = false)
         {
-            // use a regex to get all modifications
-            string pattern = @"\[(.+?)\]";
-            Regex regex = new(pattern);
-
-            // remove each match after adding to the dict. Otherwise, getting positions
-            // of the modifications will be rather difficult.
-            //int patternMatches = regex.Matches(fullSeq).Count;
-            Dictionary<int, List<string>> modDict = new();
-
-            RemoveSpecialCharacters(ref fullSeq);
-            MatchCollection matches = regex.Matches(fullSeq);
-            int currentPosition = 0;
-            foreach (Match match in matches)
-            {
-                GroupCollection group = match.Groups;
-                string val = group[1].Value;
-                int startIndex = group[0].Index;
-                int captureLength = group[0].Length;
-                int position = group["(.+?)"].Index;
-
-                List<string> modList = new List<string>();
-                modList.Add(val);
-                // check to see if key already exist
-                // if there is a missed cleavage, then there will be a label on K and a Label on X modification.
-                // And, it'll be like [label]|[label] which complicates the positional stuff a little bit.
-                // if the already key exists, update the current position with the capture length + 1.
-                // otherwise, add the modification to the dict.
-
-                // int to add is startIndex - current position
-                int positionToAddToDict = startIndex - currentPosition;
-                if (modDict.ContainsKey(positionToAddToDict))
-                {
-                    modDict[positionToAddToDict].Add(val);
-                }
-                else
-                {
-                    modDict.Add(positionToAddToDict, modList);
-                }
-                currentPosition += startIndex + captureLength;
-            }
-            return modDict;
+            return fullSeq.ParseModifications(ignoreTerminusMod);
         }
-
-        /// <summary>
-        /// Fixes an issue where the | appears and throws off the numbering if there are multiple mods on a single amino acid.
-        /// </summary>
-        /// <param name="fullSeq"></param>
-        /// <param name="replacement"></param>
-        /// <param name="specialCharacter"></param>
-        /// <returns></returns>
-        public static void RemoveSpecialCharacters(ref string fullSeq, string replacement = @"", string specialCharacter = @"\|")
-        {
-            // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
-            Regex regexSpecialChar = new(specialCharacter);
-            fullSeq = regexSpecialChar.Replace(fullSeq, replacement);
-        }
-
 
         protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string matchedMassErrorDaString = null)
         {
@@ -250,7 +196,7 @@ namespace Omics.SpectrumMatch
                     double neutralTheoreticalMass = neutralExperimentalMass - errorDa; //theoretical mass is measured mass - measured error
 
                     //The product created here is the theoretical product, with the mass back-calculated from the measured mass and measured error
-                    Product theoreticalProduct = new Product(productType,
+                    Product theoreticalProduct = new ProductWithCache(productType,
                       terminus,
                       neutralTheoreticalMass,
                       fragmentNumber,
@@ -259,7 +205,7 @@ namespace Omics.SpectrumMatch
                       secondaryProductType,
                       secondaryFragmentNumber);
 
-                    matchedIons.Add(new MatchedFragmentIon(theoreticalProduct, mz, intensity, z));
+                    matchedIons.Add(new MatchedFragmentIonWithCache(theoreticalProduct, mz, intensity, z));
                 }
             }
             return matchedIons;

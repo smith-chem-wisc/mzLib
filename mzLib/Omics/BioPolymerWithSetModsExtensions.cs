@@ -138,7 +138,7 @@ public static class BioPolymerWithSetModsExtensions
         // modification on peptide C-terminus
         if (withSetMods.AllModsOneIsNterminus.TryGetValue(withSetMods.Length + 2, out mod))
         {
-            subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
+            subSequence.Append($"-[{mod.ModificationType}:{mod.IdWithMotif}]");
         }
 
         return subSequence.ToString();
