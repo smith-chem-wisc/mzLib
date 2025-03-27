@@ -47,7 +47,7 @@ namespace FlashLFQ
         //IsoTracker settings
         public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
-        public Dictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
+        public ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -253,7 +253,7 @@ namespace FlashLFQ
             if (IsoTracker)
             {
                 IsoTrackerIsRunning = true; // Turn on the flag, then we will use the separate indexEngine for each files
-                IsobaricPeptideDict = new Dictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
+                IsobaricPeptideDict = new ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
                 QuantifyIsobaricPeaks();
                 _results.IsobaricPeptideDict = IsobaricPeptideDict;
                 AddIsoPeaks();
@@ -1951,7 +1951,8 @@ namespace FlashLFQ
 
         private void QuantifyIsobaricPeaks()
         {
-            Console.WriteLine("Quantifying isobaric species...");
+            if(!Silent)
+                Console.WriteLine("Quantifying isobaric species...");
             int isoGroupsSearched = 0;
             double lastReportedProgress = 0;
             double currentProgress = 0;
@@ -2027,22 +2028,27 @@ namespace FlashLFQ
                                     }
                                 }
                             }
-                            IsobaricPeptideDict[id.ModifiedSequence] = sharedPeaksDict;
+                            IsobaricPeptideDict.TryAdd(id.ModifiedSequence, sharedPeaksDict);
                         }
 
                         // report search progress (proteins searched so far out of total proteins in database)
-                        Interlocked.Increment(ref isoGroupsSearched);
-
-                        double percentProgress = ((double)isoGroupsSearched / idGroupedBySeq.Count * 100);
-                        currentProgress = Math.Max(percentProgress, currentProgress);
-
-                        if (currentProgress > lastReportedProgress + 10)
+                        if (!Silent)
                         {
-                            Console.WriteLine("{0:0.}% of isobaric species quantified", currentProgress);
-                            lastReportedProgress = currentProgress;
+                            Interlocked.Increment(ref isoGroupsSearched);
+
+                            double percentProgress = ((double)isoGroupsSearched / idGroupedBySeq.Count * 100);
+                            currentProgress = Math.Max(percentProgress, currentProgress);
+
+                            if (currentProgress > lastReportedProgress + 10)
+                            {
+                                Console.WriteLine("{0:0.}% of isobaric species quantified", currentProgress);
+                                lastReportedProgress = currentProgress;
+                            }
                         }
                     }
                 });
+            if (!Silent)
+                Console.WriteLine("Finished quantifying isobaric species!");
         }
 
         /// <summary>
