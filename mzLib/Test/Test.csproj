@@ -551,6 +551,7 @@
     </None>
     <None Update="Transcriptomics\TestData\ModomicsUnmodifiedTrimmed.fasta">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
