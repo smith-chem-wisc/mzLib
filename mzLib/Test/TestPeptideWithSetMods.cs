@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using MzLibUtil;
 using Omics;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
@@ -90,9 +91,9 @@ namespace Test
             protein2.Digest(nParams, null, null).ToList();
             protein2.Digest(cParams, null, null).ToList();
 
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            List<TruncationProduct> proteolysisProducts = new List<TruncationProduct>
             {
-                new ProteolysisProduct(5, 25, "asdf")
+                new TruncationProduct(5, 25, "asdf")
             };
 
             //speedy
@@ -475,9 +476,9 @@ namespace Test
         [Test]
         public static void TestTopDownDigestion()
         {
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            List<TruncationProduct> proteolysisProducts = new List<TruncationProduct>
             {
-                new ProteolysisProduct(5, 20, "asdf")
+                new TruncationProduct(5, 20, "asdf")
             };
             Protein protein = new Protein("MACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWY", "testProtein", "Mus", proteolysisProducts: proteolysisProducts);
             DigestionParams topdownParams = new DigestionParams("top-down");
@@ -508,7 +509,7 @@ namespace Test
             Assert.IsTrue(noneCleavageRetainMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.None);
 
             //Test with proteolytic cleavages
-            protein = new Protein("MACDEFGHIKLMNPQRST", "test", proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(3, 9, "chain") });
+            protein = new Protein("MACDEFGHIKLMNPQRST", "test", proteolysisProducts: new List<TruncationProduct> { new TruncationProduct(3, 9, "chain") });
             PeptideWithSetModifications fullProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
             Assert.IsTrue(fullProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Full);
             fullProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 10, CleavageSpecificity.Unknown, "", 0, empty, 0);
@@ -680,22 +681,22 @@ namespace Test
             DigestionParams dp2 = new DigestionParams(protease: "Asp-N", minPeptideLength: 2);
             DigestionParams dp3 = new DigestionParams(protease: "Lys-N", minPeptideLength: 2);
 
-            var protein0_variant = proteins.ElementAt(0).GetVariantProteins().ElementAt(0);
-            var protein1_variant = proteins.ElementAt(1).GetVariantProteins().ElementAt(0);
-            var protein2_variant = proteins.ElementAt(2).GetVariantProteins().ElementAt(0);
-            var protein3_variant = proteins.ElementAt(3).GetVariantProteins().ElementAt(0);
-            var protein4_variant = proteins.ElementAt(4).GetVariantProteins().ElementAt(0);
-            var protein5_variant = proteins.ElementAt(5).GetVariantProteins().ElementAt(0);
-            var protein6_variant = proteins.ElementAt(6).GetVariantProteins().ElementAt(0);
-            var protein7_variant = proteins.ElementAt(7).GetVariantProteins().ElementAt(0);
-            var protein8_variant = proteins.ElementAt(8).GetVariantProteins().ElementAt(0);
-            var protein9_variant = proteins.ElementAt(9).GetVariantProteins().ElementAt(0);
-            var protein10_variant = proteins.ElementAt(10).GetVariantProteins().ElementAt(0);
-            var protein11_variant = proteins.ElementAt(11).GetVariantProteins().ElementAt(0);
-            var protein12_variant = proteins.ElementAt(12).GetVariantProteins().ElementAt(0);
-            var protein13_variant = proteins.ElementAt(13).GetVariantProteins().ElementAt(0);
-            var protein14_variant = proteins.ElementAt(14).GetVariantProteins().ElementAt(0);
-            var protein15_variant = proteins.ElementAt(15).GetVariantProteins().ElementAt(0);
+            var protein0_variant = proteins.ElementAt(0).GetVariantBioPolymers().ElementAt(0);
+            var protein1_variant = proteins.ElementAt(1).GetVariantBioPolymers().ElementAt(0);
+            var protein2_variant = proteins.ElementAt(2).GetVariantBioPolymers().ElementAt(0);
+            var protein3_variant = proteins.ElementAt(3).GetVariantBioPolymers().ElementAt(0);
+            var protein4_variant = proteins.ElementAt(4).GetVariantBioPolymers().ElementAt(0);
+            var protein5_variant = proteins.ElementAt(5).GetVariantBioPolymers().ElementAt(0);
+            var protein6_variant = proteins.ElementAt(6).GetVariantBioPolymers().ElementAt(0);
+            var protein7_variant = proteins.ElementAt(7).GetVariantBioPolymers().ElementAt(0);
+            var protein8_variant = proteins.ElementAt(8).GetVariantBioPolymers().ElementAt(0);
+            var protein9_variant = proteins.ElementAt(9).GetVariantBioPolymers().ElementAt(0);
+            var protein10_variant = proteins.ElementAt(10).GetVariantBioPolymers().ElementAt(0);
+            var protein11_variant = proteins.ElementAt(11).GetVariantBioPolymers().ElementAt(0);
+            var protein12_variant = proteins.ElementAt(12).GetVariantBioPolymers().ElementAt(0);
+            var protein13_variant = proteins.ElementAt(13).GetVariantBioPolymers().ElementAt(0);
+            var protein14_variant = proteins.ElementAt(14).GetVariantBioPolymers().ElementAt(0);
+            var protein15_variant = proteins.ElementAt(15).GetVariantBioPolymers().ElementAt(0);
 
             List<Modification> digestMods = new List<Modification>();
 

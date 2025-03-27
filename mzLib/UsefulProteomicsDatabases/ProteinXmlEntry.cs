@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
@@ -33,7 +34,7 @@ namespace UsefulProteomicsDatabases
         public int OneBasedFeatureSubPosition { get; private set; } = -1;
         public int? OneBasedBeginPosition { get; private set; }
         public int? OneBasedEndPosition { get; private set; }
-        public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new List<ProteolysisProduct>();
+        public List<TruncationProduct> ProteolysisProducts { get; private set; } = new List<TruncationProduct>();
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
         public List<SpliceSite> SpliceSites { get; private set; } = new List<SpliceSite>();
@@ -247,8 +248,8 @@ namespace UsefulProteomicsDatabases
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
-                result = new RNA(Sequence, Name, Accession, Organism, rnaDbLocation, null,
-                    null, OneBasedModifications, isContaminant, false, GeneNames, null);
+                result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
+                    isContaminant, false, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName);
             }
             Clear();
             return result;
@@ -308,7 +309,7 @@ namespace UsefulProteomicsDatabases
                         type += ("null-null");
                     }
                 }
-                ProteolysisProducts.Add(new ProteolysisProduct(OneBasedBeginPosition, OneBasedEndPosition, type));
+                ProteolysisProducts.Add(new TruncationProduct(OneBasedBeginPosition, OneBasedEndPosition, type));
             }
             else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "") // Only keep if there is variant sequence information and position information
             {
@@ -450,7 +451,7 @@ namespace UsefulProteomicsDatabases
             OneBasedFeatureSubPosition = -1;
             AnnotatedMods = new List<(int, string)>();
             OneBasedModifications = new Dictionary<int, List<Modification>>();
-            ProteolysisProducts = new List<ProteolysisProduct>();
+            ProteolysisProducts = new List<TruncationProduct>();
             SequenceVariations = new List<SequenceVariation>();
             DisulfideBonds = new List<DisulfideBond>();
             SpliceSites = new List<SpliceSite>();
