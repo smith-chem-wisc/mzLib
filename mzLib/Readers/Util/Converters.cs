@@ -25,6 +25,25 @@ namespace Readers
         }
     }
 
+    /// <summary>
+    /// Converts a list of doubles delimited by semicolons to a list of doubles
+    /// To be used with CsvHelper
+    /// </summary>
+    internal class SemicolonDelimitedToIntegerArrayConverter : DefaultTypeConverter
+    {
+        public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
+        {
+            var splits = text.Split(';');
+            return splits.Select(int.Parse).ToList();
+        }
+
+        public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
+        {
+            var list = value as IEnumerable<int> ?? throw new MzLibException("Cannot convert input to IEnumerable<int>");
+            return string.Join(';', list);
+        }
+    }
+
     internal class DashToNullOrDoubleConverter : DefaultTypeConverter
     {
         public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)

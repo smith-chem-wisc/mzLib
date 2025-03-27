@@ -12,6 +12,7 @@
         MsFragger, // files tested were from fragpipe v21.1
         FlashLFQ,
         MsPathFinderT,
-        Crux
+        Crux,
+        Chimerys
     }
 }

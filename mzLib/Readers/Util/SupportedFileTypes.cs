@@ -28,7 +28,12 @@ namespace Readers
         CruxResult,
         ExperimentAnnotation,
         BrukerD,
-        BrukerTimsTof
+        BrukerTimsTof,
+        ChimerysPsm,
+        ChimerysPeptide,
+        ChimerysModifiedPeptide,
+        ChimerysProteinGroup,
+        ChimerysPrecursor,
     }
 
     public static class SupportedFileTypeExtensions
