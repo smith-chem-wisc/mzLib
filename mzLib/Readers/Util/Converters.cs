@@ -45,6 +45,24 @@ namespace Readers
     }
 
     /// <summary>
+    /// Converts a list of strings delimited by semicolons to an array of strings
+    /// To be used with CsvHelper
+    /// </summary>
+    internal class SemicolonDelimitedToStringArrayConverter : DefaultTypeConverter
+    {
+        public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
+        {
+            return text.Split(';');
+        }
+
+        public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
+        {
+            var list = value as string[] ?? throw new MzLibException("Cannot convert input to string[]");
+            return string.Join(';', list);
+        }
+    }
+
+    /// <summary>
     /// Converts a list of numbers delimited by semicolons to an array of longs
     /// To be used with CsvHelper
     /// </summary>

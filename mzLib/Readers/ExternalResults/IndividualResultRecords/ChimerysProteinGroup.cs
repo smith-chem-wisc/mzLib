@@ -15,19 +15,24 @@ public class ChimerysProteinGroup
     public int ProteinGroupId { get; set; }
 
     [Name("FASTA_HEADERS")]
-    public string FastaHeaders { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToStringArrayConverter))]
+    public string[] FastaHeaders { get; set; }
 
     [Name("GENE_NAMES")]
-    public string GeneNames { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToStringArrayConverter))]
+    public string[] GeneNames { get; set; }
 
     [Name("PROTEIN_IDENTIFIERS")]
-    public string ProteinIdentifiers { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToStringArrayConverter))]
+    public string[] ProteinIdentifiers { get; set; }
 
     [Name("TAXONOMY_IDS")]
-    public string TaxonomyIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToStringArrayConverter))]
+    public string[] TaxonomyIds { get; set; }
 
     [Name("ORGANISMS")]
-    public string Organisms { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToStringArrayConverter))]
+    public string[] Organisms { get; set; }
 
     [Name("RAW_FILE_NAME")]
     public string RawFileName { get; set; }

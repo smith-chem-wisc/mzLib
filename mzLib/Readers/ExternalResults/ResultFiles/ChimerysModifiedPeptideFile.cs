@@ -13,7 +13,7 @@ public class ChimerysModifiedPeptideFile : ResultFile<ChimerysModifiedPeptide>, 
         HasHeaderRecord = true,
         Delimiter = "\t",
         IgnoreBlankLines = true,
-        TrimOptions = TrimOptions.Trim
+        TrimOptions = TrimOptions.Trim 
     };
 
     public override SupportedFileType FileType => SupportedFileType.ChimerysModifiedPeptide;

@@ -98,7 +98,7 @@ public class ChimerysPrecursor
     public string? LocalizationSequence { get; set; }
 
     [Name("LOCALIZATION_SCORE")]
-    public string? LocalizationScore { get; set; }
+    public double? LocalizationScore { get; set; }
 
     [Name("PROTEIN_SITES")]
     public string? ProteinSites { get; set; }

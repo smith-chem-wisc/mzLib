@@ -80,9 +80,4 @@ public class ChimerysPeptide
 
     [Name("QUANTIFICATION")]
     public double Quantification { get; set; }
-
-
-
-
-
 }
