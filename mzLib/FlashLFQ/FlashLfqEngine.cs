@@ -14,11 +14,8 @@ using System.IO;
 using Easy.Common.Extensions;
 using FlashLFQ.PEP;
 using FlashLFQ.IsoTracker;
-using MassSpectrometry;
 using System.Threading;
 using FlashLFQ.Interfaces;
-using Proteomics;
-using System.Data.SQLite;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
