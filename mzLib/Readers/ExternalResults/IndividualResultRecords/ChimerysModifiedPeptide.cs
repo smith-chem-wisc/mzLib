@@ -8,7 +8,7 @@ namespace Readers;
 public class ChimerysModifiedPeptide
 {
     [Name("MODIFIED_PEPTIDE_ID")]
-    public int ModifiedPeptideId { get; set; }
+    public long ModifiedPeptideId { get; set; }
 
     [Name("SEQUENCE")]
     public string BaseSequence { get; set; }
@@ -68,20 +68,20 @@ public class ChimerysModifiedPeptide
     public int PeptideId { get; set; }
 
     [Name("PSM_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] PsmIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] PsmIds { get; set; }
 
     [Name("PRECURSOR_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] PrecursorIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] PrecursorIds { get; set; }
 
     [Name("POSITION_IN_PROTEIN_IDS")]
     [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
     public int[] PositionInProteinIds { get; set; }
 
     [Name("PROTEIN_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] ProteinIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] ProteinIds { get; set; }
 
     [Name("LOCALIZATION_SEQUENCE")]
     public string? LocalizationSequence { get; set; }

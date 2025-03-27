@@ -8,7 +8,7 @@ namespace Readers;
 public class ChimerysPsm
 {
     [Name("PSM_ID")]
-    public int PsmId { get; set; }
+    public long PsmId { get; set; }
 
     [Name("SEQUENCE")]
     public string BaseSequence { get; set; }
@@ -90,13 +90,13 @@ public class ChimerysPsm
     public bool IsDecoy { get; set; }
 
     [Name("PRECURSOR_ID")]
-    public int PrecursorId { get; set; }
+    public long PrecursorId { get; set; }
 
     [Name("MODIFIED_PEPTIDE_ID")]
-    public int ModifiedPeptideId { get; set; }
+    public long ModifiedPeptideId { get; set; }
 
     [Name("PEPTIDE_ID")]
-    public int PeptideId { get; set; }
+    public long PeptideId { get; set; }
 
     /// <summary>
     /// Starting amino acid position of this peptide in its Protein.
@@ -109,8 +109,8 @@ public class ChimerysPsm
     /// One or several numeric protein identifiers for the precursor
     /// </summary>
     [Name("PROTEIN_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] ProteinIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] ProteinIds { get; set; }
 
     [Name("LOCALIZATION_SEQUENCE")]
     public string? LocalizationSequence { get; set; }

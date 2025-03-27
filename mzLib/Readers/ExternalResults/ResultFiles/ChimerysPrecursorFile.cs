@@ -11,7 +11,9 @@ public class ChimerysPrecursorFile : ResultFile<ChimerysPrecursor>, IResultFile
     {
         Encoding = Encoding.UTF8,
         HasHeaderRecord = true,
-        Delimiter = "\t"
+        Delimiter = "\t",
+        IgnoreBlankLines = true,
+        TrimOptions = TrimOptions.Trim
     };
 
     public override SupportedFileType FileType => SupportedFileType.ChimerysPrecursor;

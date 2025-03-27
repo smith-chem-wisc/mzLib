@@ -45,12 +45,12 @@ public class ChimerysProteinGroup
     public bool IsDecoy { get; set; }
 
     [Name("PSM_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] PsmIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] PsmIds { get; set; }
 
     [Name("PRECURSOR_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] PrecursorIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] PrecursorIds { get; set; }
 
     [Name("MODIFIED_PEPTIDE_IDS")]
     [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]

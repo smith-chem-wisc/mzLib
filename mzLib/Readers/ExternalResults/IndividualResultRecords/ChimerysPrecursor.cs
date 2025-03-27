@@ -8,7 +8,7 @@ namespace Readers;
 public class ChimerysPrecursor
 {
     [Name("PRECURSOR_ID")]
-    public int PrecursorId { get; set; }
+    public long PrecursorId { get; set; }
 
     [Name("SEQUENCE")]
     public string BaseSequence { get; set; }
@@ -77,22 +77,22 @@ public class ChimerysPrecursor
     public bool IsIdentifiedByMbr { get; set; }
 
     [Name("MODIFIED_PEPTIDE_ID")]
-    public int ModifiedPeptideId { get; set; }
+    public long ModifiedPeptideId { get; set; }
 
     [Name("PEPTIDE_ID")]
-    public int PeptideId { get; set; }
+    public long PeptideId { get; set; }
 
     [Name("PSM_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] PsmIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] PsmIds { get; set; }
 
     [Name("POSITION_IN_PROTEIN_IDS")]
     [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
     public int[] PositionInProteinIds { get; set; }
 
     [Name("PROTEIN_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] ProteinIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] ProteinIds { get; set; }
 
     [Name("LOCALIZATION_SEQUENCE")]
     public string? LocalizationSequence { get; set; }

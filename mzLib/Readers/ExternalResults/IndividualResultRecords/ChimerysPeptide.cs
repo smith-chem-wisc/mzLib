@@ -8,7 +8,7 @@ namespace Readers;
 public class ChimerysPeptide
 {
     [Name("PEPTIDE_ID")]
-    public int PeptideId { get; set; }
+    public long PeptideId { get; set; }
 
     [Name("SEQUENCE")]
     public string BaseSequence { get; set; }
@@ -50,24 +50,24 @@ public class ChimerysPeptide
     public bool IsIdentifiedByMbr { get; set; }
 
     [Name("PSM_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] PsmIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] PsmIds { get; set; }
 
     [Name("PRECURSOR_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] PrecursorIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] PrecursorIds { get; set; }
 
     [Name("MODIFIED_PEPTIDE_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] ModifiedPeptideIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] ModifiedPeptideIds { get; set; }
 
     [Name("POSITION_IN_PROTEIN_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] PositionInProteinIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] PositionInProteinIds { get; set; }
 
     [Name("PROTEIN_IDS")]
-    [TypeConverter(typeof(SemicolonDelimitedToIntegerArrayConverter))]
-    public int[] ProteinIds { get; set; }
+    [TypeConverter(typeof(SemicolonDelimitedToLongArrayConverter))]
+    public long[] ProteinIds { get; set; }
 
     [Name("COUNT_PSMS")]
     public int CountPsms { get; set; }

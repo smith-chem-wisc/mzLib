@@ -26,7 +26,7 @@ namespace Readers
     }
 
     /// <summary>
-    /// Converts a list of doubles delimited by semicolons to a list of doubles
+    /// Converts a list of integers delimited by semicolons to an array of integers
     /// To be used with CsvHelper
     /// </summary>
     internal class SemicolonDelimitedToIntegerArrayConverter : DefaultTypeConverter
@@ -34,12 +34,31 @@ namespace Readers
         public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
         {
             var splits = text.Split(';');
-            return splits.Select(int.Parse).ToList();
+            return splits.Select(int.Parse).ToArray();
         }
 
         public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
         {
-            var list = value as IEnumerable<int> ?? throw new MzLibException("Cannot convert input to IEnumerable<int>");
+            var list = value as int[] ?? throw new MzLibException("Cannot convert input to int[]");
+            return string.Join(';', list);
+        }
+    }
+
+    /// <summary>
+    /// Converts a list of numbers delimited by semicolons to an array of longs
+    /// To be used with CsvHelper
+    /// </summary>
+    internal class SemicolonDelimitedToLongArrayConverter : DefaultTypeConverter
+    {
+        public override object ConvertFromString(string text, IReaderRow row, MemberMapData memberMapData)
+        {
+            var splits = text.Split(';');
+            return splits.Select(long.Parse).ToArray();
+        }
+
+        public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
+        {
+            var list = value as long[] ?? throw new MzLibException("Cannot convert input to long[]");
             return string.Join(';', list);
         }
     }

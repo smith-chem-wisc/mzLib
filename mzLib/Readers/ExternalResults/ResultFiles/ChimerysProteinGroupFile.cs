@@ -11,7 +11,9 @@ public class ChimerysProteinGroupFile : ResultFile<ChimerysProteinGroup>, IResul
     {
         Encoding = Encoding.UTF8,
         HasHeaderRecord = true,
-        Delimiter = "\t"
+        Delimiter = "\t",
+        IgnoreBlankLines = true,
+        TrimOptions = TrimOptions.Trim
     };
 
     public override SupportedFileType FileType => SupportedFileType.ChimerysProteinGroup;
