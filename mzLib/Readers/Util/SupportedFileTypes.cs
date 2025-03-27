@@ -73,6 +73,11 @@ namespace Readers
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
+                SupportedFileType.ChimerysPsm => "psms.tsv",
+                SupportedFileType.ChimerysPeptide => "peptides.tsv",
+                SupportedFileType.ChimerysModifiedPeptide => "modified_peptides.tsv",
+                SupportedFileType.ChimerysProteinGroup => "protein_groups.tsv",
+                SupportedFileType.ChimerysPrecursor => "precursors.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -134,10 +139,20 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTAllResults;
                     if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ExperimentAnnotation;
+                    if (filePath.EndsWith(SupportedFileType.ChimerysPsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ChimerysPsm;
+                    if (filePath.EndsWith(SupportedFileType.ChimerysModifiedPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ChimerysModifiedPeptide;
+                    if (filePath.EndsWith(SupportedFileType.ChimerysProteinGroup.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ChimerysProteinGroup;
+                    if (filePath.EndsWith(SupportedFileType.ChimerysPrecursor.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ChimerysPrecursor;
+                    if (filePath.EndsWith(SupportedFileType.ChimerysPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ChimerysPeptide;
 
-                    // these tsv cases are just .tsv and need an extra step to determine the type
-                    // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
-                    using var sw = new StreamReader(filePath);
+                        // these tsv cases are just .tsv and need an extra step to determine the type
+                        // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
+                        using var sw = new StreamReader(filePath);
                     var firstLine = sw.ReadLine() ?? "";
                     if (firstLine == "") throw new MzLibException("Tsv file is empty");
 
