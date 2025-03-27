@@ -6,7 +6,7 @@
     public interface IQuantifiableRecord
     {
         /// <summary>
-        /// The file name of the MS Data file in which the identification was made
+        /// The file name of the MS Data file (without the extenstion) in which the identification was made
         /// </summary>
         public string FileName { get; }
 

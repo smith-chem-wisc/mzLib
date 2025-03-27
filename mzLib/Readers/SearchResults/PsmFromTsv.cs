@@ -1,15 +1,60 @@
 ﻿using System.Globalization;
+using CsvHelper.Configuration.Attributes;
 using Omics.Fragmentation;
+using Proteomics;
 
 
 namespace Readers
 {
-    public class PsmFromTsv : SpectrumMatchFromTsv //, IQuantifiableRecord
+    public class PsmFromTsv : SpectrumMatchFromTsv, IQuantifiableRecord
     {
+        public string FileName => FileNameWithoutExtension;
+        public string BaseSequence => BaseSeq;
+        public string ModifiedSequence => FullSequence;
+        public int ChargeState => PrecursorCharge;
+        public bool IsDecoy => DecoyContamTarget == "D";
+
+        public List<(string, string, string)> ProteinGroupInfos
+        {
+            get
+            {
+                _proteinGroupInfos ??= AddProteinGroupInfos();
+                return _proteinGroupInfos;
+            }
+        }
+
+        /// <summary>
+        /// Creates a list of tuples, each of which represents a protein.
+        /// Each tuple contains the accession number, gene name, and organism.
+        /// These parameters are used to create a ProteinGroup object, 
+        /// which is needed to make an identification.
+        /// </summary>
+        /// <returns></returns>
+        private List<(string, string, string)> AddProteinGroupInfos()
+        {
+            _proteinGroupInfos = new List<(string, string, string)>();
+
+            char[] delimiterChars = { '|' };
+            string[] accessions = Accession.Split(delimiterChars);
+            string[] geneNames = GeneName.Split(delimiterChars);
+            string[] organisms = OrganismName.Split(delimiterChars);
+
+            int minArrayLength = Math.Min(accessions.Length, Math.Min(geneNames.Length, organisms.Length));
+            
+            for(int i = 0; i < minArrayLength; i++)
+            {
+                _proteinGroupInfos.Add((accessions[i], geneNames[i], organisms[i]));
+            }
+
+            return _proteinGroupInfos;
+        }
+
+        [Ignore] private List<(string, string, string)> _proteinGroupInfos;
+
 
         public string ProteinAccession => Accession;
         public string ProteinName => Name;
-        public string PeptideMonoMass => MonoisotopicMass;
+        public string PeptideMonoMass => MonoisotopicMassString;
         public string PeptideDescription => Description;
         public string PreviousAminoAcid => PreviousResidue;
         public string NextAminoAcid => NextResidue;
@@ -77,7 +122,7 @@ namespace Readers
             PrecursorMass = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMass]].Trim(), CultureInfo.InvariantCulture);
             BaseSeq = RemoveParentheses(spl[parsedHeader[SpectrumMatchFromTsvHeader.BaseSequence]].Trim());
             FullSequence = spl[parsedHeader[SpectrumMatchFromTsvHeader.FullSequence]];
-            MonoisotopicMass = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
+            MonoisotopicMassString = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
             Score = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Score]].Trim(), CultureInfo.InvariantCulture);
             DecoyContamTarget = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
             QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValue]].Trim(), CultureInfo.InvariantCulture);
@@ -109,7 +154,7 @@ namespace Readers
             PreviousResidue = (parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]].Trim();
             NextResidue = (parsedHeader[SpectrumMatchFromTsvHeader.NextResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]].Trim();
             QValueNotch = (parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch]].Trim(), CultureInfo.InvariantCulture);
-            RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture);
+            RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? -1 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture);
             PEP = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
             PEP_QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
             VariantCrossingIons = FindVariantCrossingIons();
@@ -179,7 +224,7 @@ namespace Readers
                 Accession = psm.ProteinAccession;
                 Name = psm.ProteinName;
                 GeneName = psm.GeneName;
-                MonoisotopicMass = psm.PeptideMonoMass;
+                MonoisotopicMassString = psm.PeptideMonoMass;
                 MassDiffDa = psm.MassDiffDa;
                 MassDiffPpm = psm.MassDiffPpm;
             }
@@ -196,13 +241,13 @@ namespace Readers
 
                 if (psm.PeptideMonoMass.Split("|").Count() == 1)
                 {
-                    MonoisotopicMass = psm.PeptideMonoMass.Split("|")[0];
+                    MonoisotopicMassString = psm.PeptideMonoMass.Split("|")[0];
                     MassDiffDa = psm.MassDiffDa.Split("|")[0];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[0];
                 }
                 else
                 {
-                    MonoisotopicMass = psm.PeptideMonoMass.Split("|")[index];
+                    MonoisotopicMassString = psm.PeptideMonoMass.Split("|")[index];
                     MassDiffDa = psm.MassDiffDa.Split("|")[index];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[index];
                 }
