@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Easy.Common.Extensions;
 using Newtonsoft.Json;
 using Readers;
 
@@ -158,6 +159,57 @@ namespace Test.FileReadingTests
             Assert.That(last.PepQValue, Is.EqualTo(0));
             Assert.That(last.Accession, Is.EqualTo("Q15651"));
             Assert.That(last.IsDecoy, Is.EqualTo(false));
+        }
+
+        [Test]
+        public static void TestToString()
+        {
+
+            string tsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Real_AllResults_IcTda.tsv");
+          //@"C:\Users\avnib\source\repos\mzFork\mzLib\Test\FileReadingTests\ExternalFileTypes\Real_AllResults_IcTda.tsv";
+ //           string tsvPath = @"C: \Users\avnib\Desktop\02 - 17 - 20_jurkat_td_rep1_fract1_IcTda.tsv";
+
+            MsPathFinderTResultFile result = new MsPathFinderTResultFile(tsvPath); // result.WriteResults(@"C:\\Users\\avnib\\Downloads");
+            String x = result.ToString();
+            Console.WriteLine(x);
+        }
+
+        [Test]
+        public static void TestToDictListList()
+        {
+            
+                string tsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                    @"FileReadingTests\ExternalFileTypes\Real_AllResults_IcTda.tsv");
+                MsPathFinderTResultFile results = new MsPathFinderTResultFile(tsvPath);
+                var dict = results.ToDictListList();
+                
+            
+        }
+
+            [Test]
+        public static void TestToDictList() //for now, let's just assume this passing indicates the success of TestToDictListList
+        {
+            string tsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Real_AllResults_IcTda.tsv");
+            MsPathFinderTResultFile results = new MsPathFinderTResultFile(tsvPath);
+            var dict = results.ToDictList();
+            Console.Write(dict.LastOrDefault().Key);
+            Assert.That(dict.FirstOrDefault().Key.IsEqualTo("SLEVFEKLEAKVQQAIDTITLLQMEIEELKEKNNSLSQEVQNAQHQREELERENNHLKEQQNGWQERLQALLGRMEEV_"));
+            Assert.That(dict.LastOrDefault().Key.IsEqualTo("MKTVKHLLCCAIAASALISTGVHAASWKDALSSAASELGNQNSTTQEGGWSLASLTNLLSSGNQALSADNMNNAAGILQYCAKQKLASVTDAENIKNQVLEKLGLNSEEQKEDTN_ 9, 10, 81"));
+            Assert.That(dict.ContainsKey("KSGRFIGVMSGTSLDGVDVVLATIDEHRVAQLASLSWPIPVSLKQAVLDICQGQQLTLSQFGQLDTQLGQLFADAVNALLKEQNLQARDIVAIGCHGQTVWHEPTGVAPHTLQIGDNNQIVARTGITVVGDFRRRDIALGGQGAPLVPAFHHALLAHPTERRMVLNIGG_ 51, 95"));
+        }
+
+        [Test]
+        public static void TestToDict()
+        {
+            string tsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Real_AllResults_IcTda.tsv");
+            MsPathFinderTResultFile results = new MsPathFinderTResultFile(tsvPath);
+            var dict = results.ToDict();
+            
+                Assert.That(
+                    dict.FirstOrDefault().Key.IsEqualTo("SLEVFEKLEAKVQQAIDTITLLQMEIEELKEKNNSLSQEVQNAQHQREELERENNHLKEQQNGWQERLQALLGRMEEV"));
         }
 
         [Test]
