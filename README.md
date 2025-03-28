@@ -17,13 +17,10 @@ GitHub release tags are recoreded here: https://github.com/smith-chem-wisc/mzLib
 ## Reading Spectra Files
 To read Thermo or mzML files, use
 ```
-ThermoStaticData staticThermo = ThermoStaticData.LoadAllStaticData(@"spectra.raw");
-ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"spectra.raw")
 Mzml mzmlFile = Mzml.LoadAllStaticData(@"spectra.mzML");
 ```
 Both filetypes implement the same interface that has all of the necessary functionality to interact with spectra files:
 ```
-IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> thermoFile = new ThermoRawFile(@"spectra.RAW");
 IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> mzmlFile = new Mzml(@"spectra.mzML");
 ```
 ## Loading Databases From Online Sources
