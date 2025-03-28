@@ -19,8 +19,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.ConstrainedExecution;
 using System.Text.RegularExpressions;
 
 namespace MzLibUtil
@@ -75,37 +73,6 @@ namespace MzLibUtil
                 captureLengthSum += captureLength;
             }
             return modDict;
-        }
-
-        // This method is a WIP. It is not currently used, and may be removed in the future depending on how/if we want to handle ambiguity here.
-        public static Dictionary<int, string> ParseModificationsWithAmbiguity(this string ambiguousFullSequences, bool ignoreTerminusMod = false)
-        {
-            var modDicts = ambiguousFullSequences.Split('|').Select(fullSeq => fullSeq.ParseModifications(ignoreTerminusMod)).ToList();
-
-            if (modDicts.Count == 1) { return modDicts[0]; }
-            else
-            {
-                var modDict = modDicts.First();
-
-                foreach (var md in modDicts.Skip(1))
-                {
-                    foreach (var mod in md)
-                    {
-                        if (modDict.ContainsKey(mod.Key))
-                        {
-                            if (!modDict[mod.Key].Split('|').Contains(mod.Value))
-                            {
-                                modDict[mod.Key] += "|" + mod.Value;
-                            }
-                        }
-                        else
-                        {
-                            modDict.Add(mod.Key, mod.Value);
-                        }
-                    }
-                }
-                return modDict;
-            }
         }
 
         /// <summary>
