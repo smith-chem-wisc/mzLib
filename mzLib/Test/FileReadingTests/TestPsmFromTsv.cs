@@ -180,20 +180,11 @@ namespace Test.FileReadingTests
             modDict = SpectrumMatchFromTsv.ParseModifications(twoMods.FullSequence);
             Assert.That(modDict.Count == 2);
             Assert.That(modDict.ContainsKey(0) && modDict.ContainsKey(104));
-            Assert.That(modDict[0].Count == 1);
-            Assert.That(modDict[0].Contains("UniProt:N-acetylserine on S"));
-            Assert.That(modDict[104].Count == 1);
-            Assert.That(modDict[104].Contains("UniProt:N5-methylglutamine on Q"));
+            Assert.That(modDict[0] == "UniProt:N-acetylserine on S");
+            Assert.That(modDict[104] == "UniProt:N5-methylglutamine on Q");
 
-
+            // Test below commented out because method input updated to not handle two mods on the same position. 
             // psm with two mods on the same amino acid
-            string fullSeq = "[Common Fixed:Carbamidomethyl on C]|[UniProt:N-acetylserine on S]KPRKIEEIKDFLLTARRKDAKSVKIKKNKDNVKFK";
-            modDict = SpectrumMatchFromTsv.ParseModifications(fullSeq);
-            Assert.That(modDict.Count == 1);
-            Assert.That(modDict.ContainsKey(0));
-            Assert.That(modDict[0].Count == 2);
-            Assert.That(modDict[0].Contains("Common Fixed:Carbamidomethyl on C"));
-            Assert.That(modDict[0].Contains("UniProt:N-acetylserine on S"));
         }
 
         [Test]
@@ -202,23 +193,23 @@ namespace Test.FileReadingTests
             // successful removal of the default character
             string toRemove = "ANDVHAO|CNVASDF|ABVCUAE";
             int length = toRemove.Length;
-            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove);
+            MzLibUtil.ClassExtensions.RemoveSpecialCharacters(ref toRemove);
             Assert.That(toRemove.Length == length - 2);
             Assert.That(toRemove.Equals("ANDVHAOCNVASDFABVCUAE"));
 
             // does not remove default character when prompted otherwise
             toRemove = "ANDVHAO|CNVASDF|ABVCUAE";
-            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, specialCharacter: @"\[");
+            MzLibUtil.ClassExtensions.RemoveSpecialCharacters(ref toRemove, specialCharacter: @"\[");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO|CNVASDF|ABVCUAE"));
 
             // replaces default symbol when prompted
-            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"%");
+            MzLibUtil.ClassExtensions.RemoveSpecialCharacters(ref toRemove, replacement: @"%");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO%CNVASDF%ABVCUAE"));
 
             // replaces inputted symbol with non-default symbol
-            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"=", specialCharacter: @"%");
+            MzLibUtil.ClassExtensions.RemoveSpecialCharacters(ref toRemove, replacement: @"=", specialCharacter: @"%");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO=CNVASDF=ABVCUAE"));
         }
