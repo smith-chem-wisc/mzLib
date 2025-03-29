@@ -23,7 +23,7 @@ namespace Readers
             FileType = FilePath.IsNullOrEmpty() ? SupportedFileType.MsPathFinderTAllResults : FilePath.ParseFileType();
         }
 
-        public override string ToString()
+        public override string ToString() //TODO consider removing
         {
             StringBuilder x = new StringBuilder();
             
@@ -38,7 +38,8 @@ namespace Readers
             return x.ToString();
         }
 
-        public Dictionary<string, string> ToDict() //key,value -> base,record pair
+        public Dictionary<string, string> ToDict() //key,value -> base,record pair TODO consider removing.
+            // Here's what a single value entry looks like: {[SLEVFEKLEAKVQQAIDTITLLQMEIEELKEKNNSLSQEVQNAQHQREELERENNHLKEQQNGWQERLQALLGRMEEV, 1955	M	SLEVFEKLEAKVQQAIDTITLLQMEIEELKEKNNSLSQEVQNAQHQREELERENNHLKEQQNGWQERLQALLGRMEEV	-		C396H647N117O135S2 : 9265.680070361872	sp|P0AF36|ZAPB_ECOLI	Cell division protein ZapB OS=Escherichia coli (strain K12) OX=83333 GN=zapB PE=1 SV=1	82	4	81	10	928.0769611	9265.680072	0	65	1	9.99E-308	9.99E-308	0	0	]}
         {
             var dict = new Dictionary<string, string>();
             using var csv = new CsvReader(new StreamReader(FilePath), MsPathFinderTResult.CsvConfiguration);
@@ -48,7 +49,7 @@ namespace Readers
             {
                 if (!string.IsNullOrEmpty(res.BaseSequence) && !dict.ContainsKey(res.BaseSequence))
                 {
-                    StringBuilder SB = new StringBuilder(); // Here's what a single value entry looks like: {[SLEVFEKLEAKVQQAIDTITLLQMEIEELKEKNNSLSQEVQNAQHQREELERENNHLKEQQNGWQERLQALLGRMEEV, 1955	M	SLEVFEKLEAKVQQAIDTITLLQMEIEELKEKNNSLSQEVQNAQHQREELERENNHLKEQQNGWQERLQALLGRMEEV	-		C396H647N117O135S2 : 9265.680070361872	sp|P0AF36|ZAPB_ECOLI	Cell division protein ZapB OS=Escherichia coli (strain K12) OX=83333 GN=zapB PE=1 SV=1	82	4	81	10	928.0769611	9265.680072	0	65	1	9.99E-308	9.99E-308	0	0	]}
+                    StringBuilder SB = new StringBuilder(); 
                     dict[res.BaseSequence] = 
                         SB.Append(res.OneBasedScanNumber)
                           .Append("\t") 
@@ -99,7 +100,7 @@ namespace Readers
 
             return dict;
         }
-        public Dictionary<string, List<string>> ToDictList()
+        public Dictionary<string, List<string>> ToDictList() // TODO consider removing.
         {
             var dictList = new Dictionary<string, List<string>>();
             using var csv = new CsvReader(new StreamReader(FilePath), MsPathFinderTResult.CsvConfiguration);

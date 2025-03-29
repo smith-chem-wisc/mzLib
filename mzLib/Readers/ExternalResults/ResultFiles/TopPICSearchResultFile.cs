@@ -14,7 +14,7 @@ namespace Readers
     /// For supported versions and software this file type can come from see
     ///     Readers.ExternalResources.SupportedVersions.txt
     /// </summary>
-    public class ToppicSearchResultFile : ResultFile<ToppicPrsm>
+    public class ToppicSearchResultFile : ResultFile<ToppicPrsm>, IResultFile
     {
         private SupportedFileType _fileType;
         public override SupportedFileType FileType
