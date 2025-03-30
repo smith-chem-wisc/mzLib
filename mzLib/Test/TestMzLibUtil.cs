@@ -9,6 +9,9 @@ using System.Linq;
 using System.Security;
 using System;
 using System.Collections.Immutable;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Test
 {
@@ -77,6 +80,30 @@ namespace Test
             Assert.That(mods[3] == "Common Variable:Oxidation on M");
             Assert.That(mods[18] == "Test Mod2: ModName2 on K");
         }
+
+        [Test]
+        public static void TestParseModificationsWithTsvExamples()
+        {
+
+            var path = @"ModificationTests\ModifiedFullSequencesAndModificationsExamples.txt";
+            var lines = File.ReadAllLines(path);
+            var header = lines.First().Split('\t');
+            foreach (var line in lines.Skip(1))
+            {
+                if (!line.Contains('|')) // Skip any ambiguous sequences
+                {
+                    var parts = line.Split('\t');
+                    var fullSeq = parts[1];
+                    Regex expectedModsPattern = new(@"(?<=on [A-Z])\s(?=[A-Z])");
+                    var expectedMods = string.Join(' ', expectedModsPattern.Split(parts[2]).ToList().Order()); // Sort the mods for consitency with foundMods
+                    var mods = fullSeq.ParseModifications();
+                    var foundMods = string.Join(' ', mods.Values.Select(x=> x.Split(':')[1]).ToList().Order());
+
+                    Assert.AreEqual(expectedMods, foundMods);
+                }
+            }
+        }
+
         [Test]
         public static void TestToEnum()
         {
