@@ -743,7 +743,7 @@ namespace Test
 
             Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
             PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
-            Assert.That(peptide.FullSequence == "PEPTIDE[testModType:acetylation on E]");
+            Assert.That(peptide.FullSequence == "PEPTIDE-[testModType:acetylation on E]");
 
             var fragments = new List<Product>();
             peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
@@ -783,7 +783,7 @@ namespace Test
             Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
             var peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>() { variableMod }).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
 
-            Assert.That(peptide.FullSequence == "PEPTIDE[UniProt:acetylation on E]");
+            Assert.That(peptide.FullSequence == "PEPTIDE-[UniProt:acetylation on E]");
         }
 
         [Test]

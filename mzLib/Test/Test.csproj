@@ -486,6 +486,9 @@
     <None Update="ModificationTests\CommonBiological.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="ModificationTests\ModifiedFullSequencesAndModificationsExamples.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="ModificationTests\ModsWithComments.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
