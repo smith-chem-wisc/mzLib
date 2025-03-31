@@ -540,6 +540,9 @@
     <None Update="Transcriptomics\TestData\20mer1.xml.gz">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Transcriptomics\TestData\DecoyVariants.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Transcriptomics\TestData\HomozygousHLA.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -574,6 +577,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Transcriptomics\TestData\StopGained.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\VariantModsGPTMD.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
 	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">

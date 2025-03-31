@@ -10,6 +10,8 @@ using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using UsefulProteomicsDatabases.Transcriptomics;
 using Omics;
+using Proteomics;
+using NUnit.Framework.Legacy;
 
 namespace Test.Transcriptomics;
 
@@ -53,9 +55,9 @@ public class TestVariantOligo
     }
 
     [Test]
-    [TestCase("oblm1.xml", 1, 1)] // mod on first residue
-    [TestCase("oblm2.xml", 3, 3)] // mod on central residue
-    [TestCase("oblm3.xml", 6, 6)] // mod on last residue
+    [TestCase("oblm1.xml", 1, 6)] // mod on first residue
+    [TestCase("oblm2.xml", 3, 4)] // mod on central residue
+    [TestCase("oblm3.xml", 6, 1)] // mod on last residue
     public static void LoadSeqVarModifications(string databaseName, int modIdx, int reversedModIdx)
     {
         string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", databaseName);
@@ -103,8 +105,8 @@ public class TestVariantOligo
         Assert.That(decoy.SequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(reversedModIdx));
     }
 
-    [TestCase("ranges1.xml", 1, 1, 5, 5)] // trunc excludes natural 3'
-    [TestCase("ranges2.xml", 2, 2, 6, 6)] // trunc includes natural 3'
+    [TestCase("ranges1.xml", 1, 2, 5, 6)] // trunc excludes natural 3'
+    [TestCase("ranges2.xml", 2, 1, 6, 5)] // trunc includes natural 3'
     public static void ReverseDecoyProteolysisProducts(string databaseName, int beginIdx, int reversedBeginIdx, int endIdx, int reversedEndIdx)
     {
         string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", databaseName);
@@ -297,5 +299,123 @@ public class TestVariantOligo
         Assert.That(rna[0].AppliedSequenceVariations.Count(), Is.EqualTo(0)); // some redundant
         Assert.That(rna[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), Is.EqualTo(0)); // unique changes
         Assert.That(rna[0][63 - 1], Is.EqualTo('G')); // reference only
+    }
+
+    [Test]
+    public void IndelDecoyVariants()
+    {
+        string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "DecoyVariants.xml");
+        var variantRna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
+
+        Assert.That(variantRna.Count, Is.EqualTo(4));
+        var homoTarget = variantRna[0];
+        Assert.That(homoTarget.IsDecoy, Is.False);
+        Assert.That(homoTarget.AppliedSequenceVariations.Count, Is.EqualTo(3));
+        Assert.That(homoTarget.AppliedSequenceVariations[0].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(homoTarget.AppliedSequenceVariations[0].OneBasedBeginPosition, Is.EqualTo(1222));
+        Assert.That(homoTarget.AppliedSequenceVariations[0].VariantSequence, Is.EqualTo("A"));
+        Assert.That(homoTarget.AppliedSequenceVariations[1].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(homoTarget.AppliedSequenceVariations[1].OneBasedBeginPosition, Is.EqualTo(1488));
+        Assert.That(homoTarget.AppliedSequenceVariations[1].VariantSequence, Is.EqualTo("G"));
+        Assert.That(homoTarget.AppliedSequenceVariations[2].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(homoTarget.AppliedSequenceVariations[2].OneBasedBeginPosition, Is.EqualTo(1646));
+        Assert.That(homoTarget.AppliedSequenceVariations[2].VariantSequence, Is.EqualTo("A"));
+
+        var plusOneHeteroTarget = variantRna[1];
+        Assert.That(plusOneHeteroTarget.IsDecoy, Is.False);
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations.Count, Is.EqualTo(4)); 
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[0].OriginalSequence, Is.EqualTo("A"));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[0].OneBasedBeginPosition, Is.EqualTo(409));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[0].VariantSequence, Is.EqualTo("U"));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[1].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[1].OneBasedBeginPosition, Is.EqualTo(1222));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[1].VariantSequence, Is.EqualTo("A"));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[2].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[2].OneBasedBeginPosition, Is.EqualTo(1488));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[2].VariantSequence, Is.EqualTo("G"));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[3].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[3].OneBasedBeginPosition, Is.EqualTo(1646));
+        Assert.That(plusOneHeteroTarget.AppliedSequenceVariations[3].VariantSequence, Is.EqualTo("A"));
+
+        var homoDecoy = variantRna[2];
+        Assert.That(homoDecoy.IsDecoy, Is.True);
+        Assert.That(homoDecoy.AppliedSequenceVariations.Count, Is.EqualTo(3));
+        Assert.That(homoDecoy.AppliedSequenceVariations[0].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(homoDecoy.AppliedSequenceVariations[0].OneBasedBeginPosition, Is.EqualTo(homoTarget.Length - 1646 + 1));
+        Assert.That(homoDecoy.AppliedSequenceVariations[0].VariantSequence, Is.EqualTo("A"));
+        Assert.That(homoDecoy.AppliedSequenceVariations[1].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(homoDecoy.AppliedSequenceVariations[1].OneBasedBeginPosition, Is.EqualTo(homoTarget.Length - 1488 + 1));
+        Assert.That(homoDecoy.AppliedSequenceVariations[1].VariantSequence, Is.EqualTo("G"));
+        Assert.That(homoDecoy.AppliedSequenceVariations[2].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(homoDecoy.AppliedSequenceVariations[2].OneBasedBeginPosition, Is.EqualTo(homoTarget.Length - 1222 + 1));
+        Assert.That(homoDecoy.AppliedSequenceVariations[2].VariantSequence, Is.EqualTo("A"));
+
+        var plusOneHeteroDecoy = variantRna[3];
+        Assert.That(plusOneHeteroDecoy.IsDecoy, Is.True);
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations.Count, Is.EqualTo(4));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[0].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[0].OneBasedBeginPosition, Is.EqualTo(plusOneHeteroTarget.Length - 1646 + 1));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[0].VariantSequence, Is.EqualTo("A"));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[1].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[1].OneBasedBeginPosition, Is.EqualTo(plusOneHeteroTarget.Length - 1488 + 1));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[1].VariantSequence, Is.EqualTo("G"));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[2].OriginalSequence, Is.EqualTo("C"));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[2].OneBasedBeginPosition, Is.EqualTo(plusOneHeteroTarget.Length - 1222 + 1));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[2].VariantSequence, Is.EqualTo("A"));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[3].OriginalSequence, Is.EqualTo("A"));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[3].OneBasedBeginPosition, Is.EqualTo(plusOneHeteroTarget.Length - 409 + 1));
+        Assert.That(plusOneHeteroDecoy.AppliedSequenceVariations[3].VariantSequence, Is.EqualTo("U"));
+    }
+
+    [Test]
+    public void VariantModificationTest()
+    {
+        // This creates a heterozygous variant with 2 possible mods.
+        // One of the mod residues is removed by the variant. 
+        string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "VariantModsGPTMD.xml");
+        List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
+        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+
+        List<RNA> targets = rna.Where(p => p.IsDecoy == false).ToList();
+        RNA variantTarget = targets.First(p => p.AppliedSequenceVariations.Count >= 1);
+        RNA nonVariantTarget = targets.First(p => p.AppliedSequenceVariations.Count == 0);
+
+        Assert.That(variantTarget.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
+        Assert.That(nonVariantTarget.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(2));
+
+        List<RNA> decoys = rna.Where(p => p.IsDecoy).ToList();
+        RNA variantDecoy  = decoys.First(p => p.AppliedSequenceVariations.Count >= 1);
+        RNA nonVariantDecoy = decoys.First(p => p.AppliedSequenceVariations.Count == 0);
+
+        Assert.That(variantDecoy.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
+        Assert.That(nonVariantDecoy.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(2));
+
+        var digestionParams = new RnaDigestionParams("top-down");
+        List<OligoWithSetMods> oligos = rna.SelectMany(p => p.Digest(digestionParams, [], [])).ToList();
+
+        string[] targetDigestedSequences = new[]
+        {
+            // Target Base Sequence and after application of 2 mods in database
+            "GUACUGUAGCCUA", "GUA[Biological:Methylation on A]CUGUAGCCUA",
+            "GUACUGUAGCCU[Biological:Methylation on U]A", "GUA[Biological:Methylation on A]CUGUAGCCU[Biological:Methylation on U]A",
+
+            // Decoy Base Sequence and after application of 2 mods in database
+            "AUCCGAUGUCAUG", "AUCCGAUGUCA[Biological:Methylation on A]UG",
+            "AU[Biological:Methylation on U]CCGAUGUCAUG", "AU[Biological:Methylation on U]CCGAUGUCA[Biological:Methylation on A]UG", 
+
+            // Target With Sequence Variant A3->U
+            "GUUCUGUAGCCUA",
+            "GUUCUGUAGCCU[Biological:Methylation on U]A",
+
+            // Decoy With Sequence Variant A3->U
+            "AUCCGAUGUCUUG",
+            "AU[Biological:Methylation on U]CCGAUGUCUUG",
+        };
+
+        Assert.That(oligos.Count, Is.EqualTo(targetDigestedSequences.Length));
+        for (int i = 0; i < oligos.Count; i++)
+        {
+            Assert.That(targetDigestedSequences.Contains(oligos[i].FullSequence));
+        }
     }
 }

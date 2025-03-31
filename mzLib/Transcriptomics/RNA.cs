@@ -42,11 +42,15 @@ namespace Transcriptomics
         /// </summary>
         public RNA(string variantBaseSequence, NucleicAcid original, IEnumerable<SequenceVariation>? appliedSequenceVariants,
             IEnumerable<TruncationProduct>? applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
-
-            : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants), oneBasedModifications, original.FivePrimeTerminus, original.ThreePrimeTerminus,
-                  appliedSequenceVariants.GetVariantName(original.Name), original.Organism, original.DatabaseFilePath, original.IsContaminant, original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
+            : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants), 
+                  oneBasedModifications,
+                  original.FivePrimeTerminus, original.ThreePrimeTerminus,
+                  VariantApplication.GetVariantName(original.Name, appliedSequenceVariants), 
+                  original.Organism, original.DatabaseFilePath, original.IsContaminant, 
+                  original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
                   [..applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations, 
-                  [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants, appliedSequenceVariants.GetVariantName(original.FullName))
+                  [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants, 
+                  VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants))
         {
             NonVariant = original.NonVariant;
             OriginalNonVariantModifications = NonVariant.OriginalNonVariantModifications;
@@ -57,7 +61,8 @@ namespace Transcriptomics
         public override TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
             IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
         {
-            var variantRNA = new RNA(variantBaseSequence, original as RNA, appliedSequenceVariants, applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
+            var variantRNA = new RNA(variantBaseSequence, original as RNA, appliedSequenceVariants, 
+                applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantRNA;
         }
 

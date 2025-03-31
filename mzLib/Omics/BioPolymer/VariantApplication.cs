@@ -27,7 +27,7 @@ public static class VariantApplication
     /// <summary>
     /// Gets the name of a protein with applied variations
     /// </summary>
-    public static string? GetVariantName(this IEnumerable<SequenceVariation> appliedVariations, string? name)
+    public static string? GetVariantName(string? name, IEnumerable<SequenceVariation>? appliedVariations)
     {
         bool emptyVars = appliedVariations.IsNullOrEmpty();
         if (name == null && emptyVars)
