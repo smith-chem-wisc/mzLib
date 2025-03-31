@@ -22,6 +22,7 @@ namespace Readers
         MsFraggerPsm,
         MsFraggerPeptide,
         MsFraggerProtein,
+        MsFraggerSpeclib,
         FlashLFQQuantifiedPeak,
         MsPathFinderTTargets,
         MsPathFinderTDecoys,
@@ -64,6 +65,7 @@ namespace Readers
                 SupportedFileType.MsFraggerPsm => "psm.tsv",
                 SupportedFileType.MsFraggerPeptide => "peptide.tsv",
                 SupportedFileType.MsFraggerProtein => "protein.tsv",
+                SupportedFileType.MsFraggerSpeclib => ".speclib",
                 SupportedFileType.FlashLFQQuantifiedPeak => "Peaks.tsv",
                 SupportedFileType.MsPathFinderTTargets => "_IcTarget.tsv",
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
@@ -103,7 +105,10 @@ namespace Readers
                     if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Mzrt_TopFd;
                     throw new MzLibException("Csv file type not supported");
-
+                case ".speclib":
+                    if (filePath.EndsWith(SupportedFileType.MsFraggerSpeclib.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MsFraggerSpeclib;
+                    throw new MzLibException("Speclib file type not supported");
                 case ".tsv":
                 {
                     // these tsv cases have a specialized ending before the .tsv

@@ -1,6 +1,8 @@
 ﻿using Newtonsoft.Json;
 using NUnit.Framework;
 using Readers;
+using Readers.ExternalResults.IndividualResultRecords;
+using Readers.ExternalResults.ResultFiles;
 using Readers.SpectrumLibraries;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -42,7 +44,7 @@ namespace Test.FileReadingTests
 
             // write and reread file
             mspSpectrumFile.WriteResults(testOutputPath);
-            var writtenDeconFile = FileReader.ReadFile<FlashDeconvMs1TsvFile>(testOutputPath);
+            var writtenDeconFile = FileReader.ReadFile<LibrarySpectrumFile>(testOutputPath);
             Assert.That(File.Exists(testOutputPath));
 
             // check are equivalent
@@ -59,6 +61,38 @@ namespace Test.FileReadingTests
             mspSpectrumFile.WriteResults(testOutputPathWithoutExtension);
             Assert.That(File.Exists(testOutputPath));
         }
+
+        [Test]
+        public static void TestMsFraggerSpeclibReadWrite()
+        {
+            var testFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\MsFraggerSpecLibExample.speclib");
+            var testOutputPath = Path.Combine(directoryPath, "MsFraggerSpecLibExample_out.speclib");
+
+            // load in file
+            MsFraggerSpeclibFile msFraggerSpeclibFile = FileReader.ReadFile<MsFraggerSpeclibFile>(testFilePath);
+            Assert.That(msFraggerSpeclibFile.Results.Count, Is.EqualTo(344));
+
+            // write and reread file
+            msFraggerSpeclibFile.WriteResults(testOutputPath);
+            var writtenDeconFile = FileReader.ReadFile<MsFraggerSpeclibFile>(testOutputPath);
+            Assert.That(File.Exists(testOutputPath));
+
+            // check are equivalent
+            for (int i = 0; i < msFraggerSpeclibFile.Results.Count; i++)
+            {
+                var original = JsonConvert.SerializeObject(msFraggerSpeclibFile.Results[i]);
+                var written = JsonConvert.SerializeObject(writtenDeconFile.Results[i]);
+                Assert.That(original, Is.EqualTo(written));
+            }
+
+            // test writer still works without specifying extensions
+            File.Delete(testOutputPath);
+            //var testOutputPathWithoutExtension = Path.Combine(directoryPath, "ms1TsvOut");
+            //msFraggerSpeclibFile.WriteResults(testOutputPathWithoutExtension);
+            //Assert.That(File.Exists(testOutputPath));
+        }
+
 
         [Test]
         public static void TestMspEntryWithNterminalMod()

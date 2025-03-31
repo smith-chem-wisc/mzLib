@@ -345,6 +345,9 @@
     <None Update="FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsFraggerSpecLibExample.speclib">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

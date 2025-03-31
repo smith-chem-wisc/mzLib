@@ -60,36 +60,6 @@ namespace Omics.SpectrumMatch
                 : ((double)spectralContrastAngle).ToString("F4");
         }
 
-        public override string ToString()
-        {
-            StringBuilder spectrum = new StringBuilder();
-            spectrum.Append("Name: " + Name);
-            spectrum.Append("\nMW: " + PrecursorMz);
-            spectrum.Append("\nComment: ");
-            spectrum.Append("Parent=" + PrecursorMz);
-            spectrum.Append(" RT=" + RetentionTime);
-            spectrum.Append("\nNum peaks: " + MatchedFragmentIons.Count);
-
-            double maxIntensity = MatchedFragmentIons.Select(b => b.Intensity).Max();
-
-            foreach (MatchedFragmentIon matchedIon in MatchedFragmentIons)
-            {
-                double intensityFraction = matchedIon.Intensity / maxIntensity;
-
-                string neutralLoss = null;
-                if (matchedIon.NeutralTheoreticalProduct.NeutralLoss != 0)
-                {
-                    neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss;
-                }
-
-                spectrum.Append("\n" + matchedIon.Mz + "\t" + intensityFraction + "\t" + "\"" +
-                    matchedIon.NeutralTheoreticalProduct.ProductType.ToString() +
-                    matchedIon.NeutralTheoreticalProduct.FragmentNumber.ToString() + "^" +
-                    matchedIon.Charge + neutralLoss + "/" + 0 + "ppm" + "\"");
-            }
-
-            return spectrum.ToString();
-        }
         public string ToFraggerLibraryString(string proteinAccession, string geneName)
         {
             StringBuilder spectrum = new StringBuilder();
@@ -152,6 +122,30 @@ namespace Omics.SpectrumMatch
             }
 
             return result.ToString();
+        }
+        public override string ToString()
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.Append("Name: " + Name);
+            stringBuilder.Append("\nMW: " + PrecursorMz);
+            stringBuilder.Append("\nComment: ");
+            stringBuilder.Append("Parent=" + PrecursorMz);
+            stringBuilder.Append(" RT=" + RetentionTime);
+            stringBuilder.Append("\nNum peaks: " + MatchedFragmentIons.Count);
+            double num = MatchedFragmentIons.Select((MatchedFragmentIon b) => b.Intensity).Max();
+            foreach (MatchedFragmentIon matchedFragmentIon in MatchedFragmentIons)
+            {
+                double num2 = matchedFragmentIon.Intensity / num;
+                string text = null;
+                if (matchedFragmentIon.NeutralTheoreticalProduct.NeutralLoss != 0.0)
+                {
+                    text = "-" + matchedFragmentIon.NeutralTheoreticalProduct.NeutralLoss;
+                }
+
+                stringBuilder.Append("\n" + matchedFragmentIon.Mz + "\t" + num2 + "\t\"" + matchedFragmentIon.NeutralTheoreticalProduct.ProductType.ToString() + matchedFragmentIon.NeutralTheoreticalProduct.FragmentNumber + "^" + matchedFragmentIon.Charge + text + "/" + 0 + "ppm\"");
+            }
+
+            return stringBuilder.ToString();
         }
     }
 }

@@ -29,6 +29,9 @@ namespace Readers.SpectrumLibraries
             if (!CanRead(outputPath))
                 outputPath += FileType.GetFileExtension();
 
+            using var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+
+
             using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), FlashDeconvTsv.CsvConfiguration);
 
             csv.WriteHeader<FlashDeconvTsv>();
