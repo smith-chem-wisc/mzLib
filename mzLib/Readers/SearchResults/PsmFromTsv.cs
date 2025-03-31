@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using CsvHelper.Configuration.Attributes;
+using Easy.Common.Extensions;
 using Omics.Fragmentation;
 using Proteomics;
 
@@ -8,50 +9,6 @@ namespace Readers
 {
     public class PsmFromTsv : SpectrumMatchFromTsv, IQuantifiableRecord
     {
-        public string FileName => FileNameWithoutExtension;
-        public string BaseSequence => BaseSeq;
-        public string ModifiedSequence => FullSequence;
-        public int ChargeState => PrecursorCharge;
-        public bool IsDecoy => DecoyContamTarget == "D";
-
-        public List<(string, string, string)> ProteinGroupInfos
-        {
-            get
-            {
-                _proteinGroupInfos ??= AddProteinGroupInfos();
-                return _proteinGroupInfos;
-            }
-        }
-
-        /// <summary>
-        /// Creates a list of tuples, each of which represents a protein.
-        /// Each tuple contains the accession number, gene name, and organism.
-        /// These parameters are used to create a ProteinGroup object, 
-        /// which is needed to make an identification.
-        /// </summary>
-        /// <returns></returns>
-        private List<(string, string, string)> AddProteinGroupInfos()
-        {
-            _proteinGroupInfos = new List<(string, string, string)>();
-
-            char[] delimiterChars = { '|' };
-            string[] accessions = Accession.Split(delimiterChars);
-            string[] geneNames = GeneName.Split(delimiterChars);
-            string[] organisms = OrganismName.Split(delimiterChars);
-
-            int minArrayLength = Math.Min(accessions.Length, Math.Min(geneNames.Length, organisms.Length));
-            
-            for(int i = 0; i < minArrayLength; i++)
-            {
-                _proteinGroupInfos.Add((accessions[i], geneNames[i], organisms[i]));
-            }
-
-            return _proteinGroupInfos;
-        }
-
-        [Ignore] private List<(string, string, string)> _proteinGroupInfos;
-
-
         public string ProteinAccession => Accession;
         public string ProteinName => Name;
         public string PeptideMonoMass => MonoisotopicMassString;
@@ -84,6 +41,52 @@ namespace Readers
         public string GlycanComposition { get; set; }
         public LocalizationLevel? GlycanLocalizationLevel { get; set; }
         public string LocalizedGlycan { get; set; }
+
+        #region IQuantifiableRecord Fields
+        public string FileName => FileNameWithoutExtension;
+        public string BaseSequence => BaseSeq;
+        public string ModifiedSequence => FullSequence;
+        public int ChargeState => PrecursorCharge;
+        public bool IsDecoy => DecoyContamTarget == "D";
+
+        public List<(string, string, string)> ProteinGroupInfos
+        {
+            get
+            {
+                if (!_proteinGroupInfos.IsNotNullOrEmpty()) _proteinGroupInfos = AddProteinGroupInfos();
+                return _proteinGroupInfos;
+            }
+        }
+
+        /// <summary>
+        /// Creates a list of tuples, each of which represents a protein.
+        /// Each tuple contains the accession number, gene name, and organism.
+        /// These parameters are used to create a ProteinGroup object, 
+        /// which is needed to make an identification.
+        /// </summary>
+        /// <returns></returns>
+        private List<(string, string, string)> AddProteinGroupInfos()
+        {
+            _proteinGroupInfos = new List<(string, string, string)>();
+
+            char[] delimiterChars = { '|' };
+            string[] accessions = Accession.Split(delimiterChars);
+            string[] geneNames = GeneName.Split(delimiterChars);
+            string[] organisms = OrganismName.Split(delimiterChars);
+
+            int minArrayLength = Math.Min(accessions.Length, Math.Min(geneNames.Length, organisms.Length));
+
+            for (int i = 0; i < minArrayLength; i++)
+            {
+                _proteinGroupInfos.Add((accessions[i], geneNames[i], organisms[i]));
+            }
+
+            return _proteinGroupInfos;
+        }
+
+        private List<(string, string, string)> _proteinGroupInfos;
+
+        #endregion
 
         public PsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
         {

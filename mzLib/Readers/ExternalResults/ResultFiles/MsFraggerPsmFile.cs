@@ -39,12 +39,12 @@ namespace Readers
         /// <summary>
         /// Creates a dictionary linking a shortened file name to its corresponding full file path
         /// </summary>
-        /// <param name="fullFilePath"> list of all full file paths associted with a given result </param>
+        /// <param name="fullFilePaths"> list of all full file paths associted with a given result </param>
         /// <returns> dictionary with key fileName and value fullFilePath </returns>
-        public Dictionary<string, string> FileNameToFilePath (List<string> fullFilePath)
+        public Dictionary<string, string> FileNameToFilePath (List<string> fullFilePaths)
         {
             List<string> rawFileNames = Results.Select(psm => psm.FileName).Distinct().ToList();
-            fullFilePath = fullFilePath.Distinct().ToList();
+            fullFilePaths = fullFilePaths.Distinct().ToList();
             Dictionary<string, string> allFiles = new Dictionary<string, string>();
 
             foreach(var fileName in rawFileNames)
@@ -55,7 +55,7 @@ namespace Readers
                 // In order to correctly match the file names, these changes must be removed
                 shortFileName = shortFileName.Replace("interact-", "").Replace(".pep.xml", "");
 
-                foreach(var file in fullFilePath)
+                foreach(var file in fullFilePaths)
                 {
                     if (file.Contains(shortFileName) && !allFiles.ContainsKey(fileName))
                     {

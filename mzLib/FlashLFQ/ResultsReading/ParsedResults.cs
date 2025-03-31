@@ -5,15 +5,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FlashLFQ;
+using Readers;
 
 namespace FlashLFQ.ResultsReading
 {
     public class ParsedResults
     {
-        public static ParsedResults GetResultsFromFile(string peaksPath)
+        public static ParsedResults GetResultsFromFile(string peaksPath, string psmResultPath)
         {
             QuantifiedPeakFile quantResults = new QuantifiedPeakFile(peaksPath);
-            //var idsFromPeaks = quantResults.MakeIdentifications();
+            PsmFromTsvFile psmResults = new PsmFromTsvFile(psmResultPath);
+            var idsFromPeaks = psmResults.MakeIdentifications();
+
             return null;
         }
 
