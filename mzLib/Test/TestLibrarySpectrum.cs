@@ -3,6 +3,7 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Collections.Generic;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
+using System.IO;
 
 namespace Test
 {
@@ -33,6 +34,29 @@ namespace Test
 
             string spectralAngleOnTheFly = "N/A";
             Assert.AreEqual(spectralAngleOnTheFly,librarySpectrum.CalculateSpectralAngleOnTheFly(peaks));
+        }
+
+        [Test]
+        public static void TestMsFraggerLibrarySpectra()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 100, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 200, 2, 2, 0);
+            Product c = new Product(ProductType.b, FragmentationTerminus.N, 300, 3, 3, 0);
+            Product d = new Product(ProductType.b, FragmentationTerminus.N, 400, 4, 4, 0);
+            Product dWithNeutralLoss = new Product(ProductType.b, FragmentationTerminus.N, 395, 4, 4, 5);
+            MatchedFragmentIon aa = new MatchedFragmentIon(a, 101.0, 10, 1);
+            MatchedFragmentIon bb = new MatchedFragmentIon(b, 201.0, 20, 1);
+            MatchedFragmentIon cc = new MatchedFragmentIon(c, 301.0, 30, 1);
+            MatchedFragmentIon dd = new MatchedFragmentIon(d, 401.0, 40, 1);
+            MatchedFragmentIon ddWithNeutralLoss = new MatchedFragmentIon(dWithNeutralLoss, 396.0, 4, 1);
+            var peaks = new List<MatchedFragmentIon> { aa, bb, cc, dd, ddWithNeutralLoss };
+            var librarySpectrum = new LibrarySpectrum("PEPT[Phosphorylation on T]IDE", 789.10, 3, peaks, 79.3);
+            var fraggerLibrarySpectrumHeader = librarySpectrum.FraggerLibraryHeader();
+            var fraggerLibraryString = librarySpectrum.ToFraggerLibraryString("Q1KMD3", "HNRNPUL2");
+            var output = fraggerLibrarySpectrumHeader + "\n" + fraggerLibraryString;
+            var expectedOutput = File.ReadAllLines(@"DataFiles\LibrarySpectrumTestOutput.tsv");
+            var concatenatedOutput = string.Join("\n", expectedOutput) + "\n";
+            Assert.AreEqual(concatenatedOutput, output);
         }
     }
 }

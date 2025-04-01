@@ -8,6 +8,7 @@ namespace Readers
         Ms2Feature,
         Mzrt_TopFd,
         Ms1Tsv_FlashDeconv,
+        msp,
         Tsv_FlashDeconv,
         ThermoRaw,
         MzML,
@@ -21,6 +22,7 @@ namespace Readers
         MsFraggerPsm,
         MsFraggerPeptide,
         MsFraggerProtein,
+        MsFraggerSpeclib,
         FlashLFQQuantifiedPeak,
         MsPathFinderTTargets,
         MsPathFinderTDecoys,
@@ -47,6 +49,7 @@ namespace Readers
                 SupportedFileType.Ms2Feature => "_ms2.feature",
                 SupportedFileType.Mzrt_TopFd => ".mzrt.csv",
                 SupportedFileType.Ms1Tsv_FlashDeconv => "_ms1.tsv",
+                SupportedFileType.msp => ".msp",
                 SupportedFileType.Tsv_FlashDeconv => ".tsv",
                 SupportedFileType.ThermoRaw => ".raw",
                 SupportedFileType.MzML => ".mzML",
@@ -62,6 +65,7 @@ namespace Readers
                 SupportedFileType.MsFraggerPsm => "psm.tsv",
                 SupportedFileType.MsFraggerPeptide => "peptide.tsv",
                 SupportedFileType.MsFraggerProtein => "protein.tsv",
+                SupportedFileType.MsFraggerSpeclib => ".speclib",
                 SupportedFileType.FlashLFQQuantifiedPeak => "Peaks.tsv",
                 SupportedFileType.MsPathFinderTTargets => "_IcTarget.tsv",
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
@@ -95,11 +99,16 @@ namespace Readers
                         return SupportedFileType.Ms2Feature;
                     throw new MzLibException("Feature file type not supported");
 
+                case ".msp": 
+                        return SupportedFileType.msp;
                 case ".csv":
                     if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Mzrt_TopFd;
                     throw new MzLibException("Csv file type not supported");
-
+                case ".speclib":
+                    if (filePath.EndsWith(SupportedFileType.MsFraggerSpeclib.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MsFraggerSpeclib;
+                    throw new MzLibException("Speclib file type not supported");
                 case ".tsv":
                 {
                     // these tsv cases have a specialized ending before the .tsv
