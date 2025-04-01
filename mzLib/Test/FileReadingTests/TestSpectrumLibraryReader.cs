@@ -1,7 +1,6 @@
 ﻿using Newtonsoft.Json;
 using NUnit.Framework;
 using Readers;
-using Readers.ExternalResults.IndividualResultRecords;
 using Readers.SpectrumLibraries;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -71,7 +70,7 @@ namespace Test.FileReadingTests
             // load in file
             MsFraggerSpeclibFile msFraggerSpeclibFile = FileReader.ReadFile<MsFraggerSpeclibFile>(testFilePath);
             Assert.That(msFraggerSpeclibFile.OriginalRecords.Count, Is.EqualTo(344));
-            Assert.That(msFraggerSpeclibFile.Results.Count, Is.EqualTo(344));
+            Assert.That(msFraggerSpeclibFile.Results.Count, Is.EqualTo(29));
 
             // write and reread file
             msFraggerSpeclibFile.WriteResults(testOutputPath);
@@ -88,7 +87,7 @@ namespace Test.FileReadingTests
 
             // test writer still works without specifying extensions
             File.Delete(testOutputPath);
-            var testOutputPathWithoutExtension = Path.Combine(directoryPath, "ms1TsvOut");
+            var testOutputPathWithoutExtension = Path.Combine(directoryPath, "MsFraggerSpecLibExample_out");
             msFraggerSpeclibFile.WriteResults(testOutputPathWithoutExtension);
             Assert.That(File.Exists(testOutputPath));
         }

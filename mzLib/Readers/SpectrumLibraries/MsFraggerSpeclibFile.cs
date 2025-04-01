@@ -7,7 +7,7 @@ namespace Readers.SpectrumLibraries
 {
     public class MsFraggerSpeclibFile : SpectrumLibraryFile
     {
-        public override SupportedFileType FileType { get; }
+        public override SupportedFileType FileType => SupportedFileType.MsFraggerSpeclib;
         public override Software Software { get; set; }
 
         public List<MsFraggerSpeclib> OriginalRecords { get; private set; } //single line in the .speclib file. combine ultiple lines to create a single library spectrum
