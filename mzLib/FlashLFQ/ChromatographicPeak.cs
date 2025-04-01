@@ -267,16 +267,16 @@ namespace FlashLFQ
             switch (DetectionType)
             {
                 case DetectionType.MSMS:
-                    sb.Append("" + "MSMS" + "\t");
+                    sb.Append("MSMS" + "\t");
                     break;
                 case DetectionType.MBR:
-                    sb.Append("" + "MBR" + "\t");
+                    sb.Append("MBR" + "\t");
                     break;
                 case DetectionType.IsoTrack_MBR:
-                    sb.Append("" + "MBR_IsoTrack" + "\t");
+                    sb.Append("MBR_IsoTrack" + "\t");
                     break;
                 case DetectionType.IsoTrack_Ambiguous:
-                    sb.Append("" + "IsoTrack_Ambiguous" + "\t");
+                    sb.Append("IsoTrack_Ambiguous" + "\t");
                     break;
             }
 
