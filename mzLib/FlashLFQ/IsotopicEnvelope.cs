@@ -30,7 +30,7 @@ namespace FlashLFQ
 
 
         public List<IIndexedMzPeak> IsotopologuePeaks { get; private set; }
-        public IsotopicEnvelope(List<IIndexedMzPeak> isotopePeaks, IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation) :
+        public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation, List<IIndexedMzPeak> isotopePeaks) :
             this(monoisotopicPeak, chargeState, intensity, pearsonCorrelation)
         {
             IsotopologuePeaks = isotopePeaks.OrderBy(p => p.Mz).ToList();
