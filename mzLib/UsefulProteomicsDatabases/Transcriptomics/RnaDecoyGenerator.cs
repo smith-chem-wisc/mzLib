@@ -28,14 +28,14 @@ namespace UsefulProteomicsDatabases.Transcriptomics
     /// </remarks>
     public static class RnaDecoyGenerator
     {
-        public static List<T> GenerateDecoys<T>(List<T> nucleicAcids, DecoyType decoyType, int maxThreads = -1, string decoyIdentifier = "DECOY", char target = 'G') where T : INucleicAcid
+        public static List<T> GenerateDecoys<T>(List<T> nucleicAcids, DecoyType decoyType, int maxThreads = -1, string decoyIdentifier = "DECOY") where T : INucleicAcid
         {
             switch (decoyType)
             {
                 case DecoyType.None:
                     return new List<T>();
                 case DecoyType.Reverse:
-                    return GenerateReverseDecoys(nucleicAcids, maxThreads, decoyIdentifier, target);
+                    return GenerateReverseDecoys(nucleicAcids, maxThreads, decoyIdentifier);
                 case DecoyType.Slide:
                     return GenerateSlidedDecoys(nucleicAcids, maxThreads, decoyIdentifier);
                 case DecoyType.Shuffle:
@@ -54,7 +54,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         /// <param name="nucleicAcids"></param>
         /// <param name="maxThreads"></param>
         /// <returns></returns>
-        private static List<T> GenerateReverseDecoys<T>(List<T> nucleicAcids, int maxThreads, string decoyIdentifier, char target) where T : INucleicAcid
+        private static List<T> GenerateReverseDecoys<T>(List<T> nucleicAcids, int maxThreads, string decoyIdentifier) where T : INucleicAcid
         {
             List<T> decoyNucleicAcids = new List<T>();
             Parallel.ForEach(nucleicAcids, new ParallelOptions() { MaxDegreeOfParallelism = maxThreads }, nucleicAcid =>
@@ -77,7 +77,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                     var reverseKey = indexMapping[kvp.Key];
                     reverseModifications.Add(reverseKey, kvp.Value);
                 }
-
                 
                 List<TruncationProduct> reverseTruncs = new List<TruncationProduct>();
                 List<SequenceVariation> reverseVariations = new List<SequenceVariation>();
