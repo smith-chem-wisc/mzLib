@@ -901,7 +901,7 @@ namespace Test.Transcriptomics
             {
                 { 23, new List<Modification>() { PotassiumAdducts[1] } }
             };
-            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+            var rna = new RNA("GUACUG", oneBasedModifications);
             
             for (int i = 1; i < 3; i++)
             {

@@ -43,8 +43,9 @@ namespace Transcriptomics
         /// <summary>
         /// For creating an RNA programatically. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        protected NucleicAcid(string sequence, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
-            IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null)
+        protected NucleicAcid(string sequence,
+            IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
         {
             NonVariant = this;
             MonoisotopicMass = 0;
@@ -53,6 +54,9 @@ namespace Transcriptomics
             FivePrimeTerminus = fivePrimeTerm ?? DefaultFivePrimeTerminus;
             ParseSequenceString(sequence);
 
+            SequenceVariations = [];
+            AppliedSequenceVariations = [];
+            TruncationProducts = [];
             OriginalNonVariantModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
             OneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications != null 
                 ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedPossibleLocalizedModifications) 
@@ -73,7 +77,7 @@ namespace Transcriptomics
             List<SequenceVariation>? sequenceVariations = null,
             List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null)
-            : this(sequence, fivePrimeTerm, threePrimeTerm, oneBasedPossibleLocalizedModifications)
+            : this(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm)
         {
             Name = name ?? "";
             DatabaseFilePath = databaseFilePath ?? "";

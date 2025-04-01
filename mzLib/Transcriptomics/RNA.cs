@@ -12,9 +12,10 @@ namespace Transcriptomics
         /// <summary>
         /// For constructing RNA from a string
         /// </summary>
-        public RNA(string sequence, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
-            IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null)
-            : base(sequence, fivePrimeTerm, threePrimeTerm, oneBasedPossibleLocalizedModifications)
+        public RNA(string sequence,
+            IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
+            : base(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm)
         {
         }
 
