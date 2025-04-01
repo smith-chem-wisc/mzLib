@@ -20,7 +20,7 @@ namespace Test
             Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "M[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
 
             // Create a ChromatographicPeak instance
-            ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, false, spectraFileInfo);
+            ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, DetectionType.MSMS, spectraFileInfo);
 
             IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5);
             IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);

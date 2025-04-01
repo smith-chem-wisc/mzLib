@@ -63,7 +63,7 @@ namespace FlashLFQ.PEP
             // this is target peak not target peptide
             List<DonorGroup> donors= new();
             foreach(var donorGroup in Peaks
-                .Where(peak => peak.IsMbrPeak)
+                .Where(peak => peak.DetectionType == DetectionType.MBR)
                 .OrderByDescending(peak => peak.MbrScore)
                 .GroupBy(peak => peak.Identifications.First())) //Group by donor peptide
             {

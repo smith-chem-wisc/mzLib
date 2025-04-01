@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
@@ -15,7 +16,6 @@ namespace FlashLFQ
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public int ScanCount => IsotopicEnvelopes.Count;
         public double SplitRT;
-        public readonly bool IsMbrPeak;
         public DetectionType DetectionType { get; set; }
         public double PredictedRetentionTime { get; init; }
         public double MbrScore;
@@ -34,7 +34,7 @@ namespace FlashLFQ
         public ChromatographicPeakData PepPeakData { get; set; }
         public double? MbrPep { get; set; }
 
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
+        public ChromatographicPeak(Identification id, DetectionType detectionType, SpectraFileInfo fileInfo, bool randomRt = false)
         {
             SplitRT = 0;
             NumChargeStatesObserved = 0;
@@ -43,7 +43,7 @@ namespace FlashLFQ
             NumIdentificationsByFullSeq = 1;
             Identifications = new List<Identification>() { id };
             IsotopicEnvelopes = new List<IsotopicEnvelope>();
-            IsMbrPeak = isMbrPeak;
+            DetectionType = detectionType;
             SpectraFileInfo = fileInfo;
             RandomRt = randomRt;
         }
@@ -55,24 +55,19 @@ namespace FlashLFQ
         /// <param name="isMbrPeak"></param>
         /// <param name="fileInfo"></param>
         /// <param name="randomRt"></param>
-        public ChromatographicPeak(List<Identification> ids, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime, DetectionType detectionType = DetectionType.Imputed) :
-            this(null, isMbrPeak, fileInfo)
+        public ChromatographicPeak(List<Identification> ids, DetectionType detectionType, SpectraFileInfo fileInfo, double predictedRetentionTime) :
+            this(null, detectionType, fileInfo)
         {
             PredictedRetentionTime = predictedRetentionTime;
             DetectionType = detectionType; // default to imputed
             Identifications = ids;
         }
 
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime, DetectionType detectionType = DetectionType.Default) :
-            this(id, isMbrPeak, fileInfo)
+        public ChromatographicPeak(Identification id, DetectionType detectionType, SpectraFileInfo fileInfo, double predictedRetentionTime) :
+            this(id, detectionType, fileInfo)
         {
             PredictedRetentionTime = predictedRetentionTime;
-            DetectionType = detectionType; // default to imputed
-
-            if (detectionType == DetectionType.Default && isMbrPeak)
-            {
-                DetectionType = DetectionType.MBR;
-            }
+            DetectionType = detectionType; 
         }
 
         public bool Equals(ChromatographicPeak peak)
@@ -235,7 +230,7 @@ namespace FlashLFQ
             }
 
             sb.Append("" + Identifications.First().MonoisotopicMass + '\t');
-            if (!IsMbrPeak)
+            if (DetectionType == DetectionType.MSMS) // Only for MSMS peaks?
             {
                 sb.Append("" + Identifications.First().Ms2RetentionTimeInMinutes + '\t');
             }
@@ -270,27 +265,24 @@ namespace FlashLFQ
             sb.Append("" + NumChargeStatesObserved + "\t");
 
             // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous and MSMS peaks
-            if (IsMbrPeak && DetectionType == DetectionType.IsoTrack_MBR)
+            switch (DetectionType)
             {
-                sb.Append("" + "MBR_IsoTrack" + "\t");
+                case DetectionType.MSMS:
+                    sb.Append("" + "MSMS" + "\t");
+                    break;
+                case DetectionType.MBR:
+                    sb.Append("" + "MBR" + "\t");
+                    break;
+                case DetectionType.IsoTrack_MBR:
+                    sb.Append("" + "MBR_IsoTrack" + "\t");
+                    break;
+                case DetectionType.IsoTrack_Ambiguous:
+                    sb.Append("" + "IsoTrack_Ambiguous" + "\t");
+                    break;
             }
 
-            else if (IsMbrPeak && DetectionType == DetectionType.IsoTrack_Ambiguous)
-            {
-                sb.Append("" + "IsoTrack_Ambiguous" + "\t");
-            }
-
-            else if (IsMbrPeak)
-            {
-                sb.Append("" + "MBR" + "\t");
-            }
-            else
-            {
-                sb.Append("" + "MSMS" + "\t");
-            }
-
-            sb.Append("" + (IsMbrPeak ? MbrQValue.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? MbrPep.ToString() : "") + "\t");
+            sb.Append("" + (DetectionType == DetectionType.MBR ? MbrQValue.ToString() : "") + "\t");
+            sb.Append("" + (DetectionType == DetectionType.MBR ? MbrPep.ToString() : "") + "\t");
 
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");
