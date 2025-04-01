@@ -10,7 +10,7 @@ using System.Runtime.CompilerServices;
 
 namespace Test
 {
-    internal class TestIdentificationAdapter
+    public class TestIdentificationAdapter
     {
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
@@ -164,51 +164,55 @@ namespace Test
             Assert.AreEqual("P2", identification2.ProteinGroups.First().ProteinGroupName);
         }
 
-        // Mock classes for testing
-        private class MockQuantifiableResultFile : IQuantifiableResultFile
-        {
-            private readonly List<IQuantifiableRecord> _quantifiableRecords;
-
-            public MockQuantifiableResultFile(List<IQuantifiableRecord> quantifiableRecords)
-            {
-                _quantifiableRecords = quantifiableRecords;
-            }
-
-            public IEnumerable<IQuantifiableRecord> GetQuantifiableResults()
-            {
-                return _quantifiableRecords;
-            }
-
-            public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePaths)
-            {
-                var dict = new Dictionary<string, string>();
-                foreach (var path in fullFilePaths)
-                {
-                    dict[path] = path;
-                }
-                return dict;
-            }
-
-            // public string FilePath => throw new System.NotImplementedException();
-            public string FileType => null;
-            public string Software => null;
-
-            public string FilePath { get => null; internal set => throw new System.NotImplementedException(); }
-
-            public void LoadResults() => throw new System.NotImplementedException();
-            public void WriteResults(string path) => throw new System.NotImplementedException();
-        }
-
-        private class MockQuantifiableRecord : IQuantifiableRecord
-        {
-            public string BaseSequence { get; set; }
-            public string ModifiedSequence { get; set; }
-            public double RetentionTime { get; set; }
-            public double MonoisotopicMass { get; set; }
-            public int ChargeState { get; set; }
-            public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos { get; set; }
-            public string FileName => throw new System.NotImplementedException();
-            public bool IsDecoy => throw new System.NotImplementedException();
-        }
+        
     }
+
+    // Mock classes for testing
+    public class MockQuantifiableResultFile : IResultFile, IQuantifiableResultFile
+    {
+        private readonly List<IQuantifiableRecord> _quantifiableRecords;
+
+        public string FilePath { get; }
+
+        public MockQuantifiableResultFile(List<IQuantifiableRecord> quantifiableRecords)
+        {
+            _quantifiableRecords = quantifiableRecords;
+        }
+
+        public IEnumerable<IQuantifiableRecord> GetQuantifiableResults()
+        {
+            return _quantifiableRecords;
+        }
+
+        public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePaths)
+        {
+            var dict = new Dictionary<string, string>();
+            foreach (var path in fullFilePaths)
+            {
+                dict[path] = path;
+            }
+            return dict;
+        }
+
+        // public string FilePath => throw new System.NotImplementedException();
+        public SupportedFileType FileType => SupportedFileType.Mgf;
+        public Software Software { get => Software.Crux; set => throw new System.NotImplementedException(); }
+        //public string FilePath { get => null; set => throw new System.NotImplementedException(); }
+
+        public void LoadResults() => throw new System.NotImplementedException();
+        public void WriteResults(string path) => throw new System.NotImplementedException();
+    }
+
+    public class MockQuantifiableRecord : IQuantifiableRecord
+    {
+        public string BaseSequence { get; set; }
+        public string ModifiedSequence { get; set; }
+        public double RetentionTime { get; set; }
+        public double MonoisotopicMass { get; set; }
+        public int ChargeState { get; set; }
+        public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos { get; set; }
+        public string FileName => throw new System.NotImplementedException();
+        public bool IsDecoy => throw new System.NotImplementedException();
+    }
+
 }
