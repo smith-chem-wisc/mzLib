@@ -1,4 +1,10 @@
-﻿namespace FlashLFQ
+﻿using System;
+using Easy.Common.Extensions;
+using MassSpectrometry.MzSpectra;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace FlashLFQ
 {
     /// <summary>
     /// Contains the summed intensities of all isotope peaks detected in a single MS1 scan for a given species.
@@ -19,12 +25,35 @@
             PearsonCorrelation = pearsonCorrelation;
         }
 
-        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation) :
+            this((IIndexedMzPeak)monoisotopicPeak, chargeState, intensity, pearsonCorrelation) { }
+
+
+        public List<IIndexedMzPeak> IsotopologuePeaks { get; private set; }
+        public IsotopicEnvelope(List<IIndexedMzPeak> isotopePeaks, IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation) :
+            this(monoisotopicPeak, chargeState, intensity, pearsonCorrelation)
         {
-            IndexedPeak = monoisotopicPeak;
-            ChargeState = chargeState;
-            Intensity = intensity / chargeState;
-            PearsonCorrelation = pearsonCorrelation;
+            IsotopologuePeaks = isotopePeaks.OrderBy(p => p.Mz).ToList();
+        }
+
+        public HashSet<IIndexedMzPeak> PeakSet
+        {
+            get
+            {
+                _peakSet ??= IsotopologuePeaks.ToHashSet();
+                return _peakSet;
+            }
+        }
+
+        private HashSet<IIndexedMzPeak> _peakSet;
+        public double[] MzArray => IsotopologuePeaks.IsNotNullOrEmpty() ? IsotopologuePeaks.Select(p => p.Mz).ToArray() : [];
+        public double[] IntensityArray => IsotopologuePeaks.IsNotNullOrEmpty() ? IsotopologuePeaks.Select(p => p.Intensity).ToArray() : [];
+
+        public double CheckSimilarity(IsotopicEnvelope other)
+        {
+            double? cosineSimilarity = new SpectralSimilarity(MzArray, IntensityArray, other.MzArray, other.IntensityArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak,
+                toleranceInPpm: 5, allPeaks: true, filterOutBelowThisMz: 100).CosineSimilarity();
+            return cosineSimilarity ?? -1;
         }
 
         /// <summary>
@@ -33,7 +62,6 @@
         /// isotopic distribution was otherwise similar to the expected isotopic distribution.
         /// </summary>
         public double Intensity { get; private set; }
-
 
         public double PearsonCorrelation { get; init; }
 
