@@ -32,6 +32,9 @@ public interface IHasSequenceVariants
     /// </summary>
     IBioPolymer NonVariant { get; }
 
+    /// <summary>
+    /// Sequence Variants from the database that are represented in this IHasSequenceVariants Base Sequence
+    /// </summary>
     List<SequenceVariation> AppliedSequenceVariations { get; }
 
     /// <summary>

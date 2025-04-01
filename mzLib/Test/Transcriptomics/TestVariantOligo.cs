@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System;
+using NUnit.Framework;
 using Omics.BioPolymer;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -12,6 +13,7 @@ using UsefulProteomicsDatabases.Transcriptomics;
 using Omics;
 using Proteomics;
 using NUnit.Framework.Legacy;
+using System.Security.Cryptography;
 
 namespace Test.Transcriptomics;
 
@@ -416,6 +418,81 @@ public class TestVariantOligo
         for (int i = 0; i < oligos.Count; i++)
         {
             Assert.That(targetDigestedSequences.Contains(oligos[i].FullSequence));
+        }
+    }
+
+    [Test]
+    public void TwoTruncationsAndSequenceVariant_DbLoading()
+    {
+        string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "TruncationAndVariantMods.xml");
+        List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
+
+        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+        Assert.That(rna.All(p => p.OriginalNonVariantModifications.Count == 2));
+
+        List<RNA> targets = rna.Where(p => p.IsDecoy == false).ToList();
+        RNA variantTarget = targets.First(p => p.AppliedSequenceVariations.Count >= 1);
+        RNA nonVariantTarget = targets.First(p => p.AppliedSequenceVariations.Count == 0);
+
+        Assert.That(variantTarget.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
+        Assert.That(nonVariantTarget.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(2));
+
+        List<RNA> decoys = rna.Where(p => p.IsDecoy).ToList();
+        RNA variantDecoy = decoys.First(p => p.AppliedSequenceVariations.Count >= 1);
+        RNA nonVariantDecoy = decoys.First(p => p.AppliedSequenceVariations.Count == 0);
+
+        Assert.That(variantDecoy.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
+        Assert.That(nonVariantDecoy.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(2));
+    }
+
+    [Test]
+    [TestCase("NonVariantTarget", "GUACUGUAGCCUA", 0, new[] { "UACUG", "UAG", "CCUA", "UA[Biological:Methylation on A]CUG", "CCU[Biological:Methylation on U]A", "CUG" } )]
+    [TestCase("VariantTarget", "GUUCUGUAGCCUA", 0, new[] { "UUCUG", "UAG", "CCUA", "CCU[Biological:Methylation on U]A", "CUG" } )]
+    [TestCase("NonVariantDecoy", "AUCCGAUGUCAUG", 0, new[] { "AUCCG", "AUG", "UCAUG", "UCA[Biological:Methylation on A]UG", "AU[Biological:Methylation on U]CCG", "UG", "UC" } )]
+    [TestCase("VariantDecoy", "AUCCGAUGUCUUG", 0, new[] { "AUCCG", "AUG", "UCUUG", "AU[Biological:Methylation on U]CCG", "UC", "UG" } )]
+    [TestCase("NonVariantTarget", "GUACUGUAGCCUA", 1, new[] { "UACUG", "UAG", "CCUA", "UA[Biological:Methylation on A]CUG", "CCU[Biological:Methylation on U]A", "CUG", "GUACUG", "UACUGUAG", "GUA[Biological:Methylation on A]CUG", "UA[Biological:Methylation on A]CUGUAG", "UAGCCUA", "UAGCCU[Biological:Methylation on U]A", "UACUGU", "UA[Biological:Methylation on A]CUGU", "CUGUAG" } )]
+    [TestCase("VariantTarget", "GUUCUGUAGCCUA", 1, new[] { "UUCUG", "UAG", "CCUA", "CCU[Biological:Methylation on U]A", "CUG", "GUUCUG", "UUCUGUAG", "UAGCCUA", "UAGCCU[Biological:Methylation on U]A", "CUGUAG", "UUCUGU" } )]
+    [TestCase("NonVariantDecoy", "AUCCGAUGUCAUG", 1, new[] { "AUCCG", "AUG", "UCAUG", "UCA[Biological:Methylation on A]UG", "AU[Biological:Methylation on U]CCG", "UG", "UC", "AUCCGAUG", "AU[Biological:Methylation on U]CCGAUG", "AUGUCAUG", "AUGUCA[Biological:Methylation on A]UG", "AUGUC", "UGUCAUG", "UGUCA[Biological:Methylation on A]UG" } )]
+    [TestCase("VariantDecoy", "AUCCGAUGUCUUG", 1, new[] { "AUCCG", "AUG", "UCUUG", "AU[Biological:Methylation on U]CCG", "UC", "UG", "AUCCGAUG", "AU[Biological:Methylation on U]CCGAUG", "AUGUCUUG", "AUGUC", "UGUCUUG" } )]
+    public void TwoTruncationsAndSequenceVariant_Digestion(string testCase, string baseSequence, int missedCleavages, string[] expectedSequences)
+    {
+        string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "TruncationAndVariantMods.xml");
+        List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
+        RnaDigestionParams digestionParams = new RnaDigestionParams("RNase T1", missedCleavages, 2);
+
+        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+        Assert.That(rna.All(p => p.OriginalNonVariantModifications.Count == 2));
+        Assert.That(rna.All(p => p.TruncationProducts.Count == 2));
+
+        RNA toDigest = testCase switch
+        {
+            "NonVariantTarget" => rna[0],
+            "VariantTarget" => rna[1],
+            "NonVariantDecoy" => rna[2],
+            "VariantDecoy" => rna[3],
+            _ => throw new ArgumentException("Invalid test case")
+        };
+
+        var (truncation1, truncation2, expectedModCount) = testCase switch
+        {
+            "NonVariantTarget" => ((4, 13), (1, 7), 2),
+            "VariantTarget" => ((4, 13), (1, 7), 1),
+            "NonVariantDecoy" => ((1, 10), (7, 13), 2),
+            "VariantDecoy" => ((1, 10), (7, 13), 1),
+            _ => throw new ArgumentException("Invalid test case")
+        };
+
+        Assert.That(toDigest.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(expectedModCount));
+        Assert.That(toDigest.TruncationProducts[0].OneBasedBeginPosition, Is.EqualTo(truncation1.Item1));
+        Assert.That(toDigest.TruncationProducts[0].OneBasedEndPosition, Is.EqualTo(truncation1.Item2));
+        Assert.That(toDigest.TruncationProducts[1].OneBasedBeginPosition, Is.EqualTo(truncation2.Item1));
+        Assert.That(toDigest.TruncationProducts[1].OneBasedEndPosition, Is.EqualTo(truncation2.Item2));
+
+        var oligos = toDigest.Digest(digestionParams, [], []).ToList();
+        Assert.That(oligos.Count, Is.EqualTo(expectedSequences.Length));
+        foreach (var oligo in oligos)
+        {
+            Assert.That(expectedSequences.Contains(oligo.FullSequence));
         }
     }
 }
