@@ -13,7 +13,8 @@ namespace Readers
         MzML,
         Mgf,
         psmtsv,
-        //osmtsv
+        IntralinkResults,
+        osmtsv,
         ToppicPrsm,
         ToppicPrsmSingle,
         ToppicProteoform,
@@ -54,7 +55,8 @@ namespace Readers
                 SupportedFileType.BrukerD => ".d",
                 SupportedFileType.BrukerTimsTof => ".d",
                 SupportedFileType.psmtsv => ".psmtsv",
-                //SupportedFileType.osmtsv => ".osmtsv",
+                SupportedFileType.osmtsv => ".osmtsv",
+                SupportedFileType.IntralinkResults => "Intralinks.tsv",
                 SupportedFileType.ToppicPrsm => "_prsm.tsv",
                 SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
                 SupportedFileType.ToppicProteoform => "_proteoform.tsv",
@@ -87,7 +89,7 @@ namespace Readers
                         return SupportedFileType.BrukerTimsTof;
                     throw new MzLibException("Bruker file type not recognized");
                 case ".psmtsv": return SupportedFileType.psmtsv;
-                //case ".osmtsv": return SupportedFileType.osmtsv;
+                case ".osmtsv": return SupportedFileType.osmtsv;
                 case ".feature":
                     if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;
@@ -129,6 +131,8 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTAllResults;
                     if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ExperimentAnnotation;
+                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.IntralinkResults;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
