@@ -16,10 +16,25 @@ namespace FlashLFQ
         /// </summary>
         public readonly IIndexedMzPeak IndexedPeak;
         public readonly int ChargeState;
+        /// <summary>
+        /// The summed intensity of all isotope peaks detected in one MS1 scan. This sum may contain 
+        /// imputed intensity values for expected isotopes that weren't observed, but only if the observed 
+        /// isotopic distribution was otherwise similar to the expected isotopic distribution.
+        /// </summary>
+        public double Intensity { get; private set; }
 
-        public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        /// <summary>
+        /// The Pearson correlation coefficient between the observed isotopic distribution and the theoretical isotopic distribution.
+        /// </summary>
+        public double PearsonCorrelation { get; init; }
+
+        /// <summary>
+        /// Contains the summed intensities of all isotope peaks detected in a single MS1 scan for a given species.
+        /// </summary>
+        /// <param name="mostAbundantIsotopologuePeak">The IndexedMzPeak for the theoretical most abundant isotopologue of a species used during peakfinding</param>
+        public IsotopicEnvelope(IIndexedMzPeak mostAbundantIsotopologuePeak, int chargeState, double intensity, double pearsonCorrelation)
         {
-            IndexedPeak = monoisotopicPeak;
+            IndexedPeak = mostAbundantIsotopologuePeak;
             ChargeState = chargeState;
             Intensity = intensity / chargeState;
             PearsonCorrelation = pearsonCorrelation;
@@ -30,8 +45,8 @@ namespace FlashLFQ
 
 
         public List<IIndexedMzPeak> IsotopologuePeaks { get; private set; }
-        public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation, List<IIndexedMzPeak> isotopePeaks) :
-            this(monoisotopicPeak, chargeState, intensity, pearsonCorrelation)
+        public IsotopicEnvelope(IIndexedMzPeak mostAbundantIsotopologuePeak, int chargeState, double intensity, double pearsonCorrelation, List<IIndexedMzPeak> isotopePeaks) :
+            this(mostAbundantIsotopologuePeak, chargeState, intensity, pearsonCorrelation)
         {
             IsotopologuePeaks = isotopePeaks.OrderBy(p => p.Mz).ToList();
         }
@@ -55,15 +70,6 @@ namespace FlashLFQ
                 toleranceInPpm: 5, allPeaks: true, filterOutBelowThisMz: 100).CosineSimilarity();
             return cosineSimilarity ?? -1;
         }
-
-        /// <summary>
-        /// The summed intensity of all isotope peaks detected in one MS1 scan. This sum may contain 
-        /// imputed intensity values for expected isotopes that weren't observed, but only if the observed 
-        /// isotopic distribution was otherwise similar to the expected isotopic distribution.
-        /// </summary>
-        public double Intensity { get; private set; }
-
-        public double PearsonCorrelation { get; init; }
 
         public void Normalize(double normalizationFactor)
         {

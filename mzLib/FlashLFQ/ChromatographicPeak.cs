@@ -9,12 +9,12 @@ namespace FlashLFQ
 {
     public class ChromatographicPeak : IEquatable<ChromatographicPeak>
     {
-        public double Intensity;
+        public double Intensity { get; private set; }
+        public IsotopicEnvelope Apex { get; private set; }
         public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
-        public readonly SpectraFileInfo SpectraFileInfo;
-        public List<IsotopicEnvelope> IsotopicEnvelopes;
-        public int ScanCount => IsotopicEnvelopes.Count;
-        public double SplitRT;
+        public SpectraFileInfo SpectraFileInfo { get; init; }
+        public List<IsotopicEnvelope> IsotopicEnvelopes { get; set; }
+        public double SplitRT { get; set; }
         public readonly bool IsMbrPeak;
         public DetectionType DetectionType { get; set; }
         public double PredictedRetentionTime { get; init; }
@@ -22,6 +22,7 @@ namespace FlashLFQ
         public double PpmScore { get; set; }
         public double IntensityScore { get; set; }
         public double RtScore { get; set; }
+        public int ScanCount => IsotopicEnvelopes.Count;
         public double ScanCountScore { get; set; }
         public double IsotopicDistributionScore { get; set; }
         /// <summary>
@@ -33,6 +34,18 @@ namespace FlashLFQ
         internal double MbrQValue { get; set; }
         public ChromatographicPeakData PepPeakData { get; set; }
         public double? MbrPep { get; set; }
+        
+        public List<Identification> Identifications { get; private set; }
+        public int NumChargeStatesObserved { get; private set; }
+        public int NumIdentificationsByBaseSeq { get; private set; }
+        public int NumIdentificationsByFullSeq { get; private set; }
+        public double MassError { get; private set; }
+        /// <summary>
+        /// Bool that describes whether the retention time of this peak was randomized
+        /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
+        /// </summary>
+        public bool RandomRt { get; }
+        public bool DecoyPeptide => Identifications.First().IsDecoy;
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
         {
@@ -81,19 +94,6 @@ namespace FlashLFQ
                 && Identifications.First().ModifiedSequence.Equals(peak.Identifications.First().ModifiedSequence)
                 && ApexRetentionTime == peak.ApexRetentionTime;
         }
-
-        public IsotopicEnvelope Apex { get; private set; }
-        public List<Identification> Identifications { get; private set; }
-        public int NumChargeStatesObserved { get; private set; }
-        public int NumIdentificationsByBaseSeq { get; private set; }
-        public int NumIdentificationsByFullSeq { get; private set; }
-        public double MassError { get; private set; }
-        /// <summary>
-        /// Bool that describes whether the retention time of this peak was randomized
-        /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
-        /// </summary>
-        public bool RandomRt { get; }
-        public bool DecoyPeptide => Identifications.First().IsDecoy;
 
         public void CalculateIntensityForThisFeature(bool integrate)
         {
