@@ -304,6 +304,19 @@ public class TestVariantOligo
     }
 
     [Test]
+    public static void CrashOnCreateVariantFromProtein()
+    {
+        var rnas = RnaDbLoader.LoadRnaXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "HomozygousHLA.xml"), true,
+            DecoyType.None, false, null, null, out var unknownModifications);
+
+        var protein = new Protein("PEPTIDE", "accession");
+        NUnit.Framework.Assert.Throws<ArgumentException>(() =>
+        {
+            rnas[0].CreateVariant(rnas[0].BaseSequence, protein, [], [], new Dictionary<int, List<Modification>>(), "");
+        });
+    }
+
+    [Test]
     public void IndelDecoyVariants()
     {
         string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "DecoyVariants.xml");

@@ -571,7 +571,10 @@ namespace Proteomics
             IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
             where TBioPolymerType : IHasSequenceVariants
         {
-            var variantProtein =  new Protein(variantBaseSequence, original as Protein, appliedSequenceVariants, 
+            if (original is not Protein originalProtein)
+                throw new ArgumentException("The original BioPolymer must be Protein to create a protein variant");
+
+            var variantProtein =  new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants, 
                 applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }

@@ -12,6 +12,7 @@ using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics;
+using Transcriptomics;
 
 namespace Test.DatabaseTests
 {
@@ -384,6 +385,19 @@ namespace Test.DatabaseTests
                 Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
                 Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
             }
+        }
+
+        [Test]
+        public static void CrashOnCreateVariantFromRNA()
+        {
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "HomozygousHLA.xml"), true,
+                DecoyType.None, null, false, null, out var unknownModifications);
+
+            var rna = new RNA("GUACUGACU");
+            NUnit.Framework.Assert.Throws<ArgumentException>(() =>
+            {
+                proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(), "");
+            });
         }
 
         [Test]

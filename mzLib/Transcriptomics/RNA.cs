@@ -62,10 +62,14 @@ namespace Transcriptomics
         public override TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
             IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
         {
-            var variantRNA = new RNA(variantBaseSequence, original as RNA, appliedSequenceVariants, 
+            if (original is not RNA rna)
+                throw new ArgumentException("The original nucleic acid must be RNA to create an RNA variant.");
+
+            var variantRNA = new RNA(variantBaseSequence, rna, appliedSequenceVariants, 
                 applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantRNA;
-        }
+
+       }
 
         public bool Equals(RNA? other)
         {
