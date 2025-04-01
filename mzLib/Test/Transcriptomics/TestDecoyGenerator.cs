@@ -39,7 +39,7 @@ namespace Test.Transcriptomics
             Assert.That(decoys.All(p => p.DatabaseFilePath == example.DatabaseFilePath));
             Assert.That(decoys.All(p => p.Organism == example.Organism));
             Assert.That(decoys.All(p => p.AdditionalDatabaseFields == example.AdditionalDatabaseFields));
-            Assert.That(decoys.All(p => p.Accession == example.Accession));
+            Assert.That(decoys.All(p => p.Accession == $"DECOY_{example.Accession}"));
             Assert.That(decoys.All(p => p.Name == example.Name));
             Assert.That(decoys.All(p => p.Length == example.Length));
             Assert.That(decoys.All(p => Equals(p.FivePrimeTerminus, example.FivePrimeTerminus)));
@@ -74,7 +74,7 @@ namespace Test.Transcriptomics
             Assert.That(decoy.OneBasedPossibleLocalizedModifications.First().Value.Count, Is.EqualTo(1));
             Assert.That(decoy.OneBasedPossibleLocalizedModifications.First().Value.First(), Is.EqualTo(mod));
             Assert.That(decoy.Name, Is.EqualTo(originalRna.Name));
-            Assert.That(decoy.Accession, Is.EqualTo(originalRna.Accession));
+            Assert.That(decoy.Accession, Is.EqualTo($"DECOY_{originalRna.Accession}"));
             Assert.That(decoy.Organism, Is.EqualTo(originalRna.Organism));
             Assert.That(decoy.DatabaseFilePath, Is.EqualTo(originalRna.DatabaseFilePath));
             Assert.That(decoy.IsContaminant, Is.EqualTo(originalRna.IsContaminant));
@@ -118,7 +118,7 @@ namespace Test.Transcriptomics
                 Assert.That(target.DatabaseFilePath, Is.EqualTo(decoy.DatabaseFilePath));
                 Assert.That(target.DatabaseFilePath, Is.EqualTo(ModomicsUnmodifiedFastaPath));
                 Assert.That(target.Organism, Is.EqualTo(decoy.Organism));
-                Assert.That(target.Accession, Is.EqualTo(decoy.Accession));
+                Assert.That($"DECOY_{target.Accession}", Is.EqualTo(decoy.Accession));
                 Assert.That(target.Name, Is.EqualTo(decoy.Name));
                 Assert.That(target.Length, Is.EqualTo(decoy.Length));
                 Assert.That(target.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(decoy.OneBasedPossibleLocalizedModifications.Count));
