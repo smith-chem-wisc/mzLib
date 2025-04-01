@@ -72,8 +72,6 @@ namespace Transcriptomics.Digestion
                     }
                 }
 
-                
-
                 // Also digest using the truncation products start/end indices
                 foreach (var truncation in nucleicAcid.TruncationProducts)
                 {
@@ -120,6 +118,7 @@ namespace Transcriptomics.Digestion
                 }
             }
 
+            //add intact truncation (if acceptable)
             foreach (var truncation in nucleicAcid.TruncationProducts)
             {
                 if (!truncation.OneBasedBeginPosition.HasValue 
