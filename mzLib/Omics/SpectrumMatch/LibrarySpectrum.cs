@@ -93,10 +93,10 @@ namespace Omics.SpectrumMatch
 
             return spectrum.ToString();
         }
-        public string FraggerLibraryHeader()
-        {
-            return "PrecursorMz\tProductMz\tAnnotation\tProteinId\tGeneName\tPeptideSequence\tModifiedPeptideSequence\tPrecursorCharge\tLibraryIntensity\tNormalizedRetentionTime\tPrecursorIonMobility\tFragmentType\tFragmentCharge\tFragmentSeriesNumber\tFragmentLossType\tAverageExperimentalRetentionTime\tAllMappedProteins\tAllMappedGenes\tProteotypic";
-        }
+        //public string FraggerLibraryHeader()
+        //{
+        //    return "PrecursorMz\tProductMz\tAnnotation\tProteinId\tGeneName\tPeptideSequence\tModifiedPeptideSequence\tPrecursorCharge\tLibraryIntensity\tNormalizedRetentionTime\tPrecursorIonMobility\tFragmentType\tFragmentCharge\tFragmentSeriesNumber\tFragmentLossType\tAverageExperimentalRetentionTime\tAllMappedProteins\tAllMappedGenes\tProteotypic";
+        //}
         public string BaseSequenceFromFullSequence()
         {
             StringBuilder result = new StringBuilder();

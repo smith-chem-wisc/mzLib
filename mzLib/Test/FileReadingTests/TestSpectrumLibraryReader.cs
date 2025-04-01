@@ -2,7 +2,6 @@
 using NUnit.Framework;
 using Readers;
 using Readers.ExternalResults.IndividualResultRecords;
-using Readers.ExternalResults.ResultFiles;
 using Readers.SpectrumLibraries;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -39,12 +38,12 @@ namespace Test.FileReadingTests
             var testOutputPath = Path.Combine(directoryPath, "mspStyleSpectrumLibary_out.msp");
 
             // load in file
-            LibrarySpectrumFile mspSpectrumFile = FileReader.ReadFile<LibrarySpectrumFile>(testFilePath);
+            MspSpectrumFile mspSpectrumFile = FileReader.ReadFile<MspSpectrumFile>(testFilePath);
             Assert.That(mspSpectrumFile.Results.Count, Is.EqualTo(10));
 
             // write and reread file
             mspSpectrumFile.WriteResults(testOutputPath);
-            var writtenDeconFile = FileReader.ReadFile<LibrarySpectrumFile>(testOutputPath);
+            var writtenDeconFile = FileReader.ReadFile<MspSpectrumFile>(testOutputPath);
             Assert.That(File.Exists(testOutputPath));
 
             // check are equivalent
@@ -71,6 +70,7 @@ namespace Test.FileReadingTests
 
             // load in file
             MsFraggerSpeclibFile msFraggerSpeclibFile = FileReader.ReadFile<MsFraggerSpeclibFile>(testFilePath);
+            Assert.That(msFraggerSpeclibFile.OriginalRecords.Count, Is.EqualTo(344));
             Assert.That(msFraggerSpeclibFile.Results.Count, Is.EqualTo(344));
 
             // write and reread file
@@ -88,9 +88,9 @@ namespace Test.FileReadingTests
 
             // test writer still works without specifying extensions
             File.Delete(testOutputPath);
-            //var testOutputPathWithoutExtension = Path.Combine(directoryPath, "ms1TsvOut");
-            //msFraggerSpeclibFile.WriteResults(testOutputPathWithoutExtension);
-            //Assert.That(File.Exists(testOutputPath));
+            var testOutputPathWithoutExtension = Path.Combine(directoryPath, "ms1TsvOut");
+            msFraggerSpeclibFile.WriteResults(testOutputPathWithoutExtension);
+            Assert.That(File.Exists(testOutputPath));
         }
 
 
