@@ -8,7 +8,7 @@ namespace Omics
     {
         string Name { get; }
         string FullName { get; }
-        new string BaseSequence { get; }
+        new string BaseSequence { get; } // new keyword is to define inheritance from IHasSequenceVariants to IBioPolymer
         int Length { get; }
         string DatabaseFilePath { get; }
         bool IsDecoy { get; }
@@ -25,7 +25,7 @@ namespace Omics
         /// is also acceptable. Here, the second part will include a range, for example "AO055_05240"
         /// </summary>
         List<Tuple<string, string>> GeneNames { get; }
-        new IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
+        new IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; } // new keyword is to define inheritance from IHasSequenceVariants to IBioPolymer
         char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,

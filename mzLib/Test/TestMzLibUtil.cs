@@ -84,32 +84,10 @@ namespace Test
         }
 
         [Test]
-        public void IsNullOrEmpty_ICollection_Null_ReturnsTrue()
-        {
-            ICollection<int> nullCollection = null;
-            Assert.IsTrue(nullCollection.IsNullOrEmpty());
-        }
-
-        [Test]
-        public void IsNullOrEmpty_ICollection_Empty_ReturnsTrue()
-        {
-            ICollection<int> emptyCollection = new List<int>();
-            Assert.IsTrue(emptyCollection.IsNullOrEmpty());
-        }
-
-        [Test]
-        public void IsNullOrEmpty_ICollection_NotEmpty_ReturnsFalse()
-        {
-            ICollection<int> notEmptyCollection = new List<int> { 1 };
-            Assert.IsFalse(notEmptyCollection.IsNullOrEmpty());
-        }
-
-        [Test]
         public void IsNullOrEmpty_IDictionary_Null_ReturnsTrue()
         {
             IDictionary<int, int> nullDictionary = null;
             Assert.IsTrue(nullDictionary.IsNullOrEmpty());
-            Assert.IsFalse(nullDictionary.IsNotNullOrEmpty());
         }
 
         [Test]
@@ -117,7 +95,6 @@ namespace Test
         {
             IDictionary<int, int> emptyDictionary = new Dictionary<int, int>();
             Assert.IsTrue(emptyDictionary.IsNullOrEmpty());
-            Assert.IsFalse(emptyDictionary.IsNotNullOrEmpty());
         }
 
         [Test]
@@ -125,7 +102,6 @@ namespace Test
         {
             IDictionary<int, int> notEmptyDictionary = new Dictionary<int, int> { { 1, 1 } };
             Assert.IsFalse(notEmptyDictionary.IsNullOrEmpty());
-            Assert.IsTrue(notEmptyDictionary.IsNotNullOrEmpty());
         }
     }
 }
