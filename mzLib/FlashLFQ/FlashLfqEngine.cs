@@ -591,7 +591,7 @@ namespace FlashLFQ
 
             Dictionary<string, List<ChromatographicPeak>> acceptorFileAllMsmsPeaks = _results.Peaks[acceptor]
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
-                    && peak.DetectionType != DetectionType.MSMS
+                    && peak.DetectionType == DetectionType.MSMS
                     && peak.IsotopicEnvelopes.Any()
                     && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
