@@ -1,6 +1,8 @@
 ﻿using Omics.Modifications;
+using System.CodeDom;
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Reflection.PortableExecutable;
 using UsefulProteomicsDatabases;
 
 namespace Readers;
@@ -94,48 +96,54 @@ public static class ModificationExtensions
         // get rid of this annoying -L- suffix that is added to some mods in UniProt
         var trimmedName = name.Split(new[] { "-L-" }, StringSplitOptions.None)[0];
 
-        // Gather those that match by name and Motif
-        var matching = allKnownMods.Where(p =>
-                p.IdWithMotif.Contains(trimmedName)
-                && (p.IdWithMotif.Contains($" on {modifiedResidue}") || p.IdWithMotif.Contains(" on X")))
-            .ToList();
+        var nameContaining = allKnownMods.Where(p => p.IdWithMotif.Contains(trimmedName)).ToHashSet();
+        var motifMatching = allKnownMods.Where(p => p.IdWithMotif.Contains($" on {modifiedResidue}") || p.IdWithMotif.Contains(" on X")).ToHashSet();
 
-        switch (matching.Count)
+        var goodMatches = nameContaining.Intersect(motifMatching).ToList();
+        switch (goodMatches.Count)
         {
             // if exact match by name with no ambiguity, return it
             case 1:
-                cachedModification = matching[0];
+                cachedModification = goodMatches.First();
                 break;
-            // if none matched by name alone, add all that have the desired motif to matching set
+
+            // if many matched by name and motif, but all share the same name,
+            // return that which has the correct motif, otherwise the first in the list
+            case > 1 when goodMatches.DistinctBy(p => p.OriginalId).Count() == 1:
+                cachedModification = goodMatches.FirstOrDefault(p => p.IdWithMotif.Contains($" on {modifiedResidue}")) ??
+                                     goodMatches.FirstOrDefault(p => p.IdWithMotif.Contains(" on X"));
+                break;
+
+            // Many matched by name and motif, see if we can whittle down possible options
+            case > 1:
+                // remove those that are labels if we have other options
+                if (goodMatches.Count(p => p.IdWithMotif.StartsWith("Label")) < goodMatches.Count)
+                    foreach (var mod in goodMatches.Where(p => p.IdWithMotif.StartsWith("Label")).ToList())
+                        goodMatches.Remove(mod);
+
+                // TODO: anything else that we can do to reduce options here? 
+                
+                if (goodMatches.Count == 1) // if we have only one left, return it
+                    cachedModification = goodMatches.First();
+                else // if we still have many, we need to do some scoring
+                    cachedModification = goodMatches
+                        .OrderByDescending(mod => GetOverlapScore(mod.IdWithMotif, trimmedName))
+                        .ThenByDescending(p => p.Target.ToString() == modifiedResidue.ToString())
+                        .ThenBy(p => p.IdWithMotif.Length).First();
+                break;
+
+            // None matched by name and motif, Calculate overlap score by substring overlap of al possible matches. 
+            // and select the modification with the highest score, better matching residue, then shortest mod name in case of tie
             case < 1:
-                {
-                    var motifMatching = allKnownMods.Where(p =>
-                        p.IdWithMotif.Contains($" on {modifiedResidue}") || p.IdWithMotif.Contains(" on X"));
-                    matching.AddRange(motifMatching);
-                    break;
-                }
+                cachedModification = nameContaining.Union(motifMatching)
+                    .OrderByDescending(mod => GetOverlapScore(mod.IdWithMotif, trimmedName))
+                    .ThenByDescending(p => p.Target.ToString() == modifiedResidue.ToString())
+                    .ThenBy(p => p.IdWithMotif.Length).First();
+                break;
         }
 
-        // if multiple match by name and motif, but all have the same name, return the one with the correct motif 
-        if (matching.Count > 1 && matching.DistinctBy(p => p.OriginalId).Count() == 1)
-        {
-            var exactMatch = matching.FirstOrDefault(p => p.IdWithMotif.Contains($" on {modifiedResidue}"));
-            if (exactMatch is not null)
-                cachedModification = exactMatch;
-            else
-            {
-                var ambiguousMatch = matching.FirstOrDefault(p => p.IdWithMotif.Contains(" on X"));
-                if (ambiguousMatch is not null)
-                    cachedModification = ambiguousMatch;
-            }
-        }
-
-        // if nothing above worked, Calculate overlap score by substring overlap and select the modification with the highest score
-        if (cachedModification is null)
-        {
-            // Calculate overlap score and select the modification with the highest score
-            cachedModification = matching.MaxBy(mod => GetOverlapScore(mod.IdWithMotif, trimmedName))!;
-        }
+        if (cachedModification == null)
+            throw new KeyNotFoundException($"Could not find a modification that matches {name} on {modifiedResidue}");
 
         _modificationCache[cacheKey] = cachedModification;
         return cachedModification;

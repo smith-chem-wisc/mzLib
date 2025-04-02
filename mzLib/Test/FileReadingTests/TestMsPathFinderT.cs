@@ -249,6 +249,62 @@ namespace Test.FileReadingTests
             }
         }
 
+        [Test]
+        public static void ModificationReading()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\MsPathFinderT_WithMods_IcTda.tsv");
+            MsPathFinderTResultFile file = new MsPathFinderTResultFile(path);
 
+            Assert.That(file.Count(), Is.EqualTo(5));
+
+            var result = file.First();
+            Assert.That(result.Modifications.Length, Is.EqualTo(1));
+            Assert.That(result.Modifications[0].ModifiedResidue, Is.EqualTo('M'));
+            Assert.That(result.Modifications[0].Name, Is.EqualTo("Oxidation"));
+            Assert.That(result.Modifications[0].OneBasedLocalization, Is.EqualTo(36));
+            Assert.That(result.Modifications[0].MonoisotopicMass, Is.EqualTo(15.99491463).Within(0.0001));
+            Assert.That(result.FullSequence, Is.EqualTo("KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRM[Common Variable:Oxidation on M]QYNRRFVNVVPTFGKKKGPNANS"));
+
+            result = file[1];
+            Assert.That(result.Modifications.Length, Is.EqualTo(0));
+            Assert.That(result.FullSequence, Is.EqualTo("KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRMQYNRRFVNVVPTFGKKKGPNANS"));
+
+            result = file[2];
+            Assert.That(result.Modifications.Length, Is.EqualTo(2));
+            Assert.That(result.Modifications[0].ModifiedResidue, Is.EqualTo('X'));
+            Assert.That(result.Modifications[0].Name, Is.EqualTo("Acetyl"));
+            Assert.That(result.Modifications[0].OneBasedLocalization, Is.EqualTo(0));
+            Assert.That(result.Modifications[0].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.Modifications[1].ModifiedResidue, Is.EqualTo('K'));
+            Assert.That(result.Modifications[1].Name, Is.EqualTo("Acetyl"));
+            Assert.That(result.Modifications[1].OneBasedLocalization, Is.EqualTo(26));
+            Assert.That(result.Modifications[1].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.FullSequence, Is.EqualTo("[Common Biological:Acetyl on X]TEIKEKSVAELNALLKEKKVLLFTLK[Common Biological:Acetyl on K]QKLKTMQLSNPNEIRALKKEIARINTAISASK"));
+
+            result = file[3];
+            Assert.That(result.Modifications.Length, Is.EqualTo(2));
+            Assert.That(result.Modifications[0].ModifiedResidue, Is.EqualTo('K'));
+            Assert.That(result.Modifications[0].Name, Is.EqualTo("Methyl"));
+            Assert.That(result.Modifications[0].OneBasedLocalization, Is.EqualTo(24));
+            Assert.That(result.Modifications[0].MonoisotopicMass, Is.EqualTo(14.01565).Within(0.0001));
+            Assert.That(result.Modifications[1].ModifiedResidue, Is.EqualTo('K'));
+            Assert.That(result.Modifications[1].Name, Is.EqualTo("Acetyl"));
+            Assert.That(result.Modifications[1].OneBasedLocalization, Is.EqualTo(50));
+            Assert.That(result.Modifications[1].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.FullSequence, Is.EqualTo("CNRQAVAGQLLPSTWSLHAHGLAK[Common Biological:Methyl on K]EAPILPVKKISRSCSVNNKVSKKTTK[Common Biological:Acetyl on K]PPTLRSFLSPI"));
+
+            result = file[4];
+            Assert.That(result.Modifications.Length, Is.EqualTo(2));
+            Assert.That(result.Modifications[0].ModifiedResidue, Is.EqualTo('K'));
+            Assert.That(result.Modifications[0].Name, Is.EqualTo("Acetyl"));
+            Assert.That(result.Modifications[0].OneBasedLocalization, Is.EqualTo(8));
+            Assert.That(result.Modifications[0].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.Modifications[1].ModifiedResidue, Is.EqualTo('K'));
+            Assert.That(result.Modifications[1].Name, Is.EqualTo("Acetyl"));
+            Assert.That(result.Modifications[1].OneBasedLocalization, Is.EqualTo(52));
+            Assert.That(result.Modifications[1].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.FullSequence, Is.EqualTo("SFFDHLQK[Common Biological:Acetyl on K]KGVGAIQAQKVQIRKVERKPSKVVSSSSSSSIAKPQRRLDTVSK[Common Biological:Acetyl on K]PVAARRSA"));
+        }
     }
 }
