@@ -570,7 +570,7 @@ namespace FlashLFQ
 
             Dictionary<string, List<ChromatographicPeak>> donorFileAllMsmsPeaks = _results.Peaks[donor]
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
-                    && peak.DetectionType != DetectionType.MBR
+                    && peak.DetectionType == DetectionType.MSMS
                     && peak.IsotopicEnvelopes.Any()
                     && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
@@ -591,7 +591,7 @@ namespace FlashLFQ
 
             Dictionary<string, List<ChromatographicPeak>> acceptorFileAllMsmsPeaks = _results.Peaks[acceptor]
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
-                    && peak.DetectionType != DetectionType.MBR
+                    && peak.DetectionType != DetectionType.MSMS
                     && peak.IsotopicEnvelopes.Any()
                     && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
@@ -944,7 +944,7 @@ namespace FlashLFQ
                 // only match peptides from proteins that have at least one MS/MS identified peptide in the condition
                 foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == acceptorFile.Condition))
                 {
-                    foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => p.DetectionType != DetectionType.MBR).SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
+                    foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => p.DetectionType == DetectionType.MSMS).SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
                     {
                         thisFilesMsmsIdentifiedProteins.Add(proteinGroup);
                     }
@@ -1370,6 +1370,9 @@ namespace FlashLFQ
                 IIndexedMzPeak apexImsPeak = tryPeak.Apex.IndexedPeak;
                 if (errorCheckedPeaksGroupedByApex.TryGetValue(apexImsPeak, out ChromatographicPeak storedPeak) && storedPeak != null)
                 {
+                    // At here, the peaks detected from the IsoTracker will be confident, then we don't want to eliminate.
+                    // Logically, we view the IsoTracker_MBR and IsoTracker_Ambiguity as the MSMS.
+                    // Therefore, we only need to check the MBR peaks.
                     if (tryPeak.DetectionType != DetectionType.MBR && storedPeak.DetectionType != DetectionType.MBR)
                     {
                         if (PeptideModifiedSequencesToQuantify.Contains(tryPeak.Identifications.First().ModifiedSequence))
