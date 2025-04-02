@@ -42,52 +42,6 @@ namespace Readers
         public LocalizationLevel? GlycanLocalizationLevel { get; set; }
         public string LocalizedGlycan { get; set; }
 
-        #region IQuantifiableRecord Fields
-        public string FileName => FileNameWithoutExtension;
-        public string BaseSequence => BaseSeq;
-        public string ModifiedSequence => FullSequence;
-        public int ChargeState => PrecursorCharge;
-        public bool IsDecoy => DecoyContamTarget == "D";
-
-        public List<(string, string, string)> ProteinGroupInfos
-        {
-            get
-            {
-                if (!_proteinGroupInfos.IsNotNullOrEmpty()) _proteinGroupInfos = AddProteinGroupInfos();
-                return _proteinGroupInfos;
-            }
-        }
-
-        /// <summary>
-        /// Creates a list of tuples, each of which represents a protein.
-        /// Each tuple contains the accession number, gene name, and organism.
-        /// These parameters are used to create a ProteinGroup object, 
-        /// which is needed to make an identification.
-        /// </summary>
-        /// <returns></returns>
-        private List<(string, string, string)> AddProteinGroupInfos()
-        {
-            _proteinGroupInfos = new List<(string, string, string)>();
-
-            char[] delimiterChars = { '|' };
-            string[] accessions = Accession.Split(delimiterChars);
-            string[] geneNames = GeneName.Split(delimiterChars);
-            string[] organisms = OrganismName.Split(delimiterChars);
-
-            int minArrayLength = Math.Min(accessions.Length, Math.Min(geneNames.Length, organisms.Length));
-
-            for (int i = 0; i < minArrayLength; i++)
-            {
-                _proteinGroupInfos.Add((accessions[i], geneNames[i], organisms[i]));
-            }
-
-            return _proteinGroupInfos;
-        }
-
-        private List<(string, string, string)> _proteinGroupInfos;
-
-        #endregion
-
         public PsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
         {
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
@@ -157,7 +111,7 @@ namespace Readers
             PreviousResidue = (parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]].Trim();
             NextResidue = (parsedHeader[SpectrumMatchFromTsvHeader.NextResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]].Trim();
             QValueNotch = (parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch]].Trim(), CultureInfo.InvariantCulture);
-            RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? -1 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture);
+            RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? null : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture);
             PEP = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
             PEP_QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
             VariantCrossingIons = FindVariantCrossingIons();

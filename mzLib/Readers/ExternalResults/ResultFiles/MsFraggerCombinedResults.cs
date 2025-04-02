@@ -80,15 +80,15 @@
 
         /// <summary>
         /// Links the file name associated with the an IQuantifiableRecord 
-        /// to the raw file path of MassSpec data in the fullFilePath list
+        /// to the raw file path of MassSpec data in the filePaths list
         /// </summary>
-        /// <param name="fullFilePath"> list of file paths associated with each distinct record </param>
+        /// <param name="filePaths"> list of file paths associated with each distinct record </param>
         /// <returns> Dictionary of file names and their associted full paths </returns>
-        public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePath)
+        public Dictionary<string, string> FileNameToFilePath(List<string> filePaths)
         {
             Dictionary<string, string> allFiles = new Dictionary<string, string>();
 
-            allFiles = AllPsmFiles.Select(file => file.FileNameToFilePath(fullFilePath))
+            allFiles = AllPsmFiles.Select(file => file.FileNameToFilePath(filePaths))
                                   .SelectMany(dictionary => dictionary)
                                   .GroupBy(x => x.Key)
                                   .Select(keyValuePair => keyValuePair.First())
