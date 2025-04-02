@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Chemistry;
 
 namespace FlashLFQ
 {
@@ -36,6 +37,69 @@ namespace FlashLFQ
         {
             PredictedRetentionTime = predictedRetentionTime;
             RandomRt = randomRt;
+        }
+
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append(SpectraFileInfo.FilenameWithoutExtension + "\t");
+            sb.Append(string.Join("|", Identifications.Select(p => p.BaseSequence).Distinct()) + '\t');
+            sb.Append(string.Join("|", Identifications.Select(p => p.ModifiedSequence).Distinct()) + '\t');
+            var t = Identifications.SelectMany(p => p.ProteinGroups.Select(v => v.ProteinGroupName)).Distinct().OrderBy(p => p);
+            if (t.Any())
+            {
+                sb.Append(string.Join(";", t) + '\t');
+                sb.Append(string.Join(";", Identifications.SelectMany(id => id.ProteinGroups).Select(p => p.Organism).Distinct()) + '\t');
+            }
+            else
+            {
+                sb.Append('\t');
+                sb.Append('\t');
+            }
+
+            sb.Append(Identifications.First().MonoisotopicMass + '\t');
+            sb.Append(Identifications.First().Ms2RetentionTimeInMinutes + '\t');
+            sb.Append(Identifications.First().PrecursorChargeState + '\t');
+            sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
+            sb.Append(Intensity + "\t");
+            sb.Append('\t'); // No Ms2 ID means no MS2 ID Retention time
+            sb.Append(Identifications.First().PrecursorChargeState + '\t');
+            sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
+            sb.Append(Intensity + "\t");
+
+            if (Apex != null)
+            {
+                sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime) + "\t");
+                sb.Append(Apex.IndexedPeak.RetentionTime + "\t");
+                sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime) + "\t");
+                sb.Append(Apex.IndexedPeak.Mz + "\t");
+                sb.Append(Apex.ChargeState + "\t");
+            }
+            else
+            {
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+            }
+
+            sb.Append(NumChargeStatesObserved + "\t");
+            sb.Append("MBR" + "\t");
+
+            // MBR Exclusive fields
+            sb.Append(MbrQValue + "\t");
+            sb.Append(MbrPep + "\t");
+
+            sb.Append(Identifications.Count + "\t");
+            sb.Append(NumIdentificationsByBaseSeq + "\t");
+            sb.Append(NumIdentificationsByFullSeq + "\t");
+            sb.Append(SplitRT + "\t");
+            sb.Append(MassError + "\t");
+            sb.Append(DecoyPeptide + "\t");
+            sb.Append(RandomRt); // Because this isn't an MBR peak, the Random RT Field will always be false
+
+            return sb.ToString();
         }
     }
 }

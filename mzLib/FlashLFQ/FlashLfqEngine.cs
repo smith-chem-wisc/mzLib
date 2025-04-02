@@ -2214,11 +2214,11 @@ namespace FlashLFQ
             ChromatographicPeak acceptorPeak = null;
             if (idsForChrom.Count == 1)
             {
-                acceptorPeak = new ChromatographicPeak(id, isMBR, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1, detectionType: detectionType);
+                acceptorPeak = new MbrChromatographicPeak(id, isMBR, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1, detectionType: detectionType);
             }
             else
             {
-                acceptorPeak = new ChromatographicPeak(idsForChrom, isMBR, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1, detectionType: detectionType);
+                acceptorPeak = new MbrChromatographicPeak(idsForChrom, isMBR, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1, detectionType: detectionType);
             }
 
             IsotopicEnvelope bestEnvelopes = chargeEnvelopes.OrderByDescending(p => p.Intensity).First();

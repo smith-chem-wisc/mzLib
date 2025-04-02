@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
-using FlashLFQ.PEP;
 
 namespace FlashLFQ
 {
@@ -191,75 +190,64 @@ namespace FlashLFQ
             }
             else
             {
-                sb.Append("" + '\t');
-                sb.Append("" + '\t');
+                sb.Append('\t');
+                sb.Append('\t');
             }
 
-            sb.Append("" + Identifications.First().MonoisotopicMass + '\t');
-            if (!IsMbrPeak)
-            {
-                sb.Append("" + Identifications.First().Ms2RetentionTimeInMinutes + '\t');
-            }
-            else
-            {
-                sb.Append("" + '\t');
-            }
-
-            sb.Append("" + Identifications.First().PrecursorChargeState + '\t');
-            sb.Append("" + ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
-            sb.Append("" + Intensity + "\t");
+            sb.Append(Identifications.First().MonoisotopicMass + '\t');
+            sb.Append(Identifications.First().Ms2RetentionTimeInMinutes + '\t');
+            sb.Append(Identifications.First().PrecursorChargeState + '\t');
+            sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
+            sb.Append(Intensity + "\t");
+            sb.Append(Identifications.First().Ms2RetentionTimeInMinutes + '\t');
+            sb.Append(Identifications.First().PrecursorChargeState + '\t');
+            sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
+            sb.Append(Intensity + "\t");
 
             if (Apex != null)
             {
-                sb.Append("" + IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime) + "\t");
-                sb.Append("" + Apex.IndexedPeak.RetentionTime + "\t");
-                sb.Append("" + IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime) + "\t");
-
-                sb.Append("" + Apex.IndexedPeak.Mz + "\t");
-                sb.Append("" + Apex.ChargeState + "\t");
+                sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime) + "\t");
+                sb.Append(Apex.IndexedPeak.RetentionTime + "\t");
+                sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime) + "\t");
+                sb.Append(Apex.IndexedPeak.Mz + "\t");
+                sb.Append(Apex.ChargeState + "\t");
             }
             else
             {
-                sb.Append("" + "-" + "\t");
-                sb.Append("" + "-" + "\t");
-                sb.Append("" + "-" + "\t");
-
-                sb.Append("" + "-" + "\t");
-                sb.Append("" + "-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
             }
 
-            sb.Append("" + NumChargeStatesObserved + "\t");
+            sb.Append(NumChargeStatesObserved + "\t");
 
             // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous and MSMS peaks
-            if (IsMbrPeak && DetectionType == DetectionType.IsoTrack_MBR)
+            switch (this.DetectionType)
             {
-                sb.Append("" + "MBR_IsoTrack" + "\t");
+                case DetectionType.IsoTrack_MBR:
+                    sb.Append("MBR_IsoTrack" + "\t");
+                    break;
+                case DetectionType.IsoTrack_Ambiguous:
+                    sb.Append("IsoTrack_Ambiguous" + "\t");
+                    break;
+                default:
+                    sb.Append("MSMS" + "\t");
+                    break;
             }
 
-            else if (IsMbrPeak && DetectionType == DetectionType.IsoTrack_Ambiguous)
-            {
-                sb.Append("" + "IsoTrack_Ambiguous" + "\t");
-            }
+            // MBR Exclusive fields
+            sb.Append("\t");
+            sb.Append("\t");
 
-            else if (IsMbrPeak)
-            {
-                sb.Append("" + "MBR" + "\t");
-            }
-            else
-            {
-                sb.Append("" + "MSMS" + "\t");
-            }
-
-            sb.Append("" + (IsMbrPeak ? MbrQValue.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? MbrPep.ToString() : "") + "\t");
-
-            sb.Append("" + Identifications.Count + "\t");
-            sb.Append("" + NumIdentificationsByBaseSeq + "\t");
-            sb.Append("" + NumIdentificationsByFullSeq + "\t");
-            sb.Append("" + SplitRT + "\t");
-            sb.Append("" + MassError);
-            sb.Append("\t" + DecoyPeptide);
-            sb.Append("\t" + RandomRt);
+            sb.Append(Identifications.Count + "\t");
+            sb.Append(NumIdentificationsByBaseSeq + "\t");
+            sb.Append(NumIdentificationsByFullSeq + "\t");
+            sb.Append(SplitRT + "\t");
+            sb.Append(MassError + "\t");
+            sb.Append( DecoyPeptide + "\t");
+            sb.Append("False"); // Because this isn't an MBR peak, the Random RT Field will always be false
 
             return sb.ToString();
         }
