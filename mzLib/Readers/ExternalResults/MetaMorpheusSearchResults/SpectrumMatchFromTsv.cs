@@ -21,7 +21,7 @@ namespace Readers
         public int PrecursorCharge { get; protected set; }
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
-        public double RetentionTime { get; protected set; }
+        public double? RetentionTime { get; protected set; }
         public double Score { get; protected set; }
         public int SpectrumMatchCount { get; protected set; }
         public string Accession { get; protected set; }
@@ -38,8 +38,7 @@ namespace Readers
         public string EssentialSeq { get; protected set; }
         public string AmbiguityLevel { get; protected set; }
         public string MissedCleavage { get; protected set; }
-        public string MonoisotopicMassString { get; protected set; }
-        public double MonoisotopicMass => Double.TryParse(MonoisotopicMassString, out double monoisotopicMass) ? monoisotopicMass : -1;
+        public string MonoisotopicMass { get; protected set; }
         public string MassDiffDa { get; protected set; }
         public string MassDiffPpm { get; protected set; }
         public string Name { get; protected set; }
