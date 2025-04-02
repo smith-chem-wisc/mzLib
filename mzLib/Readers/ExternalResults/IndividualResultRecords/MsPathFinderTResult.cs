@@ -1,10 +1,11 @@
 ﻿using CsvHelper.Configuration.Attributes;
 using CsvHelper.Configuration;
 using Chemistry;
+using System.Text;
 
 namespace Readers
 {
-    public class MsPathFinderTResult
+    public class MsPathFinderTResult : ISpectralMatch
     {
         public static CsvConfiguration CsvConfiguration { get; } = new CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)
         {
@@ -14,7 +15,6 @@ namespace Readers
             TrimOptions = CsvHelper.Configuration.TrimOptions.InsideQuotes,
             BadDataFound = null,
         };
-
 
         [Name("Scan")]
         public int OneBasedScanNumber { get; set; }
@@ -85,12 +85,47 @@ namespace Readers
 
         #region InterpretedFields
 
-        [Ignore] private string _accession = null;
+        [Ignore] private string? _accession = null;
         [Ignore] public string Accession => _accession ??= ProteinName.Split('|')[1].Trim();
 
         [Ignore] private bool? _isDecoy = null;
         [Ignore] public bool IsDecoy => _isDecoy ??= ProteinName.StartsWith("XXX");
         [Optional] public string FileNameWithoutExtension { get; set; }
+
+        [Ignore] private string? _fullSequence;
+        [Ignore]
+        public string FullSequence
+        {
+            get
+            {
+                if (_fullSequence != null)
+                    return _fullSequence;
+                if (!Modifications.Any())
+                    return _fullSequence = BaseSequence;
+
+                var sb = new StringBuilder();
+
+                if (Modifications.Any(p => p.OneBasedLocalization == 0))
+                {
+                    ILocalizedModification? modToAdd = Modifications.FirstOrDefault(p => p.OneBasedLocalization == 0);
+                    if (modToAdd is not null)
+                        sb.Append(modToAdd.GetMetaMorpheusFullSequenceString());
+                }
+                for (int i = 0; i < BaseSequence.Length; i++)
+                {
+                    var residue = BaseSequence[i];
+                    sb.Append(residue);
+
+                    ILocalizedModification? potentialMod = Modifications.FirstOrDefault(p => p.OneBasedLocalization == i + 1);
+                    if (potentialMod is null) continue;
+
+                    var mmMod = potentialMod.GetMetaMorpheusFullSequenceString();
+                    sb.Append(mmMod);
+                }
+
+                return _fullSequence = sb.ToString();
+            }
+        }
 
         #endregion
     }

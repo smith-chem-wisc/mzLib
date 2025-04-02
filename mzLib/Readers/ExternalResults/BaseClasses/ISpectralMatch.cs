@@ -26,4 +26,9 @@ public interface ISpectralMatch
     /// If the given Spectral Match is a decoy
     /// </summary>
     public bool IsDecoy { get; }
+
+    /// <summary>
+    /// The Mass Spec file name without the extension
+    /// </summary>
+    public string FileNameWithoutExtension { get; }
 }

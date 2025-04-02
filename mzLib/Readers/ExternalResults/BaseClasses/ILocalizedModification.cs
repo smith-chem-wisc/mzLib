@@ -50,7 +50,7 @@ public static class ModificationExtensions
     /// <summary>
     /// Get the string representation of the modification in MetaMorpheus format
     /// </summary>
-    public static string GetMetaMorpheusFullSequenceString(this ILocalizedModification mod, IList<Modification> allKnownMods)
+    public static string GetMetaMorpheusFullSequenceString(this ILocalizedModification mod, IList<Modification>? allKnownMods = null)
     {
         var mmMod = mod.GetClosestMod(allKnownMods);
 
