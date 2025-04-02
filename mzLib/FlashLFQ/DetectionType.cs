@@ -11,12 +11,4 @@
         MSMSIdentifiedButNotQuantified, // We have MS2ID but no peak for quantification
         NotDetected,                    // We don't have MS2ID either peak for quantification
     }
-
-    static class DetectionTypeExtensions
-    {
-        public static bool IsPsmInclude()
-        {
-            return MSMS ;
-        }
-    }
 }
