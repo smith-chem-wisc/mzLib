@@ -1,5 +1,4 @@
 ﻿using FlashLFQ.PEP;
-using MassSpectrometry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FlashLFQ
 {
-    public class MbrScoreInfo
+    public class MbrChromatographicPeak : ChromatographicPeak
     {
         public double PredictedRetentionTime { get; init; }
         public double MbrScore { get; set; }
@@ -31,5 +30,12 @@ namespace FlashLFQ
         /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
         /// </summary>
         public bool RandomRt { get; }
+
+        public MbrChromatographicPeak(Identification id, SpectraFileInfo fileInfo, double predictedRetentionTime, bool randomRt)
+            : base(id, fileInfo, detectionType: DetectionType.MBR)
+        {
+            PredictedRetentionTime = predictedRetentionTime;
+            RandomRt = randomRt;
+        }
     }
 }

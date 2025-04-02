@@ -15,51 +15,18 @@ namespace FlashLFQ
         public SpectraFileInfo SpectraFileInfo { get; init; }
         public List<IsotopicEnvelope> IsotopicEnvelopes { get; set; }
         public double SplitRT { get; set; }
-        public readonly bool IsMbrPeak;
-        public DetectionType DetectionType { get; set; }
-        public double PredictedRetentionTime { get; init; }
-        public double MbrScore;
-        public double PpmScore { get; set; }
-        public double IntensityScore { get; set; }
-        public double RtScore { get; set; }
-        public int ScanCount => IsotopicEnvelopes.Count;
-        public double ScanCountScore { get; set; }
-        public double IsotopicDistributionScore { get; set; }
-        /// <summary>
-        /// Stores the pearson correlation between the apex isotopic envelope and the theoretical isotopic distribution
-        /// </summary>
-        public double IsotopicPearsonCorrelation => Apex?.PearsonCorrelation ?? -1;
-        public double RtPredictionError { get; set; }
         public List<int> ChargeList { get; set; }
-        internal double MbrQValue { get; set; }
-        public ChromatographicPeakData PepPeakData { get; set; }
-        public double? MbrPep { get; set; }
-        
+        public bool IsMbrPeak { get; init; }
+        public DetectionType DetectionType { get; set; }
         public List<Identification> Identifications { get; private set; }
         public int NumChargeStatesObserved { get; private set; }
         public int NumIdentificationsByBaseSeq { get; private set; }
         public int NumIdentificationsByFullSeq { get; private set; }
         public double MassError { get; private set; }
-        /// <summary>
-        /// Bool that describes whether the retention time of this peak was randomized
-        /// If true, implies that this peak is a decoy peak identified by the MBR algorithm
-        /// </summary>
-        public bool RandomRt { get; }
         public bool DecoyPeptide => Identifications.First().IsDecoy;
 
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, bool randomRt = false)
-        {
-            SplitRT = 0;
-            NumChargeStatesObserved = 0;
-            MassError = double.NaN;
-            NumIdentificationsByBaseSeq = 1;
-            NumIdentificationsByFullSeq = 1;
-            Identifications = new List<Identification>() { id };
-            IsotopicEnvelopes = new List<IsotopicEnvelope>();
-            IsMbrPeak = isMbrPeak;
-            SpectraFileInfo = fileInfo;
-            RandomRt = randomRt;
-        }
+        public ChromatographicPeak(Identification id, SpectraFileInfo fileInfo, DetectionType detectionType = DetectionType.MSMS) :
+            this(new List<Identification>() { id }, fileInfo, detectionType) { }
 
         /// <summary>
         /// overloaded constructor for Isobaric_ambiguity peaks. In this case, the peak is identified by multiple identifications
@@ -68,24 +35,18 @@ namespace FlashLFQ
         /// <param name="isMbrPeak"></param>
         /// <param name="fileInfo"></param>
         /// <param name="randomRt"></param>
-        public ChromatographicPeak(List<Identification> ids, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime, DetectionType detectionType = DetectionType.Imputed) :
-            this(null, isMbrPeak, fileInfo)
-        {
-            PredictedRetentionTime = predictedRetentionTime;
+        public ChromatographicPeak(List<Identification> ids, SpectraFileInfo fileInfo, DetectionType detectionType = DetectionType.Imputed)
+        { 
+            SplitRT = 0;
+            NumChargeStatesObserved = 0;
+            MassError = double.NaN;
+
             DetectionType = detectionType; // default to imputed
             Identifications = ids;
-        }
+            ResolveIdentifications();
+            IsotopicEnvelopes = new List<IsotopicEnvelope>();
+            SpectraFileInfo = fileInfo;
 
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime, DetectionType detectionType = DetectionType.Default) :
-            this(id, isMbrPeak, fileInfo)
-        {
-            PredictedRetentionTime = predictedRetentionTime;
-            DetectionType = detectionType; // default to imputed
-
-            if (detectionType == DetectionType.Default && isMbrPeak)
-            {
-                DetectionType = DetectionType.MBR;
-            }
         }
 
         public bool Equals(ChromatographicPeak peak)
