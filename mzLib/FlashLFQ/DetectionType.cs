@@ -2,14 +2,12 @@
 {
     public enum DetectionType
     {
-        MSMS,
-        MBR,
-        IsoTrack_MBR, // MBR detected by IsoTrack
-        IsoTrack_Ambiguous, // Ambiguous(more than two Id in one peak) detected by IsoTrack
-        NotDetected,
-        MSMSAmbiguousPeakfinding,
-        MSMSIdentifiedButNotQuantified,
-        Imputed,
-        Default // Default value, will be removed in the future
+        MSMS,                           // The peak is detected from MS2ID
+        MBR,                            // The peak is detected from MBR
+        MSMSAmbiguousPeakfinding,       // The peak is detected from more than one MS2ID
+        IsoTrack_MBR,                   // The peak is detected from MBR by IsoTrack
+        IsoTrack_Ambiguous,             // The peak is detected from more than one MS2ID by IsoTrack
+        MSMSIdentifiedButNotQuantified, // We have MS2ID but no peak for quantification
+        NotDetected,                    // We don't have MS2ID either peak for quantification
     }
 }
