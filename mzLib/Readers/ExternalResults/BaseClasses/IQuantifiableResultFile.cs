@@ -22,8 +22,8 @@ namespace Readers
         /// <summary>
         /// Links the file name associated with the protein to the raw file path of MassSpec data
         /// </summary>
-        /// <param name="fullFilePaths"> list of file paths associated with each distinct record </param>
+        /// <param name="fullFilePath"> list of file paths associated with each distinct record </param>
         /// <returns> Dictionary of file names and their associted full paths </returns>
-        public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePaths);
+        public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePath);
     }
 }
