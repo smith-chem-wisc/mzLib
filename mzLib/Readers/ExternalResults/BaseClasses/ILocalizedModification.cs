@@ -107,13 +107,6 @@ public static class ModificationExtensions
                 cachedModification = goodMatches.First();
                 break;
 
-            // if many matched by name and motif, but all share the same name,
-            // return that which has the correct motif, otherwise the first in the list
-            case > 1 when goodMatches.DistinctBy(p => p.OriginalId).Count() == 1:
-                cachedModification = goodMatches.FirstOrDefault(p => p.IdWithMotif.Contains($" on {modifiedResidue}")) ??
-                                     goodMatches.FirstOrDefault(p => p.IdWithMotif.Contains(" on X"));
-                break;
-
             // Many matched by name and motif, see if we can whittle down possible options
             case > 1:
                 // remove those that are labels if we have other options

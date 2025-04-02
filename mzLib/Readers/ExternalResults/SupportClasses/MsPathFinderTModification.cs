@@ -14,7 +14,8 @@ public class MsPathFinderTModification(string modName, int modLocation, char mod
         if (ReferenceEquals(this, other)) return true;
         return OneBasedLocalization == other.OneBasedLocalization
                && Name == other.Name
-               && ModifiedResidue == other.ModifiedResidue;
+               && ModifiedResidue == other.ModifiedResidue
+               && MonoisotopicMass.Equals(other.MonoisotopicMass);
     }
 
     public override bool Equals(object? obj)

@@ -307,4 +307,77 @@ namespace Test.FileReadingTests
             Assert.That(result.FullSequence, Is.EqualTo("SFFDHLQK[Common Biological:Acetyl on K]KGVGAIQAQKVQIRKVERKPSKVVSSSSSSSIAKPQRRLDTVSK[Common Biological:Acetyl on K]PVAARRSA"));
         }
     }
+
+    [ExcludeFromCodeCoverage]
+    public class MsPathFinderTModificationTests
+    {
+        [Test]
+        public void TestEquals_SameObject_ReturnsTrue()
+        {
+            var mod = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            Assert.That(mod.Equals(mod), Is.True);
+            Assert.That(mod.Equals((object)mod), Is.True);
+        }
+
+        [Test]
+        public void TestEquals_Null_ReturnsTrue()
+        {
+            var mod = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            Assert.That(mod.Equals(null), Is.False);
+            Assert.That(mod.Equals((object)null), Is.False);
+        }
+
+        [Test]
+        public void TestEquals_DifferentObjectSameValues_ReturnsTrue()
+        {
+            var mod1 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            var mod2 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            Assert.That(mod1.Equals(mod2), Is.True);
+            Assert.That(mod1.Equals((object)mod2), Is.True);
+        }
+
+        [Test]
+        public void TestEquals_DifferentObjectType_ReturnsFalse()
+        {
+            var mod1 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            var mod2 = new List<string>();
+            Assert.That(mod1.Equals((object)mod2), Is.False);
+        }
+
+        [Test]
+        public void TestEquals_DifferentObjectDifferentValues_ReturnsFalse()
+        {
+            var mod1 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            var mod2 = new MsPathFinderTModification("Mod2", 1, 'A', 15.9949);
+            Assert.That(mod1.Equals(mod2), Is.False);
+            Assert.That(mod1.Equals((object)mod2), Is.False);
+
+            mod2 = new MsPathFinderTModification("Mod1", 2, 'A', 15.9949);
+            Assert.That(mod1.Equals(mod2), Is.False);
+            Assert.That(mod1.Equals((object)mod2), Is.False);
+
+            mod2 = new MsPathFinderTModification("Mod1", 1, 'B', 15.9949);
+            Assert.That(mod1.Equals(mod2), Is.False);
+            Assert.That(mod1.Equals((object)mod2), Is.False);
+
+            mod2 = new MsPathFinderTModification("Mod1", 1, 'A', 16.9949);
+            Assert.That(mod1.Equals(mod2), Is.False);
+            Assert.That(mod1.Equals((object)mod2), Is.False);
+        }
+
+        [Test]
+        public void TestGetHashCode_SameValues_ReturnsSameHashCode()
+        {
+            var mod1 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            var mod2 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            Assert.That(mod1.GetHashCode(), Is.EqualTo(mod2.GetHashCode()));
+        }
+
+        [Test]
+        public void TestToString_ReturnsExpectedString()
+        {
+            var mod = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
+            Assert.That(mod.ToString(), Is.EqualTo("1A-Mod1"));
+        }
+    }
 }
