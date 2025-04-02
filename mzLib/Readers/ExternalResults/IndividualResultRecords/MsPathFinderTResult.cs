@@ -1,10 +1,5 @@
 ﻿using CsvHelper.Configuration.Attributes;
 using CsvHelper.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
 
 namespace Readers
@@ -34,7 +29,8 @@ namespace Readers
         public char NextResidue { get; set; }
 
         [Name("Modifications")]
-        public string Modifications { get; set; }
+        [TypeConverter(typeof(MsPathFinderTPsmStringToModificationsArrayConverter))]
+        public MsPathFinderTModification[] Modifications { get; set; }
 
         [Name("Composition")]
         [TypeConverter(typeof(MsPathFinderTCompositionToChemicalFormulaConverter))]
