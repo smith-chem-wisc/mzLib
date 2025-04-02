@@ -7,11 +7,11 @@ using Proteomics;
 
 namespace Readers
 {
-    public class PsmFromTsv : SpectrumMatchFromTsv, IQuantifiableRecord
+    public class PsmFromTsv : SpectrumMatchFromTsv
     {
         public string ProteinAccession => Accession;
         public string ProteinName => Name;
-        public string PeptideMonoMass => MonoisotopicMassString;
+        public string PeptideMonoMass => MonoisotopicMass;
         public string PeptideDescription => Description;
         public string PreviousAminoAcid => PreviousResidue;
         public string NextAminoAcid => NextResidue;
@@ -125,7 +125,7 @@ namespace Readers
             PrecursorMass = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMass]].Trim(), CultureInfo.InvariantCulture);
             BaseSeq = RemoveParentheses(spl[parsedHeader[SpectrumMatchFromTsvHeader.BaseSequence]].Trim());
             FullSequence = spl[parsedHeader[SpectrumMatchFromTsvHeader.FullSequence]];
-            MonoisotopicMassString = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
+            MonoisotopicMass = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
             Score = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Score]].Trim(), CultureInfo.InvariantCulture);
             DecoyContamTarget = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
             QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValue]].Trim(), CultureInfo.InvariantCulture);
@@ -227,7 +227,7 @@ namespace Readers
                 Accession = psm.ProteinAccession;
                 Name = psm.ProteinName;
                 GeneName = psm.GeneName;
-                MonoisotopicMassString = psm.PeptideMonoMass;
+                MonoisotopicMass = psm.PeptideMonoMass;
                 MassDiffDa = psm.MassDiffDa;
                 MassDiffPpm = psm.MassDiffPpm;
             }
@@ -244,13 +244,13 @@ namespace Readers
 
                 if (psm.PeptideMonoMass.Split("|").Count() == 1)
                 {
-                    MonoisotopicMassString = psm.PeptideMonoMass.Split("|")[0];
+                    MonoisotopicMass = psm.PeptideMonoMass.Split("|")[0];
                     MassDiffDa = psm.MassDiffDa.Split("|")[0];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[0];
                 }
                 else
                 {
-                    MonoisotopicMassString = psm.PeptideMonoMass.Split("|")[index];
+                    MonoisotopicMass = psm.PeptideMonoMass.Split("|")[index];
                     MassDiffDa = psm.MassDiffDa.Split("|")[index];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[index];
                 }
