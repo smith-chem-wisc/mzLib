@@ -18,10 +18,6 @@ namespace FlashLFQ
         public double RtScore { get; set; }
         public double ScanCountScore { get; set; }
         public double IsotopicDistributionScore { get; set; }
-        /// <summary>
-        /// Stores the pearson correlation between the apex isotopic envelope and the theoretical isotopic distribution
-        /// </summary>
-        public double IsotopicPearsonCorrelation { get; set; }
         public double RtPredictionError { get; set; }
         internal double MbrQValue { get; set; }
         public ChromatographicPeakData PepPeakData { get; set; }
