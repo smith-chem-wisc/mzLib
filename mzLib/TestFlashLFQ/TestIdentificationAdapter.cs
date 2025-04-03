@@ -1,5 +1,6 @@
 ﻿using NUnit.Framework;
 using Readers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FlashLFQ;
@@ -175,6 +176,41 @@ namespace Test
             Assert.AreEqual("Gene2", identification2.ProteinGroups.First().GeneName);
             Assert.AreEqual("Organism2", identification2.ProteinGroups.First().Organism);
             Assert.AreEqual(spectraFiles[1], identification2.FileInfo);
+        }
+
+        [Test]
+        public void SpectraFileNotFound()
+        {
+            var quantifiableRecords = new List<IQuantifiableRecord>
+                {
+                    new MockQuantifiableRecord
+                    {
+                        BaseSequence = "BASESEQ",
+                        ModifiedSequence = "MODSEQ",
+                        RetentionTime = 5.0,
+                        MonoisotopicMass = 500.0,
+                        ChargeState = 2,
+                        FileName = "file1.mzML",
+                        ProteinGroupInfos = new List<(string proteinAccessions, string geneName, string organism)>
+                        {
+                            ("P1", "Gene1", "Organism1")
+                        }
+                    }
+                };
+            var quantifiable = new MockQuantifiableResultFile(quantifiableRecords);
+            var spectraFiles = new List<SpectraFileInfo>
+                {
+                    new SpectraFileInfo("file2.mzML", "", 0, 0, 0)
+                };
+
+            try
+            {
+                var result = MzLibExtensions.MakeIdentifications(quantifiable, spectraFiles);
+            }
+            catch (Exception ex)
+            {
+                Assert.AreEqual("Spectra file not found for file name: file1.mzML", ex.Message);
+            }
         }
     }
 

@@ -73,20 +73,14 @@ namespace FlashLFQ
             Dictionary<string, string> allFiles = quantifiable.FileNameToFilePath(fullFilePaths);
 
             // 3. using stringstring dict create a string spectrafileinfo dict where key is same b/w dicts and value fullfilepath is replaced spectrafileinfo obj
-            SpectraFileInfo spectraFile = null;
             foreach (var file in allFiles)
             {
                 string key = file.Key;
                 string filePath = file.Value;
                 // FirstOrDefault matches the 1st elt from spectraFiles w/ specified filePath
                 SpectraFileInfo? matchingSpectraFile = spectraFiles.FirstOrDefault(spectraFileInfo => spectraFileInfo.FullFilePathWithExtension == filePath);
-                if (allSpectraFiles.TryGetValue(key, out var existingSpectraFile))
+                if (!allSpectraFiles.ContainsKey(key))
                 {
-                    spectraFile = existingSpectraFile;
-                }
-                else
-                {
-                    spectraFile = matchingSpectraFile;
                     allSpectraFiles[key] = matchingSpectraFile;
                 }
             }
