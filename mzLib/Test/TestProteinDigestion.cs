@@ -17,7 +17,6 @@ using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using MzLibUtil;
-using System.Runtime.CompilerServices;
 using Omics.BioPolymer;
 using UsefulProteomicsDatabases.DecoyGeneration;
 
@@ -505,13 +504,13 @@ namespace Test
             List<Protein> decoys1 = new();
             foreach (var protein in proteins1.Where(p => p.IsDecoy))
             {
-                decoys1.Add(Protein.ScrambleDecoyProteinSequence(protein, d, pepsToReplace));
+                decoys1.Add(DecoySequenceValidator.ScrambleDecoyBioPolymer(protein, d, pepsToReplace));
             }
             // Scramble every decoy from db2
             List<Protein> decoys2 = new();
             foreach (var protein in proteins2.Where(p => p.IsDecoy))
             {
-                decoys2.Add(Protein.ScrambleDecoyProteinSequence(protein, d, pepsToReplace));
+                decoys2.Add(DecoySequenceValidator.ScrambleDecoyBioPolymer(protein, d, pepsToReplace));
             }
 
             // check are equivalent lists of proteins
@@ -542,14 +541,14 @@ namespace Test
 
             Assert.AreEqual(2, offendingDecoys.Count);
 
-            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy,  d, targetPepSeqs, offendingDecoys);
+            Protein scrambledDecoy = DecoySequenceValidator.ScrambleDecoyBioPolymer(decoy,  d, targetPepSeqs, offendingDecoys);
             var scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
 
             Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
             Assert.IsFalse(scrambledPep.Any(p => offendingDecoys.Contains(p.FullSequence)));
 
             // Check to make sure that decoy generation also works in no offending sequences are passed in
-            scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs);
+            scrambledDecoy = DecoySequenceValidator.ScrambleDecoyBioPolymer(decoy, d, targetPepSeqs);
             scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
 
             Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
@@ -583,7 +582,7 @@ namespace Test
 
             HashSet<string> targetPepSeqs = targetPep.Select(p => p.FullSequence).ToHashSet();
             var offendingDecoys = decoyPep.Where(p => targetPepSeqs.Contains(p.FullSequence)).Select(d => d.FullSequence).ToList();
-            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs, offendingDecoys);
+            Protein scrambledDecoy = DecoySequenceValidator.ScrambleDecoyBioPolymer(decoy, d, targetPepSeqs, offendingDecoys);
 
             var fIndex = scrambledDecoy.BaseSequence.IndexOf("F");
             var gIndex = scrambledDecoy.BaseSequence.IndexOf("G"); // We modified the first residue, so we don't need all locations, just the first
@@ -625,7 +624,7 @@ namespace Test
             HashSet<string> offendingDecoys = new HashSet<string> { "EMK" };
 
             // You can't win in this scenario, there's no way to scramble that results in a different decoy
-            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs.Union(offendingDecoys).ToHashSet(), offendingDecoys);
+            Protein scrambledDecoy = DecoySequenceValidator.ScrambleDecoyBioPolymer(decoy, d, targetPepSeqs.Union(offendingDecoys).ToHashSet(), offendingDecoys);
             var scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
 
             Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
@@ -638,7 +637,7 @@ namespace Test
             offendingDecoys = new HashSet<string> { "KEK" };
 
             var impossibleDecoy = new Protein("KEK", "target"); // This guy could crash the shuffling algorithm
-            scrambledDecoy = Protein.ScrambleDecoyProteinSequence(impossibleDecoy, d, offendingDecoys, offendingDecoys);
+            scrambledDecoy = DecoySequenceValidator.ScrambleDecoyBioPolymer(impossibleDecoy, d, offendingDecoys, offendingDecoys);
 
             Assert.AreEqual("KEK", scrambledDecoy.BaseSequence);
         }
