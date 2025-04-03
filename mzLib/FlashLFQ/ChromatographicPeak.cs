@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
@@ -194,30 +195,30 @@ namespace FlashLFQ
                 sb.Append('\t');
             }
 
-            sb.Append(Identifications.First().MonoisotopicMass.ToString() + '\t');
-            sb.Append(Identifications.First().Ms2RetentionTimeInMinutes + '\t');
-            sb.Append(Identifications.First().PrecursorChargeState + '\t');
-            sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
-            sb.Append(Intensity + "\t");
+            sb.Append(Identifications.First().MonoisotopicMass.ToString(CultureInfo.InvariantCulture) + '\t');
+            sb.Append(DetectionType == DetectionType.MSMS ? Identifications.First().Ms2RetentionTimeInMinutes.ToString(CultureInfo.InvariantCulture) + '\t' : '\t');
+            sb.Append(Identifications.First().PrecursorChargeState.ToString(CultureInfo.InvariantCulture) + '\t');
+            sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState).ToString(CultureInfo.InvariantCulture) + '\t');
+            sb.Append(Intensity.ToString(CultureInfo.InvariantCulture) + "\t");
 
             if (Apex != null)
             {
-                sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime) + "\t");
-                sb.Append(Apex.IndexedPeak.RetentionTime + "\t");
-                sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime) + "\t");
-                sb.Append(Apex.IndexedPeak.Mz + "\t");
-                sb.Append(Apex.ChargeState + "\t");
+                sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(Apex.IndexedPeak.RetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(Apex.IndexedPeak.Mz.ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(Apex.ChargeState.ToString(CultureInfo.InvariantCulture) + "\t");
             }
             else
             {
-                sb.Append("-" + "\t");
+                sb.Append("-" +"\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
             }
 
-            sb.Append(NumChargeStatesObserved + "\t");
+            sb.Append(NumChargeStatesObserved.ToString(CultureInfo.InvariantCulture) + "\t");
 
             // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous and MSMS peaks
             switch (this.DetectionType)
@@ -234,15 +235,15 @@ namespace FlashLFQ
             }
 
             // MBR Exclusive fields
-            sb.Append("\t");
-            sb.Append("\t");
+            sb.Append('\t');
+            sb.Append('\t');
 
-            sb.Append(Identifications.Count + "\t");
-            sb.Append(NumIdentificationsByBaseSeq + "\t");
-            sb.Append(NumIdentificationsByFullSeq + "\t");
-            sb.Append(SplitRT + "\t");
-            sb.Append(MassError + "\t");
-            sb.Append( DecoyPeptide + "\t");
+            sb.Append(Identifications.Count.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(NumIdentificationsByBaseSeq.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(NumIdentificationsByFullSeq.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(SplitRT.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(MassError.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append( DecoyPeptide.ToString(CultureInfo.InvariantCulture) + "\t");
             sb.Append("False"); // Because this isn't an MBR peak, the Random RT Field will always be false
 
             return sb.ToString();

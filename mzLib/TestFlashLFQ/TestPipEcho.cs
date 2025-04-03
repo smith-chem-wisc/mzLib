@@ -80,11 +80,11 @@ namespace Test
             id2.PeakfindingMass = idMass;
             donorId.PeakfindingMass = idMass;
 
-            var peak1 = new ChromatographicPeak(id,  fakeFile);
-            var peak2 = new ChromatographicPeak(id,  fakeFile);
-            var peak3 = new ChromatographicPeak(id2,  fakeFile);
-            var peak4 = new ChromatographicPeak(id,  fakeFile);
-            var donorPeak = new ChromatographicPeak(donorId,  fakeDonorFile);
+            var peak1 = new ChromatographicPeak(id, fakeFile);
+            var peak2 = new ChromatographicPeak(id, fakeFile);
+            var peak3 = new ChromatographicPeak(id2, fakeFile);
+            var peak4 = new ChromatographicPeak(id, fakeFile);
+            var donorPeak = new ChromatographicPeak(donorId, fakeDonorFile);
             var acceptorPeak = new MbrChromatographicPeak(donorId, fakeFile, 1, false);
 
             IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak((idMass + 0.001).ToMz(1), 1.1, 1, 25);

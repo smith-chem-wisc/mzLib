@@ -74,7 +74,7 @@ namespace Test
             IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);
 
             ChromatographicPeak peak_MSMS = new ChromatographicPeak(identification, spectraFileInfo);
-            ChromatographicPeak peak_MBR = new ChromatographicPeak(identification, spectraFileInfo, DetectionType.MBR);
+            MbrChromatographicPeak peak_MBR = new MbrChromatographicPeak(identification, spectraFileInfo, 1, false);
             ChromatographicPeak peak_IsoTecker_MBR = new ChromatographicPeak(identification, spectraFileInfo, DetectionType.IsoTrack_MBR);
             ChromatographicPeak peak_IsoTecker_Amb = new ChromatographicPeak(identification, spectraFileInfo, DetectionType.IsoTrack_Ambiguous);
 
