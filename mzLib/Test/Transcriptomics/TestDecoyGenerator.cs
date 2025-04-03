@@ -12,6 +12,7 @@ using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Chemistry;
+using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test.Transcriptomics
 {

@@ -7,7 +7,7 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Omics;
 
-namespace UsefulProteomicsDatabases
+namespace UsefulProteomicsDatabases.DecoyGeneration
 {
     public static class DecoyProteinGenerator
     {
@@ -433,11 +433,11 @@ namespace UsefulProteomicsDatabases
 
                     if (positiveDirection)
                     {
-                        oldIndex = (oldIndex * -1) - 1;
+                        oldIndex = oldIndex * -1 - 1;
                     }
                     else
                     {
-                        oldIndex = (sequenceLength * 2) - oldIndex - 1;
+                        oldIndex = sequenceLength * 2 - oldIndex - 1;
                     }
                 }
             }
@@ -495,11 +495,11 @@ namespace UsefulProteomicsDatabases
 
                     if (positiveDirection)
                     {
-                        newIndex = (newIndex * -1) - 1;
+                        newIndex = newIndex * -1 - 1;
                     }
                     else
                     {
-                        newIndex = (sequenceLength * 2) - newIndex - 1;
+                        newIndex = sequenceLength * 2 - newIndex - 1;
                     }
                 }
             }

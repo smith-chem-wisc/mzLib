@@ -31,6 +31,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 using NUnit.Framework.Legacy;
 using Omics;
 using Omics.BioPolymer;
+using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test.DatabaseTests
 {

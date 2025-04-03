@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace UsefulProteomicsDatabases
 {

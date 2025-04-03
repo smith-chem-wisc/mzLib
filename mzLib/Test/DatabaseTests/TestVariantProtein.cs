@@ -13,6 +13,7 @@ using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics;
 using Transcriptomics;
+using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test.DatabaseTests
 {

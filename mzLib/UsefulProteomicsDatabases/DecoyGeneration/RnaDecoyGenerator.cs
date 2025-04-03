@@ -13,7 +13,7 @@ using System.Security.Cryptography;
 using Easy.Common.Extensions;
 using Omics.Digestion;
 
-namespace UsefulProteomicsDatabases.Transcriptomics
+namespace UsefulProteomicsDatabases.DecoyGeneration
 {
     /// <summary>
     /// Provides methods for generating decoy nucleic acids from any implementor of <see cref="INucleicAcid"/>.

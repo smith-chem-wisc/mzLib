@@ -1,7 +1,7 @@
 ﻿using Proteomics.ProteolyticDigestion;
 using System;
 
-namespace UsefulProteomicsDatabases
+namespace UsefulProteomicsDatabases.DecoyGeneration
 {
     public enum DecoyType
     {

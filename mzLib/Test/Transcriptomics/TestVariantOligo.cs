@@ -14,6 +14,7 @@ using Omics;
 using Proteomics;
 using NUnit.Framework.Legacy;
 using System.Security.Cryptography;
+using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test.Transcriptomics;
 

@@ -11,6 +11,7 @@ using System.Xml;
 using Chemistry;
 using Transcriptomics;
 using Omics.BioPolymer;
+using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {

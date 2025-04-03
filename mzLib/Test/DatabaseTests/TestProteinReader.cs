@@ -27,6 +27,7 @@ using Omics.Modifications;
 using Proteomics;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test.DatabaseTests
 {

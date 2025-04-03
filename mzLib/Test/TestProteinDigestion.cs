@@ -19,6 +19,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 using MzLibUtil;
 using System.Runtime.CompilerServices;
 using Omics.BioPolymer;
+using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test
 {
