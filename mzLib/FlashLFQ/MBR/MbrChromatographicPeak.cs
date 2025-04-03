@@ -15,7 +15,6 @@ namespace FlashLFQ
         public double PpmScore { get; set; }
         public double IntensityScore { get; set; }
         public double RtScore { get; set; }
-        public int ScanCount { get; set; }
         public double ScanCountScore { get; set; }
         public double IsotopicDistributionScore { get; set; }
         /// <summary>
@@ -58,10 +57,6 @@ namespace FlashLFQ
             }
 
             sb.Append(Identifications.First().MonoisotopicMass + '\t');
-            sb.Append(Identifications.First().Ms2RetentionTimeInMinutes + '\t');
-            sb.Append(Identifications.First().PrecursorChargeState + '\t');
-            sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
-            sb.Append(Intensity + "\t");
             sb.Append('\t'); // No Ms2 ID means no MS2 ID Retention time
             sb.Append(Identifications.First().PrecursorChargeState + '\t');
             sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');

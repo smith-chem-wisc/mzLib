@@ -28,8 +28,8 @@ namespace Test
             SpectraFileInfo fakeFile = new SpectraFileInfo("fakeFile", "A", 1, 1, 1);
             Identification id = new Identification(fakeFile, "KPVGAAK", "KPVGAAK", 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
 
-            ChromatographicPeak targetPeak = new ChromatographicPeak(id, DetectionType.MBR, fakeFile, randomRt: false);
-            ChromatographicPeak decoyPeak = new ChromatographicPeak(id, DetectionType.MBR, fakeFile, randomRt: true);
+            MbrChromatographicPeak targetPeak = new MbrChromatographicPeak(id, fakeFile, 1, randomRt: false);
+            MbrChromatographicPeak decoyPeak = new MbrChromatographicPeak(id, fakeFile, 1, randomRt: true);
             targetPeak.MbrScore = 100;
 
             Random random = new Random(42);
@@ -80,12 +80,12 @@ namespace Test
             id2.PeakfindingMass = idMass;
             donorId.PeakfindingMass = idMass;
 
-            var peak1 = new ChromatographicPeak(id, DetectionType.MSMS, fakeFile, randomRt: false);
-            var peak2 = new ChromatographicPeak(id, DetectionType.MSMS, fakeFile, randomRt: false);
-            var peak3 = new ChromatographicPeak(id2, DetectionType.MSMS, fakeFile, randomRt: false);
-            var peak4 = new ChromatographicPeak(id, DetectionType.MSMS, fakeFile, randomRt: false);
-            var donorPeak = new ChromatographicPeak(donorId, DetectionType.MSMS, fakeDonorFile, randomRt: false);
-            var acceptorPeak = new ChromatographicPeak(donorId, DetectionType.MSMS, fakeFile, randomRt: false);
+            var peak1 = new ChromatographicPeak(id,  fakeFile);
+            var peak2 = new ChromatographicPeak(id,  fakeFile);
+            var peak3 = new ChromatographicPeak(id2,  fakeFile);
+            var peak4 = new ChromatographicPeak(id,  fakeFile);
+            var donorPeak = new ChromatographicPeak(donorId,  fakeDonorFile);
+            var acceptorPeak = new MbrChromatographicPeak(donorId, fakeFile, 1, false);
 
             IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak((idMass + 0.001).ToMz(1), 1.1, 1, 25);
             IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak((idMass - 0.001).ToMz(1), 1, 2, 26);
@@ -138,10 +138,10 @@ namespace Test
             Identification id = new Identification(fakeFile, "KPVGAAK", "KPVGAAK", 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
             Identification id2 = new Identification(fakeFile, "KPVGK", "KPVGK", 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
 
-            var peak1 = new ChromatographicPeak(id, DetectionType.MBR, fakeFile, randomRt: false);
-            var peak2 = new ChromatographicPeak(id, DetectionType.MBR, fakeFile, randomRt: false);
-            var peak3 = new ChromatographicPeak(id2, DetectionType.MBR, fakeFile, randomRt: false);
-            var peak4 = new ChromatographicPeak(id, DetectionType.MBR, fakeFile, randomRt: false);
+            var peak1 = new MbrChromatographicPeak(id,  fakeFile, 1, randomRt: false);
+            var peak2 = new MbrChromatographicPeak(id,  fakeFile, 1, randomRt: false);
+            var peak3 = new MbrChromatographicPeak(id2, fakeFile, 1, randomRt: false);
+            var peak4 = new MbrChromatographicPeak(id, fakeFile, 1, randomRt: false);
 
 
             IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak(1, 1, 1, 25);

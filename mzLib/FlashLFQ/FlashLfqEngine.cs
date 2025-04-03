@@ -1471,6 +1471,7 @@ namespace FlashLFQ
                 // Maybe we're sorting twice when we don't have to but idk if order is preserved using group by
                 mbrPeaks = _results.Peaks[acceptorFile]
                     .Where(peak => peak.DetectionType == DetectionType.MBR)
+                    .Cast<MbrChromatographicPeak>()
                     .GroupBy(peak => peak.Identifications.First())
                     .Select(group => group.OrderBy(peak => peak.MbrPep)
                     .ThenByDescending(peak => peak.MbrScore).First())
@@ -2213,11 +2214,11 @@ namespace FlashLFQ
             ChromatographicPeak acceptorPeak = null;
             if (idsForChrom.Count == 1)
             {
-                acceptorPeak = new ChromatographicPeak(id, detectionType, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1);
+                acceptorPeak = new ChromatographicPeak(id, xic.SpectraFile, detectionType);
             }
             else
             {
-                acceptorPeak = new ChromatographicPeak(idsForChrom, detectionType, xic.SpectraFile, predictedRetentionTime: rtInfo.Item1);
+                acceptorPeak = new ChromatographicPeak(idsForChrom, xic.SpectraFile, detectionType);
             }
 
             IsotopicEnvelope bestEnvelopes = chargeEnvelopes.OrderByDescending(p => p.Intensity).First();

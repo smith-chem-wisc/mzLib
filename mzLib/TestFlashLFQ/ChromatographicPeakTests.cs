@@ -20,7 +20,7 @@ namespace Test
             Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "M[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
 
             // Create a ChromatographicPeak instance
-            ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, DetectionType.MSMS, spectraFileInfo);
+            ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, spectraFileInfo);
 
             IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5);
             IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);
@@ -73,10 +73,10 @@ namespace Test
             IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5);
             IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);
 
-            ChromatographicPeak peak_MSMS = new ChromatographicPeak(identification, DetectionType.MSMS, spectraFileInfo);
-            ChromatographicPeak peak_MBR = new ChromatographicPeak(identification, DetectionType.MBR, spectraFileInfo);
-            ChromatographicPeak peak_IsoTecker_MBR = new ChromatographicPeak(identification, DetectionType.IsoTrack_MBR, spectraFileInfo);
-            ChromatographicPeak peak_IsoTecker_Amb = new ChromatographicPeak(identification, DetectionType.IsoTrack_Ambiguous, spectraFileInfo);
+            ChromatographicPeak peak_MSMS = new ChromatographicPeak(identification, spectraFileInfo);
+            ChromatographicPeak peak_MBR = new ChromatographicPeak(identification, spectraFileInfo, DetectionType.MBR);
+            ChromatographicPeak peak_IsoTecker_MBR = new ChromatographicPeak(identification, spectraFileInfo, DetectionType.IsoTrack_MBR);
+            ChromatographicPeak peak_IsoTecker_Amb = new ChromatographicPeak(identification, spectraFileInfo, DetectionType.IsoTrack_Ambiguous);
 
             peak_MSMS.IsotopicEnvelopes = new List<IsotopicEnvelope>()
             {

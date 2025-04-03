@@ -11,11 +11,12 @@ namespace FlashLFQ
         public double Intensity { get; private set; }
         public IsotopicEnvelope Apex { get; private set; }
         public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
+        public double IsotopicPearsonCorrelation => Apex?.PearsonCorrelation ?? -1;
         public SpectraFileInfo SpectraFileInfo { get; init; }
         public List<IsotopicEnvelope> IsotopicEnvelopes { get; set; }
+        public int ScanCount => IsotopicEnvelopes.Count;
         public double SplitRT { get; set; }
         public List<int> ChargeList { get; set; }
-        public bool IsMbrPeak { get; init; }
         public DetectionType DetectionType { get; set; }
         public List<Identification> Identifications { get; private set; }
         public int NumChargeStatesObserved { get; private set; }
@@ -34,7 +35,7 @@ namespace FlashLFQ
         /// <param name="isMbrPeak"></param>
         /// <param name="fileInfo"></param>
         /// <param name="randomRt"></param>
-        public ChromatographicPeak(List<Identification> ids, SpectraFileInfo fileInfo, DetectionType detectionType = DetectionType.Imputed)
+        public ChromatographicPeak(List<Identification> ids, SpectraFileInfo fileInfo, DetectionType detectionType)
         { 
             SplitRT = 0;
             NumChargeStatesObserved = 0;
@@ -45,7 +46,6 @@ namespace FlashLFQ
             ResolveIdentifications();
             IsotopicEnvelopes = new List<IsotopicEnvelope>();
             SpectraFileInfo = fileInfo;
-
         }
 
         public bool Equals(ChromatographicPeak peak)
@@ -194,7 +194,7 @@ namespace FlashLFQ
                 sb.Append('\t');
             }
 
-            sb.Append(Identifications.First().MonoisotopicMass + '\t');
+            sb.Append(Identifications.First().MonoisotopicMass.ToString() + '\t');
             sb.Append(Identifications.First().Ms2RetentionTimeInMinutes + '\t');
             sb.Append(Identifications.First().PrecursorChargeState + '\t');
             sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
