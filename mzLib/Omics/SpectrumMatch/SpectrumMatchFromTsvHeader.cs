@@ -1,15 +1,9 @@
 ﻿namespace Omics.SpectrumMatch
 {
-    //for glcyo
-    public enum LocalizationLevel
-    {
-        Level1,
-        Level1b,
-        Level2,
-        Level3
-    }
     public class SpectrumMatchFromTsvHeader
     {
+        public static readonly string[] AcceptedSpectraFormats = { ".raw", ".mzML", ".mgf", ".d" };
+
         // File and scan information
         public const string FileName = "File Name";
         public const string Ms2ScanNumber = "Scan Number";
@@ -28,6 +22,7 @@
         public const string BaseSequence = "Base Sequence";
         public const string FullSequence = "Full Sequence";
         public const string EssentialSequence = "Essential Sequence";
+        public const string UniqueSequence = "Unique Sequence"; //Used for crosslinked peptides
         public const string AmbiguityLevel = "Ambiguity Level";
         public const string SpectrumMatchCount = "Spectrum Match Count";
         public const string Mods = "Mods";
