@@ -1,6 +1,5 @@
 ﻿using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using Proteomics.PSM;
 using System;
 using System.Collections.Generic;
 using System.IO;

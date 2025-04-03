@@ -1,4 +1,4 @@
-﻿namespace Omics.SpectrumMatch
+﻿namespace Readers
 {
     public class SpectrumMatchFromTsvHeader
     {
