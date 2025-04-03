@@ -80,18 +80,14 @@ namespace FlashLFQ
                 string filePath = file.Value;
                 // FirstOrDefault matches the 1st elt from spectraFiles w/ specified filePath
                 SpectraFileInfo? matchingSpectraFile = spectraFiles.FirstOrDefault(spectraFileInfo => spectraFileInfo.FullFilePathWithExtension == filePath);
-
-                if (matchingSpectraFile != null)
+                if (allSpectraFiles.TryGetValue(key, out var existingSpectraFile))
                 {
-                    if (allSpectraFiles.TryGetValue(key, out var existingSpectraFile))
-                    {
-                        spectraFile = existingSpectraFile;
-                    }
-                    else
-                    {
-                        spectraFile = matchingSpectraFile;
-                        allSpectraFiles[key] = matchingSpectraFile;
-                    }
+                    spectraFile = existingSpectraFile;
+                }
+                else
+                {
+                    spectraFile = matchingSpectraFile;
+                    allSpectraFiles[key] = matchingSpectraFile;
                 }
             }
 
