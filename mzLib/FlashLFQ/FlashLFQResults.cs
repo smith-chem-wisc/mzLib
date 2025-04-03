@@ -145,7 +145,7 @@ namespace FlashLFQ
                 var groupedPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq == 1)
                     .Where(p => !p.Identifications.First().IsDecoy)
-                    .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
+                    .Where(p => p.DetectionType != DetectionType.MBR || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .GroupBy(p => p.Identifications.First().ModifiedSequence)
                     .Where(group => _peptideModifiedSequencesToQuantify.Contains(group.Key))
                     .ToDictionary(p => p.Key, p => p.ToList());
@@ -157,15 +157,15 @@ namespace FlashLFQ
                     ChromatographicPeak bestPeak = sequenceWithPeaks.Value.First(p => p.Intensity == intensity);
                     DetectionType detectionType;
 
-                    if (bestPeak.IsMbrPeak && intensity > 0)
+                    if (bestPeak.DetectionType == DetectionType.MBR && intensity > 0)
                     {
                         detectionType = DetectionType.MBR;
                     }
-                    else if (!bestPeak.IsMbrPeak && intensity > 0)
+                    else if (bestPeak.DetectionType != DetectionType.MBR && intensity > 0)
                     {
                         detectionType = DetectionType.MSMS;
                     }
-                    else if (!bestPeak.IsMbrPeak && intensity == 0)
+                    else if (bestPeak.DetectionType != DetectionType.MBR && intensity == 0)
                     {
                         detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
                     }
@@ -183,7 +183,7 @@ namespace FlashLFQ
                 var ambiguousPeaks = filePeaks.Value
                     .Where(p => p.NumIdentificationsByFullSeq > 1)
                     .Where(p => !p.Identifications.First().IsDecoy)
-                    .Where(p => !p.IsMbrPeak || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
+                    .Where(p => p.DetectionType != DetectionType.MBR || (p.MbrQValue < MbrQValueThreshold && !p.RandomRt))
                     .ToList();
                 foreach (ChromatographicPeak ambiguousPeak in ambiguousPeaks)
                 {
@@ -255,7 +255,7 @@ namespace FlashLFQ
 
                     foreach (SpectraFileInfo file in sample)
                     {
-                        foreach (ChromatographicPeak peak in Peaks[file].Where(p => !p.IsMbrPeak || p.MbrQValue < MbrQValueThreshold))
+                        foreach (ChromatographicPeak peak in Peaks[file].Where(p => p.DetectionType != DetectionType.MBR || p.MbrQValue < MbrQValueThreshold))
                         {
                             foreach (Identification id in peak.Identifications)
                             {
