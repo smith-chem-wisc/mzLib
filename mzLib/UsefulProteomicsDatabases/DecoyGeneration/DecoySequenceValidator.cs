@@ -34,20 +34,26 @@ public static class DecoySequenceValidator
         var digested = originalDecoy
             .Digest(digestionParams, new List<Modification>(), new List<Modification>())
             .Select(pep => pep.FullSequence)
-            .ToList();
+            .ToHashSet();
 
-        sequencesToScramble ??= digested.Where(forbiddenSequences.Contains);
+        HashSet<string> toScramble = sequencesToScramble?.ToHashSet() ?? digested.Where(forbiddenSequences.Contains).ToHashSet();
 
-        if (originalDecoy is NucleicAcid nuc)
+        // if it's a nucleic acid, we need to check for palindromic sequences and scramble those
+        if (originalDecoy is NucleicAcid)
         {
-            // Check to see if the sequence is palindromic
-            // If it is, we need to scramble the sequence in a way that removes the palindromic nature
-
-
+            // If the sequence is palindromic, and not in the sequencesToScramble, we need to scramble it
+            foreach (var sequenceToInvestigate in digested.Except(toScramble))
+            {
+                // Check if the sequence is palindromic
+                if (IsPalindromic(sequenceToInvestigate, out int degreeOfPalindromicity, 3)) // 3 chosen as a magic number to ensure the first 3 terminal ions have unique mass, this should be refined with experimental evidence
+                {
+                    // If it is, we need to scramble it
+                    toScramble.Add(sequenceToInvestigate);
+                }
+            }
         }
 
-
-        if (!sequencesToScramble.Any())
+        if (!toScramble.Any())
             return originalDecoy;
 
         string scrambledSequence = originalDecoy.BaseSequence;
@@ -55,10 +61,9 @@ public static class DecoySequenceValidator
         // Clone the original protein's modifications
         var scrambledModificationDictionary = originalDecoy.OriginalNonVariantModifications.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
-
         // Start small and then go big. If we scramble a zero-missed cleavage peptide, but the missed cleavage peptide contains the previously scrambled peptide
         // Then we can avoid unnecessary operations as the scrambledSequence will no longer contain the longer sequence of the missed cleavage peptide
-        foreach (string peptideSequence in sequencesToScramble.OrderBy(seq => seq.Length))
+        foreach (string peptideSequence in toScramble.OrderBy(seq => seq.Length))
         {
             if (scrambledSequence.Contains(peptideSequence))
             {
@@ -67,7 +72,8 @@ public static class DecoySequenceValidator
                 int scrambleAttempts = 1;
 
                 // Try five times to scramble the peptide sequence without creating a forbidden sequence
-                while (forbiddenSequences.Contains(scrambledPeptideSequence) & scrambleAttempts <= 5)
+                while ((forbiddenSequences.Contains(scrambledPeptideSequence) || (originalDecoy is NucleicAcid && IsPalindromic(scrambledPeptideSequence, out _, 3))) 
+                    & scrambleAttempts <= 5)
                 {
                     scrambledPeptideSequence = ScrambleSequence(peptideSequence, digestionParams.DigestionAgent.DigestionMotifs, random,
                         out swappedArray);
