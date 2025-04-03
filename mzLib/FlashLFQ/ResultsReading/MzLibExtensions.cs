@@ -8,12 +8,12 @@ namespace FlashLFQ
         /// <summary>
         /// Makes a list of identification objects usable by FlashLFQ from an IQuantifiableResultFile
         /// </summary>
-        public static List<Identification> MakeIdentifications(this IQuantifiableResultFile quantifiable)
+        public static List<Identification> MakeIdentifications(this IQuantifiableResultFile quantifiable, List<SpectraFileInfo> spectraFiles)
         {
             IEnumerable<IQuantifiableRecord> quantifiableRecords = quantifiable.GetQuantifiableResults();
             List<Identification> identifications = new List<Identification>();
             Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
-            Dictionary<string, SpectraFileInfo> allFiles = new Dictionary<string, SpectraFileInfo>();
+            Dictionary<string, SpectraFileInfo> allSpectraFiles = MakeSpectraFileDict(quantifiable, spectraFiles);
 
             foreach (var record in quantifiableRecords)
             {
@@ -23,16 +23,14 @@ namespace FlashLFQ
                 double monoisotopicMass = record.MonoisotopicMass;
                 int precursurChargeState = record.ChargeState;
 
-                SpectraFileInfo file = null;
-                if (allFiles.TryGetValue(record.FileName, out var fileInfo))
+                // Get the spectra file info from the dictionary using the file name
+                if (!allSpectraFiles.TryGetValue(record.FileName, out var spectraFile))
                 {
-                    // placeholder values for SpectraFileInfo that will be edited later
-                    file = new SpectraFileInfo(record.FileName, "", 1, 1, 1);
+                    throw new Exception($"Spectra file not found for file name: {record.FileName}");
                 }
                 else
                 {
-                    file = new SpectraFileInfo(record.FileName, "", 1, 1, 1);
-                    allFiles.Add(record.FileName, fileInfo);
+                    spectraFile = allSpectraFiles[record.FileName];
                 }
 
                 List<ProteinGroup> proteinGroups = new();
@@ -48,12 +46,41 @@ namespace FlashLFQ
                         proteinGroups.Add(allProteinGroups[info.proteinAccessions]);
                     }
                 }
-                Identification id = new Identification(file, baseSequence, modifiedSequence, monoisotopicMass, ms2RetentionTimeInMinutes, precursurChargeState, proteinGroups);
+                Identification id = new Identification(spectraFile, baseSequence, modifiedSequence, monoisotopicMass, ms2RetentionTimeInMinutes, precursurChargeState, proteinGroups);
                 identifications.Add(id);
-
             }
 
             return identifications;
+        }
+
+        private static Dictionary<string, SpectraFileInfo> MakeSpectraFileDict(this IQuantifiableResultFile quantifiable, List<SpectraFileInfo> spectraFiles)
+        {
+            Dictionary<string, SpectraFileInfo> allSpectraFiles = new Dictionary<string, SpectraFileInfo>();
+
+            // 1. from list of SFIs create a list of strings that contains each full file path w/ extension
+            List<string> fullFilePaths = new List<string>();
+            foreach (SpectraFileInfo spectraFileInfo in spectraFiles)
+            {
+                fullFilePaths.Add(spectraFileInfo.FullFilePathWithExtension);
+            }
+
+            // 2. call quantifiableresultfile.filenametofilepath and get stringstring dict
+            Dictionary<string, string> allFiles = quantifiable.FileNameToFilePath(fullFilePaths);
+
+            // 3. using stringstring dict create a string spectrafileinfo dict where key is same b/w dicts and value fullfilepath is replaced spectrafileinfo obj
+            foreach (var file in allFiles)
+            {
+                string key = file.Key;
+                string filePath = file.Value;
+                // FirstOrDefault matches the 1st elt from spectraFiles w/ specified filePath
+                SpectraFileInfo? matchingSpectraFile = spectraFiles.FirstOrDefault(spectraFileInfo => spectraFileInfo.FullFilePathWithExtension == filePath);
+                if (!allSpectraFiles.ContainsKey(key))
+                {
+                    allSpectraFiles[key] = matchingSpectraFile;
+                }
+            }
+
+            return allSpectraFiles;
         }
     }
 }

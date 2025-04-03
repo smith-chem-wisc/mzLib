@@ -1,4 +1,7 @@
-﻿namespace Readers
+﻿using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("TestFlashLFQ")]// Allow access to internal members for testing
+namespace Readers
 {
     /// <summary>
     /// Abstract product interface for all result files that can be read through factory methods
@@ -20,7 +23,6 @@
         /// </summary>
         /// <param name="outputPath">destination path</param>
         public void WriteResults(string outputPath);
-
 
     }
 }
