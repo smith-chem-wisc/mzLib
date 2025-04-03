@@ -6,6 +6,7 @@ using Omics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Transcriptomics;
 
 namespace UsefulProteomicsDatabases.DecoyGeneration;
 
@@ -23,17 +24,28 @@ public static class DecoySequenceValidator
     /// <param name="sequencesToScramble"> Optional IEnumberable of sequences within the decoy protein that need to be replaced.
     ///                                     If this is passed, only sequences within the IEnumerable will be replaced!!! </param>
     /// <returns> A cloned copy of the decoy protein with a scrambled sequence </returns>
-    public static T ScrambleDecoyBioPolymer<T>(T originalDecoy, IDigestionParams digestionParams,
-        HashSet<string> forbiddenSequences, IEnumerable<string>? sequencesToScramble = null) where T : IBioPolymer
+    public static TBioPolymer ScrambleDecoyBioPolymer<TBioPolymer>(TBioPolymer originalDecoy, IDigestionParams digestionParams,
+        HashSet<string> forbiddenSequences, IEnumerable<string>? sequencesToScramble = null) where TBioPolymer : IBioPolymer
     {
         var random = new Random(42);
 
         // If no sequencesToScramble are passed in, we check to see if any 
         // peptides in the decoy are forbidden sequences
-        sequencesToScramble ??= originalDecoy
+        var digested = originalDecoy
             .Digest(digestionParams, new List<Modification>(), new List<Modification>())
             .Select(pep => pep.FullSequence)
-            .Where(forbiddenSequences.Contains);
+            .ToList();
+
+        sequencesToScramble ??= digested.Where(forbiddenSequences.Contains);
+
+        if (originalDecoy is NucleicAcid nuc)
+        {
+            // Check to see if the sequence is palindromic
+            // If it is, we need to scramble the sequence in a way that removes the palindromic nature
+
+
+        }
+
 
         if (!sequencesToScramble.Any())
             return originalDecoy;
@@ -95,7 +107,7 @@ public static class DecoySequenceValidator
         }
 
         IBioPolymer newDecoy = originalDecoy.CloneWithNewSequenceAndMods(scrambledSequence, scrambledModificationDictionary);
-        return (T)newDecoy;
+        return (TBioPolymer)newDecoy;
     }
 
     /// <summary>
@@ -159,5 +171,46 @@ public static class DecoySequenceValidator
         }
 
         return new string(sequenceArray);
+    }
+
+    /// <summary>
+    /// Determines if a string is palindromic and calculates the degree of palindromicity.
+    /// </summary>
+    /// <param name="input">The input string to check.</param>
+    /// <param name="degreeOfPalindromicity">The number of palindromic characters.</param>
+    /// <param name="degreeCutoff">Number of palindromic residues required to return true, ABCDA counts as 1, ABCDBA counts as 2, and ABCBA counts as 3 </param>
+    /// <returns>True if the string is palindromic, otherwise false.</returns>
+    public static bool IsPalindromic(string input, out int degreeOfPalindromicity, int? degreeCutoff = null )
+    {
+        degreeOfPalindromicity = 0;
+        if (string.IsNullOrEmpty(input))
+        {
+            return false;
+        }
+
+        // if null, cutoff will ensure only fully palindromic sequences are returned as true
+        degreeCutoff ??= (input.Length + 1) / 2;
+
+        int left = 0;
+        int right = input.Length - 1;
+
+        while (left <= right)
+        {
+            char leftChar = input[left];
+            char rightChar = input[right];
+            if (leftChar == rightChar)
+            {
+                degreeOfPalindromicity++;
+            }
+            else
+            {
+                break;
+            }
+
+            left++;
+            right--;
+        }
+
+        return degreeOfPalindromicity >= degreeCutoff;
     }
 }
