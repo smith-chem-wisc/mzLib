@@ -1,8 +1,6 @@
 ﻿using Omics.Modifications;
-using System.CodeDom;
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Reflection.PortableExecutable;
 using UsefulProteomicsDatabases;
 
 namespace Readers;
@@ -11,6 +9,7 @@ public interface ILocalizedModification
 {
     public string Name { get; }
     public int OneBasedLocalization { get; }
+    // The residue which the modification is attached: This may need to be reworked for glyco modifications as they have a complex motiff instead of a single residue 
     public char ModifiedResidue { get; }
     public double MonoisotopicMass { get; }
 }
@@ -56,13 +55,13 @@ public static class ModificationExtensions
     {
         var mmMod = mod.GetClosestMod(allKnownMods);
 
-        string category = mmMod.ModificationType switch
+        string category = mmMod.ModificationType.ToLower() switch
         {
-            "Unimod" when mmMod.OriginalId.Contains("Carbamido") => "Common Fixed",
-            "Unimod" when mmMod.OriginalId.Contains("Oxidation") => "Common Variable",
-            "Unimod" when mmMod.OriginalId.Contains("Phosphoryl") => "Common Biological",
-            "Unimod" when mmMod.OriginalId.Contains("Acetyl") => "Common Biological",
-            "Unimod" when mmMod.OriginalId.Contains("Methy") => "Common Biological",
+            "unimod" when mmMod.OriginalId.Contains("Carbamido") => "Common Fixed",
+            "unimod" when mmMod.OriginalId.Contains("Oxidation") => "Common Variable",
+            "unimod" when mmMod.OriginalId.Contains("Phosphoryl") => "Common Biological",
+            "unimod" when mmMod.OriginalId.Contains("Acetyl") => "Common Biological",
+            "unimod" when mmMod.OriginalId.Contains("Methy") => "Common Biological",
             _ => mmMod.ModificationType
         };
 
