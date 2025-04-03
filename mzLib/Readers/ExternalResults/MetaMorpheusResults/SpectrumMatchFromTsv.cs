@@ -4,8 +4,9 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Chemistry;
 using Omics.Fragmentation.Peptide;
+using Omics.SpectrumMatch;
 
-namespace Omics.SpectrumMatch
+namespace Readers
 {
     public abstract class SpectrumMatchFromTsv
     {
@@ -383,7 +384,7 @@ namespace Omics.SpectrumMatch
                             TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
                         else
-                            Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                            Omics.Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
 
 
