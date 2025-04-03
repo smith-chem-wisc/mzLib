@@ -101,7 +101,7 @@ namespace Test.Transcriptomics
             }
             Assert.That(rna.NucleicAcidArray.SequenceEqual(nucList.ToArray()));
 
-            var rna2 = new RNA(sequence, NucleicAcid.DefaultFivePrimeTerminus, NucleicAcid.DefaultThreePrimeTerminus);
+            var rna2 = new RNA(sequence, fivePrimeTerm: NucleicAcid.DefaultFivePrimeTerminus, threePrimeTerm: NucleicAcid.DefaultThreePrimeTerminus);
 
             Assert.That(rna2.Length, Is.EqualTo(sequence.Length));
             Assert.That(rna2.MonoisotopicMass, Is.EqualTo(monoMass).Within(0.01));

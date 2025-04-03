@@ -110,7 +110,7 @@ namespace Transcriptomics.Digestion
             {
                 if (_thisChemicalFormula is not null) return _thisChemicalFormula!;
 
-                var fullFormula = new RNA(BaseSequence, FivePrimeTerminus, ThreePrimeTerminus).GetChemicalFormula();
+                var fullFormula = new RNA(BaseSequence, fivePrimeTerm: FivePrimeTerminus, threePrimeTerm: ThreePrimeTerminus).GetChemicalFormula();
                 foreach (var mod in AllModsOneIsNterminus.Values)
                 {
                     if (mod.ChemicalFormula is null)

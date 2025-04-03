@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Proteomics
+namespace Omics.BioPolymer
 {
     public class SequenceVariantDescription
     {

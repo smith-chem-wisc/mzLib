@@ -1,8 +1,8 @@
-﻿namespace Proteomics
+﻿namespace Omics.BioPolymer
 {
-    public class ProteolysisProduct
+    public class TruncationProduct
     {
-        public ProteolysisProduct(int? oneBasedBeginPosition, int? oneBasedEndPosition, string type)
+        public TruncationProduct(int? oneBasedBeginPosition, int? oneBasedEndPosition, string type)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
@@ -15,7 +15,7 @@
 
         public override bool Equals(object obj)
         {
-            ProteolysisProduct pp = obj as ProteolysisProduct;
+            TruncationProduct pp = obj as TruncationProduct;
             return pp != null
                 && pp.OneBasedBeginPosition.Equals(OneBasedBeginPosition)
                 && pp.OneBasedEndPosition.Equals(OneBasedEndPosition)
