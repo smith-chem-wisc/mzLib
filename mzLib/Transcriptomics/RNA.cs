@@ -54,8 +54,8 @@ namespace Transcriptomics
                   [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants, 
                   VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants))
         {
-            NonVariant = original.NonVariant;
-            OriginalNonVariantModifications = NonVariant.OriginalNonVariantModifications;
+            ConsensusVariant = original.ConsensusVariant;
+            OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
             AppliedSequenceVariations = (appliedSequenceVariants ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }

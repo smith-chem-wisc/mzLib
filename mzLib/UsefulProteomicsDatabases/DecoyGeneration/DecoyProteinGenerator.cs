@@ -56,10 +56,10 @@ namespace UsefulProteomicsDatabases.DecoyGeneration
 
                 // reverse nonvariant sequence
                 // Do not include the initiator methionine in reversal!!!
-                char[] nonVariantSequenceArray = protein.NonVariant.BaseSequence.ToCharArray();
-                if (protein.NonVariant.BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                char[] nonVariantSequenceArray = protein.ConsensusVariant.BaseSequence.ToCharArray();
+                if (protein.ConsensusVariant.BaseSequence.StartsWith("M", StringComparison.Ordinal))
                 {
-                    Array.Reverse(nonVariantSequenceArray, 1, protein.NonVariant.BaseSequence.Length - 1);
+                    Array.Reverse(nonVariantSequenceArray, 1, protein.ConsensusVariant.BaseSequence.Length - 1);
                 }
                 else
                 {
@@ -149,7 +149,7 @@ namespace UsefulProteomicsDatabases.DecoyGeneration
                     }
                 }
 
-                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.NonVariant, reversedNonVariantSequence);
+                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.ConsensusVariant, reversedNonVariantSequence);
                 List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(protein.AppliedSequenceVariations, protein, reversedSequence);
 
                 var decoyProtein = new Protein(

@@ -47,7 +47,7 @@ namespace Transcriptomics
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
         {
-            NonVariant = this;
+            ConsensusVariant = this;
             MonoisotopicMass = 0;
             _nucleicAcids = new Nucleotide[sequence.Length];
             ThreePrimeTerminus = threePrimeTerm ?? DefaultThreePrimeTerminus;
@@ -240,7 +240,7 @@ namespace Transcriptomics
 
         #region Sequence Variants
 
-        public IBioPolymer NonVariant { get; init; }
+        public IBioPolymer ConsensusVariant { get; init; }
 
         /// <summary>
         /// Sequence Variants as defined in the parsed XML database

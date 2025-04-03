@@ -43,7 +43,7 @@ namespace Omics.BioPolymer
         /// </summary>
         public static string GetAccession(IHasSequenceVariants protein, IEnumerable<SequenceVariation>? appliedSequenceVariations)
         {
-            return protein.NonVariant.Accession +
+            return protein.ConsensusVariant.Accession +
                    (appliedSequenceVariations.IsNullOrEmpty() ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
         }
 
@@ -227,7 +227,7 @@ namespace Omics.BioPolymer
             if (intersectsAppliedRegionIncompletely)
             {
                 // use original protein sequence for the remaining sequence
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.NonVariant.BaseSequence.Substring(afterIdx);
+                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
             }
             else
             {
@@ -316,7 +316,7 @@ namespace Omics.BioPolymer
                 }
                 // proteolysis product straddles the variant, but the cleavage site(s) are still intact; the ends aren't considered cleavage sites
                 else if ((p.OneBasedBeginPosition < variant.OneBasedBeginPosition || p.OneBasedBeginPosition == 1 || p.OneBasedBeginPosition == 2)
-                         && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.NonVariant.BaseSequence.Length))
+                         && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.ConsensusVariant.BaseSequence.Length))
                 {
                     if (variant.VariantSequence.EndsWith("*"))
                     {

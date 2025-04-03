@@ -30,7 +30,7 @@ public interface IHasSequenceVariants
     /// <summary>
     /// Original BioPolymer used to construct all sequence variants. 
     /// </summary>
-    IBioPolymer NonVariant { get; }
+    IBioPolymer ConsensusVariant { get; }
 
     /// <summary>
     /// Sequence Variants from the database that are represented in this IHasSequenceVariants Base Sequence

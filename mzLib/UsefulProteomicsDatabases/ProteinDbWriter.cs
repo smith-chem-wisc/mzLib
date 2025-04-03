@@ -54,7 +54,7 @@ namespace UsefulProteomicsDatabases
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             
             // write nonvariant rna (for cases where variants aren't applied, this just gets the protein itself)
-            var nonVariantRna = nucleicAcidList.Select(p => p.NonVariant).Distinct().ToList();
+            var nonVariantRna = nucleicAcidList.Select(p => p.ConsensusVariant).Distinct().ToList();
 
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -287,7 +287,7 @@ namespace UsefulProteomicsDatabases
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
-            var nonVariantProteins = proteinList.Select(p => p.NonVariant).Distinct().ToList();
+            var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
 
             var xmlWriterSettings = new XmlWriterSettings
             {
