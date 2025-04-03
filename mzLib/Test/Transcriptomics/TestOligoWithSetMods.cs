@@ -128,11 +128,11 @@ namespace Test.Transcriptomics
         {
             var digestionParams = new RnaDigestionParams(rnase: enzyme, minLength: 1, maxMissedCleavages: 0);
 
-            var oligo1 = new RNA(sequence1, "", "rna1", "", "")
+             var oligo1 = new RNA(sequence1,"rna1")
                 .Digest(digestionParams, [], [])
                 .First();
 
-            var oligo2 = new RNA(sequence2, "", "rna3", "", "")
+            var oligo2 = new RNA(sequence2, "rna3")
                 .Digest(digestionParams, [], [])
                 .First();
 

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using Chemistry;
 using Transcriptomics;
+using Omics.BioPolymer;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -143,9 +144,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
                         // Do we need to sanitize the sequence? 
 
-                        RNA rna = new RNA(sequence, name, identifier, organism, rnaDbLocation,
-                            fivePrimeTerm, threePrimeTerm, null,
-                            isContaminant, false, null, additonalDatabaseFields);
+                        RNA rna = new RNA(sequence, identifier,
+                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: false, geneNames: null, databaseAdditionalFields: additonalDatabaseFields);
                         if (rna.Length == 0)
                             errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
                         else
@@ -196,6 +196,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, IEnumerable<Modification> allKnownModifications,
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
             int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             string decoyIdentifier = "DECOY")
         {
@@ -256,7 +257,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
             List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.ToList();
+            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
         }
     }
 }

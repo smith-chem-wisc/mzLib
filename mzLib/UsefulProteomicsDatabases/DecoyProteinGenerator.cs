@@ -3,7 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Omics.BioPolymer;
 using Omics.Modifications;
+using Omics;
 
 namespace UsefulProteomicsDatabases
 {
@@ -54,10 +56,10 @@ namespace UsefulProteomicsDatabases
 
                 // reverse nonvariant sequence
                 // Do not include the initiator methionine in reversal!!!
-                char[] nonVariantSequenceArray = protein.NonVariantProtein.BaseSequence.ToCharArray();
-                if (protein.NonVariantProtein.BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                char[] nonVariantSequenceArray = protein.ConsensusVariant.BaseSequence.ToCharArray();
+                if (protein.ConsensusVariant.BaseSequence.StartsWith("M", StringComparison.Ordinal))
                 {
-                    Array.Reverse(nonVariantSequenceArray, 1, protein.NonVariantProtein.BaseSequence.Length - 1);
+                    Array.Reverse(nonVariantSequenceArray, 1, protein.ConsensusVariant.BaseSequence.Length - 1);
                 }
                 else
                 {
@@ -92,17 +94,17 @@ namespace UsefulProteomicsDatabases
                 }
 
                 // reverse proteolysis products
-                List<ProteolysisProduct> decoyPP = new List<ProteolysisProduct>();
-                foreach (ProteolysisProduct pp in protein.ProteolysisProducts)
+                List<TruncationProduct> decoyPP = new List<TruncationProduct>();
+                foreach (TruncationProduct pp in protein.TruncationProducts)
                 {
                     // maintain lengths and approx position
                     if (startsWithM)
                     {
-                        decoyPP.Add(new ProteolysisProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"{decoyIdentifier} {pp.Type}"));
+                        decoyPP.Add(new TruncationProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"{decoyIdentifier} {pp.Type}"));
                     }
                     else
                     {
-                        decoyPP.Add(new ProteolysisProduct(protein.BaseSequence.Length - pp.OneBasedEndPosition + 1, protein.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"{decoyIdentifier} {pp.Type}"));
+                        decoyPP.Add(new TruncationProduct(protein.BaseSequence.Length - pp.OneBasedEndPosition + 1, protein.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"{decoyIdentifier} {pp.Type}"));
                     }
                 }
 
@@ -147,7 +149,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.NonVariantProtein, reversedNonVariantSequence);
+                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.ConsensusVariant, reversedNonVariantSequence);
                 List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(protein.AppliedSequenceVariations, protein, reversedSequence);
 
                 var decoyProtein = new Protein(
@@ -175,7 +177,7 @@ namespace UsefulProteomicsDatabases
             return decoyProteins;
         }
 
-        private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, Protein protein, string reversedSequence, string decoyIdentifier = "DECOY")
+        private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, IBioPolymer protein, string reversedSequence, string decoyIdentifier = "DECOY")
         {
             List<SequenceVariation> decoyVariations = new List<SequenceVariation>();
             foreach (SequenceVariation sv in forwardVariants)
@@ -285,8 +287,8 @@ namespace UsefulProteomicsDatabases
 
                 var slided_sequence = new string(sequenceArraySlided);
 
-                List<ProteolysisProduct> decoyPPSlide = new List<ProteolysisProduct>();
-                foreach (ProteolysisProduct pp in protein.ProteolysisProducts)  //can't keep all aa like you can with reverse, just keep it the same length
+                List<TruncationProduct> decoyPPSlide = new List<TruncationProduct>();
+                foreach (TruncationProduct pp in protein.TruncationProducts)  //can't keep all aa like you can with reverse, just keep it the same length
                 {
                     decoyPPSlide.Add(pp);
                 }

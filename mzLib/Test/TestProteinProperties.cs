@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Omics;
+using Omics.BioPolymer;
 using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Transcriptomics;
@@ -149,13 +150,13 @@ namespace Test
         [Test]
         public void TestHashAndEqualsProteolysis()
         {
-            ProteolysisProduct pp1 = new ProteolysisProduct(1, 2, "type");
-            ProteolysisProduct pp11 = new ProteolysisProduct(1, 2, "type");
-            ProteolysisProduct pp2 = new ProteolysisProduct(1, 2, null);
-            ProteolysisProduct pp3 = new ProteolysisProduct(1, null, "type");
-            ProteolysisProduct pp4 = new ProteolysisProduct(null, 2, "type");
-            ProteolysisProduct pp5 = new ProteolysisProduct(1, 1, "type");
-            ProteolysisProduct pp6 = new ProteolysisProduct(2, 2, "type");
+            TruncationProduct pp1 = new TruncationProduct(1, 2, "type");
+            TruncationProduct pp11 = new TruncationProduct(1, 2, "type");
+            TruncationProduct pp2 = new TruncationProduct(1, 2, null);
+            TruncationProduct pp3 = new TruncationProduct(1, null, "type");
+            TruncationProduct pp4 = new TruncationProduct(null, 2, "type");
+            TruncationProduct pp5 = new TruncationProduct(1, 1, "type");
+            TruncationProduct pp6 = new TruncationProduct(2, 2, "type");
             Assert.AreEqual(pp1, pp11);
             Assert.AreNotEqual(pp1, pp2);
             Assert.AreNotEqual(pp1, pp3);
@@ -206,18 +207,18 @@ namespace Test
             Assert.AreNotEqual(baaa, bbb);
             Assert.AreEqual(5, new HashSet<DisulfideBond> { b, bb, bbb, bbbb, ba, baa, baaa }.Count);
 
-            ProteolysisProduct pp = new ProteolysisProduct(1, 1, "hello");
-            ProteolysisProduct paaa = new ProteolysisProduct(1, 1, "hello");
-            ProteolysisProduct p = new ProteolysisProduct(null, null, "hello");
-            ProteolysisProduct ppp = new ProteolysisProduct(1, 2, "hello");
-            ProteolysisProduct pa = new ProteolysisProduct(2, 1, "hello");
-            ProteolysisProduct paa = new ProteolysisProduct(1, 1, "hallo");
+            TruncationProduct pp = new TruncationProduct(1, 1, "hello");
+            TruncationProduct paaa = new TruncationProduct(1, 1, "hello");
+            TruncationProduct p = new TruncationProduct(null, null, "hello");
+            TruncationProduct ppp = new TruncationProduct(1, 2, "hello");
+            TruncationProduct pa = new TruncationProduct(2, 1, "hello");
+            TruncationProduct paa = new TruncationProduct(1, 1, "hallo");
             Assert.AreEqual(pp, paaa);
             Assert.AreNotEqual(p, pp);
             Assert.AreNotEqual(pp, ppp);
             Assert.AreNotEqual(pp, pa);
             Assert.AreNotEqual(pp, paa);
-            Assert.AreEqual(5, new HashSet<ProteolysisProduct> { p, pp, ppp, pa, paa, paaa }.Count);
+            Assert.AreEqual(5, new HashSet<TruncationProduct> { p, pp, ppp, pa, paa, paaa }.Count);
         }
 
         [Test]
