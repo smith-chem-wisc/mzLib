@@ -9,10 +9,12 @@ using UsefulProteomicsDatabases.DecoyGeneration;
 using Transcriptomics.Digestion;
 using Omics.Digestion;
 using Transcriptomics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Test.DatabaseTests;
 
 [TestFixture]
+[ExcludeFromCodeCoverage]
 public class DecoySequenceValidatorTests
 {
     [TestCase("AABBAA", 3, 3, true, TestName = "Full Palindrome-Even Sequence Length-Cutoff Equal")]
