@@ -18,7 +18,7 @@ namespace FlashLFQ
             IEnumerable<IQuantifiableRecord> quantifiableRecords = quantifiable.GetQuantifiableResults();
             List<Identification> identifications = new List<Identification>();
             Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
-            Dictionary<string, SpectraFileInfo> allSpectraFiles = makeSpectraFileDict(quantifiable, spectraFiles);
+            Dictionary<string, SpectraFileInfo> allSpectraFiles = MakeSpectraFileDict(quantifiable, spectraFiles);
 
             foreach (var record in quantifiableRecords)
             {
@@ -58,7 +58,7 @@ namespace FlashLFQ
             return identifications;
         }
 
-        private static Dictionary<string, SpectraFileInfo> makeSpectraFileDict(this IQuantifiableResultFile quantifiable, List<SpectraFileInfo> spectraFiles)
+        private static Dictionary<string, SpectraFileInfo> MakeSpectraFileDict(this IQuantifiableResultFile quantifiable, List<SpectraFileInfo> spectraFiles)
         {
             Dictionary<string, SpectraFileInfo> allSpectraFiles = new Dictionary<string, SpectraFileInfo>();
 

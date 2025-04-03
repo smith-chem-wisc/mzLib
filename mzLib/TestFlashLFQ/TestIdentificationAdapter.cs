@@ -19,7 +19,12 @@ namespace Test
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
             List<Identification> identifications = new List<Identification>();
-            identifications = MzLibExtensions.MakeIdentifications(file, new List<SpectraFileInfo>());
+            List<SpectraFileInfo> spectraFiles = new List<SpectraFileInfo>
+                {
+                    new SpectraFileInfo(@"D:\Projects\Chimeras\Mann_11cell_analysis\Hela\MsFragger\Hela_1_1\interact-20100611_Velos1_TaGe_SA_Hela_1.pep.xml", 
+                                        "", 0, 0, 0),
+                };
+            identifications = MzLibExtensions.MakeIdentifications(file, spectraFiles);
 
             // list should contain five elements
             Assert.That(identifications.Count, Is.EqualTo(5));
@@ -115,6 +120,7 @@ namespace Test
                         RetentionTime = 5.0,
                         MonoisotopicMass = 500.0,
                         ChargeState = 2,
+                        FileName = "file1.mzML",
                         ProteinGroupInfos = new List<(string proteinAccessions, string geneName, string organism)>
                         {
                             ("P1", "Gene1", "Organism1")
@@ -127,6 +133,7 @@ namespace Test
                         RetentionTime = 10.0,
                         MonoisotopicMass = 1000.0,
                         ChargeState = 3,
+                        FileName = "file2.mzML",
                         ProteinGroupInfos = new List<(string proteinAccessions, string geneName, string organism)>
                         {
                             ("P2", "Gene2", "Organism2")
@@ -153,6 +160,9 @@ namespace Test
             Assert.AreEqual(2, identification1.PrecursorChargeState);
             Assert.AreEqual(1, identification1.ProteinGroups.Count);
             Assert.AreEqual("P1", identification1.ProteinGroups.First().ProteinGroupName);
+            Assert.AreEqual("Gene1", identification1.ProteinGroups.First().GeneName);
+            Assert.AreEqual("Organism1", identification1.ProteinGroups.First().Organism);
+            Assert.AreEqual(spectraFiles[0], identification1.FileInfo);
 
             var identification2 = result[1];
             Assert.AreEqual("BASESEQ2", identification2.BaseSequence);
@@ -162,6 +172,9 @@ namespace Test
             Assert.AreEqual(3, identification2.PrecursorChargeState);
             Assert.AreEqual(1, identification2.ProteinGroups.Count);
             Assert.AreEqual("P2", identification2.ProteinGroups.First().ProteinGroupName);
+            Assert.AreEqual("Gene2", identification2.ProteinGroups.First().GeneName);
+            Assert.AreEqual("Organism2", identification2.ProteinGroups.First().Organism);
+            Assert.AreEqual(spectraFiles[1], identification2.FileInfo);
         }
     }
 
@@ -209,8 +222,8 @@ namespace Test
         public double MonoisotopicMass { get; set; }
         public int ChargeState { get; set; }
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos { get; set; }
-        public string FileName => throw new System.NotImplementedException();
-        public bool IsDecoy => throw new System.NotImplementedException();
+        public string FileName { get; set; }
+        public bool IsDecoy { get; set; }
     }
 
 }
