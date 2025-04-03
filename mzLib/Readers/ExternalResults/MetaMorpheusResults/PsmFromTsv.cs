@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Linq;
+﻿using System.Globalization;
 using Easy.Common.Extensions;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 
-namespace Proteomics.PSM
+namespace Readers
 {
     public class PsmFromTsv : SpectrumMatchFromTsv
     {

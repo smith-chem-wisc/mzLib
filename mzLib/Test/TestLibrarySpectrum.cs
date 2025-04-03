@@ -6,7 +6,6 @@ using System.Linq;
 using NUnit.Framework.Legacy;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
-using Proteomics.PSM;
 using Readers;
 
 namespace Test
