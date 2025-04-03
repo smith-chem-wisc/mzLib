@@ -1,6 +1,4 @@
-﻿using Proteomics.PSM;
-
-namespace Readers;
+﻿namespace Readers;
 
 public class PsmFromTsvFile : ResultFile<PsmFromTsv>, IResultFile
 {
