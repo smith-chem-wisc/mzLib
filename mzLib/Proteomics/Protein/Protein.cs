@@ -87,7 +87,7 @@ namespace Proteomics
         {
             BaseSequence = newBaseSequence;
             Accession = originalProtein.Accession;
-            NonVariantProtein = originalProtein.NonVariant as Protein;
+            NonVariantProtein = originalProtein.ConsensusVariant as Protein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
             FullName = originalProtein.FullName;
@@ -134,8 +134,8 @@ namespace Proteomics
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath)
         {
-            NonVariantProtein = protein.NonVariant as Protein;
-            OriginalNonVariantModifications = NonVariant.OriginalNonVariantModifications;
+            NonVariantProtein = protein.ConsensusVariant as Protein;
+            OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
             AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }
@@ -545,7 +545,7 @@ namespace Proteomics
 
         #region Sequence Variants
 
-        public IBioPolymer NonVariant => NonVariantProtein;
+        public IBioPolymer ConsensusVariant => NonVariantProtein;
 
         /// <summary>
         /// Protein before applying variations.

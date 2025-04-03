@@ -35,7 +35,7 @@ public class TestVariantOligo
     {
         RNA p = new RNA("CAAA","accession");
         RNA v = new RNA("CAUA", p, new[] { new SequenceVariation(3, "A", "U", "desc", null) }, null, null, null);
-        Assert.That(v.NonVariant, Is.EqualTo(p));
+        Assert.That(v.ConsensusVariant, Is.EqualTo(p));
     }
 
     [Test]
@@ -44,14 +44,14 @@ public class TestVariantOligo
         string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "SeqVar.xml");
         List<RNA> variantProteins = RnaDbLoader.LoadRnaXML(file, true, DecoyType.None, false, AllKnownMods, [], out _);
 
-        Assert.That(variantProteins.First().NonVariant.SequenceVariations.Count(), Is.EqualTo(5));
+        Assert.That(variantProteins.First().ConsensusVariant.SequenceVariations.Count(), Is.EqualTo(5));
         Assert.That(variantProteins.Count, Is.EqualTo(1)); // there is only one unique amino acid change
-        Assert.That(variantProteins.First().NonVariant.BaseSequence, Is.Not.EqualTo(variantProteins.First().BaseSequence));
-        Assert.That(variantProteins.First().NonVariant.BaseSequence[116], Is.EqualTo('C'));
+        Assert.That(variantProteins.First().ConsensusVariant.BaseSequence, Is.Not.EqualTo(variantProteins.First().BaseSequence));
+        Assert.That(variantProteins.First().ConsensusVariant.BaseSequence[116], Is.EqualTo('C'));
         Assert.That(variantProteins.First().BaseSequence[116], Is.EqualTo('G'));
-        Assert.That(variantProteins.First().NonVariant.Name, Is.Not.EqualTo(variantProteins.First().Name));
-        Assert.That(variantProteins.First().NonVariant.FullName, Is.Not.EqualTo(variantProteins.First().FullName));
-        Assert.That(variantProteins.First().NonVariant.Accession, Is.Not.EqualTo(variantProteins.First().Accession));
+        Assert.That(variantProteins.First().ConsensusVariant.Name, Is.Not.EqualTo(variantProteins.First().Name));
+        Assert.That(variantProteins.First().ConsensusVariant.FullName, Is.Not.EqualTo(variantProteins.First().FullName));
+        Assert.That(variantProteins.First().ConsensusVariant.Accession, Is.Not.EqualTo(variantProteins.First().Accession));
 
         List<OligoWithSetMods> oligos = variantProteins.SelectMany(vp => vp.Digest(new RnaDigestionParams(), null, null)).ToList();
     }
