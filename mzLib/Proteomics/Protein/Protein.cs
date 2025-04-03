@@ -9,6 +9,7 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using MzLibUtil;
 using Omics.BioPolymer;
+using Easy.Common.Extensions;
 
 namespace Proteomics
 {
@@ -540,7 +541,7 @@ namespace Proteomics
                     updatedBaseSequence = updatedBaseSequence.Replace(additionalLabel.OriginalAminoAcid, additionalLabel.AminoAcidLabel);
                 }
             }
-            return new Protein(this, updatedBaseSequence);
+            return CloneWithNewSequenceAndMods(updatedBaseSequence, null) as Protein;
         }
 
         #region Sequence Variants
@@ -868,12 +869,8 @@ namespace Proteomics
                 }
             }
 
-            Protein newProtein = new Protein(originalDecoyProtein, scrambledProteinSequence);
+            Protein newProtein = originalDecoyProtein.CloneWithNewSequenceAndMods(scrambledProteinSequence, scrambledModificationDictionary) as Protein;
 
-            // Update the modifications using the scrambledModificationDictionary
-            newProtein.OriginalNonVariantModifications = scrambledModificationDictionary;
-            newProtein.OneBasedPossibleLocalizedModifications = ((IBioPolymer)newProtein).SelectValidOneBaseMods(scrambledModificationDictionary);
-            
             return newProtein;
         }
 
@@ -938,6 +935,20 @@ namespace Proteomics
             }
 
             return new string(sequenceArray);
+        }
+
+        public IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods = null)
+        {
+            // Create a new protein with the new base sequence and modifications
+            Protein newProtein = new Protein(this, newBaseSequence);
+            if (newMods.IsNullOrEmpty()) 
+                return newProtein;
+
+            // If new modifications are provided, use them
+            newProtein.OriginalNonVariantModifications = this.OriginalNonVariantModifications;
+            newProtein.OneBasedPossibleLocalizedModifications = ((IBioPolymer)newProtein).SelectValidOneBaseMods(newMods);
+
+            return newProtein;
         }
 
         public int CompareTo(Protein other)

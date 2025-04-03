@@ -95,6 +95,8 @@ namespace Transcriptomics
             FullName = fullName ?? name;
         }
 
+        public abstract IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods = null);
+
         #endregion
 
         #region Private Properties
@@ -152,7 +154,7 @@ namespace Transcriptomics
         public bool IsContaminant { get; }
         public string Accession { get; }
 
-        public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
+        public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; protected set; }
 
         public string Organism { get; }
 

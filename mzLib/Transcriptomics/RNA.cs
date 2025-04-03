@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using Easy.Common.Extensions;
 using MathNet.Numerics.Distributions;
 using MzLibUtil;
 using Omics;
@@ -59,6 +60,13 @@ namespace Transcriptomics
             SampleNameForVariants = sampleNameForVariants;
         }
 
+        public override IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods = null)
+        {
+            // Create a new rna with the new base sequence and modifications
+            RNA newRna = this.CreateNew(newBaseSequence, newMods);
+            return newRna;
+        }
+
         public override TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
             IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
         {
@@ -68,8 +76,7 @@ namespace Transcriptomics
             var variantRNA = new RNA(variantBaseSequence, rna, appliedSequenceVariants, 
                 applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantRNA;
-
-       }
+        }
 
         public bool Equals(RNA? other)
         {

@@ -31,6 +31,8 @@ namespace Omics
         IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false);
 
+        IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>> newMods);
+
         bool IEquatable<IBioPolymer>.Equals(IBioPolymer? other)
         {
             if (other is null) return false;
