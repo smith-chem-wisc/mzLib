@@ -163,8 +163,6 @@ namespace Test
             Assert.AreEqual(1, identification2.ProteinGroups.Count);
             Assert.AreEqual("P2", identification2.ProteinGroups.First().ProteinGroupName);
         }
-
-        
     }
 
     // Mock classes for testing
@@ -172,7 +170,7 @@ namespace Test
     {
         private readonly List<IQuantifiableRecord> _quantifiableRecords;
 
-        public string FilePath { get; }
+        public string FilePath { get; set; }
 
         public MockQuantifiableResultFile(List<IQuantifiableRecord> quantifiableRecords)
         {
