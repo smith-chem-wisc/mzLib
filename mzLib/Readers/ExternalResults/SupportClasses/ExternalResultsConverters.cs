@@ -66,38 +66,3 @@ internal class MsPathFinderTCompositionToChemicalFormulaConverter : DefaultTypeC
     }
 }
 
-internal class MsPathFinderTPsmStringToModificationsArrayConverter : DefaultTypeConverter
-{
-    public override object ConvertFromString(string? text, IReaderRow row, MemberMapData memberMapData)
-    {
-        var mods = new List<MsPathFinderTModification>();
-        if (string.IsNullOrEmpty(text))
-            return mods.ToArray();
-
-        var modStrings = text.Split(',');
-        foreach (var modString in modStrings)
-        {
-            var modSplits = modString.Split(' ');
-            var name = modSplits[0];
-            var location = int.Parse(modSplits[1]);
-
-            var baseSequence = row.GetField<string>("Sequence");
-            var modifiedResidue = location == 0 ? 'X' : baseSequence[location - 1];
-            double mass = ModificationExtensions.GetClosestMod(name, modifiedResidue).MonoisotopicMass!.Value;
-
-            mods.Add(new MsPathFinderTModification(name, location, modifiedResidue, mass));
-        }
-
-        return mods.ToArray();
-    }
-
-    public override string? ConvertToString(object? value, IWriterRow row, MemberMapData memberMapData)
-    {
-        if (value is MsPathFinderTModification[] modifications)
-        {
-            var modStrings = modifications.Select(mod => $"{mod.Name} {mod.OneBasedLocalization}");
-            return string.Join(",", modStrings);
-        }
-        return "";
-    }
-}

@@ -5,16 +5,7 @@ using UsefulProteomicsDatabases;
 
 namespace Readers;
 
-public interface ILocalizedModification
-{
-    public string Name { get; }
-    public int OneBasedLocalization { get; }
-    // The residue which the modification is attached: This may need to be reworked for glyco modifications as they have a complex motiff instead of a single residue 
-    public char ModifiedResidue { get; }
-    public double MonoisotopicMass { get; }
-}
-
-public static class ModificationExtensions
+public static class ModificationConverter
 {
     #region All Known Mods for MetaMorpheus - Use this to check for known mods to compare against 
 
@@ -23,7 +14,7 @@ public static class ModificationExtensions
 
     internal static List<Modification> AllKnownMods;
 
-    static ModificationExtensions()
+    static ModificationConverter()
     {
         _modificationCache = new ConcurrentDictionary<(string, char), Modification>();
 
@@ -49,43 +40,12 @@ public static class ModificationExtensions
     #endregion
 
     /// <summary>
-    /// Get the string representation of the modification in MetaMorpheus format
-    /// </summary>
-    public static string GetMetaMorpheusFullSequenceString(this ILocalizedModification mod, IList<Modification>? allKnownMods = null)
-    {
-        var mmMod = mod.GetClosestMod(allKnownMods);
-
-        string category = mmMod.ModificationType.ToLower() switch
-        {
-            "unimod" when mmMod.OriginalId.Contains("Carbamido") => "Common Fixed",
-            "unimod" when mmMod.OriginalId.Contains("Oxidation") => "Common Variable",
-            "unimod" when mmMod.OriginalId.Contains("Phosphoryl") => "Common Biological",
-            "unimod" when mmMod.OriginalId.Contains("Acetyl") => "Common Biological",
-            "unimod" when mmMod.OriginalId.Contains("Methy") => "Common Biological",
-            _ => mmMod.ModificationType
-        };
-
-        return $"[{category}:{mmMod.OriginalId} on {mmMod.Target}]";
-    }
-
-    /// <summary>
-    /// Gets the closest modification from the list of all known modifications that matches the given localized modification.
-    /// </summary>
-    public static Modification GetClosestMod(this ILocalizedModification modToMatch, IList<Modification>? allKnownMods = null)
-    {
-        var name = modToMatch.Name;
-        var modifiedResidue = modToMatch.ModifiedResidue;
-        return GetClosestMod(name, modifiedResidue, allKnownMods);
-    }
-
-    /// <summary>
     /// Gets the closest modification from the list of all known modifications that matches the given localized modification.
     /// </summary>
     public static Modification GetClosestMod(string name, char modifiedResidue, IList<Modification>? allKnownMods = null)
     {
         allKnownMods ??= AllKnownMods;
         var cacheKey = (name, modifiedResidue);
-
         // if we have done this conversion before, just return it. 
         if (_modificationCache.TryGetValue(cacheKey, out var cachedModification))
         {
@@ -121,6 +81,7 @@ public static class ModificationExtensions
                     cachedModification = goodMatches
                         .OrderByDescending(mod => GetOverlapScore(mod.IdWithMotif, trimmedName))
                         .ThenByDescending(p => p.Target.ToString() == modifiedResidue.ToString())
+                        .ThenByDescending(p => p.ModificationType.Length)
                         .ThenBy(p => p.IdWithMotif.Length).First();
                 break;
 
@@ -130,6 +91,7 @@ public static class ModificationExtensions
                 cachedModification = nameContaining.Union(motifMatching)
                     .OrderByDescending(mod => GetOverlapScore(mod.IdWithMotif, trimmedName))
                     .ThenByDescending(p => p.Target.ToString() == modifiedResidue.ToString())
+                    .ThenByDescending(p => p.ModificationType.Length)
                     .ThenBy(p => p.IdWithMotif.Length).First();
                 break;
         }

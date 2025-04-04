@@ -1,7 +1,8 @@
 ﻿using CsvHelper.Configuration.Attributes;
 using CsvHelper.Configuration;
 using Chemistry;
-using System.Text;
+using Omics.Modifications;
+using Omics;
 
 namespace Readers
 {
@@ -29,8 +30,7 @@ namespace Readers
         public char NextResidue { get; set; }
 
         [Name("Modifications")]
-        [TypeConverter(typeof(MsPathFinderTPsmStringToModificationsArrayConverter))]
-        public MsPathFinderTModification[] Modifications { get; set; }
+        public string Modifications { get; set; }
 
         [Name("Composition")]
         [TypeConverter(typeof(MsPathFinderTCompositionToChemicalFormulaConverter))]
@@ -92,39 +92,31 @@ namespace Readers
         [Ignore] public bool IsDecoy => _isDecoy ??= ProteinName.StartsWith("XXX");
         [Optional] public string FileNameWithoutExtension { get; set; }
 
+        [Ignore] private Dictionary<int, Modification>? _allModsOneIsNterminus;
+        [Ignore] public Dictionary<int, Modification> AllModsOneIsNterminus => _allModsOneIsNterminus ??= ParseModifications();
+
         [Ignore] private string? _fullSequence;
-        [Ignore]
-        public string FullSequence
+        [Ignore] public string FullSequence => _fullSequence ??= IBioPolymerWithSetMods.DetermineFullSequence(BaseSequence, AllModsOneIsNterminus);
+
+        private Dictionary<int, Modification> ParseModifications()
         {
-            get
+            var mods = new Dictionary<int, Modification>();
+            if (string.IsNullOrEmpty(Modifications))
+                return mods;
+
+            var modStrings = Modifications.Split(',');
+            foreach (var modString in modStrings)
             {
-                if (_fullSequence != null)
-                    return _fullSequence;
-                if (!Modifications.Any())
-                    return _fullSequence = BaseSequence;
+                var modSplits = modString.Split(' ');
+                var name = modSplits[0];
+                var location = int.Parse(modSplits[1]);
 
-                var sb = new StringBuilder();
+                var modifiedResidue = location == 0 ? 'X' : BaseSequence[location - 1];
+                var mmMod = ModificationConverter.GetClosestMod(name, modifiedResidue);
 
-                if (Modifications.Any(p => p.OneBasedLocalization == 0))
-                {
-                    ILocalizedModification? modToAdd = Modifications.FirstOrDefault(p => p.OneBasedLocalization == 0);
-                    if (modToAdd is not null)
-                        sb.Append(modToAdd.GetMetaMorpheusFullSequenceString());
-                }
-                for (int i = 0; i < BaseSequence.Length; i++)
-                {
-                    var residue = BaseSequence[i];
-                    sb.Append(residue);
-
-                    ILocalizedModification? potentialMod = Modifications.FirstOrDefault(p => p.OneBasedLocalization == i + 1);
-                    if (potentialMod is null) continue;
-
-                    var mmMod = potentialMod.GetMetaMorpheusFullSequenceString();
-                    sb.Append(mmMod);
-                }
-
-                return _fullSequence = sb.ToString();
+                mods.Add(location+1, mmMod);
             }
+            return mods;
         }
 
         #endregion

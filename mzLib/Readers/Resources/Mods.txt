@@ -643,3 +643,24 @@ PP   Anywhere.
 MT   Speculative
 CF   H-2 O1
 //
+ID   Carbamidomethyl on C
+TG   C
+PP   Anywhere.
+MT   Common Fixed
+CF   H3 C2 N O
+DR   Unimod; 4.
+//
+ID   Carbamidomethyl on U
+TG   U
+PP   Anywhere.
+MT   Common Fixed
+CF   H3 C2 N O
+DR   Unimod; 4.
+//
+ID   Oxidation on M
+TG   M
+PP   Anywhere.
+MT   Common Variable
+CF   O1
+DR   Unimod; 35.
+//

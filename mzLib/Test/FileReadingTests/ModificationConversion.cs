@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
-using Readers;
+using Readers.ExternalResults.SupportClasses;
 
 namespace Test.FileReadingTests
 {
@@ -8,7 +8,7 @@ namespace Test.FileReadingTests
         [Test]
         public static void ModsLoadWithoutCrash()
         {
-            var allMods = ModificationExtensions.AllKnownMods;
+            var allMods = ModificationConverter.AllKnownMods;
             Assert.That(allMods.Count, Is.GreaterThanOrEqualTo(3110)); // number at time of creation
         }
 
@@ -25,7 +25,7 @@ namespace Test.FileReadingTests
         [TestCase("Amidine", "Amidine", 'T')]
         public static void ModsConvertToModification(string name, string expectedId, char residue)
         {
-            var modification = ModificationExtensions.GetClosestMod(name, residue);
+            var modification = ModificationConverter.GetClosestMod(name, residue);
             Assert.That(modification.OriginalId, Is.EqualTo(expectedId));
 
             if (name == "Amidine") // Edge Case where we want to pass in the wrong motif and check if it got the right one

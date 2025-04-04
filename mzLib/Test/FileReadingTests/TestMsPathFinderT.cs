@@ -259,125 +259,52 @@ namespace Test.FileReadingTests
             Assert.That(file.Count(), Is.EqualTo(5));
 
             var result = file.First();
-            Assert.That(result.Modifications.Length, Is.EqualTo(1));
-            Assert.That(result.Modifications[0].ModifiedResidue, Is.EqualTo('M'));
-            Assert.That(result.Modifications[0].Name, Is.EqualTo("Oxidation"));
-            Assert.That(result.Modifications[0].OneBasedLocalization, Is.EqualTo(36));
-            Assert.That(result.Modifications[0].MonoisotopicMass, Is.EqualTo(15.99491463).Within(0.0001));
+            Assert.That(result.AllModsOneIsNterminus.Count, Is.EqualTo(1));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.Target.ToString()[0], Is.EqualTo('M'));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.IdWithMotif, Does.Contain("Oxidation"));
+            Assert.That(result.AllModsOneIsNterminus.First().Key, Is.EqualTo(37));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.MonoisotopicMass, Is.EqualTo(15.99491463).Within(0.0001));
             Assert.That(result.FullSequence, Is.EqualTo("KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRM[Common Variable:Oxidation on M]QYNRRFVNVVPTFGKKKGPNANS"));
 
             result = file[1];
-            Assert.That(result.Modifications.Length, Is.EqualTo(0));
+            Assert.That(result.AllModsOneIsNterminus.Count, Is.EqualTo(0));
             Assert.That(result.FullSequence, Is.EqualTo("KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRMQYNRRFVNVVPTFGKKKGPNANS"));
 
             result = file[2];
-            Assert.That(result.Modifications.Length, Is.EqualTo(2));
-            Assert.That(result.Modifications[0].ModifiedResidue, Is.EqualTo('X'));
-            Assert.That(result.Modifications[0].Name, Is.EqualTo("Acetyl"));
-            Assert.That(result.Modifications[0].OneBasedLocalization, Is.EqualTo(0));
-            Assert.That(result.Modifications[0].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
-            Assert.That(result.Modifications[1].ModifiedResidue, Is.EqualTo('K'));
-            Assert.That(result.Modifications[1].Name, Is.EqualTo("Acetyl"));
-            Assert.That(result.Modifications[1].OneBasedLocalization, Is.EqualTo(26));
-            Assert.That(result.Modifications[1].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
-            Assert.That(result.FullSequence, Is.EqualTo("[Common Biological:Acetyl on X]TEIKEKSVAELNALLKEKKVLLFTLK[Common Biological:Acetyl on K]QKLKTMQLSNPNEIRALKKEIARINTAISASK"));
+            Assert.That(result.AllModsOneIsNterminus.Count, Is.EqualTo(2));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.Target.ToString()[0], Is.EqualTo('X'));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.IdWithMotif, Does.Contain("Acetyl"));
+            Assert.That(result.AllModsOneIsNterminus.First().Key, Is.EqualTo(1));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.Target.ToString()[0], Is.EqualTo('K'));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.IdWithMotif, Does.Contain("Acetyl"));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Key, Is.EqualTo(27));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.FullSequence, Is.EqualTo("[Common Biological:Acetylation on X]TEIKEKSVAELNALLKEKKVLLFTLK[Common Biological:Acetylation on K]QKLKTMQLSNPNEIRALKKEIARINTAISASK"));
 
             result = file[3];
-            Assert.That(result.Modifications.Length, Is.EqualTo(2));
-            Assert.That(result.Modifications[0].ModifiedResidue, Is.EqualTo('K'));
-            Assert.That(result.Modifications[0].Name, Is.EqualTo("Methyl"));
-            Assert.That(result.Modifications[0].OneBasedLocalization, Is.EqualTo(24));
-            Assert.That(result.Modifications[0].MonoisotopicMass, Is.EqualTo(14.01565).Within(0.0001));
-            Assert.That(result.Modifications[1].ModifiedResidue, Is.EqualTo('K'));
-            Assert.That(result.Modifications[1].Name, Is.EqualTo("Acetyl"));
-            Assert.That(result.Modifications[1].OneBasedLocalization, Is.EqualTo(50));
-            Assert.That(result.Modifications[1].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
-            Assert.That(result.FullSequence, Is.EqualTo("CNRQAVAGQLLPSTWSLHAHGLAK[Common Biological:Methyl on K]EAPILPVKKISRSCSVNNKVSKKTTK[Common Biological:Acetyl on K]PPTLRSFLSPI"));
+            Assert.That(result.AllModsOneIsNterminus.Count, Is.EqualTo(2));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.Target.ToString()[0], Is.EqualTo('K'));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.IdWithMotif, Does.Contain("Methyl"));
+            Assert.That(result.AllModsOneIsNterminus.First().Key, Is.EqualTo(25));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.MonoisotopicMass, Is.EqualTo(14.01565).Within(0.0001));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.Target.ToString()[0], Is.EqualTo('K'));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.IdWithMotif, Does.Contain("Acetyl"));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Key, Is.EqualTo(51));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.FullSequence, Is.EqualTo("CNRQAVAGQLLPSTWSLHAHGLAK[Common Biological:Methylation on K]EAPILPVKKISRSCSVNNKVSKKTTK[Common Biological:Acetylation on K]PPTLRSFLSPI"));
 
             result = file[4];
-            Assert.That(result.Modifications.Length, Is.EqualTo(2));
-            Assert.That(result.Modifications[0].ModifiedResidue, Is.EqualTo('K'));
-            Assert.That(result.Modifications[0].Name, Is.EqualTo("Acetyl"));
-            Assert.That(result.Modifications[0].OneBasedLocalization, Is.EqualTo(8));
-            Assert.That(result.Modifications[0].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
-            Assert.That(result.Modifications[1].ModifiedResidue, Is.EqualTo('K'));
-            Assert.That(result.Modifications[1].Name, Is.EqualTo("Acetyl"));
-            Assert.That(result.Modifications[1].OneBasedLocalization, Is.EqualTo(52));
-            Assert.That(result.Modifications[1].MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
-            Assert.That(result.FullSequence, Is.EqualTo("SFFDHLQK[Common Biological:Acetyl on K]KGVGAIQAQKVQIRKVERKPSKVVSSSSSSSIAKPQRRLDTVSK[Common Biological:Acetyl on K]PVAARRSA"));
-        }
-    }
-
-    [ExcludeFromCodeCoverage]
-    public class MsPathFinderTModificationTests
-    {
-        [Test]
-        public void TestEquals_SameObject_ReturnsTrue()
-        {
-            var mod = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            Assert.That(mod.Equals(mod), Is.True);
-            Assert.That(mod.Equals((object)mod), Is.True);
-        }
-
-        [Test]
-        public void TestEquals_Null_ReturnsTrue()
-        {
-            var mod = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            Assert.That(mod.Equals(null), Is.False);
-            Assert.That(mod.Equals((object)null), Is.False);
-        }
-
-        [Test]
-        public void TestEquals_DifferentObjectSameValues_ReturnsTrue()
-        {
-            var mod1 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            var mod2 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            Assert.That(mod1.Equals(mod2), Is.True);
-            Assert.That(mod1.Equals((object)mod2), Is.True);
-        }
-
-        [Test]
-        public void TestEquals_DifferentObjectType_ReturnsFalse()
-        {
-            var mod1 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            var mod2 = new List<string>();
-            Assert.That(mod1.Equals((object)mod2), Is.False);
-        }
-
-        [Test]
-        public void TestEquals_DifferentObjectDifferentValues_ReturnsFalse()
-        {
-            var mod1 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            var mod2 = new MsPathFinderTModification("Mod2", 1, 'A', 15.9949);
-            Assert.That(mod1.Equals(mod2), Is.False);
-            Assert.That(mod1.Equals((object)mod2), Is.False);
-
-            mod2 = new MsPathFinderTModification("Mod1", 2, 'A', 15.9949);
-            Assert.That(mod1.Equals(mod2), Is.False);
-            Assert.That(mod1.Equals((object)mod2), Is.False);
-
-            mod2 = new MsPathFinderTModification("Mod1", 1, 'B', 15.9949);
-            Assert.That(mod1.Equals(mod2), Is.False);
-            Assert.That(mod1.Equals((object)mod2), Is.False);
-
-            mod2 = new MsPathFinderTModification("Mod1", 1, 'A', 16.9949);
-            Assert.That(mod1.Equals(mod2), Is.False);
-            Assert.That(mod1.Equals((object)mod2), Is.False);
-        }
-
-        [Test]
-        public void TestGetHashCode_SameValues_ReturnsSameHashCode()
-        {
-            var mod1 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            var mod2 = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            Assert.That(mod1.GetHashCode(), Is.EqualTo(mod2.GetHashCode()));
-        }
-
-        [Test]
-        public void TestToString_ReturnsExpectedString()
-        {
-            var mod = new MsPathFinderTModification("Mod1", 1, 'A', 15.9949);
-            Assert.That(mod.ToString(), Is.EqualTo("1A-Mod1"));
+            Assert.That(result.AllModsOneIsNterminus.Count, Is.EqualTo(2));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.Target.ToString()[0], Is.EqualTo('K'));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.IdWithMotif, Does.Contain("Acetyl"));
+            Assert.That(result.AllModsOneIsNterminus.First().Key, Is.EqualTo(9));
+            Assert.That(result.AllModsOneIsNterminus.First().Value.MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.Target.ToString()[0], Is.EqualTo('K'));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.IdWithMotif, Does.Contain("Acetyl"));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Key, Is.EqualTo(53));
+            Assert.That(result.AllModsOneIsNterminus.Skip(1).First().Value.MonoisotopicMass, Is.EqualTo(42.010565).Within(0.0001));
+            Assert.That(result.FullSequence, Is.EqualTo("SFFDHLQK[Common Biological:Acetylation on K]KGVGAIQAQKVQIRKVERKPSKVVSSSSSSSIAKPQRRLDTVSK[Common Biological:Acetylation on K]PVAARRSA"));
         }
     }
 }

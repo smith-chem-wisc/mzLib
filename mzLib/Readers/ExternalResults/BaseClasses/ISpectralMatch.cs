@@ -1,4 +1,8 @@
-﻿namespace Readers;
+﻿using Omics.Modifications;
+using System.Text;
+using ThermoFisher.CommonCore.Data;
+
+namespace Readers;
 
 public interface ISpectralMatch
 {
@@ -31,4 +35,9 @@ public interface ISpectralMatch
     /// The Mass Spec file name without the extension
     /// </summary>
     public string FileNameWithoutExtension { get; }
+
+    /// <summary>
+    /// Modifications on the spectral match
+    /// </summary>
+    public Dictionary<int, Modification> AllModsOneIsNterminus { get; }
 }
