@@ -1,10 +1,4 @@
-﻿using System;
-using Easy.Common.Extensions;
-using MassSpectrometry.MzSpectra;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace FlashLFQ
+﻿namespace FlashLFQ
 {
     /// <summary>
     /// Contains the summed intensities of all isotope peaks detected in a single MS1 scan for a given species.
@@ -16,6 +10,23 @@ namespace FlashLFQ
         /// </summary>
         public readonly IIndexedMzPeak IndexedPeak;
         public readonly int ChargeState;
+
+        public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        {
+            IndexedPeak = monoisotopicPeak;
+            ChargeState = chargeState;
+            Intensity = intensity / chargeState;
+            PearsonCorrelation = pearsonCorrelation;
+        }
+
+        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        {
+            IndexedPeak = monoisotopicPeak;
+            ChargeState = chargeState;
+            Intensity = intensity / chargeState;
+            PearsonCorrelation = pearsonCorrelation;
+        }
+
         /// <summary>
         /// The summed intensity of all isotope peaks detected in one MS1 scan. This sum may contain 
         /// imputed intensity values for expected isotopes that weren't observed, but only if the observed 
@@ -23,53 +34,8 @@ namespace FlashLFQ
         /// </summary>
         public double Intensity { get; private set; }
 
-        /// <summary>
-        /// The Pearson correlation coefficient between the observed isotopic distribution and the theoretical isotopic distribution.
-        /// </summary>
+
         public double PearsonCorrelation { get; init; }
-
-        /// <summary>
-        /// Contains the summed intensities of all isotope peaks detected in a single MS1 scan for a given species.
-        /// </summary>
-        /// <param name="mostAbundantIsotopologuePeak">The IndexedMzPeak for the theoretical most abundant isotopologue of a species used during peakfinding</param>
-        public IsotopicEnvelope(IIndexedMzPeak mostAbundantIsotopologuePeak, int chargeState, double intensity, double pearsonCorrelation)
-        {
-            IndexedPeak = mostAbundantIsotopologuePeak;
-            ChargeState = chargeState;
-            Intensity = intensity / chargeState;
-            PearsonCorrelation = pearsonCorrelation;
-        }
-
-        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation) :
-            this((IIndexedMzPeak)monoisotopicPeak, chargeState, intensity, pearsonCorrelation) { }
-
-
-        public List<IIndexedMzPeak> IsotopologuePeaks { get; private set; }
-        public IsotopicEnvelope(IIndexedMzPeak mostAbundantIsotopologuePeak, int chargeState, double intensity, double pearsonCorrelation, List<IIndexedMzPeak> isotopePeaks) :
-            this(mostAbundantIsotopologuePeak, chargeState, intensity, pearsonCorrelation)
-        {
-            IsotopologuePeaks = isotopePeaks.OrderBy(p => p.Mz).ToList();
-        }
-
-        public HashSet<IIndexedMzPeak> PeakSet
-        {
-            get
-            {
-                _peakSet ??= IsotopologuePeaks.ToHashSet();
-                return _peakSet;
-            }
-        }
-
-        private HashSet<IIndexedMzPeak> _peakSet;
-        public double[] MzArray => IsotopologuePeaks.IsNotNullOrEmpty() ? IsotopologuePeaks.Select(p => p.Mz).ToArray() : [];
-        public double[] IntensityArray => IsotopologuePeaks.IsNotNullOrEmpty() ? IsotopologuePeaks.Select(p => p.Intensity).ToArray() : [];
-
-        public double CheckSimilarity(IsotopicEnvelope other)
-        {
-            double? cosineSimilarity = new SpectralSimilarity(MzArray, IntensityArray, other.MzArray, other.IntensityArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak,
-                toleranceInPpm: 5, allPeaks: true, filterOutBelowThisMz: 100).CosineSimilarity();
-            return cosineSimilarity ?? -1;
-        }
 
         public void Normalize(double normalizationFactor)
         {
