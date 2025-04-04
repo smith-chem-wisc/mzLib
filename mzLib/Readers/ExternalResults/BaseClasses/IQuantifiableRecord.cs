@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Readers.ExternalResults.BaseClasses
+namespace Readers
 {
     /// <summary>
     /// Defines the information needed to create the identification object usable by FlashLFQ

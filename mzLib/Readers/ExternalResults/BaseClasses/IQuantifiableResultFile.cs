@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Readers.ExternalResults.BaseClasses
+namespace Readers
 {
     /// <summary>
     /// Outlines behavior to turn results into an IEnumerable of IQuantifiableRecords 
