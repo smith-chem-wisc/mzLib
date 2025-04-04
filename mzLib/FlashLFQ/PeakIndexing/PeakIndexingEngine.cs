@@ -300,9 +300,15 @@ namespace FlashLFQ
 
             foreach (int direction in new List<int> { -1, 1})
             {
+                int missedPeaks = 0;
                 for (int i = peakListIndex + direction; i < bin.Count && i >= 0; i+=direction)
                 {
                     IIndexedMzPeak nextPeak = GetPeakFromBin(mz, zeroBasedScanIndex + direction, binIndex, i, ppmTolerance);
+                        
+                    if(nextPeak==null)
+                    {
+
+                    }
                     IndexedMassSpectralPeak peak = bin[i];
 
                     if (peak.ZeroBasedScanIndex > zeroBasedScanIndex)
