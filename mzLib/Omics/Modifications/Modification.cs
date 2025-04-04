@@ -313,21 +313,5 @@ namespace Omics.Modifications
 
             return Nullable.Compare(this.MonoisotopicMass, other.MonoisotopicMass);
         }
-
-        public string ToFullSequenceString()
-        {
-            // Unimod mods will have Unimod as the type, we want to ensure we write the MM type. 
-            string category = ModificationType.ToLower() switch
-            {
-                "unimod" when OriginalId.Contains("Carbamido") => "Common Fixed",
-                "unimod" when OriginalId.Contains("Oxidation") => "Common Variable",
-                "unimod" when OriginalId.Contains("Phosphoryl") => "Common Biological",
-                "unimod" when OriginalId.Contains("Acetyl") => "Common Biological",
-                "unimod" when OriginalId.Contains("Methy") => "Common Biological",
-                _ => ModificationType
-            };
-
-            return $"[{category}:{OriginalId} on {Target}]";
-        } 
     }
 }
