@@ -1,7 +1,6 @@
-﻿using System.Globalization;
-using Omics.SpectrumMatch;
+﻿using Omics.SpectrumMatch;
 
-namespace Transcriptomics
+namespace Readers
 {
     public class OsmFromTsv : SpectrumMatchFromTsv
     {
