@@ -222,48 +222,31 @@ namespace FlashLFQ
         /// </summary>
         public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
         {
-            IndexedMassSpectralPeak bestPeak = null;
+            IIndexedMzPeak bestPeak = null;
             int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(mz) * BinsPerDalton);
             int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(mz) * BinsPerDalton);
 
             for (int j = floorMz; j <= ceilingMz; j++)
             {
-                if (j < _indexedPeaks.Length && _indexedPeaks[j] != null)
-                {
-                    List<IndexedMassSpectralPeak> bin = _indexedPeaks[j];
-                    int index = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
+                if (j >= _indexedPeaks.Length || _indexedPeaks[j] != null)
+                    continue;
 
-                    for (int i = index; i < bin.Count; i++)
-                    {
-                        IndexedMassSpectralPeak peak = bin[i];
-
-                        if (peak.ZeroBasedScanIndex > zeroBasedScanIndex)
-                        {
-                            break;
-                        }
-
-                        if (ppmTolerance.Within(peak.Mz, mz) 
-                            && peak.ZeroBasedScanIndex == zeroBasedScanIndex 
-                            && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
-                        {
-                            bestPeak = peak;
-                        }
-                    }
-                }
+                List<IndexedMassSpectralPeak> bin = _indexedPeaks[j];
+                int peakListIndex = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
+                var binPeak = GetPeakFromBin(bin, mz, zeroBasedScanIndex, peakListIndex, ppmTolerance);
+                if (binPeak == null)
+                    continue;
+                if (bestPeak == null || Math.Abs(binPeak.Mz - mz) < Math.Abs(bestPeak.Mz - mz))
+                    bestPeak = binPeak;
             }
 
             return bestPeak;
         }
 
-        public IIndexedMzPeak GetPeakFromBin(double mz, int zeroBasedScanIndex, int binIndex, int peakListIndex, PpmTolerance ppmTolerance)
+        public IIndexedMzPeak GetPeakFromBin(List<IndexedMassSpectralPeak> bin, double mz, int zeroBasedScanIndex, int binIndex, PpmTolerance ppmTolerance)
         {
-            
-            if (binIndex >= _indexedPeaks.Length || _indexedPeaks[binIndex] == null)
-                return null;
-            List<IndexedMassSpectralPeak> bin = _indexedPeaks[binIndex];
-
             IndexedMassSpectralPeak bestPeak = null;
-            for (int i = peakListIndex; i < bin.Count; i++)
+            for (int i = binIndex; i < bin.Count; i++)
             {
                 IndexedMassSpectralPeak peak = bin[i];
 
@@ -279,7 +262,6 @@ namespace FlashLFQ
                     bestPeak = peak;
                 }
             }
-            
             return bestPeak;
         }
 
@@ -292,7 +274,7 @@ namespace FlashLFQ
 
             List<IndexedMassSpectralPeak> bin = _indexedPeaks[binIndex];
             int peakListIndex = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
-            IIndexedMzPeak initialPeak = GetPeakFromBin(mz, zeroBasedScanIndex, binIndex, peakListIndex, ppmTolerance);
+            IIndexedMzPeak initialPeak = GetPeakFromBin(bin, mz, zeroBasedScanIndex, binIndex, ppmTolerance);
             if ( initialPeak == null)
             {
                 return xic;
