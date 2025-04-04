@@ -42,12 +42,12 @@ namespace FlashLFQ.PEP
                 UnbalancedSets = true
             };
         
-        public List<ChromatographicPeak> Peaks { get;  }
+        public List<MbrChromatographicPeak> Peaks { get;  }
         public string OutputFolder { get; set; }
         public int MaxThreads { get; set; }
         public double PepTrainingFraction { get; set; }
 
-        public PepAnalysisEngine(List<ChromatographicPeak> peaks, string outputFolder, int maxThreads, double pepTrainingFraction = 0.25)
+        public PepAnalysisEngine(List<MbrChromatographicPeak> peaks, string outputFolder, int maxThreads, double pepTrainingFraction = 0.25)
         {
             Peaks = peaks;
             OutputFolder = outputFolder;
@@ -557,7 +557,7 @@ namespace FlashLFQ.PEP
                     {
                         DonorGroup donor = donors[donorIndices[i]];
 
-                        foreach(ChromatographicPeak peak in donor)
+                        foreach(MbrChromatographicPeak peak in donor)
                         {
                             ChromatographicPeakData pd = CreateOneChromatographicPeakDataEntry(peak, label: !peak.RandomRt);
                             var pepValuePrediction = threadPredictionEngine.Predict(pd);
@@ -620,7 +620,7 @@ namespace FlashLFQ.PEP
             return s.ToString();
         }
 
-        public static ChromatographicPeakData CreateOneChromatographicPeakDataEntry(ChromatographicPeak peak,bool label)
+        public static ChromatographicPeakData CreateOneChromatographicPeakDataEntry(MbrChromatographicPeak peak,bool label)
         {
 
             peak.PepPeakData = new ChromatographicPeakData

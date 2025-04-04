@@ -18,15 +18,24 @@ namespace FlashLFQ
             this.RetentionTime = retentionTime;
             this.Intensity = intensity;
         }
-
         public override bool Equals(object obj)
         {
-            var otherPeak = (IndexedMassSpectralPeak)obj;
-
-            return otherPeak != null
-                && otherPeak.Mz == this.Mz
-                && otherPeak.ZeroBasedScanIndex == this.ZeroBasedScanIndex;
+            return Equals((IndexedMassSpectralPeak)obj);
         }
+
+        public bool Equals(IIndexedMzPeak other)
+        {
+            return Equals((IndexedMassSpectralPeak)other);
+        }
+
+        public bool Equals(IndexedMassSpectralPeak other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return other.ZeroBasedScanIndex == this.ZeroBasedScanIndex
+                   && Math.Abs(other.Mz - this.Mz) < 1e-9;
+        }
+
 
         public override int GetHashCode()
         {

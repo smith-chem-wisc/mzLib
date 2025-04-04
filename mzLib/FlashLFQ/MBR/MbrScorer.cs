@@ -120,7 +120,7 @@ namespace FlashLFQ
         /// match-between-runs for the specified donor file
         /// </summary>
         /// <returns> An MBR Score ranging between 0 and 100. Higher scores are better. </returns>
-        internal double ScoreMbr(ChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak, double predictedRt)
+        internal double ScoreMbr(MbrChromatographicPeak acceptorPeak, ChromatographicPeak donorPeak, double predictedRt)
         {
             acceptorPeak.IntensityScore = CalculateIntensityScore(acceptorPeak.Intensity, donorPeak);
             acceptorPeak.RtPredictionError = predictedRt - acceptorPeak.ApexRetentionTime;
