@@ -13,7 +13,7 @@ namespace FlashLFQ
 {
     public class PeakIndexingEngine : IIndexingEngine
     {
-        private List<IndexedMassSpectralPeak>[] _indexedPeaks;
+        private List<IIndexedMzPeak>[] _indexedPeaks;
         private readonly Serializer _serializer;
         private const int BinsPerDalton = 100;
         public Ms1ScanInfo[] ScanInfoArray { get; private set; }
@@ -23,8 +23,8 @@ namespace FlashLFQ
         {
             var messageTypes = new List<Type>
             {
-                typeof(List<IndexedMassSpectralPeak>[]), typeof(List<IndexedMassSpectralPeak>),
-                typeof(IndexedMassSpectralPeak)
+                typeof(List<IIndexedMzPeak>[]), typeof(List<IIndexedMzPeak>),
+                typeof(IIndexedMzPeak)
             };
             _serializer = new Serializer(messageTypes);
             SpectraFile = file;
@@ -83,7 +83,7 @@ namespace FlashLFQ
         /// <param name="scanInfo">Outputs a list of scan information for each scan which is needed for FlashLfq
         public void PeakIndexing(MsDataScan[] msDataScans)
         {
-            _indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
+            _indexedPeaks = new List<IIndexedMzPeak>[(int)Math.Ceiling(msDataScans.Where(p => p != null
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
             ScanInfoArray = new Ms1ScanInfo[msDataScans.Length];
 
@@ -94,7 +94,7 @@ namespace FlashLFQ
                 for (int j = 0; j < msDataScans[scanIndex].MassSpectrum.XArray.Length; j++)
                 {
                     int roundedMz = (int)Math.Round(msDataScans[scanIndex].MassSpectrum.XArray[j] * BinsPerDalton, 0);
-                    _indexedPeaks[roundedMz] ??= new List<IndexedMassSpectralPeak>();
+                    _indexedPeaks[roundedMz] ??= new List<IIndexedMzPeak>();
                     _indexedPeaks[roundedMz].Add(
                         new IndexedMassSpectralPeak(
                             msDataScans[scanIndex].MassSpectrum.XArray[j],
@@ -131,10 +131,26 @@ namespace FlashLFQ
 
             using (var indexFile = File.OpenRead(indexPath))
             {
-                _indexedPeaks = (List<IndexedMassSpectralPeak>[])_serializer.Deserialize(indexFile);
+                _indexedPeaks = (List<IIndexedMzPeak>[])_serializer.Deserialize(indexFile);
             }
 
             File.Delete(indexPath);
+        }
+
+        public IIndexedMzPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
+            GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, ppmTolerance);
+
+        /// <summary>
+        /// A generic method for finding the closest peak with a specified m/z and in a specified scan. Returns null if no peaks within tolerance are found.
+        /// </summary>
+        /// <param name="mz"> the m/z of the peak to be searched for </param>
+        /// <param name="zeroBasedScanIndex"> the zero based index of the scan where the peak is to be found </param>
+        public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
+        {
+            var bins = GetBinsInRange(mz, ppmTolerance);
+            if (bins.Count == 0) return null;
+            List<int> peakIndicesInBins = bins.Select(b => BinarySearchForIndexedPeak(b, zeroBasedScanIndex)).ToList();
+            return GetBestPeakFromBins(bins, mz, zeroBasedScanIndex, peakIndicesInBins, ppmTolerance);
         }
 
         /// <summary>
@@ -149,106 +165,91 @@ namespace FlashLFQ
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns></returns>
-        public  List<IIndexedMzPeak> GetXIC(double mz, int zeroBasedStartIndex, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
+        public List<IIndexedMzPeak> GetXic(double mz, int zeroBasedStartIndex, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
         {
-            var xic = new List<IIndexedMzPeak>();
+            List<IIndexedMzPeak> xic = new List<IIndexedMzPeak>();
+            var allBins = GetBinsInRange(mz, ppmTolerance);
+            if (allBins.Count == 0)
+                return xic;
 
-            // go right
-            int missedScans = 0;
-            for (int t = zeroBasedStartIndex; t < ScanInfoArray.Length; t++)
+            // For each bin, find + store a pointer to the current index
+            int[] peakPointerArray = allBins.Select(b => BinarySearchForIndexedPeak(b, zeroBasedStartIndex)).ToArray();
+            IIndexedMzPeak initialPeak = GetBestPeakFromBins(allBins, mz, zeroBasedStartIndex, peakPointerArray, ppmTolerance);
+
+            if (initialPeak != null)
+                xic.Add(initialPeak);
+
+            foreach (int direction in new List<int> { -1, 1 })
             {
-                var peak = GetIndexedPeak(mz, t, ppmTolerance);
+                //int missedPeaks = initialPeak == null ? 1 : 0;
+                int missedPeaks = 0; // In the legacy code, the initial peak was not counted as a missed peak if it wasn't found. This should change in the future, but for now, we will keep it as is.
+                int currentZeroBasedScanIndex = zeroBasedStartIndex;
+                var pointerArrayCopy = new int[peakPointerArray.Length];
+                Array.Copy(peakPointerArray, pointerArrayCopy, peakPointerArray.Length);
 
-                if (peak == null && t != zeroBasedStartIndex)
+                while (missedPeaks < missedScansAllowed)
                 {
-                    missedScans++;
-                }
-                else if (peak != null)
-                {
-                    missedScans = 0;
-                    xic.Add(peak);
-
-                    if (peak.RetentionTime - xic.First().RetentionTime > maxPeakHalfWidth)
+                    //increment all pointers
+                    for (int i = 0; i < pointerArrayCopy.Length; i++)
                     {
-                        break;
+                        pointerArrayCopy[i] += direction;
                     }
-                }
+                    currentZeroBasedScanIndex += direction;
 
-                if (missedScans > missedScansAllowed)
-                {
-                    break;
+                    // Search for the next peak
+                    IIndexedMzPeak nextPeak = GetBestPeakFromBins(allBins, mz, currentZeroBasedScanIndex, pointerArrayCopy, ppmTolerance);
+
+                    // Add the peak to the XIC or increment the missed peaks
+                    if (nextPeak == null)
+                        missedPeaks++;
+                    else
+                        xic.Add(nextPeak);
                 }
             }
 
-            // go left
-            missedScans = 0;
-            for (int t = zeroBasedStartIndex - 1; t >= 0; t--)
-            {
-                var peak = GetIndexedPeak(mz, t, ppmTolerance);
-
-                if (peak == null && t != zeroBasedStartIndex)
-                {
-                    missedScans++;
-                }
-                else if (peak != null)
-                {
-                    missedScans = 0;
-                    xic.Add(peak);
-
-                    if (xic.First().RetentionTime - peak.RetentionTime > maxPeakHalfWidth)
-                    {
-                        break;
-                    }
-                }
-
-                if (missedScans > missedScansAllowed)
-                {
-                    break;
-                }
-            }
-
-            // Sorts the list by RT in-place. (OrderBy does not sort in place, but creates a copy instead)
+            // Sort the XIC in place
             xic.Sort((x, y) => x.RetentionTime.CompareTo(y.RetentionTime));
-
             return xic;
         }
 
+        #region Peak finding helper functions
 
-        public IIndexedMzPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
-            GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, ppmTolerance);
-
-        /// <summary>
-        /// A generic method for finding the closest peak with a specified m/z and in a specified scan. Returns null if no peaks within tolerance are found.
-        /// </summary>
-        public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
+        internal List<List<IIndexedMzPeak>> GetBinsInRange(double mz, PpmTolerance ppmTolerance)
         {
-            IIndexedMzPeak bestPeak = null;
             int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(mz) * BinsPerDalton);
             int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(mz) * BinsPerDalton);
-
+            List<List<IIndexedMzPeak>> allBins = new();
             for (int j = floorMz; j <= ceilingMz; j++)
             {
-                if (j >= _indexedPeaks.Length || _indexedPeaks[j] != null)
+                if (j >= _indexedPeaks.Length || _indexedPeaks[j] == null)
                     continue;
-
-                List<IndexedMassSpectralPeak> bin = _indexedPeaks[j];
-                int peakListIndex = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
-                var binPeak = GetPeakFromBin(bin, mz, zeroBasedScanIndex, peakListIndex, ppmTolerance);
-                if (binPeak == null)
-                    continue;
-                if (bestPeak == null || Math.Abs(binPeak.Mz - mz) < Math.Abs(bestPeak.Mz - mz))
-                    bestPeak = binPeak;
+                allBins.Add(_indexedPeaks[j]);
             }
+            return allBins;
+        }
 
+        internal static IIndexedMzPeak GetBestPeakFromBins(List<List<IIndexedMzPeak>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, PpmTolerance ppmTolerance)
+        {
+            IIndexedMzPeak bestPeak = null;
+            for (int i = 0; i < allBins.Count; i++)
+            {
+                var tempPeak = GetPeakFromBin(allBins[i], mz, zeroBasedScanIndex, peakIndicesInBins[i], ppmTolerance);
+                if (ppmTolerance.Within(tempPeak.Mz, mz)
+                    && tempPeak.ZeroBasedScanIndex == peakIndicesInBins[i]
+                    && (bestPeak == null || Math.Abs(tempPeak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
+                {
+                    bestPeak = tempPeak;
+                }
+            }
             return bestPeak;
         }
 
-        public IIndexedMzPeak GetPeakFromBin(List<IndexedMassSpectralPeak> bin, double mz, int zeroBasedScanIndex, int binIndex, PpmTolerance ppmTolerance)
+        internal static IIndexedMzPeak GetPeakFromBin(List<IIndexedMzPeak> bin, double mz, int zeroBasedScanIndex, int peakIndexInBin, PpmTolerance ppmTolerance)
         {
-            IndexedMassSpectralPeak bestPeak = null;
-            for (int i = binIndex; i < bin.Count; i++)
+            IIndexedMzPeak bestPeak = null;
+            for (int i = peakIndexInBin; i < bin.Count; i++)
             {
-                IndexedMassSpectralPeak peak = bin[i];
+                IIndexedMzPeak peak = bin[i];
 
                 if (peak.ZeroBasedScanIndex > zeroBasedScanIndex)
                 {
@@ -265,53 +266,7 @@ namespace FlashLFQ
             return bestPeak;
         }
 
-        public List<IIndexedMzPeak> GetXicFromBin(double mz, int zeroBasedScanIndex, int binIndex, PpmTolerance ppmTolerance)
-        {
-            List<IIndexedMzPeak> xic = new List<IIndexedMzPeak>();
-            IndexedMassSpectralPeak bestPeak = null;
-            if (binIndex >= _indexedPeaks.Length || _indexedPeaks[binIndex] == null)
-                return null;
-
-            List<IndexedMassSpectralPeak> bin = _indexedPeaks[binIndex];
-            int peakListIndex = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
-            IIndexedMzPeak initialPeak = GetPeakFromBin(bin, mz, zeroBasedScanIndex, binIndex, ppmTolerance);
-            if ( initialPeak == null)
-            {
-                return xic;
-            }
-
-            foreach (int direction in new List<int> { -1, 1})
-            {
-                int missedPeaks = 0;
-                for (int i = peakListIndex + direction; i < bin.Count && i >= 0; i+=direction)
-                {
-                    IIndexedMzPeak nextPeak = GetPeakFromBin(mz, zeroBasedScanIndex + direction, binIndex, i, ppmTolerance);
-                        
-                    if(nextPeak==null)
-                    {
-
-                    }
-                    IndexedMassSpectralPeak peak = bin[i];
-
-                    if (peak.ZeroBasedScanIndex > zeroBasedScanIndex)
-                    {
-                        break;
-                    }
-
-                    if (ppmTolerance.Within(peak.Mz, mz)
-                        && peak.ZeroBasedScanIndex == zeroBasedScanIndex
-                        && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
-                    {
-                        bestPeak = peak;
-                    }
-                }
-            }
-            
-            
-            return bestPeak;
-        }
-
-        private static int BinarySearchForIndexedPeak(List<IndexedMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
+        internal static int BinarySearchForIndexedPeak(List<IIndexedMzPeak> indexedPeaks, int zeroBasedScanIndex)
         {
             int m = 0;
             int l = 0;
@@ -352,5 +307,6 @@ namespace FlashLFQ
 
             return m;
         }
+        #endregion
     }
 }
