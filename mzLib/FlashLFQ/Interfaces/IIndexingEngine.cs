@@ -1,9 +1,7 @@
 ﻿using MzLibUtil;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using MassSpectrometry;
 
 namespace FlashLFQ.Interfaces
 {
@@ -13,11 +11,8 @@ namespace FlashLFQ.Interfaces
     /// </summary>
     public interface IIndexingEngine
     {
-        public Ms1ScanInfo[] ScanInfoArray { get; }
-        public bool IndexPeaks(bool silent);
-        public void ClearIndex();
-        public void SerializeIndex();
-        public void DeserializeIndex();
+        public ScanInfo[] ScanInfoArray { get; }
+        public bool IndexPeaks(MsDataScan[] scanArray);
         public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance tolerance);
     }
 }
