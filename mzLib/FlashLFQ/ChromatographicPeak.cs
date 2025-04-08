@@ -16,6 +16,10 @@ namespace FlashLFQ
         public SpectraFileInfo SpectraFileInfo { get; init; }
         public List<IsotopicEnvelope> IsotopicEnvelopes { get; set; }
         public int ScanCount => IsotopicEnvelopes.Count;
+        /// <summary>
+        /// This is a legacy field that is used to store the RT of the split valley between two peaks.
+        /// It is written to the QuantifiedPeaks output, but unused otherwise and should be removed at some point
+        /// </summary>
         public double SplitRT { get; set; }
         public List<int> ChargeList { get; set; }
         public DetectionType DetectionType { get; set; }
