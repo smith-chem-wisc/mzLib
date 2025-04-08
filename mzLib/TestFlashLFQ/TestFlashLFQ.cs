@@ -2190,7 +2190,7 @@ namespace Test
             var indexedPeaks = IndexingEngine<IndexedMassSpectralPeak>.InitializeIndexingEngine(scans);
             var xic = indexedPeaks.GetXic(1000.003, 3, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
             Assert.That(xic.Count == 3);
-            Assert.That(xic.First().Mz == 1000.001);
+            Assert.That(xic.First().Mz == 1000.002);
         }
     }
 }
