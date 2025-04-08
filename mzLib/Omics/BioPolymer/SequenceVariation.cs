@@ -2,7 +2,7 @@
 using System.Linq;
 using Omics.Modifications;
 
-namespace Proteomics
+namespace Omics.BioPolymer
 {
     public class SequenceVariation
     {
@@ -114,7 +114,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="segment"></param>
         /// <returns></returns>
-        internal bool Intersects(ProteolysisProduct segment)
+        internal bool Intersects(TruncationProduct segment)
         {
             return segment.OneBasedEndPosition >= OneBasedBeginPosition && segment.OneBasedBeginPosition <= OneBasedEndPosition;
         }
@@ -145,7 +145,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="segment"></param>
         /// <returns></returns>
-        // internal bool Includes(ProteolysisProduct segment)
+        // internal bool Includes(TruncationProduct segment)
         // {
         //     return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
         // }
