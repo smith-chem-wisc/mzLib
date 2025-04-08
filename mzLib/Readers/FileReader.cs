@@ -1,5 +1,4 @@
 ﻿using MzLibUtil;
-using Readers.ExternalResults.BaseClasses;
 
 namespace Readers
 {
