@@ -14,5 +14,7 @@ namespace FlashLFQ.Interfaces
         public ScanInfo[] ScanInfoArray { get; }
         public bool IndexPeaks(MsDataScan[] scanArray);
         public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance tolerance);
+        public List<IIndexedMzPeak> GetXic(double mz, double retentionTime, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = int.MaxValue);
+        public List<IIndexedMzPeak> GetXic(double mz, int zeroBasedStartIndex, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = int.MaxValue);
     }
 }

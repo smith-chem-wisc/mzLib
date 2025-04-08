@@ -1186,7 +1186,7 @@ namespace Test
                 },
                 ppmTolerance: 5,
                 silent: true,
-                maxThreads: 7
+                maxThreads: 1
                 );
             var results = engine.Run();
             Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);

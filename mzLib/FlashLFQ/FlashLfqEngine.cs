@@ -510,12 +510,11 @@ namespace FlashLFQ
                             }
 
                             // get XIC (peakfinding)
-                            List<IIndexedMzPeak> xic = GetXIC(
+                            List<IIndexedMzPeak> xic = IndexingEngineDictionary[fileInfo].GetXic(
+                                    identification.PeakfindingMass.ToMz(chargeState),
                                     identification.Ms2RetentionTimeInMinutes,
-                                    identification.PeakfindingMass,
-                                    chargeState,
-                                    identification.FileInfo,
-                                    peakfindingTol)
+                                    peakfindingTol,
+                                    MissedScansAllowed)
                                 .OrderBy(p => p.RetentionTime)
                                 .ToList();
 
@@ -1309,7 +1308,7 @@ namespace FlashLFQ
 
             // Grab the first scan/envelope from charge envelopes. This should be the most intense envelope in the list
             IsotopicEnvelope seedEnv = chargeEnvelopes.First();
-            var xic = GetXIC(seedEnv.IndexedPeak.RetentionTime, donorId.PeakfindingMass, z, acceptorFile, mbrTol);
+            var xic = IndexingEngineDictionary[acceptorFile].GetXic(donorId.PeakfindingMass.ToMz(z), seedEnv.IndexedPeak.RetentionTime, mbrTol, MissedScansAllowed);
             List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z, acceptorFile);
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
             acceptorPeak.CalculateIntensityForThisFeature(Integrate);

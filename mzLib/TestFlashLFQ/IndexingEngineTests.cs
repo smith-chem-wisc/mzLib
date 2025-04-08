@@ -1,0 +1,308 @@
+﻿using System;
+using NUnit.Framework;
+using Readers;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Chemistry;
+using FlashLFQ;
+using MzLibUtil;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using Proteomics.AminoAcidPolymer;
+using MassSpectrometry;
+using Test.FileReadingTests;
+using System.Reflection;
+
+namespace Test
+{
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public static class IndexingEngineTests
+    {
+
+        private static string _fileToWrite = "indexingEngineTests.mzML";
+        private static string _testMzMlFullFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, _fileToWrite);
+
+        [OneTimeSetUp]
+        public static void SetUp()
+        {
+
+            double intensity = 1e6;
+
+            MsDataScan[] scans = new MsDataScan[9];
+            double[] intensityMultipliers = { 1, 2, 3, 4, 5, 4, 3, 2, 1 };
+
+            // Create mzSpectra where two peaks appear very close together
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double[] mz = new double[] { 500, 500.5, 501, 501.5, 502 };
+                double[] intensities = Enumerable.Repeat(intensityMultipliers[s]*intensity, 5).ToArray();
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // write the .mzML
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                _testMzMlFullFilePath, false);
+        }
+
+        [OneTimeTearDown]
+        public static void TearDown()
+        {
+            File.Delete(_testMzMlFullFilePath);
+        }
+
+        [Test]
+        public static void TestXicWithDoubleMzPeaks()
+        {
+            string fileToWrite = "myMzml.mzML";
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+
+            MsDataScan[] scans = new MsDataScan[10];
+            double[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+            IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+
+            // Create mzSpectra where two peaks appear very close together
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double[] mz = dist.Masses.SelectMany(v => new List<double> { v.ToMz(1), (v + 0.0001).ToMz(1) }).ToArray();
+                double[] intensities = dist.Intensities.SelectMany(v => new List<double> { v * intensity * intensityMultipliers[s], v * intensity }).ToArray();
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // write the .mzML
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+
+            PeakIndexingEngine indexEngine = new(file1);
+            indexEngine.IndexPeaks();
+
+            var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            var shiftedXic = indexEngine.GetXic((dist.Masses.First() + 0.0001).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+
+            Assert.That(xic.Count, Is.EqualTo(10));
+            Assert.That(shiftedXic.Count, Is.EqualTo(10));
+            Assert.That(Math.Abs(xic.First().Mz - shiftedXic.First().Mz), Is.GreaterThan(0.00001));
+
+            // Check that the xics don't overlap at all
+            xic.AddRange(shiftedXic);
+            Assert.That(xic.ToHashSet().Count(), Is.EqualTo(20)); // The intersection of the two should yield twenty different IndexedMzPeaks 
+        }
+
+        [Test]
+        public static void TestXicStops()
+        {
+            string fileToWrite = "myMzml.mzML";
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+
+            MsDataScan[] scans = new MsDataScan[10];
+            double[] intensityMultipliers = { 1, 3, 0, 0, 3, 5, 10, 5, 3, 1 };
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+            IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+
+            // Create mzSpectra where two peaks appear very close together
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double[] mz = dist.Masses.Select(v =>  v.ToMz(1)).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
+
+                // Turns out you can write a spectrum with a zero intensity peak and it's still recognized by FlashLFQ
+                // So, this is a hack so that scans 3 and 4 don't have a peak at the mass We're looking for
+                if(s == 2 || s == 3)
+                {
+                    mz = dist.Masses.Select(v => v.ToMz(2)).ToArray();
+                }
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // write the .mzML
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+            PeakIndexingEngine indexEngine = new(file1);
+            indexEngine.IndexPeaks();
+
+            var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 7, new PpmTolerance(20), 1);
+            //var shiftedXic = indexEngine.GetXic((dist.Masses.First() + 0.0001).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+
+            Assert.That(xic.Count, Is.EqualTo(6));
+        }
+
+        [Test]
+        public static void TestXicIsBuiltFromDifferentBins()
+        {
+            string fileToWrite = "myMzml.mzML";
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+
+            MsDataScan[] scans = new MsDataScan[10];
+            double[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+            IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+
+            // Create mzSpectra where two peaks appear very close together
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
+
+                if (s % 2 == 0)
+                {
+                    mz = dist.Masses.Select(v => (v + 0.01).ToMz(1)).ToArray();
+                }
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // write the .mzML
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+
+            PeakIndexingEngine indexEngine = new(file1);
+            indexEngine.IndexPeaks();
+
+            // due to the wide tolerance and the way the data was constructed, the XIC and shiftedXIC should match
+            var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            var shiftedXic = indexEngine.GetXic((dist.Masses.First() + 0.01).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+
+            Assert.That(xic.Count, Is.EqualTo(10));
+            Assert.That(shiftedXic.Count, Is.EqualTo(10));
+            Assert.That(Math.Abs(xic.First().Mz - shiftedXic.First().Mz), Is.LessThan(0.00001));
+
+            // Check that the xics are the same
+            xic.AddRange(shiftedXic);
+            Assert.That(xic.ToHashSet().Count(), Is.EqualTo(10)); // The intersection of the two should yield ten unique peaks
+        }
+
+        [Test]
+        public static void TestInitializeIndexingEngine()
+        {
+            MsDataScan[] scans = new MsDataScan[10];
+            for (int s = 0; s < scans.Length; s++)
+            {
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(new double[] { 1 }, new double[] { 1 }, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 0, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(scans);
+            Assert.IsNotNull(indexingEngine);
+        }
+
+        [Test]
+        public static void TestGetIndexedPeakWithChargeState()
+        {
+            MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
+            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var peak = indexingEngine.GetIndexedPeak(997.986, 5, new PpmTolerance(20), 2);
+            Assert.IsNotNull(peak);
+            Assert.That(peak.Mz, Is.EqualTo(500).Within(0.001));
+            Assert.That(peak.ZeroBasedScanIndex, Is.EqualTo(5));
+        }
+
+        [Test]
+        public static void TestGetIndexedPeakWithoutChargeState()
+        {
+            MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
+            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var peak = indexingEngine.GetIndexedPeak(500, 5, new PpmTolerance(20));
+            Assert.IsNotNull(peak);
+            Assert.That(peak.Mz, Is.EqualTo(500).Within(0.001));
+            Assert.That(peak.ZeroBasedScanIndex, Is.EqualTo(5));
+        }
+
+        [Test]
+        public static void TestGetXicWithRetentionTime()
+        {
+            MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
+            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var xic = indexingEngine.GetXic(500.0, 1.0, new PpmTolerance(20), 1);
+            Assert.IsNotNull(xic);
+            Assert.That(xic.Count, Is.EqualTo(9));
+        }
+
+        [Test]
+        public static void TestGetXicWithStartIndex()
+        {
+            MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
+            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var xic = indexingEngine.GetXic(500.0, 0, new PpmTolerance(20), 1);
+            Assert.IsNotNull(xic);
+            Assert.That(xic.Count, Is.EqualTo(9));
+        }
+
+        [Test]
+        public static void TestMissingXic()
+        {
+            MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
+            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var xic = indexingEngine.GetXic(400.0, 0, new PpmTolerance(20), 1);
+            Assert.IsNotNull(xic);
+            Assert.IsEmpty(xic);
+        }
+
+        [Test]
+        public static void TestNotIndexedException()
+         {
+            IndexingEngine<IIndexedMzPeak> indexingEngine = new();
+            Assert.Throws<MzLibException>(() => indexingEngine.GetXic(500.0, 0, new PpmTolerance(20), 1));
+            Assert.Throws<MzLibException>(() => indexingEngine.GetIndexedPeak(500.0, 0, new PpmTolerance(20), 1));
+        }
+
+        [Test]
+        public static void RealDataIndexingTest()
+        {
+            Residue x = new Residue("a", 'a', "a", Chemistry.ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //+8 lysine
+            Residue lightLysine = Residue.GetResidue('K');
+
+            Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
+
+            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\SilacTest.mzML"), "", 0, 0, 0);
+            FlashLfqEngine engine = new FlashLfqEngine(
+                new List<Identification>
+                {
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                },
+                ppmTolerance: 5,
+                silent: true,
+                maxThreads: 1
+                );
+
+            PeakIndexingEngine indexEngine = new(fileInfo);
+            indexEngine.IndexPeaks();
+
+            var xic = indexEngine.GetXic(844.9378, zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+
+            //var results = engine.Run();
+            //Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
+        }
+    }
+}
