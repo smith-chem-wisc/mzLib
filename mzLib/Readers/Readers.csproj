@@ -87,8 +87,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="InternalResults\IndividualResultRecords\" />
-	  <Folder Include="InternalResults\ResultFiles\" />
+	  <Folder Include="ExternalResults\MetaMorpheusResults\" />
 	</ItemGroup>
 
 </Project>
