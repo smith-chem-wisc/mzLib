@@ -163,7 +163,7 @@ namespace Readers
         /// <param name="type"></param>
         /// <returns>Type of File Reader class</returns>
         /// <exception cref="MzLibException"></exception>
-        public static Type GetResultFileClassExtension(this SupportedFileType type)
+        public static Type GetResultFileTypeExtension(this SupportedFileType type)
         {
             return type switch
             {
@@ -179,9 +179,9 @@ namespace Readers
                 SupportedFileType.ToppicPrsmSingle => typeof(ToppicSearchResultFile),
                 SupportedFileType.ToppicProteoform => typeof(ToppicSearchResultFile),
                 SupportedFileType.ToppicProteoformSingle => typeof(ToppicSearchResultFile),
-                SupportedFileType.MsFraggerPsm => typeof(MsFraggerPsm),
-                SupportedFileType.MsFraggerPeptide => typeof(MsFraggerPeptide),
-                SupportedFileType.MsFraggerProtein => typeof(MsFraggerProtein),
+                SupportedFileType.MsFraggerPsm => typeof(MsFraggerPsmFile),
+                SupportedFileType.MsFraggerPeptide => typeof(MsFraggerPeptideFile),
+                SupportedFileType.MsFraggerProtein => typeof(MsFraggerProteinFile),
                 SupportedFileType.FlashLFQQuantifiedPeak => typeof(QuantifiedPeakFile),
                 SupportedFileType.MsPathFinderTTargets => typeof(MsPathFinderTResultFile),
                 SupportedFileType.MsPathFinderTDecoys => typeof(MsPathFinderTResultFile),
@@ -196,5 +196,7 @@ namespace Readers
                 _ => throw new MzLibException("File type not supported")
             };
         }
+
+        public static Type GetResultFileTypeExtension(this string filePath) => filePath.ParseFileType().GetResultFileTypeExtension();
     }
 }

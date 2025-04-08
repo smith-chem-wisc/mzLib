@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -12,33 +13,37 @@ namespace Test.FileReadingTests
     [ExcludeFromCodeCoverage]
     internal class TestSupportedFileExtensions
     {
-        [Test]
+        private static IEnumerable<TestCaseData> SupportedFileTypeTestCases()
+        {
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms2Feature_FlashDeconvOpenMs3.0.0_ms2.feature", SupportedFileType.Ms2Feature);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature", SupportedFileType.Ms1Feature);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\mzrt_TopFDv1.6.2.mzrt.csv", SupportedFileType.TopFDMzrt);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms1Tsv_FlashDeconvOpenMs3.0.0_ms1.tsv", SupportedFileType.Ms1Tsv_FlashDeconv);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Tsv_FlashDeconvOpenMs3.0.0.tsv", SupportedFileType.Tsv_FlashDeconv);
+            yield return new TestCaseData(@"FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv", SupportedFileType.psmtsv);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv", SupportedFileType.ToppicPrsm);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv", SupportedFileType.ToppicProteoform);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv", SupportedFileType.ToppicProteoformSingle);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv", SupportedFileType.ToppicPrsmSingle);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv", SupportedFileType.MsFraggerPsm);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1individual_peptide.tsv", SupportedFileType.MsFraggerPeptide);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv", SupportedFileType.MsFraggerProtein);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv", SupportedFileType.MsFraggerPeptide);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1combined_protein.tsv", SupportedFileType.MsFraggerProtein);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv", SupportedFileType.FlashLFQQuantifiedPeak);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv", SupportedFileType.MsPathFinderTTargets);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv", SupportedFileType.MsPathFinderTDecoys);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv", SupportedFileType.MsPathFinderTAllResults);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\crux.txt", SupportedFileType.CruxResult);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv", SupportedFileType.ExperimentAnnotation);
+        }
+
+        [Test, TestCaseSource(nameof(SupportedFileTypeTestCases))]
         [TestCase("DataFiles/sliced_ethcd.raw", SupportedFileType.ThermoRaw)]
         [TestCase("DataFiles/SmallCalibratibleYeast.mzml", SupportedFileType.MzML)]
         [TestCase("DataFiles/tester.mgf", SupportedFileType.Mgf)]
         [TestCase("DataFiles/centroid_1x_MS1_4x_autoMS2.d", SupportedFileType.BrukerD)]
         [TestCase("DataFiles/timsTOF_snippet.d", SupportedFileType.BrukerTimsTof)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms2Feature_FlashDeconvjurkat_td_rep1_fract2_ms2.feature", SupportedFileType.Ms2Feature)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDMs1Feature_jurkat_td_rep1_fract2_ms1.feature", SupportedFileType.Ms1Feature)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\TopFDmzrt_jurkat_td_rep1_fract2_frac.mzrt.csv", SupportedFileType.Mzrt_TopFd)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Tsv_FlashDeconvjurkat_td_rep1_fract2_ms1.tsv", SupportedFileType.Ms1Tsv_FlashDeconv)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\Tsv_FlashDeconvOpenMs3.0.0.tsv", SupportedFileType.Tsv_FlashDeconv)]
-        [TestCase(@"FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv", SupportedFileType.psmtsv)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv", SupportedFileType.ToppicPrsm)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv", SupportedFileType.ToppicProteoform)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv", SupportedFileType.ToppicProteoformSingle)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv", SupportedFileType.ToppicPrsmSingle)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv", SupportedFileType.MsFraggerPsm)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1individual_peptide.tsv", SupportedFileType.MsFraggerPeptide)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv", SupportedFileType.MsFraggerProtein)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv", SupportedFileType.MsFraggerPeptide)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1combined_protein.tsv", SupportedFileType.MsFraggerProtein)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv", SupportedFileType.FlashLFQQuantifiedPeak)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv", SupportedFileType.MsPathFinderTTargets)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv", SupportedFileType.MsPathFinderTDecoys)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv", SupportedFileType.MsPathFinderTAllResults)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\crux.txt", SupportedFileType.CruxResult)]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv", SupportedFileType.ExperimentAnnotation)]
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();
@@ -46,6 +51,16 @@ namespace Test.FileReadingTests
 
             var extension = expectedType.GetFileExtension();
             Assert.That(filePath.EndsWith(extension, StringComparison.InvariantCultureIgnoreCase));
+        }
+
+        [Test, TestCaseSource(nameof(SupportedFileTypeTestCases))]
+        public static void TestIResultFileReader(string filePath, SupportedFileType expectedType)
+        {
+            IResultFile resultFile = FileReader.ReadFile(filePath);
+            Assert.That(resultFile.FileType, Is.EqualTo(expectedType));
+            Type resultFileClass = expectedType.GetResultFileTypeExtension();
+            var convertedFile = Convert.ChangeType(resultFile, resultFileClass);
+            Assert.That(convertedFile, Is.Not.Null);
         }
 
         [Test]

@@ -1,4 +1,7 @@
-﻿namespace Readers
+﻿using MzLibUtil;
+using Readers.ExternalResults.BaseClasses;
+
+namespace Readers
 {
     public class FileReader
     {
@@ -7,6 +10,50 @@
             var resultFile = new TResultFile() { FilePath = filePath };
             resultFile.LoadResults();
             return resultFile;
+        }
+
+        /// <summary>
+        /// Attempts to read in a results file as an IResultFile
+        /// </summary>
+        /// <param name="filePath">Path to the results file</param>
+        /// <returns>An IResultFile created from filePath</returns>
+        /// <exception cref="FileNotFoundException">Thrown if filePath doesn't point to a real file</exception>
+        /// <exception cref="MzLibException">Thrown if file type is not recognized or can't be converted to IResultFile</exception>
+        public static IResultFile ReadFile(string filePath)
+        {
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException();
+            var resultFileType = filePath.GetResultFileTypeExtension(); // These calls can throw MzLibExceptions
+            object resultFile = Activator.CreateInstance(resultFileType);
+            if (resultFile is IResultFile castResultFile)
+            {
+                castResultFile.FilePath = filePath;
+                castResultFile.LoadResults();
+                return castResultFile;
+            }
+            throw new MzLibException($"{resultFileType} files cannot be converted to IResultFile");
+        }
+
+        /// <summary>
+        /// Attempts to read in a results file as an IQuantifiableResultFile
+        /// </summary>
+        /// <param name="filePath">Path to the results file</param>
+        /// <returns>An IQuantifiableResultFile created from filePath</returns>
+        /// <exception cref="FileNotFoundException">Thrown if filePath doesn't point to a real file</exception>
+        /// <exception cref="MzLibException">Thrown if file type is not recognized or can't be converted to IQuantifiableResultFile</exception>
+        public static IQuantifiableResultFile ReadQuantifiableResultFile(string filePath)
+        {
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException();
+            var resultFileType = filePath.GetResultFileTypeExtension();
+            object resultFile = Activator.CreateInstance(resultFileType);
+            if (resultFile is IQuantifiableResultFile castResultFile)
+            {
+                castResultFile.FilePath = filePath;
+                castResultFile.LoadResults();
+                return castResultFile;
+            }
+            throw new MzLibException($"{resultFileType} files cannot be converted to IQuantifiableResultFile");
         }
     }
 }

@@ -29,7 +29,7 @@ namespace Readers
         #region IResultFile Members
 
         public new string FilePath { get; set; }
-        public SupportedFileType FileType { get; private set; }
+        public SupportedFileType FileType { get; set; }
         public Software Software { get; set; } = Software.MassSpecFile;
 
         public List<MsDataScan> Results { get; set; }
