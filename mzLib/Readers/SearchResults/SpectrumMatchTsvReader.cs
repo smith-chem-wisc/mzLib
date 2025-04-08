@@ -1,7 +1,4 @@
 ﻿using MzLibUtil;
-using Omics.SpectrumMatch;
-using Proteomics.PSM;
-using Transcriptomics;
 
 namespace Readers
 {
