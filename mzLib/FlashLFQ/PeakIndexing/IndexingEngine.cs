@@ -164,7 +164,8 @@ namespace FlashLFQ
                 {
                     // increment the scan index we're searching for
                     currentZeroBasedScanIndex += direction;
-                    if(currentZeroBasedScanIndex < 0 || currentZeroBasedScanIndex > ScanInfoArray.Length - 1)
+                    if(currentZeroBasedScanIndex < 0 || currentZeroBasedScanIndex > ScanInfoArray.Length - 1 
+                        || Math.Abs(ScanInfoArray[currentZeroBasedScanIndex].RetentionTime - initialPeak.RetentionTime) > maxPeakHalfWidth)
                         break;
                     
                     for (int i = 0; i < pointerArrayCopy.Length; i++)
