@@ -56,7 +56,7 @@ namespace Test.FileReadingTests
         [Test, TestCaseSource(nameof(SupportedFileTypeTestCases))]
         public static void TestIResultFileReader(string filePath, SupportedFileType expectedType)
         {
-            IResultFile resultFile = FileReader.ReadFile(filePath);
+            IResultFile resultFile = FileReader.ReadResultFile(filePath);
             Assert.That(resultFile.FileType, Is.EqualTo(expectedType));
             Type resultFileClass = expectedType.GetResultFileTypeExtension();
             var convertedFile = Convert.ChangeType(resultFile, resultFileClass);
