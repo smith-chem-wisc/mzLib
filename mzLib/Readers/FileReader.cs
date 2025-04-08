@@ -23,7 +23,7 @@ namespace Readers
         {
             if (!File.Exists(filePath))
                 throw new FileNotFoundException();
-            var resultFileType = filePath.GetResultFileTypeExtension(); // These calls can throw MzLibExceptions
+            var resultFileType = filePath.GetResultFileType(); // These calls can throw MzLibExceptions
             object resultFile = Activator.CreateInstance(resultFileType);
             if (resultFile is IResultFile castResultFile)
             {
@@ -45,7 +45,7 @@ namespace Readers
         {
             if (!File.Exists(filePath))
                 throw new FileNotFoundException();
-            var resultFileType = filePath.GetResultFileTypeExtension();
+            var resultFileType = filePath.GetResultFileType();
             object resultFile = Activator.CreateInstance(resultFileType);
             if (resultFile is IQuantifiableResultFile castResultFile)
             {

@@ -59,7 +59,7 @@ namespace Test.FileReadingTests
         {
             IResultFile resultFile = FileReader.ReadResultFile(filePath);
             Assert.That(resultFile.FileType, Is.EqualTo(expectedType));
-            Type resultFileClass = expectedType.GetResultFileTypeExtension();
+            Type resultFileClass = expectedType.GetResultFileType();
             var convertedFile = Convert.ChangeType(resultFile, resultFileClass);
             Assert.That(convertedFile, Is.Not.Null);
         }
@@ -81,7 +81,7 @@ namespace Test.FileReadingTests
         {
             IQuantifiableResultFile resultFile = FileReader.ReadQuantifiableResultFile(filePath);
             Assert.That(resultFile.FileType, Is.EqualTo(expectedType));
-            Type resultFileClass = expectedType.GetResultFileTypeExtension();
+            Type resultFileClass = expectedType.GetResultFileType();
             var convertedFile = Convert.ChangeType(resultFile, resultFileClass);
             Assert.That(convertedFile, Is.Not.Null);
         }

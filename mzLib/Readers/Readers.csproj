@@ -86,4 +86,9 @@
 		</None>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="InternalResults\IndividualResultRecords\" />
+	  <Folder Include="InternalResults\ResultFiles\" />
+	</ItemGroup>
+
 </Project>
