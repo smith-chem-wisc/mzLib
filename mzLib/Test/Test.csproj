@@ -567,6 +567,9 @@
     <None Update="XICData\AllPSMs_IsoID_Combined.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="XICData\AllPSMs_IsoID_Combined2.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="XICData\AllPSMs_IsoID_Mixture.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

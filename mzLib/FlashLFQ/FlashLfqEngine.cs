@@ -2124,6 +2124,7 @@ namespace FlashLFQ
                     .Where(p=>Within(p.Ms2RetentionTimeInMinutes, peakStart, PeakEnd) && p.FileInfo.Equals(xic.SpectraFile))
                     .DistinctBy(p=>p.ModifiedSequence)
                     .ToList();
+                List<Identification> idsInOtherRuns;
                 switch (idsForThisPeak.Count)
                 {
                     case 0: // If there is no any Id from the same file in the time window, then we borrow one from others files.
@@ -2132,18 +2133,36 @@ namespace FlashLFQ
                             .DistinctBy(p=>p.ModifiedSequence)
                             .ToList();
                         detectionType = DetectionType.IsoTrack_MBR;
-                        // If there are more than one Id from other files in the time window, then detectionType should be IsoTrack_Ambiguous.
+                        // If there are more than 2 Id from other files in the time window, then detectionType should be IsoTrack_Ambiguous.
                         if (idsForThisPeak.Count > 1) 
                         {
                             detectionType = DetectionType.IsoTrack_Ambiguous;
                         }
-
                         break;
+
                     case 1: // If there is one Id from the same file in the time window, then detectionType should be MSMS.
+                        Identification idForThisPeak = idsForThisPeak.FirstOrDefault();
                         detectionType = DetectionType.MSMS;
+                        idsInOtherRuns = xICGroups.IdList
+                            .Where(p => Within(p.Ms2RetentionTimeInMinutes, peakStart, PeakEnd) 
+                                        && !p.FileInfo.Equals(xic.SpectraFile)
+                                        && p.ModifiedSequence != idForThisPeak.ModifiedSequence)
+                            .DistinctBy(p => p.ModifiedSequence)
+                            .ToList();
+                        // If we find some id in other run that doesn't include in this run, we need to merge it, and then detectionType should be IsoTrack_Ambiguous.
+                        if (idsInOtherRuns.Count > 0)
+                        {
+                            idsForThisPeak.AddRange(idsInOtherRuns);
+                            detectionType = DetectionType.IsoTrack_Ambiguous;
+                        }
                         break;
                     case > 1: // If there are more than one Id from the same file in the time window, then detectionType should be IsoTrack_Ambiguous.
                         detectionType = DetectionType.IsoTrack_Ambiguous;
+                        idsForThisPeak = xICGroups.IdList
+                            .Where(p => Within(p.Ms2RetentionTimeInMinutes, peakStart, PeakEnd))
+                            .OrderByDescending(p => p.FileInfo.Equals(xic.SpectraFile)) // If there are few same id, the prioritize IDs from this file
+                            .DistinctBy(p => p.ModifiedSequence)
+                            .ToList();
                         break;
                 }
 
@@ -2234,10 +2253,11 @@ namespace FlashLFQ
                     .SelectMany(p => p.Value)
                     .Where(peak => peak != null && peak.SpectraFileInfo.Equals(fileInfo))
                     .ToList();
+
                 //remove the repeated peaks from FlashLFQ with the same identification list
                 foreach (var peak in allChromPeaksInFile)
                 {
-                    _results.Peaks[fileInfo].RemoveAll(p => IDsEqual(p.Identifications,peak.Identifications));
+                    _results.Peaks[fileInfo].RemoveAll(p => IDsSubSet(p.Identifications,peak.Identifications));
                 }
 
                 // Add the peaks into the result dictionary, and remove the duplicated peaks.
@@ -2248,31 +2268,34 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Check if two lists of identifications are equal, to be compatible for MovId as well, we only consider modified sequence, and fileInfo.
+        /// Check the idlist from FlashLFQ is subset of the idList from IsoTracker
+        /// to be compatible for MovId as well, we only consider modified sequence.
         /// Only for chromatographicPeaks comparison.
         /// </summary>
         /// <param name="idList1"></param>
         /// <param name="idList2"></param>
         /// <returns></returns>
-        private bool IDsEqual(List<Identification> idList1, List<Identification> idList2)
+        private bool IDsSubSet(List<Identification> idList1, List<Identification> idList2)
         {
-            if (idList1.Count != idList2.Count)
+            if (idList1.Count > idList2.Count)
             {
                 return false;
             }
 
-            var sortedIdList1 = idList1.OrderBy(id => id.ModifiedSequence).ToList();
-            var sortedIdList2 = idList2.OrderBy(id => id.ModifiedSequence).ToList();
-
-            for (int i = 0; i < sortedIdList1.Count; i++)
+            // make sure idList1 is subset of idList2
+            var idSet2 = new HashSet<string>(idList2.Select(id => id.ModifiedSequence));
+            foreach (var id in idList1)
             {
-                if (!sortedIdList1[i].ModifiedSequence.Equals(sortedIdList2[i].ModifiedSequence))
+                if (!idSet2.Contains(id.ModifiedSequence))
                 {
                     return false;
                 }
             }
             return true;
+
         }
+
+
     }
 
 }
