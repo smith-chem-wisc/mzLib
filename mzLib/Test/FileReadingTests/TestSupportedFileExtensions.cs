@@ -54,13 +54,21 @@ namespace Test.FileReadingTests
         }
 
         [Test, TestCaseSource(nameof(SupportedFileTypeTestCases))]
-        public static void TestIResultFileReader(string filePath, SupportedFileType expectedType)
+        public static void TestIResultFileReaderWorks(string filePath, SupportedFileType expectedType)
         {
             IResultFile resultFile = FileReader.ReadResultFile(filePath);
             Assert.That(resultFile.FileType, Is.EqualTo(expectedType));
             Type resultFileClass = expectedType.GetResultFileTypeExtension();
             var convertedFile = Convert.ChangeType(resultFile, resultFileClass);
             Assert.That(convertedFile, Is.Not.Null);
+        }
+
+        [Test]
+        [TestCase("DataFiles/sliced_ethcd.raw", typeof(MzLibException))]
+        [TestCase("DataFiles/xyzl.psmtsv", typeof(FileNotFoundException))]
+        public static void TestIResultFileReaderThrowsException(string filePath, Type expectedExceptionType)
+        {
+
         }
 
         [Test]
