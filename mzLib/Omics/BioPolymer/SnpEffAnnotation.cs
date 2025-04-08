@@ -1,8 +1,6 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
-namespace Proteomics
+namespace Omics.BioPolymer
 {
     /// <summary>
     /// Specifications are described here: http://snpeff.sourceforge.net/VCFannotationformat_v1.0.pdf

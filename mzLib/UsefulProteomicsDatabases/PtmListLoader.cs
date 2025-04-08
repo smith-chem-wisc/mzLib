@@ -328,11 +328,6 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static bool IsNullOrEmpty<T, U>(this IDictionary<T, U> Dictionary)
-        {
-            return (Dictionary == null || Dictionary.Count < 1);
-        }
-
         /// <summary>
         /// Subtract the mass of a proton for every formal charge on a modification.
         /// </summary>

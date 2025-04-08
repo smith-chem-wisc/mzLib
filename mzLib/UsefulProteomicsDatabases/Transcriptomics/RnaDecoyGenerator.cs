@@ -7,6 +7,11 @@ using System.Threading.Tasks;
 using MassSpectrometry;
 using Omics.Modifications;
 using Transcriptomics;
+using Omics.BioPolymer;
+using Transcriptomics.Digestion;
+using System.Security.Cryptography;
+using Easy.Common.Extensions;
+using Omics.Digestion;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -56,17 +61,67 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             {
                 // reverse sequence
                 var reverseSequence =
-                    new string(nucleicAcid.BaseSequence[..^1].Reverse().Append(nucleicAcid.BaseSequence.Last()).ToArray());
+                    new string(nucleicAcid.BaseSequence.Reverse().ToArray());
+
+                // create a mapping of original to reversed indices
+                var indexMapping = new Dictionary<int, int>();
+                for (int i = 0; i < nucleicAcid.BaseSequence.Length; i++)
+                {
+                    indexMapping[i + 1] = nucleicAcid.BaseSequence.Length - i;
+                }
 
                 // reverse modifications
                 var reverseModifications = new Dictionary<int, List<Modification>>();
                 foreach (var kvp in nucleicAcid.OneBasedPossibleLocalizedModifications)
                 {
-                    var reverseKey = kvp.Key == reverseSequence.Length ? kvp.Key : reverseSequence.Length - kvp.Key;
+                    var reverseKey = indexMapping[kvp.Key];
                     reverseModifications.Add(reverseKey, kvp.Value);
                 }
+                
+                List<TruncationProduct> reverseTruncs = new List<TruncationProduct>();
+                List<SequenceVariation> reverseVariations = new List<SequenceVariation>();
+                List<SequenceVariation> reverseAppliedVariations = new List<SequenceVariation>();
+                if (nucleicAcid is IHasSequenceVariants variantContaining)
+                {
+                    // Reverse Applied Variants
+                    foreach (SequenceVariation variation in variantContaining.AppliedSequenceVariations)
+                    {
+                        var reverseBegin = indexMapping[variation.OneBasedBeginPosition];
+                        var reverseEnd = indexMapping[variation.OneBasedEndPosition];
+                        var reverseModificationsForVariation = new Dictionary<int, List<Modification>>();
+                        foreach (var modKvp in variation.OneBasedModifications)
+                        {
+                            var reverseModKey = indexMapping[modKvp.Key];
+                            reverseModificationsForVariation.Add(reverseModKey, modKvp.Value);
+                        }
+                        reverseAppliedVariations.Add(new SequenceVariation(reverseBegin, reverseEnd, variation.OriginalSequence, variation.VariantSequence, variation.Description.Description, reverseModificationsForVariation));
+                    }
 
-                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, decoyIdentifier);
+                    // Reverse Applied Variants
+                    foreach (SequenceVariation variation in variantContaining.SequenceVariations)
+                    {
+                        var reverseBegin = indexMapping[variation.OneBasedBeginPosition];
+                        var reverseEnd = indexMapping[variation.OneBasedEndPosition];
+                        var reverseModificationsForVariation = new Dictionary<int, List<Modification>>();
+                        foreach (var modKvp in variation.OneBasedModifications)
+                        {
+                            var reverseModKey = indexMapping[modKvp.Key];
+                            reverseModificationsForVariation.Add(reverseModKey, modKvp.Value);
+                        }
+                        reverseVariations.Add(new SequenceVariation(reverseBegin, reverseEnd, variation.OriginalSequence, variation.VariantSequence, variation.Description.Description, reverseModificationsForVariation));
+                    }
+
+                    // Reverse Truncations
+                    foreach (TruncationProduct truncation in variantContaining.TruncationProducts)
+                    {
+                        var reverseBegin = indexMapping[truncation.OneBasedEndPosition!.Value];
+                        var reverseEnd = indexMapping[truncation.OneBasedBeginPosition!.Value];
+
+                        reverseTruncs.Add(new(reverseBegin, reverseEnd, $"{decoyIdentifier} {truncation.Type}"));
+                    }
+                }
+
+                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, reverseTruncs, reverseVariations, reverseAppliedVariations, decoyIdentifier);
                 lock (decoyNucleicAcids)
                 {
                     decoyNucleicAcids.Add(newNucleicAcid);
