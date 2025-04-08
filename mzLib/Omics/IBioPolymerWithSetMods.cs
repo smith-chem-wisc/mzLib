@@ -170,7 +170,7 @@ namespace Omics
         public static string DetermineFullSequence(string baseSequence, IDictionary<int, Modification> allModsOneIsNterminus)
         {
             // start string builder with initial capacity to avoid resizing costs. 
-            var subSequence = new StringBuilder(baseSequence.Length + allModsOneIsNterminus.Count * 30);
+            var subSequence = new StringBuilder(baseSequence.Length + allModsOneIsNterminus.Count * 60);
 
             // modification on peptide N-terminus
             if (allModsOneIsNterminus.TryGetValue(1, out Modification? mod))

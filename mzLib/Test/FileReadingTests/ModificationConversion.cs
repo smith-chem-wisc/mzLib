@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
-using Readers.ExternalResults.SupportClasses;
+using Readers;
 
 namespace Test.FileReadingTests
 {
