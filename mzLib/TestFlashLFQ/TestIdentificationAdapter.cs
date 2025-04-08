@@ -1,14 +1,17 @@
 ﻿using NUnit.Framework;
 using Readers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FlashLFQ;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
+using Readers.ExternalResults.BaseClasses;
+using System.Runtime.CompilerServices;
 
 namespace Test
 {
-    internal class TestIdentificationAdapter
+    public class TestIdentificationAdapter
     {
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
@@ -16,9 +19,13 @@ namespace Test
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
-
             List<Identification> identifications = new List<Identification>();
-            identifications = MzLibExtensions.MakeIdentifications(file);
+            List<SpectraFileInfo> spectraFiles = new List<SpectraFileInfo>
+                {
+                    new SpectraFileInfo(@"D:\Projects\Chimeras\Mann_11cell_analysis\Hela\MsFragger\Hela_1_1\interact-20100611_Velos1_TaGe_SA_Hela_1.pep.xml", 
+                                        "", 0, 0, 0),
+                };
+            identifications = MzLibExtensions.MakeIdentifications(file, spectraFiles);
 
             // list should contain five elements
             Assert.That(identifications.Count, Is.EqualTo(5));
@@ -26,8 +33,8 @@ namespace Test
             Assert.That(identifications[0].ProteinGroups.Count, Is.EqualTo(1));
             // two proteins associated with given results, list should contain two elements
             Assert.That(identifications[2].ProteinGroups.Count, Is.EqualTo(2));
-            
-            Identification identification1= identifications[0];
+
+            Identification identification1 = identifications[0];
             Assert.That(identification1.BaseSequence, Is.EqualTo("KPVGAAK"));
             Assert.That(identification1.ModifiedSequence, Is.EqualTo("KPVGAAK"));
             Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(1.9398));
@@ -86,5 +93,173 @@ namespace Test
             Assert.That(allFiles.TryGetValue(fileName, out var output));
             Assert.AreEqual(output, rawFilePath);
         }
+
+        [Test]
+        public void MakeIdentifications_ShouldReturnEmptyList_WhenNoQuantifiableRecords()
+        {
+            // Arrange
+            var quantifiable = new MockQuantifiableResultFile(new List<IQuantifiableRecord>());
+            var spectraFiles = new List<SpectraFileInfo>();
+
+            // Act
+            var result = MzLibExtensions.MakeIdentifications(quantifiable, spectraFiles);
+
+            // Assert
+            Assert.IsEmpty(result);
+        }
+
+        [Test]
+        public void MakeIdentifications_ShouldReturnIdentifications_WhenQuantifiableRecordsExist()
+        {
+            // Arrange
+            var quantifiableRecords = new List<IQuantifiableRecord>
+                {
+                    new MockQuantifiableRecord
+                    {
+                        BaseSequence = "BASESEQ",
+                        ModifiedSequence = "MODSEQ",
+                        RetentionTime = 5.0,
+                        MonoisotopicMass = 500.0,
+                        ChargeState = 2,
+                        FileName = "file1.mzML",
+                        ProteinGroupInfos = new List<(string proteinAccessions, string geneName, string organism)>
+                        {
+                            ("P1", "Gene1", "Organism1")
+                        }
+                    },
+                    new MockQuantifiableRecord
+                    {
+                        BaseSequence = "BASESEQ2",
+                        ModifiedSequence = "MODSEQ2",
+                        RetentionTime = 10.0,
+                        MonoisotopicMass = 1000.0,
+                        ChargeState = 3,
+                        FileName = "file2.mzML",
+                        ProteinGroupInfos = new List<(string proteinAccessions, string geneName, string organism)>
+                        {
+                            ("P2", "Gene2", "Organism2")
+                        }
+                    }
+                };
+            var quantifiable = new MockQuantifiableResultFile(quantifiableRecords);
+            var spectraFiles = new List<SpectraFileInfo>
+                {
+                    new SpectraFileInfo("file1.mzML", "", 0, 0, 0),
+                    new SpectraFileInfo("file2.mzML", "", 0, 0, 0)
+                };
+
+            // Act
+            var result = MzLibExtensions.MakeIdentifications(quantifiable, spectraFiles);
+
+            // Assert
+            Assert.AreEqual(2, result.Count);
+            var identification1 = result[0];
+            Assert.AreEqual("BASESEQ", identification1.BaseSequence);
+            Assert.AreEqual("MODSEQ", identification1.ModifiedSequence);
+            Assert.AreEqual(5.0, identification1.Ms2RetentionTimeInMinutes);
+            Assert.AreEqual(500.0, identification1.MonoisotopicMass);
+            Assert.AreEqual(2, identification1.PrecursorChargeState);
+            Assert.AreEqual(1, identification1.ProteinGroups.Count);
+            Assert.AreEqual("P1", identification1.ProteinGroups.First().ProteinGroupName);
+            Assert.AreEqual("Gene1", identification1.ProteinGroups.First().GeneName);
+            Assert.AreEqual("Organism1", identification1.ProteinGroups.First().Organism);
+            Assert.AreEqual(spectraFiles[0], identification1.FileInfo);
+
+            var identification2 = result[1];
+            Assert.AreEqual("BASESEQ2", identification2.BaseSequence);
+            Assert.AreEqual("MODSEQ2", identification2.ModifiedSequence);
+            Assert.AreEqual(10.0, identification2.Ms2RetentionTimeInMinutes);
+            Assert.AreEqual(1000.0, identification2.MonoisotopicMass);
+            Assert.AreEqual(3, identification2.PrecursorChargeState);
+            Assert.AreEqual(1, identification2.ProteinGroups.Count);
+            Assert.AreEqual("P2", identification2.ProteinGroups.First().ProteinGroupName);
+            Assert.AreEqual("Gene2", identification2.ProteinGroups.First().GeneName);
+            Assert.AreEqual("Organism2", identification2.ProteinGroups.First().Organism);
+            Assert.AreEqual(spectraFiles[1], identification2.FileInfo);
+        }
+
+        [Test]
+        public void SpectraFileNotFound()
+        {
+            var quantifiableRecords = new List<IQuantifiableRecord>
+                {
+                    new MockQuantifiableRecord
+                    {
+                        BaseSequence = "BASESEQ",
+                        ModifiedSequence = "MODSEQ",
+                        RetentionTime = 5.0,
+                        MonoisotopicMass = 500.0,
+                        ChargeState = 2,
+                        FileName = "file1.mzML",
+                        ProteinGroupInfos = new List<(string proteinAccessions, string geneName, string organism)>
+                        {
+                            ("P1", "Gene1", "Organism1")
+                        }
+                    }
+                };
+            var quantifiable = new MockQuantifiableResultFile(quantifiableRecords);
+            var spectraFiles = new List<SpectraFileInfo>
+                {
+                    new SpectraFileInfo("file2.mzML", "", 0, 0, 0)
+                };
+
+            try
+            {
+                var result = MzLibExtensions.MakeIdentifications(quantifiable, spectraFiles);
+            }
+            catch (Exception ex)
+            {
+                Assert.AreEqual("Spectra file not found for file name: file1.mzML", ex.Message);
+            }
+        }
     }
+
+    // Mock classes for testing
+    public class MockQuantifiableResultFile : IResultFile, IQuantifiableResultFile
+    {
+        private readonly List<IQuantifiableRecord> _quantifiableRecords;
+
+        public string FilePath { get; set; }
+
+        public MockQuantifiableResultFile(List<IQuantifiableRecord> quantifiableRecords)
+        {
+            _quantifiableRecords = quantifiableRecords;
+        }
+
+        public IEnumerable<IQuantifiableRecord> GetQuantifiableResults()
+        {
+            return _quantifiableRecords;
+        }
+
+        public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePaths)
+        {
+            var dict = new Dictionary<string, string>();
+            foreach (var path in fullFilePaths)
+            {
+                dict[path] = path;
+            }
+            return dict;
+        }
+
+        // public string FilePath => throw new System.NotImplementedException();
+        public SupportedFileType FileType => SupportedFileType.Mgf;
+        public Software Software { get => Software.Crux; set => throw new System.NotImplementedException(); }
+        //public string FilePath { get => null; set => throw new System.NotImplementedException(); }
+
+        public void LoadResults() => throw new System.NotImplementedException();
+        public void WriteResults(string path) => throw new System.NotImplementedException();
+    }
+
+    public class MockQuantifiableRecord : IQuantifiableRecord
+    {
+        public string BaseSequence { get; set; }
+        public string ModifiedSequence { get; set; }
+        public double RetentionTime { get; set; }
+        public double MonoisotopicMass { get; set; }
+        public int ChargeState { get; set; }
+        public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos { get; set; }
+        public string FileName { get; set; }
+        public bool IsDecoy { get; set; }
+    }
+
 }

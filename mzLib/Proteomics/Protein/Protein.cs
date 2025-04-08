@@ -9,7 +9,6 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using MzLibUtil;
 using Omics.BioPolymer;
-using Easy.Common.Extensions;
 
 namespace Proteomics
 {
