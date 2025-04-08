@@ -7,13 +7,14 @@ using System.Linq;
 using FlashLFQ.Interfaces;
 using Easy.Common.Extensions;
 
+#nullable enable
 namespace FlashLFQ
 {
     public class IndexingEngine<T> : IIndexingEngine where T : IIndexedMzPeak
     {
-        internal List<T>[] IndexedPeaks;
+        internal List<T>[]? IndexedPeaks;
         internal const int BinsPerDalton = 100;
-        public ScanInfo[] ScanInfoArray { get; private set; }
+        public ScanInfo[]? ScanInfoArray { get; private set; }
 
         /// <summary>
         /// Read in all spectral peaks from the scanArray, index the peaks based on mass and retention time, 
@@ -77,7 +78,7 @@ namespace FlashLFQ
                 return true;
         }
        
-        public IIndexedMzPeak GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
+        public IIndexedMzPeak? GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
             GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, ppmTolerance);
 
         /// <summary>
@@ -85,7 +86,7 @@ namespace FlashLFQ
         /// </summary>
         /// <param name="mz"> the m/z of the peak to be searched for </param>
         /// <param name="zeroBasedScanIndex"> the zero based index of the scan where the peak is to be found </param>
-        public IIndexedMzPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
+        public IIndexedMzPeak? GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
         {
             if (IndexedPeaks == null) throw new MzLibException("Error: Attempt to retrieve indexed peak before peak indexing was performed");
             var bins = GetBinsInRange(mz, ppmTolerance);
@@ -110,6 +111,7 @@ namespace FlashLFQ
         {
             // get precursor scan to start at
             int scanIndex = -1;
+            if (ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
             foreach (ScanInfo scan in ScanInfoArray)
             {
                 if (scan.RetentionTime < retentionTime)
@@ -142,14 +144,14 @@ namespace FlashLFQ
             if (IndexedPeaks == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
             List<IIndexedMzPeak> xic = new List<IIndexedMzPeak>();
             var allBins = GetBinsInRange(mz, ppmTolerance);
-            if (allBins == null || allBins.Count == 0)
+            if (allBins.Count == 0)
                 return xic;
 
             // For each bin, find + store a pointer to the current index
             int[] peakPointerArray = allBins.Select(b => BinarySearchForIndexedPeak(b, zeroBasedStartIndex)).ToArray();
-            T initialPeak = GetBestPeakFromBins(allBins, mz, zeroBasedStartIndex, peakPointerArray, ppmTolerance);
+            var initialPeak = GetBestPeakFromBins(allBins, mz, zeroBasedStartIndex, peakPointerArray, ppmTolerance);
 
-            if (initialPeak != null)
+            if (initialPeak.IsNotDefaultOrNull())
                 xic.Add(initialPeak);
 
             foreach (int direction in new List<int> { -1, 1 })
@@ -164,8 +166,7 @@ namespace FlashLFQ
                 {
                     // increment the scan index we're searching for
                     currentZeroBasedScanIndex += direction;
-                    if(currentZeroBasedScanIndex < 0 || currentZeroBasedScanIndex > ScanInfoArray.Length - 1 
-                        || Math.Abs(ScanInfoArray[currentZeroBasedScanIndex].RetentionTime - initialPeak.RetentionTime) > maxPeakHalfWidth)
+                    if(currentZeroBasedScanIndex < 0 || currentZeroBasedScanIndex > ScanInfoArray.Length - 1 || (initialPeak.IsNotDefaultOrNull() && Math.Abs(ScanInfoArray[currentZeroBasedScanIndex].RetentionTime - initialPeak.RetentionTime) > maxPeakHalfWidth))
                         break;
                     
                     for (int i = 0; i < pointerArrayCopy.Length; i++)
@@ -189,13 +190,14 @@ namespace FlashLFQ
                     }
 
                     // Search for the next peak
-                    T nextPeak = GetBestPeakFromBins(allBins, mz, currentZeroBasedScanIndex, pointerArrayCopy, ppmTolerance);
+                    var nextPeak = GetBestPeakFromBins(allBins, mz, currentZeroBasedScanIndex, pointerArrayCopy, ppmTolerance);
 
                     // Add the peak to the XIC or increment the missed peaks
                     if (nextPeak == null)
                         missedPeaks++;
                     else
                     {
+                        if(initialPeak.IsDefaultOrNull()) initialPeak = nextPeak; // if the initial peak is null, set it to the next peak
                         xic.Add(nextPeak);
                         missedPeaks = 0;
                     }    
@@ -223,15 +225,15 @@ namespace FlashLFQ
             return allBins;
         }
 
-        internal static T GetBestPeakFromBins(List<List<T>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, PpmTolerance ppmTolerance)
+        internal static T? GetBestPeakFromBins(List<List<T>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, PpmTolerance ppmTolerance)
         {
-            T bestPeak = default(T);
+            T? bestPeak = default(T);
             for (int i = 0; i < allBins.Count; i++)
             {
                 var tempPeak = GetPeakFromBin(allBins[i], mz, zeroBasedScanIndex, peakIndicesInBins[i], ppmTolerance);
-                if (tempPeak == null) continue;
+                if (tempPeak.IsDefaultOrNull()) continue;
                 // Check if the peak is within the tolerance and if it is closer to the target Mz than the current peak
-                if (bestPeak == null || Math.Abs(tempPeak.Mz - mz) < Math.Abs(bestPeak.Mz - mz))
+                if (bestPeak.IsDefaultOrNull() || Math.Abs(tempPeak.Mz - mz) < Math.Abs(bestPeak.Mz - mz))
                 {
                     bestPeak = tempPeak;
                 }
