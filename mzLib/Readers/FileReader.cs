@@ -19,7 +19,7 @@ namespace Readers
         /// <returns>An IResultFile created from filePath</returns>
         /// <exception cref="FileNotFoundException">Thrown if filePath doesn't point to a real file</exception>
         /// <exception cref="MzLibException">Thrown if file type is not recognized or can't be converted to IResultFile</exception>
-        public static IResultFile ReadFile(string filePath)
+        public static IResultFile ReadResultFile(string filePath)
         {
             if (!File.Exists(filePath))
                 throw new FileNotFoundException();
