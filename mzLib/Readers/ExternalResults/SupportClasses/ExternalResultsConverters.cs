@@ -2,6 +2,7 @@
 using CsvHelper.TypeConversion;
 using CsvHelper;
 using System.Text;
+using MzLibUtil;
 
 namespace Readers;
 
@@ -28,7 +29,7 @@ internal class MsPathFinderTCompositionToChemicalFormulaConverter : DefaultTypeC
 
     public override string ConvertToString(object value, IWriterRow row, MemberMapData memberMapData)
     {
-        var chemicalFormula = value as Chemistry.ChemicalFormula ?? throw new Exception("Cannot convert input to ChemicalFormula");
+        var chemicalFormula = value as Chemistry.ChemicalFormula ?? throw new MzLibException("Cannot convert input to ChemicalFormula");
         var sb = new StringBuilder();
 
         bool onNumber = false;

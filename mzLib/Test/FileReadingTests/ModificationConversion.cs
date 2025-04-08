@@ -15,7 +15,7 @@ namespace Test.FileReadingTests
         [Test]
         [TestCase("Carbamidomethyl", "Carbamidomethyl", 'C')]
         [TestCase("O-(ADP-ribosyl)-L-serine", "ADP-ribosylation", 'S')]
-        [TestCase("Acetyl", "Acetyl", 'K')]
+        [TestCase("Acetyl", "Acetylation", 'K')]
         [TestCase("N6,N6,N6-trimethyl-L-lysine", "N6,N6,N6-trimethyllysine", 'K')]
         [TestCase("N,N,N-trimethyl-L-alanine", "N,N,N-trimethylalanine", 'A')]
         [TestCase("O4'-(phospho-5'-adenosine)-L-tyrosine", "Phosphoadenosine", 'Y')]
