@@ -183,19 +183,19 @@ public static class DecoySequenceValidator
     /// Determines if a string is palindromic and calculates the degree of palindromicity.
     /// </summary>
     /// <param name="input">The input string to check.</param>
-    /// <param name="degreeOfPalindromicity">The number of palindromic characters.</param>
-    /// <param name="degreeCutoff">Number of palindromic residues required to return true, ABCDA counts as 1, ABCDBA counts as 2, and ABCBA counts as 3 </param>
+    /// <param name="palindromicCharacters">The number of palindromic characters.</param>
+    /// <param name="characterCountCutoff">Number of palindromic residues required to return true, ABCDA counts as 1, ABCDBA counts as 2, and ABCBA counts as 3 </param>
     /// <returns>True if the string is palindromic, otherwise false.</returns>
-    public static bool IsPalindromic(string input, out int degreeOfPalindromicity, int? degreeCutoff = null )
+    public static bool IsPalindromic(string input, out int palindromicCharacters, int? characterCountCutoff = null )
     {
-        degreeOfPalindromicity = 0;
+        palindromicCharacters = 0;
         if (string.IsNullOrEmpty(input))
         {
             return false;
         }
 
         // if null, cutoff will ensure only fully palindromic sequences are returned as true
-        degreeCutoff ??= (input.Length + 1) / 2;
+        characterCountCutoff ??= (input.Length + 1) / 2;
 
         int left = 0;
         int right = input.Length - 1;
@@ -206,7 +206,7 @@ public static class DecoySequenceValidator
             char rightChar = input[right];
             if (leftChar == rightChar)
             {
-                degreeOfPalindromicity++;
+                palindromicCharacters++;
             }
             else
             {
@@ -217,6 +217,6 @@ public static class DecoySequenceValidator
             right--;
         }
 
-        return degreeOfPalindromicity >= degreeCutoff;
+        return palindromicCharacters >= characterCountCutoff;
     }
 }

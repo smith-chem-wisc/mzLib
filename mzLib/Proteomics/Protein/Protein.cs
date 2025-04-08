@@ -793,7 +793,7 @@ namespace Proteomics
 
             // If new modifications are provided, use them
             newProtein.OriginalNonVariantModifications = this.OriginalNonVariantModifications;
-            newProtein.OneBasedPossibleLocalizedModifications = ((IBioPolymer)newProtein).SelectValidOneBaseMods(newMods);
+            newProtein.OneBasedPossibleLocalizedModifications = ((IBioPolymer)newProtein).SelectValidOneBaseMods(newMods!);
 
             return newProtein;
         }
