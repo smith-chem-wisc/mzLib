@@ -159,10 +159,11 @@ namespace Readers
 
         /// <summary>
         /// Returns the typeOf the related class by parsing the SupportedFileType enum
+        /// If the SupportedFileType is not an IResultFile, an MzLibException is thrown
         /// </summary>
         /// <param name="type"></param>
         /// <returns>Type of File Reader class</returns>
-        /// <exception cref="MzLibException"></exception>
+        /// <exception cref="MzLibException">Throws exception if SupportedFileType is unrecognized or is not an IResultFile</exception>
         public static Type GetResultFileTypeExtension(this SupportedFileType type)
         {
             return type switch
@@ -188,11 +189,6 @@ namespace Readers
                 SupportedFileType.MsPathFinderTAllResults => typeof(MsPathFinderTResultFile),
                 SupportedFileType.CruxResult => typeof(CruxResultFile),
                 SupportedFileType.ExperimentAnnotation => typeof(ExperimentAnnotationFile),
-                SupportedFileType.ThermoRaw => typeof(ThermoRawFileReader),
-                SupportedFileType.MzML => typeof(Mzml),
-                SupportedFileType.Mgf => typeof(Mgf),
-                SupportedFileType.BrukerD => typeof(BrukerFileReader),
-                SupportedFileType.BrukerTimsTof => typeof(TimsTofFileReader),
                 _ => throw new MzLibException("File type not supported")
             };
         }

@@ -6,6 +6,7 @@ using System.Linq;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
+using Readers.ExternalResults.BaseClasses;
 
 namespace Test.FileReadingTests
 {
@@ -68,7 +69,33 @@ namespace Test.FileReadingTests
         [TestCase("DataFiles/xyzl.psmtsv", typeof(FileNotFoundException))]
         public static void TestIResultFileReaderThrowsException(string filePath, Type expectedExceptionType)
         {
+            Assert.Throws(expectedExceptionType, () =>
+            {
+                FileReader.ReadResultFile(filePath);
+            });
+        }
 
+        [Test]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv", SupportedFileType.MsFraggerPsm)]
+        public static void TestIQuantifiableResultFileReaderWorks(string filePath, SupportedFileType expectedType)
+        {
+            IQuantifiableResultFile resultFile = FileReader.ReadQuantifiableResultFile(filePath);
+            Assert.That(resultFile.FileType, Is.EqualTo(expectedType));
+            Type resultFileClass = expectedType.GetResultFileTypeExtension();
+            var convertedFile = Convert.ChangeType(resultFile, resultFileClass);
+            Assert.That(convertedFile, Is.Not.Null);
+        }
+
+        [Test]
+        [TestCase("DataFiles/sliced_ethcd.raw", typeof(MzLibException))]
+        [TestCase("DataFiles/xyzl.psmtsv", typeof(FileNotFoundException))]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature", typeof(MzLibException))]
+        public static void TestIQuantifiableResultFileReaderThrowsException(string filePath, Type expectedExceptionType)
+        {
+            Assert.Throws(expectedExceptionType, () =>
+            {
+                IResultFile resultFile = FileReader.ReadQuantifiableResultFile(filePath);
+            });
         }
 
         [Test]
