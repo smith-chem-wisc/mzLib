@@ -13,13 +13,13 @@ namespace FlashLFQ.PEP
     /// predicted retention times (good MBR transfers) and random retention times (decoy MBR transfers).
     /// This class groups them together for the purpose of cross-validation/PEP scoring
     /// </summary>
-    public class DonorGroup : IEnumerable<ChromatographicPeak>
+    public class DonorGroup : IEnumerable<MbrChromatographicPeak>
     {
         public Identification DonorId { get; }
-        public List<ChromatographicPeak> TargetAcceptors { get; }
-        public List<ChromatographicPeak> DecoyAcceptors { get; }
+        public List<MbrChromatographicPeak> TargetAcceptors { get; }
+        public List<MbrChromatographicPeak> DecoyAcceptors { get; }
 
-        public DonorGroup(Identification donorId, List<ChromatographicPeak> targetAcceptors, List<ChromatographicPeak> decoyAcceptors)
+        public DonorGroup(Identification donorId, List<MbrChromatographicPeak> targetAcceptors, List<MbrChromatographicPeak> decoyAcceptors)
         {
             DonorId = donorId;
             TargetAcceptors = targetAcceptors;
@@ -28,7 +28,7 @@ namespace FlashLFQ.PEP
 
         public double BestTargetMbrScore => TargetAcceptors.Count == 0 ? 0 : TargetAcceptors.Max(acceptor => acceptor.MbrScore);
 
-        public IEnumerator<ChromatographicPeak> GetEnumerator()
+        public IEnumerator<MbrChromatographicPeak> GetEnumerator()
         {
             return TargetAcceptors.Concat(DecoyAcceptors).GetEnumerator();
         }
