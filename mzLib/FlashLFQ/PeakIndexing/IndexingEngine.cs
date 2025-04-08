@@ -15,6 +15,11 @@ namespace FlashLFQ
         internal const int BinsPerDalton = 100;
         public ScanInfo[] ScanInfoArray { get; private set; }
 
+        /// <summary>
+        /// Read in all spectral peaks from the scanArray, index the peaks based on mass and retention time, 
+        /// and store them in a jagged array of Lists containing all peaks within a particular mass range
+        /// </summary>
+        /// <param name="scanArray">An array of raw data scans</param>
         public static IndexingEngine<T> InitializeIndexingEngine(MsDataScan[] scanArray)
         {
             IndexingEngine<T> newEngine = new();
@@ -23,6 +28,10 @@ namespace FlashLFQ
             return null;
         }
 
+        /// <summary>
+        /// This factory method returns an IndexingEngine instance where the peaks in all MS1 scans have been indexed. 
+        /// This method ignores MS2 scans when indexing
+        /// </summary>
         public static IndexingEngine<T> InitializeIndexingEngine(MsDataFile dataFile)
         {
             IndexingEngine<T> newEngine = new();
