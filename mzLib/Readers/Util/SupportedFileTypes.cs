@@ -164,7 +164,7 @@ namespace Readers
         /// <param name="type"></param>
         /// <returns>Type of File Reader class</returns>
         /// <exception cref="MzLibException">Throws exception if SupportedFileType is unrecognized or is not an IResultFile</exception>
-        public static Type GetResultFileTypeExtension(this SupportedFileType type)
+        public static Type GetResultFileType(this SupportedFileType type)
         {
             return type switch
             {
@@ -193,6 +193,6 @@ namespace Readers
             };
         }
 
-        public static Type GetResultFileTypeExtension(this string filePath) => filePath.ParseFileType().GetResultFileTypeExtension();
+        public static Type GetResultFileType(this string filePath) => filePath.ParseFileType().GetResultFileType();
     }
 }
