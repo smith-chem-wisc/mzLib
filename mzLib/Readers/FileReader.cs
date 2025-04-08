@@ -7,7 +7,6 @@ namespace Readers
         public static TResultFile ReadFile<TResultFile>(string filePath) where TResultFile : IResultFile, new()
         {
             var resultFile = new TResultFile() { FilePath = filePath };
-            resultFile.LoadResults();
             return resultFile;
         }
 
@@ -27,7 +26,6 @@ namespace Readers
             if (resultFile is IResultFile castResultFile)
             {
                 castResultFile.FilePath = filePath;
-                castResultFile.LoadResults();
                 return castResultFile;
             }
             throw new MzLibException($"{resultFileType} files cannot be converted to IResultFile");
@@ -49,7 +47,6 @@ namespace Readers
             if (resultFile is IQuantifiableResultFile castResultFile)
             {
                 castResultFile.FilePath = filePath;
-                castResultFile.LoadResults();
                 return castResultFile;
             }
             throw new MzLibException($"{resultFileType} files cannot be converted to IQuantifiableResultFile");
