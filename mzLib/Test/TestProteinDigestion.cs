@@ -18,7 +18,6 @@ using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using MzLibUtil;
 using Omics.BioPolymer;
-using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test
 {

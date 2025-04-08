@@ -11,7 +11,6 @@ using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Transcriptomics;
 using Omics;
-using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test.Transcriptomics
 {

@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using Omics.Modifications;
 using UsefulProteomicsDatabases;
-using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test
 {

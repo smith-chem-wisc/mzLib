@@ -6,7 +6,7 @@ using Omics.Modifications;
 using Transcriptomics;
 using Omics.BioPolymer;
 
-namespace UsefulProteomicsDatabases.DecoyGeneration
+namespace UsefulProteomicsDatabases
 {
     /// <summary>
     /// Provides methods for generating decoy nucleic acids from any implementor of <see cref="INucleicAcid"/>.

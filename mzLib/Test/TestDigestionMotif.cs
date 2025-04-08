@@ -15,7 +15,6 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test
 {

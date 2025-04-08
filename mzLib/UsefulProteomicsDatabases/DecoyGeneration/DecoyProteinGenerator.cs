@@ -7,7 +7,7 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Omics;
 
-namespace UsefulProteomicsDatabases.DecoyGeneration
+namespace UsefulProteomicsDatabases
 {
     public static class DecoyProteinGenerator
     {

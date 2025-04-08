@@ -1,4 +1,4 @@
-﻿namespace UsefulProteomicsDatabases.DecoyGeneration
+﻿namespace UsefulProteomicsDatabases
 {
     public enum DecoyType
     {

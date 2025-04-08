@@ -5,7 +5,7 @@ using Proteomics;
 using System.Collections.Generic;
 using System.Linq;
 using MzLibUtil;
-using UsefulProteomicsDatabases.DecoyGeneration;
+using UsefulProteomicsDatabases;
 using Transcriptomics.Digestion;
 using Omics.Digestion;
 using Transcriptomics;

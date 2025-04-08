@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Transcriptomics;
 
-namespace UsefulProteomicsDatabases.DecoyGeneration;
+namespace UsefulProteomicsDatabases;
 
 public static class DecoySequenceValidator
 {

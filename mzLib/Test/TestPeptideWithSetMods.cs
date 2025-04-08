@@ -17,7 +17,6 @@ using Omics.Modifications;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using UsefulProteomicsDatabases.DecoyGeneration;
 
 namespace Test
 {
