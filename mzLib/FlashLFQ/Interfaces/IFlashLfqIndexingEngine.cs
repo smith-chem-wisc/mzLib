@@ -10,7 +10,7 @@ namespace FlashLFQ.Interfaces
     {
         public SpectraFileInfo SpectraFile { get; }
         /// <summary>
-        /// Paramaterless call to IndexPeaks
+        /// Parameterless call to IndexPeaks
         /// </summary>
         /// <returns></returns>
         public bool IndexPeaks();
