@@ -40,7 +40,7 @@ namespace FlashLFQ
         }
     }
 
-    public class IndexedIonMobilityPeak : IndexedMassSpectralPeak, IIndexedMzPeak
+    public class IndexedIonMobilityPeak : IndexedMassSpectralPeak
     {
         public HashSet<int> IonMobilityValues { get; init; }
         public int ApexIonMobilityValue { get; init; }
