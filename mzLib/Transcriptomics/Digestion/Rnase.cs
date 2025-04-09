@@ -146,17 +146,19 @@ namespace Transcriptomics.Digestion
             //add intact truncation (if acceptable)
             foreach (var truncation in nucleicAcid.TruncationProducts)
             {
-                if (!truncation.OneBasedBeginPosition.HasValue 
-                    || !truncation.OneBasedEndPosition.HasValue 
+                if (!truncation.OneBasedBeginPosition.HasValue
+                    || !truncation.OneBasedEndPosition.HasValue
                     || !ValidLength(truncation.OneBasedEndPosition.Value - truncation.OneBasedBeginPosition.Value, minLength, maxLength) //if it's not the correct size
                     || oneBasedIndicesToCleaveAfter.Contains(truncation.OneBasedBeginPosition.Value - 1) //or we have already cleaved here
                     || oneBasedIndicesToCleaveAfter.Contains(truncation.OneBasedEndPosition.Value)) //or we have already cleaved there
-                    continue; 
-                        // contains original 5' terminus ? keep it : set to OH
-                        IHasChemicalFormula fivePrimeTerminus = oneBasedStartResidue == 1 ? nucleicAcid.FivePrimeTerminus : DefaultFivePrimeTerminus;
+                    continue;
 
-                        // contains original 3' terminus ? keep it : set to phosphate
-                        IHasChemicalFormula threePrimeTerminus = oneBasedEndResidue == nucleicAcid.Length ? nucleicAcid.ThreePrimeTerminus : ChemicalFormula.ParseFormula("H2O4P");
+                int firstCleavage = 0;
+                //get the first cleavage index after the start of the proteolysis product
+                while (oneBasedIndicesToCleaveAfter[firstCleavage] < truncation.OneBasedBeginPosition)
+                {
+                    firstCleavage++;
+                }
 
                 int lastCleavage = firstCleavage;
                 //get the last cleavage index before the end of the proteolysis product
@@ -166,8 +168,8 @@ namespace Transcriptomics.Digestion
                 }
 
                 //if there are too many missed cleavages
-                if (lastCleavage - firstCleavage >= maxMissedCleavages) 
-                    continue; 
+                if (lastCleavage - firstCleavage >= maxMissedCleavages)
+                    continue;
 
                 var (threePrimeTerminus, fivePrimeTerminus) = GetDigestedTermini(truncation.OneBasedBeginPosition.Value, truncation.OneBasedEndPosition.Value, nucleicAcid);
                 yield return new NucleolyticOligo(nucleicAcid, truncation.OneBasedBeginPosition.Value, truncation.OneBasedEndPosition.Value,

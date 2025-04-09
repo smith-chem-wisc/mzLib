@@ -49,8 +49,7 @@ namespace Transcriptomics
         /// <summary>
         /// For creating an RNA programatically. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        protected NucleicAcid(string sequence,
-            IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
+        protected NucleicAcid(string sequence, IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
         {
             ConsensusVariant = this;
@@ -58,9 +57,6 @@ namespace Transcriptomics
             _nucleicAcids = new Nucleotide[sequence.Length];
             ThreePrimeTerminus = threePrimeTerm ?? DefaultThreePrimeTerminus;
             FivePrimeTerminus = fivePrimeTerm ?? DefaultFivePrimeTerminus;
-            ThreePrimeTerminus = threePrimeTerm ?? DefaultThreePrimeTerminus;
-            FivePrimeTerminus = fivePrimeTerm ?? DefaultFivePrimeTerminus;
-            _oneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
             GeneNames = new List<Tuple<string, string>>();
 
             ParseSequenceString(sequence);

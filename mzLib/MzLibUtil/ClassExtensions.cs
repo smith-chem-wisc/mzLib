@@ -167,6 +167,7 @@ namespace MzLibUtil
                 }
             }
         }
+
         /// <summary>
         /// Determines whether the collection is null or contains no elements.
         /// </summary>

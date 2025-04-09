@@ -242,7 +242,7 @@ public class TestPeptideSerializer
     {
         // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized oligo
         // has the same properties as before it was serialized. This oligo is unmodified and generated from digesting a rna
-        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "");
+        RNA rna = new("GUACUGAGUCUACUAGAUCA", "Accession1");
 
         OligoWithSetMods oligo = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(), new List<Modification>()).First();
         OligoWithSetMods deserializeOligo = null;
@@ -301,7 +301,7 @@ public class TestPeptideSerializer
 
         Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
 
-        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "", null, null, mods);
+        RNA rna = new("GUACUGAGUCUACUAGAUCA",  "Accession1", mods);
 
         OligoWithSetMods oligo = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(), new List<Modification>()).First();
         OligoWithSetMods deserializeOligo = null;
@@ -722,7 +722,7 @@ public class TestPeptideSerializer
     {
         // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized oligo
         // has the same properties as before it was serialized. This oligo is unmodified and generated from digesting a rna
-        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "");
+        RNA rna = new("GUACUGAGUCUACUAGAUCA","Accession1");
 
         OligoWithSetMods oligo = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(), new List<Modification>()).First();
         OligoWithSetMods deserializeOligo = null;
@@ -807,7 +807,7 @@ public class TestPeptideSerializer
 
         Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
 
-        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "", null, null, mods);
+        RNA rna = new("GUACUGAGUCUACUAGAUCA","Accession1", mods);
         OligoWithSetMods oligo = rna.Digest(new RnaDigestionParams("RNase T1"), new List<Modification>(), new List<Modification>()).First();
         OligoWithSetMods deserializeOligo = null;
 
@@ -892,7 +892,7 @@ public class TestPeptideSerializer
 
         Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
 
-        RNA rna = new("GUACUGAGUCUACUAGAUCA", "name", "Accession1", "", "", null, null, mods);
+        RNA rna = new("GUACUGAGUCUACUAGAUCA", "Accession1", mods);
         IDigestionParams digestionParams = new RnaDigestionParams("RNase T1");
         IBioPolymerWithSetMods oligo = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First(v => v.AllModsOneIsNterminus.Count == 1);
         IBioPolymerWithSetMods deserializeOligo = null;

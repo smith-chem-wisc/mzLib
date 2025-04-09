@@ -48,7 +48,6 @@ namespace Omics.Digestion
         /// <summary>
         /// Used to set the Protein/RNA object after deserialization. 
         /// </summary>
-        /// <param name="accession">accession of this DigestionProduct's parent object</param>
         /// <param name="accessionToBioPolymerDict">dictionary of all IBioPolymer keyed by their accessions</param>
         /// <exception cref="MzLibUtil.MzLibException">thrown if accession is not found</exception>
         protected void SetParentAfterDeserialization(IDictionary<string, IBioPolymer> accessionToBioPolymerDict)

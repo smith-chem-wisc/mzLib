@@ -35,6 +35,7 @@ namespace UsefulProteomicsDatabases
                 ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName)
                 : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName);
         }
+
         /// <summary>
         /// Writes an XML database for a list of nucleic acid sequences, including additional modifications.
         /// </summary>
