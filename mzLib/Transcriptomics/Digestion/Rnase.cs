@@ -146,12 +146,12 @@ namespace Transcriptomics.Digestion
             //add intact truncation (if acceptable)
             foreach (var truncation in nucleicAcid.TruncationProducts)
             {
-                if (!truncation.OneBasedBeginPosition.HasValue
-                    || !truncation.OneBasedEndPosition.HasValue
+                if (!truncation.OneBasedBeginPosition.HasValue 
+                    || !truncation.OneBasedEndPosition.HasValue 
                     || !ValidLength(truncation.OneBasedEndPosition.Value - truncation.OneBasedBeginPosition.Value, minLength, maxLength) //if it's not the correct size
                     || oneBasedIndicesToCleaveAfter.Contains(truncation.OneBasedBeginPosition.Value - 1) //or we have already cleaved here
                     || oneBasedIndicesToCleaveAfter.Contains(truncation.OneBasedEndPosition.Value)) //or we have already cleaved there
-                    continue;
+                    continue; 
 
                 int firstCleavage = 0;
                 //get the first cleavage index after the start of the proteolysis product
@@ -168,8 +168,8 @@ namespace Transcriptomics.Digestion
                 }
 
                 //if there are too many missed cleavages
-                if (lastCleavage - firstCleavage >= maxMissedCleavages)
-                    continue;
+                if (lastCleavage - firstCleavage >= maxMissedCleavages) 
+                    continue; 
 
                 var (threePrimeTerminus, fivePrimeTerminus) = GetDigestedTermini(truncation.OneBasedBeginPosition.Value, truncation.OneBasedEndPosition.Value, nucleicAcid);
                 yield return new NucleolyticOligo(nucleicAcid, truncation.OneBasedBeginPosition.Value, truncation.OneBasedEndPosition.Value,

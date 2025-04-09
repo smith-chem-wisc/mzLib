@@ -30,8 +30,16 @@ public interface ISerializableSequence
     /// <returns>An array of types required for serialization.</returns>
     static Type[] GetTypesToSerialize<T>() where T : ISerializableSequence
     {
-        var instance = (T)Activator.CreateInstance(typeof(T), true)!;
-        return instance.GetTypesToSerialize();
+        // Create an instance of the type T using reflection and a private empty constructor. 
+        var instance = Activator.CreateInstance(typeof(T), true);
+        if (instance == null)
+        {
+            throw new InvalidOperationException($"Cannot create an instance of {typeof(T)}. No Empty Constructor");
+        }
+
+        // Cast the instance to ISerializableSequence and call GetTypesToSerialize.
+        var castedInstance = (ISerializableSequence)instance;
+        return castedInstance.GetTypesToSerialize();
     }
 
     /// <summary>

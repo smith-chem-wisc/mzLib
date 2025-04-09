@@ -33,9 +33,6 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using Omics;
-using Transcriptomics.Digestion;
-using Transcriptomics;
 
 namespace Test
 {
