@@ -49,7 +49,7 @@ namespace Transcriptomics
         /// <summary>
         /// For creating an RNA programatically. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        protected NucleicAcid(string sequence, 
+        protected NucleicAcid(string sequence,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
         {
