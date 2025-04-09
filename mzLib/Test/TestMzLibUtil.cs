@@ -2,16 +2,11 @@
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MzLibUtil;
 using Readers;
-using System.Collections.Generic;
-using System.Reflection.Metadata.Ecma335;
-using FlashLFQ;
 using System.Linq;
-using System.Security;
-using System;
-using System.Collections.Immutable;
 using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
+using System.Collections.Generic;
+using System;
 
 namespace Test
 {
@@ -102,6 +97,41 @@ namespace Test
                     Assert.AreEqual(expectedMods, foundMods);
                 }
             }
+        }
+
+        [Test]
+        public static void TestParseBaseSequence()
+        {
+            string fullSeq = "[UniProt:N-acetylglutamate on E]EDM[Common Variable:Oxidation on M]MELVQPSISGVDLDK[Test Mod2: ModName2 on K]-[Test Mod: ModName on K C-Terminus]";
+            var baseSeq = fullSeq.ParseBaseSequence();
+            Assert.That(baseSeq == "EDMMELVQPSISGVDLDK");
+        }
+
+        [Test]
+        public static void TestQuantifiedClasses()
+        {
+
+            string fullSeq = "[UniProt NonProtein:N-acetylglutamate on E]EDM[Common Variable:Oxidation on M]MELVQPSISGVAADLDK[Test Mod2: ModName2 on K]-[Test Mod: ModName on K C-Terminus]";
+            string baseSeq = fullSeq.ParseBaseSequence();
+            Assert.That(baseSeq.Length == 20);
+
+            string proteinSeq = string.Join("", Enumerable.Repeat(baseSeq, 5));
+            string proteinName = "TestProtein";
+
+            int[] oneBasedPeptideIndexInProtein = { 1, 3, 5 };
+
+            var mods = fullSeq.ParseModifications()
+                             .Select(x => new KeyValuePair<int, Dictionary<string, QuantifiedModification>>(
+                                 x.Key, new Dictionary<string, QuantifiedModification>
+                                 { { x.Value, new QuantifiedModification(x.Value, x.Key, intensity:1) } }))
+                             .ToDictionary(pair => pair.Key, pair => pair.Value);
+
+            var peptides = new Dictionary<string, QuantifiedPeptide>();
+            for (int i = 0; i < oneBasedPeptideIndexInProtein.Length; i++)
+            {
+                peptides[baseSeq] = new QuantifiedPeptide(baseSeq, new List<string> { fullSeq, baseSeq}, mods, oneBasedPeptideIndexInProtein[i], intensity:2);
+            }
+            var protein = new QuantifiedProtein(proteinName, proteinSeq, peptides);
         }
 
         [Test]

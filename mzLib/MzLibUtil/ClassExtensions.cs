@@ -25,6 +25,11 @@ namespace MzLibUtil
 {
     public static class ClassExtensions
     {
+        // The pattern for identifying modifications in a peptide full sequence
+        // The dash at the beginning of the pattern allows for N-terminus modifications
+        // The "look-behind" condition prevents matching ] for metal ion modifications
+        public static readonly string modificationPattern = @"-?\[(.+?)\](?<!\[I+\])"; 
+
         /// <summary>
         /// Parses the full sequence to identify mods. Note: This method has been updated to NOT handle ambiguous mods on a given position (e.g. M[modA]|[modB]).
         /// If ambiguity exists, generate a separate full sequence for each mod and parse each separately.
@@ -35,7 +40,7 @@ namespace MzLibUtil
         public static Dictionary<int, string> ParseModifications(this string fullSequence, bool ignoreTerminusMod = false)
         {
             // use a regex to get modifications
-            string modPattern = @"-?\[(.+?)\](?<!\[I+\])"; //The "look-behind" condition prevents matching ] for metal ion modifications
+            string modPattern = modificationPattern;
             Regex modRegex = new(modPattern);
 
             var fullSeq = fullSequence;
@@ -87,6 +92,13 @@ namespace MzLibUtil
             // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
             Regex regexSpecialChar = new(specialCharacter);
             fullSequence = regexSpecialChar.Replace(fullSequence, replacement);
+        }
+
+        public static string ParseBaseSequence(this string fullSequence, string modPattern=null)
+        {
+            var pattern = modPattern ?? modificationPattern;
+            Regex modRegex = new(pattern);
+            return modRegex.Replace(fullSequence, string.Empty);
         }
 
         public static double[] BoxCarSmooth(this double[] data, int points)
