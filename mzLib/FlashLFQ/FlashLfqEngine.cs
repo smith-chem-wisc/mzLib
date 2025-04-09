@@ -214,16 +214,15 @@ namespace FlashLFQ
             // quantify each file
             foreach (var spectraFile in _spectraFileInfo)
             {
-                IndexingEngineDictionary[spectraFile] = new PeakIndexingEngine(spectraFile);
-                
-                if(!Silent) Console.WriteLine("Reading spectra file");
-                // fill lookup-table with peaks from the spectra file
-                if (!IndexingEngineDictionary[spectraFile].IndexPeaks())
+                if (!Silent) Console.WriteLine("Reading spectra file");
+                var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(spectraFile);
+                if(indexingEngine == null)
                 {
                     // something went wrong finding/opening/indexing the file...
                     if( !Silent ) Console.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension + " contained no MS1 peaks!");
                     continue;
                 }
+                IndexingEngineDictionary[spectraFile] = indexingEngine;
 
                 // quantify peaks using this file's IDs first
                 QuantifyMs2IdentifiedPeptides(spectraFile);
@@ -269,6 +268,7 @@ namespace FlashLFQ
                 FindPeptideDonorFiles();
                 foreach (var spectraFile in _spectraFileInfo)
                 {
+                    if ( !IndexingEngineDictionary.ContainsKey(spectraFile) ) continue;
                     if (!Silent)
                     {
                         Console.WriteLine("Doing match-between-runs for " + spectraFile.FilenameWithoutExtension);

@@ -86,8 +86,7 @@ namespace Test
             // set up spectra file info
             SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
 
-            PeakIndexingEngine indexEngine = new(file1);
-            indexEngine.IndexPeaks();
+            PeakIndexingEngine indexEngine = PeakIndexingEngine.InitializeIndexingEngine(file1);
 
             var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
             var shiftedXic = indexEngine.GetXic((dist.Masses.First() + 0.0001).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
@@ -138,8 +137,7 @@ namespace Test
 
             // set up spectra file info
             SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
-            PeakIndexingEngine indexEngine = new(file1);
-            indexEngine.IndexPeaks();
+            PeakIndexingEngine indexEngine = PeakIndexingEngine.InitializeIndexingEngine(file1);
 
             var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 7, new PpmTolerance(20), 1);
             //var shiftedXic = indexEngine.GetXic((dist.Masses.First() + 0.0001).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
@@ -183,8 +181,7 @@ namespace Test
             // set up spectra file info
             SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
 
-            PeakIndexingEngine indexEngine = new(file1);
-            indexEngine.IndexPeaks();
+            PeakIndexingEngine indexEngine = PeakIndexingEngine.InitializeIndexingEngine(file1);
 
             // due to the wide tolerance and the way the data was constructed, the XIC and shiftedXIC should match
             var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
@@ -210,7 +207,7 @@ namespace Test
                     mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 0, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
 
-            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(scans);
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(scans);
             Assert.IsNotNull(indexingEngine);
         }
 
@@ -218,7 +215,7 @@ namespace Test
         public static void TestGetIndexedPeakWithChargeState()
         {
             MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
-            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
             var peak = indexingEngine.GetIndexedPeak(997.986, 5, new PpmTolerance(20), 2);
             Assert.IsNotNull(peak);
             Assert.That(peak.Mz, Is.EqualTo(500).Within(0.001));
@@ -229,7 +226,7 @@ namespace Test
         public static void TestGetIndexedPeakWithoutChargeState()
         {
             MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
-            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
             var peak = indexingEngine.GetIndexedPeak(500, 5, new PpmTolerance(20));
             Assert.IsNotNull(peak);
             Assert.That(peak.Mz, Is.EqualTo(500).Within(0.001));
@@ -240,7 +237,7 @@ namespace Test
         public static void TestGetXicWithRetentionTime()
         {
             MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
-            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
             var xic = indexingEngine.GetXic(500.0, 1.0, new PpmTolerance(20), 1);
             Assert.IsNotNull(xic);
             Assert.That(xic.Count, Is.EqualTo(9));
@@ -250,7 +247,7 @@ namespace Test
         public static void TestGetXicWithStartIndex()
         {
             MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
-            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
             var xic = indexingEngine.GetXic(500.0, 0, new PpmTolerance(20), 1);
             Assert.IsNotNull(xic);
             Assert.That(xic.Count, Is.EqualTo(9));
@@ -260,7 +257,7 @@ namespace Test
         public static void TestMissingXic()
         {
             MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
-            var indexingEngine = IndexingEngine<IIndexedMzPeak>.InitializeIndexingEngine(testFile);
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
             var xic = indexingEngine.GetXic(400.0, 0, new PpmTolerance(20), 1);
             Assert.IsNotNull(xic);
             Assert.IsEmpty(xic);
@@ -269,40 +266,10 @@ namespace Test
         [Test]
         public static void TestNotIndexedException()
          {
-            IndexingEngine<IIndexedMzPeak> indexingEngine = new();
+            PeakIndexingEngine indexingEngine = new();
             Assert.Throws<MzLibException>(() => indexingEngine.GetXic(500.0, 0, new PpmTolerance(20), 1));
             Assert.Throws<MzLibException>(() => indexingEngine.GetIndexedPeak(500.0, 0, new PpmTolerance(20), 1));
         }
 
-        [Test]
-        public static void RealDataIndexingTest()
-        {
-            Residue x = new Residue("a", 'a', "a", Chemistry.ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //+8 lysine
-            Residue lightLysine = Residue.GetResidue('K');
-
-            Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
-
-            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\SilacTest.mzML"), "", 0, 0, 0);
-            FlashLfqEngine engine = new FlashLfqEngine(
-                new List<Identification>
-                {
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
-                },
-                ppmTolerance: 5,
-                silent: true,
-                maxThreads: 1
-                );
-
-            PeakIndexingEngine indexEngine = new(fileInfo);
-            indexEngine.IndexPeaks();
-
-            var xic = indexEngine.GetXic(844.9378, zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
-
-            //var results = engine.Run();
-            //Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
-        }
     }
 }

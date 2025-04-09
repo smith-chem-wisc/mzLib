@@ -6,44 +6,24 @@ using System.Collections.Generic;
 using System.Linq;
 using FlashLFQ.Interfaces;
 using Easy.Common.Extensions;
+using System.Runtime.CompilerServices;
 
 #nullable enable
+[assembly: InternalsVisibleTo("TestFlashLFQ")]
 namespace FlashLFQ
 {
-    public class IndexingEngine<T> : IIndexingEngine where T : IIndexedMzPeak
+    /// <summary>
+    /// IIndexingEngine defines the behaviour needed to efficiently retrieve peaks from a jagged array of indexed peaks.
+    /// </summary>
+    public abstract class IndexingEngine<T> where T : IIndexedMzPeak
     {
+        /// <summary>
+        /// Jagged array. Each index of the array corresponds to a mass bin. Each element of the array is a list of peaks that fall within that mass bin.
+        /// Peaks within each mass bin are ordered by scan number, ascending. Due to the width of the mass bin, it is possible to have multiple peaks with the same scan number but different masses in a list
+        /// </summary>
         internal List<T>[]? IndexedPeaks;
         internal const int BinsPerDalton = 100;
         public ScanInfo[]? ScanInfoArray { get; private set; }
-
-        /// <summary>
-        /// Read in all spectral peaks from the scanArray, index the peaks based on mass and retention time, 
-        /// and store them in a jagged array of Lists containing all peaks within a particular mass range
-        /// </summary>
-        /// <param name="scanArray">An array of raw data scans</param>
-        public static IndexingEngine<T>? InitializeIndexingEngine(MsDataScan[] scanArray)
-        {
-            IndexingEngine<T> newEngine = new();
-            if(newEngine.IndexPeaks(scanArray))
-                return newEngine;
-            return null;
-        }
-
-        /// <summary>
-        /// This factory method returns an IndexingEngine instance where the peaks in all MS1 scans have been indexed. 
-        /// This method ignores MS2 scans when indexing
-        /// </summary>
-        public static IndexingEngine<T>? InitializeIndexingEngine(MsDataFile dataFile)
-        {
-            IndexingEngine<T> newEngine = new();
-            var scanArray = dataFile.GetMS1Scans()
-                .Where(i => i != null && i.MsnOrder == 1)
-                .OrderBy(i => i.OneBasedScanNumber)
-                .ToArray();
-            if (newEngine.IndexPeaks(scanArray))
-                return newEngine;
-            return null;
-        }
 
         /// <summary>
         /// Read in all spectral peaks from scans, index the peaks and store them in a list ordered by m/z
@@ -52,6 +32,9 @@ namespace FlashLFQ
         /// <param name="scanInfo">Outputs a list of scan information for each scan which is needed for FlashLfq
         public virtual bool IndexPeaks(MsDataScan[] scanArray)
         {
+            if(scanArray.IsNullOrEmpty() || scanArray.All(p => p == null))
+                return false;
+
             IndexedPeaks = new List<T>[(int)Math.Ceiling(scanArray.Where(p => p != null
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
             ScanInfoArray = new ScanInfo[scanArray.Length];
