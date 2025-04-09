@@ -1,7 +1,5 @@
-﻿using Chemistry;
-using Readers;
+﻿using Readers;
 using MassSpectrometry;
-using MzLibUtil;
 using NetSerializer;
 using System;
 using System.Collections.Generic;
