@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 using CsvHelper;
 using MassSpectrometry;
-using Readers.ExternalResults.BaseClasses;
 
 namespace Readers
 {

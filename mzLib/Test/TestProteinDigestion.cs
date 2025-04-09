@@ -18,6 +18,7 @@ using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using MzLibUtil;
 using Omics.BioPolymer;
+using Omics;
 
 namespace Test
 {
@@ -49,10 +50,10 @@ namespace Test
             string path4 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
             var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
             
-            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path1, proteaseMods)); 
-            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path2, proteaseMods));
-            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path3, proteaseMods));
-            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path4, proteaseMods));
+            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path1, proteaseMods)); 
+            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path2, proteaseMods));
+            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path3, proteaseMods));
+            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path4, proteaseMods));
         }
 
         [Test]
@@ -62,7 +63,7 @@ namespace Test
             var prot = new Protein("PEPTIDEMPEPTIDEM", null);
             var prot2 = new Protein("MPEPTIDEMPEPTIDE", null);
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
-            Assert.That(File.Exists(path));
+            NUnit.Framework.Assert.That(File.Exists(path));
 
             var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
             ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ProteolyticDigestion", "proteases.tsv"), proteaseMods);
@@ -233,7 +234,8 @@ namespace Test
         [Test]
         public static void TestPeptideDigestion_FixedModifications_ProtModsOverwritePepMods()
         {
-            var prot = new Protein("M", null);
+            string baseSequence = "M";
+            var prot = new Protein(baseSequence, null);
             DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
             List<Modification> fixedMods = new List<Modification>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
@@ -245,8 +247,14 @@ namespace Test
             var ok = prot.Digest(digestionParams, fixedMods, new List<Modification>()).ToList();
 
             Assert.AreEqual(1, ok.Count);
+            
+            string expectedFullSequence = "[:ProtNmod on M]M[:resMod on M][:ProtCmod on M]";
+            Assert.AreEqual(expectedFullSequence, ok.First().FullSequence);
+            var mods = ok.First().AllModsOneIsNterminus;
 
-            Assert.AreEqual("[:ProtNmod on M]M[:resMod on M][:ProtCmod on M]", ok.First().FullSequence);
+            NUnit.Framework.Assert.That(IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(expectedFullSequence), Is.EqualTo(baseSequence));
+            NUnit.Framework.Assert.That(IBioPolymerWithSetMods.DetermineFullSequence(baseSequence, mods), Is.EqualTo(expectedFullSequence));
+            NUnit.Framework.Assert.That(ok.First().DetermineFullSequence(), Is.EqualTo(expectedFullSequence));
 
             Assert.AreEqual("[H]M[H][H]", ok.First().SequenceWithChemicalFormulas);
             Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ok.Last().MonoisotopicMass, 1e-9);
@@ -256,7 +264,8 @@ namespace Test
         public static void TestPeptideDigestion_FixedModifications_ProtModsOverwritePepMods_RandomizedModOrder()
         {
             var rand = new Random(42);
-            var prot = new Protein("M", null);
+            string baseSequence = "M";
+            var prot = new Protein(baseSequence, null);
             DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
             List<Modification> fixedMods = new List<Modification>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
@@ -272,11 +281,18 @@ namespace Test
             string expectedSequenceWithChemicalFormulas = "[H]M[H][H]";
             double expectedMonoisotopicMass = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
 
+            
+
             // randomly scramble all mods, digest, and ensure the answer is correct. 
             for (int i = 0; i < 10; i++)
             {
                 var shuffledFixedMods = fixedMods.OrderBy(a => rand.Next()).ToList();
                 var ok = prot.Digest(digestionParams, shuffledFixedMods, new List<Modification>()).ToList();
+                var mods = ok.First().AllModsOneIsNterminus;
+
+                NUnit.Framework.Assert.That(IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(expectedFullSequence), Is.EqualTo(baseSequence));
+                NUnit.Framework.Assert.That(IBioPolymerWithSetMods.DetermineFullSequence(baseSequence, mods), Is.EqualTo(expectedFullSequence));
+                NUnit.Framework.Assert.That(ok.First().DetermineFullSequence(), Is.EqualTo(expectedFullSequence));
 
                 Assert.AreEqual(expectedDigestionProducts, ok.Count);
                 Assert.AreEqual(expectedFullSequence, ok.First().FullSequence);
@@ -476,7 +492,7 @@ namespace Test
             }
             else
             {
-                Assert.Fail("Unknown file type");
+                NUnit.Framework.Assert.Fail("Unknown file type");
             }
 
             DigestionParams d = new DigestionParams(
@@ -571,21 +587,21 @@ namespace Test
             PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification> { { carbamidomethylOnC.IdWithMotif, carbamidomethylOnC } });
 
             // test base sequence and full sequence
-            Assert.That(peptide.BaseSequence == "HQVCTPGGTTIAGLCVMEEK");
-            Assert.That(peptide.FullSequence == sequence);
+            NUnit.Framework.Assert.That(peptide.BaseSequence == "HQVCTPGGTTIAGLCVMEEK");
+            NUnit.Framework.Assert.That(peptide.FullSequence == sequence);
 
             // test peptide mass
-            Assert.That(Math.Round(peptide.MonoisotopicMass, 5) == 2187.01225);
+            NUnit.Framework.Assert.That(Math.Round(peptide.MonoisotopicMass, 5) == 2187.01225);
 
             // test mods (correct id, correct number of mods, correct location of mods)
-            Assert.That(peptide.AllModsOneIsNterminus.First().Value.IdWithMotif == "Carbamidomethyl on C");
-            Assert.That(peptide.AllModsOneIsNterminus.Count == 2);
-            Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
+            NUnit.Framework.Assert.That(peptide.AllModsOneIsNterminus.First().Value.IdWithMotif == "Carbamidomethyl on C");
+            NUnit.Framework.Assert.That(peptide.AllModsOneIsNterminus.Count == 2);
+            NUnit.Framework.Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
 
             // calculate fragments. just check that they exist and it doesn't crash
             List<Product> theoreticalFragments = new List<Product>();
             peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theoreticalFragments);
-            Assert.That(theoreticalFragments.Count > 0);
+            NUnit.Framework.Assert.That(theoreticalFragments.Count > 0);
         }
 
         [Test]
@@ -634,7 +650,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
 
             digestionParams = new DigestionParams(
                 protease: "top-down",
@@ -665,7 +681,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
         }
 
 
@@ -696,7 +712,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
 
             digestionParams = new DigestionParams(
                 protease: "top-down",
@@ -727,7 +743,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
 
             digestionParamsClone = (DigestionParams)digestionParams.Clone(FragmentationTerminus.C);
             Assert.AreNotEqual(digestionParams, digestionParamsClone);
@@ -744,7 +760,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
         }
 
         [Test]

@@ -31,7 +31,18 @@ namespace UsefulProteomicsDatabases
         {
             var unimodSerializer = new XmlSerializer(typeof(unimod_t));
             var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as unimod_t;
+            return ReadMods(deserialized);
+        }
 
+        internal static IEnumerable<Modification> ReadMods(Stream unimodXML)
+        {
+            var unimodSerializer = new XmlSerializer(typeof(unimod_t));
+            var deserialized = unimodSerializer.Deserialize(unimodXML) as unimod_t;
+            return ReadMods(deserialized);
+        }
+
+        internal static IEnumerable<Modification> ReadMods(unimod_t deserialized)
+        {
             Dictionary<string, string> positionConversion = new Dictionary<string, string>()
             {
                 { "Anywhere", "Anywhere."},
