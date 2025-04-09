@@ -1014,7 +1014,7 @@ namespace Test
                 new List<ProteinGroup> { proteinGroup });
             string idString = identification.ToString();
 
-            var chromPeak = new ChromatographicPeak(identification, DetectionType.MSMS, spectraFile);
+            var chromPeak = new ChromatographicPeak(identification, spectraFile);
             string chromPeakString = chromPeak.ToString();
             chromPeak.CalculateIntensityForThisFeature(true);
             string peakAfterCalculatingIntensity = chromPeak.ToString();
@@ -1771,8 +1771,8 @@ namespace Test
             Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
             Identification id3 = new Identification(fraction2, "peptide2", "peptide2", 0, 0, 0, new List<ProteinGroup>());
 
-            ChromatographicPeak peak1 = new ChromatographicPeak(id1, DetectionType.MSMS, fraction1);
-            ChromatographicPeak peak2 = new ChromatographicPeak(id2, DetectionType.MSMS, fraction1);
+            ChromatographicPeak peak1 = new ChromatographicPeak(id1, fraction1);
+            ChromatographicPeak peak2 = new ChromatographicPeak(id2, fraction1);
             peak2.Identifications.Add(id3);
 
             peak1.ResolveIdentifications();
