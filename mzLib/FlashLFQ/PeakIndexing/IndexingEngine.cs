@@ -28,7 +28,7 @@ namespace FlashLFQ
         /// <summary>
         /// Read in all spectral peaks from scans, index the peaks and store them in a list ordered by m/z
         /// </summary>
-        /// <param name="scanArray">An array of raw data scans</param>
+        /// <param name="scanArray">An array of raw data scans</pasram>
         /// <param name="scanInfo">Outputs a list of scan information for each scan which is needed for FlashLfq
         public virtual bool IndexPeaks(MsDataScan[] scanArray)
         {
@@ -60,7 +60,12 @@ namespace FlashLFQ
             else
                 return true;
         }
-       
+
+        /// <summary>
+        /// A generic method for finding the closest peak with a specified mass and charge state and in a specified scan. Returns null if no peaks within tolerance are found.
+        /// </summary>
+        /// <param name="mz"> the m/z of the peak to be searched for </param>
+        /// <param name="zeroBasedScanIndex"> the zero based index of the scan where the peak is to be found </param>
         public IIndexedMzPeak? GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
             GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, ppmTolerance);
 

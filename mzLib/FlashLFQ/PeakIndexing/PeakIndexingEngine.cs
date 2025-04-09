@@ -15,11 +15,7 @@ namespace FlashLFQ
     {
         private readonly Serializer _serializer;
         public SpectraFileInfo SpectraFile { get; private set; }
-        public PeakIndexingEngine(SpectraFileInfo file) : this()
-        {
-            SpectraFile = file;
-        }
-        public PeakIndexingEngine()
+        internal PeakIndexingEngine()
         {
             var messageTypes = new List<Type>
             {
@@ -29,6 +25,10 @@ namespace FlashLFQ
             _serializer = new Serializer(messageTypes);
         }
 
+        /// <summary>
+        /// This factory method returns an IndexingEngine instance where the peaks in all MS1 scans have been indexed. 
+        /// This method ignores MS2 scans when indexing
+        /// </summary>
         public static PeakIndexingEngine? InitializeIndexingEngine(SpectraFileInfo file)
         {
             // read spectra file
@@ -65,28 +65,6 @@ namespace FlashLFQ
             if (newEngine.IndexPeaks(scanArray))
                 return newEngine;
             return null;
-        }
-
-        public bool IndexPeaks()
-        {
-            // read spectra file
-            string fileName = SpectraFile.FullFilePathWithExtension;
-            var reader = MsDataFileReader.GetDataFile(fileName); 
-            reader.LoadAllStaticData();
-
-            // retrieve only the ms1s. 
-            MsDataScan[] msDataScans = reader.GetMS1Scans()
-                .Where(i => i != null && i.MsnOrder == 1)
-                .OrderBy(i => i.OneBasedScanNumber)
-                .ToArray(); 
-
-            if (msDataScans.All(p => p == null))
-            {
-                IndexedPeaks = null;
-                return false;
-            }
-
-            return IndexPeaks(msDataScans);
         }
 
         public void ClearIndex()
