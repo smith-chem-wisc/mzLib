@@ -6,7 +6,6 @@ using System.Linq;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
-using Readers.ExternalResults.BaseClasses;
 
 namespace Test.FileReadingTests
 {

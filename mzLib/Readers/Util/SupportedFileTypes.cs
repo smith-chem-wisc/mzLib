@@ -1,6 +1,4 @@
-﻿using MassSpectrometry;
-using MzLibUtil;
-using Readers.QuantificationResults;
+﻿using MzLibUtil;
 
 namespace Readers
 {
