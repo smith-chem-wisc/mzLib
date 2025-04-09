@@ -103,5 +103,51 @@ namespace Test
             IDictionary<int, int> notEmptyDictionary = new Dictionary<int, int> { { 1, 1 } };
             Assert.IsFalse(notEmptyDictionary.IsNullOrEmpty());
         }
+
+        [Test]
+        public void IsDefaultOrNull_WithNullReferenceType_ReturnsTrue()
+        {
+            string value = null;
+            bool result = value.IsDefaultOrNull();
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void IsDefaultOrNull_WithNonNullReferenceType_ReturnsFalse()
+        {
+            string value = "test";
+            bool result = value.IsDefaultOrNull();
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void IsDefaultOrNull_WithDefaultStruct_ReturnsTrue()
+        {
+            TestStruct value = default(TestStruct);
+            bool result = value.IsDefaultOrNull();
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void IsDefaultOrNull_WithNonDefaultStruct_ReturnsFalse()
+        {
+            TestStruct value = new TestStruct { X = 1, Y = 2 };
+            bool result = value.IsDefaultOrNull();
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void IsNotDefaultOrNull_WithNullReferenceType_ReturnsFalse()
+        {
+            string value = null;
+            bool result = value.IsNotDefaultOrNull();
+            Assert.IsFalse(result);
+        }
+
+        public struct TestStruct
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+        }
     }
 }
