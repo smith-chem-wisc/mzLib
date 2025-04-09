@@ -56,7 +56,6 @@ namespace Readers
 
         public MsDataFileToResultFileAdapter() : base("")
         {
-
         }
     }
 }
