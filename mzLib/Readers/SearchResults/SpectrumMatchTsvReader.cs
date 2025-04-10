@@ -108,6 +108,7 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.TotalIonCurrent, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.TotalIonCurrent));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorScanNum, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorScanNum));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorCharge, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorCharge));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorIntensity, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorIntensity));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMz, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMz));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMass));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.Score, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Score));
