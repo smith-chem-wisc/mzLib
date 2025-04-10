@@ -5,10 +5,11 @@ using System.Text.RegularExpressions;
 using Chemistry;
 using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
+using System.Collections.Generic;
 
 namespace Readers
 {
-    public abstract class SpectrumMatchFromTsv
+    public abstract class SpectrumMatchFromTsv : IQuantifiableRecord
     {
         protected static readonly Regex PositionParser = new Regex(@"(\d+)\s+to\s+(\d+)");
         protected static readonly Regex VariantParser = new Regex(@"[a-zA-Z]+(\d+)([a-zA-Z]+)");
@@ -21,7 +22,7 @@ namespace Readers
         public int PrecursorCharge { get; protected set; }
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
-        public double? RetentionTime { get; protected set; }
+        public double RetentionTime { get; protected set; }
         public double Score { get; protected set; }
         public int SpectrumMatchCount { get; protected set; }
         public string Accession { get; protected set; }
@@ -38,7 +39,7 @@ namespace Readers
         public string EssentialSeq { get; protected set; }
         public string AmbiguityLevel { get; protected set; }
         public string MissedCleavage { get; protected set; }
-        public string MonoisotopicMass { get; protected set; }
+        public string MonoisotopicMassString { get; protected set; }
         public string MassDiffDa { get; protected set; }
         public string MassDiffPpm { get; protected set; }
         public string Name { get; protected set; }
@@ -58,6 +59,39 @@ namespace Readers
         public double? QValueNotch { get; protected set; }
 
         public List<MatchedFragmentIon> VariantCrossingIons { get; protected set; }
+
+        #region IQuantifiableRecord Properties and Methods
+        public string FileName => FileNameWithoutExtension;
+        public string BaseSequence => BaseSeq;
+        public string ModifiedSequence => FullSequence;
+        public int ChargeState => PrecursorCharge;
+        public bool IsDecoy => DecoyContamTarget.Equals("D");
+        public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
+        private List<(string proteinAccessions, string geneName, string organism)>? _proteinGroupInfos;
+        public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos
+        {
+            get
+            {
+                _proteinGroupInfos ??= ConstructProteinGroupInfo();
+                return _proteinGroupInfos;
+            }
+        }
+        protected List<(string proteinAccessions, string geneName, string organism)> ConstructProteinGroupInfo()
+        {
+            string[] accessions = Accession.Split('|');
+            string[] genes = GeneName.Split('|');
+            string[] organisms = OrganismName.Split('|');
+            int lowestCommonDenominator = Math.Min(Math.Min(accessions.Length, genes.Length), organisms.Length);
+            List<(string proteinAccessions, string geneName, string organism)> proteinGroupInfoList = new();
+            for (int i = 0; i < lowestCommonDenominator; i++)
+            {
+                proteinGroupInfoList.Add((accessions[i], genes[i], organisms[i]));
+            }
+            return proteinGroupInfoList;
+        }
+        
+
+        #endregion
 
         /// <summary>
         /// Constructor used for reading from file
@@ -99,7 +133,7 @@ namespace Readers
             PrecursorMass = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMass]].Trim(), CultureInfo.InvariantCulture);
             BaseSeq = RemoveParentheses(spl[parsedHeader[SpectrumMatchFromTsvHeader.BaseSequence]].Trim());
             FullSequence = spl[parsedHeader[SpectrumMatchFromTsvHeader.FullSequence]];
-            MonoisotopicMass = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
+            MonoisotopicMassString = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
             Score = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Score]].Trim(), CultureInfo.InvariantCulture);
             DecoyContamTarget = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
             QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValue]].Trim(), CultureInfo.InvariantCulture);
@@ -130,7 +164,7 @@ namespace Readers
             PreviousResidue = (parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]].Trim();
             NextResidue = (parsedHeader[SpectrumMatchFromTsvHeader.NextResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]].Trim();
             QValueNotch = (parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch]].Trim(), CultureInfo.InvariantCulture);
-            RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture);
+            RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? -1 : double.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture, out double rt) ? rt : -1;
             PEP = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
             PEP_QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
             VariantCrossingIons = FindVariantCrossingIons();
@@ -159,7 +193,7 @@ namespace Readers
                 Accession = psm.Accession;
                 Name = psm.Name;
                 GeneName = psm.GeneName;
-                MonoisotopicMass = psm.MonoisotopicMass;
+                MonoisotopicMassString = psm.MonoisotopicMassString;
                 MassDiffDa = psm.MassDiffDa;
                 MassDiffPpm = psm.MassDiffPpm;
             }
@@ -174,15 +208,15 @@ namespace Readers
                 Name = psm.Name.Split("|")[index];
                 GeneName = psm.GeneName.Split("|")[index];
 
-                if (psm.MonoisotopicMass.Split("|").Count() == 1)
+                if (psm.MonoisotopicMassString.Split("|").Count() == 1)
                 {
-                    MonoisotopicMass = psm.MonoisotopicMass.Split("|")[0];
+                    MonoisotopicMassString = psm.MonoisotopicMassString.Split("|")[0];
                     MassDiffDa = psm.MassDiffDa.Split("|")[0];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[0];
                 }
                 else
                 {
-                    MonoisotopicMass = psm.MonoisotopicMass.Split("|")[index];
+                    MonoisotopicMassString = psm.MonoisotopicMassString.Split("|")[index];
                     MassDiffDa = psm.MassDiffDa.Split("|")[index];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[index];
                 }

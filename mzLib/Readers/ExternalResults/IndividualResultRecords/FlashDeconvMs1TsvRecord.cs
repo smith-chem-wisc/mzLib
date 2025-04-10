@@ -55,7 +55,7 @@ namespace Readers
         [Name("AverageMass")]
         public double AverageMass { get; set; }
 
-        [Name("MonoisotopicMass")]
+        [Name("MonoisotopicMassString")]
         public double MonoisotopicMass { get; set; }
 
         [Name("SumIntensity")]
