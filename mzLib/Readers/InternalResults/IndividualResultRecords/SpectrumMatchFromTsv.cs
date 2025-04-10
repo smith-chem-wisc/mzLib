@@ -81,11 +81,14 @@ namespace Readers
             string[] accessions = Accession.Split('|');
             string[] genes = GeneName.Split('|');
             string[] organisms = OrganismName.Split('|');
-            int lowestCommonDenominator = Math.Min(Math.Min(accessions.Length, genes.Length), organisms.Length);
             List<(string proteinAccessions, string geneName, string organism)> proteinGroupInfoList = new();
-            for (int i = 0; i < lowestCommonDenominator; i++)
+            for (int i = 0; i < accessions.Length; i++)
             {
-                proteinGroupInfoList.Add((accessions[i], genes[i], organisms[i]));
+                // Commonly, we'll have different proteins all map to the same gene and/or organism.
+                // In these cases, the gene/organism column was resolved to only contain one non-ambiguous entry
+                var gene = genes.Length > i ? genes[i] : genes[0];
+                var organism = organisms.Length > i ? organisms[i] : organisms[0];
+                proteinGroupInfoList.Add((accessions[i], gene, organism));
             }
             return proteinGroupInfoList;
         }

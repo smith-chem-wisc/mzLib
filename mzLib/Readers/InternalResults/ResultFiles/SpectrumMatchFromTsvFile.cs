@@ -2,7 +2,7 @@
 
 namespace Readers;
 
-public class SpectrumMatchFromTsvFile : ResultFile<SpectrumMatchFromTsv>, IQuantifiableResultFile
+public class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T: SpectrumMatchFromTsv
 {
     public override SupportedFileType FileType => FilePath.ParseFileType();
     public override Software Software { get; set; }
@@ -16,7 +16,7 @@ public class SpectrumMatchFromTsvFile : ResultFile<SpectrumMatchFromTsv>, IQuant
 
     public override void LoadResults()
     {
-        Results = SpectrumMatchTsvReader.ReadTsv(FilePath, out List<string> warnings);
+        Results = SpectrumMatchTsvReader.ReadTsv<T>(FilePath, out List<string> warnings);
     }
     public override void WriteResults(string outputPath) => throw new NotImplementedException();
     public IEnumerable<IQuantifiableRecord> GetQuantifiableResults() => Results;
