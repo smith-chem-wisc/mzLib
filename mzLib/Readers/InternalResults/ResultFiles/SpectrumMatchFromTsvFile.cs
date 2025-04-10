@@ -1,8 +1,6 @@
-﻿using Omics.SpectrumMatch;
+﻿namespace Readers;
 
-namespace Readers;
-
-public class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T: SpectrumMatchFromTsv
+public abstract class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T: SpectrumMatchFromTsv
 {
     public override SupportedFileType FileType => FilePath.ParseFileType();
     public override Software Software { get; set; }
@@ -34,4 +32,15 @@ public class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFil
         }
         return fileNameToPath;
     }
+}
+
+public class SpectrumMatchFromTsvFile : SpectrumMatchFromTsvFile<SpectrumMatchFromTsv> 
+{
+
+    /// <summary>
+    /// Constructor used to initialize from the factory method
+    /// </summary>
+    public SpectrumMatchFromTsvFile() : base() { }
+
+    public SpectrumMatchFromTsvFile(string filePath) : base(filePath) { }
 }

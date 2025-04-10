@@ -38,8 +38,7 @@ namespace Test.FileReadingTests
                 Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(psmFilePsms[i].FullSequence));
             }
 
-
-            var spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile<SpectrumMatchFromTsv>>(psmFilePath);
+            var spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile>(psmFilePath);
             List<SpectrumMatchFromTsv> spectralMatchFilePsms = spectralMatchFile.Results;
             Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
             for (int i = 0; i < parsedPsms.Count; i++)
@@ -295,7 +294,7 @@ namespace Test.FileReadingTests
                     break;
 
                 case "FileReader - SpectrumMatchFromTsv":
-                    var file2 = FileReader.ReadFile<SpectrumMatchFromTsvFile<SpectrumMatchFromTsv>>(psmTsvPath);
+                    var file2 = FileReader.ReadFile<SpectrumMatchFromTsvFile>(psmTsvPath);
                     file2.LoadResults();
                     Assert.That(file2.Results.Count == psms.Count);
                     loadedFile = file2;
@@ -309,7 +308,7 @@ namespace Test.FileReadingTests
                     break;
 
                 case "File Construction - SpectrumMatchFromTsv":
-                    var file4 = new SpectrumMatchFromTsvFile<SpectrumMatchFromTsv>(psmTsvPath);
+                    var file4 = new SpectrumMatchFromTsvFile(psmTsvPath);
                     file4.LoadResults();
                     Assert.That(file4.Results.Count == psms.Count);
                     loadedFile = file4;
@@ -387,6 +386,11 @@ namespace Test.FileReadingTests
             Assert.That(dictionary.Count == 2);
             Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.First())));
             Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.Last())));
+        }
+
+        public static void TestPsmFromTsvIdentifications()
+        {
+
         }
     }
 }
