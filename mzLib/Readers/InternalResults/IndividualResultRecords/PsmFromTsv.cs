@@ -70,7 +70,7 @@ namespace Readers
             // This works because the alpha and beta peptide full sequences are written to tsv with their crosslink site included (e.g., PEPTIDEK(4))
             if (UniqueSequence == null && BetaPeptideFullSequence != null)
             {
-                UniqueSequence = ModifiedPeptide + BetaPeptideFullSequence;
+                UniqueSequence = FullSequence + BetaPeptideFullSequence;
             }
 
             // child scan matched ions for xlink and glyco. we are getting them all above and then deleting primary scan ions here.
@@ -174,11 +174,11 @@ namespace Readers
                     Product product = new Product(ion.NeutralTheoreticalProduct.ProductType, ion.NeutralTheoreticalProduct.Terminus, ion.NeutralTheoreticalProduct.NeutralMass, ion.NeutralTheoreticalProduct.FragmentNumber, ion.NeutralTheoreticalProduct.AminoAcidPosition, ion.NeutralTheoreticalProduct.NeutralLoss);
                     betaFragments.Add(new MatchedFragmentIon(product, ion.Mz, ion.Intensity / matchedIonIntensitySum, ion.Charge));
                 }
-                string uniqueSequence = UniqueSequence ?? ModifiedPeptide + BetaPeptideFullSequence;
+                string uniqueSequence = UniqueSequence ?? FullSequence + BetaPeptideFullSequence;
                 return new CrosslinkLibrarySpectrum(uniqueSequence, PrecursorMz, PrecursorCharge, fragments, RetentionTime, betaFragments);
             }
 
-            return (new(this.ModifiedPeptide, this.PrecursorMz, this.PrecursorCharge, fragments, RetentionTime, isDecoy));
+            return (new(this.FullSequence, this.PrecursorMz, this.PrecursorCharge, fragments, RetentionTime, isDecoy));
         }
     }
 }
