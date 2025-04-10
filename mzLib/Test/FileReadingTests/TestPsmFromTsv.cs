@@ -63,9 +63,10 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public static void ReadOGlycoPsmsLocalizedGlycans()
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
+        public static void ReadOGlycoPsmsLocalizedGlycans(string psmFile)
         {
-            string psmFile = @"FileReadingTests\SearchResults\oglyco.psmtsv";
             List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(9, parsedPsms.Count);
 

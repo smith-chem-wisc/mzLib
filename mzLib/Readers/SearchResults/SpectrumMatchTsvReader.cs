@@ -34,7 +34,6 @@ namespace Readers
             string line;
             Dictionary<string, int> parsedHeader = null;
 
-            var fileType = filePath.ParseFileType();
             while (reader.Peek() > 0)
             {
                 lineCount++;
@@ -49,7 +48,21 @@ namespace Readers
 
                 try
                 {
-                    switch (filePath.ParseFileType())
+                    SupportedFileType type;
+                    try
+                    {
+                        type = filePath.ParseFileType();
+                    }
+                    catch (MzLibException e)
+                    {
+                        // if the parsing fails due to file path not being in the correct format, assume Psm reader will work. 
+                        if (e.Message.Contains("type not supported"))
+                            type = SupportedFileType.psmtsv;
+                        else
+                            throw;
+                    }
+
+                    switch (type)
                     {
                         case SupportedFileType.osmtsv:
                             psms.Add(new OsmFromTsv(line, Split, parsedHeader));
