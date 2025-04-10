@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime.Versioning;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
@@ -39,13 +40,16 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv", SupportedFileType.MsPathFinderTAllResults)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\crux.txt", SupportedFileType.CruxResult)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv", SupportedFileType.ExperimentAnnotation)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\Intralinks.tsv", SupportedFileType.IntralinkResults)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\Intralinks_MIons.tsv", SupportedFileType.IntralinkResults)]
         public static void TestSupportedFileTypeExtensions(string filePath, SupportedFileType expectedType)
         {
             var supportedType = filePath.ParseFileType();
             Assert.That(supportedType, Is.EqualTo(expectedType));
 
             var extension = expectedType.GetFileExtension();
-            Assert.That(filePath.EndsWith(extension, StringComparison.InvariantCultureIgnoreCase));
+            if (supportedType != SupportedFileType.IntralinkResults) // intralink results are not guaranteed to have the full extension "Intralinks.tsv" and can sometimes have "Intralinks" in the middle. This is true for many MM test cases
+                Assert.That(filePath.EndsWith(extension, StringComparison.InvariantCultureIgnoreCase));
         }
 
         [Test]

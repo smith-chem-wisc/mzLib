@@ -131,7 +131,7 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTAllResults;
                     if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ExperimentAnnotation;
-                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase) || filePath.Contains("Intralinks"))
                         return SupportedFileType.IntralinkResults;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
