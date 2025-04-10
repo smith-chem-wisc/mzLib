@@ -39,8 +39,8 @@ namespace Test.FileReadingTests
             }
 
 
-            var spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile<PsmFromTsv>>(psmFilePath);
-            List<PsmFromTsv> spectralMatchFilePsms = spectralMatchFile.Results;
+            var spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile<SpectrumMatchFromTsv>>(psmFilePath);
+            List<SpectrumMatchFromTsv> spectralMatchFilePsms = spectralMatchFile.Results;
             Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
             for (int i = 0; i < parsedPsms.Count; i++)
             {
@@ -295,7 +295,7 @@ namespace Test.FileReadingTests
                     break;
 
                 case "FileReader - SpectrumMatchFromTsv":
-                    var file2 = FileReader.ReadFile<SpectrumMatchFromTsvFile<PsmFromTsv>>(psmTsvPath);
+                    var file2 = FileReader.ReadFile<SpectrumMatchFromTsvFile<SpectrumMatchFromTsv>>(psmTsvPath);
                     file2.LoadResults();
                     Assert.That(file2.Results.Count == psms.Count);
                     loadedFile = file2;
@@ -309,7 +309,7 @@ namespace Test.FileReadingTests
                     break;
 
                 case "File Construction - SpectrumMatchFromTsv":
-                    var file4 = new SpectrumMatchFromTsvFile<PsmFromTsv>(psmTsvPath);
+                    var file4 = new SpectrumMatchFromTsvFile<SpectrumMatchFromTsv>(psmTsvPath);
                     file4.LoadResults();
                     Assert.That(file4.Results.Count == psms.Count);
                     loadedFile = file4;
