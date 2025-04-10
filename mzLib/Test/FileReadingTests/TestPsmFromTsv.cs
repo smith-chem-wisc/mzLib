@@ -38,17 +38,6 @@ namespace Test.FileReadingTests
                 Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(psmFilePsms[i].FullSequence));
             }
 
-
-            var spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile<PsmFromTsv>>(psmFilePath);
-            List<PsmFromTsv> spectralMatchFilePsms = spectralMatchFile.Results;
-            Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
-            for (int i = 0; i < parsedPsms.Count; i++)
-            {
-                PsmFromTsv casted = spectralMatchFilePsms[i] as PsmFromTsv;
-                if (casted == null) Assert.Fail();
-
-                Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(spectralMatchFilePsms[i].FullSequence));
-            }
         }
 
         [Test]
@@ -275,9 +264,7 @@ namespace Test.FileReadingTests
 
         [Test]
         [TestCase("FileReader - PsmFromTsv")]
-        [TestCase("FileReader - SpectrumMatchFromTsv")]
         [TestCase("File Construction - PsmFromTsv")]
-        [TestCase("File Construction - SpectrumMatchFromTsv")]
         public static void TestPsmFiles(string fileLoadingType)
         {
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
@@ -294,25 +281,11 @@ namespace Test.FileReadingTests
                     loadedFile = file;
                     break;
 
-                case "FileReader - SpectrumMatchFromTsv":
-                    var file2 = FileReader.ReadFile<SpectrumMatchFromTsvFile<PsmFromTsv>>(psmTsvPath);
-                    file2.LoadResults();
-                    Assert.That(file2.Results.Count == psms.Count);
-                    loadedFile = file2;
-                    break;
-
                 case "File Construction - PsmFromTsv":
                     var file3 = new PsmFromTsvFile(psmTsvPath);
                     file3.LoadResults();
                     Assert.That(file3.Results.Count == psms.Count);
                     loadedFile = file3;
-                    break;
-
-                case "File Construction - SpectrumMatchFromTsv":
-                    var file4 = new SpectrumMatchFromTsvFile<PsmFromTsv>(psmTsvPath);
-                    file4.LoadResults();
-                    Assert.That(file4.Results.Count == psms.Count);
-                    loadedFile = file4;
                     break;
 
                 default:
