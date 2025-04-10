@@ -2,7 +2,7 @@
 
 namespace Readers;
 
-public abstract class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T: SpectrumMatchFromTsv
+public class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T: SpectrumMatchFromTsv
 {
     public override SupportedFileType FileType => FilePath.ParseFileType();
     public override Software Software { get; set; }
