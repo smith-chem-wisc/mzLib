@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using NUnit.Framework.Legacy;
 using Omics.Fragmentation;
 using Readers;
+using FlashLFQ;
 
 namespace Test.FileReadingTests
 {
@@ -388,9 +389,17 @@ namespace Test.FileReadingTests
             Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.Last())));
         }
 
+        [Test]
         public static void TestPsmFromTsvIdentifications()
         {
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
 
+            IQuantifiableResultFile file = FileReader.ReadQuantifiableResultFile(psmFilePath);
+            SpectraFileInfo f1 = new SpectraFileInfo("04-30-13_CAST_Frac5_4uL.raw", "A", 0, 0, 0);
+            SpectraFileInfo f2 = new SpectraFileInfo(@"D:/Data/This/Is/A/Folder/Tree/04-30-13_CAST_Frac4_6uL.mzML", "A", 0, 0, 0);
+            var ids = file.MakeIdentifications(new() { f1, f2});
+
+            CollectionAssert.AreEquivalent(ids.Select(i => i.ModifiedSequence), file.GetQuantifiableResults().Select(i => i.FullSequence));
         }
     }
 }
