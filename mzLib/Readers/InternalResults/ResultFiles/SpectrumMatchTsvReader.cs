@@ -79,6 +79,78 @@ namespace Readers
         }
 
         /// <summary>
+        /// Legacy method for reading PsmFromTsv files, creates a generic SpectrumMatchFromTsv object for each line
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="warnings"></param>
+        /// <returns></returns>
+        /// <exception cref="MzLibException"></exception>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings)
+        {
+            List<SpectrumMatchFromTsv> psms = new List<SpectrumMatchFromTsv>();
+            warnings = new List<string>();
+
+            StreamReader reader = null;
+            try
+            {
+                reader = new StreamReader(filePath);
+            }
+            catch (Exception e)
+            {
+                throw new MzLibException("Could not read file: " + e.Message, e);
+            }
+
+            int lineCount = 0;
+
+            string line;
+            Dictionary<string, int> parsedHeader = null;
+
+            var fileType = filePath.ParseFileType();
+            while (reader.Peek() > 0)
+            {
+                lineCount++;
+
+                line = reader.ReadLine();
+
+                if (lineCount == 1)
+                {
+                    parsedHeader = ParseHeader(line);
+                    continue;
+                }
+
+                try
+                {
+                    switch (filePath.ParseFileType())
+                    {
+                        case SupportedFileType.osmtsv:
+                            psms.Add(new OsmFromTsv(line, Split, parsedHeader));
+                            break;
+
+                        case SupportedFileType.psmtsv:
+                        case SupportedFileType.IntralinkResults:
+                        default:
+                            psms.Add(new PsmFromTsv(line, Split, parsedHeader));
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    warnings.Add("Could not read line: " + lineCount);
+                }
+            }
+
+            reader.Close();
+
+            if (lineCount - 1 != psms.Count)
+            {
+                warnings.Add("Warning: " + (lineCount - 1 - psms.Count) + " PSMs were not read.");
+            }
+
+            return psms;
+        }
+
+        /// <summary>
         /// Reads a psmtsv file and returns PsmFromTsv objects
         /// It is simply a cast of the ReadTsv method
         /// </summary>

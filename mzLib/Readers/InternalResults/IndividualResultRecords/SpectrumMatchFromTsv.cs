@@ -15,7 +15,7 @@ namespace Readers
         protected static readonly Regex VariantParser = new Regex(@"[a-zA-Z]+(\d+)([a-zA-Z]+)");
         protected static readonly Regex IonParser = new Regex(@"([a-zA-Z]+)(\d+)");
 
-        public string FullSequence { get; protected set; }
+        public string ModifiedPeptide { get; protected set; }
         public int Ms2ScanNumber { get; protected set; }
         public string FileNameWithoutExtension { get; protected set; }
         public int PrecursorScanNum { get; protected set; }
@@ -63,7 +63,6 @@ namespace Readers
         #region IQuantifiableRecord Properties and Methods
         public string FileName => FileNameWithoutExtension;
         public string BaseSequence => BaseSeq;
-        public string ModifiedSequence => FullSequence;
         public int ChargeState => PrecursorCharge;
         public bool IsDecoy => DecoyContamTarget.Equals("D");
         public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
@@ -135,7 +134,7 @@ namespace Readers
             PrecursorMz = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMz]].Trim(), CultureInfo.InvariantCulture);
             PrecursorMass = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMass]].Trim(), CultureInfo.InvariantCulture);
             BaseSeq = RemoveParentheses(spl[parsedHeader[SpectrumMatchFromTsvHeader.BaseSequence]].Trim());
-            FullSequence = spl[parsedHeader[SpectrumMatchFromTsvHeader.FullSequence]];
+            ModifiedPeptide = spl[parsedHeader[SpectrumMatchFromTsvHeader.FullSequence]];
             MonoisotopicMassString = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
             Score = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Score]].Trim(), CultureInfo.InvariantCulture);
             DecoyContamTarget = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
@@ -187,9 +186,9 @@ namespace Readers
         protected SpectrumMatchFromTsv(SpectrumMatchFromTsv psm, string fullSequence, int index = 0, string baseSequence = "")
         {
             // psm is not ambiguous
-            if (!psm.FullSequence.Contains("|"))
+            if (!psm.ModifiedPeptide.Contains("|"))
             {
-                FullSequence = fullSequence;
+                ModifiedPeptide = fullSequence;
                 EssentialSeq = psm.EssentialSeq;
                 BaseSeq = baseSequence == "" ? psm.BaseSeq : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence;
@@ -203,7 +202,7 @@ namespace Readers
             // potentially ambiguous fields
             else
             {
-                FullSequence = fullSequence;
+                ModifiedPeptide = fullSequence;
                 EssentialSeq = psm.EssentialSeq.Split("|")[index];
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
@@ -560,7 +559,7 @@ namespace Readers
 
         public override string ToString()
         {
-            return FullSequence;
+            return ModifiedPeptide;
         }
 
         public virtual LibrarySpectrum ToLibrarySpectrum()
@@ -577,7 +576,7 @@ namespace Readers
                 fragments.Add(new MatchedFragmentIon(product, ion.Mz, ion.Intensity / matchedIonIntensitySum, ion.Charge));
             }
 
-            return (new(this.FullSequence, this.PrecursorMz, this.PrecursorCharge, fragments, this.RetentionTime, isDecoy));
+            return (new(this.ModifiedPeptide, this.PrecursorMz, this.PrecursorCharge, fragments, this.RetentionTime, isDecoy));
         }
     }
 }
