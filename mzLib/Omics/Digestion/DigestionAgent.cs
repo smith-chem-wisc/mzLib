@@ -3,7 +3,7 @@ using Omics.Modifications;
 
 namespace Omics.Digestion
 {
-    public abstract class DigestionAgent
+    public abstract class DigestionAgent : IEquatable<DigestionAgent>
     {
         protected static readonly HashSetPool<int> HashSetPool = new HashSetPool<int>(8);
 
@@ -23,6 +23,14 @@ namespace Omics.Digestion
         public override string ToString()
         {
             return Name;
+        }
+
+        public bool Equals(DigestionAgent? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (GetType() != other.GetType()) return false;
+            return Name == other.Name;
         }
 
         public override bool Equals(object? obj)

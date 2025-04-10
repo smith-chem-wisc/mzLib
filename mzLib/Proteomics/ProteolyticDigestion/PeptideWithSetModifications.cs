@@ -35,7 +35,7 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private ChemicalFormula _fullChemicalFormula;
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
-        private readonly string ProteinAccession; // used to get protein object after deserialization
+
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
@@ -48,7 +48,6 @@ namespace Proteomics.ProteolyticDigestion
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
             FullSequence = this.DetermineFullSequence();
-            ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
             PairedTargetDecoySequence = pairedTargetDecoySequence;
         }
@@ -74,11 +73,6 @@ namespace Proteomics.ProteolyticDigestion
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
             PairedTargetDecoySequence = pairedTargetDecoySequence; 
-
-            if (p != null)
-            {
-                ProteinAccession = p.Accession;
-            }
         }
 
         public IDigestionParams DigestionParams => _digestionParams;
@@ -942,30 +936,24 @@ namespace Proteomics.ProteolyticDigestion
 
         #endregion
 
+        #region Serializaiton 
+
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
         /// </summary>
-        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein, DigestionParams dp)
+        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> allKnownMods, IDictionary<string, IBioPolymer> accessionToProtein, IDigestionParams dp)
         {
-            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, idToMod);
-            GetProteinAfterDeserialization(accessionToProtein);
-            _digestionParams = dp;
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, allKnownMods);
+            SetParentAfterDeserialization(accessionToProtein);
+            _digestionParams = dp as DigestionParams;
         }
 
-        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod,
-            Dictionary<string, Protein> accessionToProtein, IDigestionParams dp) => 
-            SetNonSerializedPeptideInfo(idToMod, accessionToProtein, (DigestionParams)dp);
+        public Type[] GetTypesToSerialize() => [typeof(List<PeptideWithSetModifications>), typeof(PeptideWithSetModifications)];
 
-        private void GetProteinAfterDeserialization(Dictionary<string, Protein> idToProtein)
-        {
-            Protein protein = null;
+        // private construct only used to prevent serialization errors on type checking
+        private PeptideWithSetModifications() : base(null, 0, 0, 0, CleavageSpecificity.Full) { }
 
-            if (ProteinAccession != null && !idToProtein.TryGetValue(ProteinAccession, out protein))
-            {
-                throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + ProteinAccession);
-            }
-            Protein = protein;
-        }
+        #endregion
 
         private void UpdateCleavageSpecificity()
         {

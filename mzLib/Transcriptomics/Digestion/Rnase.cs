@@ -6,8 +6,33 @@ namespace Transcriptomics.Digestion
 {
     public class Rnase : DigestionAgent, IEquatable<Rnase>
     {
-        public static IHasChemicalFormula DefaultThreePrimeTerminus = ChemicalFormula.ParseFormula("H2O4P"); // Makes 3' Phosphate
-        public static IHasChemicalFormula DefaultFivePrimeTerminus = ChemicalFormula.ParseFormula("O-3P-1"); // Makes 5' -OH by removing phosphate
+        #region Static Properties
+
+        /// <summary>
+        /// The default chemical formula of the five prime (hydroxyl group)
+        /// </summary>
+        /// <remarks>
+        /// This means that the five prime cap will remove the excess components of first nucleotides
+        /// phospho group, leaving only the hydroxyl. 
+        /// </remarks>
+        public static readonly ChemicalFormula DefaultFivePrimeTerminus;
+
+        /// <summary>
+        /// The default chemical formula of the three prime terminus (phosphate group)
+        /// </summary>
+        /// <remarks>
+        /// This is used to account for the mass of the additional hydroxyl group at the three end of most oligonucleotides.
+        /// </remarks>
+        public static readonly ChemicalFormula DefaultThreePrimeTerminus;
+
+        static Rnase()
+        {
+            DefaultFivePrimeTerminus = new ChemicalFormula("O-3P-1");
+            DefaultThreePrimeTerminus = new ChemicalFormula("H2O4P");
+        }
+
+        #endregion
+
         public Rnase(string name, CleavageSpecificity cleaveSpecificity, List<DigestionMotif> motifList, Modification cleavageMod = null) :
             base(name, cleaveSpecificity, motifList, cleavageMod)
         {

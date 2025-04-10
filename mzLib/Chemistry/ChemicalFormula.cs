@@ -16,10 +16,10 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>.
 
+using Easy.Common.Extensions;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -54,17 +54,38 @@ namespace Chemistry
         private static readonly Regex ValidateFormulaRegex = new Regex("^(" + FormulaRegex + ")+$", RegexOptions.Compiled);
 
         private string formulaString;
+        [NonSerialized] private Dictionary<Isotope, int> _isotopes;
+        [NonSerialized] private Dictionary<Element, int> _elements;
 
         public ChemicalFormula()
         {
-            Isotopes = new Dictionary<Isotope, int>();
-            Elements = new Dictionary<Element, int>();
+            _isotopes = new Dictionary<Isotope, int>();
+            _elements = new Dictionary<Element, int>();
         }
 
         public ChemicalFormula(IHasChemicalFormula capFormula)
         {
-            Isotopes = new Dictionary<Isotope, int>(capFormula.ThisChemicalFormula.Isotopes);
-            Elements = new Dictionary<Element, int>(capFormula.ThisChemicalFormula.Elements);
+            _isotopes = new Dictionary<Isotope, int>(capFormula.ThisChemicalFormula.Isotopes);
+            _elements = new Dictionary<Element, int>(capFormula.ThisChemicalFormula.Elements);
+        }
+
+        public ChemicalFormula(Dictionary<Element, int> elements, Dictionary<Isotope, int> isotopes)
+        {
+            _elements = new Dictionary<Element, int>(elements);
+            _isotopes = new Dictionary<Isotope, int>(isotopes);
+        }
+
+        /// <summary>
+        /// Constructor that ensures the private formulaString is intact for serialization. 
+        /// We do not want it populated all the time as it is rarely used. 
+        /// </summary>
+        /// <param name="formula"></param>
+        public ChemicalFormula(string formula)
+        {
+            var dictionaries = ParseFormulaToDictionaries(formula);
+            _elements = dictionaries.Elements;
+            _isotopes = dictionaries.Isotopes;
+            formulaString = GetHillNotation();
         }
 
         [JsonIgnore] public ChemicalFormula ThisChemicalFormula => this;
@@ -164,8 +185,37 @@ namespace Chemistry
             }
         }
 
-        internal Dictionary<Isotope, int> Isotopes { get; private set; }
-        internal Dictionary<Element, int> Elements { get; private set; }
+        internal Dictionary<Isotope, int> Isotopes
+        {
+            get
+            {
+                // this case occurs on deserialization of a ChemicalFormula
+                if (_isotopes is null && formulaString.IsNotNullOrEmpty())
+                {
+                    var dictionaries = ParseFormulaToDictionaries(formulaString);
+                    _isotopes = dictionaries.Isotopes;
+                    _elements = dictionaries.Elements;
+                }
+
+                return _isotopes;
+            }
+        }
+
+        internal Dictionary<Element, int> Elements
+        {
+            get
+            {
+                // this case occurs on deserialization of a ChemicalFormula
+                if (_elements is null && formulaString.IsNotNullOrEmpty())
+                {
+                    var dictionaries = ParseFormulaToDictionaries(formulaString);
+                    _isotopes = dictionaries.Isotopes;
+                    _elements = dictionaries.Elements;
+                }
+
+                return _elements;
+            }
+        }
 
         public static ChemicalFormula Combine(IEnumerable<IHasChemicalFormula> formulas)
         {
@@ -176,14 +226,14 @@ namespace Chemistry
         }
 
         /// <summary>
-        /// Parses a string representation of chemical formula and adds the elements
-        /// to this chemical formula.
+        /// Parses a string representation of chemical formula and returns the elements and isotopes
         /// Use brackets for isotopes (C6H12N2O -> C{13}6H12N2O)
         /// </summary>
         /// <param name="formula">the Chemical Formula to parse</param>
-        public static ChemicalFormula ParseFormula(string formula)
+        public static (Dictionary<Element, int> Elements, Dictionary<Isotope, int> Isotopes) ParseFormulaToDictionaries(string formula)
         {
-            ChemicalFormula f = new ChemicalFormula();
+            Dictionary<Element, int> elements = new Dictionary<Element, int>();
+            Dictionary<Isotope, int> isotopes = new Dictionary<Isotope, int>();
 
             if (!ValidateFormulaRegex.IsMatch(formula))
                 throw new MzLibException("Input string for chemical formula was in an incorrect format: " + formula);
@@ -205,15 +255,27 @@ namespace Chemistry
                 if (match.Groups[2].Success) // Group 2 (optional): Isotope Mass Number
                 {
                     // Adding isotope!
-                    f.Add(element[int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)], sign * numofelem);
+                    isotopes.Increment(element[int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)], sign * numofelem);
                 }
                 else
                 {
                     // Adding element!
-                    f.Add(element, numofelem * sign);
+                    elements.Increment(element, numofelem * sign);
                 }
             }
-            return f;
+            return (elements, isotopes);
+        }
+
+        /// <summary>
+        /// Parses a string representation of chemical formula and adds the elements
+        /// to this chemical formula.
+        /// Use brackets for isotopes (C6H12N2O -> C{13}6H12N2O)
+        /// </summary>
+        /// <param name="formula">the Chemical Formula to parse</param>
+        public static ChemicalFormula ParseFormula(string formula)
+        {
+            var dictionaries = ParseFormulaToDictionaries(formula);
+            return new ChemicalFormula(dictionaries.Elements, dictionaries.Isotopes);
         }
 
         public int NeutronCount()
@@ -390,8 +452,8 @@ namespace Chemistry
         /// </summary>
         public void Clear()
         {
-            Isotopes = new Dictionary<Isotope, int>();
-            Elements = new Dictionary<Element, int>();
+            _isotopes.Clear();
+            _elements.Clear();
             formulaString = null;
         }
 

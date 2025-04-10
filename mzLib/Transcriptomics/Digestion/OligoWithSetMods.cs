@@ -20,6 +20,7 @@ namespace Transcriptomics.Digestion
     /// always available based on the current state of the oligonucleotide and its modifications. Therefor, it is important to set those
     /// properties to null whenever a termini or modification is changed.
     /// </remarks>
+    [Serializable]
     public class OligoWithSetMods : NucleolyticOligo, IBioPolymerWithSetMods, INucleicAcid, IEquatable<OligoWithSetMods>
     {
         public OligoWithSetMods(NucleicAcid nucleicAcid, RnaDigestionParams digestionParams, int oneBaseStartResidue,
@@ -53,20 +54,17 @@ namespace Transcriptomics.Digestion
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
             Description = description;
-
-            if (n != null)
-                Parent = n;
         }
 
-        private RnaDigestionParams _digestionParams;
-        private Dictionary<int, Modification> _allModsOneIsNterminus;
-        private double? _monoisotopicMass;
-        private ChemicalFormula? _thisChemicalFormula;
-        private double? _mostAbundantMonoisotopicMass;
-        private IDictionary<int, List<Modification>>? _oneBasedPossibleLocalizedModifications;
-        private string? _sequenceWithChemicalFormula;
+        [NonSerialized] private RnaDigestionParams _digestionParams;
+        [NonSerialized] private Dictionary<int, Modification> _allModsOneIsNterminus;
+        [NonSerialized] private double? _monoisotopicMass;
+        [NonSerialized] private ChemicalFormula? _thisChemicalFormula;
+        [NonSerialized] private double? _mostAbundantMonoisotopicMass;
+        [NonSerialized] private IDictionary<int, List<Modification>>? _oneBasedPossibleLocalizedModifications;
+        [NonSerialized] private string? _sequenceWithChemicalFormula;
 
-        public string FullSequence { get; private set; }
+        public string FullSequence { get; init; }
         public IDigestionParams DigestionParams => _digestionParams;
         public IHasChemicalFormula FivePrimeTerminus
         {
@@ -200,7 +198,22 @@ namespace Transcriptomics.Digestion
             bool calculateThreePrime =
                 fragmentationTerminus is FragmentationTerminus.ThreePrime or FragmentationTerminus.Both;
 
-            var sequence = (Parent as NucleicAcid)!.NucleicAcidArray[(OneBasedStartResidue - 1)..OneBasedEndResidue];
+            Nucleotide[] sequence;
+            if (Parent is null || Parent is not NucleicAcid acid) // if constructed without parent Nucleic Acid
+            {
+                sequence = new Nucleotide[BaseSequence.Length];
+                for (var index = 0; index < BaseSequence.Length; index++)
+                {
+                    var nucleotide = BaseSequence[index];
+                    if (!Nucleotide.TryGetResidue(nucleotide, out Nucleotide nuc))
+                        throw new MzLibUtil.MzLibException("Cannot fragment oligo with unknown nucleotide: " + nucleotide);
+                    sequence[index] = nuc;
+                }
+            }
+            else
+            {
+                sequence = acid.NucleicAcidArray[(OneBasedStartResidue - 1)..OneBasedEndResidue];
+            }
 
             // intact product ion
             if (fragmentationTerminus is FragmentationTerminus.Both or FragmentationTerminus.None)
@@ -273,6 +286,23 @@ namespace Transcriptomics.Digestion
             hash.Add(ThreePrimeTerminus);
             return hash.ToHashCode();
         }
+
+        #endregion
+
+        #region Serialization
+
+        public void SetNonSerializedPeptideInfo(IDictionary<string, Modification> allKnownMods, IDictionary<string, IBioPolymer> accessionToProtein,
+            IDigestionParams digestionParams)
+        {
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, allKnownMods);
+            SetParentAfterDeserialization(accessionToProtein);
+            _digestionParams = (digestionParams as RnaDigestionParams)!;
+        }
+
+        public Type[] GetTypesToSerialize() => [typeof(List<OligoWithSetMods>), typeof(OligoWithSetMods), typeof(ChemicalFormula)];
+
+        // private construct only used to prevent serialization errors on type checking
+        private OligoWithSetMods() : base(null, 0, 0, 0, CleavageSpecificity.Full, null, null) { }
 
         #endregion
 

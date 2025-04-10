@@ -14,7 +14,7 @@ namespace Omics
     /// Proteins -> PeptideWithSetModifications : ProteolyticPeptide
     /// Nucleic Acids -> OligoWithSetMods : NucleolyticOligo
     /// </remarks>
-    public interface IBioPolymerWithSetMods : IHasChemicalFormula, IEquatable<IBioPolymerWithSetMods>
+    public interface IBioPolymerWithSetMods : IHasChemicalFormula, IEquatable<IBioPolymerWithSetMods>, ISerializableSequence
     {
         string BaseSequence { get; }
         string FullSequence { get; }
@@ -91,7 +91,7 @@ namespace Omics
         /// <returns></returns>
         /// <exception cref="MzLibUtil.MzLibException">When a full sequence is not in the correct format or a mod is not found in the allModsKnown dictionary</exception>
         public static Dictionary<int, Modification> GetModificationDictionaryFromFullSequence(string fullSequence,
-            Dictionary<string, Modification> allModsKnown)
+            IDictionary<string, Modification> allModsKnown)
         {
             var allModsOneIsNterminus = new Dictionary<int, Modification>();
             var baseSequence = GetBaseSequenceFromFullSequence(fullSequence);
@@ -162,6 +162,6 @@ namespace Omics
         /// <param name="allModsKnown">All known modifications</param>
         /// <returns></returns>
         public static List<Modification> GetModificationsFromFullSequence(string fullSequence,
-            Dictionary<string, Modification> allModsKnown) => [.. GetModificationDictionaryFromFullSequence(fullSequence, allModsKnown).Values];
+            IDictionary<string, Modification> allModsKnown) => [.. GetModificationDictionaryFromFullSequence(fullSequence, allModsKnown).Values];
     }
 }
