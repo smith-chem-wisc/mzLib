@@ -27,7 +27,7 @@ namespace Readers
         public int SpectrumMatchCount { get; protected set; }
         public string Accession { get; protected set; }
         public double? SpectralAngle { get; protected set; }
-        public List<MatchedFragmentIon> MatchedIons { get; protected set; }
+        public List<MatchedFragmentIon> MatchedIons { get; set; }
         public Dictionary<int, List<MatchedFragmentIon>> ChildScanMatchedIons { get; protected set; }
         public double QValue { get; protected set; }
         public double PEP { get; protected set; }
