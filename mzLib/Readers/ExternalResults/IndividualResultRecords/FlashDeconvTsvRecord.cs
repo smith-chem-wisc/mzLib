@@ -26,7 +26,7 @@ namespace Readers
         [Name("FileName")]
         public string FilePath { get; set; }
 
-        [Name("MonoisotopicMassString")]
+        [Name("MonoisotopicMass")]
         public double MonoisotopicMass { get; set; }
 
         [Name("AverageMass")]
