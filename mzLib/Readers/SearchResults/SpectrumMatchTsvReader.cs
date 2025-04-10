@@ -53,13 +53,10 @@ namespace Readers
                     {
                         type = filePath.ParseFileType();
                     }
-                    catch (MzLibException e)
+                    catch (MzLibException)
                     {
                         // if the parsing fails due to file path not being in the correct format, assume Psm reader will work. 
-                        if (e.Message.Contains("type not supported"))
-                            type = SupportedFileType.psmtsv;
-                        else
-                            throw;
+                        type = SupportedFileType.psmtsv;
                     }
 
                     switch (type)

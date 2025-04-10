@@ -9,6 +9,7 @@ using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using Proteomics;
 using Readers;
+using MzLibUtil;
 
 namespace Test.FileReadingTests
 {
@@ -78,7 +79,6 @@ namespace Test.FileReadingTests
             }
 
             Assert.AreEqual(1, localGlycans.Count);
-
         }
 
         [Test]
@@ -89,6 +89,17 @@ namespace Test.FileReadingTests
             Assert.AreEqual(1, parsedPsms.Count);
             IEnumerable<string> expectedIons = new string[] { "y3+1", "y4+1", "b4+1", "b5+1", "b6+1", "b8+1" };
             Assert.That(6 == parsedPsms[0].MatchedIons.Select(p => p.Annotation).Intersect(expectedIons).Count());
+        }
+
+        [Test]
+        public static void FailWhenPathIsBadAndContainsNoting()
+        {
+            string psmFile = @"DatabaseTests\bad4.fasta";
+            var lines = File.ReadAllLines(psmFile).Length;
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
+
+            Assert.That(parsedPsms.Count == 0);
+            Assert.That(warnings.Count == lines);
         }
 
         [Test]
