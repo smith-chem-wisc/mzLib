@@ -86,69 +86,8 @@ namespace Readers
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings)
-        {
-            List<SpectrumMatchFromTsv> psms = new List<SpectrumMatchFromTsv>();
-            warnings = new List<string>();
-
-            StreamReader reader = null;
-            try
-            {
-                reader = new StreamReader(filePath);
-            }
-            catch (Exception e)
-            {
-                throw new MzLibException("Could not read file: " + e.Message, e);
-            }
-
-            int lineCount = 0;
-
-            string line;
-            Dictionary<string, int> parsedHeader = null;
-
-            var fileType = filePath.ParseFileType();
-            while (reader.Peek() > 0)
-            {
-                lineCount++;
-
-                line = reader.ReadLine();
-
-                if (lineCount == 1)
-                {
-                    parsedHeader = ParseHeader(line);
-                    continue;
-                }
-
-                try
-                {
-                    switch (filePath.ParseFileType())
-                    {
-                        case SupportedFileType.osmtsv:
-                            psms.Add(new OsmFromTsv(line, Split, parsedHeader));
-                            break;
-
-                        case SupportedFileType.psmtsv:
-                        case SupportedFileType.IntralinkResults:
-                        default:
-                            psms.Add(new PsmFromTsv(line, Split, parsedHeader));
-                            break;
-                    }
-                }
-                catch (Exception e)
-                {
-                    warnings.Add("Could not read line: " + lineCount);
-                }
-            }
-
-            reader.Close();
-
-            if (lineCount - 1 != psms.Count)
-            {
-                warnings.Add("Warning: " + (lineCount - 1 - psms.Count) + " PSMs were not read.");
-            }
-
-            return psms;
-        }
+        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings) =>
+            ReadTsv<SpectrumMatchFromTsv>(filePath, out warnings);
 
         /// <summary>
         /// Reads a psmtsv file and returns PsmFromTsv objects
@@ -158,7 +97,7 @@ namespace Readers
         /// <param name="warnings"></param>
         /// <returns></returns>
         public static List<PsmFromTsv> ReadPsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<PsmFromTsv>(filePath, out warnings).Cast<PsmFromTsv>().ToList();
+            ReadTsv<PsmFromTsv>(filePath, out warnings);
 
         /// <summary>
         /// Reads a osmtsv file and returns OsmFromTsv objects
@@ -167,7 +106,7 @@ namespace Readers
         /// <param name="warnings"></param>
         /// <returns></returns>
         public static List<OsmFromTsv> ReadOsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<OsmFromTsv>(filePath, out warnings).Cast<OsmFromTsv>().ToList();
+            ReadTsv<OsmFromTsv>(filePath, out warnings);
 
         public static Dictionary<string, int> ParseHeader(string header)
         {
