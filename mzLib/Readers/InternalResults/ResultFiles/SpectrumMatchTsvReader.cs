@@ -66,7 +66,6 @@ namespace Readers
                             break;
 
                         case SupportedFileType.psmtsv:
-                        case SupportedFileType.IntralinkResults:
                         default:
                             psms.Add(new PsmFromTsv(line, Split, parsedHeader));
                             break;
