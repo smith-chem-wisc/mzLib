@@ -20,16 +20,18 @@ namespace Readers
         /// <exception cref="MzLibException">Thrown if file type is not recognized or can't be converted to IResultFile</exception>
         public static IResultFile ReadResultFile(string filePath)
         {
-            if (!File.Exists(filePath))
+            if (!File.Exists(filePath) && !Directory.Exists(filePath)) // File and Directory allows Bruker's .d to also work here. 
                 throw new FileNotFoundException();
             var resultFileType = filePath.GetResultFileType(); // These calls can throw MzLibExceptions
-            object resultFile = Activator.CreateInstance(resultFileType);
+
+            // Activator requires an empty constructor, they are guaranteed for any derived class of Readers.ResultFile
+            object? resultFile = Activator.CreateInstance(resultFileType);
             if (resultFile is IResultFile castResultFile)
             {
                 castResultFile.FilePath = filePath;
                 return castResultFile;
             }
-            throw new MzLibException($"{resultFileType} files cannot be converted to IResultFile");
+            throw new MzLibException($"{resultFileType} files cannot be converted to IResultFile. File path: {filePath}");
         }
 
         /// <summary>
