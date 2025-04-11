@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using MassSpectrometry;
 using NUnit; 
 using NUnit.Framework;
@@ -28,9 +29,8 @@ namespace Test.FileReadingTests
         public void TestFileDoesntExist()
         {
             string fakePath = "fakePath.d";
-            var reader = MsDataFileReader.GetDataFile(fakePath);
             Assert.Throws<FileNotFoundException>(() =>
-                reader.InitiateDynamicConnection());
+                MsDataFileReader.GetDataFile(fakePath));
         }
 
         [Test]
@@ -139,16 +139,6 @@ namespace Test.FileReadingTests
             FilteringParams filteringParams = new(null, 0.5);
             var scan = MsDataFileReader.GetDataFile(_centroidPath).LoadAllStaticData(filteringParams).Scans[0];
             Assert.That(scan.MassSpectrum.XArray.Length == 1);
-        }
-
-        [Test]
-        public void TestFileNotFoundExceptionThrown()
-        {
-            MsDataFile brukerReader = MsDataFileReader.GetDataFile("notrealfile.d");
-            Assert.Throws<FileNotFoundException>(delegate
-            {
-                brukerReader.LoadAllStaticData(); 
-            });
         }
     }
 }

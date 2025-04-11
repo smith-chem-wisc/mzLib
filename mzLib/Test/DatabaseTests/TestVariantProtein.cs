@@ -1,14 +1,18 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Omics;
+using Transcriptomics;
 
 namespace Test.DatabaseTests
 {
@@ -45,7 +49,7 @@ namespace Test.DatabaseTests
         {
             Protein p = new Protein("MAAA", "accession");
             Protein v = new Protein("MAVA", p, new[] { new SequenceVariation(3, "A", "V", "desc", null) }, null, null, null);
-            Assert.AreEqual(p, v.NonVariantProtein);
+            Assert.AreEqual(p, v.ConsensusVariant);
         }
 
         [Test]
@@ -54,14 +58,14 @@ namespace Test.DatabaseTests
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVar.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
-            Assert.AreEqual(5, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
+            Assert.AreEqual(5, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
             Assert.AreEqual(1, variantProteins.Count); // there is only one unique amino acid change
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.BaseSequence, variantProteins.First().BaseSequence);
-            Assert.AreEqual('C', variantProteins.First().NonVariantProtein.BaseSequence[116]);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.BaseSequence, variantProteins.First().BaseSequence);
+            Assert.AreEqual('C', variantProteins.First().ConsensusVariant.BaseSequence[116]);
             Assert.AreEqual('Y', variantProteins.First().BaseSequence[116]);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Name, variantProteins.First().Name);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.FullName, variantProteins.First().FullName);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Accession, variantProteins.First().Accession);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.Name, variantProteins.First().Name);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.FullName, variantProteins.First().FullName);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.Accession, variantProteins.First().Accession);
 
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
@@ -172,26 +176,26 @@ namespace Test.DatabaseTests
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             var target = proteins[0];
-            Assert.AreEqual(1, target.ProteolysisProducts.Count());
-            Assert.AreEqual(beginIdx, target.ProteolysisProducts.Single().OneBasedBeginPosition); //P[start]EPTI[end]D, M[start]EPTI[end]D
-            Assert.AreEqual(endIdx, target.ProteolysisProducts.Single().OneBasedEndPosition);
+            Assert.AreEqual(1, target.TruncationProducts.Count());
+            Assert.AreEqual(beginIdx, target.TruncationProducts.Single().OneBasedBeginPosition); //P[start]EPTI[end]D, M[start]EPTI[end]D
+            Assert.AreEqual(endIdx, target.TruncationProducts.Single().OneBasedEndPosition);
             var decoy = proteins[1];
-            Assert.AreEqual(1, decoy.ProteolysisProducts.Count());
-            Assert.AreEqual(reversedBeginIdx, decoy.ProteolysisProducts.Single().OneBasedBeginPosition); //DI[start]TPEP[end], M[start]DITP[end]E
-            Assert.AreEqual(reversedEndIdx, decoy.ProteolysisProducts.Single().OneBasedEndPosition);
+            Assert.AreEqual(1, decoy.TruncationProducts.Count());
+            Assert.AreEqual(reversedBeginIdx, decoy.TruncationProducts.Single().OneBasedBeginPosition); //DI[start]TPEP[end], M[start]DITP[end]E
+            Assert.AreEqual(reversedEndIdx, decoy.TruncationProducts.Single().OneBasedEndPosition);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
-            Assert.AreEqual(1, target.ProteolysisProducts.Count());
-            Assert.AreEqual(beginIdx, target.ProteolysisProducts.Single().OneBasedBeginPosition);
-            Assert.AreEqual(endIdx, target.ProteolysisProducts.Single().OneBasedEndPosition);
+            Assert.AreEqual(1, target.TruncationProducts.Count());
+            Assert.AreEqual(beginIdx, target.TruncationProducts.Single().OneBasedBeginPosition);
+            Assert.AreEqual(endIdx, target.TruncationProducts.Single().OneBasedEndPosition);
             decoy = proteins[1];
-            Assert.AreEqual(1, decoy.ProteolysisProducts.Count());
-            Assert.AreEqual(reversedBeginIdx, decoy.ProteolysisProducts.Single().OneBasedBeginPosition);
-            Assert.AreEqual(reversedEndIdx, decoy.ProteolysisProducts.Single().OneBasedEndPosition);
+            Assert.AreEqual(1, decoy.TruncationProducts.Count());
+            Assert.AreEqual(reversedBeginIdx, decoy.TruncationProducts.Single().OneBasedBeginPosition);
+            Assert.AreEqual(reversedEndIdx, decoy.TruncationProducts.Single().OneBasedEndPosition);
         }
 
         [TestCase("bonds1.xml", 2, 3, "DICPCP", 4, 5)] // without starting methionine
@@ -274,8 +278,8 @@ namespace Test.DatabaseTests
             Assert.AreEqual(18, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(1, proteins[0].GetVariantProteins().Count);
-            var variantProteins = proteins[0].GetVariantProteins();
+            Assert.AreEqual(1, proteins[0].GetVariantBioPolymers().Count);
+            var variantProteins = proteins[0].GetVariantBioPolymers();
             List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
@@ -293,8 +297,8 @@ namespace Test.DatabaseTests
                 new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
              };
-            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantProteins()).ToList();
-            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantProteins()).ToList(); // should be stable
+            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
+            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
             var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
@@ -326,6 +330,74 @@ namespace Test.DatabaseTests
                 Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
                 Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
             }
+        }
+
+        [Test]
+        public static void AppliedVariants_AsIBioPolymer()
+        {
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
+            Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+            List<IBioPolymer> proteinsWithSeqVars = new List<IBioPolymer>
+            {
+                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
+             };
+            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
+            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
+            string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
+            ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
+            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
+
+            var listArray = new List<IBioPolymer>[]
+            {
+                proteinsWithAppliedVariants,
+                proteinsWithAppliedVariants2,
+                proteinsWithAppliedVariants3.Cast<IBioPolymer>().ToList()
+            };
+
+            for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
+            {
+                // sequences
+                Assert.AreEqual("MPEVTIDE", listArray[dbIdx][0].BaseSequence);
+                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][1].BaseSequence);
+                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][2].BaseSequence);
+                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][3].BaseSequence);
+                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][4].BaseSequence);
+                Assert.AreEqual(5, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key);
+
+                // SAV
+                Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedEndPosition);
+
+                // MNV
+                Assert.AreEqual(4, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(5, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedEndPosition);
+
+                // insertion
+                Assert.AreEqual(4, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(6, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition);
+
+                // deletion
+                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
+            }
+        }
+
+        [Test]
+        public static void CrashOnCreateVariantFromRNA()
+        {
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "HomozygousHLA.xml"), true,
+                DecoyType.None, null, false, null, out var unknownModifications);
+
+            var rna = new RNA("GUACUGACU");
+            NUnit.Framework.Assert.Throws<ArgumentException>(() =>
+            {
+                proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(), "");
+            });
         }
 
         [Test]
@@ -415,14 +487,14 @@ namespace Test.DatabaseTests
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
-            Assert.AreEqual(12, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
-            Assert.AreEqual(2, variantProteins.First().NonVariantProtein.SequenceVariations.Count(v => v.Description.Heterozygous.Any(kv => kv.Value)));
+            Assert.AreEqual(12, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
+            Assert.AreEqual(2, variantProteins.First().ConsensusVariant.SequenceVariations.Count(v => v.Description.Heterozygous.Any(kv => kv.Value)));
 
             Assert.AreEqual(1, variantProteins.Count); // Should be 2^2 from combinitorics of heterozygous, but the giant indels overwrite them
-            Assert.AreEqual(0, variantProteins.Where(v => v.BaseSequence == variantProteins.First().NonVariantProtein.BaseSequence).Count()); // Homozygous variations are included
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Name, variantProteins.First().Name);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.FullName, variantProteins.First().FullName);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Accession, variantProteins.First().Accession);
+            Assert.AreEqual(0, variantProteins.Where(v => v.BaseSequence == variantProteins.First().ConsensusVariant.BaseSequence).Count()); // Homozygous variations are included
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.Name, variantProteins.First().Name);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.FullName, variantProteins.First().FullName);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.Accession, variantProteins.First().Accession);
 
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
@@ -433,20 +505,20 @@ namespace Test.DatabaseTests
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness2.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
-            Assert.AreEqual(1, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
+            Assert.AreEqual(1, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
             Assert.AreEqual(2, variantProteins.Count); // there is only one unique amino acid change
-            Assert.AreEqual(1, variantProteins.Where(v => v.BaseSequence == variantProteins.First().NonVariantProtein.BaseSequence).Count());
+            Assert.AreEqual(1, variantProteins.Where(v => v.BaseSequence == variantProteins.First().ConsensusVariant.BaseSequence).Count());
             var variantProteinRef = variantProteins.First();
             var variantProteinAlt = variantProteins.Last();
-            Assert.AreEqual('R', variantProteins.First().NonVariantProtein.BaseSequence[2386]);
+            Assert.AreEqual('R', variantProteins.First().ConsensusVariant.BaseSequence[2386]);
             Assert.AreEqual('R', variantProteinRef.BaseSequence[2386]);
             Assert.AreEqual('H', variantProteinAlt.BaseSequence[2386]);
-            Assert.AreEqual(variantProteins.First().NonVariantProtein.Name, variantProteinRef.Name);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Name, variantProteinAlt.Name);
-            Assert.AreEqual(variantProteins.First().NonVariantProtein.FullName, variantProteinRef.FullName);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.FullName, variantProteinAlt.FullName);
-            Assert.AreEqual(variantProteins.First().NonVariantProtein.Accession, variantProteinRef.Accession);
-            Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Accession, variantProteinAlt.Accession);
+            Assert.AreEqual(variantProteins.First().ConsensusVariant.Name, variantProteinRef.Name);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.Name, variantProteinAlt.Name);
+            Assert.AreEqual(variantProteins.First().ConsensusVariant.FullName, variantProteinRef.FullName);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.FullName, variantProteinAlt.FullName);
+            Assert.AreEqual(variantProteins.First().ConsensusVariant.Accession, variantProteinRef.Accession);
+            Assert.AreNotEqual(variantProteins.First().ConsensusVariant.Accession, variantProteinAlt.Accession);
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
@@ -458,10 +530,10 @@ namespace Test.DatabaseTests
             Assert.AreEqual(8, variantProteins.Count);
             var indelProtein = variantProteins[2];
             Assert.AreNotEqual(indelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, indelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
-            Assert.AreNotEqual(indelProtein.NonVariantProtein.Length, variantProteins[2].Length);
+            Assert.AreNotEqual(indelProtein.ConsensusVariant.Length, variantProteins[2].Length);
             var decoyIndelProtein = variantProteins[5];
             Assert.AreNotEqual(decoyIndelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, decoyIndelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
-            Assert.AreNotEqual(decoyIndelProtein.NonVariantProtein.Length, variantProteins[2].Length);
+            Assert.AreNotEqual(decoyIndelProtein.ConsensusVariant.Length, variantProteins[2].Length);
             Assert.AreEqual(indelProtein.Length - indelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition, decoyIndelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition);
             var variantSeq = indelProtein.AppliedSequenceVariations.Single().VariantSequence.ToCharArray();
             Array.Reverse(variantSeq);

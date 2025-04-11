@@ -1,6 +1,8 @@
 ﻿using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MzLibUtil;
+using Readers;
+using System.Collections.Generic;
 
 namespace Test
 {
@@ -31,6 +33,75 @@ namespace Test
             string extensionResult = filenameAndOrPath.GetPeriodTolerantFilenameWithoutExtension();
             Assert.AreEqual(expectedResult, result);
             Assert.AreEqual(expectedResult, extensionResult);
+        }
+
+        [Test]
+        public static void TestToEnum()
+        {
+            Assert.IsTrue(0.ToEnum<TimsTofMsMsType>(out var result));
+            Assert.AreEqual(TimsTofMsMsType.MS, result);
+
+            Assert.IsTrue(2.ToEnum<TimsTofMsMsType>(out result));
+            Assert.AreEqual(TimsTofMsMsType.MSMSFragment, result);
+
+            Assert.IsTrue(8.ToEnum<TimsTofMsMsType>(out result));
+            Assert.AreEqual(TimsTofMsMsType.PASEF, result);
+
+            Assert.IsTrue(9.ToEnum<TimsTofMsMsType>(out result));
+            Assert.AreEqual(TimsTofMsMsType.DIA, result);
+
+            Assert.IsTrue(10.ToEnum<TimsTofMsMsType>(out result));
+            Assert.AreEqual(TimsTofMsMsType.PRM, result);
+
+            Assert.IsTrue(0.ToEnum<TimsTofAcquisitionMode>(out var result2));
+            Assert.AreEqual(TimsTofAcquisitionMode.MS, result2);
+
+            Assert.IsFalse(1.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsFalse(11.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsFalse(7.ToEnum<TimsTofMsMsType>(out result));
+            
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IEnumerable_Null_ReturnsTrue()
+        {
+            IEnumerable<int> nullEnumerable = null;
+            Assert.IsTrue(nullEnumerable.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IEnumerable_Empty_ReturnsTrue()
+        {
+            IEnumerable<int> emptyEnumerable = new List<int>();
+            Assert.IsTrue(emptyEnumerable.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IEnumerable_NotEmpty_ReturnsFalse()
+        {
+            IEnumerable<int> notEmptyEnumerable = new List<int> { 1 };
+            Assert.IsFalse(notEmptyEnumerable.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IDictionary_Null_ReturnsTrue()
+        {
+            IDictionary<int, int> nullDictionary = null;
+            Assert.IsTrue(nullDictionary.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IDictionary_Empty_ReturnsTrue()
+        {
+            IDictionary<int, int> emptyDictionary = new Dictionary<int, int>();
+            Assert.IsTrue(emptyDictionary.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IDictionary_NotEmpty_ReturnsFalse()
+        {
+            IDictionary<int, int> notEmptyDictionary = new Dictionary<int, int> { { 1, 1 } };
+            Assert.IsFalse(notEmptyDictionary.IsNullOrEmpty());
         }
     }
 }

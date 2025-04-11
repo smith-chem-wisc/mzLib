@@ -1,66 +1,70 @@
-﻿using MzLibUtil;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
 
 namespace FlashLFQ
 {
-    public class ChromatographicPeak
+    public class ChromatographicPeak : IEquatable<ChromatographicPeak>
     {
-        public double Intensity;
-        public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
-        public readonly SpectraFileInfo SpectraFileInfo;
-        public List<IsotopicEnvelope> IsotopicEnvelopes;
-        public int ScanCount => IsotopicEnvelopes.Count;
-        public double SplitRT;
-        public readonly bool IsMbrPeak;
-        public double PredictedRetentionTime { get; init; }
-
-        /// <summary>
-        /// A score bounded by 100 and 0, with more confident MBR-detections receiving higher scores
-        /// </summary>
-        public double MbrScore { get; private set; }
-
-        /// The four scores below are bounded by 0 and 1, with higher scores being better
-        public double PpmScore { get; private set; }
-        public double IntensityScore { get; private set; }
-        public double RtScore { get; private set; }
-        public double ScanCountScore { get; private set; }
-
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
-        {
-            SplitRT = 0;
-            NumChargeStatesObserved = 0;
-            MassError = double.NaN;
-            NumIdentificationsByBaseSeq = 1;
-            NumIdentificationsByFullSeq = 1;
-            Identifications = new List<Identification>() { id };
-            IsotopicEnvelopes = new List<IsotopicEnvelope>();
-            IsMbrPeak = isMbrPeak;
-            SpectraFileInfo = fileInfo;
-        }
-
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo, double predictedRetentionTime) :
-            this(id, isMbrPeak, fileInfo)
-        {
-            PredictedRetentionTime = predictedRetentionTime;
-        }
-
+        public double Intensity { get; private set; }
         public IsotopicEnvelope Apex { get; private set; }
+        public double ApexRetentionTime => Apex?.IndexedPeak.RetentionTime ?? -1;
+        public double IsotopicPearsonCorrelation => Apex?.PearsonCorrelation ?? -1;
+        public SpectraFileInfo SpectraFileInfo { get; init; }
+        public List<IsotopicEnvelope> IsotopicEnvelopes { get; set; }
+        public int ScanCount => IsotopicEnvelopes.Count;
+        /// <summary>
+        /// This is a legacy field that is used to store the RT of the split valley between two peaks.
+        /// It is written to the QuantifiedPeaks output, but unused otherwise and should be removed at some point
+        /// </summary>
+        public double SplitRT { get; set; }
+        public List<int> ChargeList { get; set; }
+        public DetectionType DetectionType { get; set; }
         public List<Identification> Identifications { get; private set; }
         public int NumChargeStatesObserved { get; private set; }
         public int NumIdentificationsByBaseSeq { get; private set; }
         public int NumIdentificationsByFullSeq { get; private set; }
         public double MassError { get; private set; }
+        public bool DecoyPeptide => Identifications.First().IsDecoy;
+
+        public ChromatographicPeak(Identification id, SpectraFileInfo fileInfo, DetectionType detectionType = DetectionType.MSMS) :
+            this(new List<Identification>() { id }, fileInfo, detectionType) { }
+
+        /// <summary>
+        /// overloaded constructor for Isobaric_ambiguity peaks. In this case, the peak is identified by multiple identifications
+        /// </summary>
+        /// <param name="ids"></param>
+        /// <param name="isMbrPeak"></param>
+        /// <param name="fileInfo"></param>
+        /// <param name="randomRt"></param>
+        public ChromatographicPeak(List<Identification> ids, SpectraFileInfo fileInfo, DetectionType detectionType)
+        { 
+            SplitRT = 0;
+            NumChargeStatesObserved = 0;
+            MassError = double.NaN;
+
+            DetectionType = detectionType; // default to imputed
+            Identifications = ids;
+            ResolveIdentifications();
+            IsotopicEnvelopes = new List<IsotopicEnvelope>();
+            SpectraFileInfo = fileInfo;
+        }
+
+        public bool Equals(ChromatographicPeak peak)
+        {
+            return SpectraFileInfo.Equals(peak.SpectraFileInfo) 
+                && Identifications.First().ModifiedSequence.Equals(peak.Identifications.First().ModifiedSequence)
+                && ApexRetentionTime == peak.ApexRetentionTime;
+        }
 
         public void CalculateIntensityForThisFeature(bool integrate)
         {
             if (IsotopicEnvelopes.Any())
             {
-                double maxIntensity = IsotopicEnvelopes.Max(p => p.Intensity);
-                Apex = IsotopicEnvelopes.First(p => p.Intensity == maxIntensity);
+                Apex = IsotopicEnvelopes.MaxBy(p => p.Intensity);
 
                 if (integrate)
                 {
@@ -103,7 +107,7 @@ namespace FlashLFQ
         {
             if (otherFeature != this)
             {
-                var thisFeaturesPeaks = new HashSet<IndexedMassSpectralPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
+                var thisFeaturesPeaks = new HashSet<IIndexedMzPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
                 this.Identifications = this.Identifications
                     .Union(otherFeature.Identifications)
                     .Distinct()
@@ -123,25 +127,6 @@ namespace FlashLFQ
             this.NumIdentificationsByBaseSeq = Identifications.Select(v => v.BaseSequence).Distinct().Count();
             this.NumIdentificationsByFullSeq = Identifications.Select(v => v.ModifiedSequence).Distinct().Count();
         }
-
-        /// <summary>
-        /// Calculates four component scores and one overarching Mbr score for an MBR peak.
-        /// MBR Score is equal to 100 * the geometric mean of the four component scores.
-        /// </summary>
-        /// <param name="scorer"> An MbrScorer specific to the file where this peak was found </param>
-        /// <param name="donorPeak"> The donor peak used as the basis for the MBR identification. </param>
-        internal void CalculateMbrScore(MbrScorer scorer, ChromatographicPeak donorPeak)
-        {
-            if (SpectraFileInfo != scorer.AcceptorFile) throw new MzLibException("Error when performing match-between-runs: Mismatch between scorer and peak.");
-
-            IntensityScore = scorer.CalculateIntensityScore(this, donorPeak);
-            RtScore = scorer.CalculateRetentionTimeScore(this, donorPeak);
-            PpmScore = scorer.CalculatePpmErrorScore(this);
-            ScanCountScore = scorer.CalculateScanCountScore(this);
-
-            MbrScore = 100 * Math.Pow(IntensityScore * RtScore * PpmScore * ScanCountScore, 0.25);
-        }
-
         public static string TabSeparatedHeader
         {
             get
@@ -164,20 +149,18 @@ namespace FlashLFQ
                 sb.Append("Peak Charge" + "\t");
                 sb.Append("Num Charge States Observed" + "\t");
                 sb.Append("Peak Detection Type" + "\t");
-                sb.Append("MBR Score" + "\t");
-                sb.Append("Ppm Score" + "\t");
-                sb.Append("Intensity Score" + "\t");
-                sb.Append("Rt Score" + "\t");
-                sb.Append("Scan Count Score" + "\t");
+                sb.Append("PIP Q-Value" + "\t");
+                sb.Append("PIP PEP" + "\t");
                 sb.Append("PSMs Mapped" + "\t");
                 sb.Append("Base Sequences Mapped" + "\t");
                 sb.Append("Full Sequences Mapped" + "\t");
                 sb.Append("Peak Split Valley RT" + "\t");
-                sb.Append("Peak Apex Mass Error (ppm)");
+                sb.Append("Peak Apex Mass Error (ppm)" + "\t");
+                sb.Append("Decoy Peptide" + "\t");
+                sb.Append("Random RT");
                 return sb.ToString();
             }
         }
-
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
@@ -212,65 +195,60 @@ namespace FlashLFQ
             }
             else
             {
-                sb.Append("" + '\t');
-                sb.Append("" + '\t');
+                sb.Append('\t');
+                sb.Append('\t');
             }
 
-            sb.Append("" + Identifications.First().MonoisotopicMass + '\t');
-            if (!IsMbrPeak)
-            {
-                sb.Append("" + Identifications.First().Ms2RetentionTimeInMinutes + '\t');
-            }
-            else
-            {
-                sb.Append("" + '\t');
-            }
-
-            sb.Append("" + Identifications.First().PrecursorChargeState + '\t');
-            sb.Append("" + ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
-            sb.Append("" + Intensity + "\t");
+            sb.Append(Identifications.First().MonoisotopicMass.ToString(CultureInfo.InvariantCulture) + '\t');
+            sb.Append(DetectionType == DetectionType.MSMS ? Identifications.First().Ms2RetentionTimeInMinutes.ToString(CultureInfo.InvariantCulture) + '\t' : '\t');
+            sb.Append(Identifications.First().PrecursorChargeState.ToString(CultureInfo.InvariantCulture) + '\t');
+            sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState).ToString(CultureInfo.InvariantCulture) + '\t');
+            sb.Append(Intensity.ToString(CultureInfo.InvariantCulture) + "\t");
 
             if (Apex != null)
             {
-                sb.Append("" + IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime) + "\t");
-                sb.Append("" + Apex.IndexedPeak.RetentionTime + "\t");
-                sb.Append("" + IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime) + "\t");
-
-                sb.Append("" + Apex.IndexedPeak.Mz + "\t");
-                sb.Append("" + Apex.ChargeState + "\t");
+                sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(Apex.IndexedPeak.RetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(Apex.IndexedPeak.Mz.ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(Apex.ChargeState.ToString(CultureInfo.InvariantCulture) + "\t");
             }
             else
             {
-                sb.Append("" + "-" + "\t");
-                sb.Append("" + "-" + "\t");
-                sb.Append("" + "-" + "\t");
-
-                sb.Append("" + "-" + "\t");
-                sb.Append("" + "-" + "\t");
+                sb.Append("-" +"\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
             }
 
-            sb.Append("" + NumChargeStatesObserved + "\t");
+            sb.Append(NumChargeStatesObserved.ToString(CultureInfo.InvariantCulture) + "\t");
 
-            if (IsMbrPeak)
+            // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous and MSMS peaks
+            switch (this.DetectionType)
             {
-                sb.Append("" + "MBR" + "\t");
-            }
-            else
-            {
-                sb.Append("" + "MSMS" + "\t");
+                case DetectionType.IsoTrack_MBR:
+                    sb.Append("MBR_IsoTrack" + "\t");
+                    break;
+                case DetectionType.IsoTrack_Ambiguous:
+                    sb.Append("IsoTrack_Ambiguous" + "\t");
+                    break;
+                default:
+                    sb.Append("MSMS" + "\t");
+                    break;
             }
 
-            sb.Append("" + (IsMbrPeak ? MbrScore.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? PpmScore.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? IntensityScore.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? RtScore.ToString() : "") + "\t");
-            sb.Append("" + (IsMbrPeak ? ScanCountScore.ToString() : "") + "\t");
+            // MBR Exclusive fields
+            sb.Append('\t');
+            sb.Append('\t');
 
-            sb.Append("" + Identifications.Count + "\t");
-            sb.Append("" + NumIdentificationsByBaseSeq + "\t");
-            sb.Append("" + NumIdentificationsByFullSeq + "\t");
-            sb.Append("" + SplitRT + "\t");
-            sb.Append("" + MassError);
+            sb.Append(Identifications.Count.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(NumIdentificationsByBaseSeq.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(NumIdentificationsByFullSeq.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(SplitRT.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(MassError.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append( DecoyPeptide.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append("False"); // Because this isn't an MBR peak, the Random RT Field will always be false
 
             return sb.ToString();
         }

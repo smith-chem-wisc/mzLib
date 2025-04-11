@@ -14,9 +14,9 @@ namespace Readers
         Mgf,
         Ms1Align,
         Ms2Align,
-        BrukerD,
         psmtsv,
-        //osmtsv
+        IntralinkResults,
+        osmtsv,
         ToppicPrsm,
         ToppicPrsmSingle,
         ToppicProteoform,
@@ -28,7 +28,10 @@ namespace Readers
         MsPathFinderTTargets,
         MsPathFinderTDecoys,
         MsPathFinderTAllResults,
-        CruxResult
+        CruxResult,
+        ExperimentAnnotation,
+        BrukerD,
+        BrukerTimsTof
     }
 
     public static class SupportedFileTypeExtensions
@@ -52,10 +55,12 @@ namespace Readers
                 SupportedFileType.MzML => ".mzML",
                 SupportedFileType.Mgf => ".mgf",
                 SupportedFileType.BrukerD => ".d",
+                SupportedFileType.BrukerTimsTof => ".d",
                 SupportedFileType.Ms1Align => "_ms1.msalign",
                 SupportedFileType.Ms2Align => "_ms2.msalign",
                 SupportedFileType.psmtsv => ".psmtsv",
-                //SupportedFileType.osmtsv => ".osmtsv",
+                SupportedFileType.osmtsv => ".osmtsv",
+                SupportedFileType.IntralinkResults => "Intralinks.tsv",
                 SupportedFileType.ToppicPrsm => "_prsm.tsv",
                 SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
                 SupportedFileType.ToppicProteoform => "_proteoform.tsv",
@@ -68,6 +73,7 @@ namespace Readers
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
+                SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -78,9 +84,16 @@ namespace Readers
                 case ".raw": return SupportedFileType.ThermoRaw;
                 case ".mzml": return SupportedFileType.MzML;
                 case ".mgf": return SupportedFileType.Mgf;
-                case ".d": return SupportedFileType.BrukerD;
+                case ".d":
+                    if(!Directory.Exists(filePath)) throw new FileNotFoundException();
+                    var fileList = Directory.GetFiles(filePath).Select(p => Path.GetFileName(p));
+                    if (fileList.Any(file => file == "analysis.baf"))
+                        return SupportedFileType.BrukerD;
+                    if (fileList.Any(file => file == "analysis.tdf"))
+                        return SupportedFileType.BrukerTimsTof;
+                    throw new MzLibException("Bruker file type not recognized");
                 case ".psmtsv": return SupportedFileType.psmtsv;
-                //case ".osmtsv": return SupportedFileType.osmtsv;
+                case ".osmtsv": return SupportedFileType.osmtsv;
                 case ".feature":
                     if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;
@@ -120,6 +133,10 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTDecoys;
                     if (filePath.EndsWith(SupportedFileType.MsPathFinderTAllResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MsPathFinderTAllResults;
+                    if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.ExperimentAnnotation;
+                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.IntralinkResults;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm

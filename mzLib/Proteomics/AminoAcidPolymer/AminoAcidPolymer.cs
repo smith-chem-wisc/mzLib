@@ -1103,7 +1103,7 @@ namespace Proteomics.AminoAcidPolymer
                         {
                             modification = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula(modString));
                         }
-                        catch (MzLibException)
+                        catch (MzLibException e)
                         {
                             if (double.TryParse(modString, out double mass))
                             {
@@ -1111,7 +1111,7 @@ namespace Proteomics.AminoAcidPolymer
                             }
                             else
                             {
-                                throw new MzLibException("Unable to correctly parse the following modification: " + modString);
+                                throw new MzLibException("Unable to correctly parse the following modification: " + modString, e);
                             }
                         }
 

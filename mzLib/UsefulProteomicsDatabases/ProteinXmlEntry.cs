@@ -4,7 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Omics.BioPolymer;
 using Omics.Modifications;
+using Transcriptomics;
+using UsefulProteomicsDatabases.Transcriptomics;
 
 namespace UsefulProteomicsDatabases
 {
@@ -31,7 +34,7 @@ namespace UsefulProteomicsDatabases
         public int OneBasedFeatureSubPosition { get; private set; } = -1;
         public int? OneBasedBeginPosition { get; private set; }
         public int? OneBasedEndPosition { get; private set; }
-        public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new List<ProteolysisProduct>();
+        public List<TruncationProduct> ProteolysisProducts { get; private set; } = new List<TruncationProduct>();
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
         public List<SpliceSite> SpliceSites { get; private set; } = new List<SpliceSite>();
@@ -182,6 +185,38 @@ namespace UsefulProteomicsDatabases
             return protein;
         }
 
+        internal RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
+            Dictionary<string, Modification> unknownModifications,
+            bool isContaminant, string rnaDbLocation)
+        {
+            RNA result = null;
+            if (xml.Name == "feature")
+            {
+                ParseFeatureEndElement(xml, modTypesToExclude, unknownModifications);
+            }
+            if (xml.Name == "subfeature")
+            {
+                ParseSubFeatureEndElement(xml, modTypesToExclude, unknownModifications);
+            }
+            else if (xml.Name == "dbReference")
+            {
+                ParseDatabaseReferenceEndElement(xml);
+            }
+            else if (xml.Name == "gene")
+            {
+                ReadingGene = false;
+            }
+            else if (xml.Name == "organism")
+            {
+                ReadingOrganism = false;
+            }
+            else if (xml.Name == "entry")
+            {
+                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications);
+            }
+            return result;
+        }
+
         /// <summary>
         /// Finish parsing an entry
         /// </summary>
@@ -197,6 +232,24 @@ namespace UsefulProteomicsDatabases
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
+            }
+            Clear();
+            return result;
+        }
+
+        internal RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
+            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+        {
+            RNA result = null;
+            if (Accession != null && Sequence != null)
+            {
+                // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
+                // sometimes strange characters get added by RNA sequencing software, etc.
+                Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+
+                ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
+                result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
+                    isContaminant, false, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName);
             }
             Clear();
             return result;
@@ -220,6 +273,11 @@ namespace UsefulProteomicsDatabases
         public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
+            {
+                FeatureDescription = FeatureDescription.Split(';')[0];
+                AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
+            }
+            else if (FeatureType == "lipid moiety-binding region")
             {
                 FeatureDescription = FeatureDescription.Split(';')[0];
                 AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
@@ -251,7 +309,7 @@ namespace UsefulProteomicsDatabases
                         type += ("null-null");
                     }
                 }
-                ProteolysisProducts.Add(new ProteolysisProduct(OneBasedBeginPosition, OneBasedEndPosition, type));
+                ProteolysisProducts.Add(new TruncationProduct(OneBasedBeginPosition, OneBasedEndPosition, type));
             }
             else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "") // Only keep if there is variant sequence information and position information
             {
@@ -304,7 +362,8 @@ namespace UsefulProteomicsDatabases
                 string annotatedId = annotatedMod.Item2;
                 int annotatedModLocation = annotatedMod.Item1;
 
-                if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod))
+                if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod)
+                    || RnaDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out foundMod))
                 {
                     // if the list of known mods contains this IdWithMotif
                     if (!modTypesToExclude.Contains(foundMod.ModificationType))
@@ -322,7 +381,8 @@ namespace UsefulProteomicsDatabases
                 }
 
                 // no known mod - try looking it up in the dictionary of mods without motif appended
-                else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods))
+                else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods)
+                         || RnaDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out mods))
                 {
                     foreach (Modification mod in mods)
                     {
@@ -349,19 +409,6 @@ namespace UsefulProteomicsDatabases
                         unknownModifications.Add(annotatedId, new Modification(annotatedId));
                     }
                 }
-            }
-        }
-
-        private static ModificationMotif GetMotif(string proteinSequence, int position)
-        {
-            string aminoAcid = proteinSequence.Substring(position - 1, 1);
-            if (ModificationMotif.TryGetMotif(aminoAcid, out ModificationMotif motif))
-            {
-                return motif;
-            }
-            else
-            {
-                return null;
             }
         }
 
@@ -404,7 +451,7 @@ namespace UsefulProteomicsDatabases
             OneBasedFeatureSubPosition = -1;
             AnnotatedMods = new List<(int, string)>();
             OneBasedModifications = new Dictionary<int, List<Modification>>();
-            ProteolysisProducts = new List<ProteolysisProduct>();
+            ProteolysisProducts = new List<TruncationProduct>();
             SequenceVariations = new List<SequenceVariation>();
             DisulfideBonds = new List<DisulfideBond>();
             SpliceSites = new List<SpliceSite>();

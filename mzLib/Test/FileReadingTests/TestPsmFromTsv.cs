@@ -1,6 +1,5 @@
 ﻿using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using Proteomics.PSM;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -22,6 +21,8 @@ namespace Test.FileReadingTests
         [TestCase("oglycoSinglePsms.psmtsv", 2)] // oglyco
         [TestCase("nglyco_f5.psmtsv", 5)] // nglyco
         [TestCase("VariantCrossTest.psmtsv", 15)] // variant crossing
+        [TestCase("XL_Intralinks.tsv", 6)] // variant crossing
+        [TestCase("XLink.psmtsv", 19)] // variant crossing
         public static void TestPsmReaderWithMultipleEntryPoints(string path, int expected)
         {
             string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults",
@@ -170,14 +171,14 @@ namespace Test.FileReadingTests
 
             // psm with single modificaiton
             PsmFromTsv singleMod = psms[0];
-            var modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(singleMod.FullSequence);
+            var modDict = SpectrumMatchFromTsv.ParseModifications(singleMod.FullSequence);
             Assert.That(modDict.Count == 1);
             Assert.That(modDict.ContainsKey(37));
             Assert.That(modDict.Values.First().Contains("Common Fixed:Carbamidomethyl on C"));
 
             // psm with two modifications
             PsmFromTsv twoMods = psms[15];
-            modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(twoMods.FullSequence);
+            modDict = SpectrumMatchFromTsv.ParseModifications(twoMods.FullSequence);
             Assert.That(modDict.Count == 2);
             Assert.That(modDict.ContainsKey(0) && modDict.ContainsKey(104));
             Assert.That(modDict[0].Count == 1);
@@ -188,7 +189,7 @@ namespace Test.FileReadingTests
 
             // psm with two mods on the same amino acid
             string fullSeq = "[Common Fixed:Carbamidomethyl on C]|[UniProt:N-acetylserine on S]KPRKIEEIKDFLLTARRKDAKSVKIKKNKDNVKFK";
-            modDict = Omics.SpectrumMatch.SpectrumMatchFromTsv.ParseModifications(fullSeq);
+            modDict = SpectrumMatchFromTsv.ParseModifications(fullSeq);
             Assert.That(modDict.Count == 1);
             Assert.That(modDict.ContainsKey(0));
             Assert.That(modDict[0].Count == 2);
@@ -202,23 +203,23 @@ namespace Test.FileReadingTests
             // successful removal of the default character
             string toRemove = "ANDVHAO|CNVASDF|ABVCUAE";
             int length = toRemove.Length;
-            Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove);
+            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove);
             Assert.That(toRemove.Length == length - 2);
             Assert.That(toRemove.Equals("ANDVHAOCNVASDFABVCUAE"));
 
             // does not remove default character when prompted otherwise
             toRemove = "ANDVHAO|CNVASDF|ABVCUAE";
-            Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, specialCharacter: @"\[");
+            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, specialCharacter: @"\[");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO|CNVASDF|ABVCUAE"));
 
             // replaces default symbol when prompted
-            Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"%");
+            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"%");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO%CNVASDF%ABVCUAE"));
 
             // replaces inputted symbol with non-default symbol
-            Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"=", specialCharacter: @"%");
+            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"=", specialCharacter: @"%");
             Assert.That(toRemove.Length == length);
             Assert.That(toRemove.Equals("ANDVHAO=CNVASDF=ABVCUAE"));
         }
@@ -242,7 +243,7 @@ namespace Test.FileReadingTests
         public static void TestParenthesesRemovalForSilac()
         {
             string baseSequence = "ASDF(+8.01)ASDF";
-            string cleanedSequence = Omics.SpectrumMatch.SpectrumMatchFromTsv.RemoveParentheses(baseSequence);
+            string cleanedSequence = SpectrumMatchFromTsv.RemoveParentheses(baseSequence);
             Assert.IsTrue(cleanedSequence.Equals("ASDFASDF"));
         }
 
