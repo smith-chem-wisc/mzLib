@@ -21,6 +21,8 @@ namespace Readers
                 SupportedFileType.Mgf => new Mgf(filePath),
                 SupportedFileType.BrukerD => new BrukerFileReader(filePath), 
                 SupportedFileType.BrukerTimsTof => new TimsTofFileReader(filePath),
+                SupportedFileType.Ms1Align => new Ms1Align(filePath),
+                SupportedFileType.Ms2Align => new Ms2Align(filePath),
                 _ => throw new MzLibException("File type not supported"),
             };
         }

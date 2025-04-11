@@ -35,8 +35,10 @@ namespace Readers
         public void LoadResults()
         {
             FileType = FilePath.ParseFileType();
-            _dataFile = MsDataFileReader.GetDataFile(FilePath).LoadAllStaticData();
+            _dataFile = MsDataFileReader.GetDataFile(FilePath);
             Results = _dataFile.GetAllScansList();
+            this.Scans = _dataFile.Scans;
+            this.SourceFile = _dataFile.GetSourceFile();
         }
 
         public void WriteResults(string outputPath)
