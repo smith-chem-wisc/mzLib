@@ -84,7 +84,7 @@ namespace MzLibUtil
         }
 
         /// <summary>
-        /// Checks if two collections are equivalent, regardless of the order of their contents.
+        /// Checks if two collections are equivalent, regardless of the order of their contents
         /// </summary>
         /// <typeparam name="T">The type of the collection elements.</typeparam>
         /// <param name="list1">The first collection.</param>
@@ -134,20 +134,20 @@ namespace MzLibUtil
 
         /// <summary>
         /// Finds the index of all instances of a specified substring within the source string.
+        /// The index returned is the position of the first character of the substring within the source tring
         /// </summary>
-        /// <param name="sourceString">The source string to be searched.</param>
-        /// <param name="subString">The substring to be located.</param>
-        /// <returns>An enumerable of the indices of the substring.</returns>
+        /// <param name="sourceString">Haystack: string to be searched</param>
+        /// <param name="subString">Needle: substring to be located</param>
         public static IEnumerable<int> IndexOfAll(this string sourceString, string subString)
         {
             return Regex.Matches(sourceString, subString).Cast<Match>().Select(m => m.Index);
         }
 
         /// <summary>
-        /// Gets the filename without extension in a period-tolerant manner.
+        /// Extension method to invoke the GetPeriodTolerantFileNameWithoutExtension method
         /// </summary>
-        /// <param name="filePath">The file path.</param>
-        /// <returns>The filename without extension.</returns>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
         public static string GetPeriodTolerantFilenameWithoutExtension(this string filePath)
         {
             return PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(filePath);
@@ -186,33 +186,6 @@ namespace MzLibUtil
         public static bool IsNullOrEmpty<TKey, TValue>(this IDictionary<TKey, TValue> dictionary)
         {
             return dictionary == null || dictionary.Count < 1;
-        }
-        /// <summary>
-        /// Converts a string to a nullable double.
-        /// </summary>
-        /// <param name="value">The string value.</param>
-        /// <returns>The nullable double value, or null if the conversion fails.</returns>
-        public static double? ToNullableDouble(this string value)
-        {
-            if (double.TryParse(value, out var result))
-            {
-                return result;
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Converts a string to a nullable integer.
-        /// </summary>
-        /// <param name="value">The string value.</param>
-        /// <returns>The nullable integer value, or null if the conversion fails.</returns>
-        public static int? ToNullableInt(this string value)
-        {
-            if (int.TryParse(value, out var result))
-            {
-                return result;
-            }
-            return null;
         }
     }
 }
