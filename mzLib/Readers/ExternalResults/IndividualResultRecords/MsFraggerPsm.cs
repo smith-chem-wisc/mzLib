@@ -28,7 +28,7 @@ namespace Readers
         public string BaseSequence { get; set; }
 
         [Name("Modified Peptide")]
-        public string FullSequence { get; set; }
+        public string ModifiedPeptide { get; set; }
 
         [Name("Extended Peptide")]
         public string ExtendedSequence { get; set; }
@@ -161,6 +161,8 @@ namespace Readers
             }
         }
 
+        [Ignore] public string FullSequence => ModifiedPeptide.IsNullOrEmpty() ? BaseSequence : ModifiedPeptide;
+
         /// <summary>
         /// Creates a list of tuples, each of which represents a protein.
         /// Each tuple contains the accession number, gene name, and organism.
@@ -210,7 +212,7 @@ namespace Readers
 
         [Ignore] private List<(string, string, string)> _proteinGroupInfos;
 
-        [Ignore] public string ModifiedSequence => FullSequence.IsNullOrEmpty() ? BaseSequence : FullSequence;
+        
 
         [Ignore] public int ChargeState => Charge;
 

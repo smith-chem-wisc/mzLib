@@ -1,6 +1,6 @@
 ﻿namespace Readers;
 
-public class PsmFromTsvFile : ResultFile<PsmFromTsv>, IResultFile
+public class PsmFromTsvFile : SpectrumMatchFromTsvFile<PsmFromTsv>
 {
     public override SupportedFileType FileType => SupportedFileType.psmtsv;
     public override Software Software { get; set; }
@@ -10,7 +10,7 @@ public class PsmFromTsvFile : ResultFile<PsmFromTsv>, IResultFile
     /// </summary>
     public PsmFromTsvFile() : base() { }
 
-    public PsmFromTsvFile(string filePath) : base(filePath, Software.MetaMorpheus) { }
+    public PsmFromTsvFile(string filePath) : base(filePath) { }
 
     public override void LoadResults()
     {

@@ -10,7 +10,7 @@ namespace Readers
 
         public string ProteinAccession => Accession;
         public string ProteinName => Name;
-        public string PeptideMonoMass => MonoisotopicMass;
+        public string PeptideMonoMass => MonoisotopicMassString;
         public string PeptideDescription => Description;
         public string PreviousAminoAcid => PreviousResidue;
         public string NextAminoAcid => NextResidue;
@@ -165,7 +165,6 @@ namespace Readers
                 Product product = new Product(ion.NeutralTheoreticalProduct.ProductType, ion.NeutralTheoreticalProduct.Terminus, ion.NeutralTheoreticalProduct.NeutralMass, ion.NeutralTheoreticalProduct.FragmentNumber, ion.NeutralTheoreticalProduct.AminoAcidPosition, ion.NeutralTheoreticalProduct.NeutralLoss);
                 fragments.Add(new MatchedFragmentIon(product, ion.Mz, ion.Intensity / matchedIonIntensitySum, ion.Charge));
             }
-            double retentionTime = RetentionTime ?? -1;
 
             if (BetaPeptideMatchedIons.IsNotNullOrEmpty())
             {
@@ -176,10 +175,10 @@ namespace Readers
                     betaFragments.Add(new MatchedFragmentIon(product, ion.Mz, ion.Intensity / matchedIonIntensitySum, ion.Charge));
                 }
                 string uniqueSequence = UniqueSequence ?? FullSequence + BetaPeptideFullSequence;
-                return new CrosslinkLibrarySpectrum(uniqueSequence, PrecursorMz, PrecursorCharge, fragments, retentionTime, betaFragments);
+                return new CrosslinkLibrarySpectrum(uniqueSequence, PrecursorMz, PrecursorCharge, fragments, RetentionTime, betaFragments);
             }
 
-            return (new(this.FullSequence, this.PrecursorMz, this.PrecursorCharge, fragments, retentionTime, isDecoy));
+            return (new(this.FullSequence, this.PrecursorMz, this.PrecursorCharge, fragments, RetentionTime, isDecoy));
         }
     }
 }

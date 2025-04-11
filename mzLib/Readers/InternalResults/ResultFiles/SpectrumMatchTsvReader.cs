@@ -14,9 +14,9 @@ namespace Readers
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings)
+        public static List<T> ReadTsv<T>(string filePath, out List<string> warnings) where T : SpectrumMatchFromTsv
         {
-            List<SpectrumMatchFromTsv> psms = new List<SpectrumMatchFromTsv>();
+            List<T> psms = new List<T>();
             warnings = new List<string>();
 
             StreamReader reader = null;
@@ -52,13 +52,13 @@ namespace Readers
                     switch (filePath.ParseFileType())
                     {
                         case SupportedFileType.osmtsv:
-                            psms.Add(new OsmFromTsv(line, Split, parsedHeader));
+                            psms.Add((T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader));
                             break;
 
                         case SupportedFileType.psmtsv:
                         case SupportedFileType.IntralinkResults:
                         default:
-                            psms.Add(new PsmFromTsv(line, Split, parsedHeader));
+                            psms.Add((T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader));
                             break;
                     }
                 }
@@ -79,6 +79,17 @@ namespace Readers
         }
 
         /// <summary>
+        /// Legacy method for reading PsmFromTsv files, creates a generic SpectrumMatchFromTsv object for each line
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="warnings"></param>
+        /// <returns></returns>
+        /// <exception cref="MzLibException"></exception>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings) =>
+            ReadTsv<SpectrumMatchFromTsv>(filePath, out warnings);
+
+        /// <summary>
         /// Reads a psmtsv file and returns PsmFromTsv objects
         /// It is simply a cast of the ReadTsv method
         /// </summary>
@@ -86,7 +97,7 @@ namespace Readers
         /// <param name="warnings"></param>
         /// <returns></returns>
         public static List<PsmFromTsv> ReadPsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv(filePath, out warnings).Cast<PsmFromTsv>().ToList();
+            ReadTsv<PsmFromTsv>(filePath, out warnings);
 
         /// <summary>
         /// Reads a osmtsv file and returns OsmFromTsv objects
@@ -95,7 +106,7 @@ namespace Readers
         /// <param name="warnings"></param>
         /// <returns></returns>
         public static List<OsmFromTsv> ReadOsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv(filePath, out warnings).Cast<OsmFromTsv>().ToList();
+            ReadTsv<OsmFromTsv>(filePath, out warnings);
 
         public static Dictionary<string, int> ParseHeader(string header)
         {
