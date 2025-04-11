@@ -31,7 +31,6 @@ namespace Readers
         public new string FilePath { get; set; }
         public SupportedFileType FileType { get; private set; }
         public Software Software { get; set; } = Software.MassSpecFile;
-
         public List<MsDataScan> Results { get; set; }
         public void LoadResults()
         {
@@ -59,7 +58,6 @@ namespace Readers
 
         public MsDataFileToResultFileAdapter() : base("")
         {
-
         }
     }
 }

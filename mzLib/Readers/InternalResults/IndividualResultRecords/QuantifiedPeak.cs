@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 
-namespace Readers.QuantificationResults
+namespace Readers
 {
     public class QuantifiedPeak
     {

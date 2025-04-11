@@ -6,7 +6,7 @@ namespace Readers
     {
         Ms1Feature,
         Ms2Feature,
-        Mzrt_TopFd,
+        TopFDMzrt,
         Ms1Tsv_FlashDeconv,
         Tsv_FlashDeconv,
         ThermoRaw,
@@ -48,7 +48,7 @@ namespace Readers
             {
                 SupportedFileType.Ms1Feature => "_ms1.feature",
                 SupportedFileType.Ms2Feature => "_ms2.feature",
-                SupportedFileType.Mzrt_TopFd => ".mzrt.csv",
+                SupportedFileType.TopFDMzrt => ".mzrt.csv",
                 SupportedFileType.Ms1Tsv_FlashDeconv => "_ms1.tsv",
                 SupportedFileType.Tsv_FlashDeconv => ".tsv",
                 SupportedFileType.ThermoRaw => ".raw",
@@ -102,8 +102,8 @@ namespace Readers
                     throw new MzLibException("Feature file type not supported");
 
                 case ".csv":
-                    if (filePath.EndsWith(SupportedFileType.Mzrt_TopFd.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
-                        return SupportedFileType.Mzrt_TopFd;
+                    if (filePath.EndsWith(SupportedFileType.TopFDMzrt.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.TopFDMzrt;
                     throw new MzLibException("Csv file type not supported");
 
                 case ".tsv":
@@ -165,5 +165,43 @@ namespace Readers
                     throw new MzLibException("File type not supported");
             }
         }
+
+        /// <summary>
+        /// Returns the typeOf the related class by parsing the SupportedFileType enum
+        /// If the SupportedFileType is not an IResultFile, an MzLibException is thrown
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns>Type of File Reader class</returns>
+        /// <exception cref="MzLibException">Throws exception if SupportedFileType is unrecognized or is not an IResultFile</exception>
+        public static Type GetResultFileType(this SupportedFileType type)
+        {
+            return type switch
+            {
+                SupportedFileType.Ms1Feature => typeof(Ms1FeatureFile),
+                SupportedFileType.Ms2Feature => typeof(Ms2FeatureFile),
+                SupportedFileType.TopFDMzrt => typeof(TopFDMzrtFile),
+                SupportedFileType.Ms1Tsv_FlashDeconv => typeof(FlashDeconvMs1TsvFile),
+                SupportedFileType.Tsv_FlashDeconv => typeof(FlashDeconvTsvFile),
+                SupportedFileType.psmtsv => typeof(PsmFromTsvFile),
+                SupportedFileType.osmtsv => typeof(OsmFromTsvFile),
+                SupportedFileType.IntralinkResults => typeof(PsmFromTsvFile),
+                SupportedFileType.ToppicPrsm => typeof(ToppicSearchResultFile),
+                SupportedFileType.ToppicPrsmSingle => typeof(ToppicSearchResultFile),
+                SupportedFileType.ToppicProteoform => typeof(ToppicSearchResultFile),
+                SupportedFileType.ToppicProteoformSingle => typeof(ToppicSearchResultFile),
+                SupportedFileType.MsFraggerPsm => typeof(MsFraggerPsmFile),
+                SupportedFileType.MsFraggerPeptide => typeof(MsFraggerPeptideFile),
+                SupportedFileType.MsFraggerProtein => typeof(MsFraggerProteinFile),
+                SupportedFileType.FlashLFQQuantifiedPeak => typeof(QuantifiedPeakFile),
+                SupportedFileType.MsPathFinderTTargets => typeof(MsPathFinderTResultFile),
+                SupportedFileType.MsPathFinderTDecoys => typeof(MsPathFinderTResultFile),
+                SupportedFileType.MsPathFinderTAllResults => typeof(MsPathFinderTResultFile),
+                SupportedFileType.CruxResult => typeof(CruxResultFile),
+                SupportedFileType.ExperimentAnnotation => typeof(ExperimentAnnotationFile),
+                _ => throw new MzLibException("File type not supported")
+            };
+        }
+
+        public static Type GetResultFileType(this string filePath) => filePath.ParseFileType().GetResultFileType();
     }
 }
