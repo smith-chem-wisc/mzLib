@@ -86,9 +86,14 @@ namespace Readers
                     if (fileList.Any(file => file == "analysis.tdf"))
                         return SupportedFileType.BrukerTimsTof;
                     throw new MzLibException("Bruker file type not recognized");
+
+                case ".psmtsv":
                 case ".tsv" when filePath.Contains("Intralinks"):
-                case ".psmtsv": return SupportedFileType.psmtsv;
-                case ".osmtsv": return SupportedFileType.osmtsv;
+                    return SupportedFileType.psmtsv;
+
+                case ".osmtsv": 
+                    return SupportedFileType.osmtsv;
+
                 case ".feature":
                     if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;
@@ -151,15 +156,6 @@ namespace Readers
                     throw new MzLibException("File type not supported");
             }
         }
-
-        public static SupportedFileType[] MassSpecFileTypes =
-        {
-            SupportedFileType.ThermoRaw,
-            SupportedFileType.MzML,
-            SupportedFileType.Mgf,
-            SupportedFileType.BrukerD,
-            SupportedFileType.BrukerTimsTof
-        };
 
         /// <summary>
         /// Returns the typeOf the related class by parsing the SupportedFileType enum

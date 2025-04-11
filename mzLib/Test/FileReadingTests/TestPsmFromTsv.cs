@@ -6,8 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Omics.Fragmentation;
-using Omics.SpectrumMatch;
-using Proteomics;
 using Readers;
 using MzLibUtil;
 
