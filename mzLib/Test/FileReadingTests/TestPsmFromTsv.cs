@@ -96,10 +96,33 @@ namespace Test.FileReadingTests
         {
             string psmFile = @"DatabaseTests\bad4.fasta";
             var lines = File.ReadAllLines(psmFile).Length;
-            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
 
-            Assert.That(parsedPsms.Count == 0);
-            Assert.That(warnings.Count == lines);
+            // Throws the right type of exception
+            Assert.Throws<MzLibException>(() =>
+            {
+                SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out _);
+            });
+
+            // Wrapped up the parsing exception in a MzLibException
+            bool caught = false;
+            List<string> warnings = [];
+            List<PsmFromTsv> parsedPsms = [];
+            try
+            {
+                parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out warnings);
+            }
+            catch (MzLibException e)
+            {
+                caught = true;
+                Assert.That(parsedPsms.Count == 0);
+                Assert.That(warnings.Count == lines);
+                Assert.That(e is MzLibException);
+                Assert.That(e.InnerException, Is.Not.Null);
+                Assert.That(e.InnerException, Is.TypeOf<MzLibException>());
+                Assert.That(e.InnerException.Message, Does.Contain("type not supported"));
+            }
+
+            Assert.That(caught);
         }
 
         [Test]

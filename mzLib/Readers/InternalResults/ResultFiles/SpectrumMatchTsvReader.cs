@@ -33,6 +33,7 @@ namespace Readers
 
             string line;
             Dictionary<string, int> parsedHeader = null;
+            MzLibException? parsingException = null;
 
             while (reader.Peek() > 0)
             {
@@ -53,9 +54,10 @@ namespace Readers
                     {
                         type = filePath.ParseFileType();
                     }
-                    catch (MzLibException)
+                    catch (MzLibException e)
                     {
                         // if the parsing fails due to file path not being in the correct format, assume Psm reader will work. 
+                        parsingException = e;
                         type = SupportedFileType.psmtsv;
                     }
 
@@ -71,7 +73,7 @@ namespace Readers
                             break;
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     warnings.Add("Could not read line: " + lineCount);
                 }
@@ -82,6 +84,13 @@ namespace Readers
             if (lineCount - 1 != psms.Count)
             {
                 warnings.Add("Warning: " + (lineCount - 1 - psms.Count) + " PSMs were not read.");
+            }
+
+            // if we could not parse type, we assumed PSMs were in the file.
+            // We were wrong and need to throw.
+            if (parsingException is not null && psms.Count == 0)
+            {
+                throw new MzLibException($"No spectral matches found in file: {filePath}", parsingException);
             }
 
             return psms;
