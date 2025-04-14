@@ -1,17 +1,78 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
+using System.Collections.Immutable;
 
 namespace Readers
 {
-    public static class TofSpectraMerger
+    public class TofSpectraMerger
     {
-        public static readonly double DefaultPpmTolerance = 10;
 
-        #region IndexLevelOperations
+        #region NewCentroidingApproach
         // The following methods are used to merge and collapse index arrays and intensity arrays
         // The timsTOF data format doesn't store m/z values directly, but rather indices in a lookup table where the mz values are stored 
         // Keeping these indices as ints allows for more efficient storage and processing of the data
+
+        // The general workflow is to read in individual scans as index and intensity arrays
+        // Then, combine these arrays into a single array sorted by tofIndex, ascending
+        // Then, collapse the combined array by merging entries with the same tofIndex and removing entries that fall below a certain intensity threshold (NoiseFloor)
+        // Finally, perform centroiding by grouping adjacent tofIndices, summing their intensities, and then calculating a weighted average of the m/z values in the cluster
+
+        public int? Ms1NoiseFloor { get; private set; }
+        public int? Ms2NoiseFloor { get; private set; }
+
+        public void SetNoiseFloor(List<TimsSpectrum> spectra, int msnLevel, int ms1NoiseMultiplier = 2)
+        {
+            // Merge all index arrays and intensity arrays into a single array
+            uint[] combinedIndices = spectra[0].XArray;
+            int[] combinedIntensities = spectra[0].YArray;
+            for (int i = 1; i < spectra.Count(); i++)
+            {
+                var mergeResults = TwoPointerMerge(combinedIndices, spectra[i].XArray, combinedIntensities, spectra[i].YArray);
+                combinedIndices = mergeResults.Indices;
+                combinedIntensities = mergeResults.Intensities;
+            }
+
+            //Array.Sort(combinedIntensities);
+            Dictionary<int, int> intensityHistogram = new();
+            for (int i = 0; i < combinedIntensities.Length; i++)
+            {
+                if (intensityHistogram.ContainsKey(combinedIntensities[i]))
+                    intensityHistogram[combinedIntensities[i]]++;
+                else
+                    intensityHistogram[combinedIntensities[i]] = 1;
+            }
+
+            // The intensity histogram is presumed to have a bimodal distribution.
+            // There is an initial distribution (poisson) that falls off, presumed to be noise
+            // There is a second, long-tailed distribution that is presumed to be signal
+            // We attempt to find the dividing line between these two
+            // The noise floor is the intensity at which the histogram starts to rise again
+            int localMin = 100000000;
+            int noiseFloor = 0;
+            foreach(var kvp in intensityHistogram.OrderBy(kvp => kvp.Key))
+            {
+                if (kvp.Value < localMin)
+                {
+                    localMin = kvp.Value;
+                    noiseFloor = kvp.Key;
+                }
+                else if (kvp.Value > 1.5 * localMin)
+                    break;
+            }
+            
+            switch (msnLevel)
+            {
+                case 1: //Set median intensity as noise floor
+                    Ms1NoiseFloor = noiseFloor * ms1NoiseMultiplier; 
+                    break;
+                case 2: //Set first decile intensity as noise floor
+                    Ms2NoiseFloor = noiseFloor;
+                    break;
+                default:
+                    throw new MzLibException("Unexpected msnLevel provided to TofSpectraMerger");
+            }
+        }
 
         /// <summary>
         /// Merges two index and intensity arrays using a two-pointer technique.
@@ -68,18 +129,23 @@ namespace Readers
         }
 
         /// <summary>
-        /// Collapses the given index and intensity arrays. 
-        /// Adjacent index values (and their corresponding intensity values) are merged. 
-        /// The idea here is to centroid a spectrum
+        /// This combines the index and intensity arrays into a TimsSpectrum object
+        /// If the same index is present multiple times, the intensities are summed
         /// </summary>
-        /// <param name="indexArray">The index array to collapse.</param>
-        /// <param name="intensityArray">The intensity array to collapse.</param>
-        /// <returns>A tuple containing the collapsed indices and intensities.</returns>
-        public static (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray)
+        /// <param name="indexArray"></param>
+        /// <param name="intensityArray"></param>
+        /// <param name="zeroIndexedTimsScanNumber"></param>
+        /// <returns></returns>
+        internal (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray, int msnLevel = 1, bool removeLowIntensityPeaks = true)
         {
             // Define lists to store the collapsed indices and intensities
             List<uint> collapsedIndices = new List<uint>(indexArray.Length);
             List<int> collapsedIntensities = new List<int>(intensityArray.Length);
+            int noiseFloor = 0;
+            if(removeLowIntensityPeaks && (Ms1NoiseFloor == null || Ms2NoiseFloor == null))
+                throw new Exception("Cannot remove low intensity peaks without a noise floor. Set the noise floor before calling this method.");
+            if(removeLowIntensityPeaks)
+                noiseFloor = msnLevel == 1 ? (int)Ms1NoiseFloor : (int)Ms2NoiseFloor;
 
             // Initialize pointers to the first two elements in the index array
             int p1 = 0;
@@ -88,16 +154,12 @@ namespace Readers
             {
                 uint currentIdx = indexArray[p1];
 
-                // Find clusters of indices that are close together
-                // increment pointer 2 until the cluster ends and we're further than 3 indices away
-                while (p2 < indexArray.Length && (2 + currentIdx) >= indexArray[p2])
+                // Combine intensities if array contains same idx multiple times
+                while (p2 < indexArray.Length && currentIdx == indexArray[p2])
                 {
                     p2++;
                 }
                 p2--; // Move the pointer back by one
-                int medianPointer = (p1 + p2) / 2;
-                // Use the median index in each cluster as the collapsed index
-                collapsedIndices.Add(indexArray[medianPointer]);
 
                 // Sum the intensities in each cluster to get the collapsed intensity
                 int summedIntensity = 0;
@@ -105,22 +167,183 @@ namespace Readers
                 {
                     summedIntensity += intensityArray[i];
                 }
-                collapsedIntensities.Add(summedIntensity);
+
+                if (!removeLowIntensityPeaks || summedIntensity > noiseFloor)
+                { 
+                    collapsedIndices.Add(currentIdx);
+                    collapsedIntensities.Add(summedIntensity);
+                }
 
                 // Move the pointers forward
                 p1 = p2 + 1;
                 p2 = p1 + 1;
             }
 
-            collapsedIndices.TrimExcess();
-            collapsedIntensities.TrimExcess();
-
             return (collapsedIndices.ToArray(), collapsedIntensities.ToArray());
         }
 
-        #endregion
-        #region MzLevelOperations
+        /// <summary>
+        /// This centroids a TOF spectrum by grouping peaks with adjacent indices, summing their intensities
+        /// and reporting the weighted average of the m/z values in the cluster
+        /// </summary>
+        /// <param name="indexArray"></param>
+        /// <param name="intensityArray"></param>
+        /// <param name="proxyFactory"></param>
+        /// <returns></returns>
+        internal static (double[] Mzs, int[] Intensities) Centroid(uint[] indexArray, int[] intensityArray, FrameProxyFactory proxyFactory)
+        {
+            // Define lists to store the collapsed indices and intensities
+            List<double> collapsedMzs = new();
+            List<int> collapsedIntensities = new();
 
+            // Initialize pointers to the first two elements in the index array
+            int p1 = 0;
+            int p2 = 1;
+            while (p1 < indexArray.Length)
+            {
+                // We could do this based on tolerance
+                // Now, i'm testing what happens if we say grouped points must have adjacent tof indices
+                uint upperBoundTofIndex = indexArray[p1] + 2;
+
+                // Find clusters of indices that are close together
+                // increment pointer 2 until the cluster ends and we're further than 3 indices away
+                while (p2 < indexArray.Length && indexArray[p2] <= upperBoundTofIndex)
+                {
+                    upperBoundTofIndex = indexArray[p2] + 2;
+                    p2++;
+                }
+                p2--; 
+
+                if (p1 == p2)
+                {
+                    collapsedIntensities.Add(intensityArray[p1]);
+                    collapsedMzs.Add(proxyFactory.ConvertIndexToMz(indexArray[p1]));
+                }
+                else
+                {
+                    // Calculate the summed intensity in the cluster
+                    int summedIntensity = 0;
+                    for (int i = p1; i <= p2; i++)
+                    {
+                        summedIntensity += intensityArray[i];
+                    }
+                    collapsedIntensities.Add(summedIntensity);
+
+                    // weighted averaging to determine the collapsed m/z of the cluster
+                    double collapsedMz = 0;
+                    for (int i = p1; i <= p2; i++)
+                    {
+                        double weight = (double)intensityArray[i] / (double)summedIntensity;
+                        collapsedMz += weight * proxyFactory.ConvertIndexToMz(indexArray[i]);
+                    }
+                    collapsedMzs.Add(collapsedMz);
+                }
+
+                // Move the pointers forward
+                p1 = p2 + 1;
+                p2 = p1 + 1;
+            }
+
+            return (collapsedMzs.ToArray(), collapsedIntensities.ToArray());
+        }
+
+        /// <summary>
+        /// Combines multiple scans into a single TimsSpectrum object without performing centroiding
+        /// This is called when analyzing MS2 scans, where the same precursor is selected for fragmentation over multiple frames
+        /// Each frame gets one TimsSpectrum
+        /// </summary>
+        /// <param name="indexArrays"></param>
+        /// <param name="intensityArrays"></param>
+        /// <param name="zeroIndexedTimsScanNumber"></param>
+        /// <returns></returns>
+        internal TimsSpectrum CreateTimsSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays, int msnLevel = 2, int timsScanIndex = -1, bool? removeLowIntensityPeaks = null)
+        {
+            if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
+                return null;
+
+            // Merge all index arrays and intensity arrays into a single array
+            uint[] combinedIndices = indexArrays[0];
+            int[] combinedIntensities = intensityArrays[0];
+            for (int i = 1; i < indexArrays.Count(); i++)
+            {
+                var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
+                combinedIndices = mergeResults.Indices;
+                combinedIntensities = mergeResults.Intensities;
+            }
+
+            var collapsedResults = CollapseArrays(combinedIndices, combinedIntensities, msnLevel: msnLevel, removeLowIntensityPeaks: removeLowIntensityPeaks ?? msnLevel == 1);
+            return new TimsSpectrum(collapsedResults.Indices, collapsedResults.Intensities, timsScanIndex);
+        }
+
+        /// <summary>
+        /// Merges multiple index and intensity arrays into an mzSpectrum.
+        /// This operation is somewhere between averaging and centroiding
+        /// In the TimsTofFileReader, MS1 scans are kept as index arrays and intensity arrays.
+        /// </summary>
+        /// <param name="indexArrays">List of index arrays.</param>
+        /// <param name="intensityArrays">List of intensity arrays.</param>
+        /// <param name="proxyFactory">Frame proxy factory.</param>
+        /// <param name="filteringParams">Filtering parameters (optional).</param>
+        /// <returns>A merged MS1 spectrum.</returns>
+        internal MzSpectrum CreateMzSpectrum(
+            List<TimsSpectrum> timsSpectra,
+            FrameProxyFactory proxyFactory,
+            int msnLevel = 2,
+            FilteringParams filteringParams = null)
+        {
+            List<uint[]> indices = new List<uint[]>(timsSpectra.Count);
+            List<int[]> intensities = new List<int[]>(timsSpectra.Count);
+            foreach(var timsSpectrum in timsSpectra)
+            {
+                indices.Add(timsSpectrum.XArray);
+                intensities.Add(timsSpectrum.YArray);
+            }
+
+            return CreateMzSpectrum(indices, intensities, proxyFactory, msnLevel, filteringParams);
+        }
+
+        /// <summary>
+        /// Merges multiple index and intensity arrays into an MzSpectrum
+        /// This operation centroids and averages multiple component scans
+        /// </summary>
+        /// <param name="indexArrays">List of index arrays.</param>
+        /// <param name="intensityArrays">List of intensity arrays.</param>
+        /// <param name="proxyFactory">Frame proxy factory.</param>
+        /// <param name="msnLevel">MSn level of the spectrum (1 or 2).</param>
+        /// <param name="filteringParams">Filtering parameters (optional).</param>
+        /// <returns>A merged  spectrum.</returns>
+        internal MzSpectrum CreateMzSpectrum(
+        List<uint[]> indexArrays,
+        List<int[]> intensityArrays,
+        FrameProxyFactory proxyFactory,
+        int msnLevel,
+        FilteringParams filteringParams = null)
+        {
+            if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
+                return null;
+
+            // Merge all index arrays and intensity arrays into a single array
+            uint[] combinedIndices = indexArrays[0];
+            int[] combinedIntensities = intensityArrays[0];
+            for (int i = 1; i < indexArrays.Count(); i++)
+            {
+                var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
+                combinedIndices = mergeResults.Indices;
+                combinedIntensities = mergeResults.Intensities;
+            }
+
+            // Collapse the combined arrays into a single array (centroiding, more or less)
+            var collapsedResults = CollapseArrays(combinedIndices, combinedIntensities, msnLevel);
+            var centroidedResults = Centroid(collapsedResults.Indices, collapsedResults.Intensities, proxyFactory);
+
+            return CreateFilteredSpectrum(
+                centroidedResults.Mzs,
+                centroidedResults.Intensities,
+                filteringParams,
+                msnLevel: msnLevel);
+        }
+
+        
         internal static MzSpectrum CreateFilteredSpectrum(IList<double> mzs, IList<int> intensities,
             FilteringParams filteringParams = null, int msnLevel = 1)
         {
@@ -147,235 +370,6 @@ namespace Readers
             }
             // TODO: This would be more performant if we kept the intensities as ints
             return new MzSpectrum(mzsArray, intensitiesArray, shouldCopy: false);
-        }
-
-        /// <summary>
-        /// Merges multiple index and intensity arrays into an MS1 spectrum.
-        /// This operation is somewhere between averaging and centroiding
-        /// In the TimsTofFileReader, MS1 scans are kept as index arrays and intensity arrays.
-        /// </summary>
-        /// <param name="indexArrays">List of index arrays.</param>
-        /// <param name="intensityArrays">List of intensity arrays.</param>
-        /// <param name="proxyFactory">Frame proxy factory.</param>
-        /// <param name="filteringParams">Filtering parameters (optional).</param>
-        /// <returns>A merged MS1 spectrum.</returns>
-        internal static MzSpectrum MergeArraysToMs1Spectrum(
-            List<uint[]> indexArrays, 
-            List<int[]> intensityArrays, 
-            FrameProxyFactory proxyFactory,
-            FilteringParams filteringParams = null)
-        {
-            if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
-                return null;
-
-            // Merge all index arrays and intensity arrays into a single array
-            uint[] combinedIndices = indexArrays[0];
-            int[] combinedIntensities = intensityArrays[0];
-            for (int i = 1; i < indexArrays.Count(); i++)
-            {
-                var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
-                combinedIndices = mergeResults.Indices;
-                combinedIntensities = mergeResults.Intensities;
-            }
-
-            // Collapse the combined arrays into a single array (centroiding, more or less)
-            var centroidedResults = CollapseArrays(proxyFactory.ConvertIndicesToMz(combinedIndices), combinedIntensities);
-
-            return CreateFilteredSpectrum(
-                centroidedResults.Mzs,
-                centroidedResults.Intensities,
-                filteringParams,
-                msnLevel: 1);
-        }
-
-        /// <summary>
-        /// Merges multiple m/z and intensity arrays into an MS2 spectrum.
-        /// This operation is somewhere between averaging and centroiding.
-        /// In the TimsTofFileReader, MS2 component spectrum are stored as 
-        /// double[] m/z arrays and int[] intensity arrays.
-        /// Each component scan 
-        /// </summary>
-        /// <param name="mzArrays">List of m/z arrays.</param>
-        /// <param name="intensityArrays">List of intensity arrays.</param>
-        /// <param name="filteringParams">Filtering parameters (optional).</param>
-        /// <param name="ppmTolerance">PPM tolerance value (default is -1).</param>
-        /// <returns>A merged MS2 spectrum.</returns>
-        internal static MzSpectrum MergeArraysToMs2Spectrum(
-            List<double[]> mzArrays,
-            List<int[]> intensityArrays,
-            FilteringParams filteringParams = null,
-            double ppmTolerance = -1)
-        {
-            if (!mzArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != mzArrays.Count())
-                return null;
-
-            // Merge all index arrays and intensity arrays into a single array
-            double[] combinedMzs = mzArrays[0];
-            int[] combinedIntensities = intensityArrays[0];
-            for (int i = 1; i < mzArrays.Count(); i++)
-            {
-                var mergeResults = TwoPointerMerge(combinedMzs, mzArrays[i], combinedIntensities, intensityArrays[i]);
-                combinedMzs = mergeResults.Mzs;
-                combinedIntensities = mergeResults.Intensities;
-            }
-
-            // Collapse the combined arrays into a single array (centroiding, more or less)
-            var centroidedResults = CollapseArrays(combinedMzs, combinedIntensities, ppmTolerance);
-
-            return CreateFilteredSpectrum(
-                centroidedResults.Mzs,
-                centroidedResults.Intensities,
-                filteringParams,
-                msnLevel: 2);
-        }
-
-        /// <summary>
-        /// Merges two m/z and intensity arrays using a two-pointer technique.
-        /// Used when merging component spectra into one MS2 spectrum
-        /// </summary>
-        /// <param name="mzArray1">First m/z array.</param>
-        /// <param name="mzArray2">Second m/z array.</param>
-        /// <param name="intensityArray1">First intensity array.</param>
-        /// <param name="intensityArray2">Second intensity array.</param>
-        /// <returns>A tuple containing the merged m/z values and intensities.</returns>
-        public static (double[] Mzs, int[] Intensities) TwoPointerMerge(double[] mzArray1, double[] mzArray2, int[] intensityArray1, int[] intensityArray2)
-        {
-            int p1 = 0;
-            int p2 = 0;
-
-            double[] mergedMzs = new double[mzArray1.Length + mzArray2.Length];
-            int[] mergedIntensities = new int[intensityArray1.Length + intensityArray2.Length];
-
-            while (p1 < mzArray1.Length || p2 < mzArray2.Length)
-            {
-                if (p1 == mzArray1.Length)
-                {
-                    while (p2 < mzArray2.Length)
-                    {
-                        mergedMzs[p1 + p2] = mzArray2[p2];
-                        mergedIntensities[p1 + p2] = intensityArray2[p2];
-                        p2++;
-                    }
-                }
-                else if (p2 == mzArray2.Length)
-                {
-                    while (p1 < mzArray1.Length)
-                    {
-                        mergedMzs[p1 + p2] = mzArray1[p1];
-                        mergedIntensities[p1 + p2] = intensityArray1[p1];
-                        p1++;
-                    }
-                }
-                else if (mzArray1[p1] < mzArray2[p2])
-                {
-                    mergedMzs[p1 + p2] = mzArray1[p1];
-                    mergedIntensities[p1 + p2] = intensityArray1[p1];
-                    p1++;
-                }
-                else
-                {
-                    mergedMzs[p1 + p2] = mzArray2[p2];
-                    mergedIntensities[p1 + p2] = intensityArray2[p2];
-                    p2++;
-                }
-            }
-
-            return (mergedMzs, mergedIntensities);
-        }
-
-        /// <summary>
-        /// Collapses the given mz and intensity arrays. 
-        /// mz values within ppmTolerance (and their corresponding intensity values) are merged. 
-        /// The idea here is to centroid a spectrum
-        /// </summary>
-        /// <param name="mzArray">The mz array to collapse.</param>
-        /// <param name="intensityArray">The intensity array to collapse.</param>
-        /// /// <param name="ppmTolerance">PPM tolerance value (default is 10).</param>
-        /// <returns>A tuple containing the collapsed mz and intensities.</returns>
-        internal static (double[] Mzs, int[] Intensities) CollapseArrays(double[] mzArray, int[] intensityArray, double ppmTolerance = 10)
-        {
-            // Define lists to store the collapsed indices and intensities
-            List<double> collapsedMzs = new();
-            List<int> collapsedIntensities = new();
-
-            PpmTolerance tol = new(ppmTolerance < 1 ? DefaultPpmTolerance : ppmTolerance);
-
-            // Initialize pointers to the first two elements in the index array
-            int p1 = 0;
-            int p2 = 1;
-            while (p1 < mzArray.Length)
-            {
-                double currentMz = mzArray[p1];
-                double upperBoundMz = tol.GetMaximumValue(currentMz);
-
-                // Find clusters of indices that are close together
-                // increment pointer 2 until the cluster ends and we're further than 3 indices away
-                while (p2 < mzArray.Length && upperBoundMz >= mzArray[p2])
-                {
-                    upperBoundMz = tol.GetMaximumValue(mzArray[p2]);
-                    p2++;
-                }
-                p2--; // Move the pointer back by one
-
-                if(p1 == p2)
-                {
-                    collapsedIntensities.Add(intensityArray[p1]);
-                    collapsedMzs.Add(mzArray[p1]);
-                }
-                else
-                {
-                    // Calculate the summed intensity in the cluster
-                    int summedIntensity = 0;
-                    for (int i = p1; i <= p2; i++)
-                    {
-                        summedIntensity += intensityArray[i];
-                    }
-                    collapsedIntensities.Add(summedIntensity);
-
-                    // weighted averaging to determine the collapsed m/z of the cluster
-                    double collapsedMz = 0;
-                    for (int i = p1; i <= p2; i++)
-                    {
-                        double weight = (double)intensityArray[i] / (double)summedIntensity;
-                        collapsedMz += weight * mzArray[i];
-                    }
-                    collapsedMzs.Add(collapsedMz);
-                }
-
-                // Move the pointers forward
-                p1 = p2 + 1;
-                p2 = p1 + 1;
-            }
-
-            return (collapsedMzs.ToArray(), collapsedIntensities.ToArray());
-        }
-
-        /// <summary>
-        /// Merges multiple index and intensity arrays into an m/z array.
-        /// Used when building the component spectra for an MS2 scan
-        /// </summary>
-        /// <param name="indexArrays">List of index arrays.</param>
-        /// <param name="intensityArrays">List of intensity arrays.</param>
-        /// <param name="proxyFactory">Frame proxy factory.</param>
-        /// <returns>A tuple containing the merged m/z values and intensities.</returns>
-        internal static (double[] Mzs, int[] Intensities) MergeArraysToMzArray(List<uint[]> indexArrays, List<int[]> intensityArrays, FrameProxyFactory proxyFactory)
-        {
-            if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
-                return (new double[0], new int[0]);
-
-            // Merge all index arrays and intensity arrays into a single array
-            uint[] combinedIndices = indexArrays[0];
-            int[] combinedIntensities = intensityArrays[0];
-            for (int i = 1; i < indexArrays.Count(); i++)
-            {
-                var mergeResults = TwoPointerMerge(combinedIndices, indexArrays[i], combinedIntensities, intensityArrays[i]);
-                combinedIndices = mergeResults.Indices;
-                combinedIntensities = mergeResults.Intensities;
-            }
-            double[] mzsArray = proxyFactory.ConvertIndicesToMz(combinedIndices);
-
-            // Collapse the combined arrays into a single array (centroiding, more or less)
-            return CollapseArrays(mzsArray, combinedIntensities);
         }
 
         #endregion
