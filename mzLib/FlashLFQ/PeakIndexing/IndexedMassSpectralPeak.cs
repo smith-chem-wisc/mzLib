@@ -1,6 +1,5 @@
 ﻿using FlashLFQ.Interfaces;
 using System;
-using System.Collections.Generic;
 
 namespace FlashLFQ
 {
@@ -19,15 +18,24 @@ namespace FlashLFQ
             this.RetentionTime = retentionTime;
             this.Intensity = intensity;
         }
-
         public override bool Equals(object obj)
         {
-            var otherPeak = (IndexedMassSpectralPeak)obj;
-
-            return otherPeak != null
-                && otherPeak.Mz == this.Mz
-                && otherPeak.ZeroBasedScanIndex == this.ZeroBasedScanIndex;
+            return Equals((IndexedMassSpectralPeak)obj);
         }
+
+        public bool Equals(IIndexedMzPeak other)
+        {
+            return Equals((IndexedMassSpectralPeak)other);
+        }
+
+        public bool Equals(IndexedMassSpectralPeak other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return other.ZeroBasedScanIndex == this.ZeroBasedScanIndex
+                   && Math.Abs(other.Mz - this.Mz) < 1e-9;
+        }
+
 
         public override int GetHashCode()
         {
@@ -37,24 +45,6 @@ namespace FlashLFQ
         public override string ToString()
         {
             return Mz.ToString("F3") + "; " + ZeroBasedScanIndex;
-        }
-    }
-
-    public class IndexedIonMobilityPeak : IndexedMassSpectralPeak
-    {
-        public HashSet<int> IonMobilityValues { get; init; }
-        public int ApexIonMobilityValue { get; init; }
-
-        public IndexedIonMobilityPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime, HashSet<int> ionMobilityValues, int apexIonMobilityValue)
-            : base(mz, intensity, zeroBasedMs1ScanIndex, retentionTime)
-
-        {
-            this.Mz = mz;
-            this.ZeroBasedScanIndex = zeroBasedMs1ScanIndex;
-            this.RetentionTime = retentionTime;
-            this.Intensity = intensity;
-            this.IonMobilityValues = ionMobilityValues;
-            this.ApexIonMobilityValue = apexIonMobilityValue;
         }
     }
 }

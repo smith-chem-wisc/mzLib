@@ -61,17 +61,17 @@ namespace Omics
         /// <returns></returns>
         public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize);
 
-        public static string GetBaseSequenceFromFullSequence(string fullSequence)
+        public static string GetBaseSequenceFromFullSequence(string fullSequence, char modStartDelimiter = '[', char modEndDelimiter = ']')
         {
             StringBuilder sb = new StringBuilder();
             int bracketCount = 0;
             foreach (char c in fullSequence)
             {
-                if (c == '[')
+                if (c == modStartDelimiter)
                 {
                     bracketCount++;
                 }
-                else if (c == ']')
+                else if (c == modEndDelimiter)
                 {
                     bracketCount--;
                 }

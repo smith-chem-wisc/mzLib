@@ -14,8 +14,8 @@ namespace Transcriptomics.Digestion
 
         internal NucleolyticOligo(NucleicAcid nucleicAcid, int oneBaseStartResidue,
             int oneBasedEndResidue, int missedCleavages, CleavageSpecificity cleavageSpecificity,
-            IHasChemicalFormula? fivePrimeTerminus, IHasChemicalFormula? threePrimeTerminus)
-        : base(nucleicAcid, oneBaseStartResidue, oneBasedEndResidue, missedCleavages, cleavageSpecificity)
+            IHasChemicalFormula? fivePrimeTerminus, IHasChemicalFormula? threePrimeTerminus, string? description = null)
+        : base(nucleicAcid, oneBaseStartResidue, oneBasedEndResidue, missedCleavages, cleavageSpecificity, description)
         {
             _fivePrimeTerminus = fivePrimeTerminus ?? NucleicAcid.DefaultFivePrimeTerminus;
             _threePrimeTerminus = threePrimeTerminus ?? NucleicAcid.DefaultThreePrimeTerminus;

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
@@ -140,7 +141,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // Also digest using the proteolysis product start/end indices
-            foreach (ProteolysisProduct product in protein.ProteolysisProducts)
+            foreach (TruncationProduct product in protein.TruncationProducts)
             {
                 //if fixed N, we care if the start position is novel
                 if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N)

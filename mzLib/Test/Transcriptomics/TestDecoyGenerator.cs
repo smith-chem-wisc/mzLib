@@ -11,6 +11,7 @@ using Transcriptomics;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
+using Chemistry;
 
 namespace Test.Transcriptomics
 {
@@ -25,13 +26,13 @@ namespace Test.Transcriptomics
         {
             var oligos = new List<RNA>()
             {
-                new RNA("GUUCUG"),
-                new RNA("GUGCUA"),
+                new RNA("GUUCUG", ""),
+                new RNA("GUGCUA", ""),
             };
             var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Reverse, 1);
             Assert.That(decoys.Count, Is.EqualTo(2));
-            Assert.That(decoys[0].BaseSequence, Is.EqualTo("UCUUGG"));
-            Assert.That(decoys[1].BaseSequence, Is.EqualTo("UCGUGA"));
+            Assert.That(decoys[0].BaseSequence, Is.EqualTo("GUCUUG"));
+            Assert.That(decoys[1].BaseSequence, Is.EqualTo("AUCGUG"));
 
             var example = oligos.First();
             Assert.That(decoys.All(p => !p.IsContaminant));
@@ -39,7 +40,7 @@ namespace Test.Transcriptomics
             Assert.That(decoys.All(p => p.DatabaseFilePath == example.DatabaseFilePath));
             Assert.That(decoys.All(p => p.Organism == example.Organism));
             Assert.That(decoys.All(p => p.AdditionalDatabaseFields == example.AdditionalDatabaseFields));
-            Assert.That(decoys.All(p => p.Accession == example.Accession));
+            Assert.That(decoys.All(p => p.Accession == $"DECOY_{example.Accession}"));
             Assert.That(decoys.All(p => p.Name == example.Name));
             Assert.That(decoys.All(p => p.Length == example.Length));
             Assert.That(decoys.All(p => Equals(p.FivePrimeTerminus, example.FivePrimeTerminus)));
@@ -48,20 +49,22 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        [TestCase("GUACUG", 1, "UCAUGG", 5)]
-        [TestCase("GUACUA", 2, "UCAUGA", 4)]
-        [TestCase("GUACUA", 3, "UCAUGA", 3)]
-        [TestCase("GUACUA", 4, "UCAUGA", 2)]
-        [TestCase("GUCCAA", 5, "ACCUGA", 1)]
-        [TestCase("GUUCUA", 6, "UCUUGA", 6)]
+        [TestCase("GUACUG", 1, "GUCAUG", 6)]
+        [TestCase("GUACUA", 2, "AUCAUG", 5)]
+        [TestCase("GUACUA", 3, "AUCAUG", 4)]
+        [TestCase("GUACUA", 4, "AUCAUG", 3)]
+        [TestCase("GUCCAA", 5, "AACCUG", 2)]
+        [TestCase("GUUCUA", 6, "AUCUUG", 1)]
         public static void TestReverseDecoy_SimpleWithMods(string rnaSequence, int modPosition, string expectedDecoySequence, int expectedDecoyModPosition)
         {
-            var mod = new Modification();
+            var modifiedResidue = rnaSequence[modPosition - 1];
+            ModificationMotif.TryGetMotif(modifiedResidue.ToString(), out var motif);
+            var mod = new Modification("", "", "", "", motif, "Anywhere.", ChemicalFormula.ParseFormula("CH2"));
             var oligos = new List<RNA>()
             {
-                new RNA(rnaSequence, null, null,
+                new RNA(rnaSequence, "rna1", 
                     new Dictionary<int, List<Modification>>()
-                        { { modPosition, new List<Modification>() { mod } } }),
+                        { { modPosition, new List<Modification>() { mod } } }, null, null, "ugh", null, null),
             };
             var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Reverse, 1);
             Assert.That(decoys.Count, Is.EqualTo(1));
@@ -74,7 +77,7 @@ namespace Test.Transcriptomics
             Assert.That(decoy.OneBasedPossibleLocalizedModifications.First().Value.Count, Is.EqualTo(1));
             Assert.That(decoy.OneBasedPossibleLocalizedModifications.First().Value.First(), Is.EqualTo(mod));
             Assert.That(decoy.Name, Is.EqualTo(originalRna.Name));
-            Assert.That(decoy.Accession, Is.EqualTo(originalRna.Accession));
+            Assert.That(decoy.Accession, Is.EqualTo($"DECOY_{originalRna.Accession}"));
             Assert.That(decoy.Organism, Is.EqualTo(originalRna.Organism));
             Assert.That(decoy.DatabaseFilePath, Is.EqualTo(originalRna.DatabaseFilePath));
             Assert.That(decoy.IsContaminant, Is.EqualTo(originalRna.IsContaminant));
@@ -90,11 +93,11 @@ namespace Test.Transcriptomics
             int numSequences = 5;
             Dictionary<string, string> expectedSequences = new Dictionary<string, string>()
             {
-                { "tdbR00000010", "CCACCUCGAUACGCCCUAGCUUGGCGUCUGGAGGACGCACGUUUCGUCCGCGAGAGGGUCGACUCGAUAUCGGGGA"},
-                { "tdbR00000008", "CCACCUCGAUUCGCCCUAGCUUGGCGACUGGAGAACGUACGGUACGUUCGCGAGAGGGUCGACUCGAUAUCGGGGA"},
-                { "tdbR00000356", "CCACGUAGGCCCUCCUAAGCUUGGAGGCUGGCGAGCCAAGCAUCGGCUCAUGAGAUAGGUCGACUCGAUGCCUACGA"},
-                { "tdbR00000359", "CCGCGCGGGCUGUCCUAAGCUUGGACUCUGGAGACGGAGGCCUCCCGUCGCGAGAUAGGUCGACUCGAUGCCCGCGA"},
-                { "tdbR00000358", "CCGCGCGGGACGUCCUAAGCUUGGACGCCGGGUGCUGAAUCUUCCAGCAACGAGAUAGGUUGACUCGAUUCCCGCGA"},
+                { "tdbR00000010", "ACCACCUCGAUACGCCCUAGCUUGGCGUCUGGAGGACGCACGUUUCGUCCGCGAGAGGGUCGACUCGAUAUCGGGG"},
+                { "tdbR00000008", "ACCACCUCGAUUCGCCCUAGCUUGGCGACUGGAGAACGUACGGUACGUUCGCGAGAGGGUCGACUCGAUAUCGGGG"},
+                { "tdbR00000356", "ACCACGUAGGCCCUCCUAAGCUUGGAGGCUGGCGAGCCAAGCAUCGGCUCAUGAGAUAGGUCGACUCGAUGCCUACG"},
+                { "tdbR00000359", "ACCGCGCGGGCUGUCCUAAGCUUGGACUCUGGAGACGGAGGCCUCCCGUCGCGAGAUAGGUCGACUCGAUGCCCGCG"},
+                { "tdbR00000358", "ACCGCGCGGGACGUCCUAAGCUUGGACGCCGGGUGCUGAAUCUUCCAGCAACGAGAUAGGUUGACUCGAUUCCCGCG"},
             };
 
             var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifiedFastaPath, true, DecoyType.Reverse, false,
@@ -118,7 +121,7 @@ namespace Test.Transcriptomics
                 Assert.That(target.DatabaseFilePath, Is.EqualTo(decoy.DatabaseFilePath));
                 Assert.That(target.DatabaseFilePath, Is.EqualTo(ModomicsUnmodifiedFastaPath));
                 Assert.That(target.Organism, Is.EqualTo(decoy.Organism));
-                Assert.That(target.Accession, Is.EqualTo(decoy.Accession));
+                Assert.That($"DECOY_{target.Accession}", Is.EqualTo(decoy.Accession));
                 Assert.That(target.Name, Is.EqualTo(decoy.Name));
                 Assert.That(target.Length, Is.EqualTo(decoy.Length));
                 Assert.That(target.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(decoy.OneBasedPossibleLocalizedModifications.Count));
@@ -239,9 +242,8 @@ namespace Test.Transcriptomics
                 { 3, new List<Modification>() { modDict["Sodium on A"] } },
             };
 
-            var rna = new RNA("GAACUG", "name", "accession", "organism", "databaseFilePath",
-                null, null, oneBasedPossibleLocalizedModifications, false, false, new List<Tuple<string, string>>(),
-                new Dictionary<string, string>());
+            var rna = new RNA("GAACUG", "accession", oneBasedPossibleLocalizedModifications, fivePrimeTerminus: null, threePrimeTerminus: null,
+                name: "name", organism: "organism", databaseFilePath: "databaseFilePath", isContaminant: false, isDecoy: false, geneNames: new List<Tuple<string, string>>(), databaseAdditionalFields: new Dictionary<string, string>());
             var oligos = rna
                 .Digest(new RnaDigestionParams(maxMods: 1), new List<Modification>(), mods)
                 .ToList();

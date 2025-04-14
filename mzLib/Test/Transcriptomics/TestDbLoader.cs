@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Transcriptomics;
+using Omics;
 
 namespace Test.Transcriptomics
 {
@@ -100,6 +101,21 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public static void TestFastaWithCustomIdentifier()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.Reverse, true,
+                out var errors, decoyIdentifier: "rev");
+
+            foreach (var rna in oligos)
+            {
+                if (!rna.IsDecoy) continue;
+
+                Assert.That(rna.Accession, Does.StartWith("rev"));
+                Assert.That(rna.Accession, Does.Not.StartWith("DECOY"));
+            }
+        }
+
+        [Test]
         public static void TestXmlWriterReader()
         {
             var rna = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.None, false, out var errors);
@@ -130,6 +146,70 @@ namespace Test.Transcriptomics
             Assert.That(loadedMods[3].Count, Is.EqualTo(1));
             Assert.That(loadedMods[1].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
             Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+        }
+
+        [Test]
+        public static void TestXmlWriterReaderAsBioPolymer()
+        {
+            var rna = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.None, false, out var errors)
+                .Cast<IBioPolymer>().ToList();
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
+            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+
+            Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
+            {
+                new Tuple<int, Modification>(1, methylG),
+                new Tuple<int, Modification>(3, methylG)
+            });
+
+            string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
+
+            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
+                new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
+
+            Assert.That(unknownMods.Count, Is.EqualTo(0));
+            Assert.That(temp.Count, Is.EqualTo(5));
+            var first = temp.First();
+            var loadedMods = first.OneBasedPossibleLocalizedModifications;
+            Assert.That(loadedMods.Count, Is.EqualTo(2));
+            Assert.That(loadedMods[1].Count, Is.EqualTo(1));
+            Assert.That(loadedMods[3].Count, Is.EqualTo(1));
+            Assert.That(loadedMods[1].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+        }
+
+        [Test]
+        public static void TestXmlWithCustomIdentifier()
+        {
+            var rna = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
+            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+
+            Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
+            {
+                new Tuple<int, Modification>(1, methylG),
+                new Tuple<int, Modification>(3, methylG)
+            });
+
+            string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
+            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            rna = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.Reverse, false,
+                new List<Modification>() { methylG }, new List<string>(), out var unknownMods, decoyIdentifier: "rev");
+
+            foreach (var oligo in rna)
+            {
+                if (!oligo.IsDecoy) continue;
+
+                Assert.That(oligo.Accession, Does.StartWith("rev"));
+                Assert.That(oligo.Accession, Does.Not.StartWith("DECOY"));
+            }
         }
 
         [Test]

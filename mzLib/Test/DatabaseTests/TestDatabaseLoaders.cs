@@ -29,6 +29,8 @@ using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using NUnit.Framework.Legacy;
+using Omics;
+using Omics.BioPolymer;
 
 namespace Test.DatabaseTests
 {
@@ -151,17 +153,6 @@ namespace Test.DatabaseTests
                 }
             }
             Assert.AreEqual(2, count);
-        }
-
-        [Test]
-        public static void LoadOriginalMismatchedModifications()
-        {
-            var protein = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oblm.xml"), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications);
-            Assert.AreEqual(0, protein[0].OneBasedPossibleLocalizedModifications.Count);
-            var variant = protein[0].GetVariantProteins()[0];
-            protein[0].NonVariantProtein.RestoreUnfilteredModifications();
-            Assert.AreEqual(1, protein[0].NonVariantProtein.OneBasedPossibleLocalizedModifications.Count);
         }
 
         [Test]
@@ -677,6 +668,33 @@ namespace Test.DatabaseTests
             Assert.That(protein.OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
 
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, filename));
+
+            // with passed-in mods
+            List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, filename), true, DecoyType.None, new List<Modification> { m }, false, new List<string>(), out Dictionary<string, Modification> um);
+            Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
+
+            // should be able to read mod from top of database...
+            new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, filename), true, DecoyType.None, new List<Modification>(), false, new List<string>(), out um);
+            Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
+        }
+
+        [Test]
+        public void TestWritePtmWithNeutralLoss_AsBioPolymer()
+        {
+            string filename = "test_neutral_loss_mod2.xml";
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>>();
+
+            ModificationMotif.TryGetMotif("T", out var motif);
+            Modification m = new Modification(_originalId: "Phospho", _modificationType: "Test", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 80.0, _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { 80.0, 0 } }, { DissociationType.ETD, new List<double> { 70.0, 0 } } });
+            Assert.That(m.ValidModification);
+
+            mods.Add(4, new List<Modification> { m });
+
+            IBioPolymer protein = new Protein("PEPTIDE", "accession", oneBasedModifications: mods);
+            Assert.That(protein.OneBasedPossibleLocalizedModifications.Count == 1);
+            Assert.That(protein.OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<IBioPolymer> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, filename));
 
             // with passed-in mods
             List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, filename), true, DecoyType.None, new List<Modification> { m }, false, new List<string>(), out Dictionary<string, Modification> um);

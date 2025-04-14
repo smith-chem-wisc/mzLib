@@ -1,22 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+﻿using System.Globalization;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
-using MassSpectrometry;
-using Omics.Modifications;
-using Proteomics.AminoAcidPolymer;
-using Proteomics;
-using static System.Net.Mime.MediaTypeNames;
-using ThermoFisher.CommonCore.Data.Interfaces;
-using Readers.ExternalResults.BaseClasses;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
 
 namespace Readers
