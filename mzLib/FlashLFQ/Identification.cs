@@ -18,13 +18,12 @@ namespace FlashLFQ
         public double PsmScore { get; init; }
         public double QValue { get; init; }
         public bool IsDecoy { get; }
-        public short? MedianOneBasedTimsScanNumber { get; init; }
 
         public Identification(SpectraFileInfo fileInfo, string BaseSequence, string ModifiedSequence,
             double monoisotopicMass,
             double ms2RetentionTimeInMinutes, int chargeState, List<ProteinGroup> proteinGroups,
             ChemicalFormula optionalChemicalFormula = null, bool useForProteinQuant = true,
-            double psmScore = 0, double qValue = 0, bool decoy = false, short? medianOneBasedTimsScanNumber = null)
+            double psmScore = 0, double qValue = 0, bool decoy = false)
         {
             this.FileInfo = fileInfo;
             this.BaseSequence = BaseSequence;
@@ -38,7 +37,6 @@ namespace FlashLFQ
             QValue = qValue;
             PsmScore = psmScore;
             IsDecoy = decoy;
-            MedianOneBasedTimsScanNumber = medianOneBasedTimsScanNumber;
         }
 
         public override string ToString()
