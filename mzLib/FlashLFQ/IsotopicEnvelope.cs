@@ -1,27 +1,15 @@
-﻿using Proteomics.RetentionTimePrediction;
-
-namespace FlashLFQ
+﻿namespace FlashLFQ
 {
     /// <summary>
     /// Contains the summed intensities of all isotope peaks detected in a single MS1 scan for a given species.
     /// </summary>
-    public class IsotopicEnvelope : ISingleScanDatum
+    public class IsotopicEnvelope
     {
         /// <summary>
         /// The most abundant isotopic peak used for peak finding.
         /// </summary>
         public readonly IIndexedMzPeak IndexedPeak;
         public readonly int ChargeState;
-        public double RetentionTime => IndexedPeak.RetentionTime;
-        public int ZeroBasedScanIndex => IndexedPeak.ZeroBasedScanIndex;
-
-        public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
-        {
-            IndexedPeak = monoisotopicPeak;
-            ChargeState = chargeState;
-            Intensity = intensity / chargeState;
-            PearsonCorrelation = pearsonCorrelation;
-        }
 
         public IsotopicEnvelope(IIndexedMzPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
@@ -35,7 +23,7 @@ namespace FlashLFQ
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
-            Intensity = monoisotopicPeak is IndexedIonMobilityPeak ?  intensity  : intensity / chargeState; // The charge state/intensity relationship isn't relevant for timsTOF data
+            Intensity = intensity / chargeState;
             PearsonCorrelation = pearsonCorrelation;
         }
 
@@ -45,6 +33,7 @@ namespace FlashLFQ
         /// isotopic distribution was otherwise similar to the expected isotopic distribution.
         /// </summary>
         public double Intensity { get; private set; }
+
 
         public double PearsonCorrelation { get; init; }
 
