@@ -74,9 +74,9 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="proxyFactory"></param>
         /// <param name="filteringParams"></param>
-        internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
+        internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, TofSpectraMerger spectraMerger, FilteringParams filteringParams = null)
         {
-            MassSpectrum = TofSpectraMerger.CreateMzSpectrum(ComponentSpectra, proxyFactory, msnLevel: 2, filteringParams);
+            MassSpectrum = spectraMerger.CreateMzSpectrum(ComponentSpectra, proxyFactory, msnLevel: 2, filteringParams);
             TotalIonCurrent = MassSpectrum.SumOfAllY;
             ComponentSpectraTotalPeaks = ComponentSpectra.Sum(s => s.Size);
             ComponentSpectra = null;

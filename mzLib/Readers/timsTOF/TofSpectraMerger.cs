@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 
 namespace Readers
 {
-    public static class TofSpectraMerger
+    public class TofSpectraMerger
     {
 
         #region NewCentroidingApproach
@@ -18,8 +18,32 @@ namespace Readers
         // Then, collapse the combined array by merging entries with the same tofIndex and removing entries that fall below a certain intensity threshold (NoiseFloor)
         // Finally, perform centroiding by grouping adjacent tofIndices, summing their intensities, and then calculating a weighted average of the m/z values in the cluster
 
-        public const int Ms2NoiseFloor = 25;
-        public const int Ms1NoiseFloor = 100;
+        public int? Ms1NoiseFloor { get; private set; }
+        public int? Ms2NoiseFloor { get; private set; }
+
+        public void SetNoiseFloor(List<TimsSpectrum> spectra, int msnLevel)
+        {
+            // Merge all index arrays and intensity arrays into a single array
+            uint[] combinedIndices = spectra[0].XArray;
+            int[] combinedIntensities = spectra[0].YArray;
+            for (int i = 1; i < spectra.Count(); i++)
+            {
+                var mergeResults = TwoPointerMerge(combinedIndices, spectra[i].XArray, combinedIntensities, spectra[i].YArray);
+                combinedIndices = mergeResults.Indices;
+                combinedIntensities = mergeResults.Intensities;
+            }
+
+            Array.Sort(combinedIntensities);
+
+            int median = combinedIntensities[combinedIntensities.Length / 2];
+            int firstQuartile = combinedIntensities[combinedIntensities.Length / 4];
+            int firstQuintile = combinedIntensities[combinedIntensities.Length / 5];
+            int firstDecile = combinedIntensities[combinedIntensities.Length / 10];
+            if (msnLevel == 1)
+                Ms1NoiseFloor = median;
+            else
+                Ms2NoiseFloor = median;
+        }
 
         /// <summary>
         /// Merges two index and intensity arrays using a two-pointer technique.
@@ -83,12 +107,16 @@ namespace Readers
         /// <param name="intensityArray"></param>
         /// <param name="zeroIndexedTimsScanNumber"></param>
         /// <returns></returns>
-        internal static (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray, int msnLevel = 1, bool removeLowIntensityPeaks = true)
+        internal (uint[] Indices, int[] Intensities) CollapseArrays(uint[] indexArray, int[] intensityArray, int msnLevel = 1, bool removeLowIntensityPeaks = true)
         {
             // Define lists to store the collapsed indices and intensities
             List<uint> collapsedIndices = new List<uint>(indexArray.Length);
             List<int> collapsedIntensities = new List<int>(intensityArray.Length);
-            int noiseFloor = msnLevel == 1 ? Ms1NoiseFloor : Ms2NoiseFloor;
+            int noiseFloor = 0;
+            if(removeLowIntensityPeaks && (Ms1NoiseFloor == null || Ms2NoiseFloor == null))
+                throw new Exception("Cannot remove low intensity peaks without a noise floor. Set the noise floor before calling this method.");
+            if(removeLowIntensityPeaks)
+                noiseFloor = msnLevel == 1 ? (int)Ms1NoiseFloor : (int)Ms2NoiseFloor;
 
             // Initialize pointers to the first two elements in the index array
             int p1 = 0;
@@ -199,7 +227,7 @@ namespace Readers
         /// <param name="intensityArrays"></param>
         /// <param name="zeroIndexedTimsScanNumber"></param>
         /// <returns></returns>
-        internal static TimsSpectrum CreateTimsSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays, int msnLevel = 2, int timsScanIndex = -1)
+        internal TimsSpectrum CreateTimsSpectrum(List<uint[]> indexArrays, List<int[]> intensityArrays, int msnLevel = 2, int timsScanIndex = -1, bool? removeLowIntensityPeaks = null)
         {
             if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
                 return null;
@@ -214,7 +242,7 @@ namespace Readers
                 combinedIntensities = mergeResults.Intensities;
             }
 
-            var collapsedResults = CollapseArrays(combinedIndices, combinedIntensities, msnLevel: msnLevel, removeLowIntensityPeaks: msnLevel == 1);
+            var collapsedResults = CollapseArrays(combinedIndices, combinedIntensities, msnLevel: msnLevel, removeLowIntensityPeaks: removeLowIntensityPeaks ?? msnLevel == 1);
             return new TimsSpectrum(collapsedResults.Indices, collapsedResults.Intensities, timsScanIndex);
         }
 
@@ -228,7 +256,7 @@ namespace Readers
         /// <param name="proxyFactory">Frame proxy factory.</param>
         /// <param name="filteringParams">Filtering parameters (optional).</param>
         /// <returns>A merged MS1 spectrum.</returns>
-        internal static MzSpectrum CreateMzSpectrum(
+        internal MzSpectrum CreateMzSpectrum(
             List<TimsSpectrum> timsSpectra,
             FrameProxyFactory proxyFactory,
             int msnLevel = 2,
@@ -254,8 +282,8 @@ namespace Readers
         /// <param name="proxyFactory">Frame proxy factory.</param>
         /// <param name="msnLevel">MSn level of the spectrum (1 or 2).</param>
         /// <param name="filteringParams">Filtering parameters (optional).</param>
-        /// <returns>A merged MS1 spectrum.</returns>
-        internal static MzSpectrum CreateMzSpectrum(
+        /// <returns>A merged  spectrum.</returns>
+        internal MzSpectrum CreateMzSpectrum(
         List<uint[]> indexArrays,
         List<int[]> intensityArrays,
         FrameProxyFactory proxyFactory,

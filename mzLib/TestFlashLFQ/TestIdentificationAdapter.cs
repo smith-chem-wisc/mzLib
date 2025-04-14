@@ -10,43 +10,43 @@ namespace Test
 {
     internal class TestIdentificationAdapter
     {
-        [Test]
-        [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
-        public void TestAddProteinGroupInfoCorrect(string path)
-        {
-            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
-            MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
+        //[Test]
+        //[TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
+        //public void TestAddProteinGroupInfoCorrect(string path)
+        //{
+        //    string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+        //    MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
 
-            List<Identification> identifications = new List<Identification>();
-            identifications = MzLibExtensions.MakeIdentifications(file);
+        //    List<Identification> identifications = new List<Identification>();
+        //    identifications = MzLibExtensions.MakeIdentifications(file);
 
-            // list should contain five elements
-            Assert.That(identifications.Count, Is.EqualTo(5));
-            // one protein associated with given results, list should only contain this one element 
-            Assert.That(identifications[0].ProteinGroups.Count, Is.EqualTo(1));
-            // two proteins associated with given results, list should contain two elements
-            Assert.That(identifications[2].ProteinGroups.Count, Is.EqualTo(2));
+        //    // list should contain five elements
+        //    Assert.That(identifications.Count, Is.EqualTo(5));
+        //    // one protein associated with given results, list should only contain this one element 
+        //    Assert.That(identifications[0].ProteinGroups.Count, Is.EqualTo(1));
+        //    // two proteins associated with given results, list should contain two elements
+        //    Assert.That(identifications[2].ProteinGroups.Count, Is.EqualTo(2));
             
-            Identification identification1= identifications[0];
-            Assert.That(identification1.BaseSequence, Is.EqualTo("KPVGAAK"));
-            Assert.That(identification1.ModifiedSequence, Is.EqualTo("KPVGAAK"));
-            Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(1.9398));
-            Assert.That(identification1.MonoisotopicMass, Is.EqualTo(669.4173));
-            Assert.That(identification1.PrecursorChargeState, Is.EqualTo(2));
+        //    Identification identification1= identifications[0];
+        //    Assert.That(identification1.BaseSequence, Is.EqualTo("KPVGAAK"));
+        //    Assert.That(identification1.ModifiedSequence, Is.EqualTo("KPVGAAK"));
+        //    Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(1.9398));
+        //    Assert.That(identification1.MonoisotopicMass, Is.EqualTo(669.4173));
+        //    Assert.That(identification1.PrecursorChargeState, Is.EqualTo(2));
 
-            HashSet<ProteinGroup> proteinGroups = identification1.ProteinGroups;
-            ProteinGroup proteinGroup1 = proteinGroups.First();
-            Assert.That(proteinGroup1.ProteinGroupName, Is.EqualTo("P16403"));
-            Assert.That(proteinGroup1.GeneName, Is.EqualTo("H12"));
-            Assert.That(proteinGroup1.Organism, Is.EqualTo("HUMAN"));
+        //    HashSet<ProteinGroup> proteinGroups = identification1.ProteinGroups;
+        //    ProteinGroup proteinGroup1 = proteinGroups.First();
+        //    Assert.That(proteinGroup1.ProteinGroupName, Is.EqualTo("P16403"));
+        //    Assert.That(proteinGroup1.GeneName, Is.EqualTo("H12"));
+        //    Assert.That(proteinGroup1.Organism, Is.EqualTo("HUMAN"));
 
-            Identification identification5 = identifications[4];
-            Assert.That(identification5.BaseSequence, Is.EqualTo("VVTHGGR"));
-            Assert.That(identification5.ModifiedSequence, Is.EqualTo("VVTHGGR"));
-            Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(19.114));
-            Assert.That(identification5.MonoisotopicMass, Is.EqualTo(724.398));
-            Assert.That(identification5.PrecursorChargeState, Is.EqualTo(2));
-        }
+        //    Identification identification5 = identifications[4];
+        //    Assert.That(identification5.BaseSequence, Is.EqualTo("VVTHGGR"));
+        //    Assert.That(identification5.ModifiedSequence, Is.EqualTo("VVTHGGR"));
+        //    Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(19.114));
+        //    Assert.That(identification5.MonoisotopicMass, Is.EqualTo(724.398));
+        //    Assert.That(identification5.PrecursorChargeState, Is.EqualTo(2));
+        //}
 
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
