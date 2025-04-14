@@ -37,67 +37,6 @@ namespace Test.FileReadingTests
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
         }
 
-        //[Test]
-        public void HistogramAnalysis()
-        {
-            var ms1Scans = _testReader.Scans.Where(s => s.MsnOrder == 1);
-            var ms2Scans = _testReader.Scans.Where(s => s.MsnOrder == 2);
-
-            Dictionary<int, int> ms1IntensityDict = new Dictionary<int, int>();
-            foreach (var scan in ms1Scans)
-            {
-                foreach (var intensity in scan.MassSpectrum.YArray)
-                {
-                    int intInt = (int)intensity;
-                    if (ms1IntensityDict.ContainsKey(intInt))
-                    {
-                        ms1IntensityDict[intInt]++;
-                    }
-                    else
-                    {
-                        ms1IntensityDict[intInt] = 1;
-                    }
-                }
-            }
-
-            Dictionary<int, int> ms2IntensityDict = new Dictionary<int, int>();
-            foreach (var scan in ms2Scans)
-            {
-                foreach (var intensity in scan.MassSpectrum.YArray)
-                {
-                    int intInt = (int)intensity;
-                    if (ms2IntensityDict.ContainsKey(intInt))
-                    {
-                        ms2IntensityDict[intInt]++;
-                    }
-                    else
-                    {
-                        ms2IntensityDict[intInt] = 1;
-                    }
-                }
-            }
-
-            var outputFolder = @"C:\Users\Alex\Documents\R_Files\timsTof";
-            using (StreamWriter sw = new StreamWriter(Path.Combine(outputFolder, "Ms1Intensities.tsv")))
-            {
-                sw.WriteLine("Intensity\tFrequency\t");
-                foreach (var kvp in ms1IntensityDict.OrderBy(kvp => kvp.Key))
-                {
-                    sw.WriteLine($"{kvp.Key}\t{kvp.Value}");
-                }
-            }
-
-            using (StreamWriter sw = new StreamWriter(Path.Combine(outputFolder, "Ms2Intensities.tsv")))
-            {
-                sw.WriteLine("Intensity\tFrequency\t");
-                foreach (var kvp in ms2IntensityDict.OrderBy(kvp => kvp.Key))
-                {
-                    sw.WriteLine($"{kvp.Key}\t{kvp.Value}");
-                }
-            }
-
-        }
-
         [Test]
         public void TestGetPasefScanFromDynamicConnectionUsingFrameId()
         {
@@ -268,12 +207,6 @@ namespace Test.FileReadingTests
 
             Assert.Throws<FileNotFoundException>(() =>
               reader.LoadAllStaticData());
-        }
-
-        [Test]
-        public void WriteToMzml()
-        {
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(_testReader, @"D:\timsTOF_Data_Bruker\ddaPASEF_data\OutputTests\SnippetTest_100noise.mzML", true);
         }
 
         [Test]
