@@ -21,7 +21,7 @@ namespace Readers
         public int? Ms1NoiseFloor { get; private set; }
         public int? Ms2NoiseFloor { get; private set; }
 
-        public void SetNoiseFloor(List<TimsSpectrum> spectra, int msnLevel)
+        public void SetNoiseFloor(List<TimsSpectrum> spectra, int msnLevel, int ms1NoiseMultiplier = 2)
         {
             // Merge all index arrays and intensity arrays into a single array
             uint[] combinedIndices = spectra[0].XArray;
@@ -33,16 +33,45 @@ namespace Readers
                 combinedIntensities = mergeResults.Intensities;
             }
 
-            Array.Sort(combinedIntensities);
+            //Array.Sort(combinedIntensities);
+            Dictionary<int, int> intensityHistogram = new();
+            for (int i = 0; i < combinedIntensities.Length; i++)
+            {
+                if (intensityHistogram.ContainsKey(combinedIntensities[i]))
+                    intensityHistogram[combinedIntensities[i]]++;
+                else
+                    intensityHistogram[combinedIntensities[i]] = 1;
+            }
 
-            int median = combinedIntensities[combinedIntensities.Length / 2];
-            int firstQuartile = combinedIntensities[combinedIntensities.Length / 4];
-            int firstQuintile = combinedIntensities[combinedIntensities.Length / 5];
-            int firstDecile = combinedIntensities[combinedIntensities.Length / 10];
-            if (msnLevel == 1)
-                Ms1NoiseFloor = median;
-            else
-                Ms2NoiseFloor = median;
+            // The intensity histogram is presumed to have a bimodal distribution.
+            // There is an initial distribution (poisson) that falls off, presumed to be noise
+            // There is a second, long-tailed distribution that is presumed to be signal
+            // We attempt to find the dividing line between these two
+            // The noise floor is the intensity at which the histogram starts to rise again
+            int localMin = 100000000;
+            int noiseFloor = 0;
+            foreach(var kvp in intensityHistogram.OrderBy(kvp => kvp.Key))
+            {
+                if (kvp.Value < localMin)
+                {
+                    localMin = kvp.Value;
+                    noiseFloor = kvp.Key;
+                }
+                else if (kvp.Value > 1.5 * localMin)
+                    break;
+            }
+            
+            switch (msnLevel)
+            {
+                case 1: //Set median intensity as noise floor
+                    Ms1NoiseFloor = noiseFloor * ms1NoiseMultiplier; 
+                    break;
+                case 2: //Set first decile intensity as noise floor
+                    Ms2NoiseFloor = noiseFloor;
+                    break;
+                default:
+                    throw new MzLibException("Unexpected msnLevel provided to TofSpectraMerger");
+            }
         }
 
         /// <summary>

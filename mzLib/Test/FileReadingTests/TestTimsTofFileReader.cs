@@ -27,7 +27,7 @@ namespace Test.FileReadingTests
         //public TofSpectraMerger TofSpectraMerger = new TofSpectraMerger(new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
         //public FilteringParams _filteringParams = null;//new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
 
-        [Test]
+        [OneTimeSetUp]
         public void SetUp()
         {
             _testReader = new TimsTofFileReader(_testDataPath);
@@ -219,15 +219,16 @@ namespace Test.FileReadingTests
 
         //    List<int> intendedIdx = new List<int> { 1, 4, 7, 10 };
         //    List<int> intendedIntensities = new List<int> { 3, 12, 21, 30 };
+        //    var merger = new TofSpectraMerger();
 
-        //    var collapsedOutput = TofSpectraMerger.CollapseArrays(indices, intensities);
+        //    var collapsedOutput = merger.CollapseArrays(indices, intensities);
 
         //    Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
         //    Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
 
 
-        //    indices = new uint[] { 0, 1, 2, 3, 4, 5, 6, 7,  9, 11 };
-        //    intensities = new int[] { 0, 1, 2, 3, 4, 5, 6, 7,  9, 11 };
+        //    indices = new uint[] { 0, 1, 2, 3, 4, 5, 6, 7, 9, 11 };
+        //    intensities = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 9, 11 };
 
         //    intendedIdx = new List<int> { 1, 4, 6, 9 };
         //    intendedIntensities = new List<int> { 3, 12, 13, 20 };
@@ -281,7 +282,7 @@ namespace Test.FileReadingTests
             Assert.That(_testReader.NumSpectra, Is.EqualTo(4096));
             Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
             Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
-            Assert.That(_testMs2Scan.TotalIonCurrent, Is.EqualTo(25130));
+            Assert.That(_testMs2Scan.TotalIonCurrent, Is.EqualTo(26551));
             Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
             Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
             Assert.That(_testMs2Scan.MsnOrder == 2);
