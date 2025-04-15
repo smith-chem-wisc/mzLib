@@ -7,7 +7,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 
 #nullable enable
-[assembly: InternalsVisibleTo("TestFlashLFQ")]
 namespace MassSpectrometry
 {
     /// <summary>
