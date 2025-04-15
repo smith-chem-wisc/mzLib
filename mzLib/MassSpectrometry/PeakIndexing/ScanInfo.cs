@@ -1,4 +1,4 @@
-﻿namespace FlashLFQ
+﻿namespace MassSpectrometry
 {
     public class ScanInfo
     {

@@ -4,13 +4,11 @@ using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using FlashLFQ.Interfaces;
-using Easy.Common.Extensions;
 using System.Runtime.CompilerServices;
 
 #nullable enable
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
-namespace FlashLFQ
+namespace MassSpectrometry
 {
     /// <summary>
     /// IIndexingEngine defines the behaviour needed to efficiently retrieve peaks from a jagged array of indexed peaks.
@@ -21,15 +19,14 @@ namespace FlashLFQ
         /// Jagged array. Each index of the array corresponds to a mass bin. Each element of the array is a list of peaks that fall within that mass bin.
         /// Peaks within each mass bin are ordered by scan number, ascending. Due to the width of the mass bin, it is possible to have multiple peaks with the same scan number but different masses in a list
         /// </summary>
-        internal List<T>[]? IndexedPeaks;
-        internal const int BinsPerDalton = 100;
+        protected List<T>[]? IndexedPeaks;
+        protected const int BinsPerDalton = 100;
         public ScanInfo[]? ScanInfoArray { get; private set; }
 
         /// <summary>
         /// Read in all spectral peaks from scans, index the peaks and store them in a list ordered by m/z
         /// </summary>
         /// <param name="scanArray">An array of raw data scans</pasram>
-        /// <param name="scanInfo">Outputs a list of scan information for each scan which is needed for FlashLfq
         public virtual bool IndexPeaks(MsDataScan[] scanArray)
         {
             if(scanArray.IsNullOrEmpty() || scanArray.All(p => p == null))

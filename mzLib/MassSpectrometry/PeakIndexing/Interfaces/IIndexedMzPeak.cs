@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace FlashLFQ
+﻿namespace MassSpectrometry
 {
     /// <summary>
     /// An IIndexedMzPeak represents information that exists in a single mass spectrometric scan 

@@ -16,6 +16,7 @@ using FlashLFQ.PEP;
 using FlashLFQ.IsoTracker;
 using System.Threading;
 using FlashLFQ.Interfaces;
+using MassSpectrometry;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 
