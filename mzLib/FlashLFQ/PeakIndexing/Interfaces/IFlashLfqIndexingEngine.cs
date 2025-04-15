@@ -15,7 +15,7 @@ namespace FlashLFQ.Interfaces
     public interface IFlashLfqIndexingEngine
     {
         public ScanInfo[] ScanInfoArray { get; }
-        public SpectraFileInfo SpectraFileInfo { get; }
+        public SpectraFileInfo SpectraFile { get; }
         /// <summary>
         /// A generic method for finding the closest peak with a specified m/z and in a specified scan. Returns null if no peaks within tolerance are found.
         /// </summary>
