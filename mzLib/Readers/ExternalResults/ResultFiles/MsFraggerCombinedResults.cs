@@ -1,14 +1,4 @@
-﻿using CsvHelper;
-using Readers.ExternalResults.BaseClasses;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.IO;
-using MathNet.Numerics;
-
-namespace Readers
+﻿namespace Readers
 {
     public class MsFraggerCombinedResults : ResultFile<MsFraggerPsm>, IResultFile, IQuantifiableResultFile
     {
