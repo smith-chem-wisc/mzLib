@@ -187,5 +187,33 @@ namespace MzLibUtil
         {
             return dictionary == null || dictionary.Count < 1;
         }
+
+        /// <summary>
+        /// Converts a string to a nullable double.
+        /// </summary>
+        /// <param name="value">The string value.</param>
+        /// <returns>The nullable double value, or null if the conversion fails.</returns>
+        public static double? ToNullableDouble(this string value)
+        {
+            if (double.TryParse(value, out var result))
+            {
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Converts a string to a nullable integer.
+        /// </summary>
+        /// <param name="value">The string value.</param>
+        /// <returns>The nullable integer value, or null if the conversion fails.</returns>
+        public static int? ToNullableInt(this string value)
+        {
+            if (int.TryParse(value, out var result))
+            {
+                return result;
+            }
+            return null;
+        }
     }
 }
