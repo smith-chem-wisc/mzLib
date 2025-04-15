@@ -8,10 +8,8 @@ using Chemistry;
 using FlashLFQ;
 using MzLibUtil;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using Proteomics.AminoAcidPolymer;
 using MassSpectrometry;
 using Test.FileReadingTests;
-using System.Reflection;
 
 namespace Test
 {
