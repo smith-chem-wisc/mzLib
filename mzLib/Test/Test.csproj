@@ -359,6 +359,7 @@
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_TopFDv1.6.2_ms2.msalign">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
     <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_WithMods_IcTda.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
