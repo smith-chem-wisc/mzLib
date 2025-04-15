@@ -1,6 +1,4 @@
 ﻿using Omics.Modifications;
-using System.Text;
-using ThermoFisher.CommonCore.Data;
 
 namespace Readers;
 

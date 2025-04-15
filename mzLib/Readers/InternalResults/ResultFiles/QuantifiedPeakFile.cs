@@ -1,6 +1,6 @@
 ﻿using CsvHelper;
 
-namespace Readers.QuantificationResults;
+namespace Readers;
 
 public class QuantifiedPeakFile : ResultFile<QuantifiedPeak>, IResultFile
 {
