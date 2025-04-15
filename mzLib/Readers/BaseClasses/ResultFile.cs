@@ -81,6 +81,12 @@ namespace Readers
 
         #region Operators
 
+        public TResult this[int index]
+        {
+            get => Results[index];
+            set => Results[index] = value;
+        }
+
         public static ResultFile<TResult> operator +(ResultFile<TResult> thisFile, TResult resultToAdd)
         {
             thisFile.Results.Add(resultToAdd);
