@@ -1,15 +1,12 @@
 ﻿using CsvHelper.Configuration.Attributes;
 using CsvHelper.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
+using Omics.Modifications;
+using Omics;
 
 namespace Readers
 {
-    public class MsPathFinderTResult
+    public class MsPathFinderTResult : ISpectralMatch
     {
         public static CsvConfiguration CsvConfiguration { get; } = new CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)
         {
@@ -19,7 +16,6 @@ namespace Readers
             TrimOptions = CsvHelper.Configuration.TrimOptions.InsideQuotes,
             BadDataFound = null,
         };
-
 
         [Name("Scan")]
         public int OneBasedScanNumber { get; set; }
@@ -89,12 +85,39 @@ namespace Readers
 
         #region InterpretedFields
 
-        [Ignore] private string _accession = null;
+        [Ignore] private string? _accession = null;
         [Ignore] public string Accession => _accession ??= ProteinName.Split('|')[1].Trim();
 
         [Ignore] private bool? _isDecoy = null;
         [Ignore] public bool IsDecoy => _isDecoy ??= ProteinName.StartsWith("XXX");
         [Optional] public string FileNameWithoutExtension { get; set; }
+
+        [Ignore] private Dictionary<int, Modification>? _allModsOneIsNterminus;
+        [Ignore] public Dictionary<int, Modification> AllModsOneIsNterminus => _allModsOneIsNterminus ??= ParseModifications();
+
+        [Ignore] private string? _fullSequence;
+        [Ignore] public string FullSequence => _fullSequence ??= IBioPolymerWithSetMods.DetermineFullSequence(BaseSequence, AllModsOneIsNterminus);
+
+        private Dictionary<int, Modification> ParseModifications()
+        {
+            var mods = new Dictionary<int, Modification>();
+            if (string.IsNullOrEmpty(Modifications))
+                return mods;
+
+            var modStrings = Modifications.Split(',');
+            foreach (var modString in modStrings)
+            {
+                var modSplits = modString.Split(' ');
+                var name = modSplits[0];
+                var location = int.Parse(modSplits[1]);
+
+                var modifiedResidue = location == 0 ? 'X' : BaseSequence[location - 1];
+                var mmMod = ModificationConverter.GetClosestMod(name, modifiedResidue);
+
+                mods.Add(location+1, mmMod);
+            }
+            return mods;
+        }
 
         #endregion
     }
