@@ -10,18 +10,12 @@ namespace Readers
 {
     public class MsPathFinderTResultFile : ResultFile<MsPathFinderTResult>, IResultFile
     {
-        public override SupportedFileType FileType { get; }
+        public override SupportedFileType FileType => FilePath.ParseFileType();
         public override Software Software { get; set; }
 
-        public MsPathFinderTResultFile(string filePath) : base(filePath, Software.MsPathFinderT)
-        {
-            FileType = filePath.ParseFileType();
-        }
+        public MsPathFinderTResultFile(string filePath) : base(filePath, Software.MsPathFinderT) { }
 
-        public MsPathFinderTResultFile() : base()
-        {
-            FileType = FilePath.IsNullOrEmpty() ? SupportedFileType.MsPathFinderTAllResults : FilePath.ParseFileType();
-        }
+        public MsPathFinderTResultFile() : base() { }
 
         public override void LoadResults()
         {

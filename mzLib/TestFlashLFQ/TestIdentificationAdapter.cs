@@ -6,8 +6,6 @@ using System.Linq;
 using FlashLFQ;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
-using Readers.ExternalResults.BaseClasses;
-using System.Runtime.CompilerServices;
 
 namespace Test
 {
