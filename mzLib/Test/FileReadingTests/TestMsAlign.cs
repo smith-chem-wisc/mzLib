@@ -480,22 +480,5 @@ namespace Test.FileReadingTests
                 previousScanNumber = scan.OneBasedScanNumber;
             }
         }
-
-
-
-
-        
-
-        [Test]
-        public static void TESTNAME()
-        {
-            var path =
-                @"B:\Users\Nic\Chimeras\TopDown_Analysis\Jurkat\DeconResults\TopFD\02-17-20_jurkat_td_rep2_fract4_ms2.msalign";
-   
-            var dataFile = MsDataFileReader.GetDataFile(path);
-            dataFile.LoadAllStaticData();
-
-        }
-
     }
 }
