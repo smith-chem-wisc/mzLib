@@ -33,8 +33,8 @@ namespace Readers
 
             string line;
             Dictionary<string, int> parsedHeader = null;
+            MzLibException? parsingException = null;
 
-            var fileType = filePath.ParseFileType();
             while (reader.Peek() > 0)
             {
                 lineCount++;
@@ -49,20 +49,31 @@ namespace Readers
 
                 try
                 {
-                    switch (filePath.ParseFileType())
+                    SupportedFileType type;
+                    try
+                    {
+                        type = filePath.ParseFileType();
+                    }
+                    catch (MzLibException e)
+                    {
+                        // if the parsing fails due to file path not being in the correct format, assume Psm reader will work. 
+                        parsingException = e;
+                        type = SupportedFileType.psmtsv;
+                    }
+
+                    switch (type)
                     {
                         case SupportedFileType.osmtsv:
                             psms.Add(new OsmFromTsv(line, Split, parsedHeader));
                             break;
 
                         case SupportedFileType.psmtsv:
-                        case SupportedFileType.IntralinkResults:
                         default:
                             psms.Add(new PsmFromTsv(line, Split, parsedHeader));
                             break;
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     warnings.Add("Could not read line: " + lineCount);
                 }
@@ -73,6 +84,13 @@ namespace Readers
             if (lineCount - 1 != psms.Count)
             {
                 warnings.Add("Warning: " + (lineCount - 1 - psms.Count) + " PSMs were not read.");
+            }
+
+            // if we could not parse type, we assumed PSMs were in the file.
+            // We were wrong and need to throw.
+            if (parsingException is not null && psms.Count == 0)
+            {
+                throw new MzLibException($"No spectral matches found in file: {filePath}", parsingException);
             }
 
             return psms;
@@ -108,6 +126,7 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.TotalIonCurrent, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.TotalIonCurrent));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorScanNum, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorScanNum));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorCharge, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorCharge));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorIntensity, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorIntensity));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMz, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMz));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMass));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.Score, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Score));
