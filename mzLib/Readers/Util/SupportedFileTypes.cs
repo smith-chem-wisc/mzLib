@@ -204,6 +204,8 @@ namespace Readers
                 SupportedFileType.Mgf => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.BrukerD => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.BrukerTimsTof => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.Ms1Align => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.Ms2Align => typeof(MsDataFileToResultFileAdapter),
                 _ => throw new MzLibException("File type not supported")
             };
         }
