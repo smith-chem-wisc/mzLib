@@ -15,7 +15,6 @@ namespace Readers
         Ms1Align,
         Ms2Align,
         psmtsv,
-        IntralinkResults,
         osmtsv,
         ToppicPrsm,
         ToppicPrsmSingle,
@@ -60,7 +59,6 @@ namespace Readers
                 SupportedFileType.Ms2Align => "_ms2.msalign",
                 SupportedFileType.psmtsv => ".psmtsv",
                 SupportedFileType.osmtsv => ".osmtsv",
-                SupportedFileType.IntralinkResults => "Intralinks.tsv",
                 SupportedFileType.ToppicPrsm => "_prsm.tsv",
                 SupportedFileType.ToppicPrsmSingle => "_prsm_single.tsv",
                 SupportedFileType.ToppicProteoform => "_proteoform.tsv",
@@ -92,8 +90,14 @@ namespace Readers
                     if (fileList.Any(file => file == "analysis.tdf"))
                         return SupportedFileType.BrukerTimsTof;
                     throw new MzLibException("Bruker file type not recognized");
-                case ".psmtsv": return SupportedFileType.psmtsv;
-                case ".osmtsv": return SupportedFileType.osmtsv;
+
+                case ".psmtsv":
+                case ".tsv" when filePath.Contains("Intralinks"):
+                    return SupportedFileType.psmtsv;
+
+                case ".osmtsv": 
+                    return SupportedFileType.osmtsv;
+
                 case ".feature":
                     if (filePath.EndsWith(SupportedFileType.Ms1Feature.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Feature;
@@ -135,8 +139,6 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTAllResults;
                     if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ExperimentAnnotation;
-                    if (filePath.EndsWith(SupportedFileType.IntralinkResults.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
-                        return SupportedFileType.IntralinkResults;
 
                     // these tsv cases are just .tsv and need an extra step to determine the type
                     // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
@@ -184,7 +186,6 @@ namespace Readers
                 SupportedFileType.Tsv_FlashDeconv => typeof(FlashDeconvTsvFile),
                 SupportedFileType.psmtsv => typeof(PsmFromTsvFile),
                 SupportedFileType.osmtsv => typeof(OsmFromTsvFile),
-                SupportedFileType.IntralinkResults => typeof(PsmFromTsvFile),
                 SupportedFileType.ToppicPrsm => typeof(ToppicSearchResultFile),
                 SupportedFileType.ToppicPrsmSingle => typeof(ToppicSearchResultFile),
                 SupportedFileType.ToppicProteoform => typeof(ToppicSearchResultFile),
@@ -198,6 +199,11 @@ namespace Readers
                 SupportedFileType.MsPathFinderTAllResults => typeof(MsPathFinderTResultFile),
                 SupportedFileType.CruxResult => typeof(CruxResultFile),
                 SupportedFileType.ExperimentAnnotation => typeof(ExperimentAnnotationFile),
+                SupportedFileType.ThermoRaw => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.MzML => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.Mgf => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.BrukerD => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.BrukerTimsTof => typeof(MsDataFileToResultFileAdapter),
                 _ => throw new MzLibException("File type not supported")
             };
         }
