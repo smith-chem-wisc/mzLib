@@ -20,6 +20,7 @@ namespace Readers
         public string FileNameWithoutExtension { get; protected set; }
         public int PrecursorScanNum { get; protected set; }
         public int PrecursorCharge { get; protected set; }
+        public double? PrecursorIntensity { get; }
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
         public double RetentionTime { get; protected set; }
@@ -27,7 +28,7 @@ namespace Readers
         public int SpectrumMatchCount { get; protected set; }
         public string Accession { get; protected set; }
         public double? SpectralAngle { get; protected set; }
-        public List<MatchedFragmentIon> MatchedIons { get; protected set; }
+        public List<MatchedFragmentIon> MatchedIons { get; set; }
         public Dictionary<int, List<MatchedFragmentIon>> ChildScanMatchedIons { get; protected set; }
         public double QValue { get; protected set; }
         public double PEP { get; protected set; }
@@ -131,6 +132,7 @@ namespace Readers
             }
 
             PrecursorCharge = (int)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorCharge]].Trim(), CultureInfo.InvariantCulture);
+            PrecursorIntensity = (parsedHeader[SpectrumMatchFromTsvHeader.PrecursorIntensity] < 0) ? null : Double.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorIntensity]].Trim(), out double value) ? value : null;
             PrecursorMz = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMz]].Trim(), CultureInfo.InvariantCulture);
             PrecursorMass = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMass]].Trim(), CultureInfo.InvariantCulture);
             BaseSeq = RemoveParentheses(spl[parsedHeader[SpectrumMatchFromTsvHeader.BaseSequence]].Trim());
@@ -229,6 +231,7 @@ namespace Readers
             FileNameWithoutExtension = psm.FileNameWithoutExtension;
             PrecursorScanNum = psm.PrecursorScanNum;
             PrecursorCharge = psm.PrecursorCharge;
+            PrecursorIntensity = psm.PrecursorIntensity;
             Score = psm.Score;
             MatchedIons = psm.MatchedIons.ToList();
             ChildScanMatchedIons = psm.ChildScanMatchedIons;
