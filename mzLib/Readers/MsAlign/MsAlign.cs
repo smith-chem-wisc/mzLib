@@ -81,6 +81,8 @@ public class MsAlign : MsDataFile
     public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
     {
         List<MsDataScan> scans = new();
+
+        // Instantiate enums to keep track of where we are in the file. The header is entirely optional. 
         var headerProgress = ReadingProgress.NotFound;
         var entryProgress = ReadingProgress.NotFound;
         using (var sr = new StreamReader(FilePath))
@@ -88,36 +90,36 @@ public class MsAlign : MsDataFile
             List<string> linesToProcess = new();
             while (sr.ReadLine() is { } line)
             {
-                if (line.Contains("BEGIN IONS"))
+                if (line.Contains("BEGIN IONS")) // Once we see this, we know we are past the header
                     headerProgress = ReadingProgress.Finished;
 
-                // get header
+                // get header, line by line. 
                 if (headerProgress != ReadingProgress.Finished)
                 {
                     switch (headerProgress)
                     {
-                        case ReadingProgress.NotFound when line.Contains("##### Parameters #####"):
+                        case ReadingProgress.NotFound when line.Contains("##### Parameters #####"): // we have found the beginning of the header
                             headerProgress = ReadingProgress.Found;
                             break;
-                        case ReadingProgress.Found when line.Contains("##### Parameters #####"):
+                        case ReadingProgress.Found when line.Contains("##### Parameters #####"): //  we have reached the end of the header, process what we can into the ParsedHeader
                             headerProgress = ReadingProgress.Finished;
                             ParseHeaderLines(linesToProcess);
                             linesToProcess.Clear();
                             break;
-                        default:
+                        default: // still in the middle of the header, keep collecting the lines
                             linesToProcess.Add(line);
                             continue;
                     }
                 }
-                else
+                else // read data scan entries
                 {
                     switch (entryProgress)
                     {
                         // each entry after header
-                        case ReadingProgress.NotFound when line.Contains("BEGIN IONS"):
+                        case ReadingProgress.NotFound when line.Contains("BEGIN IONS"): // we have found the beginning of a new entry
                             entryProgress = ReadingProgress.Found;
                             break;
-                        case ReadingProgress.Found when line.Contains("END IONS"):
+                        case ReadingProgress.Found when line.Contains("END IONS"): // we have found the end of our current entry, process all lines into a NeutralMassSpectrum
                             {
                                 entryProgress = ReadingProgress.NotFound;
                                 var scan = ParseEntryLines(linesToProcess, filteringParams, PrecursorWindowSize);
@@ -125,7 +127,7 @@ public class MsAlign : MsDataFile
                                 linesToProcess.Clear();
                                 break;
                             }
-                        default:
+                        default: // we are in the middle of our current entry. 
                             linesToProcess.Add(line);
                             break;
                     }
