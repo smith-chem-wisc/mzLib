@@ -1,7 +1,6 @@
-﻿using FlashLFQ.Interfaces;
-using System;
+﻿using System;
 
-namespace FlashLFQ
+namespace MassSpectrometry
 {
     [Serializable]
     public class IndexedMassSpectralPeak : IIndexedMzPeak
@@ -10,7 +9,6 @@ namespace FlashLFQ
         public double Mz { get; init; }
         public double RetentionTime { get; init; }
         public double Intensity { get; init; }
-
         public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
         {
             this.Mz = mz;
@@ -35,7 +33,6 @@ namespace FlashLFQ
             return other.ZeroBasedScanIndex == this.ZeroBasedScanIndex
                    && Math.Abs(other.Mz - this.Mz) < 1e-9;
         }
-
 
         public override int GetHashCode()
         {

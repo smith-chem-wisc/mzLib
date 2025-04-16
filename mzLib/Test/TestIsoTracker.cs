@@ -10,6 +10,7 @@ using System.Linq;
 using MathNet.Numerics.Interpolation;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using MassSpectrometry;
 
 namespace Test
 {

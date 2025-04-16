@@ -4,8 +4,8 @@ using System;
 using System.Collections.Generic;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using MassSpectrometry;
+using IsotopicEnvelope = FlashLFQ.IsotopicEnvelope;
 
 namespace Test
 {

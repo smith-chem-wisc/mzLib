@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Linq;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {

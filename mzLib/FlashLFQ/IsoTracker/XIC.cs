@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.IntegralTransforms;
 using System.Numerics;
+using MassSpectrometry;
 
 namespace FlashLFQ.IsoTracker
 {
