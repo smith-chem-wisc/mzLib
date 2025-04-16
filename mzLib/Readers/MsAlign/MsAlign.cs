@@ -10,6 +10,17 @@ namespace Readers;
 /// </summary>
 public class MsAlign : MsDataFile
 {
+
+    #region Magic Numbers (defaults on parsing fail)
+
+    private const int DefaultErrorValue = -1;
+    private const double DefaultMinMz = 0;
+    private const double DefaultMaxMz = 2000;
+    private const double DefaultIsolationWidth = 3;
+    private const int DefaultPrecursorCharge = 0;
+
+    #endregion
+
     /// <summary>
     /// Ms2Align will sometimes have a header which states many parameters.
     /// Not all software output a parameters header in their MsAlign. 
@@ -403,20 +414,20 @@ public class MsAlign : MsDataFile
             {
                 case "ID":
                 case "SPECTRUM ID":
-                    id = int.TryParse(splits[1], out int idValue) ? idValue : -1;
+                    id = int.TryParse(splits[1], out int idValue) ? idValue : DefaultErrorValue;
                     break;
                 case "FRACTION_ID":
-                    fractionId = int.TryParse(splits[1], out int fractionIdValue) ? fractionIdValue : -1;
+                    fractionId = int.TryParse(splits[1], out int fractionIdValue) ? fractionIdValue : DefaultErrorValue;
                     break;
                 case "FILE_NAME":
                     fileName = splits[1];
                     break;
                 case "SCANS":
-                    oneBasedScanNumber = int.TryParse(splits[1], out int scanNumberValue) ? scanNumberValue : -1;
+                    oneBasedScanNumber = int.TryParse(splits[1], out int scanNumberValue) ? scanNumberValue : DefaultErrorValue;
                     break;
                 case "RETENTION_TIME":
                     // Divide by sixty as msAligns are in seconds and MsDataScan is in minutes
-                    retentionTime = double.TryParse(splits[1], out double retentionTimeValue) ? retentionTimeValue / 60.0 : -1;
+                    retentionTime = double.TryParse(splits[1], out double retentionTimeValue) ? retentionTimeValue / 60.0 : DefaultErrorValue;
                     break;
                 case "LEVEL":
                     msnOrder = int.TryParse(splits[1], out int msnOrderValue) ? msnOrderValue : DefaultMsnOrder;
@@ -426,28 +437,28 @@ public class MsAlign : MsDataFile
                         ? result : MassSpectrometry.DissociationType.Autodetect;
                     break;
                 case "MS_ONE_ID":
-                    precursorScanId = int.TryParse(splits[1], out int scanIdValue) ? scanIdValue : -1;
+                    precursorScanId = int.TryParse(splits[1], out int scanIdValue) ? scanIdValue : DefaultErrorValue;
                     break;
                 case "MS_ONE_SCAN":
-                    oneBasedPrecursorScanNumber = int.TryParse(splits[1], out int precursorScanNumberValue) ? precursorScanNumberValue : -1;
+                    oneBasedPrecursorScanNumber = int.TryParse(splits[1], out int precursorScanNumberValue) ? precursorScanNumberValue : DefaultErrorValue;
                     break;
                 case "PRECURSOR_MZ":
-                    precursorMz = double.TryParse(splits[1], out double mzValue) ? mzValue : -1;
+                    precursorMz = double.TryParse(splits[1], out double mzValue) ? mzValue : DefaultErrorValue;
                     break;
                 case "PRECURSOR_CHARGE":
-                    precursorCharge = int.TryParse(splits[1], out int chargeValue) ? chargeValue : 0;
+                    precursorCharge = int.TryParse(splits[1], out int chargeValue) ? chargeValue : DefaultPrecursorCharge;
                     break;
                 case "PRECURSOR_MASS":
-                    precursorMass = double.TryParse(splits[1], out double massValue) ? massValue : -1;
+                    precursorMass = double.TryParse(splits[1], out double massValue) ? massValue : DefaultErrorValue;
                     break;
                 case "PRECURSOR_INTENSITY":
-                    precursorIntensity = double.TryParse(splits[1], out double intensityValue) ? intensityValue : -1;
+                    precursorIntensity = double.TryParse(splits[1], out double intensityValue) ? intensityValue : DefaultErrorValue;
                     break;
                 case "PRECURSOR_WINDOW_BEGIN":
-                    precursorMzStart = double.TryParse(splits[1], out double mzStartValue) ? mzStartValue : -1;
+                    precursorMzStart = double.TryParse(splits[1], out double mzStartValue) ? mzStartValue : DefaultErrorValue;
                     break;
                 case "PRECURSOR_WINDOW_END":
-                    precursorMzEnd = double.TryParse(splits[1], out double mzEndValue) ? mzEndValue : -1;
+                    precursorMzEnd = double.TryParse(splits[1], out double mzEndValue) ? mzEndValue : DefaultErrorValue;
                     break;
 
             }
@@ -471,8 +482,8 @@ public class MsAlign : MsDataFile
 
 
 
-        double minmz = mzs.Length == 0 ? 0 : mzs.Min();
-        double maxmz = mzs.Length == 0 ? 2000 : mzs.Max();
+        double minmz = mzs.Length == 0 ? DefaultMinMz : mzs.Min();
+        double maxmz = mzs.Length == 0 ? DefaultMaxMz : mzs.Max();
 
         double? isolationMz = precursorMz;
         if (msnOrder == 1)
@@ -486,7 +497,7 @@ public class MsAlign : MsDataFile
         }
         else
         {
-            isolationWidth ??= 3;
+            isolationWidth ??= DefaultIsolationWidth;
         }
 
         var sorted =
