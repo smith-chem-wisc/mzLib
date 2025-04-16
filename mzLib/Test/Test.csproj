@@ -477,6 +477,9 @@
     <None Update="DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\SearchResults\BottomUpExample.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\SearchResults\NewHeader.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
