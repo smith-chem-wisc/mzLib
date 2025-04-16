@@ -7,6 +7,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System;
+using System.Runtime.InteropServices;
+using System.Windows.Media;
 
 namespace Test
 {
@@ -111,27 +113,70 @@ namespace Test
         public static void TestQuantifiedClasses()
         {
 
-            string fullSeq = "[UniProt NonProtein:N-acetylglutamate on E]EDM[Common Variable:Oxidation on M]MELVQPSISGVAADLDK[Test Mod2: ModName2 on K]-[Test Mod: ModName on K C-Terminus]";
-            string baseSeq = fullSeq.ParseBaseSequence();
-            Assert.That(baseSeq.Length == 20);
+            string fullSeq1 = "[UniProt: N-acetylglutamate on E]EDM[Common Variable1: Oxidation on M]AAAAAAK[Test Mod1: ModName1 on K]-[Test Mod: ModName on K C-Terminus]";
+            string fullSeq2 = "[UniProt: N-acetylglutamate on E]EDM[Common Variable2: Oxidation on M]AAAAAAK[Test Mod1: ModName1 on K]-[Test Mod: ModName on K C-Terminus]";
+            string fullSeq3 = "[UniProt: N-acetylglutamate on E]EDM[Common Variable3: Oxidation on M]IIIIIIK[Test Mod3: ModName3 on K]-[Test Mod: ModName on K C-Terminus]";
+            string fullSeq4 = "[UniProt: N-acetylglutamate on E]EDM[Common Variable4: Oxidation on M]QQQQQQK[Test Mod4: ModName4 on K]-[Test Mod: ModName on K C-Terminus]";
 
-            string proteinSeq = string.Join("", Enumerable.Repeat(baseSeq, 5));
+            var fullSequences = new List<string> { fullSeq1, fullSeq2, fullSeq3, fullSeq4};
+            var baseSequences = fullSequences.Select(x => x.ParseBaseSequence()).ToList();
+            var oneBasedPeptideIndexInProtein = new List<int> { 1, 1, 11, 21 };
+            var proteinSequence = string.Join("", baseSequences.ToHashSet());
             string proteinName = "TestProtein";
 
-            int[] oneBasedPeptideIndexInProtein = { 1, 3, 5 };
+            var peptides = new Dictionary<string, QuantifiedPeptide> ();
 
-            var mods = fullSeq.ParseModifications()
-                             .Select(x => new KeyValuePair<int, Dictionary<string, QuantifiedModification>>(
-                                 x.Key, new Dictionary<string, QuantifiedModification>
-                                 { { x.Value, new QuantifiedModification(x.Value, x.Key, intensity:1) } }))
-                             .ToDictionary(pair => pair.Key, pair => pair.Value);
-
-            var peptides = new Dictionary<string, QuantifiedPeptide>();
-            for (int i = 0; i < oneBasedPeptideIndexInProtein.Length; i++)
+            for (int i = 0; i < oneBasedPeptideIndexInProtein.Count; i++)
             {
-                peptides[baseSeq] = new QuantifiedPeptide(baseSeq, new List<string> { fullSeq, baseSeq}, mods, oneBasedPeptideIndexInProtein[i], intensity:2);
+                if (!peptides.ContainsKey(baseSequences[i]))
+                {
+                    peptides.Add(baseSequences[i], new QuantifiedPeptide(fullSequences[i], oneBasedPeptideIndexInProtein[i], intensity: 2 * i + 1));
+                    peptides[baseSequences[i]].AddFullSequence(baseSequences[i], intensity: 1);
+                }
+                else
+                {
+                    peptides[baseSequences[i]].AddFullSequence(fullSequences[i], intensity: 1);
+                }
             }
-            var protein = new QuantifiedProtein(proteinName, proteinSeq, peptides);
+
+            var protein = new QuantifiedProtein(proteinName, proteinSequence, peptides);
+            var stoich = protein.GetModStoichiometryFromProteinMods();
+
+            Assert.AreEqual(stoich.Count, 8);
+            Assert.AreEqual(stoich.Keys.ToList(), new List<int>{0, 3, 10, 13, 20, 23, 30, 31});
+            //Assert.AreEqual(stoich.Values.SelectMany(x => x.Keys).ToHashSet().Order(), fullSequences.Select(x => x.ParseModifications()).SelectMany(x => x.Values).ToHashSet().Order());
+            Assert.AreEqual(stoich[0]["UniProt: N-acetylglutamate on E"].Intensity, 2.0 / 3.0);
+            Assert.AreEqual(stoich[3]["Common Variable1: Oxidation on M"].Intensity, 1.0 / 3.0);
+            Assert.AreEqual(stoich[3]["Common Variable2: Oxidation on M"].Intensity, 1.0 / 3.0);
+            Assert.AreEqual(stoich[10]["Test Mod1: ModName1 on K"].Intensity, 2.0 / 3.0);
+            Assert.AreEqual(stoich[13]["Common Variable3: Oxidation on M"].Intensity, 5.0 / 6.0);
+            Assert.AreEqual(stoich[20]["Test Mod3: ModName3 on K"].Intensity, 5.0 / 6.0);
+            Assert.AreEqual(stoich[23]["C ommon Variable4: Oxidation on M"].Intensity, 7.0 / 8.0);
+            Assert.AreEqual(stoich[30]["Test Mod4: ModName4 on K"].Intensity, 7.0 / 8.0);
+            Assert.AreEqual(stoich[31]["Test Mod: ModName on K C-Terminus"].Intensity, 7.0 / 8.0);
+        }
+
+        [Test]
+        public void TestProteinGroupsOccupancyByPeptide()
+        {
+            var fullSeq1 = "[UniProt: N-acetylglutamate on E]EDM[Common Variable1: Oxidation on M]AAAAAAK[Test Mod1: ModName1 on K]-[Test Mod: ModName on K C-Terminus]";
+            var fullSeq2 = "[UniProt: N-acetylglutamate on E]EDMAAAAAAK[Test Mod1: ModName1 on K]-[Test Mod: ModName on K C-Terminus]";
+            var fullSeq3 = "[UniProt: N-acetylglutamate on E]EDM[Common Variable1: Oxidation on M]QQQQQQK[Test Mod1: ModName1 on K]-[Test Mod: ModName on K C-Terminus]";
+
+
+            var peptides = new List<(string fullSeq, List<string> proteinGroup, double intensity)>
+            {
+                (fullSeq1, new List<string>{"Protein1|Protein2", "Protein3"}, 2),
+                (fullSeq1.ParseBaseSequence(), new List<string>{"Protein1|Protein2", "Protein3"}, 1),
+                (fullSeq2, new List<string>{"Protein3"}, 2),
+                (fullSeq2.ParseBaseSequence(), new List<string>{"Protein3"}, 1),
+                (fullSeq3, new List<string>{"Protein4"}, 2),
+                (fullSeq3.ParseBaseSequence(), new List<string>{"Protein4"}, 1)
+            };
+
+            var stoich = new PositionFrequencyAnalysis();
+            stoich.ProteinGroupsOccupancyByPeptide(peptides);
+
         }
 
         [Test]

@@ -23,36 +23,84 @@ namespace MzLibUtil
         }
     }
     /// <summary>
-    /// A class to store information about a quantified peptide full sequence
-    /// UtilPeptide object with modification information from all full sequences stored in the same object 
+    /// A class to store information about a quantified peptides sharing the same base sequence.
     /// </summary>
     public class QuantifiedPeptide
     {
-        public string FullSequence { get; set; }
+        public HashSet<string> FullSequences { get; set; }
         public string BaseSequence { get; set; }
         public QuantifiedProtein ParentProtein { get; set; }
         public int OneBasedStartIndexInProtein { get; set; }
-        public Dictionary<int, QuantifiedModification> ModifiedAminoAcidPositions { get; set; } 
+        public Dictionary<int, Dictionary<string, QuantifiedModification>> ModifiedAminoAcidPositions { get; set; } 
         public double Intensity { get; set; }
 
-        public QuantifiedPeptide(string fullSequence, Dictionary<int, QuantifiedModification> mods = null, int oneBasedStartIndexInProtein = -1, double intensity = 0, string modPattern=null) 
+        public QuantifiedPeptide(string fullSequence, int oneBasedStartIndexInProtein = -1, double intensity = 0, string modPattern=null)
         {
-            FullSequence = fullSequence;
-            ModifiedAminoAcidPositions = mods.IsNotNullOrEmpty() ? mods : new Dictionary<int, QuantifiedModification>();
+            ModifiedAminoAcidPositions = new Dictionary<int, Dictionary< string, QuantifiedModification>>();
             OneBasedStartIndexInProtein = oneBasedStartIndexInProtein; // -1 means that the position in the protein is unknown
             Intensity = intensity;
-            SetBaseSequence(modPattern);
-        }
-        public void SetBaseSequence(string modPattern)
-        {
-            Regex mods = modPattern != null ? new(modPattern) : new(ClassExtensions.modificationPattern);
-            BaseSequence = mods.Replace(FullSequence, @"");
+            FullSequences = new HashSet<string>();
+            FullSequences.Add(fullSequence);
+            _SetBaseSequence(fullSequence, modPattern);
+            _SetModifications(fullSequence, intensity);
         }
 
-        public Dictionary<int, QuantifiedModification> GetModStoichiometryForPeptide()
+        public void AddFullSequence(string fullSeq, double intensity = 0, string modPattern = null)
+        {
+            if (BaseSequence.Equals(fullSeq.ParseBaseSequence(modPattern)))
+            {
+                FullSequences.Add(fullSeq);
+                Intensity += intensity;
+                _SetModifications(fullSeq, intensity); // updating the intensity is done here
+            }
+            else
+            {
+                throw new Exception("The base sequence of the peptide does not match the full sequence.");
+            }
+        }
+
+        private void _SetModifications(string fullSeq, double intensity = 0)
+        {
+            var mods  = fullSeq.ParseModifications();
+
+            if (mods.IsNotNullOrEmpty())
+            {
+                foreach (var modpos in mods.Keys)
+                {
+                    var mod = mods[modpos];
+                    if (!ModifiedAminoAcidPositions.ContainsKey(modpos))
+                    {
+                        ModifiedAminoAcidPositions[modpos] = new Dictionary<string, QuantifiedModification>();
+                    }
+
+                    if (!ModifiedAminoAcidPositions[modpos].ContainsKey(mod))
+                    {
+                        ModifiedAminoAcidPositions[modpos][mod] = new QuantifiedModification(mod, modpos, intensity:0);
+                    }
+                    ModifiedAminoAcidPositions[modpos][mod].Intensity += intensity;
+
+                    // Maybe should update/pass position in protein from here, too.
+                }
+            }
+        }
+
+        private void _SetBaseSequence(string fullSeq, string modPattern)
+        {
+            Regex mods = modPattern != null ? new(modPattern) : new(ClassExtensions.modificationPattern);
+            BaseSequence = mods.Replace(fullSeq, @"");
+        }
+
+        public Dictionary<int, Dictionary<string, QuantifiedModification>> GetModStoichiometryForPeptide()
         {
             var aaModsStoichiometry = ModifiedAminoAcidPositions;
-            aaModsStoichiometry.ForEach(x => x.Value.Intensity = x.Value.Intensity / Intensity);
+
+            foreach (var modpos in aaModsStoichiometry)
+            {
+                foreach (var mod in modpos.Value.Values)
+                {
+                    mod.Intensity /= Intensity;
+                }
+            }
             return aaModsStoichiometry;
         }
     }
@@ -61,9 +109,9 @@ namespace MzLibUtil
     {
         public string Accession { get; set; }
         public string Sequence { get; set; }
-        public Dictionary<string, QuantifiedPeptide> Peptides { get; set; } //Unique by full sequence
+        public Dictionary<string, QuantifiedPeptide> Peptides { get; set; }
         public Dictionary<int, Dictionary<string, QuantifiedModification>> ModifiedAminoAcidPositionsInProtein { get; set; }
-        public Dictionary<int, List<QuantifiedPeptide>> PeptidesByProteinPosition { get; set; }
+        public Dictionary<int, HashSet<string>> PeptidesByProteinPosition { get; set; }
 
         public QuantifiedProtein(string accession, string sequence=null, Dictionary<string, QuantifiedPeptide> peptides=null)
         {
@@ -80,39 +128,64 @@ namespace MzLibUtil
             }   
 
             ModifiedAminoAcidPositionsInProtein = new Dictionary<int, Dictionary<string, QuantifiedModification>>();
-            PeptidesByProteinPosition = new Dictionary<int, List<QuantifiedPeptide>>();
-
+            PeptidesByProteinPosition = new Dictionary<int, HashSet<string>>();
+            
             foreach (var peptide in Peptides.Values)
             {
-                foreach (var modpos in peptide.ModifiedAminoAcidPositions)
+                // if peptide has no modifications, add to all its positions
+                if (!peptide.ModifiedAminoAcidPositions.IsNotNullOrEmpty())
                 {
-                    var modPositionInProtein = modpos.Key + peptide.OneBasedStartIndexInProtein - 1;
-
-                    if ((modPositionInProtein != 0 && modpos.Key == 0) // if the mod is at the N-terminus of the peptide, but not the protein.
-                        || (modPositionInProtein != Sequence.Length + 1 && modpos.Key == peptide.BaseSequence.Length + 1)) // if the mod is at the C-terminus of the peptide, but not the protein.
+                    for (int i = 0; i < peptide.BaseSequence.Length; i++)
                     {
-                        continue;
-                    }
-
-                    if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(modPositionInProtein))
-                    {
-                        ModifiedAminoAcidPositionsInProtein[modPositionInProtein] = new Dictionary<string, QuantifiedModification>();
-                        PeptidesByProteinPosition[modPositionInProtein] = new List<QuantifiedPeptide>();
-                    }
-
-                    PeptidesByProteinPosition[modPositionInProtein].Add(peptide);
-
-                    foreach (var mod in modpos.Value.Values)
-                    {
-                        mod.ProteinPositionZeroIsNTerminus = modPositionInProtein;
-                        if (!ModifiedAminoAcidPositionsInProtein[modPositionInProtein].ContainsKey(mod.IdWithMotif))
+                        var pos = peptide.OneBasedStartIndexInProtein + i;
+                        if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(pos))
                         {
-                            ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif] = new QuantifiedModification(mod.IdWithMotif, mod.PeptidePositionZeroIsNTerminus, modPositionInProtein, 0);
+                            ModifiedAminoAcidPositionsInProtein[pos] = new Dictionary<string, QuantifiedModification>();
+                            PeptidesByProteinPosition[pos] = new HashSet<string>();
                         }
-                        ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif].Intensity += mod.Intensity;
+                        PeptidesByProteinPosition[pos].Add(peptide.BaseSequence);
+                    }
+                    continue;
+                }
+
+                else // if peptide has modifications, add to modified positions
+                {
+                    foreach (var modpos in peptide.ModifiedAminoAcidPositions.Keys)
+                    {
+                        var modPositionInProtein = modpos + peptide.OneBasedStartIndexInProtein - 1;
+
+                        // Ignore peptide terminal modifications that are not at the protein terminal
+                        if ((modPositionInProtein != 0 && modpos == 0) // if the mod is at the N-terminus of the peptide, but not the protein.
+                            || (modPositionInProtein != Sequence.Length + 1 && modpos == peptide.BaseSequence.Length + 1)) // if the mod is at the C-terminus of the peptide, but not the protein.
+                        {
+                            continue;
+                        }
+
+                        if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(modPositionInProtein))
+                        {
+                            ModifiedAminoAcidPositionsInProtein[modPositionInProtein] = new Dictionary<string, QuantifiedModification>();
+                            PeptidesByProteinPosition[modPositionInProtein] = new HashSet<string>();
+                        }
+                        PeptidesByProteinPosition[modPositionInProtein].Add(peptide.BaseSequence);
+
+                        foreach (var mod in peptide.ModifiedAminoAcidPositions[modpos].Values)
+                        {
+                            mod.ProteinPositionZeroIsNTerminus = modPositionInProtein;
+
+                            if (!ModifiedAminoAcidPositionsInProtein[modPositionInProtein].ContainsKey(mod.IdWithMotif))
+                            {
+                                ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif] = new QuantifiedModification(mod.IdWithMotif, mod.PeptidePositionZeroIsNTerminus, modPositionInProtein, 0);
+                            }
+                            ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif].Intensity += mod.Intensity;
+                        }
                     }
                 }
             }
+
+            // clean up the dictionary to remove any empty modifications
+            PeptidesByProteinPosition.Where(pos => !ModifiedAminoAcidPositionsInProtein.ContainsKey(pos.Key)).ToList()
+                .ForEach(pos => PeptidesByProteinPosition.Remove(pos.Key));
+
         }
 
         public Dictionary<int, Dictionary<string, QuantifiedModification>> GetModStoichiometryFromProteinMods()
@@ -123,11 +196,12 @@ namespace MzLibUtil
             }
 
             var aaModsStoichiometry = ModifiedAminoAcidPositionsInProtein;
-            foreach (var modpos in aaModsStoichiometry)
+            foreach (var modpos in aaModsStoichiometry.Keys)
             {
-                foreach (var mod in modpos.Value.Values)
+                double totalPositionIntensity = Peptides.Where(pep => PeptidesByProteinPosition[modpos].Contains(pep.Key)).Sum(x => x.Value.Intensity);
+                foreach (var mod in aaModsStoichiometry[modpos].Values)
                 {
-                    mod.Intensity = mod.Intensity / PeptidesByProteinPosition[modpos.Key].Select(x => x.Intensity).Sum();
+                    mod.Intensity /= totalPositionIntensity;
                 }
             }
             return aaModsStoichiometry;
@@ -161,11 +235,11 @@ namespace MzLibUtil
         /// Note: Each BaseSequence dictionary contains a ModifiedAminoAcidIndex key of -1 that then contains a ModificationName key called "Total" that is used to track the total intensity observed for 
         /// all of the amino acids in that peptide.</returns>
         ///
-        public void ProteinGroupsOccupancyByPeptide(List<(string fullSeq, List<string> proteinGroup, double intensity)> peptides, bool ignoreTerminusMod=false)
+        public void ProteinGroupsOccupancyByPeptide(List<(string fullSeq, List<string> proteinGroups, double intensity)> peptides, bool ignoreTerminusMod=false)
         {
             // ToDo: change first argument to Dictionary<IPeptide, intensity>
             Occupancy = new Dictionary<string, QuantifiedProteinGroup>();
-            
+
             // Go through the peptides given
             foreach (var pep in peptides)
             {
@@ -174,7 +248,7 @@ namespace MzLibUtil
                 string baseSeq = pep.fullSeq.ParseBaseSequence();
 
                 // Go through the peptide's protein groups
-                foreach (var pg in pep.proteinGroup)
+                foreach (var pg in pep.proteinGroups)
                 {
                     // If have not seen that protein group, store it
                     if (!Occupancy.ContainsKey(pg))
@@ -197,33 +271,12 @@ namespace MzLibUtil
                         // If the peptide's base sequence has not been seen, add it to the protein's dictionary
                         if (!protein.Peptides.ContainsKey(baseSeq))
                         {
-                            protein.Peptides[baseSeq] = new QuantifiedPeptide(baseSeq);
-                            protein.Peptides[baseSeq].Intensity = 0;
+                            protein.Peptides[baseSeq] = new QuantifiedPeptide(pep.fullSeq, intensity: pep.intensity);
                         }
-
-                        // Increase the total intensity of the peptide base sequence to track the total intensity of all amino acids in that sequence
-                        protein.Peptides[baseSeq].Intensity += pep.intensity;
-                        var peptide = protein.Peptides[baseSeq];
-
-                        // Want both arguments passed here to be true if need to later filter out peptide terminal mods that are not protein terminal mods 
-                        Dictionary<int, string> peptideMods = pep.fullSeq.ParseModifications(ignoreTerminusMod);
-                        // Go through the modified positions found froum the full sequence
-                        foreach (var modpos in peptideMods)
+                        else
                         {
-                            // If that position has not been recorded as containing a modification, add it to the base sequence's dictonary
-                            if (!peptide.ModifiedAminoAcidPositions.ContainsKey(modpos.Key))
-                            {
-                                peptide.ModifiedAminoAcidPositions[modpos.Key] = new Dictionary<string, QuantifiedModification>();
-                            }
-                            var modifiedPosition = peptide.ModifiedAminoAcidPositions[modpos.Key];
-
-                            if (!modifiedPosition.ContainsKey(modpos.Value))
-                            {
-                                modifiedPosition[modpos.Value] = new QuantifiedModification(modpos.Value, modpos.Key, 0);
-                            }
-                            
-                            // Increase the intensity of the modification by the intensity of the peptide
-                            modifiedPosition[modpos.Value].Intensity += pep.intensity;
+                            // If the peptide's base sequence has been seen, add the new full sequence to the existing peptide
+                            protein.Peptides[baseSeq].AddFullSequence(pep.fullSeq, intensity: pep.intensity);
                         }
                     }
                 }
