@@ -42,6 +42,8 @@ namespace Test.FileReadingTests
             yield return new TestCaseData(@"DataFiles\tester.mgf", SupportedFileType.Mgf);
             yield return new TestCaseData(@"DataFiles\centroid_1x_MS1_4x_autoMS2.d", SupportedFileType.BrukerD);
             yield return new TestCaseData(@"DataFiles\timsTOF_snippet.d", SupportedFileType.BrukerTimsTof);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", SupportedFileType.Ms1Align);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign", SupportedFileType.Ms2Align);
         }
 
         private static IEnumerable<SupportedFileType> EnumTestCases() => Enum.GetValues<SupportedFileType>();
@@ -145,6 +147,10 @@ namespace Test.FileReadingTests
             badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"Tsv file type not supported"));
+
+            badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "Codswallop_ms3.msalign");
+            e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
+            Assert.That(e?.Message, Is.EqualTo($"MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2"));
 
             var emptyFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "emptyFile.tsv");
             File.Create(emptyFile).Close();
