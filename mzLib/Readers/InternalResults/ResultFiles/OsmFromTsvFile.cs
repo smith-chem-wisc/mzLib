@@ -2,7 +2,7 @@
 
 namespace Readers;
 
-public class OsmFromTsvFile : ResultFile<OsmFromTsv>, IResultFile
+public class OsmFromTsvFile : SpectrumMatchFromTsvFile<OsmFromTsv>
 {
     public override SupportedFileType FileType => SupportedFileType.osmtsv;
     public override Software Software { get; set; }
@@ -12,7 +12,7 @@ public class OsmFromTsvFile : ResultFile<OsmFromTsv>, IResultFile
     /// </summary>
     public OsmFromTsvFile() : base() { }
 
-    public OsmFromTsvFile(string filePath) : base(filePath, Software.MetaMorpheus) { }
+    public OsmFromTsvFile(string filePath) : base(filePath) { }
 
     public override void LoadResults()
     {
