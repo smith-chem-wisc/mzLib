@@ -157,7 +157,7 @@ namespace Test
         }
 
         [Test]
-        public void TestProteinGroupsOccupancyByPeptide()
+        public void TestProteinGroupsOccupancy()
         {
             var fullSeq1 = "[UniProt: N-acetylglutamate on E]EDM[Common Variable1: Oxidation on M]AAAAAAK[Test Mod1: ModName1 on K]-[Test Mod: ModName on K C-Terminus]";
             var fullSeq2 = "[UniProt: N-acetylglutamate on E]EDMAAAAAAK[Test Mod1: ModName1 on K]-[Test Mod: ModName on K C-Terminus]";
@@ -175,7 +175,7 @@ namespace Test
             };
 
             var stoich = new PositionFrequencyAnalysis();
-            stoich.ProteinGroupsOccupancyByPeptide(peptides);
+            stoich.CalculateOccupancies(peptides);
 
         }
 
