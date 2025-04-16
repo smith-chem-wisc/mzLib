@@ -20,7 +20,7 @@ namespace FlashLFQ
             foreach (var record in quantifiableRecords)
             {
                 string baseSequence = record.BaseSequence;
-                string modifiedSequence = record.ModifiedSequence;
+                string modifiedSequence = record.FullSequence;
                 double ms2RetentionTimeInMinutes = record.RetentionTime;
                 double monoisotopicMass = record.MonoisotopicMass;
                 int precursurChargeState = record.ChargeState;
