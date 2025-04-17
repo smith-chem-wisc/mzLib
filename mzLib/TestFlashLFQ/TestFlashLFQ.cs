@@ -62,7 +62,7 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
 
             // NOTE: this is commented out because the protein quantity will be listed as NaN.
@@ -80,7 +80,7 @@ namespace Test
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR );
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -121,7 +121,7 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
 
             // NOTE: this is commented out because the protein quantity will be listed as NaN.
@@ -139,7 +139,7 @@ namespace Test
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -180,7 +180,7 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
 
             // NOTE: this is commented out because the protein quantity will be listed as NaN.
@@ -198,7 +198,7 @@ namespace Test
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -239,7 +239,7 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGF[+42]QVADGPLYR"].GetIntensity(raw) > 0);
 
             // NOTE: this is commented out because the protein quantity will be listed as NaN.
@@ -257,7 +257,7 @@ namespace Test
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGF[+42]QVADGPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -298,14 +298,14 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVAD[15.99]GPLYR"].GetIntensity(raw) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(raw) > 0);
 
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVAD[15.99]GPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -600,9 +600,9 @@ namespace Test
             var results = engine.Run();
 
             Assert.That(results.Peaks[file2].Count == 5);
-            Assert.That(results.Peaks[file2].Where(p => p.IsMbrPeak).Count() == 1);
+            Assert.That(results.Peaks[file2].Count(p => p.DetectionType == DetectionType.MBR) == 1);
 
-            var peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
+            var peak = results.Peaks[file2].First(p => p.DetectionType == DetectionType.MBR);
             var otherFilePeak = results.Peaks[file1].Where(p => p.Identifications.First().BaseSequence ==
                 peak.Identifications.First().BaseSequence).First();
 
@@ -616,10 +616,10 @@ namespace Test
             }
 
             Assert.That(results.Peaks[file1].Count == 5);
-            Assert.That(!results.Peaks[file1].Any(p => p.IsMbrPeak));
+            Assert.That(!results.Peaks[file1].Any(p => p.DetectionType == DetectionType.MBR));
 
             results = interquartileEngine.Run();
-            peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
+            peak = results.Peaks[file2].Where(p => p.DetectionType == DetectionType.MBR).First();
 
             for (int i = 0; i < 5; i++)
             {
@@ -634,7 +634,7 @@ namespace Test
             Assert.False(results.PeptideModifiedSequences.Select(kvp => kvp.Key).Contains("DECOYPEP"));
             Assert.False(results.Peaks[file1].Any(peak => peak.Identifications.Any(id => id.ModifiedSequence.Contains("DECOYPEP"))));
             Assert.That(results.Peaks[file2].Any(peak => peak.Identifications.First().ModifiedSequence == "TARGETPEP"));
-            Assert.AreEqual(results.Peaks[file2].Count(peak => peak.IsMbrPeak), 2);
+            Assert.AreEqual(results.Peaks[file2].Count(peak => peak.DetectionType == DetectionType.MBR), 2);
         }
 
         [Test]
@@ -1014,7 +1014,7 @@ namespace Test
                 new List<ProteinGroup> { proteinGroup });
             string idString = identification.ToString();
 
-            var chromPeak = new ChromatographicPeak(identification, false, spectraFile);
+            var chromPeak = new ChromatographicPeak(identification, spectraFile);
             string chromPeakString = chromPeak.ToString();
             chromPeak.CalculateIntensityForThisFeature(true);
             string peakAfterCalculatingIntensity = chromPeak.ToString();
@@ -1059,7 +1059,7 @@ namespace Test
 
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.Peaks[mzml].First().NumIdentificationsByFullSeq == 2);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) == 0);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml) == 0);
@@ -1078,7 +1078,7 @@ namespace Test
 
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.Peaks[mzml].First().NumIdentificationsByFullSeq == 2);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml) > 0);
@@ -1346,8 +1346,8 @@ namespace Test
             var peptides = results.PeptideModifiedSequences.Values.ToList();
             var proteins = results.ProteinGroups.Values.ToList();
 
-            Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
-            Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));
+            Assert.AreEqual(4, peaks[0].Count(m => m.DetectionType != DetectionType.MBR));
+            Assert.AreEqual(5, peaks[1].Count(m => m.DetectionType != DetectionType.MBR));
 
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
@@ -1771,8 +1771,8 @@ namespace Test
             Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
             Identification id3 = new Identification(fraction2, "peptide2", "peptide2", 0, 0, 0, new List<ProteinGroup>());
 
-            ChromatographicPeak peak1 = new ChromatographicPeak(id1, false, fraction1);
-            ChromatographicPeak peak2 = new ChromatographicPeak(id2, false, fraction1);
+            ChromatographicPeak peak1 = new ChromatographicPeak(id1, fraction1);
+            ChromatographicPeak peak2 = new ChromatographicPeak(id2, fraction1);
             peak2.Identifications.Add(id3);
 
             peak1.ResolveIdentifications();

@@ -29,13 +29,11 @@ namespace Readers
         #region IResultFile Members
 
         public new string FilePath { get; set; }
-        public SupportedFileType FileType { get; private set; }
+        public SupportedFileType FileType => FilePath.ParseFileType();
         public Software Software { get; set; } = Software.MassSpecFile;
-
         public List<MsDataScan> Results { get; set; }
         public void LoadResults()
         {
-            FileType = FilePath.ParseFileType();
             _dataFile = MsDataFileReader.GetDataFile(FilePath).LoadAllStaticData();
             Results = _dataFile.GetAllScansList();
         }
@@ -52,12 +50,10 @@ namespace Readers
         public MsDataFileToResultFileAdapter(string filePath) : base(filePath)
         {
             FilePath = filePath;
-            FileType = FilePath.ParseFileType();
         }
 
         public MsDataFileToResultFileAdapter() : base("")
         {
-
         }
     }
 }

@@ -208,7 +208,6 @@ namespace UsefulProteomicsDatabases
         public static Generated.obo LoadPsiMod(string psimodLocation)
         {
             var psimodSerializer = new XmlSerializer(typeof(Generated.obo));
-
             if (!File.Exists(psimodLocation))
             {
                 UpdatePsiMod(psimodLocation);
@@ -217,6 +216,12 @@ namespace UsefulProteomicsDatabases
             {
                 return psimodSerializer.Deserialize(stream) as Generated.obo;
             }
+        }
+
+        internal static Generated.obo LoadPsiMod(Stream stream)
+        {
+            var psimodSerializer = new XmlSerializer(typeof(Generated.obo));
+            return psimodSerializer.Deserialize(stream) as Generated.obo;
         }
 
         public static IEnumerable<Modification> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)

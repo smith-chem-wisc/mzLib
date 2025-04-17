@@ -1,10 +1,7 @@
-﻿using Readers.ExternalResults.BaseClasses;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Readers;
 
 namespace FlashLFQ
 {
@@ -23,7 +20,7 @@ namespace FlashLFQ
             foreach (var record in quantifiableRecords)
             {
                 string baseSequence = record.BaseSequence;
-                string modifiedSequence = record.ModifiedSequence;
+                string modifiedSequence = record.FullSequence;
                 double ms2RetentionTimeInMinutes = record.RetentionTime;
                 double monoisotopicMass = record.MonoisotopicMass;
                 int precursurChargeState = record.ChargeState;
@@ -73,20 +70,14 @@ namespace FlashLFQ
             Dictionary<string, string> allFiles = quantifiable.FileNameToFilePath(fullFilePaths);
 
             // 3. using stringstring dict create a string spectrafileinfo dict where key is same b/w dicts and value fullfilepath is replaced spectrafileinfo obj
-            SpectraFileInfo spectraFile = null;
             foreach (var file in allFiles)
             {
                 string key = file.Key;
                 string filePath = file.Value;
                 // FirstOrDefault matches the 1st elt from spectraFiles w/ specified filePath
                 SpectraFileInfo? matchingSpectraFile = spectraFiles.FirstOrDefault(spectraFileInfo => spectraFileInfo.FullFilePathWithExtension == filePath);
-                if (allSpectraFiles.TryGetValue(key, out var existingSpectraFile))
+                if (!allSpectraFiles.ContainsKey(key))
                 {
-                    spectraFile = existingSpectraFile;
-                }
-                else
-                {
-                    spectraFile = matchingSpectraFile;
                     allSpectraFiles[key] = matchingSpectraFile;
                 }
             }

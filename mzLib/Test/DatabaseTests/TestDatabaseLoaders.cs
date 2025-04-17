@@ -30,6 +30,7 @@ using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using NUnit.Framework.Legacy;
 using Omics;
+using Omics.BioPolymer;
 
 namespace Test.DatabaseTests
 {
@@ -152,17 +153,6 @@ namespace Test.DatabaseTests
                 }
             }
             Assert.AreEqual(2, count);
-        }
-
-        [Test]
-        public static void LoadOriginalMismatchedModifications()
-        {
-            var protein = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oblm.xml"), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications);
-            Assert.AreEqual(0, protein[0].OneBasedPossibleLocalizedModifications.Count);
-            var variant = protein[0].GetVariantProteins()[0];
-            protein[0].NonVariantProtein.RestoreUnfilteredModifications();
-            Assert.AreEqual(1, protein[0].NonVariantProtein.OneBasedPossibleLocalizedModifications.Count);
         }
 
         [Test]
