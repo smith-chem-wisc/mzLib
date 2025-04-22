@@ -212,7 +212,7 @@ namespace Test
         }
 
         [Test]
-        public void TestMakeIdentificationsWithFlashLFQ()
+        public void TestMakeIdentificationsWithLegacyPsmTsvInput()
         {
             string psmFilename = "AllPSMs2.psmtsv";
 
@@ -221,9 +221,12 @@ namespace Test
             var pathOfMzml = Path.Combine(myDirectory, "SmallCalibratible_Yeast.mzML");
             SpectraFileInfo sfi = new SpectraFileInfo(pathOfMzml, "A", 1, 1, 1);
 
+            PsmFromTsvFile results = new PsmFromTsvFile(pathOfIdentificationFile);
+            Assert.That(results.Results.Count, Is.EqualTo(89));
+
             IQuantifiableResultFile quantifiableResultFile = FileReader.ReadQuantifiableResultFile(pathOfIdentificationFile);
             List<Identification> ids = MzLibExtensions.MakeIdentifications(quantifiableResultFile, new List<SpectraFileInfo> { sfi });
-            Assert.That(ids.Count, Is.EqualTo(1));
+            Assert.That(ids.Count, Is.EqualTo(89));
         }
     }
 
