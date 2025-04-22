@@ -46,7 +46,7 @@ namespace Readers
         public int Charge { get; set; }
 
         [Name("Retention")]
-        public double RetentionTime { get; set; }
+        public double RetentionTimeSeconds { get; set; }
 
         [Name("Observed Mass")]
         public double ObservedMass { get; set; }
@@ -146,11 +146,13 @@ namespace Readers
         [Ignore]
         public int OneBasedScanNumber => _oneBasedScanNumber ??= int.Parse(Spectrum.Split('.')[1]);
 
+        [Ignore] public double RetentionTime => RetentionTimeSeconds / 60.0;
+
         #endregion
 
         #region IQuantifiableRecord Implementation
 
-        [Ignore] public string FileName => SpectrumFilePath;
+        [Ignore] public string FileName => FileNameWithoutExtension;
 
         [Ignore] public List<(string, string, string)> ProteinGroupInfos
         {
