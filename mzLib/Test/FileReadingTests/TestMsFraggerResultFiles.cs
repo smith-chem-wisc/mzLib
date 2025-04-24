@@ -100,7 +100,7 @@ namespace Test.FileReadingTests
             Assert.That(first.NextAminoAcid, Is.EqualTo('K'));
             Assert.That(first.PeptideLength, Is.EqualTo(7));
             Assert.That(first.Charge, Is.EqualTo(2));
-            Assert.That(first.RetentionTime, Is.EqualTo(1.9398));
+            Assert.That(first.RetentionTime, Is.EqualTo(0.03233).Within(0.0001));
             Assert.That(first.ObservedMass, Is.EqualTo(669.4164));
             Assert.That(first.CalibratedObservedMass, Is.EqualTo(669.4123));
             Assert.That(first.ObservedMz, Is.EqualTo(335.7155));
@@ -141,7 +141,7 @@ namespace Test.FileReadingTests
             Assert.That(last.NextAminoAcid, Is.EqualTo('V'));
             Assert.That(last.PeptideLength, Is.EqualTo(7));
             Assert.That(last.Charge, Is.EqualTo(2));
-            Assert.That(last.RetentionTime, Is.EqualTo(19.114));
+            Assert.That(last.RetentionTime, Is.EqualTo(0.3186).Within(0.0001));
             Assert.That(last.ObservedMass, Is.EqualTo(724.3984));
             Assert.That(last.CalibratedObservedMass, Is.EqualTo
             (724.3949));

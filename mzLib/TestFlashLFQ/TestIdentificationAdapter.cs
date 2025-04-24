@@ -35,7 +35,7 @@ namespace Test
             Identification identification1 = identifications[0];
             Assert.That(identification1.BaseSequence, Is.EqualTo("KPVGAAK"));
             Assert.That(identification1.ModifiedSequence, Is.EqualTo("KPVGAAK"));
-            Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(1.9398));
+            Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(0.03233).Within(0.0001));
             Assert.That(identification1.MonoisotopicMass, Is.EqualTo(669.4173));
             Assert.That(identification1.PrecursorChargeState, Is.EqualTo(2));
 
@@ -48,7 +48,7 @@ namespace Test
             Identification identification5 = identifications[4];
             Assert.That(identification5.BaseSequence, Is.EqualTo("VVTHGGR"));
             Assert.That(identification5.ModifiedSequence, Is.EqualTo("VVTHGGR"));
-            Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(19.114));
+            Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(0.3186).Within(0.0001));
             Assert.That(identification5.MonoisotopicMass, Is.EqualTo(724.398));
             Assert.That(identification5.PrecursorChargeState, Is.EqualTo(2));
         }

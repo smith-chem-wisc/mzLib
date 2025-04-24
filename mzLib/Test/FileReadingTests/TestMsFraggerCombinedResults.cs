@@ -31,7 +31,7 @@ namespace Test.FileReadingTests
             MsFraggerCombinedResults ms = new MsFraggerCombinedResults(filePath);
             ms.LoadResults();
 
-            List<string> results = ms.Results.Select(psm => psm.FileName).ToList();
+            List<string> results = ms.Results.Select(psm => psm.SpectrumFilePath).ToList();
 
             NUnit.Framework.Assert.That(results.Count(s => s.Contains("A_1")).Equals(4));
             NUnit.Framework.Assert.That(results.Count(s => s.Contains("A_2")).Equals(4));
