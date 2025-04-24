@@ -3,10 +3,11 @@
 namespace MassSpectrometry
 {
     [Serializable]
-    public class IndexedMassSpectralPeak : IIndexedMzPeak
+    public class IndexedMassSpectralPeak : IIndexedPeak
     {
         public int ZeroBasedScanIndex { get; init; }
         public double Mz { get; init; }
+        public double M => Mz;
         public double RetentionTime { get; init; }
         public double Intensity { get; init; }
         public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
@@ -21,7 +22,7 @@ namespace MassSpectrometry
             return Equals((IndexedMassSpectralPeak)obj);
         }
 
-        public bool Equals(IIndexedMzPeak other)
+        public bool Equals(IIndexedPeak other)
         {
             return Equals((IndexedMassSpectralPeak)other);
         }

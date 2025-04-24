@@ -17,7 +17,7 @@ namespace Test
             SpectraFileInfo spectraFileInfo = new SpectraFileInfo("sampleFile", "A", 1, 1, 1);
 
             // Create a sample Identification
-            Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "M[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
+            Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "Mz[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
 
             // Create a ChromatographicPeak instance
             ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, spectraFileInfo);
@@ -69,7 +69,7 @@ namespace Test
         {
             // create the sample ChromatographicPeaks with different DetectionTypes
             SpectraFileInfo spectraFileInfo = new SpectraFileInfo("sampleFile", "A", 1, 1, 1);
-            Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "M[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
+            Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "Mz[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
             IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5);
             IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);
 

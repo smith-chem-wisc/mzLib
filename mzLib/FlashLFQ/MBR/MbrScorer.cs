@@ -25,7 +25,7 @@ namespace FlashLFQ
         private Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
         private Dictionary<SpectraFileInfo, Normal> _rtPredictionErrorDistributionDictionary;
 
-        internal Dictionary<IIndexedMzPeak, ChromatographicPeak> ApexToAcceptorFilePeakDict { get; }
+        internal Dictionary<IIndexedPeak, ChromatographicPeak> ApexToAcceptorFilePeakDict { get; }
         internal List<ChromatographicPeak> UnambiguousMsMsAcceptorPeaks { get; }
         internal double MaxNumberOfScansObserved { get; }
 
@@ -34,7 +34,7 @@ namespace FlashLFQ
         /// unique to each donor file - acceptor file pair. These are used to score MBR matches
         /// </summary>
         internal MbrScorer(
-            Dictionary<IIndexedMzPeak, ChromatographicPeak> apexToAcceptorFilePeakDict,
+            Dictionary<IIndexedPeak, ChromatographicPeak> apexToAcceptorFilePeakDict,
             List<ChromatographicPeak> acceptorFileMsmsPeaks,
             Normal ppmDistribution, 
             Normal logIntensityDistribution)

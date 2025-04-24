@@ -91,7 +91,7 @@ namespace Test
 
             Assert.That(xic.Count, Is.EqualTo(10));
             Assert.That(shiftedXic.Count, Is.EqualTo(10));
-            Assert.That(Math.Abs(xic.First().Mz - shiftedXic.First().Mz), Is.GreaterThan(0.00001));
+            Assert.That(Math.Abs(xic.First().M - shiftedXic.First().M), Is.GreaterThan(0.00001));
 
             // Check that the xics don't overlap at all
             xic.AddRange(shiftedXic);
@@ -187,7 +187,7 @@ namespace Test
 
             Assert.That(xic.Count, Is.EqualTo(10));
             Assert.That(shiftedXic.Count, Is.EqualTo(10));
-            Assert.That(Math.Abs(xic.First().Mz - shiftedXic.First().Mz), Is.LessThan(0.00001));
+            Assert.That(Math.Abs(xic.First().M - shiftedXic.First().M), Is.LessThan(0.00001));
 
             // Check that the xics are the same
             xic.AddRange(shiftedXic);
@@ -216,7 +216,7 @@ namespace Test
             var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
             var peak = indexingEngine.GetIndexedPeak(997.986, 5, new PpmTolerance(20), 2);
             Assert.IsNotNull(peak);
-            Assert.That(peak.Mz, Is.EqualTo(500).Within(0.001));
+            Assert.That(peak.M, Is.EqualTo(500).Within(0.001));
             Assert.That(peak.ZeroBasedScanIndex, Is.EqualTo(5));
         }
 
@@ -227,7 +227,7 @@ namespace Test
             var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
             var peak = indexingEngine.GetIndexedPeak(500, 5, new PpmTolerance(20));
             Assert.IsNotNull(peak);
-            Assert.That(peak.Mz, Is.EqualTo(500).Within(0.001));
+            Assert.That(peak.M, Is.EqualTo(500).Within(0.001));
             Assert.That(peak.ZeroBasedScanIndex, Is.EqualTo(5));
         }
 
