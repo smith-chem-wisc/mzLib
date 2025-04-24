@@ -115,7 +115,7 @@ namespace Test
                     new MockQuantifiableRecord
                     {
                         BaseSequence = "BASESEQ",
-                        ModifiedSequence = "MODSEQ",
+                        FullSequence = "MODSEQ",
                         RetentionTime = 5.0,
                         MonoisotopicMass = 500.0,
                         ChargeState = 2,
@@ -128,7 +128,7 @@ namespace Test
                     new MockQuantifiableRecord
                     {
                         BaseSequence = "BASESEQ2",
-                        ModifiedSequence = "MODSEQ2",
+                        FullSequence = "MODSEQ2",
                         RetentionTime = 10.0,
                         MonoisotopicMass = 1000.0,
                         ChargeState = 3,
@@ -184,7 +184,7 @@ namespace Test
                     new MockQuantifiableRecord
                     {
                         BaseSequence = "BASESEQ",
-                        ModifiedSequence = "MODSEQ",
+                        FullSequence = "MODSEQ",
                         RetentionTime = 5.0,
                         MonoisotopicMass = 500.0,
                         ChargeState = 2,
@@ -251,7 +251,7 @@ namespace Test
     public class MockQuantifiableRecord : IQuantifiableRecord
     {
         public string BaseSequence { get; set; }
-        public string ModifiedSequence { get; set; }
+        public string FullSequence { get; set; }
         public double RetentionTime { get; set; }
         public double MonoisotopicMass { get; set; }
         public int ChargeState { get; set; }

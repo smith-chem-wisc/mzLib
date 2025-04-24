@@ -348,7 +348,7 @@ namespace Test
 
             List<IsotopicEnvelope> deconvolutionResults = Deconvoluter.Deconvolute(scan, deconParams).ToList();
             // ensure each expected result is found, with correct mz, charge, and monoisotopic mass
-            /*var resultsWithPeakOfInterest = deconvolutionResults.FirstOrDefault(envelope => tolerance.Within(envelope.MonoisotopicMass, expectedMonoMass));*/
+            /*var resultsWithPeakOfInterest = deconvolutionResults.FirstOrDefault(envelope => tolerance.Within(envelope.MonoisotopicMassString, expectedMonoMass));*/
             var resultsWithPeakOfInterest = deconvolutionResults.FirstOrDefault(envelope =>
                 envelope.Peaks.Any(peak => tolerance.Within(peak.mz, expectedMz)));
             if (resultsWithPeakOfInterest is null) Assert.Fail();

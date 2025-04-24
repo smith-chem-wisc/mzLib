@@ -1,6 +1,6 @@
 ﻿namespace Readers
 {
-    public class MsFraggerCombinedResults : ResultFile<MsFraggerPsm>, IResultFile, IQuantifiableResultFile
+    public class MsFraggerCombinedResults : ResultFile<MsFraggerPsm>, IQuantifiableResultFile
     {
         #region Properties/Fields
 

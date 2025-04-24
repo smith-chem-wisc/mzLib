@@ -5,10 +5,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using NUnit.Framework.Legacy;
 using Omics.Fragmentation;
-using Omics.SpectrumMatch;
-using Proteomics;
 using Readers;
+using MzLibUtil;
+using FlashLFQ;
 
 namespace Test.FileReadingTests
 {
@@ -39,8 +40,7 @@ namespace Test.FileReadingTests
                 Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(psmFilePsms[i].FullSequence));
             }
 
-
-            SpectrumMatchFromTsvFile spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile>(psmFilePath);
+            var spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile>(psmFilePath);
             List<SpectrumMatchFromTsv> spectralMatchFilePsms = spectralMatchFile.Results;
             Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
             for (int i = 0; i < parsedPsms.Count; i++)
@@ -63,9 +63,10 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public static void ReadOGlycoPsmsLocalizedGlycans()
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
+        public static void ReadOGlycoPsmsLocalizedGlycans(string psmFile)
         {
-            string psmFile = @"FileReadingTests\SearchResults\oglyco.psmtsv";
             List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(9, parsedPsms.Count);
 
@@ -77,7 +78,6 @@ namespace Test.FileReadingTests
             }
 
             Assert.AreEqual(1, localGlycans.Count);
-
         }
 
         [Test]
@@ -88,6 +88,40 @@ namespace Test.FileReadingTests
             Assert.AreEqual(1, parsedPsms.Count);
             IEnumerable<string> expectedIons = new string[] { "y3+1", "y4+1", "b4+1", "b5+1", "b6+1", "b8+1" };
             Assert.That(6 == parsedPsms[0].MatchedIons.Select(p => p.Annotation).Intersect(expectedIons).Count());
+        }
+
+        [Test]
+        public static void FailWhenPathIsBadAndContainsNoting()
+        {
+            string psmFile = @"DatabaseTests\bad4.fasta";
+            var lines = File.ReadAllLines(psmFile).Length;
+
+            // Throws the right type of exception
+            Assert.Throws<MzLibException>(() =>
+            {
+                SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out _);
+            });
+
+            // Wrapped up the parsing exception in a MzLibException
+            bool caught = false;
+            List<string> warnings = [];
+            List<PsmFromTsv> parsedPsms = [];
+            try
+            {
+                parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out warnings);
+            }
+            catch (MzLibException e)
+            {
+                caught = true;
+                Assert.That(parsedPsms.Count == 0);
+                Assert.That(warnings.Count == lines);
+                Assert.That(e is MzLibException);
+                Assert.That(e.InnerException, Is.Not.Null);
+                Assert.That(e.InnerException, Is.TypeOf<MzLibException>());
+                Assert.That(e.InnerException.Message, Does.Contain("type not supported"));
+            }
+
+            Assert.That(caught);
         }
 
         [Test]
@@ -350,6 +384,57 @@ namespace Test.FileReadingTests
             file.LoadResults();
             Assert.That(file.Results.Count == psms.Count);
             loadedFile = file;
+        }
+
+        [Test]
+        [TestCase("BottomUpExample.psmtsv")] // Bottom-Up
+        [TestCase("TDGPTMDSearchResults.psmtsv")] // TopDown
+        public static void TestProteinGroupInfos(string path)
+        {
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults",
+                path);
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out var warnings);
+
+            SpectrumMatchFromTsv ambiguousResult = parsedPsms.First(psm => psm.Accession.Contains("|"));
+            Assert.That(ambiguousResult.Accession.Contains("|"));
+            int ambiguityCount = ambiguousResult.Accession.Count(c => c == '|') + 1;
+            Assert.AreEqual(ambiguityCount, ambiguousResult.ProteinGroupInfos.Count);
+
+            CollectionAssert.AreEquivalent(ambiguousResult.ProteinGroupInfos.Select(g => g.proteinAccessions).ToList(),
+                ambiguousResult.Accession.Split('|').ToList());
+            CollectionAssert.AreEquivalent(ambiguousResult.ProteinGroupInfos.Select(g => g.geneName).ToList(),
+                ambiguousResult.GeneName.Split('|').ToList());
+            Assert.AreEqual(ambiguousResult.ProteinGroupInfos.Select(g => g.organism).First(),
+                ambiguousResult.OrganismName); // All these results are specific to one Organism, so no ambiguity at the organismLevel
+        }
+
+        [Test]
+        [TestCase("BottomUpExample.psmtsv", "04-30-13_CAST_Frac5_4uL.raw", @"D:/Data/This/Is/A/Folder/Tree/04-30-13_CAST_Frac4_6uL.mzML")] // Bottom-Up
+        [TestCase("TDGPTMDSearchResults.psmtsv", "TDGPTMDSearchSingleSpectra.raw", @"C:/Data/FXN3_tr1_032017-calib.mzML")] // TopDown
+        public static void TestFileNameFilePathDictionary(string path, string filePathA, string filePathB)
+        {
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults",
+                path);
+            IQuantifiableResultFile file = FileReader.ReadQuantifiableResultFile(psmFilePath);
+            List<string> filePaths = new List<string> { filePathA, filePathB };
+
+            var dictionary = file.FileNameToFilePath(filePaths);
+            Assert.That(dictionary.Count == 2);
+            Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.First())));
+            Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.Last())));
+        }
+
+        [Test]
+        public static void TestPsmFromTsvIdentifications()
+        {
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+
+            IQuantifiableResultFile file = FileReader.ReadQuantifiableResultFile(psmFilePath);
+            SpectraFileInfo f1 = new SpectraFileInfo("04-30-13_CAST_Frac5_4uL.raw", "A", 0, 0, 0);
+            SpectraFileInfo f2 = new SpectraFileInfo(@"D:/Data/This/Is/A/Folder/Tree/04-30-13_CAST_Frac4_6uL.mzML", "A", 0, 0, 0);
+            var ids = file.MakeIdentifications(new() { f1, f2});
+
+            CollectionAssert.AreEquivalent(ids.Select(i => i.ModifiedSequence), file.GetQuantifiableResults().Select(i => i.FullSequence));
         }
     }
 }
