@@ -30,7 +30,7 @@ namespace Readers
         /// <summary>
         /// The amino acid sequence and the associated post-translation modifications of the identified peptide
         /// </summary>
-        public string ModifiedSequence { get; }
+        public string FullSequence { get; }
 
         /// <summary>
         /// The retention time (in minutes) associated with the result
