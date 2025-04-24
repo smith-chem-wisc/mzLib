@@ -227,6 +227,13 @@ namespace Test
             IQuantifiableResultFile quantifiableResultFile = FileReader.ReadQuantifiableResultFile(pathOfIdentificationFile);
             List<Identification> ids = MzLibExtensions.MakeIdentifications(quantifiableResultFile, new List<SpectraFileInfo> { sfi });
             Assert.That(ids.Count, Is.EqualTo(89));
+
+            // test that PEP and PEP_QValue are NaN to improve code coverage
+            var castedId = quantifiableResultFile as PsmFromTsvFile;
+            Assert.That(castedId, Is.Not.Null);
+            var firstResult = castedId.Results.First();
+            Assert.That(firstResult.PEP, Is.NaN);
+            Assert.That(firstResult.PEP_QValue, Is.NaN);
         }
     }
 
