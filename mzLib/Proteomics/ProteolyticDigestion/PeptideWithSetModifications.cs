@@ -67,7 +67,7 @@ namespace Proteomics.ProteolyticDigestion
             {
                 throw new MzLibUtil.MzLibException("Ambiguous peptide cannot be parsed from string: " + sequence);
             }
-
+            
             FullSequence = sequence;
             _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
             _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods);

@@ -39,7 +39,6 @@ namespace Omics.Digestion
         public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } //structured explanation of source
         public int Length => BaseSequence.Length; //how many residues long the peptide is
 
-        public static int PossibleProteoforms => 
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         #region Digestion Helper Methods
@@ -87,6 +86,19 @@ namespace Omics.Digestion
                     yield return modificationPattern;
                 }
             }
+        }
+        /// <summary>
+        /// Helper method to call Piset() with standard parameters to get the number of proteoforms for a given peptide.
+        /// </summary>
+        /// <param name="sitesConsidered"></param>
+        /// <param name="modsAsList"></param>
+        /// <returns></returns>
+        public static long getNumberofProteoforms(int sitesConsidered, List<int> modsAsList)
+        {
+            long result = 0;
+            List<int> subset = new();
+            Piset(sitesConsidered, ref result, subset, modsAsList);
+            return result;
         }
         /// <summary>
         ///  Recursive backtracking method to calculate the number of all possible proteoforms for a given peptide.

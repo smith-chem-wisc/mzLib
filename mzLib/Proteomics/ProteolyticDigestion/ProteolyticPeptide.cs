@@ -38,6 +38,7 @@ namespace Proteomics.ProteolyticDigestion
             set => Description = value;
         }
 
+
         #endregion
 
         /// <summary>
@@ -82,6 +83,20 @@ namespace Proteomics.ProteolyticDigestion
                 FixedModDictionaryPool.Return(fixedModDictionary);
                 DictionaryPool.Return(twoBasedPossibleVariableAndLocalizeableModifications);
             }
+        }
+
+        internal long numPossibleProteoforms(List<Modification> allKnownFixedModifications,
+        DigestionParams digestionParams, List<Modification> variableModifications)
+        {
+            var iterator = GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications);
+            List<int> powerSet = new List<int>();
+            foreach (var x in iterator)
+            {
+                //iterate through each residue
+                powerSet.Add(x.NumMods);
+            }
+
+            return getNumberofProteoforms(digestionParams.MaxMods, powerSet);
         }
     }
 }
