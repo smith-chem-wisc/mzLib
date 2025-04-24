@@ -87,13 +87,16 @@ namespace Proteomics.ProteolyticDigestion
 
         internal long numPossibleProteoforms(List<Modification> allKnownFixedModifications,
         DigestionParams digestionParams, List<Modification> variableModifications)
+
         {
-            var iterator = GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications);
+            int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
+            var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
+            var iterator = GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, digestionParams.MaxModsForPeptide, peptideLength);
             List<int> powerSet = new List<int>();
             foreach (var x in iterator)
             {
                 //iterate through each residue
-                powerSet.Add(x.NumMods);
+                powerSet.Add(x.Values.Count);
             }
 
             return getNumberofProteoforms(digestionParams.MaxMods, powerSet);
