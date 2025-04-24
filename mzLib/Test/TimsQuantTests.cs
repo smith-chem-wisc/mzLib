@@ -79,8 +79,8 @@ namespace Test
             var peptides = results.PeptideModifiedSequences.Values.ToList();
             var proteins = results.ProteinGroups.Values.ToList();
 
-            Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
-            Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));
+            Assert.AreEqual(4, peaks[0].Count(m => m.DetectionType != DetectionType.MBR));
+            Assert.AreEqual(5, peaks[1].Count(m => m.DetectionType != DetectionType.MBR));
 
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
