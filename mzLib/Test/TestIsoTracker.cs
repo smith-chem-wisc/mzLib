@@ -737,7 +737,6 @@ namespace Test
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
 
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
-            
             // Check the output: there are one kind of IsoID(modifiedPeptide), then two isobaricPeptide, and four isobaricPeaks
             Assert.AreEqual(peptidesList.Count, 2);//two isobaricPeptide
             List<string> expectedSequence_Peak1 = new List<string> { "DIVENYFM[Common Variable:Oxidation on M]R", "VENDM[Common Variable:Oxidation on M]RIYF" };
@@ -805,7 +804,6 @@ namespace Test
                 }
 
             }
-
             Directory.Delete(outputDirectory, true);
         }
 
@@ -1063,11 +1061,8 @@ namespace Test
                     {
                         Assert.IsTrue(outputSequence.Contains(seq));
                     }
-
                 }
-
             }
-
             Directory.Delete(outputDirectory, true);
         }
 
@@ -1142,7 +1137,6 @@ namespace Test
                         proteinGroups.Add(allProteinGroups[protein]);
                     }
                 }
-
                 Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
                 ids.Add(id);
 
@@ -1155,9 +1149,7 @@ namespace Test
                 isoTracker: true,
                 maxThreads: 1);
             var results = engine.Run();
-
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
-
 
             List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
@@ -1176,7 +1168,6 @@ namespace Test
 
             int QPeptideNum = ambiguityPeptideNum * 2 + normalIsoPeptideNum * 2 + unModifiedPeptideNum;
             Assert.IsTrue(QPeptideNum == 8 && QPeptideNum == peptidesList.Count);
-
 
             //Check the detectionType of each Isobaric peptide, in this case
             //For isobaric peptide: one is MSMS and the other is IsoTrack_MBR
@@ -1228,7 +1219,6 @@ namespace Test
                     }
                 }
             }
-
             Directory.Delete(outputDirectory, true);
         }
 
