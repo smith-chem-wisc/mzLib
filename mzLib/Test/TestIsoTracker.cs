@@ -651,11 +651,10 @@ namespace Test
         public static void TestIsoTracker_IsobaricDefine()
         {
             // Description: Test the isobaricPeptide definition in the IsoTracker
-            // There are four IDs in the peak 1, are
-            // DIVENYFM[Common Variable:Oxidation on M]R, (standard, mz: 1202.54, ProteinGroupA)
-            // DIVENYFM[Common Variable:Oxidation on M]R (different mass mz: 1202.56, ProteinGroupA),
-            // VENDM[Common Variable:Oxidation on M]RIYF (different base sequence, mz: 1202.54, ProteinGroupB)
-            // Base on the definition of the IsobaricPeptide, the one and third will be the isobaricPeptide
+            // There are two IDs in the peak 1
+            // DIVENYFM[Common Variable:Oxidation on M]R (base sequence DIVENYFMR, ProteinGroupA)
+            // VENDM[Common Variable:Oxidation on M]RIYF (base sequence VENDMRIYF, ProteinGroupB)
+            // Base on the definition they should be classified as the same isobaricPeptide
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
@@ -815,7 +814,7 @@ namespace Test
         {
             // Description: Test the massTolerance for isobaricPeptide
             // There are three ID for peak 1, peptide1 , peptide2 and peptide3
-            // In my setting: the p1 and p2 will be within tolerance and the p3 is over and identifed not a isobaricPeptide
+            // In my setting: the p1 and p2 will be within tolerance. However, the p3 is over the tolerance, thus it is classified as isobaricPeptide
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
@@ -1076,7 +1075,6 @@ namespace Test
         public static void TestIsoSequence_CombinedTesting()
         {
             //In this test, there are two unmodifiedPeptide, one ambiguous isoPeptide set, and two normal isobaric peptides.
-
             //Try to turn on the MBR and Isotracker at the same time
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
