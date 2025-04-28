@@ -1959,20 +1959,39 @@ namespace FlashLFQ
             int isoGroupsSearched = 0;
             double lastReportedProgress = 0;
             double currentProgress = 0;
+            List<IsobaricPeptide> isobaricPeptides = new List<IsobaricPeptide>();
+            var ids = _allIdentifications.OrderBy(p => p.PeakfindingMass).ToList();
+            for (int i = 0; i < ids.Count; i++)
+            {
+                Identification id = ids[i];
+                IsobaricPeptide isobaricPeptide = new IsobaricPeptide(id, "10 ppm");
+                ids.Remove(id);
 
-            var idGroupedBySeq = _allIdentifications
-                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
-                .GroupBy(p => new
-                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) })
-                .ToList();
+                for (int j = 0; j < ids.Count; j++)
+                {
+                    Identification id2 = ids[j];
+                    if (id2.PeakfindingMass < isobaricPeptide.MaxMass)
+                    {
+                        isobaricPeptide.Ids.Add(id2);
+                    }
+                    else break;
+                }
+                isobaricPeptides.Add(isobaricPeptide);
+            }
 
-            Parallel.ForEach(Partitioner.Create(0, idGroupedBySeq.Count),
+            //var idGroupedBySeq = _allIdentifications
+            //    .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
+            //    .GroupBy(p => new
+            //        { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) })
+            //    .ToList();
+
+            Parallel.ForEach(Partitioner.Create(0, isobaricPeptides.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                 (range, loopState) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        var idGroup = idGroupedBySeq[i];
+                        var idGroup = isobaricPeptides[i].Ids;
                         List<XIC> xicGroup = new List<XIC>();
                         var mostCommonChargeIdGroup = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
                         var id = mostCommonChargeIdGroup.First();
@@ -2039,7 +2058,7 @@ namespace FlashLFQ
                         {
                             Interlocked.Increment(ref isoGroupsSearched);
 
-                            double percentProgress = ((double)isoGroupsSearched / idGroupedBySeq.Count * 100);
+                            double percentProgress = ((double)isoGroupsSearched / isobaricPeptides.Count * 100);
                             currentProgress = Math.Max(percentProgress, currentProgress);
 
                             if (currentProgress > lastReportedProgress + 10)
