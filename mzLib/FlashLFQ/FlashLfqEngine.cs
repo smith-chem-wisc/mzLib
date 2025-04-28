@@ -47,7 +47,7 @@ namespace FlashLFQ
         //IsoTracker settings
         public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
-        public ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
+        public ConcurrentDictionary<IsobaricPeptide, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -253,7 +253,7 @@ namespace FlashLFQ
             if (IsoTracker)
             {
                 IsoTrackerIsRunning = true; // Turn on the flag, then we will use the separate indexEngine for each files
-                IsobaricPeptideDict = new ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
+                IsobaricPeptideDict = new ConcurrentDictionary<IsobaricPeptide, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
                 QuantifyIsobaricPeaks();
                 _results.IsobaricPeptideDict = IsobaricPeptideDict;
                 AddIsoPeaks();
@@ -1996,9 +1996,9 @@ namespace FlashLFQ
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        var idGroup = isobaricPeptides[i].Ids;
+                        var isobaricPeptide = isobaricPeptides[i];
                         List<XIC> xicGroup = new List<XIC>();
-                        var mostCommonChargeIdGroup = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
+                        var mostCommonChargeIdGroup = isobaricPeptide.Ids.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
                         var id = mostCommonChargeIdGroup.First();
 
                         // Try to get the primitive window for the XIC , from the (firstOne - 2) ->  (lastOne + 2)
@@ -2027,7 +2027,7 @@ namespace FlashLFQ
                         if (xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
-                            xicGroup.OrderBy(p => p.Ids.Count()).Last().Reference = true;
+                            xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;
 
                             //Step 2: Build the XICGroups
                             XICGroups xICGroups = new XICGroups(xicGroup);
@@ -2055,7 +2055,7 @@ namespace FlashLFQ
                                     }
                                 }
                             }
-                            IsobaricPeptideDict.TryAdd(id.ModifiedSequence, sharedPeaksDict);
+                            IsobaricPeptideDict.TryAdd(isobaricPeptide, sharedPeaksDict);
                         }
 
                         // report search progress (proteins searched so far out of total proteins in database)
