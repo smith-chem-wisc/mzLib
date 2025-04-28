@@ -1960,12 +1960,15 @@ namespace FlashLFQ
             double lastReportedProgress = 0;
             double currentProgress = 0;
             List<IsobaricPeptide> isobaricPeptides = new List<IsobaricPeptide>();
-            var ids = _allIdentifications.OrderBy(p => p.PeakfindingMass).ToList();
+            var ids = _allIdentifications.Where(p=>p.BaseSequence!= p.ModifiedSequence).OrderBy(p => p.PeakfindingMass).ToList();
+
+            // Group the identifications by their mass, and build the isobaricPeptide
             for (int i = 0; i < ids.Count; i++)
             {
                 Identification id = ids[i];
                 IsobaricPeptide isobaricPeptide = new IsobaricPeptide(id, "10 ppm");
                 ids.Remove(id);
+                i--;
 
                 for (int j = 0; j < ids.Count; j++)
                 {
@@ -1973,6 +1976,8 @@ namespace FlashLFQ
                     if (id2.PeakfindingMass < isobaricPeptide.MaxMass)
                     {
                         isobaricPeptide.Ids.Add(id2);
+                        ids.Remove(id2);
+                        j--;
                     }
                     else break;
                 }
@@ -2022,7 +2027,7 @@ namespace FlashLFQ
                         if (xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
-                            xicGroup.OrderBy(p => p.Ids.Count()).First().Reference = true;
+                            xicGroup.OrderBy(p => p.Ids.Count()).Last().Reference = true;
 
                             //Step 2: Build the XICGroups
                             XICGroups xICGroups = new XICGroups(xicGroup);
