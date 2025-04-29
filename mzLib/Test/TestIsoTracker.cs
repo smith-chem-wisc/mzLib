@@ -903,7 +903,10 @@ namespace Test
                 var peakOrder = pep.Split('\t')[2].IsNotNullOrEmpty()? int.Parse(pep.Split('\t')[2]) : -1;
                 if (peakOrder == 1)
                 {
-                    Assert.IsTrue(outputSequence.Contains("Peptide1"));
+                    foreach (var peptide in expectedSequence_Peak1)
+                    {
+                        Assert.IsTrue(outputSequence.Contains(peptide));
+                    }
                     Assert.IsTrue(outputBaseSequence.Contains("Peptide"));
                 }
                 else if (peakOrder == 2)
@@ -1009,7 +1012,6 @@ namespace Test
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
-
 
             List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
@@ -1151,22 +1153,18 @@ namespace Test
             var results = engine.Run();
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
 
-            List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
-            List<string> proteinsList = File.ReadAllLines(Path.Combine(outputDirectory, "proteins.tsv")).Skip(1).ToList();
 
-            // Check the output: there are one kind of IsoID(modifiedPeptide), then two isobaricPeptide, and four isobaricPeaks
-            int ambiguityPeptideNum = ids.GroupBy(p => new { p.BaseSequence, p.MonoisotopicMass })
-                .Where(p => p.Count() > 2).Count();
-            int normalIsoPeptideNum = ids.GroupBy(p => new { p.BaseSequence, p.MonoisotopicMass })
-                .Where(p => p.Count() == 2).Count();
-            int unModifiedPeptideNum = ids.Where(p => p.BaseSequence == p.ModifiedSequence).Count();
+            // Check the output: there are one kind of ambiguous peptide, then two isobaricPeptide, and two unmodified Peptide
+            int ambiguityPeptideNum = ids.GroupBy(p => (p.BaseSequence, p.MonoisotopicMass)).Count(g => g.Count() > 2);
+            int normalIsoPeptideNum = ids.GroupBy(p => (p.BaseSequence, p.MonoisotopicMass)).Count(g => g.Count() == 2);
+            int unModifiedPeptideNum = ids.Count(p => p.BaseSequence == p.ModifiedSequence);
 
             Assert.AreEqual(ambiguityPeptideNum, 1);
             Assert.AreEqual(normalIsoPeptideNum, 2);
             Assert.AreEqual(unModifiedPeptideNum, 2);
 
-            int QPeptideNum = ambiguityPeptideNum * 2 + normalIsoPeptideNum * 2 + unModifiedPeptideNum;
+            int QPeptideNum = ambiguityPeptideNum * 2 + normalIsoPeptideNum * 2 + unModifiedPeptideNum; // total peptide output number
             Assert.IsTrue(QPeptideNum == 8 && QPeptideNum == peptidesList.Count);
 
             //Check the detectionType of each Isobaric peptide, in this case
