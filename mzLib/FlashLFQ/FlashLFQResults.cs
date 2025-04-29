@@ -17,7 +17,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
         private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
-        public IDictionary<IsobaricPeptide, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict = null;
+        public IDictionary<PeptideMassBin, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict = null;
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }
 

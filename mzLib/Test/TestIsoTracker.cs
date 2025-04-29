@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using Easy.Common.Extensions;
 using MathNet.Numerics.Interpolation;
+using MzLibUtil;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 
@@ -18,8 +19,175 @@ namespace Test
     [ExcludeFromCodeCoverage]
     internal class TestIsoTracker
     {
-        // Test the XIC class
+        // Test basic function
+        [Test]
+        public static void IsobaricSorting_basic()
+        {
+            //Description: Test the SortIsobaricPeptide function
+            var file = new SpectraFileInfo("path/to/file.raw", "Condition", 1, 1, 1);
+            var proteinGroups = new List<ProteinGroup>();
+            List<Identification> ids = new List<Identification>()
+            {
+                new Identification(file, "Peptide", "PeptideA", 1000.000, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideB", 1000.003, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideC", 1000.005, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideD", 1000.009, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideE", 1000.011, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideF", 1000.013, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideG", 1000.015, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideH", 1000.1, 10.0, 3, proteinGroups)
+            };
+            foreach (var id in ids)
+            {
+                id.PeakfindingMass = id.MonoisotopicMass;
+            }
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: false,
+                
+                maxThreads: 1);
+            PpmTolerance tolerance = new PpmTolerance(10);
+            var massBins = engine.SortIsobaricPeptide(ids, tolerance); 
+            Assert.IsNotNull(massBins);
+            Assert.AreEqual(massBins.Count, 3);
+            for (int i = 0; i < massBins.Count; i++ ) 
+            {
+                if (i == 0)
+                {
+                    Assert.AreEqual(massBins[i].Ids.Count, 4);
+                    Assert.AreEqual(massBins[i].Ids[0].ModifiedSequence, "PeptideA");
+                    Assert.AreEqual(massBins[i].Ids[1].ModifiedSequence, "PeptideB");
+                    Assert.AreEqual(massBins[i].Ids[2].ModifiedSequence, "PeptideC");
+                    Assert.AreEqual(massBins[i].Ids[3].ModifiedSequence, "PeptideD");
+                }
 
+                if (i == 1)
+                {
+                    Assert.AreEqual(massBins[i].Ids.Count, 3);
+                    Assert.AreEqual(massBins[i].Ids[0].ModifiedSequence, "PeptideE");
+                    Assert.AreEqual(massBins[i].Ids[1].ModifiedSequence, "PeptideF");
+                    Assert.AreEqual(massBins[i].Ids[2].ModifiedSequence, "PeptideG");
+                }
+                if (i == 2)
+                {
+                    Assert.AreEqual(massBins[i].Ids.Count, 1);
+                    Assert.AreEqual(massBins[i].Ids[0].ModifiedSequence, "PeptideH");
+                }
+            }
+
+        }
+
+        [Test]
+        public static void IsobaricSorting_advanced()
+        {
+            //Description: Test the SortIsobaricPeptide function, with 5000 id list
+            //In this tester, we will check each id in the bin to have the same base sequence or same mass within the tolerance
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
+            Directory.CreateDirectory(outputDirectory);
+
+            // Load the id list from the psm file
+            string psmFile = Path.Combine(testDataDirectory, "IDList_5000Ids.psmtsv");
+            string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
+            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "two", 1, 1, 1);
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains(file1))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains(file2))
+                {
+                    file = f1r2;
+                }
+
+
+                var decoy = split[33];
+                var contaminant = split[32];
+                var qvalue = double.Parse(split[51]);
+                var qvalueNotch = double.Parse(split[54]);
+                string baseSequence = split[13];
+                string fullSequence = split[14];
+
+                if (baseSequence.Contains("|") || fullSequence.Contains("|"))
+                {
+                    continue;
+                }
+                if (decoy.Contains("Y") || contaminant.Contains("Y") || qvalue > 0.01 || qvalueNotch > 0.01)
+                {
+                    continue;
+                }
+
+                double monoMass = double.Parse(split[23].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[26].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+            foreach (var id in ids)
+            {
+                id.PeakfindingMass = id.MonoisotopicMass;
+            }
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: false,
+
+                maxThreads: 1);
+
+            // Sort the isobaric peptides
+            PpmTolerance tolerance = new PpmTolerance(10);
+            var massBins = engine.SortIsobaricPeptide(ids, tolerance);
+            Assert.IsNotNull(massBins);
+            for (int i = 0; i < massBins.Count; i++)
+            {
+                var baseSeqList = massBins[i].Ids.Select(p => p.BaseSequence).ToList();
+                // Most of the case, the id in the same bin should have the same base sequence
+                if (baseSeqList.Distinct().Count() > 1)
+                {
+                    // If the base sequence is different, then the mass should be same within the tolerance
+                    var idsInTheBin = massBins[i].Ids;
+                    var referenceMass = idsInTheBin.First().MonoisotopicMass;
+                    var allWithinTolerance = idsInTheBin.All(id => tolerance.Within(id.MonoisotopicMass, referenceMass));
+                    // Assert  
+                    Assert.IsTrue(allWithinTolerance, "Not all IDs have the same mass within the specified tolerance.");
+                }
+            }
+
+        }
+
+        // Test the XIC class
         [Test]
         public static void TestXICConstructor()
         {
