@@ -18,6 +18,7 @@ using System.Threading;
 using FlashLFQ.Interfaces;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
+[assembly: InternalsVisibleTo("Test")]
 
 namespace FlashLFQ
 {
@@ -47,7 +48,7 @@ namespace FlashLFQ
         //IsoTracker settings
         public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
-        public ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
+        public ConcurrentDictionary<PeptideMassBin, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -253,7 +254,7 @@ namespace FlashLFQ
             if (IsoTracker)
             {
                 IsoTrackerIsRunning = true; // Turn on the flag, then we will use the separate indexEngine for each files
-                IsobaricPeptideDict = new ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
+                IsobaricPeptideDict = new ConcurrentDictionary<PeptideMassBin, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
                 QuantifyIsobaricPeaks();
                 _results.IsobaricPeptideDict = IsobaricPeptideDict;
                 AddIsoPeaks();
@@ -1967,21 +1968,18 @@ namespace FlashLFQ
             double lastReportedProgress = 0;
             double currentProgress = 0;
 
-            var idGroupedBySeq = _allIdentifications
-                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
-                .GroupBy(p => new
-                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) })
-                .ToList();
-
-            Parallel.ForEach(Partitioner.Create(0, idGroupedBySeq.Count),
+            // Group the identifications by their mass, and build the isobaricPeptide
+            Tolerance massTolerance = new PpmTolerance(PpmTolerance);
+            List<PeptideMassBin> peptideMassBins = SortIsobaricPeptide(_allIdentifications, massTolerance);
+            Parallel.ForEach(Partitioner.Create(0, peptideMassBins.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                 (range, loopState) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        var idGroup = idGroupedBySeq[i];
+                        var isobaricPeptide = peptideMassBins[i];
                         List<XIC> xicGroup = new List<XIC>();
-                        var mostCommonChargeIdGroup = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
+                        var mostCommonChargeIdGroup = isobaricPeptide.Ids.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
                         var id = mostCommonChargeIdGroup.First();
 
                         // Try to get the primitive window for the XIC , from the (firstOne - 2) ->  (lastOne + 2)
@@ -2010,7 +2008,7 @@ namespace FlashLFQ
                         if (xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
-                            xicGroup.OrderBy(p => p.Ids.Count()).First().Reference = true;
+                            xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;
 
                             //Step 2: Build the XICGroups
                             XICGroups xICGroups = new XICGroups(xicGroup);
@@ -2038,7 +2036,7 @@ namespace FlashLFQ
                                     }
                                 }
                             }
-                            IsobaricPeptideDict.TryAdd(id.ModifiedSequence, sharedPeaksDict);
+                            IsobaricPeptideDict.TryAdd(isobaricPeptide, sharedPeaksDict);
                         }
 
                         // report search progress (proteins searched so far out of total proteins in database)
@@ -2046,7 +2044,7 @@ namespace FlashLFQ
                         {
                             Interlocked.Increment(ref isoGroupsSearched);
 
-                            double percentProgress = ((double)isoGroupsSearched / idGroupedBySeq.Count * 100);
+                            double percentProgress = ((double)isoGroupsSearched / peptideMassBins.Count * 100);
                             currentProgress = Math.Max(percentProgress, currentProgress);
 
                             if (currentProgress > lastReportedProgress + 10)
@@ -2059,6 +2057,38 @@ namespace FlashLFQ
                 });
             if (!Silent)
                 Console.WriteLine("Finished quantifying isobaric species!");
+        }
+
+        /// <summary>
+        /// Sort ids in the IDList and classify into isobaricPeptide by their mass.
+        /// </summary>
+        internal List<PeptideMassBin> SortIsobaricPeptide(List<Identification> _allIdentifications, Tolerance massTolerance)
+        {
+            List<PeptideMassBin> isobaricPeptides = new List<PeptideMassBin>();
+            var ids = _allIdentifications.Where(p => p.BaseSequence != p.ModifiedSequence).OrderBy(p => p.PeakfindingMass).ToList();
+            
+            for (int i = 0; i < ids.Count; i++)
+            {
+                Identification id = ids[i];
+                PeptideMassBin isobaricPeptide = new PeptideMassBin(id, massTolerance);
+
+                for (int j = i+1; j < ids.Count; j++)
+                {
+                    Identification id2 = ids[j];
+                    if (id2.PeakfindingMass < isobaricPeptide.MaxMass)
+                    {
+                        isobaricPeptide.Ids.Add(id2);
+                        i = j;
+                    }
+                    else
+                    {
+                        i = j-1;
+                        break;
+                    }
+                }
+                isobaricPeptides.Add(isobaricPeptide);
+            }
+            return isobaricPeptides;
         }
 
         /// <summary>

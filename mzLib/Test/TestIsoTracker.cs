@@ -7,7 +7,9 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Easy.Common.Extensions;
 using MathNet.Numerics.Interpolation;
+using MzLibUtil;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 
@@ -17,8 +19,175 @@ namespace Test
     [ExcludeFromCodeCoverage]
     internal class TestIsoTracker
     {
-        // Test the XIC class
+        // Test basic function
+        [Test]
+        public static void IsobaricSorting_basic()
+        {
+            //Description: Test the SortIsobaricPeptide function
+            var file = new SpectraFileInfo("path/to/file.raw", "Condition", 1, 1, 1);
+            var proteinGroups = new List<ProteinGroup>();
+            List<Identification> ids = new List<Identification>()
+            {
+                new Identification(file, "Peptide", "PeptideA", 1000.000, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideB", 1000.003, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideC", 1000.005, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideD", 1000.009, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideE", 1000.011, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideF", 1000.013, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideG", 1000.015, 10.0, 3, proteinGroups),
+                new Identification(file, "Peptide", "PeptideH", 1000.1, 10.0, 3, proteinGroups)
+            };
+            foreach (var id in ids)
+            {
+                id.PeakfindingMass = id.MonoisotopicMass;
+            }
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: false,
+                
+                maxThreads: 1);
+            PpmTolerance tolerance = new PpmTolerance(10);
+            var massBins = engine.SortIsobaricPeptide(ids, tolerance); 
+            Assert.IsNotNull(massBins);
+            Assert.AreEqual(massBins.Count, 3);
+            for (int i = 0; i < massBins.Count; i++ ) 
+            {
+                if (i == 0)
+                {
+                    Assert.AreEqual(massBins[i].Ids.Count, 4);
+                    Assert.AreEqual(massBins[i].Ids[0].ModifiedSequence, "PeptideA");
+                    Assert.AreEqual(massBins[i].Ids[1].ModifiedSequence, "PeptideB");
+                    Assert.AreEqual(massBins[i].Ids[2].ModifiedSequence, "PeptideC");
+                    Assert.AreEqual(massBins[i].Ids[3].ModifiedSequence, "PeptideD");
+                }
 
+                if (i == 1)
+                {
+                    Assert.AreEqual(massBins[i].Ids.Count, 3);
+                    Assert.AreEqual(massBins[i].Ids[0].ModifiedSequence, "PeptideE");
+                    Assert.AreEqual(massBins[i].Ids[1].ModifiedSequence, "PeptideF");
+                    Assert.AreEqual(massBins[i].Ids[2].ModifiedSequence, "PeptideG");
+                }
+                if (i == 2)
+                {
+                    Assert.AreEqual(massBins[i].Ids.Count, 1);
+                    Assert.AreEqual(massBins[i].Ids[0].ModifiedSequence, "PeptideH");
+                }
+            }
+
+        }
+
+        [Test]
+        public static void IsobaricSorting_advanced()
+        {
+            //Description: Test the SortIsobaricPeptide function, with 5000 id list
+            //In this tester, we will check each id in the bin to have the same base sequence or same mass within the tolerance
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
+            Directory.CreateDirectory(outputDirectory);
+
+            // Load the id list from the psm file
+            string psmFile = Path.Combine(testDataDirectory, "IDList_5000Ids.psmtsv");
+            string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
+            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "two", 1, 1, 1);
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains(file1))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains(file2))
+                {
+                    file = f1r2;
+                }
+
+
+                var decoy = split[33];
+                var contaminant = split[32];
+                var qvalue = double.Parse(split[51]);
+                var qvalueNotch = double.Parse(split[54]);
+                string baseSequence = split[13];
+                string fullSequence = split[14];
+
+                if (baseSequence.Contains("|") || fullSequence.Contains("|"))
+                {
+                    continue;
+                }
+                if (decoy.Contains("Y") || contaminant.Contains("Y") || qvalue > 0.01 || qvalueNotch > 0.01)
+                {
+                    continue;
+                }
+
+                double monoMass = double.Parse(split[23].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[26].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+            foreach (var id in ids)
+            {
+                id.PeakfindingMass = id.MonoisotopicMass;
+            }
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: false,
+
+                maxThreads: 1);
+
+            // Sort the isobaric peptides
+            PpmTolerance tolerance = new PpmTolerance(10);
+            var massBins = engine.SortIsobaricPeptide(ids, tolerance);
+            Assert.IsNotNull(massBins);
+            for (int i = 0; i < massBins.Count; i++)
+            {
+                var baseSeqList = massBins[i].Ids.Select(p => p.BaseSequence).ToList();
+                // Most of the case, the id in the same bin should have the same base sequence
+                if (baseSeqList.Distinct().Count() > 1)
+                {
+                    // If the base sequence is different, then the mass should be same within the tolerance
+                    var idsInTheBin = massBins[i].Ids;
+                    var referenceMass = idsInTheBin.First().MonoisotopicMass;
+                    var allWithinTolerance = idsInTheBin.All(id => tolerance.Within(id.MonoisotopicMass, referenceMass));
+                    // Assert  
+                    Assert.IsTrue(allWithinTolerance, "Not all IDs have the same mass within the specified tolerance.");
+                }
+            }
+
+        }
+
+        // Test the XIC class
         [Test]
         public static void TestXICConstructor()
         {
@@ -407,7 +576,6 @@ namespace Test
             Assert.AreEqual(ApexPeaks.Count, 1);
         }
 
-
         [Test]
         public static void TestCombinedSearching()
         {
@@ -515,7 +683,7 @@ namespace Test
 
         // Test the IsoTracker search function
         [Test]
-        public static void TestPeakOutput()
+        public static void TestIsoTracker_Output()
         {
             //Description: Test the IsoTracker in the FlashLFQ, checking items include the peak tracking and the peak output
             //There are three XIC included isobaric peaks that with 3 min gap.
@@ -647,19 +815,19 @@ namespace Test
             Directory.Delete(outputDirectory, true);
         }
 
-
         [Test]
-        public static void TestIsoSequence_Ambiguous()
+        public static void TestIsoTracker_IsobaricDefine()
         {
-            //Description: Test the IsoTracker in the FlashLFQ, checking the algorithm can correctly recognize the IsoID
-            //IsoID: DIVENY[Common Variable:Oxidation on M]FMR   should be the same as DIVENYFM[Common Variable:Oxidation on M]R
-
-            //Try to turn on the MBR and Isotracker at the same time
+            // Description: Test the isobaricPeptide definition in the IsoTracker
+            // There are two IDs in the peak 1
+            // DIVENYFM[Common Variable:Oxidation on M]R (base sequence DIVENYFMR, ProteinGroupA)
+            // VENDM[Common Variable:Oxidation on M]RIYF (base sequence VENDMRIYF, ProteinGroupB)
+            // Base on the definition they should be classified as the same isobaricPeptide
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
-            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_IsoID.psmtsv");
+            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_IsobaricPeptide.psmtsv");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
             string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
@@ -734,67 +902,90 @@ namespace Test
                 isoTracker: true,
                 maxThreads: 1);
             var results = engine.Run();
-
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
 
-
-            List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
-            List<string> proteinsList = File.ReadAllLines(Path.Combine(outputDirectory, "proteins.tsv")).Skip(1).ToList();
-
-
             // Check the output: there are one kind of IsoID(modifiedPeptide), then two isobaricPeptide, and four isobaricPeaks
-            int modifiedPeptideNum = ids.GroupBy(p => new { p.BaseSequence, p.MonoisotopicMass }).Count();
-            int isobaricPeptideNum = modifiedPeptideNum * 2;
-            int isobaricPeakNum = isobaricPeptideNum * 2;
+            Assert.AreEqual(peptidesList.Count, 2);//two isobaricPeptide
+            List<string> expectedSequence_Peak1 = new List<string> { "DIVENYFM[Common Variable:Oxidation on M]R", "VENDM[Common Variable:Oxidation on M]RIYF" };
+            List<string> expectedSequence_Peak2 = new List<string> { "DIVENYF[Common Variable:Oxidation on M]MR" };
+            List<string> expectedBaseSequence_Peak1 = new List<string> { "DIVENYFMR", "VENDMRIYF" };
+            List<string> expectedBaseSequence_Peak2 = new List<string> { "DIVENYFM" };
+            List<string> expectedProteinGroup_peak1 = new List<string>() { "GroupA","GroupB"};
+            List<string> expectedProteinGroup_peak2 = new List<string>() { "GroupA" };
 
-            Assert.AreEqual(proteinsList.Count, modifiedPeptideNum);
-            Assert.AreEqual(peptidesList.Count, isobaricPeptideNum);
-            Assert.AreEqual(peaksList.Count, isobaricPeakNum);
-            List<string> expectedSequence = new List<string> { "DIVENYFM[Common Variable:Oxidation on M]R", "DIVENYF[Common Variable:Oxidation on M]MR", "DIVENY[Common Variable:Oxidation on M]FMR" };
-
-            //Check the detectionType of each peak, in this case all  peaks is IsoTrack_Ambiguous
-            //The output sequence should be the same as the expected sequence
-            foreach (var peak in peaksList)
-            {
-                var peakSeq = peak.Split('\t')[2].Split('|').ToList();
-                var detectionType = peak.Split('\t')[16];
-                Assert.AreEqual(peakSeq, expectedSequence);
-                CollectionAssert.AreEqual(detectionType, "IsoTrack_Ambiguous");
-            }
-
-            //Check the detectionType of each peptide, in this case all peptides are IsoTrack_Ambiguous
-            //The output sequence should be the same as the expected sequence
             foreach (var peptide in peptidesList)
             {
-                string sequences = peptide.Split('\t')[0];
-                var detectionType_run1 = peptide.Split('\t')[10];
-                var detectionType_run2 = peptide.Split('\t')[11];
-                Assert.AreEqual(detectionType_run1, "IsoTrack_Ambiguous");
-                Assert.AreEqual(detectionType_run2, "IsoTrack_Ambiguous");
-
-                foreach (var seq in expectedSequence)
+                string outputSequence = peptide.Split('\t')[0];
+                string outputBaseSequence = peptide.Split('\t')[1];
+                var peakOrder = int.Parse(peptide.Split('\t')[2]);
+                string outputProteinGroup = peptide.Split('\t')[3];
+                
+                if (peakOrder == 1)
                 {
-                    Assert.IsTrue(sequences.Contains(seq));
-                }
-            }
+                    // Check the detectionType of each peptide, in this case all peptides are IsoTrack_Ambiguous
+                    var detectionType_run1 = peptide.Split('\t')[10];
+                    var detectionType_run2 = peptide.Split('\t')[11];
+                    Assert.AreEqual(detectionType_run1, "IsoTrack_Ambiguous");
+                    Assert.AreEqual(detectionType_run2, "IsoTrack_Ambiguous");
 
+                    //The output sequence should be the same as the expected sequence
+                    foreach (var seq in expectedSequence_Peak1)
+                    {
+                        Assert.IsTrue(outputSequence.Contains(seq));
+                    }
+                    //The output base sequence should be the same as the expected base sequence
+                    foreach (var seq in expectedBaseSequence_Peak1)
+                    {
+                        Assert.IsTrue(outputBaseSequence.Contains(seq));
+                    }
+                    //The output protein group should be the same as the expected protein group
+                    foreach (var seq in expectedProteinGroup_peak1)
+                    {
+                        Assert.IsTrue(outputProteinGroup.Contains(seq));
+                    }
+                }
+                else if (peakOrder == 2)
+                {
+                    // Check the detectionType of each peptide, in this case all peptides are IsoTrack_Ambiguous
+                    var detectionType_run1 = peptide.Split('\t')[10];
+                    var detectionType_run2 = peptide.Split('\t')[11];
+                    Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
+                    Assert.AreEqual(detectionType_run2, "MSMS");
+
+                    //The output sequence should be the same as the expected sequence
+                    foreach (var seq in expectedSequence_Peak2)
+                    {
+                        Assert.IsTrue(outputSequence.Contains(seq));
+                    }
+                    //The output base sequence should be the same as the expected base sequence
+                    foreach (var seq in expectedBaseSequence_Peak2)
+                    {
+                        Assert.IsTrue(outputBaseSequence.Contains(seq));
+                    }
+                    //The output protein group should be the same as the expected protein group
+                    foreach (var seq in expectedProteinGroup_peak2)
+                    {
+                        Assert.IsTrue(outputProteinGroup.Contains(seq));
+                    }
+
+                }
+
+            }
             Directory.Delete(outputDirectory, true);
         }
 
         [Test]
-        public static void TestIsoSequence_MonoIsotopicMassTolerance()
+        public static void TestIsoTracker_MassTolerance()
         {
-            //Description: Test the IsoTracker in the FlashLFQ, checking the algorithm can correctly recognize the IsoID
-            //IsoID: DIVENY[Common Variable:Oxidation on M]FMR   should be the same as DIVENYFM[Common Variable:Oxidation on M]R
-            //The Monoisotopic mass are 1201.5436, 1201.5437, 1201.5438, they should be recognized as the same IsoID
-
-            //Try to turn on the MBR and Isotracker at the same time
+            // Description: Test the massTolerance for isobaricPeptide
+            // There are three ID for peak 1, peptide1 , peptide2 and peptide3
+            // In my setting: the p1 and p2 will be within tolerance. However, the p3 is over the tolerance, thus it is classified as isobaricPeptide
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
-            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_IsoID_MonoIsotopicmassTolerance.psmtsv");
+            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_MassTolerance.psmtsv");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
             string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
@@ -869,30 +1060,39 @@ namespace Test
                 isoTracker: true,
                 maxThreads: 1);
             var results = engine.Run();
-
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
 
-
-            List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
-            List<string> proteinsList = File.ReadAllLines(Path.Combine(outputDirectory, "proteins.tsv")).Skip(1).ToList();
+            List<string> expectedSequence_Peak1 = new List<string> { "Peptide1", "Peptide2" };
+            foreach (var pep in peptidesList)
+            {
+                string outputSequence = pep.Split('\t')[0];
+                string outputBaseSequence = pep.Split('\t')[1];
+                var peakOrder = pep.Split('\t')[2].IsNotNullOrEmpty()? int.Parse(pep.Split('\t')[2]) : -1;
+                if (peakOrder == 1)
+                {
+                    foreach (var peptide in expectedSequence_Peak1)
+                    {
+                        Assert.IsTrue(outputSequence.Contains(peptide));
+                    }
+                    Assert.IsTrue(outputBaseSequence.Contains("Peptide"));
+                }
+                else if (peakOrder == 2)
+                {
+                    Assert.IsTrue(outputSequence.Contains("Peptide4"));
+                    Assert.IsTrue(outputBaseSequence.Contains("Peptide"));
+                }
 
-
-            // Check the output: there are one kind of IsoID(modifiedPeptide), then two isobaricPeptide, and four isobaricPeaks
-            int modifiedPeptideNum = 1;
-            int isobaricPeptideNum = modifiedPeptideNum * 2;
-            int isobaricPeakNum = isobaricPeptideNum * 2;
-
-            Assert.AreEqual(proteinsList.Count, modifiedPeptideNum);
-            Assert.AreEqual(peptidesList.Count, isobaricPeptideNum);
-            Assert.AreEqual(peaksList.Count, isobaricPeakNum);
-
-
-            Directory.Delete(outputDirectory, true);
+                else // The normal peptide
+                {
+                    Assert.IsTrue(outputSequence.Contains("Peptide3"));
+                    Assert.IsTrue(outputBaseSequence.Contains("Peptide"));
+                }
+            }
         }
 
         [Test]
-        public static void TestIsoSequence_Mixture()
+        public static void TestIsotracker_AmbiguityPeptide()
         {
             //Test the IsoTracker in the FlashLFQ, checking the algorithm can correctly recognize the IsoID
             //There is one ID for the peak1, and two IsoID for the peak2
@@ -903,7 +1103,7 @@ namespace Test
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
-            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_IsoID_Mixture.psmtsv");
+            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_Ambiguity.psmtsv");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
             string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
@@ -980,7 +1180,6 @@ namespace Test
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
-
 
             List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
@@ -1010,8 +1209,8 @@ namespace Test
                     // Check the detectionType of each peptide, in this case all peptides are IsoTrack_Ambiguous
                     var detectionType_run1 = peptide.Split('\t')[10];
                     var detectionType_run2 = peptide.Split('\t')[11];
-                    Assert.AreEqual(detectionType_run1, "MSMS");
-                    Assert.AreEqual(detectionType_run2, "IsoTrack_MBR");
+                    Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
+                    Assert.AreEqual(detectionType_run2, "MSMS");
 
                     //The output sequence should be the same as the expected sequence
                     foreach (var seq in expectedSequence_Peak1)
@@ -1032,11 +1231,8 @@ namespace Test
                     {
                         Assert.IsTrue(outputSequence.Contains(seq));
                     }
-
                 }
-
             }
-
             Directory.Delete(outputDirectory, true);
         }
 
@@ -1044,8 +1240,6 @@ namespace Test
         public static void TestIsoSequence_CombinedTesting()
         {
             //In this test, there are two unmodifiedPeptide, one ambiguous isoPeptide set, and two normal isobaric peptides.
-
-
             //Try to turn on the MBR and Isotracker at the same time
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
@@ -1113,7 +1307,6 @@ namespace Test
                         proteinGroups.Add(allProteinGroups[protein]);
                     }
                 }
-
                 Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
                 ids.Add(id);
 
@@ -1126,28 +1319,21 @@ namespace Test
                 isoTracker: true,
                 maxThreads: 1);
             var results = engine.Run();
-
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
 
-
-            List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
             List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
-            List<string> proteinsList = File.ReadAllLines(Path.Combine(outputDirectory, "proteins.tsv")).Skip(1).ToList();
 
-            // Check the output: there are one kind of IsoID(modifiedPeptide), then two isobaricPeptide, and four isobaricPeaks
-            int ambiguityPeptideNum = ids.GroupBy(p => new { p.BaseSequence, p.MonoisotopicMass })
-                .Where(p => p.Count() > 2).Count();
-            int normalIsoPeptideNum = ids.GroupBy(p => new { p.BaseSequence, p.MonoisotopicMass })
-                .Where(p => p.Count() == 2).Count();
-            int unModifiedPeptideNum = ids.Where(p => p.BaseSequence == p.ModifiedSequence).Count();
+            // Check the output: there are one kind of ambiguous peptide, then two isobaricPeptide, and two unmodified Peptide
+            int ambiguityPeptideNum = ids.GroupBy(p => (p.BaseSequence, p.MonoisotopicMass)).Count(g => g.Count() > 2);
+            int normalIsoPeptideNum = ids.GroupBy(p => (p.BaseSequence, p.MonoisotopicMass)).Count(g => g.Count() == 2);
+            int unModifiedPeptideNum = ids.Count(p => p.BaseSequence == p.ModifiedSequence);
 
             Assert.AreEqual(ambiguityPeptideNum, 1);
             Assert.AreEqual(normalIsoPeptideNum, 2);
             Assert.AreEqual(unModifiedPeptideNum, 2);
 
-            int QPeptideNum = ambiguityPeptideNum * 2 + normalIsoPeptideNum * 2 + unModifiedPeptideNum;
+            int QPeptideNum = ambiguityPeptideNum * 2 + normalIsoPeptideNum * 2 + unModifiedPeptideNum; // total peptide output number
             Assert.IsTrue(QPeptideNum == 8 && QPeptideNum == peptidesList.Count);
-
 
             //Check the detectionType of each Isobaric peptide, in this case
             //For isobaric peptide: one is MSMS and the other is IsoTrack_MBR
@@ -1189,8 +1375,8 @@ namespace Test
                 {
                     if (peakOrder == 1)
                     {
-                        Assert.AreEqual(detectionType_run1, "MSMS");
-                        Assert.AreEqual(detectionType_run2, "IsoTrack_MBR");
+                        Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
+                        Assert.AreEqual(detectionType_run2, "MSMS");
                     }
                     if (peakOrder == 2)
                     {
@@ -1199,7 +1385,6 @@ namespace Test
                     }
                 }
             }
-
             Directory.Delete(outputDirectory, true);
         }
 
