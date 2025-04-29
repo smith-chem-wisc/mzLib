@@ -108,39 +108,6 @@ public static class BioPolymerWithSetModsExtensions
         return essentialSequence;
     }
 
-    /// <summary>
-    /// Determines the full sequence of a BioPolymerWithSetMods from its base sequence and modifications
-    /// </summary>
-    /// <param name="withSetMods"></param>
-    /// <returns></returns>
-    public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods)
-    {
-        // start string builder with initial capacity to avoid resizing costs. 
-        var subSequence = new StringBuilder(withSetMods.BaseSequence.Length + withSetMods.AllModsOneIsNterminus.Count * 30);
-
-        // modification on peptide N-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification? mod))
-        {
-            subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
-        }
-
-        for (int r = 0; r < withSetMods.Length; r++)
-        {
-            subSequence.Append(withSetMods[r]);
-
-            // modification on this residue
-            if (withSetMods.AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-            {
-                subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
-            }
-        }
-
-        // modification on peptide C-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(withSetMods.Length + 2, out mod))
-        {
-            subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
-        }
-
-        return subSequence.ToString();
-    }
+    public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods) => IBioPolymerWithSetMods
+        .DetermineFullSequence(withSetMods.BaseSequence, withSetMods.AllModsOneIsNterminus);
 }

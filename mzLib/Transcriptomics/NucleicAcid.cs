@@ -5,6 +5,7 @@ using Omics;
 using System.Text;
 using MzLibUtil;
 using Transcriptomics.Digestion;
+using Omics.BioPolymer;
 
 namespace Transcriptomics
 {
@@ -40,40 +41,61 @@ namespace Transcriptomics
         #region Constuctors
 
         /// <summary>
-        /// For creating an RNA programatically
+        /// For creating an RNA programatically. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        protected NucleicAcid(string sequence, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
-            IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null)
+        protected NucleicAcid(string sequence,
+            IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
         {
+            ConsensusVariant = this;
             MonoisotopicMass = 0;
             _nucleicAcids = new Nucleotide[sequence.Length];
-            ThreePrimeTerminus = threePrimeTerm ??= DefaultThreePrimeTerminus;
-            FivePrimeTerminus = fivePrimeTerm ??= DefaultFivePrimeTerminus;
-            _oneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
-            GeneNames = new List<Tuple<string, string>>();
-
+            ThreePrimeTerminus = threePrimeTerm ?? DefaultThreePrimeTerminus;
+            FivePrimeTerminus = fivePrimeTerm ?? DefaultFivePrimeTerminus;
             ParseSequenceString(sequence);
+
+            SequenceVariations = [];
+            AppliedSequenceVariations = [];
+            TruncationProducts = [];
+            OriginalNonVariantModifications = oneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
+            OneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications != null 
+                ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedPossibleLocalizedModifications) 
+                : new Dictionary<int, List<Modification>>();
         }
 
         /// <summary>
-        /// For Reading in from rna database
+        /// For Reading in from rna database. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        protected NucleicAcid(string sequence, string name, string identifier, string organism, string databaseFilePath,
-            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+        protected NucleicAcid(string sequence, string accession,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            string? name = null, string? organism = null,
+            string? databaseFilePath = null,
             bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>>? geneNames = null,
-            Dictionary<string, string>? additionalDatabaseFields = null)
-            : this(sequence, fivePrimeTerm, threePrimeTerm, oneBasedPossibleLocalizedModifications)
+            Dictionary<string, string>? additionalDatabaseFields = null,
+            List<TruncationProduct>? truncationProducts = null,
+            List<SequenceVariation>? sequenceVariations = null,
+            List<SequenceVariation>? appliedSequenceVariations = null,
+            string? sampleNameForVariants = null, string? fullName = null)
+            : this(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm)
         {
-            Name = name;
-            DatabaseFilePath = databaseFilePath;
+            Name = name ?? "";
+            DatabaseFilePath = databaseFilePath ?? "";
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
-            Organism = organism;
-            Accession = identifier;
+            Organism = organism ?? "";
+            Accession = accession;
             AdditionalDatabaseFields = additionalDatabaseFields;
-            GeneNames = geneNames ?? new List<Tuple<string, string>>();
+
+            GeneNames = geneNames ?? [];
+            TruncationProducts = truncationProducts ?? [];
+            SequenceVariations = sequenceVariations ?? [];
+            AppliedSequenceVariations = appliedSequenceVariations ?? [];
+            SampleNameForVariants = sampleNameForVariants ?? "";
+            FullName = fullName ?? name;
         }
+
+        public abstract IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods = null);
 
         #endregion
 
@@ -98,8 +120,6 @@ namespace Transcriptomics
         /// The nucleic acid sequence. Is ignored if 'StoreSequenceString' is false
         /// </summary>
         private string _sequence;
-
-        private IDictionary<int, List<Modification>> _oneBasedPossibleLocalizedModifications;
 
         #endregion
 
@@ -127,25 +147,25 @@ namespace Transcriptomics
         /// Gets the number of nucleic acids in this nucleic acid polymer
         /// </summary>
         public int Length => BaseSequence.Length;
-
         public string Name { get; }
-        public string FullName => Name; // TODO: Consider if this needs to be different from the name
+        public string FullName { get; } 
         public string DatabaseFilePath { get; }
         public bool IsDecoy { get; }
         public bool IsContaminant { get; }
         public string Accession { get; }
 
-        public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications => _oneBasedPossibleLocalizedModifications;
+        public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; protected set; }
+
         public string Organism { get; }
 
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
         /// </summary>
-        public IEnumerable<Tuple<string, string>> GeneNames { get; }
+        public List<Tuple<string, string>> GeneNames { get; }
         public Dictionary<string, string>? AdditionalDatabaseFields { get; }
 
         /// <summary>
-        /// The total monoisotopic mass of this peptide and all of its modifications
+        /// The total monoisotopic mass of this nucleic acid and all of its modifications
         /// </summary>
         public double MonoisotopicMass { get; private set; }
 
@@ -215,6 +235,42 @@ namespace Transcriptomics
             return Digest((IDigestionParams)digestionParameters, allKnownFixedMods, variableModifications, silacLabels, turnoverLabels, topDownTruncationSearch)
                 .Cast<OligoWithSetMods>();
         }
+
+        #endregion
+
+        #region Sequence Variants
+
+        public IBioPolymer ConsensusVariant { get; init; }
+
+        /// <summary>
+        /// Sequence Variants as defined in the parsed XML database
+        /// </summary>
+        public List<SequenceVariation> SequenceVariations { get; protected set; }
+
+        /// <summary>
+        /// Truncation products as defined in the parsed XML Database
+        /// </summary>
+        public List<TruncationProduct> TruncationProducts { get; protected set; }
+
+        /// <summary>
+        /// Sequence variations that have been applied to the base sequence.
+        /// </summary>
+        public List<SequenceVariation> AppliedSequenceVariations { get; protected set; }
+
+        /// <summary>
+        /// Sample name from which applied variants came, e.g. tumor or normal.
+        /// </summary>
+        public string SampleNameForVariants { get; protected set; }
+
+        /// <summary>
+        /// Original modifications as defined in the Parsed XML database
+        /// </summary>
+        public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
+
+        // Abstract so we can do this construction in the appropriate derived class
+        public abstract TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            where TBioPolymerType : IHasSequenceVariants;
 
         #endregion
 

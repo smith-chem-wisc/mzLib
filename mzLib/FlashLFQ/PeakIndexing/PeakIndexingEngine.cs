@@ -35,7 +35,6 @@ namespace FlashLFQ
             PeakIndexing(scans);
         }
 
-
         public bool IndexPeaks(bool silent)
         {
             if (!silent)
@@ -166,7 +165,9 @@ namespace FlashLFQ
                             break;
                         }
 
-                        if (ppmTolerance.Within(peak.Mz, mz) && peak.ZeroBasedScanIndex == zeroBasedScanIndex && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
+                        if (ppmTolerance.Within(peak.Mz, mz) 
+                            && peak.ZeroBasedScanIndex == zeroBasedScanIndex 
+                            && (bestPeak == null || Math.Abs(peak.Mz - mz) < Math.Abs(bestPeak.Mz - mz)))
                         {
                             bestPeak = peak;
                         }
