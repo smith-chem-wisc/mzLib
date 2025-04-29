@@ -93,13 +93,14 @@ namespace Omics.Digestion
         /// <param name="sitesConsidered"></param>
         /// <param name="modsAsList"></param>
         /// <returns></returns>
-        public static long getNumberofProteoforms(int sitesConsidered, List<int> modsAsList)
+        public static long PossibleProteoformRecursive(int sitesConsidered, List<int> modsAsList)
         {
             long result = 0;
             List<int> subset = new();
             Piset(sitesConsidered, ref result, subset, modsAsList);
             return result;
         }
+
         /// <summary>
         ///  Recursive backtracking method to calculate the number of all possible proteoforms for a given peptide.
         /// </summary>
@@ -108,7 +109,7 @@ namespace Omics.Digestion
         /// <param name="subset">Consider each subset in a powerset of modsAsList less or equal to the length sitesConsidered</param>
         /// <param name="modsAsList">Mods given as {#mods at residue 1, #mods at residue 2, ... #mods at residue n} where n is the number of sites with any mods</param>
         /// <returns></returns>
-        public static long Piset(int sitesConsidered, ref long result, List<int> subset, List<int> modsAsList)
+        internal static long Piset(int sitesConsidered, ref long result, List<int> subset, List<int> modsAsList)
         {
             if (modsAsList.Count == 0)
             { // collect subset if valid and not already in result. Essentially, what conditions must exist if the subset is valid?
@@ -116,14 +117,12 @@ namespace Omics.Digestion
                 { result = result + PI(subset); }
                 return result;
             }
-
             int currentSite = modsAsList[0]; //where modsAsList[0] is the current residue. To add or not to add?
             //case 1: exclude current
             List<int> remaining = new(modsAsList);
             remaining.RemoveAt(0);
             //recursively call the function w/o current integer.
             Piset(sitesConsidered, ref result, subset, remaining); 
-
             //case 2: include current, once we consider if adding current to set keeps length less or equal to sitesConsidered.
             if (subset.Count < sitesConsidered)  // Check if we can add one more element
             {
@@ -132,14 +131,13 @@ namespace Omics.Digestion
                 Piset(sitesConsidered, ref result, include, remaining);
             }
             return result;
-
         }
         /// <summary>
         /// Calculates the product of all elements in a list of integers.
         /// </summary>
         /// <param name="subset"> List to get product from </param>
         /// <returns></returns>
-        public static int PI(List<int> subset)
+        internal static int PI(List<int> subset)
         {
             int product = 1;
             for (int i = 0; i < subset.Count; i++)
@@ -253,7 +251,7 @@ namespace Omics.Digestion
         /// This method iterates through all variable modifications and assigns them to the appropriate positions in the peptide.
         /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
         /// </remarks>
-        protected void PopulateVariableModifications(List<Modification> allVariableMods, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
+        protected void PopulateVariableModifications(List<Modification> allVariableMods, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate) //{1, Oxy, 3, acetylation}
         {
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
             var pepNTermVariableMods = new SortedSet<Modification>();
