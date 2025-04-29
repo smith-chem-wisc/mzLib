@@ -94,7 +94,7 @@ namespace Test.FileReadingTests
             Assert.That(first.Spectrum, Is.EqualTo("20100611_Velos1_TaGe_SA_Hela_1.00003.00003.2"));
             Assert.That(first.SpectrumFilePath, Is.EqualTo(@"D:\Projects\Chimeras\Mann_11cell_analysis\Hela\MsFragger\Hela_1_1\interact-20100611_Velos1_TaGe_SA_Hela_1.pep.xml"));
             Assert.That(first.BaseSequence, Is.EqualTo("KPVGAAK"));
-            Assert.That(first.FullSequence, Is.EqualTo(""));
+            Assert.That(first.ModifiedPeptide, Is.EqualTo(""));
             Assert.That(first.ExtendedSequence, Is.EqualTo("KAGGTKPK.KPVGAAK.KPKKAAGG"));
             Assert.That(first.PreviousAminoAcid, Is.EqualTo('K'));
             Assert.That(first.NextAminoAcid, Is.EqualTo('K'));
@@ -135,7 +135,7 @@ namespace Test.FileReadingTests
             Assert.That(last.Spectrum, Is.EqualTo("20100611_Velos1_TaGe_SA_Hela_1.00018.00018.2"));
             Assert.That(last.SpectrumFilePath, Is.EqualTo(@"D:\Projects\Chimeras\Mann_11cell_analysis\Hela\MsFragger\Hela_1_1\interact-20100611_Velos1_TaGe_SA_Hela_1.pep.xml"));
             Assert.That(last.BaseSequence, Is.EqualTo("VVTHGGR"));
-            Assert.That(last.FullSequence, Is.EqualTo(""));
+            Assert.That(last.ModifiedPeptide, Is.EqualTo(""));
             Assert.That(last.ExtendedSequence, Is.EqualTo("GTAIKNGK.VVTHGGR.VIAVTAIR"));
             Assert.That(last.PreviousAminoAcid, Is.EqualTo('K'));
             Assert.That(last.NextAminoAcid, Is.EqualTo('V'));

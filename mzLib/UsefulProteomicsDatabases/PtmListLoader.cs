@@ -63,35 +63,46 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary, out List<(Modification, string)> filteredModificationsWithWarnings)
         {
-            List<Modification> acceptedModifications = new List<Modification>();
-            filteredModificationsWithWarnings = new List<(Modification filteredMod, string warningString)>();
             using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
             {
-                List<string> modification_specification = new List<string>();
+                return ReadModsFromFile(uniprot_mods, formalChargesDictionary, out filteredModificationsWithWarnings, ptmListLocation);
+            }
+        }
 
-                //This block will read one complete modification entry at a time until the EOF is reached.
-                while (uniprot_mods.Peek() != -1) //The Peek method returns an integer value in order to determine whether the end of the file, or another error has occurred.
+        /// <summary>
+        /// Reads a list of modifications from a stream reader.
+        /// </summary>
+        /// <param name="ptmListLocation"></param>
+        /// <returns></returns>
+        public static IEnumerable<Modification> ReadModsFromFile(StreamReader uniprot_mods, Dictionary<string, int> formalChargesDictionary, out List<(Modification, string)> filteredModificationsWithWarnings, string? fileLocation = null)
+        {
+            List<Modification> acceptedModifications = new List<Modification>();
+            filteredModificationsWithWarnings = new List<(Modification filteredMod, string warningString)>();
+            List<string> modification_specification = new List<string>();
+
+            //This block will read one complete modification entry at a time until the EOF is reached.
+            while (uniprot_mods.Peek() != -1) //The Peek method returns an integer value in order to determine whether the end of the file, or another error has occurred.
+            {
+                string line = uniprot_mods.ReadLine();
+                modification_specification.Add(line);
+                if (line.StartsWith("//"))
                 {
-                    string line = uniprot_mods.ReadLine();
-                    modification_specification.Add(line);
-                    if (line.StartsWith("//"))
+                    foreach (var mod in ReadMod(fileLocation, modification_specification, formalChargesDictionary))
                     {
-                        foreach (var mod in ReadMod(ptmListLocation, modification_specification, formalChargesDictionary))
+                        // Filter out the modifications that don't meet validation
+                        if (mod.ValidModification)
                         {
-                            // Filter out the modifications that don't meet validation
-                            if (mod.ValidModification)
-                            {
-                                acceptedModifications.Add(mod);
-                            }
-                            else
-                            {
-                                filteredModificationsWithWarnings.Add((mod, mod.ModificationErrorsToString()));
-                            }
+                            acceptedModifications.Add(mod);
                         }
-                        modification_specification = new List<string>();
+                        else
+                        {
+                            filteredModificationsWithWarnings.Add((mod, mod.ModificationErrorsToString()));
+                        }
                     }
+                    modification_specification = new List<string>();
                 }
             }
+            
             return acceptedModifications;
         }
 
@@ -315,11 +326,6 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
-        }
-
-        private static bool IsNullOrEmpty<T, U>(this IDictionary<T, U> Dictionary)
-        {
-            return (Dictionary == null || Dictionary.Count < 1);
         }
 
         /// <summary>
