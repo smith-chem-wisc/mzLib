@@ -1,10 +1,7 @@
-﻿using Readers.ExternalResults.BaseClasses;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Readers;
 
 namespace FlashLFQ
 {
@@ -23,7 +20,7 @@ namespace FlashLFQ
             foreach (var record in quantifiableRecords)
             {
                 string baseSequence = record.BaseSequence;
-                string modifiedSequence = record.ModifiedSequence;
+                string modifiedSequence = record.FullSequence;
                 double ms2RetentionTimeInMinutes = record.RetentionTime;
                 double monoisotopicMass = record.MonoisotopicMass;
                 int precursurChargeState = record.ChargeState;
