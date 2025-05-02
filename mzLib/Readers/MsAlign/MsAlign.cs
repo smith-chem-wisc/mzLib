@@ -529,6 +529,9 @@ public class MsAlign : MsDataFile
 
     #region Combine Ms1 and Ms2 Align
 
+    // This region is for taking Ms1 and Ms2 align results of the same raw file and combining them to look like a standard LC/MS file with Ms2s following their respective Ms1
+    // It is currently not used for any specific information, but might be useful for future work of database searches from external deconvolution results 
+
     public static bool TryCombineMsAlign(Ms1Align? ms1Align, Ms2Align? ms2Align, out MsAlign? combinedMsAlign)
     {
         if (ms1Align == null || ms2Align == null)
