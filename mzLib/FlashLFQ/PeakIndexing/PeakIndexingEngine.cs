@@ -112,6 +112,9 @@ namespace FlashLFQ
             GC.Collect();
         }
 
+        /// <summary>
+        /// Writes the indexed peaks to disk, then clears the indexed peaks array
+        /// </summary>
         public void SerializeIndex()
         {
             string dir = Path.GetDirectoryName(SpectraFile.FullFilePathWithExtension);
