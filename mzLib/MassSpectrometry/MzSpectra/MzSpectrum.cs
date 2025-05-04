@@ -148,6 +148,9 @@ namespace MassSpectrometry
             }
         }
 
+        /// <summary>
+        /// Number of peaks in the spectrum
+        /// </summary>
         public int Size { get { return XArray.Length; } }
 
         public int? IndexOfPeakWithHighesetY

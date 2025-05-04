@@ -6,7 +6,9 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<ServerGarbageCollection>true</ServerGarbageCollection>
 	</PropertyGroup>
+
 
 	<ItemGroup>
 	  <None Remove="Resources\Mods.txt" />
