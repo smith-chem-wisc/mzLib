@@ -13,9 +13,7 @@ namespace FlashLFQ.IsoTracker
     public class SearchingTarget
     {
         public HashSet<ModificationMotif> ModificationMotifs { get; set; }
-        public List<string> ModList;
-        // Define a default list with some example values
-
+        public List<string> ModList; // motif string list
 
         /// <summary>
         /// Directly use the motif string to create a SearchingTarget
@@ -48,7 +46,7 @@ namespace FlashLFQ.IsoTracker
             if (peptideSequence == null)
                 return false;
 
-            return ModificationMotifs.Any(p=> p.ModficationMotifPattern.IsMatch(peptideSequence));
+            return ModificationMotifs.Any(p=> p.ModificationMotifPattern.IsMatch(peptideSequence));
         }
     }
 }

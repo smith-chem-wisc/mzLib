@@ -6,13 +6,13 @@ namespace Omics.Modifications
     {
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
         private readonly string motifString;
-        public Regex ModficationMotifPattern;
+        public Regex ModificationMotifPattern; // peptide full sequence pattern with motif
 
         private ModificationMotif(string motif)
         {
             motifString = motif;
             string modifiedSequencePattern = Regex.Escape(motif) + @"\[[^\]]+\]";
-            ModficationMotifPattern = new Regex(modifiedSequencePattern);
+            ModificationMotifPattern = new Regex(modifiedSequencePattern);
         }
 
         /// <summary>
@@ -31,7 +31,6 @@ namespace Omics.Modifications
             }
             return false;
         }
-        
         public override string ToString()
         {
             return motifString;
@@ -40,7 +39,11 @@ namespace Omics.Modifications
         {
             return motifString.GetHashCode();
         }
-
+        /// <summary>
+        /// Because we build the motif hashset in IsoTracker, we need to override the Equals method to avoid the duplicated.
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         public override bool Equals(object obj)
         {
             if (obj is ModificationMotif other)
