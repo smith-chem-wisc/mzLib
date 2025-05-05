@@ -1472,6 +1472,7 @@ namespace Test
                     Assert.AreEqual(baseSequence, "PEPTIDEA");
                 }
             }
+            Directory.Delete(outputDirectory, true);
         }
     }
 
