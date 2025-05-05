@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using MathNet.Numerics.Interpolation;
+using Omics.Modifications;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 
@@ -19,6 +20,34 @@ namespace Test
     {
         //Test the basic function in IsoTracker
         [Test]
+        public static void TestModificationMotif_Pattern()
+        {
+            string peptide_1 = "PEPTIEKNY";
+            string peptide_2 = "PEPTIEKN[mod]Y";
+            string peptide_3 = "PEP[mod]TIEKNY";
+            ModificationMotif.TryGetMotif("N", out ModificationMotif motif);
+            Assert.AreEqual(motif.ModificationMotifPattern.IsMatch(peptide_1), false);
+            Assert.AreEqual(motif.ModificationMotifPattern.IsMatch(peptide_2), true);
+            Assert.AreEqual(motif.ModificationMotifPattern.IsMatch(peptide_3), false);
+        }
+
+        [Test]
+        public static void TestModificaitonMotif_Equal()
+        {
+            ModificationMotif.TryGetMotif("N", out var _N);
+            ModificationMotif.TryGetMotif("N", out var _N_2);
+            ModificationMotif.TryGetMotif("T", out var _T);
+            Assert.IsTrue(_N.Equals(_N_2));
+            Assert.IsFalse(_N.Equals(_T));
+
+            HashSet<ModificationMotif> modificationMotifs = new HashSet<ModificationMotif>();
+            modificationMotifs.Add(_N);
+            modificationMotifs.Add(_T);
+            modificationMotifs.Add(_N_2);
+            Assert.AreEqual(modificationMotifs.Count, 2); // The _N_2 should be the same as _N
+        }
+
+        [Test]
         public static void TestSearchingTarget()
         {
             List<string> modificationOption = new List<string>() { "S", "T", "Y", "N" }; //Motif: S, T, Y, N
@@ -27,7 +56,8 @@ namespace Test
 
             HashSet<ProteinGroup> proteinGroups = new HashSet<ProteinGroup>() {new ProteinGroup("ProteinA", "gene", "ass")};
             List<Peptide> peptides = new List<Peptide>()
-            { 
+            {
+                new Peptide(null,null,false,proteinGroups), // We can handle the null peptide
                 new Peptide("PEPTIEKNY", "PEPTIEKNY", false,  proteinGroups),
               new Peptide("PEPT[Modification]IEKNY", "PEPTIEKNY", false,  proteinGroups), // motif is T  
               new Peptide("PEPTIEKN[modification]Y", "PEPTIEKNY", false, proteinGroups), // motif is N  
