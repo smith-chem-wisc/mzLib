@@ -4,6 +4,7 @@ namespace Omics.Modifications
 {
     public class ModificationMotif
     {
+        private static Dictionary<string, ModificationMotif> MotifCache = []; // Cache for ModificationMotifs to reduce memory overhead by using shared references. 
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
         private readonly string motifString;
 
@@ -20,11 +21,20 @@ namespace Omics.Modifications
         /// <returns></returns>
         public static bool TryGetMotif(string motifString, out ModificationMotif motif)
         {
-            motif = null;
+            motif = null!;
             if (ModificationMotifRegex.IsMatch(motifString) && motifString.Count(b => char.IsUpper(b)) == 1)
             {
-                motif = new ModificationMotif(motifString);
-                return true;
+                // Check Motif Cache to see if we have generated this one before. 
+                if (MotifCache.TryGetValue(motifString, out motif))
+                {
+                    return true;
+                }
+                else
+                {
+                    motif = new ModificationMotif(motifString);
+                    MotifCache[motifString] = motif;
+                    return true;
+                }
             }
             return false;
         }
