@@ -1,4 +1,10 @@
-﻿namespace FlashLFQ
+﻿using MassSpectrometry;
+using MzLibUtil;
+using Proteomics.ProteolyticDigestion;
+using Proteomics.RetentionTimePrediction;
+using System.Collections.Generic;
+
+namespace FlashLFQ
 {
     public class FlashLfqParameters
     {
@@ -36,7 +42,7 @@
             PairedSamples = false;
             RandomSeed = null;
         }
-        
+
         public bool Normalize { get; set; }
         public double PpmTolerance { get; set; }
         public double IsotopePpmTolerance { get; set; }
