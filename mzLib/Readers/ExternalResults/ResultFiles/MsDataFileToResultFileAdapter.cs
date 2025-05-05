@@ -36,6 +36,8 @@ namespace Readers
         {
             _dataFile = MsDataFileReader.GetDataFile(FilePath).LoadAllStaticData();
             Results = _dataFile.GetAllScansList();
+            this.Scans = _dataFile.Scans;
+            this.SourceFile = _dataFile.GetSourceFile();
         }
 
         public void WriteResults(string outputPath)
