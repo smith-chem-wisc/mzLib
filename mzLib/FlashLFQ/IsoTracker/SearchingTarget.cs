@@ -1,39 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.InteropServices.Marshalling;
-using System.Text;
-using System.Threading.Tasks;
-using Easy.Common.Extensions;
-using Omics.Modifications;
 
 namespace FlashLFQ.IsoTracker
 {
     public class SearchingTarget
     {
-        public List<ModificationMotif> ModificationMotifs { get; set; }
-        public List<string> ModList; // motif string list
+        public List<char> TargetMotifs; // motif string list
 
         /// <summary>
         /// Directly use the motif string to create a SearchingTarget
         /// </summary>
         /// <param name="motifs"></param>
         /// <param name="option2"></param>
-        public SearchingTarget(List<string> motifs)
+        public SearchingTarget(List<char> motifs)
         {
-            ModificationMotifs = new List<ModificationMotif>();
-            ModList = motifs;
-            if (motifs == null)
-                return;
-
-            foreach (var motif in motifs)
-            {
-                if (ModificationMotif.TryGetMotif(motif, out var modificationMotif))
-                {
-                    ModificationMotifs.Add(modificationMotif);
-                }
-            }
+            TargetMotifs = motifs;
         }
 
         /// <summary>
@@ -46,7 +27,24 @@ namespace FlashLFQ.IsoTracker
             if (peptideSequence == null)
                 return false;
 
-            return ModificationMotifs.Any(p=> p.ModificationMotifPattern.IsMatch(peptideSequence));
+            List<char> motifList = new List<char>(); // the motif list in the peptide sequence
+            for (int i = 0; i < peptideSequence.Length; i++)
+            {
+                if (peptideSequence[i] == '[' && i != 0)
+                {
+                    motifList.Add(peptideSequence[i - 1]);
+                }
+            }
+            // if any motif in the peptide sequence is in the targetList, return true
+            foreach (var motif in motifList)
+            {
+                if (TargetMotifs.Any(p => p == motif))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
+
     }
 }

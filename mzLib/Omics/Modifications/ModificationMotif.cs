@@ -6,13 +6,10 @@ namespace Omics.Modifications
     {
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
         private readonly string motifString;
-        public Regex ModificationMotifPattern; // peptide full sequence pattern with motif
 
         private ModificationMotif(string motif)
         {
             motifString = motif;
-            string modifiedSequencePattern = Regex.Escape(motif) + @"\[[^\]]+\]";
-            ModificationMotifPattern = new Regex(modifiedSequencePattern);
         }
 
         /// <summary>

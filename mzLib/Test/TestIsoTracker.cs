@@ -22,21 +22,23 @@ namespace Test
         [Test]
         public static void TestModificationMotif_Pattern()
         {
-            string peptide_1 = "PEPTIEKNY";
-            string peptide_2 = "PEPTIEKN[mod]Y";
-            string peptide_3 = "PEP[mod]TIEKNY";
-            ModificationMotif.TryGetMotif("N", out ModificationMotif motif);
-            Assert.AreEqual(motif.ModificationMotifPattern.IsMatch(peptide_1), false);
-            Assert.AreEqual(motif.ModificationMotifPattern.IsMatch(peptide_2), true);
-            Assert.AreEqual(motif.ModificationMotifPattern.IsMatch(peptide_3), false);
+            List<char> targetMotifs = new List<char>() { 'S', 'T', 'Y', 'N' }; //Motif: S, T, Y, N
+            SearchingTarget target = new SearchingTarget(targetMotifs);
+            Assert.IsNotNull(target.TargetMotifs);
+            Assert.AreEqual(target.MotifFilter(null), false);
+            Assert.AreEqual(target.MotifFilter("PEPTIEKNY"), false);
+            Assert.AreEqual(target.MotifFilter("PEPTIEKN[mod]Y"), true);
+            Assert.AreEqual(target.MotifFilter("PEP[mod]TIEKNY"), false);
+            Assert.AreEqual(target.MotifFilter("PEP[mod]TIEKN[mod]Y"), true);
+            Assert.AreEqual(target.MotifFilter("P[mod]E[mod]P[mod]TI[mod]E[mod]K[mod]NY"), false); 
         }
 
         [Test]
         public static void TestSearchingTarget()
         {
-            List<string> modificationOption = new List<string>() { "S", "T", "Y", "N" }; //Motif: S, T, Y, N
+            List<char> modificationOption = new List<char>() { 'S', 'T', 'Y', 'N' }; //Motif: S, T, Y, N
             SearchingTarget searchingTarget = new SearchingTarget(modificationOption);
-            Assert.IsNotNull(searchingTarget.ModList);
+            Assert.IsNotNull(searchingTarget.TargetMotifs);
 
             HashSet<ProteinGroup> proteinGroups = new HashSet<ProteinGroup>() {new ProteinGroup("ProteinA", "gene", "ass")};
             List<Peptide> peptides = new List<Peptide>()
@@ -52,9 +54,9 @@ namespace Test
             Assert.AreEqual(filteredPeptides.Count, 4);
             Assert.IsTrue(filteredPeptides[0].Sequence != "PEPTIEKNY");
 
-            List<string> modificationOption_2 = new List<string>() { "S", "T"};
+            List<char> modificationOption_2 = new List<char>() { 'S', 'T'};
             SearchingTarget searchingTarget_2 = new SearchingTarget(modificationOption_2);
-            Assert.IsNotNull(searchingTarget_2.ModList);
+            Assert.IsNotNull(searchingTarget_2.TargetMotifs);
             List<Peptide> filteredPeptides_2 = peptides.Where(p => searchingTarget_2.MotifFilter(p.Sequence)).ToList();
             Assert.AreEqual(filteredPeptides_2.Count, 2);
             Assert.IsTrue(filteredPeptides_2[0].Sequence == "PEPT[Modification]IEKNY");
@@ -1330,7 +1332,7 @@ namespace Test
 
             }
 
-            var motifList = new List<string> { "N" };
+            var motifList = new List<char> { 'N' };
             var engine = new FlashLfqEngine(ids,
                 matchBetweenRuns: false,
                 requireMsmsIdInCondition: false,

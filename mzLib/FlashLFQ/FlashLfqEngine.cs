@@ -125,7 +125,7 @@ namespace FlashLFQ
 
             // IsoTracker settings
             bool isoTracker = false,
-            List<string> motifsList = null,
+            List<char> motifsList = null,
             bool idChecking = false,
 
             // MBR settings
@@ -1974,7 +1974,7 @@ namespace FlashLFQ
             double currentProgress = 0;
 
             // Filter out the id with motif checking from the motif list we uploaded
-            var ids = SearchingTarget.ModList!= null?
+            var ids = SearchingTarget.TargetMotifs!= null?
                 _allIdentifications.Where(p => SearchingTarget.MotifFilter(p.ModifiedSequence)).ToList() : _allIdentifications;
             // Group the IDs by their base sequence and monoisotopic mass -> isobaric peptide
             var idGroupedBySeq = ids
