@@ -1011,8 +1011,8 @@ namespace Test
                     // Check the detectionType of each peptide, in this case all peptides are IsoTrack_Ambiguous
                     var detectionType_run1 = peptide.Split('\t')[10];
                     var detectionType_run2 = peptide.Split('\t')[11];
-                    Assert.AreEqual(detectionType_run1, "MSMS");
-                    Assert.AreEqual(detectionType_run2, "IsoTrack_MBR");
+                    Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
+                    Assert.AreEqual(detectionType_run2, "MSMS");
 
                     //The output sequence should be the same as the expected sequence
                     foreach (var seq in expectedSequence_Peak1)
@@ -1190,8 +1190,8 @@ namespace Test
                 {
                     if (peakOrder == 1)
                     {
-                        Assert.AreEqual(detectionType_run1, "MSMS");
-                        Assert.AreEqual(detectionType_run2, "IsoTrack_MBR");
+                        Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
+                        Assert.AreEqual(detectionType_run2, "MSMS");
                     }
                     if (peakOrder == 2)
                     {
