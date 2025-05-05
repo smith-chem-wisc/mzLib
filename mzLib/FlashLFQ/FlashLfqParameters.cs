@@ -63,12 +63,6 @@ namespace FlashLFQ
         public double MaxMbrRtWindow { get; set; }
         public bool RequireMsmsIdInCondition { get; set; }
         public double MbrQValueThreshold { get; set; }
-        /// <summary>
-        /// Specifies how the donor peak for MBR is selected. 
-        /// 'Score' selects the donor peak associated with the highest scoring PSM
-        /// 'Intensity' selects the donor peak with the max intensity
-        /// 'Neighbors' selects the donor peak with the most neighboring peaks
-        /// </summary>
         public DonorCriterion DonorCriterion { get; set; }
         public double DonorQValueThreshold { get; set; }
 
@@ -83,6 +77,12 @@ namespace FlashLFQ
         public int? RandomSeed { get; set; }
     }
 
+    /// <summary>
+    /// Specifies how the donor peak for MBR is selected. 
+    /// 'Score' selects the donor peak associated with the highest scoring PSM
+    /// 'Intensity' selects the donor peak with the max intensity
+    /// 'Neighbors' selects the donor peak with the most neighboring peaks
+    /// </summary>
     public enum DonorCriterion
     {
         Score,
