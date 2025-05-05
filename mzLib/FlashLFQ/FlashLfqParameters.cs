@@ -83,4 +83,10 @@ namespace FlashLFQ
         public int? RandomSeed { get; set; }
     }
 
+    public enum DonorCriterion
+    {
+        Score,
+        Intensity,
+        Neighbors
+    }
 }
