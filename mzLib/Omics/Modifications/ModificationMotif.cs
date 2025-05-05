@@ -35,22 +35,5 @@ namespace Omics.Modifications
         {
             return motifString;
         }
-        public override int GetHashCode()
-        {
-            return motifString.GetHashCode();
-        }
-        /// <summary>
-        /// Because we build the motif hashset in IsoTracker, we need to override the Equals method to avoid the duplicated.
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public override bool Equals(object obj)
-        {
-            if (obj is ModificationMotif other)
-            {
-                return string.Equals(motifString, other.motifString, StringComparison.Ordinal);
-            }
-            return false;
-        }
     }
 }

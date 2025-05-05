@@ -32,22 +32,6 @@ namespace Test
         }
 
         [Test]
-        public static void TestModificaitonMotif_Equal()
-        {
-            ModificationMotif.TryGetMotif("N", out var _N);
-            ModificationMotif.TryGetMotif("N", out var _N_2);
-            ModificationMotif.TryGetMotif("T", out var _T);
-            Assert.IsTrue(_N.Equals(_N_2));
-            Assert.IsFalse(_N.Equals(_T));
-
-            HashSet<ModificationMotif> modificationMotifs = new HashSet<ModificationMotif>();
-            modificationMotifs.Add(_N);
-            modificationMotifs.Add(_T);
-            modificationMotifs.Add(_N_2);
-            Assert.AreEqual(modificationMotifs.Count, 2); // The _N_2 should be the same as _N
-        }
-
-        [Test]
         public static void TestSearchingTarget()
         {
             List<string> modificationOption = new List<string>() { "S", "T", "Y", "N" }; //Motif: S, T, Y, N

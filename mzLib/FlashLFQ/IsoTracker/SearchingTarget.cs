@@ -12,7 +12,7 @@ namespace FlashLFQ.IsoTracker
 {
     public class SearchingTarget
     {
-        public HashSet<ModificationMotif> ModificationMotifs { get; set; }
+        public List<ModificationMotif> ModificationMotifs { get; set; }
         public List<string> ModList; // motif string list
 
         /// <summary>
@@ -22,7 +22,7 @@ namespace FlashLFQ.IsoTracker
         /// <param name="option2"></param>
         public SearchingTarget(List<string> motifs)
         {
-            ModificationMotifs = new HashSet<ModificationMotif>();
+            ModificationMotifs = new List<ModificationMotif>();
             ModList = motifs;
             if (motifs == null)
                 return;
