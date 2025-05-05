@@ -48,6 +48,8 @@ namespace FlashLFQ
         public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
         public ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
+        public readonly SearchingTarget SearchingTarget; // The searching target (motif) for the isobaric case
+        public bool IDChecking { get; private set; }
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -123,6 +125,8 @@ namespace FlashLFQ
 
             // IsoTracker settings
             bool isoTracker = false,
+            List<string> motifsList = null,
+            bool idChecking = false,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -179,6 +183,8 @@ namespace FlashLFQ
             UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
             //IsoTracker settings
             IsoTracker = isoTracker;
+            SearchingTarget = new SearchingTarget(motifsList);
+            IDChecking = idChecking;
 
             // MBR settings
             MatchBetweenRuns = matchBetweenRuns;
@@ -1967,7 +1973,11 @@ namespace FlashLFQ
             double lastReportedProgress = 0;
             double currentProgress = 0;
 
-            var idGroupedBySeq = _allIdentifications
+            // Filter out the id with motif checking from the motif list we uploaded
+            var ids = SearchingTarget.ModList!= null?
+                _allIdentifications.Where(p => SearchingTarget.MotifFilter(p.ModifiedSequence)).ToList() : _allIdentifications;
+            // Group the IDs by their base sequence and monoisotopic mass -> isobaric peptide
+            var idGroupedBySeq = ids
                 .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
                 .GroupBy(p => new
                     { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) })
@@ -2007,7 +2017,8 @@ namespace FlashLFQ
                         }
 
                         // If we have more than one XIC, we can do the peak tracking
-                        if (xicGroup.Count > 1)
+                        // And if the checking request is turned on, we will ensure at least one run contains more than one ID
+                        if ( (!IDChecking || MoreThanOneID(xicGroup)) && xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
                             xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;
@@ -2059,6 +2070,16 @@ namespace FlashLFQ
                 });
             if (!Silent)
                 Console.WriteLine("Finished quantifying isobaric species!");
+        }
+
+        /// <summary>
+        /// Check if any XIC has more than one ID
+        /// </summary>
+        /// <param name="xics"></param>
+        /// <returns></returns>
+        internal bool MoreThanOneID(List<XIC> xics)
+        {
+            return xics.Any(p=> p.Ids.Count > 1);
         }
 
         /// <summary>

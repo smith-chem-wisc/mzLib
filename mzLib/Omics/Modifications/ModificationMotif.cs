@@ -6,10 +6,13 @@ namespace Omics.Modifications
     {
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
         private readonly string motifString;
+        public Regex ModficationMotifPattern;
 
         private ModificationMotif(string motif)
         {
             motifString = motif;
+            string modifiedSequencePattern = Regex.Escape(motif) + @"\[[^\]]+\]";
+            ModficationMotifPattern = new Regex(modifiedSequencePattern);
         }
 
         /// <summary>
@@ -28,10 +31,23 @@ namespace Omics.Modifications
             }
             return false;
         }
-
+        
         public override string ToString()
         {
             return motifString;
+        }
+        public override int GetHashCode()
+        {
+            return motifString.GetHashCode();
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is ModificationMotif other)
+            {
+                return string.Equals(motifString, other.motifString, StringComparison.Ordinal);
+            }
+            return false;
         }
     }
 }
