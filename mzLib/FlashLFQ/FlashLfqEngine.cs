@@ -48,6 +48,7 @@ namespace FlashLFQ
         public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
         public ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
+        public double AcceptablePeakWidthForSearch;
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -123,6 +124,7 @@ namespace FlashLFQ
 
             // IsoTracker settings
             bool isoTracker = false,
+            double acceptablePeakWidthForSearch = 0.3,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -179,6 +181,7 @@ namespace FlashLFQ
             UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
             //IsoTracker settings
             IsoTracker = isoTracker;
+            AcceptablePeakWidthForSearch = acceptablePeakWidthForSearch;
 
             // MBR settings
             MatchBetweenRuns = matchBetweenRuns;
@@ -2022,8 +2025,8 @@ namespace FlashLFQ
                             //Step 4: Iterate the shared peaks in the XICGroups
                             foreach (var peak in xICGroups.SharedPeaks)
                             {
-                                double peakWindow = peak.Width;
-                                if (peakWindow > 0.001) //make sure we have enough length of the window (0.001 min) for peak searching
+                                double peakWidth = peak.Width;
+                                if (peakWidth > AcceptablePeakWidthForSearch) //make sure we have enough length of the window (default value : 0.5 min) for peak searching
                                 {
                                     List<ChromatographicPeak> chromPeaksInSharedPeak = new List<ChromatographicPeak>();
                                     CollectChromPeakInRuns(peak, chromPeaksInSharedPeak, xICGroups);
