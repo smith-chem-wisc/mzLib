@@ -22,96 +22,97 @@ using MassSpectrometry;
 
 namespace FlashLFQ
 {
-    public enum DonorCriterion
-    {
-        Score,
-        Intensity,
-        Neighbors
-    }
-
     public class FlashLfqEngine
     {
-        // settings
-        public readonly bool Silent;
-        public readonly int MaxThreads;
-        public readonly double PeakfindingPpmTolerance;
-        public readonly double PpmTolerance;
-        public readonly double IsotopePpmTolerance;
-        public readonly bool Integrate;
-        public readonly int MissedScansAllowed;
-        public readonly int NumIsotopesRequired;
-        public readonly bool IdSpecificChargeState;
-        public readonly bool Normalize;
-        public readonly double DiscriminationFactorToCutPeak;
-        public readonly bool QuantifyAmbiguousPeptides;
+        public FlashLfqParameters FlashParams { get; init; }
+        public List<SpectraFileInfo> SpectraFileInfoList { get; init; }
 
-        //IsoTracker settings
-        public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
-        public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
-        public ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
+        #region Constants
+        public const double DiscriminationFactorToCutPeak = 0.6; // Determines behavior related to splitting bimodal peaks
+        public const double PeakfindingPpmTolerance = 20.0; // Ppm tolerance used when finding XICs
+        public const int MissedScansAllowed = 1; // Number of consecutive missed scans allowed when finding XICs
 
-        // MBR settings
-        public readonly bool MatchBetweenRuns;
-        public readonly double MbrRtWindow;
-        public readonly double MbrPpmTolerance;
-        public readonly double MbrDetectionQValueThreshold;
-        private int _numberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
+        // MBR Settings
+        public const int NumberOfAnchorPeptidesForMbr = 3; // the number of anchor peptides used for local alignment when predicting retention times of MBR acceptor peptides
+        public readonly double MbrAlignmentWindow = 2.5; // The window in which we look for anchor peptides
+        public readonly double PepTrainingFraction = 0.25; // Use the top 25% of the MBR peaks as positive training examples for PEP
+        #endregion
 
-        // New MBR Settings
-        public readonly double RtWindowIncrease = 0;
-        public readonly double MbrAlignmentWindow = 2.5;
-        public readonly double PepTrainingFraction = 0.25;
-        /// <summary>
-        /// Specifies how the donor peak for MBR is selected. 
-        /// 'Score' selects the donor peak associated with the highest scoring PSM
-        /// 'Intensity' selects the donor peak with the max intensity
-        /// 'Neighbors' selects the donor peak with the most neighboring peaks
-        /// </summary>
-        public DonorCriterion DonorCriterion { get; init; }
-        public readonly double DonorQValueThreshold;
-        public readonly bool RequireMsmsIdInCondition;
-        private int _randomSeed = 42;
-
-        // settings for the Bayesian protein quantification engine
-        public readonly bool BayesianProteinQuant;
-        public readonly string ProteinQuantBaseCondition;
-        public readonly double ProteinQuantFoldChangeCutoff;
-        public readonly int McmcSteps;
-        public readonly int McmcBurninSteps;
-        public readonly bool UseSharedPeptidesForProteinQuant;
-        public readonly bool PairedSamples;
-        public readonly int? RandomSeed;
-
-        // structures used in the FlashLFQ engine
-        private List<SpectraFileInfo> _spectraFileInfo;
-        private Stopwatch _globalStopwatch;
-        private List<Identification> _allIdentifications;
+        #region Internal/Private properties and fields
         /// <summary>
         /// These peptides will be reported in the QuantifiedPeptides output and used for protein quant.
         /// Other peptides may appear in the QuantifiedPeaks output, but this list is used to enable
         /// peptide-level FDR filtering
         /// </summary>
-        public HashSet<string> PeptideModifiedSequencesToQuantify { get; init; }
+        internal HashSet<string> PeptideModifiedSequencesToQuantify { get; init; }
+        internal Dictionary<SpectraFileInfo, IFlashLfqIndexingEngine> IndexingEngineDictionary { get; private set; }
+        internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
+        /// <summary>
+        /// a flag used to indicate if the isobaric case is running, used to control the indexEngine
+        /// </summary>
+        internal bool IsoTrackerIsRunning { get; private set; }
+        /// <summary>
+        /// The dictionary of isobaric peaks for each modified sequence
+        /// </summary>
+        internal ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // 
         /// <summary>
         /// Dictionary linking a modified sequence to a List of tuples containing
         /// the mass shifts (isotope mass - monoisotopic mass) and normalized abundances for the
         /// isotopes for a given peptide
         /// </summary>
-        private Dictionary<string, List<(double massShift, double normalizedAbundance)>> _modifiedSequenceToIsotopicDistribution;
+        private Dictionary<string, List<(double massShift, double normalizedAbundance)>> ModifiedSequenceToIsotopicDistribution { get; set; }
         private List<int> _chargeStates;
         private FlashLfqResults _results;
-        internal Dictionary<SpectraFileInfo, IFlashLfqIndexingEngine> IndexingEngineDictionary { get; private set; }
-        internal Dictionary<SpectraFileInfo, List<ChromatographicPeak>> DonorFileToPeakDict { get; private set; }
+        private readonly List<Identification> _allIdentifications;
+        private readonly Stopwatch _globalStopwatch;
+        #endregion
+
+        /// <summary>
+        /// Create an instance of FlashLFQ that will quantify peptides based on their precursor intensity in MS1 spectra
+        /// </summary>
+        /// <param name="flashLfqParameters"> Parameters used by FlashLFQ </param>
+        /// <param name="allIdentifications"></param>
+        /// <param name="peptideSequencesToQuantify"></param>
+        public FlashLfqEngine(FlashLfqParameters flashLfqParameters, List<Identification> allIdentifications, List<string> peptideSequencesToQuantify = null)
+        {
+            FlashParams = flashLfqParameters;
+
+            _globalStopwatch = new Stopwatch();
+            _chargeStates = new List<int>();
+            IndexingEngineDictionary = new();
+
+            SpectraFileInfoList = allIdentifications.Select(p => p.FileInfo).Distinct()
+                .OrderBy(p => p.Condition)
+                .ThenBy(p => p.BiologicalReplicate)
+                .ThenBy(p => p.Fraction)
+                .ThenBy(p => p.TechnicalReplicate).ToList();
+
+            _allIdentifications = allIdentifications;
+            PeptideModifiedSequencesToQuantify = peptideSequencesToQuantify.IsNotNullOrEmpty()
+                ? new HashSet<string>(peptideSequencesToQuantify)
+                : allIdentifications.Select(id => id.ModifiedSequence).ToHashSet();
+
+            if (FlashParams.MaxThreads == -1 || FlashParams.MaxThreads >= Environment.ProcessorCount)
+            {
+                FlashParams.MaxThreads = Environment.ProcessorCount - 1;
+            }
+
+            if (FlashParams.MaxThreads <= 0)
+            {
+                FlashParams.MaxThreads = 1;
+            }
+        }
 
         /// <summary>
         /// Create an instance of FlashLFQ that will quantify peptides based on their precursor intensity in MS1 spectra
         /// </summary>
         /// <param name="allIdentifications">A list of identifications corresponding to MS2 peptide detections. One ID per peptide per file</param>
-        /// <param name="integrate">Optional. Bool indicating whether peaks should be integrated before quantification. It is HIGHLY recommended this is set to FALSE</param>
-        /// <param name="peptideSequencesToUse">Optional. A list of strings corresponding to the modified sequences of peptides that should be quantified/used for
+        /// <param name="peptideSequencesToQuantify">Optional. A list of strings corresponding to the modified sequences of peptides that should be quantified/used for
         /// protein level quant. Reccommended use is to pass in the full sequence of every peptide at 1% peptide-level FDR</param>
+        ///  /// <param name="integrate">Optional. Bool indicating whether peaks should be integrated before quantification. It is HIGHLY recommended this is set to FALSE</param>
         public FlashLfqEngine(
             List<Identification> allIdentifications,
+            List<string> peptideSequencesToQuantify = null,
             bool normalize = false,
             double ppmTolerance = 10.0,
             double isotopeTolerancePpm = 5.0,
@@ -131,6 +132,8 @@ namespace FlashLFQ
             double maxMbrWindow = 1.0,
             bool requireMsmsIdInCondition = false,
             double matchBetweenRunsFdrThreshold = 0.05,
+            double donorQValueThreshold = 0.01,
+            DonorCriterion donorCriterion = DonorCriterion.Score,
 
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
@@ -140,87 +143,57 @@ namespace FlashLFQ
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,
             bool pairedSamples = false,
-            int? randomSeed = null,
-            DonorCriterion donorCriterion = DonorCriterion.Score,
-            double donorQValueThreshold = 0.01,
-            List<string> peptideSequencesToQuantify = null)
-        {
-            _globalStopwatch = new Stopwatch();
-            _chargeStates = new List<int>();
-            IndexingEngineDictionary = new();
-            
-            _spectraFileInfo = allIdentifications.Select(p => p.FileInfo).Distinct()
-                .OrderBy(p => p.Condition)
-                .ThenBy(p => p.BiologicalReplicate)
-                .ThenBy(p => p.Fraction)
-                .ThenBy(p => p.TechnicalReplicate).ToList();
-
-            _allIdentifications = allIdentifications;
-            PeptideModifiedSequencesToQuantify = peptideSequencesToQuantify.IsNotNullOrEmpty() 
-                ? new HashSet<string>(peptideSequencesToQuantify) 
-                : allIdentifications.Select(id => id.ModifiedSequence).ToHashSet();
-            PpmTolerance = ppmTolerance;
-            IsotopePpmTolerance = isotopeTolerancePpm;
-            
-            Integrate = integrate;
-            NumIsotopesRequired = numIsotopesRequired;
-            QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
-            Silent = silent;
-            IdSpecificChargeState = idSpecificChargeState;
-            MbrRtWindow = maxMbrWindow;
-            RequireMsmsIdInCondition = requireMsmsIdInCondition;
-            Normalize = normalize;
-            MaxThreads = maxThreads;
-            BayesianProteinQuant = bayesianProteinQuant;
-            PairedSamples = pairedSamples;
-            ProteinQuantBaseCondition = proteinQuantBaseCondition;
-            ProteinQuantFoldChangeCutoff = proteinQuantFoldChangeCutoff;
-            McmcSteps = mcmcSteps;
-            McmcBurninSteps = mcmcBurninSteps;
-            UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
-            //IsoTracker settings
-            IsoTracker = isoTracker;
-
-            // MBR settings
-            MatchBetweenRuns = matchBetweenRuns;
-            MbrPpmTolerance = matchBetweenRunsPpmTolerance;
-            MbrRtWindow = maxMbrWindow;
-            DonorCriterion = donorCriterion;
-            DonorQValueThreshold = donorQValueThreshold;
-            MbrDetectionQValueThreshold = matchBetweenRunsFdrThreshold;
-            RandomSeed = randomSeed;
-
-            if (MaxThreads == -1 || MaxThreads >= Environment.ProcessorCount)
-            {
-                MaxThreads = Environment.ProcessorCount - 1;
-            }
-
-            if (MaxThreads <= 0)
-            {
-                MaxThreads = 1;
-            }
-
-            PeakfindingPpmTolerance = 20.0;
-            MissedScansAllowed = 1;
-            DiscriminationFactorToCutPeak = 0.6;
-        }
+            int? randomSeed = null) : 
+            this(
+                new FlashLfqParameters()
+                {
+                    PpmTolerance = ppmTolerance,
+                    IsotopePpmTolerance = isotopeTolerancePpm,
+                    Integrate = integrate,
+                    NumIsotopesRequired = numIsotopesRequired,
+                    IdSpecificChargeState = idSpecificChargeState,
+                    QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides,
+                    Silent = silent,
+                    MaxThreads = maxThreads,
+                    Normalize = normalize,
+                    IsoTracker = isoTracker,
+                    MatchBetweenRuns = matchBetweenRuns,
+                    MaxMbrRtWindow = maxMbrWindow,
+                    MbrPpmTolerance = matchBetweenRunsPpmTolerance,
+                    MbrQValueThreshold = matchBetweenRunsFdrThreshold,
+                    DonorQValueThreshold = donorQValueThreshold,
+                    DonorCriterion = donorCriterion,
+                    RequireMsmsIdInCondition = requireMsmsIdInCondition,
+                    BayesianProteinQuant = bayesianProteinQuant,
+                    ProteinQuantBaseCondition = proteinQuantBaseCondition,
+                    ProteinQuantFoldChangeCutoff = proteinQuantFoldChangeCutoff,
+                    McmcSteps = mcmcSteps,
+                    McmcBurninSteps = mcmcBurninSteps,
+                    UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant,
+                    PairedSamples = pairedSamples,
+                    RandomSeed = randomSeed
+                }, 
+                allIdentifications, 
+                peptideSequencesToQuantify
+            )
+        { }
 
         public FlashLfqResults Run()
         {
             _globalStopwatch.Start();
-            _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications, MbrDetectionQValueThreshold, PeptideModifiedSequencesToQuantify,IsoTracker);
+            _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
 
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
             // quantify each file
-            foreach (var spectraFile in _spectraFileInfo)
+            foreach (var spectraFile in SpectraFileInfoList)
             {
-                if (!Silent) Console.WriteLine("Reading spectra file");
+                if (!FlashParams.Silent) Console.WriteLine("Reading spectra file");
                 var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(spectraFile);
                 if(indexingEngine == null)
                 {
                     // something went wrong finding/opening/indexing the file...
-                    if( !Silent ) Console.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension + " contained no MS1 peaks!");
+                    if( !FlashParams.Silent ) Console.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension + " contained no MS1 peaks!");
                     continue;
                 }
                 IndexingEngineDictionary[spectraFile] = indexingEngine;
@@ -228,31 +201,28 @@ namespace FlashLFQ
                 // quantify peaks using this file's IDs first
                 QuantifyMs2IdentifiedPeptides(spectraFile);
 
-                // write the indexed peaks for MBR later
-                // Situation 1: IsoTracker is on, we don't need to serialize the index for each file.
-                if (IsoTracker) ;
+                // Retain, Serialize and Clear, or Clear the indexing engine
+                if(!FlashParams.IsoTracker) // If IsoTracker is on, we don't need to serialize the index for each file. The indexed peaks are retained
+                {
+                    if (FlashParams.MatchBetweenRuns) // If IsoTracker is off, and MBR is on then we need to serialize the index before clearing the array.
+                        IndexingEngineDictionary[spectraFile].SerializeIndex();
+                    else
+                        IndexingEngineDictionary[spectraFile].ClearIndex(); // If IsoTracker and MBR are off, we simply clear the indexing engine array to save memory
+                }
 
-                // Situation 2: IsoTracker is off, and MBR is on then we need to serialize the index to save the memory.
-                else if (MatchBetweenRuns)
-                    IndexingEngineDictionary[spectraFile].SerializeIndex();
-
-                // Situation 3: IsoTracker is off, and MBR is off then we don't need indexEngine so we clear it right now.
-                else
-                    IndexingEngineDictionary[spectraFile].ClearIndex();
-                ;
 
                 // error checking function
                 // handles features with multiple identifying scans and scans that are associated with more than one feature
                 RunErrorChecking(spectraFile);
 
-                if (!Silent)
+                if (!FlashParams.Silent)
                 {
                     Console.WriteLine("Finished " + spectraFile.FilenameWithoutExtension);
                 }
             }
 
             //IsoTracker
-            if (IsoTracker)
+            if (FlashParams.IsoTracker)
             {
                 IsoTrackerIsRunning = true; // Turn on the flag, then we will use the separate indexEngine for each files
                 IsobaricPeptideDict = new ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
@@ -263,27 +233,27 @@ namespace FlashLFQ
             IsoTrackerIsRunning = false;
 
             // do MBR
-            if (MatchBetweenRuns)
+            if (FlashParams.MatchBetweenRuns)
             {
                 Console.WriteLine("Find the best donors for match-between-runs");
                 FindPeptideDonorFiles();
-                foreach (var spectraFile in _spectraFileInfo)
-                {
+                foreach (var spectraFile in SpectraFileInfoList)
+                {            
                     if ( !IndexingEngineDictionary.ContainsKey(spectraFile) ) continue;
-                    if (!Silent)
+                    if (!FlashParams.Silent)
                     {
                         Console.WriteLine("Doing match-between-runs for " + spectraFile.FilenameWithoutExtension);
                     }
 
                     //Deserialize the relevant index prior to MBR
-                    if (!IsoTracker) //If IsoTracker is on, there is no serializer then we don't need to deserialize the index
+                    if (!FlashParams.IsoTracker) //If IsoTracker is on, there is no serializer then we don't need to deserialize the index
                     {
                         IndexingEngineDictionary[spectraFile].DeserializeIndex();
                     }
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
                     IndexingEngineDictionary[spectraFile].ClearIndex();
 
-                    if (!Silent)
+                    if (!FlashParams.Silent)
                     {
                         Console.WriteLine("Finished MBR for " + spectraFile.FilenameWithoutExtension);
                     }
@@ -292,53 +262,53 @@ namespace FlashLFQ
                 Console.WriteLine("Computing PEP for MBR Transfers");
                 bool pepSuccesful = RunPEPAnalysis();
 
-                foreach (var spectraFile in _spectraFileInfo)
+                foreach (var spectraFile in SpectraFileInfoList)
                 {
                     CalculateFdrForMbrPeaks(spectraFile, pepSuccesful);
                 }
             }
 
             // normalize
-            if (Normalize)
+            if (FlashParams.Normalize)
             {
-                new IntensityNormalizationEngine(_results, Integrate, Silent, MaxThreads).NormalizeResults();
+                new IntensityNormalizationEngine(_results, FlashParams.Integrate, FlashParams.Silent, FlashParams.MaxThreads).NormalizeResults();
             }
 
             // calculate peptide intensities
-            _results.CalculatePeptideResults(QuantifyAmbiguousPeptides);
+            _results.CalculatePeptideResults(FlashParams.QuantifyAmbiguousPeptides);
 
             // do top3 protein quantification
-            _results.CalculateProteinResultsMedianPolish(UseSharedPeptidesForProteinQuant);
+            _results.CalculateProteinResultsMedianPolish(FlashParams.UseSharedPeptidesForProteinQuant);
 
             // do Bayesian protein fold-change analysis
-            if (BayesianProteinQuant)
+            if (FlashParams.BayesianProteinQuant)
             {
-                if (_spectraFileInfo.Count == 1 || _spectraFileInfo.Select(p => p.Condition).Distinct().Count() == 1)
+                if (SpectraFileInfoList.Count == 1 || SpectraFileInfoList.Select(p => p.Condition).Distinct().Count() == 1)
                 {
-                    if (!Silent)
+                    if (!FlashParams.Silent)
                     {
                         Console.WriteLine("Can't do Bayesian protein quant with only one spectra file or condition. FlashLFQ will still do a top3 protein quant");
                     }
                 }
                 else
                 {
-                    if (!Silent)
+                    if (!FlashParams.Silent)
                     {
                         Console.WriteLine("Running Bayesian protein quantification analysis");
                     }
 
-                    new ProteinQuantificationEngine(_results, MaxThreads, ProteinQuantBaseCondition, UseSharedPeptidesForProteinQuant,
-                        ProteinQuantFoldChangeCutoff, RandomSeed, McmcBurninSteps, McmcSteps, PairedSamples).Run();
+                    new ProteinQuantificationEngine(_results, FlashParams.MaxThreads, FlashParams.ProteinQuantBaseCondition, FlashParams.UseSharedPeptidesForProteinQuant,
+                        FlashParams.ProteinQuantFoldChangeCutoff, FlashParams.RandomSeed, FlashParams.McmcBurninSteps, FlashParams.McmcSteps, FlashParams.PairedSamples).Run();
                 }
             }
 
             // done
-            if (!Silent)
+            if (!FlashParams.Silent)
             {
                 Console.WriteLine("Done quantifying");
             }
 
-            if (!Silent)
+            if (!FlashParams.Silent)
             {
                 Console.WriteLine("Analysis time: " +
                                   _globalStopwatch.Elapsed.Hours + "h " +
@@ -356,7 +326,7 @@ namespace FlashLFQ
         /// </summary>
         internal void CalculateTheoreticalIsotopeDistributions()
         {
-            _modifiedSequenceToIsotopicDistribution = new Dictionary<string, List<(double, double)>>();
+            ModifiedSequenceToIsotopicDistribution = new Dictionary<string, List<(double, double)>>();
 
             // calculate averagine (used for isotopic distributions for unknown modifications)
             double averageC = 4.9384;
@@ -375,7 +345,7 @@ namespace FlashLFQ
             // calculate monoisotopic masses and isotopic envelope for the base sequences
             foreach (Identification id in _allIdentifications)
             {
-                if (_modifiedSequenceToIsotopicDistribution.ContainsKey(id.ModifiedSequence))
+                if (ModifiedSequenceToIsotopicDistribution.ContainsKey(id.ModifiedSequence))
                 {
                     continue;
                 }
@@ -439,13 +409,13 @@ namespace FlashLFQ
                     abundances[i] /= highestAbundance;
 
                     // look for these isotopes
-                    if (isotopicMassesAndNormalizedAbundances.Count < NumIsotopesRequired || abundances[i] > 0.1)
+                    if (isotopicMassesAndNormalizedAbundances.Count < FlashParams.NumIsotopesRequired || abundances[i] > 0.1)
                     {
                         isotopicMassesAndNormalizedAbundances.Add((masses[i], abundances[i]));
                     }
                 }
 
-                _modifiedSequenceToIsotopicDistribution.Add(id.ModifiedSequence, isotopicMassesAndNormalizedAbundances);
+                ModifiedSequenceToIsotopicDistribution.Add(id.ModifiedSequence, isotopicMassesAndNormalizedAbundances);
             }
 
             var minChargeState = _allIdentifications.Min(p => p.PrecursorChargeState);
@@ -456,7 +426,7 @@ namespace FlashLFQ
             foreach (var identifications in peptideModifiedSequences)
             {
                 // isotope where normalized abundance is 1
-                double mostAbundantIsotopeShift = _modifiedSequenceToIsotopicDistribution[identifications.First().ModifiedSequence]
+                double mostAbundantIsotopeShift = ModifiedSequenceToIsotopicDistribution[identifications.First().ModifiedSequence]
                     .First(p => p.Item2 == 1.0).Item1;
 
                 foreach (Identification identification in identifications)
@@ -477,7 +447,7 @@ namespace FlashLFQ
         /// <param name="fileInfo">File to be quantified</param>
         private void QuantifyMs2IdentifiedPeptides(SpectraFileInfo fileInfo)
         {
-            if (!Silent)
+            if (!FlashParams.Silent)
             {
                 Console.WriteLine("Quantifying peptides for " + fileInfo.FilenameWithoutExtension);
             }
@@ -490,11 +460,11 @@ namespace FlashLFQ
             }
 
             PpmTolerance peakfindingTol = new PpmTolerance(PeakfindingPpmTolerance); // Peak finding tolerance is generally higher than ppmTolerance
-            PpmTolerance ppmTolerance = new PpmTolerance(PpmTolerance);
+            PpmTolerance ppmTolerance = new PpmTolerance(FlashParams.PpmTolerance);
             ChromatographicPeak[] chromatographicPeaks = new ChromatographicPeak[ms2IdsForThisFile.Count];
 
             Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
+                new ParallelOptions { MaxDegreeOfParallelism = FlashParams.MaxThreads },
                 (range, loopState) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
@@ -505,7 +475,7 @@ namespace FlashLFQ
 
                         foreach (var chargeState in _chargeStates)
                         {
-                            if (IdSpecificChargeState && chargeState != identification.PrecursorChargeState)
+                            if (FlashParams.IdSpecificChargeState && chargeState != identification.PrecursorChargeState)
                             {
                                 continue;
                             }
@@ -530,7 +500,7 @@ namespace FlashLFQ
                             msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
                         }
 
-                        msmsFeature.CalculateIntensityForThisFeature(Integrate);
+                        msmsFeature.CalculateIntensityForThisFeature(FlashParams.Integrate);
                         CutPeak(msmsFeature, identification.Ms2RetentionTimeInMinutes);
 
                         if (!msmsFeature.IsotopicEnvelopes.Any())
@@ -550,7 +520,7 @@ namespace FlashLFQ
                         int max = precursorXic.Max(p => p.IndexedPeak.ZeroBasedScanIndex);
                         msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedScanIndex < min);
                         msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedScanIndex > max);
-                        msmsFeature.CalculateIntensityForThisFeature(Integrate);
+                        msmsFeature.CalculateIntensityForThisFeature(FlashParams.Integrate);
                     }
                 });
 
@@ -574,7 +544,7 @@ namespace FlashLFQ
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
                     && peak.DetectionType == DetectionType.MSMS
                     && peak.IsotopicEnvelopes.Any()
-                    && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
+                    && peak.Identifications.Min(id => id.QValue) < FlashParams.DonorQValueThreshold)
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                 .ToDictionary(group => group.Key, group => group.ToList());
 
@@ -595,7 +565,7 @@ namespace FlashLFQ
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
                     && peak.DetectionType == DetectionType.MSMS
                     && peak.IsotopicEnvelopes.Any()
-                    && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
+                    && peak.Identifications.Min(id => id.QValue) < FlashParams.DonorQValueThreshold)
                 .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                 .ToDictionary(group => group.Key, group => group.ToList());
 
@@ -627,7 +597,7 @@ namespace FlashLFQ
                 }
             }
 
-            scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs, _numberOfAnchorPeptidesForMbr);
+            scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs, NumberOfAnchorPeptidesForMbr);
             donorFileBestMsmsPeaksOrderedByMass = donorFileBestMsmsPeaks.Select(kvp => kvp.Value).OrderBy(p => p.Identifications.First().PeakfindingMass).ToList();
 
             return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
@@ -647,7 +617,7 @@ namespace FlashLFQ
                     .SelectMany(kvp => kvp.Value)
                     .Where(peak => peak.NumIdentificationsByFullSeq == 1
                         && peak.IsotopicEnvelopes.Any()
-                        && peak.Identifications.Min(id => id.QValue) < DonorQValueThreshold)
+                        && peak.Identifications.Min(id => id.QValue) < FlashParams.DonorQValueThreshold)
                     .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
                     .Where(group => PeptideModifiedSequencesToQuantify.Contains(group.Key))
                     .ToDictionary(group => group.Key, group => group.ToList());
@@ -676,7 +646,7 @@ namespace FlashLFQ
         internal ChromatographicPeak ChooseBestPeak(List<ChromatographicPeak> peaks)
         {
             ChromatographicPeak bestPeak = null;
-            switch (DonorCriterion)
+            switch (FlashParams.DonorCriterion)
             {
                 case DonorCriterion.Score: // Select best peak by the PSM score
                     bestPeak = peaks.MaxBy(peak => peak.Identifications.Max(id => id.PsmScore));
@@ -767,7 +737,7 @@ namespace FlashLFQ
                     }
                     nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
                     numberOfForwardAnchors++;
-                    if (numberOfForwardAnchors >= _numberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
+                    if (numberOfForwardAnchors >= NumberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
                         break;
                     }
@@ -787,7 +757,7 @@ namespace FlashLFQ
                     }
                     nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
                     numberOfBackwardsAnchors++;
-                    if (numberOfBackwardsAnchors >= _numberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
+                    if (numberOfBackwardsAnchors >= NumberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
                         break;
                     }
@@ -814,7 +784,7 @@ namespace FlashLFQ
 
             double rtRange = rtDiffs.StandardDeviation() * 6;
 
-            rtRange = Math.Min(rtRange, MbrRtWindow);
+            rtRange = Math.Min(rtRange, FlashParams.MaxMbrRtWindow);
 
             return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime - medianRtDiff, width: rtRange);
         }
@@ -832,7 +802,7 @@ namespace FlashLFQ
             List<double> ppmErrors = new List<double>();
             foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null
                 && PeptideModifiedSequencesToQuantify.Contains(p.Identifications.First().ModifiedSequence)
-                && p.Identifications.First().QValue < DonorQValueThreshold)) 
+                && p.Identifications.First().QValue < FlashParams.DonorQValueThreshold)) 
             {
                 if (!apexToAcceptorFilePeakDict.ContainsKey(peak.Apex.IndexedPeak))
                 {
@@ -848,7 +818,7 @@ namespace FlashLFQ
             }
             double ppmSpread = ppmErrors.Count > 30 ? ppmErrors.InterquartileRange() / 1.36 : ppmErrors.StandardDeviation();
             Normal ppmDistribution = new Normal(ppmErrors.Median(), ppmSpread);
-            double fileSpecificMbrPpmTolerance = Math.Min(Math.Abs(ppmErrors.Median()) + ppmSpread * 4, MbrPpmTolerance);
+            double fileSpecificMbrPpmTolerance = Math.Min(Math.Abs(ppmErrors.Median()) + ppmSpread * 4, FlashParams.MbrPpmTolerance);
             fileSpecificMbrTolerance = new PpmTolerance(fileSpecificMbrPpmTolerance); // match between runs PPM tolerance
 
             // Construct a distribution of peak log intensities for all MSMS peaks in the acceptor file
@@ -939,12 +909,12 @@ namespace FlashLFQ
             if (scorer == null)
                 return;
 
-            mbrTol = new PpmTolerance(MbrPpmTolerance);
+            mbrTol = new PpmTolerance(FlashParams.MbrPpmTolerance);
             HashSet<ProteinGroup> thisFilesMsmsIdentifiedProteins = new HashSet<ProteinGroup>();
-            if (RequireMsmsIdInCondition)
+            if (FlashParams.RequireMsmsIdInCondition)
             {
                 // only match peptides from proteins that have at least one MS/MS identified peptide in the condition
-                foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == acceptorFile.Condition))
+                foreach (SpectraFileInfo conditionFile in SpectraFileInfoList.Where(p => p.Condition == acceptorFile.Condition))
                 {
                     foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => p.DetectionType == DetectionType.MSMS).SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
                     {
@@ -968,7 +938,7 @@ namespace FlashLFQ
                 List<ChromatographicPeak> idDonorPeaks = donorFilePeakListKvp.Value
                     .Where(p => 
                         !acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)
-                        && (!RequireMsmsIdInCondition 
+                        && (!FlashParams.RequireMsmsIdInCondition 
                             || p.Identifications.Any(v => v.ProteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g))))
                         && this.PeptideModifiedSequencesToQuantify.Contains(p.Identifications.First().ModifiedSequence))
                     .ToList();
@@ -986,7 +956,7 @@ namespace FlashLFQ
 
                 // We're only interested in the fold change if the conditions are different. Otherwise, we score based off of the intensities
                 // of the acceptor file
-                if (_spectraFileInfo.Select(p => p.Condition).Distinct().Count() > 1
+                if (SpectraFileInfoList.Select(p => p.Condition).Distinct().Count() > 1
                     && donorFilePeakListKvp.Key.Condition != acceptorFile.Condition)
                 {
                     scorer.CalculateFoldChangeBetweenFiles(idDonorPeaks);
@@ -1000,7 +970,7 @@ namespace FlashLFQ
 
                 // Loop through every MSMS id in the donor file
                 Parallel.ForEach(Partitioner.Create(0, idDonorPeaks.Count),
-                    new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
+                    new ParallelOptions { MaxDegreeOfParallelism = FlashParams.MaxThreads },
                     (range, loopState) =>
                     {
                         for (int i = range.Item1; i < range.Item2; i++)
@@ -1040,7 +1010,7 @@ namespace FlashLFQ
                             // If the search turned up empty, try again with a wider search window
                             while (bestAcceptor == null && bestDecoy == null)
                             {
-                                windowWidth = Math.Min(windowWidth, MbrRtWindow);
+                                windowWidth = Math.Min(windowWidth, FlashParams.MaxMbrRtWindow);
                                 rtInfo.Width = windowWidth;
                                 FindAllAcceptorPeaks(acceptorFile, scorer, rtInfo, mbrTol, donorPeak, out bestAcceptor);
                                 AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestAcceptor, donorPeak.Identifications.First());
@@ -1052,7 +1022,7 @@ namespace FlashLFQ
                                     randomRt: decoyRtInfo.PredictedRt);
                                     AddPeakToConcurrentDict(matchBetweenRunsIdentifiedPeaks, bestDecoy, donorPeak.Identifications.First());
                                 }
-                                if (windowWidth >= MbrRtWindow)
+                                if (windowWidth >= FlashParams.MaxMbrRtWindow)
                                 {
                                     break;
                                 }
@@ -1149,7 +1119,7 @@ namespace FlashLFQ
                                 }
                                 else
                                 {
-                                    best.MergeFeatureWith(peak, Integrate);
+                                    best.MergeFeatureWith(peak, FlashParams.Integrate);
                                 }
                             }
                         }
@@ -1312,7 +1282,7 @@ namespace FlashLFQ
             var xic = IndexingEngineDictionary[acceptorFile].GetXic(donorId.PeakfindingMass.ToMz(z), seedEnv.IndexedPeak.RetentionTime, mbrTol, MissedScansAllowed);
             List<IsotopicEnvelope> bestChargeEnvelopes = GetIsotopicEnvelopes(xic, donorId, z, acceptorFile);
             acceptorPeak.IsotopicEnvelopes.AddRange(bestChargeEnvelopes);
-            acceptorPeak.CalculateIntensityForThisFeature(Integrate);
+            acceptorPeak.CalculateIntensityForThisFeature(FlashParams.Integrate);
 
             CutPeak(acceptorPeak, seedEnv.IndexedPeak.RetentionTime);
 
@@ -1342,7 +1312,7 @@ namespace FlashLFQ
         /// <param name="spectraFile"></param>
         private void RunErrorChecking(SpectraFileInfo spectraFile)
         {
-            if (!Silent)
+            if (!FlashParams.Silent)
             {
                 Console.WriteLine("Checking errors");
             }
@@ -1355,7 +1325,7 @@ namespace FlashLFQ
             
             foreach (ChromatographicPeak tryPeak in _results.Peaks[spectraFile].OrderBy(p => p.DetectionType == DetectionType.MBR))
             {
-                tryPeak.CalculateIntensityForThisFeature(Integrate);
+                tryPeak.CalculateIntensityForThisFeature(FlashParams.Integrate);
                 tryPeak.ResolveIdentifications();
 
                 if (tryPeak.Apex == null)
@@ -1381,7 +1351,7 @@ namespace FlashLFQ
                         {
                             if (PeptideModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
                             {
-                                storedPeak.MergeFeatureWith(tryPeak, Integrate);
+                                storedPeak.MergeFeatureWith(tryPeak, FlashParams.Integrate);
                             }
                             else
                             {
@@ -1412,7 +1382,7 @@ namespace FlashLFQ
                     {
                         if (tryPeak.Identifications.First().ModifiedSequence == storedPeak.Identifications.First().ModifiedSequence)
                         {
-                            storedPeak.MergeFeatureWith(tryPeak, Integrate);
+                            storedPeak.MergeFeatureWith(tryPeak, FlashParams.Integrate);
                         }
                         else if (((MbrChromatographicPeak)tryPeak).MbrScore > ((MbrChromatographicPeak)storedPeak).MbrScore)
                         {
@@ -1448,8 +1418,8 @@ namespace FlashLFQ
             {
                 PepAnalysisEngine pepAnalysisEngine = new PepAnalysisEngine(
                     mbrPeaks,
-                    outputFolder: Path.GetDirectoryName(_spectraFileInfo.First().FullFilePathWithExtension),
-                    maxThreads: MaxThreads,
+                    outputFolder: Path.GetDirectoryName(SpectraFileInfoList.First().FullFilePathWithExtension),
+                    maxThreads: FlashParams.MaxThreads,
                     pepTrainingFraction: PepTrainingFraction);
                 var pepOutput = pepAnalysisEngine.ComputePEPValuesForAllPeaks();
 
@@ -1583,14 +1553,14 @@ namespace FlashLFQ
             SpectraFileInfo spectraFile)
         {
             var isotopicEnvelopes = new List<IsotopicEnvelope>();
-            var isotopeMassShifts = _modifiedSequenceToIsotopicDistribution[identification.ModifiedSequence];
+            var isotopeMassShifts = ModifiedSequenceToIsotopicDistribution[identification.ModifiedSequence];
 
-            if (isotopeMassShifts.Count < NumIsotopesRequired)
+            if (isotopeMassShifts.Count < FlashParams.NumIsotopesRequired)
             {
                 return isotopicEnvelopes;
             }
 
-            PpmTolerance isotopeTolerance = new PpmTolerance(IsotopePpmTolerance);
+            PpmTolerance isotopeTolerance = new PpmTolerance(FlashParams.IsotopePpmTolerance);
 
             double[] experimentalIsotopeIntensities = new double[isotopeMassShifts.Count];
             double[] theoreticalIsotopeMassShifts = isotopeMassShifts.Select(p => p.Item1).ToArray();
@@ -1666,7 +1636,7 @@ namespace FlashLFQ
                 }
 
                 // check number of isotope peaks observed
-                if (massShiftToIsotopePeaks[0].Count < NumIsotopesRequired)
+                if (massShiftToIsotopePeaks[0].Count < FlashParams.NumIsotopesRequired)
                 {
                     continue;
                 }
@@ -1850,7 +1820,7 @@ namespace FlashLFQ
                 }
 
                 // recalculate intensity for the peak
-                peak.CalculateIntensityForThisFeature(Integrate);
+                peak.CalculateIntensityForThisFeature(FlashParams.Integrate);
                 peak.SplitRT = valleyEnvelope.IndexedPeak.RetentionTime;
 
                 // recursively cut
@@ -1860,7 +1830,7 @@ namespace FlashLFQ
 
         private void QuantifyIsobaricPeaks()
         {
-            if(!Silent)
+            if(!FlashParams.Silent)
                 Console.WriteLine("Quantifying isobaric species...");
             int isoGroupsSearched = 0;
             double lastReportedProgress = 0;
@@ -1873,7 +1843,7 @@ namespace FlashLFQ
                 .ToList();
 
             Parallel.ForEach(Partitioner.Create(0, idGroupedBySeq.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
+                new ParallelOptions { MaxDegreeOfParallelism = FlashParams.MaxThreads },
                 (range, loopState) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
@@ -1888,7 +1858,7 @@ namespace FlashLFQ
                         double leftWindow = mostCommonChargeIdGroup.Select(p => p.Ms2RetentionTimeInMinutes).Min() - 2;
 
                         //generate XIC from each file
-                        foreach (var spectraFile in _spectraFileInfo)
+                        foreach (var spectraFile in SpectraFileInfoList)
                         {
                             var xicIds = mostCommonChargeIdGroup.Where(p => p.FileInfo.Equals(spectraFile)).ToList();
 
@@ -1941,7 +1911,7 @@ namespace FlashLFQ
                         }
 
                         // report search progress (proteins searched so far out of total proteins in database)
-                        if (!Silent)
+                        if (!FlashParams.Silent)
                         {
                             Interlocked.Increment(ref isoGroupsSearched);
 
@@ -1956,7 +1926,7 @@ namespace FlashLFQ
                         }
                     }
                 });
-            if (!Silent)
+            if (!FlashParams.Silent)
                 Console.WriteLine("Finished quantifying isobaric species!");
         }
 
@@ -1973,7 +1943,7 @@ namespace FlashLFQ
         {
             Identification id = ids.FirstOrDefault(); 
             var peakIndexingEngine = IndexingEngineDictionary[spectraFile];
-            PpmTolerance isotopeTolerance = new PpmTolerance(PpmTolerance);
+            PpmTolerance isotopeTolerance = new PpmTolerance(FlashParams.PpmTolerance);
             ScanInfo[] ms1ScanInfos = peakIndexingEngine.ScanInfoArray;
 
             ScanInfo startScan = ms1ScanInfos
@@ -2122,7 +2092,7 @@ namespace FlashLFQ
 
             IsotopicEnvelope bestEnvelopes = chargeEnvelopes.OrderByDescending(p => p.Intensity).First();
             acceptorPeak.IsotopicEnvelopes.Add(bestEnvelopes);
-            acceptorPeak.CalculateIntensityForThisFeature(Integrate);
+            acceptorPeak.CalculateIntensityForThisFeature(FlashParams.Integrate);
 
             return acceptorPeak;
         }
@@ -2133,7 +2103,7 @@ namespace FlashLFQ
         internal void AddIsoPeaks()
         {
 
-            foreach (var fileInfo in _spectraFileInfo)
+            foreach (var fileInfo in SpectraFileInfoList)
             {
                 var allChromPeaksInFile = IsobaricPeptideDict
                     .SelectMany(p => p.Value)

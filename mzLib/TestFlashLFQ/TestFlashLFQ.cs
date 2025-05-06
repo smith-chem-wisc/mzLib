@@ -53,8 +53,10 @@ namespace Test
             Identification id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
+            FlashLfqParameters flashParams = new FlashLfqParameters() { Normalize = true, MaxThreads = 1 };
+
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
+            FlashLfqEngine engine = new FlashLfqEngine(flashParams, new List<Identification> { id1, id2, id3, id4 });
 
             // run the engine
             var results = engine.Run();
