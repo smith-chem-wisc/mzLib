@@ -124,7 +124,7 @@ namespace FlashLFQ
 
             // IsoTracker settings
             bool isoTracker = false,
-            double acceptablePeakWidthForSearch = 0.3,
+            double acceptablePeakWidthForSearch = 0.4,
 
             // MBR settings
             bool matchBetweenRuns = false,

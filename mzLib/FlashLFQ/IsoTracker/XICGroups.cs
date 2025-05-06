@@ -203,7 +203,7 @@ namespace FlashLFQ.IsoTracker
         /// </summary>
         /// /// <param name="windowLimit"> The minimum time window to generate a peak region</param>
         /// <returns></returns>
-        public List<PeakRegion> BuildSharedPeaks(double windowLimit = 0.5)
+        public List<PeakRegion> BuildSharedPeaks(double windowLimit = 0.4)
         {
             var sharedPeaks = new List<PeakRegion>();
             foreach (var extremumPoint in SharedExtrema.Where(p=>p.Type == ExtremumType.Maximum))
