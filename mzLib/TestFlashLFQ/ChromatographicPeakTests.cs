@@ -4,8 +4,8 @@ using System;
 using System.Collections.Generic;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using MassSpectrometry;
+using IsotopicEnvelope = FlashLFQ.IsotopicEnvelope;
 
 namespace Test
 {
@@ -69,7 +69,7 @@ namespace Test
         {
             // create the sample ChromatographicPeaks with different DetectionTypes
             SpectraFileInfo spectraFileInfo = new SpectraFileInfo("sampleFile", "A", 1, 1, 1);
-            Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "M[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
+            Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "Mz[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
             IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5);
             IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);
 

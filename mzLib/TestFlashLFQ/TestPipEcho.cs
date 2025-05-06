@@ -11,7 +11,6 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using Test.FileReadingTests;
-using UsefulProteomicsDatabases;
 
 
 namespace Test

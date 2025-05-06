@@ -1181,14 +1181,14 @@ namespace Test
             FlashLfqEngine engine = new FlashLfqEngine(
                 new List<Identification>
                 {
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on Mz]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on Mz]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on Mz]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on Mz]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
                 },
                 ppmTolerance: 5,
                 silent: true,
-                maxThreads: 7
+                maxThreads: 1
                 );
             var results = engine.Run();
             Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
@@ -2188,11 +2188,11 @@ namespace Test
             var scans = new MsDataScan[] { scan1, scan2, scan3, scan4, scan5 };
 
             //This tests if the length of XIC is limited by the maxRT parameter. Peak finding starts at mz 1000.003 from scan4 and maxRT limit is set to 0.15.
-            //Without RT limit, the XIC would find 5 peaks, but with the limit, the peak from scan1 will be excluded.
-            var indexedPeaks = new PeakIndexingEngine(scans);
-            var xic = FlashLfqEngine.GetXIC(1000.003, 3, indexedPeaks, 5, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
-            Assert.That(xic.Count == 4);
-            Assert.That(xic.First().Mz == 1000.001);
+            //Without RT limit, the XIC would find 5 peaks, but with the limit, the peak from scan1 and 2 (because scan4.RT - scan2.RT = 0.2 and 0.2 > 0.15) will be excluded.
+            var indexedPeaks = PeakIndexingEngine.InitializeIndexingEngine(scans);
+            var xic = indexedPeaks.GetXic(1000.003, 3, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
+            Assert.That(xic.Count == 3);
+            Assert.That(xic.First().M == 1000.002);
         }
     }
 }
