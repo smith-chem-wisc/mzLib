@@ -48,8 +48,8 @@ namespace FlashLFQ
         public readonly bool IsoTracker; //Searching parameter for the FlashLFQ engine
         public bool IsoTrackerIsRunning { get; private set;} // a flag used to indicate if the isobaric case is running, used to control the indexEngine
         public ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict { get; private set; } // The dictionary of isobaric peaks for each modified sequence
-        public readonly SearchingTarget SearchingTarget; // The searching target (motif) for the isobaric case
-        public bool IDChecking { get; private set; }
+        public readonly SearchTarget SearchTarget; // The searching target (motif) for the isobaric case
+        public bool IdChecking { get; private set; } // Searching filter to make sure at least one run with more than one ID. (default turn on)
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -125,8 +125,8 @@ namespace FlashLFQ
 
             // IsoTracker settings
             bool isoTracker = false,
-            List<char> motifsList = null,
-            bool idChecking = false,
+            List<char> motifsList = null, // The target motifs for the IsoTracker
+            bool idChecking = true, // default trun on. True: chekc at least one run with more than one ID. False: no check for the isobaric case.
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -183,8 +183,8 @@ namespace FlashLFQ
             UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
             //IsoTracker settings
             IsoTracker = isoTracker;
-            SearchingTarget = new SearchingTarget(motifsList);
-            IDChecking = idChecking;
+            SearchTarget = new SearchTarget(motifsList);
+            IdChecking = idChecking;
 
             // MBR settings
             MatchBetweenRuns = matchBetweenRuns;
@@ -1974,8 +1974,9 @@ namespace FlashLFQ
             double currentProgress = 0;
 
             // Filter out the id with motif checking from the motif list we uploaded
-            var ids = SearchingTarget.TargetMotifs!= null?
-                _allIdentifications.Where(p => SearchingTarget.MotifFilter(p.ModifiedSequence)).ToList() : _allIdentifications;
+            // Isotracker only runs IF modified AND modification contains residue
+            var ids = SearchTarget.TargetMotifs!= null?
+                _allIdentifications.Where(p => SearchTarget.ContainsAcceptableModifiedResidue(p.ModifiedSequence)).ToList() : _allIdentifications;
             // Group the IDs by their base sequence and monoisotopic mass -> isobaric peptide
             var idGroupedBySeq = ids
                 .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
@@ -2018,7 +2019,7 @@ namespace FlashLFQ
 
                         // If we have more than one XIC, we can do the peak tracking
                         // And if the checking request is turned on, we will ensure at least one run contains more than one ID
-                        if ( (!IDChecking || MoreThanOneID(xicGroup)) && xicGroup.Count > 1)
+                        if ( (!IdChecking || MoreThanOneID(xicGroup)) && xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
                             xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;

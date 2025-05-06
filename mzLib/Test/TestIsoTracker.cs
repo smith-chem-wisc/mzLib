@@ -8,7 +8,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using MathNet.Numerics.Interpolation;
-using Omics.Modifications;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 
@@ -23,21 +22,24 @@ namespace Test
         public static void TestModificationMotif_Pattern()
         {
             List<char> targetMotifs = new List<char>() { 'S', 'T', 'Y', 'N' }; //Motif: S, T, Y, N
-            SearchingTarget target = new SearchingTarget(targetMotifs);
+            SearchTarget target = new SearchTarget(targetMotifs);
             Assert.IsNotNull(target.TargetMotifs);
-            Assert.AreEqual(target.MotifFilter(null), false);
-            Assert.AreEqual(target.MotifFilter("PEPTIEKNY"), false);
-            Assert.AreEqual(target.MotifFilter("PEPTIEKN[mod]Y"), true);
-            Assert.AreEqual(target.MotifFilter("PEP[mod]TIEKNY"), false);
-            Assert.AreEqual(target.MotifFilter("PEP[mod]TIEKN[mod]Y"), true);
-            Assert.AreEqual(target.MotifFilter("P[mod]E[mod]P[mod]TI[mod]E[mod]K[mod]NY"), false); 
+            Assert.AreEqual(target.TargetMotifs.Count, 4);
+            Assert.IsNotNull(target.TargetMotifPattern);
+            Assert.AreEqual(target.TargetMotifPattern.Count, 4);
+            Assert.AreEqual(target.ContainsAcceptableModifiedResidue(null), false);
+            Assert.AreEqual(target.ContainsAcceptableModifiedResidue("PEPTIEKNY"), false);
+            Assert.AreEqual(target.ContainsAcceptableModifiedResidue("PEPTIEKN[mod]Y"), true);
+            Assert.AreEqual(target.ContainsAcceptableModifiedResidue("PEP[mod]TIEKNY"), false);
+            Assert.AreEqual(target.ContainsAcceptableModifiedResidue("PEP[mod]TIEKN[mod]Y"), true);
+            Assert.AreEqual(target.ContainsAcceptableModifiedResidue("P[mod]E[mod]P[mod]TI[mod]E[mod]K[mod]NY"), false); 
         }
 
         [Test]
         public static void TestSearchingTarget()
         {
             List<char> modificationOption = new List<char>() { 'S', 'T', 'Y', 'N' }; //Motif: S, T, Y, N
-            SearchingTarget searchingTarget = new SearchingTarget(modificationOption);
+            SearchTarget searchingTarget = new SearchTarget(modificationOption);
             Assert.IsNotNull(searchingTarget.TargetMotifs);
 
             HashSet<ProteinGroup> proteinGroups = new HashSet<ProteinGroup>() {new ProteinGroup("ProteinA", "gene", "ass")};
@@ -50,14 +52,14 @@ namespace Test
               new Peptide("PEPTIEKNY[modificaiton]", "PEPTIEKNY", false, proteinGroups), // motif is Y  
               new Peptide("PES[modification]TIEKNY", "PESTIEKNY", false, proteinGroups)  // motif is S
             };
-            List<Peptide> filteredPeptides = peptides.Where(p=> searchingTarget.MotifFilter(p.Sequence)).ToList();
+            List<Peptide> filteredPeptides = peptides.Where(p=> searchingTarget.ContainsAcceptableModifiedResidue(p.Sequence)).ToList();
             Assert.AreEqual(filteredPeptides.Count, 4);
             Assert.IsTrue(filteredPeptides[0].Sequence != "PEPTIEKNY");
 
             List<char> modificationOption_2 = new List<char>() { 'S', 'T'};
-            SearchingTarget searchingTarget_2 = new SearchingTarget(modificationOption_2);
+            SearchTarget searchingTarget_2 = new SearchTarget(modificationOption_2);
             Assert.IsNotNull(searchingTarget_2.TargetMotifs);
-            List<Peptide> filteredPeptides_2 = peptides.Where(p => searchingTarget_2.MotifFilter(p.Sequence)).ToList();
+            List<Peptide> filteredPeptides_2 = peptides.Where(p => searchingTarget_2.ContainsAcceptableModifiedResidue(p.Sequence)).ToList();
             Assert.AreEqual(filteredPeptides_2.Count, 2);
             Assert.IsTrue(filteredPeptides_2[0].Sequence == "PEPT[Modification]IEKNY");
             Assert.IsTrue(filteredPeptides_2[1].Sequence == "PES[modification]TIEKNY");
@@ -542,6 +544,7 @@ namespace Test
                     requireMsmsIdInCondition: true,
                     useSharedPeptidesForProteinQuant: true,
                     isoTracker: true,
+                    idChecking: false,
                     maxThreads: 1);
                 var results = engine.Run();
             });
@@ -554,6 +557,7 @@ namespace Test
                     requireMsmsIdInCondition: false,
                     useSharedPeptidesForProteinQuant: false,
                     isoTracker: true,
+                    idChecking: false,
                     maxThreads: 1);
                 var results = engine.Run();
             });
@@ -645,6 +649,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
+                idChecking: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -780,6 +785,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
+                idChecking: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -915,6 +921,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
+                idChecking: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -1024,6 +1031,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
+                idChecking: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -1172,6 +1180,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
+                idChecking: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -1338,6 +1347,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
+                idChecking: false,
                 maxThreads: 1,
                 motifsList: motifList);
             var results = engine.Run();
@@ -1366,6 +1376,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
+                idChecking: false,
                 maxThreads: 1,
                 motifsList: null);
             var results_noMotif = engine_noMotif.Run();
@@ -1457,8 +1468,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
-                maxThreads: 1,
-                idChecking: true);
+                maxThreads: 1);
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
