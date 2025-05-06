@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -79,7 +80,7 @@ namespace FlashLFQ
 
                 foreach (Identification id in Identifications)
                 {
-                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
+                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.M, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
 
                     if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < Math.Abs(MassError))
                     {
@@ -107,7 +108,7 @@ namespace FlashLFQ
         {
             if (otherFeature != this)
             {
-                var thisFeaturesPeaks = new HashSet<IIndexedMzPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
+                var thisFeaturesPeaks = new HashSet<IIndexedPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
                 this.Identifications = this.Identifications
                     .Union(otherFeature.Identifications)
                     .Distinct()
@@ -210,7 +211,7 @@ namespace FlashLFQ
                 sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.IndexedPeak.RetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
-                sb.Append(Apex.IndexedPeak.Mz.ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(Apex.IndexedPeak.M.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.ChargeState.ToString(CultureInfo.InvariantCulture) + "\t");
             }
             else
