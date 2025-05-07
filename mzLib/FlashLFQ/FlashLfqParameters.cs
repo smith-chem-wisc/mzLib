@@ -23,6 +23,7 @@ namespace FlashLFQ
 
             // IsoTracker settings
             IsoTracker = false;
+            AcceptablePeakWidth = 0.4; // The acceptable peak width for the isobaric peaks. This is used to determine the peak width of the isobaric peaks
 
             // MBR settings
             MatchBetweenRuns = false;
@@ -56,6 +57,7 @@ namespace FlashLFQ
 
         //IsoTracker settings
         public bool IsoTracker { get; set; } //Searching parameter for the FlashLFQ engine
+        public double AcceptablePeakWidth { get; set; }
 
         // MBR settings
         public bool MatchBetweenRuns { get; set; }
