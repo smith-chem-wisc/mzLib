@@ -182,7 +182,6 @@ namespace FlashLFQ
             )
         { }
 
-
         public FlashLfqResults Run()
         {
             _globalStopwatch.Start();
