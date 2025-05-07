@@ -1840,13 +1840,12 @@ namespace FlashLFQ
             double currentProgress = 0;
 
             // Filter out the id with motif checking from the motif list we uploaded
-            // Isotracker only runs IF modified AND modification contains residue
-            var ids = _allIdentifications.Where(p => FlashParams.IsoTrackerIdFilter.ContainsAcceptableModifiedResidue(p.ModifiedSequence)).ToList();
-            // Group the IDs by their base sequence and monoisotopic mass -> isobaric peptide
-            var idGroupedBySeq = ids
-                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
+            // Isotracker only runs IF modified AND modification contains residue. Then grouped the IDs by their base sequence and monoisotopic mass -> isobaric peptide
+            var idGroupedBySeq = _allIdentifications
+                .Where(p => FlashParams.IsoTrackerIdFilter.ContainsAcceptableModifiedResidue(p.ModifiedSequence)) // Filtering part with motif
+                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy) // Only keep the non-decoy IDs and modified peptide
                 .GroupBy(p => new
-                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) })
+                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) }) // Group by the base sequence and monoisotopic mass
                 .ToList();
 
             Parallel.ForEach(Partitioner.Create(0, idGroupedBySeq.Count),
