@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.IntegralTransforms;
 using System.Numerics;
+using MassSpectrometry;
 
 namespace FlashLFQ.IsoTracker
 {
@@ -24,7 +25,7 @@ namespace FlashLFQ.IsoTracker
         /// <summary>
         /// A list of imsPeak objects.
         /// </summary>
-        public List<IIndexedMzPeak> Ms1Peaks { get; init; }
+        public List<IIndexedPeak> Ms1Peaks { get; init; }
         /// <summary>
         /// The peak-finding mz used to detect the imsPeaks. Every peak should have this m/z+- tolerance.
         /// </summary>
@@ -55,9 +56,8 @@ namespace FlashLFQ.IsoTracker
         public List<Extremum> Extrema { get; set; }
         public List<Identification> Ids;
 
-        public XIC(List<IIndexedMzPeak> peaks, double peakFindingMass, SpectraFileInfo spectraFile, bool Isreference = false, List<Identification> ids = null, int smoothDegree = 5)
+        public XIC(List<IIndexedPeak> peaks, double peakFindingMass, SpectraFileInfo spectraFile, bool Isreference = false, List<Identification> ids = null, int smoothDegree = 5)
         {
-
             Ms1Peaks = peaks;
             PeakFindingMz = peakFindingMass;
             SpectraFile = spectraFile;
@@ -79,10 +79,10 @@ namespace FlashLFQ.IsoTracker
         /// Pad the XIC with 5 peaks before the first peak and 5 peaks after the last peak. The intensity of the padded peaks is 0.
         /// </summary>
         /// <returns></returns>
-        private List<IIndexedMzPeak> PadPeaks()
+        private List<IIndexedPeak> PadPeaks()
 
         {
-            var paddedPeaks = new List<IIndexedMzPeak>();
+            var paddedPeaks = new List<IIndexedPeak>();
             var firstPeak = Ms1Peaks[0];
             var lastPeak = Ms1Peaks[Ms1Peaks.Count - 1];
             double gap = (lastPeak.RetentionTime - firstPeak.RetentionTime) / (Ms1Peaks.Count - 1);

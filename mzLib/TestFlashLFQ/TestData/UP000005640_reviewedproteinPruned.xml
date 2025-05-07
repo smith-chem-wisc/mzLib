@@ -9914,10 +9914,10 @@
   </entry>
   <entry>
     <accession>A0A024QZP7</accession>
-    <name>Cell division cycle 2, G1 to S and G2 to M, isoform CRA_a</name>
+    <name>Cell division cycle 2, G1 to S and G2 to Mz, isoform CRA_a</name>
     <protein>
       <recommendedName>
-        <fullName>Cell division cycle 2, G1 to S and G2 to M, isoform CRA_a</fullName>
+        <fullName>Cell division cycle 2, G1 to S and G2 to Mz, isoform CRA_a</fullName>
       </recommendedName>
     </protein>
     <gene>
@@ -14280,10 +14280,10 @@
   </entry>
   <entry>
     <accession>Q99879</accession>
-    <name>Histone H2B type 1-M</name>
+    <name>Histone H2B type 1-Mz</name>
     <protein>
       <recommendedName>
-        <fullName>Histone H2B type 1-M</fullName>
+        <fullName>Histone H2B type 1-Mz</fullName>
       </recommendedName>
     </protein>
     <gene>

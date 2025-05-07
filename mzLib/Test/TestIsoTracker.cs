@@ -10,6 +10,7 @@ using System.Linq;
 using MathNet.Numerics.Interpolation;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using MassSpectrometry;
 
 namespace Test
 {
@@ -73,7 +74,7 @@ namespace Test
         public static void TestXICConstructor()
         {
             // Arrange
-            var peaks = new List<IIndexedMzPeak>
+            var peaks = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 200, 0, 1.0),
                 new IndexedMassSpectralPeak(100, 210, 1, 2.0),
@@ -106,7 +107,7 @@ namespace Test
             //The testing model is a linear function y = 100x, where x is the time point and y is the intensity
             //The slope will be 100 and the second derivative will be 0
 
-            var peaks = new List<IIndexedMzPeak>
+            var peaks = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 100, 0, 1.0),
                 new IndexedMassSpectralPeak(100, 200, 1, 2.0),
@@ -140,7 +141,7 @@ namespace Test
             //The time shift should be 0.1 min for the peak2 and -0.1 min for the peak3
 
             //The Apex of the peak1 is at 3.0
-            var peaks1 = new List<IIndexedMzPeak>
+            var peaks1 = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 10, 0, 1),
                 new IndexedMassSpectralPeak(100, 20, 1, 2),
@@ -150,7 +151,7 @@ namespace Test
             };
 
             //The Apex of the peak2 is at 3.1
-            var peaks2 = new List<IIndexedMzPeak>
+            var peaks2 = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 10, 0, 1.1),
                 new IndexedMassSpectralPeak(100, 20, 1, 2.1),
@@ -160,7 +161,7 @@ namespace Test
             };
 
             //The Apex of the peak is at 2.9
-            var peaks3 = new List<IIndexedMzPeak>
+            var peaks3 = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 10, 0, 0.9),
                 new IndexedMassSpectralPeak(100, 20, 1, 1.9),
@@ -188,7 +189,7 @@ namespace Test
             //The cubic spline should be null
 
             // Arrange
-            var peaks = new List<IIndexedMzPeak>
+            var peaks = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 100, 0, 1.0),
                 new IndexedMassSpectralPeak(100, 200, 1, 2.0),
@@ -209,7 +210,7 @@ namespace Test
             double peakFindingMass = 100.0;
             List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0).ToList(); //The timeLine from 10 to 30 mins
 
-            List<IIndexedMzPeak> peaks = new List<IIndexedMzPeak>();
+            List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
             {
                 peaks.Add(new IndexedMassSpectralPeak(mz: peakFindingMass, intensity: peak.Density(timesPoints[k]), 0, retentionTime: timesPoints[k]));
@@ -231,7 +232,7 @@ namespace Test
             double peakFindingMass = 100.0;
             List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0).ToList(); //The timeLine from 10 to 30 mins
 
-            List<IIndexedMzPeak> peaks = new List<IIndexedMzPeak>();
+            List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
             {
                 peaks.Add(new IndexedMassSpectralPeak(mz: peakFindingMass, intensity: peak.Density(timesPoints[k]), 0, retentionTime: timesPoints[k]));
@@ -253,7 +254,7 @@ namespace Test
         public static void TestXICGroupConstructor()
         {
             // XIC building
-            var peaks = new List<IIndexedMzPeak>
+            var peaks = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 200, 0, 1.0),
                 new IndexedMassSpectralPeak(100, 210, 1, 2.0),
@@ -262,7 +263,7 @@ namespace Test
                 new IndexedMassSpectralPeak(100, 240, 4, 5.0)
             };
 
-            var peaks2 = new List<IIndexedMzPeak>
+            var peaks2 = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 200, 0, 1.0),
                 new IndexedMassSpectralPeak(100, 210, 1, 2.0),
@@ -310,7 +311,7 @@ namespace Test
             //The time shift should be 0.1 min for the peak2 and -0.1 min for the peak3
 
             //The Apex of the peak1 is at 3.0
-            var peaks1 = new List<IIndexedMzPeak>
+            var peaks1 = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 10, 0, 1),
                 new IndexedMassSpectralPeak(100, 20, 1, 2),
@@ -320,7 +321,7 @@ namespace Test
             };
 
             //The Apex of the peak2 is at 3.1
-            var peaks2 = new List<IIndexedMzPeak>
+            var peaks2 = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 10, 0, 1.1),
                 new IndexedMassSpectralPeak(100, 20, 1, 2.1),
@@ -330,7 +331,7 @@ namespace Test
             };
 
             //The Apex of the peak is at 2.9
-            var peaks3 = new List<IIndexedMzPeak>
+            var peaks3 = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 10, 0, 0.9),
                 new IndexedMassSpectralPeak(100, 20, 1, 1.9),
@@ -360,7 +361,7 @@ namespace Test
             //If the Id is borrowed, the Id will not be added into the IdList
             //The IdList should contain the Ids from the first and the third XIC
 
-            var peaks = new List<IIndexedMzPeak>
+            var peaks = new List<IIndexedPeak>
             {
                 new IndexedMassSpectralPeak(100, 10, 0, 1),
                 new IndexedMassSpectralPeak(100, 20, 1, 2),
@@ -414,9 +415,9 @@ namespace Test
                 intensities_P3.Add((peak.Density(timesPoints[k] + 3)));
             }
 
-            List<IIndexedMzPeak> p1List = new List<IIndexedMzPeak>(); // create the timepoints
-            List<IIndexedMzPeak> p2List = new List<IIndexedMzPeak>();
-            List<IIndexedMzPeak> p3List = new List<IIndexedMzPeak>();
+            List<IIndexedPeak> p1List = new List<IIndexedPeak>(); // create the timepoints
+            List<IIndexedPeak> p2List = new List<IIndexedPeak>();
+            List<IIndexedPeak> p3List = new List<IIndexedPeak>();
 
             for (int j = 0; j < 200; j++)
             {

@@ -215,5 +215,33 @@ namespace MzLibUtil
             }
             return null;
         }
+
+        /// <summary>
+        /// For generic types, checks if the value is the default value or null.
+        /// Used in cases where generic type could be a non-nullable struct.
+        /// Calling an extension method on a null does work, because extension methods compile to
+        /// ClassExtensions.IsDefaultOrNull(value)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="value">Value to be checked</param>
+        /// <returns>True if value is null or equal to the default value for type T</returns>
+        public static bool IsDefaultOrNull<T>(this T value)
+        {
+            return EqualityComparer<T>.Default.Equals(value, default(T)) || value == null;
+        }
+
+        /// <summary>
+        /// For generic types, checks if the value is the default value or null.
+        /// Used in cases where generic type could be a non-nullable struct.
+        /// Calling an extension method on a null does work, because extension methods compile to
+        /// ClassExtensions.IsDefaultOrNull(value)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="value">Value to be checked</param>
+        /// <returns>False if value is null or equal to the default value for type T</returns>
+        public static bool IsNotDefaultOrNull<T>(this T value)
+        {
+            return !value.IsDefaultOrNull();
+        }
     }
 }
