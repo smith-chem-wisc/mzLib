@@ -24,7 +24,6 @@ namespace FlashLFQ
 {
     public class FlashLfqEngine
     {
-
         public FlashLfqParameters FlashParams { get; init; }
         public List<SpectraFileInfo> SpectraFileInfoList { get; init; }
 
@@ -127,7 +126,7 @@ namespace FlashLFQ
             // IsoTracker settings
             bool isoTracker = false,
             List<char> motifsList = null, // The target motifs for the IsoTracker
-            bool idChecking = true, // default trun on. True: chekc at least one run with more than one ID. False: no check for the isobaric case.
+            bool idChecking = true, // Default turned on. True: check that at least one run with more than one ID. False: no check for the isobaric case.
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -146,7 +145,6 @@ namespace FlashLFQ
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,
             bool pairedSamples = false,
-
             int? randomSeed = null) : 
             this(
                 new FlashLfqParameters()
@@ -189,7 +187,6 @@ namespace FlashLFQ
         {
             _globalStopwatch.Start();
             _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
-
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
             // quantify each file

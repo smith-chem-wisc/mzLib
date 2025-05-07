@@ -1473,18 +1473,35 @@ namespace Test
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
-            List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
+            // only one isobaric peptide should be searched
+            Assert.IsTrue(results.IsobaricPeptideDict.Count == 1);
 
-            // Every isobaric peptide should contain the motif "N" (asparagine)
+            // through the IDchecking, we can only get the one isobaric peptide (pepA)
+            List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
             foreach (var peptide in peptidesList)
             {
                 var IsIsobaric = peptide.Split('\t')[0].Contains("Isopeptide");
                 if (IsIsobaric)
                 {
                     var baseSequence = peptide.Split('\t')[1];
+                    // only peptdieA can be isopeptide
                     Assert.AreEqual(baseSequence, "PEPTIDEA");
+                    Assert.AreNotEqual(baseSequence, "PEPTIDEB");
+                    Assert.AreNotEqual(baseSequence, "PEPTIDEC");
                 }
             }
+
+            // I remove the first id in the list, therefore both run only have one Id for each peptide.
+            // There is no any isobaric peptide
+            ids.RemoveAt(1);
+            var new_engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: true,
+                maxThreads: 1);
+            var results_2 = new_engine.Run();
+            Assert.IsTrue(results_2.IsobaricPeptideDict.Count == 0);
             Directory.Delete(outputDirectory, true);
         }
     }

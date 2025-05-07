@@ -24,8 +24,8 @@ namespace FlashLFQ
 
             // IsoTracker settings
             IsoTracker = false;
-            SearchTarget = new SearchTarget(null);
-            IdChecking = false;
+            SearchTarget = new SearchTarget(null); //If there is no targetMotif uploaded, then we don't filter the peptide sequence
+            IdChecking = true; //Default is true
 
             // MBR settings
             MatchBetweenRuns = false;
@@ -59,8 +59,8 @@ namespace FlashLFQ
 
         //IsoTracker settings
         public bool IsoTracker { get; set; } //Searching parameter for the FlashLFQ engine
-        public SearchTarget SearchTarget { get; set; } //Searching parameter for the FlashLFQ engine
-        public bool IdChecking { get; set; }
+        public SearchTarget SearchTarget { get; set; } //Searching Target for the FlashLFQ engine
+        public bool IdChecking { get; set; } 
 
         // MBR settings
         public bool MatchBetweenRuns { get; set; }
