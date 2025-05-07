@@ -126,7 +126,7 @@ namespace FlashLFQ
             // IsoTracker settings
             bool isoTracker = false,
             List<char> motifsList = null, // The target motifs for the IsoTracker
-            bool idChecking = true, // Default turned on. True: check that at least one run with more than one ID. False: no check for the isobaric case.
+            bool requireMultipleIdsInOneFiles = true,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -159,8 +159,8 @@ namespace FlashLFQ
                     MaxThreads = maxThreads,
                     Normalize = normalize,
                     IsoTracker = isoTracker,
-                    SearchTarget = new SearchTarget(motifsList),
-                    IdChecking = idChecking,
+                    IsoTrackerIdFilter = new IsoTrackerIdFilter(motifsList),
+                    RequireMultipleIdsInOneFiles = requireMultipleIdsInOneFiles,
                     MatchBetweenRuns = matchBetweenRuns,
                     MaxMbrRtWindow = maxMbrWindow,
                     MbrPpmTolerance = matchBetweenRunsPpmTolerance,
@@ -1841,8 +1841,7 @@ namespace FlashLFQ
 
             // Filter out the id with motif checking from the motif list we uploaded
             // Isotracker only runs IF modified AND modification contains residue
-            var ids = FlashParams.SearchTarget.TargetMotifs!= null?
-                _allIdentifications.Where(p => FlashParams.SearchTarget.ContainsAcceptableModifiedResidue(p.ModifiedSequence)).ToList() : _allIdentifications;
+            var ids = _allIdentifications.Where(p => FlashParams.IsoTrackerIdFilter.ContainsAcceptableModifiedResidue(p.ModifiedSequence)).ToList();
             // Group the IDs by their base sequence and monoisotopic mass -> isobaric peptide
             var idGroupedBySeq = ids
                 .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
@@ -1883,9 +1882,9 @@ namespace FlashLFQ
                             }
                         }
 
-                        // If we have more than one XIC, we can do the peak tracking
-                        // And if the checking request is turned on, we will ensure at least one run contains more than one ID
-                        if ( (!FlashParams.IdChecking || MoreThanOneID(xicGroup)) && xicGroup.Count > 1)
+                        // In order to eliminate the bad XIC case that only one id for each file.
+                        // We need to check if the XICGroup has more than one ID in one file.
+                        if ( (!FlashParams.RequireMultipleIdsInOneFiles || MoreThanOneID(xicGroup)) && xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
                             xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;

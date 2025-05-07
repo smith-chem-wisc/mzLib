@@ -20,10 +20,31 @@ namespace Test
     {
         //Test the basic function in IsoTracker
         [Test]
-        public static void TestModificationMotif_Pattern()
+        public static void TestIsoTrackerIdFilter_constructor()
+        {
+            // Test the constructor of IsoTrackerIdFilter
+            IsoTrackerIdFilter target = new IsoTrackerIdFilter(new List<char>() { 'A', 'B', 'C' });
+            Assert.IsNotNull(target.TargetMotifs);
+            Assert.AreEqual(target.TargetMotifs.Count, 3);
+            Assert.IsNotNull(target.TargetMotifPattern);
+            Assert.AreEqual(target.TargetMotifPattern.Count, 3);
+            // TargetMotif is null
+            IsoTrackerIdFilter target_null = new IsoTrackerIdFilter();
+            Assert.IsNotNull(target_null.TargetMotifs);
+            Assert.AreEqual(target_null.TargetMotifs.Count, 0);
+            Assert.IsNull(target_null.TargetMotifPattern);
+            // TargetMotif is invalid char
+            IsoTrackerIdFilter target_invalid = new IsoTrackerIdFilter(new List<char>() { '8', '#' });
+            Assert.IsNotNull(target_invalid.TargetMotifs);
+            Assert.AreEqual(target_invalid.TargetMotifs.Count, 0);
+            Assert.IsNull(target_invalid.TargetMotifPattern);
+        }
+
+        [Test]
+        public static void TestIsoTrackerIdFilter_Pattern()
         {
             List<char> targetMotifs = new List<char>() { 'S', 'T', 'Y', 'N' }; //Motif: S, T, Y, N
-            SearchTarget target = new SearchTarget(targetMotifs);
+            IsoTrackerIdFilter target = new IsoTrackerIdFilter(targetMotifs);
             Assert.IsNotNull(target.TargetMotifs);
             Assert.AreEqual(target.TargetMotifs.Count, 4);
             Assert.IsNotNull(target.TargetMotifPattern);
@@ -37,10 +58,10 @@ namespace Test
         }
 
         [Test]
-        public static void TestSearchingTarget()
+        public static void TestIsoTrackerIdFilter_FilterPeptide()
         {
             List<char> modificationOption = new List<char>() { 'S', 'T', 'Y', 'N' }; //Motif: S, T, Y, N
-            SearchTarget searchingTarget = new SearchTarget(modificationOption);
+            IsoTrackerIdFilter searchingTarget = new IsoTrackerIdFilter(modificationOption);
             Assert.IsNotNull(searchingTarget.TargetMotifs);
 
             HashSet<ProteinGroup> proteinGroups = new HashSet<ProteinGroup>() {new ProteinGroup("ProteinA", "gene", "ass")};
@@ -58,7 +79,7 @@ namespace Test
             Assert.IsTrue(filteredPeptides[0].Sequence != "PEPTIEKNY");
 
             List<char> modificationOption_2 = new List<char>() { 'S', 'T'};
-            SearchTarget searchingTarget_2 = new SearchTarget(modificationOption_2);
+            IsoTrackerIdFilter searchingTarget_2 = new IsoTrackerIdFilter(modificationOption_2);
             Assert.IsNotNull(searchingTarget_2.TargetMotifs);
             List<Peptide> filteredPeptides_2 = peptides.Where(p => searchingTarget_2.ContainsAcceptableModifiedResidue(p.Sequence)).ToList();
             Assert.AreEqual(filteredPeptides_2.Count, 2);
@@ -545,7 +566,7 @@ namespace Test
                     requireMsmsIdInCondition: true,
                     useSharedPeptidesForProteinQuant: true,
                     isoTracker: true,
-                    idChecking: false,
+                    requireMultipleIdsInOneFiles: false,
                     maxThreads: 1);
                 var results = engine.Run();
             });
@@ -558,7 +579,7 @@ namespace Test
                     requireMsmsIdInCondition: false,
                     useSharedPeptidesForProteinQuant: false,
                     isoTracker: true,
-                    idChecking: false,
+                    requireMultipleIdsInOneFiles: false,
                     maxThreads: 1);
                 var results = engine.Run();
             });
@@ -650,7 +671,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
-                idChecking: false,
+                requireMultipleIdsInOneFiles: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -786,7 +807,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
-                idChecking: false,
+                requireMultipleIdsInOneFiles: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -922,7 +943,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
-                idChecking: false,
+                requireMultipleIdsInOneFiles: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -1032,7 +1053,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
-                idChecking: false,
+                requireMultipleIdsInOneFiles: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -1181,7 +1202,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
-                idChecking: false,
+                requireMultipleIdsInOneFiles: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -1348,7 +1369,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
-                idChecking: false,
+                requireMultipleIdsInOneFiles: false,
                 maxThreads: 1,
                 motifsList: motifList);
             var results = engine.Run();
@@ -1377,7 +1398,7 @@ namespace Test
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
-                idChecking: false,
+                requireMultipleIdsInOneFiles: false,
                 maxThreads: 1,
                 motifsList: null);
             var results_noMotif = engine_noMotif.Run();
