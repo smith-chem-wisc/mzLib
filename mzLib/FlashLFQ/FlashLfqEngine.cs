@@ -161,8 +161,8 @@ namespace FlashLFQ
                     MaxThreads = maxThreads,
                     Normalize = normalize,
                     IsoTracker = isoTracker,
-            SearchTarget = new SearchTarget(motifsList),
-            IdChecking = idChecking,
+                    SearchTarget = new SearchTarget(motifsList),
+                    IdChecking = idChecking,
                     MatchBetweenRuns = matchBetweenRuns,
                     MaxMbrRtWindow = maxMbrWindow,
                     MbrPpmTolerance = matchBetweenRunsPpmTolerance,
@@ -1845,8 +1845,8 @@ namespace FlashLFQ
 
             // Filter out the id with motif checking from the motif list we uploaded
             // Isotracker only runs IF modified AND modification contains residue
-            var ids = SearchTarget.TargetMotifs!= null?
-                _allIdentifications.Where(p => SearchTarget.ContainsAcceptableModifiedResidue(p.ModifiedSequence)).ToList() : _allIdentifications;
+            var ids = FlashParams.SearchTarget.TargetMotifs!= null?
+                _allIdentifications.Where(p => FlashParams.SearchTarget.ContainsAcceptableModifiedResidue(p.ModifiedSequence)).ToList() : _allIdentifications;
             // Group the IDs by their base sequence and monoisotopic mass -> isobaric peptide
             var idGroupedBySeq = ids
                 .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
@@ -1889,7 +1889,7 @@ namespace FlashLFQ
 
                         // If we have more than one XIC, we can do the peak tracking
                         // And if the checking request is turned on, we will ensure at least one run contains more than one ID
-                        if ( (!IdChecking || MoreThanOneID(xicGroup)) && xicGroup.Count > 1)
+                        if ( (!FlashParams.IdChecking || MoreThanOneID(xicGroup)) && xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
                             xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;

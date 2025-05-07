@@ -3,6 +3,7 @@ using MzLibUtil;
 using Proteomics.ProteolyticDigestion;
 using Proteomics.RetentionTimePrediction;
 using System.Collections.Generic;
+using FlashLFQ.IsoTracker;
 
 namespace FlashLFQ
 {
@@ -23,6 +24,8 @@ namespace FlashLFQ
 
             // IsoTracker settings
             IsoTracker = false;
+            SearchTarget = new SearchTarget(null);
+            IdChecking = false;
 
             // MBR settings
             MatchBetweenRuns = false;
@@ -56,6 +59,8 @@ namespace FlashLFQ
 
         //IsoTracker settings
         public bool IsoTracker { get; set; } //Searching parameter for the FlashLFQ engine
+        public SearchTarget SearchTarget { get; set; } //Searching parameter for the FlashLFQ engine
+        public bool IdChecking { get; set; }
 
         // MBR settings
         public bool MatchBetweenRuns { get; set; }

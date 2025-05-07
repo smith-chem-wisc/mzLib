@@ -30,6 +30,14 @@ namespace FlashLFQ.IsoTracker
             PatternBuilding();
         }
 
+        /// <summary>
+        /// The parameterless constructor for toml file reader.
+        /// But we still need to deal with the toml stuff for my new parameter in the future.
+        /// </summary>
+        public SearchTarget(): this(null)
+        {
+        }
+
         public void PatternBuilding()
         {
             TargetMotifPattern = new List<Regex>();
