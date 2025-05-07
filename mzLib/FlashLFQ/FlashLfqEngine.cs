@@ -125,6 +125,7 @@ namespace FlashLFQ
 
             // IsoTracker settings
             bool isoTracker = false,
+            double acceptablePeakWidth = 0.4,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -157,6 +158,7 @@ namespace FlashLFQ
                     MaxThreads = maxThreads,
                     Normalize = normalize,
                     IsoTracker = isoTracker,
+                    AcceptablePeakWidth = acceptablePeakWidth,
                     MatchBetweenRuns = matchBetweenRuns,
                     MaxMbrRtWindow = maxMbrWindow,
                     MbrPpmTolerance = matchBetweenRunsPpmTolerance,
@@ -1892,7 +1894,7 @@ namespace FlashLFQ
                             foreach (var peak in xICGroups.SharedPeaks)
                             {
                                 double peakWindow = peak.Width;
-                                if (peakWindow > 0.001) //make sure we have enough length of the window (0.001 min) for peak searching
+                                if (peakWindow > FlashParams.AcceptablePeakWidth) //make sure we have enough length of the window (default is 0.4 min) for peak searching
                                 {
                                     List<ChromatographicPeak> chromPeaksInSharedPeak = new List<ChromatographicPeak>();
                                     CollectChromPeakInRuns(peak, chromPeaksInSharedPeak, xICGroups);

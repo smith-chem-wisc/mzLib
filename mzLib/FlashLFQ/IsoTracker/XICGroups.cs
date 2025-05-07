@@ -91,7 +91,7 @@ namespace FlashLFQ.IsoTracker
 
             SharedExtrema = group_min.Concat(group_max).ToList();
             SharedExtrema.Sort((p1, p2) => p1.RetentionTime.CompareTo(p2.RetentionTime)); // sort the shared extrema by the retention time
-            SharePeakTrimming();
+            ExtremaTrimming(); // Just rename the function to be more readable
 
 
         }
@@ -145,8 +145,8 @@ namespace FlashLFQ.IsoTracker
         /// <summary>
         /// Trim the shared extremas in the close time range. Ex. if the two minimums are close and the intensity is going up, remove the first one
         /// </summary>
-        /// <param name="cutOff"> The time range for trimming</param>
-        private void SharePeakTrimming(double cutOff = 0.3) 
+        /// <param name="cutOff"> The acceptable time for differentiate two extrema range for trimming</param>
+        private void ExtremaTrimming(double cutOff = 0.3) 
         {
             int removeIndex = 0;
             int count = SharedExtrema.Count();
@@ -244,6 +244,7 @@ namespace FlashLFQ.IsoTracker
             }
 
             // remove the peaks with the time window less than the window limit
+            // We already have a limit peak width for the peak region.
             sharedPeaks.RemoveAll(p => p.Width < windowLimit);
             return sharedPeaks;
         }
