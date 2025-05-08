@@ -3,6 +3,7 @@ using MzLibUtil;
 using Proteomics.ProteolyticDigestion;
 using Proteomics.RetentionTimePrediction;
 using System.Collections.Generic;
+using FlashLFQ.IsoTracker;
 
 namespace FlashLFQ
 {
@@ -23,6 +24,8 @@ namespace FlashLFQ
 
             // IsoTracker settings
             IsoTracker = false;
+            IsoTrackerIdFilter = new IsoTrackerIdFilter(null); //If there is no targetMotif uploaded, then we don't filter the peptide sequence
+            RequireMultipleIdsInOneFiles = true; //Default is true
 
             // MBR settings
             MatchBetweenRuns = false;
@@ -55,7 +58,17 @@ namespace FlashLFQ
         public int MaxThreads { get; set; }
 
         //IsoTracker settings
-        public bool IsoTracker { get; set; } //Searching parameter for the FlashLFQ engine
+        public bool IsoTracker { get; set; }
+        /// <summary>
+        /// Only use in IsoTracker engine, the targetMotif will be used to filter ID in isobaric searching.
+        /// If there is no targetMotif uploaded, then we don't filter the peptide sequence.
+        /// </summary>
+        public IsoTrackerIdFilter IsoTrackerIdFilter { get; set; }
+        /// <summary>
+        /// Require multiple IDs in one file for the IsoTracker engine.
+        /// Default turned on. True: check that at least one run with more than one ID. False: no check for the isobaric case.
+        /// </summary>
+        public bool RequireMultipleIdsInOneFiles { get; set; } 
 
         // MBR settings
         public bool MatchBetweenRuns { get; set; }

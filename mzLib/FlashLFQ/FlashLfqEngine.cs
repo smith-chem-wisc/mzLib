@@ -125,6 +125,8 @@ namespace FlashLFQ
 
             // IsoTracker settings
             bool isoTracker = false,
+            List<char> motifsList = null, // The target motifs for the IsoTracker
+            bool requireMultipleIdsInOneFiles = true,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -157,6 +159,8 @@ namespace FlashLFQ
                     MaxThreads = maxThreads,
                     Normalize = normalize,
                     IsoTracker = isoTracker,
+                    IsoTrackerIdFilter = new IsoTrackerIdFilter(motifsList),
+                    RequireMultipleIdsInOneFiles = requireMultipleIdsInOneFiles,
                     MatchBetweenRuns = matchBetweenRuns,
                     MaxMbrRtWindow = maxMbrWindow,
                     MbrPpmTolerance = matchBetweenRunsPpmTolerance,
@@ -182,7 +186,6 @@ namespace FlashLFQ
         {
             _globalStopwatch.Start();
             _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
-
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
             // quantify each file
@@ -1836,10 +1839,13 @@ namespace FlashLFQ
             double lastReportedProgress = 0;
             double currentProgress = 0;
 
+            // Filter out the id with motif checking from the motif list we uploaded
+            // Isotracker only runs IF modified AND modification contains residue. Then grouped the IDs by their base sequence and monoisotopic mass -> isobaric peptide
             var idGroupedBySeq = _allIdentifications
-                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
+                .Where(p => FlashParams.IsoTrackerIdFilter.ContainsAcceptableModifiedResidue(p.ModifiedSequence)) // Filtering part with motif
+                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy) // Only keep the non-decoy IDs and modified peptide
                 .GroupBy(p => new
-                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) })
+                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) }) // Group by the base sequence and monoisotopic mass
                 .ToList();
 
             Parallel.ForEach(Partitioner.Create(0, idGroupedBySeq.Count),
@@ -1875,8 +1881,9 @@ namespace FlashLFQ
                             }
                         }
 
-                        // If we have more than one XIC, we can do the peak tracking
-                        if (xicGroup.Count > 1)
+                        // In order to eliminate the bad XIC case that only one id for each file.
+                        // We need to check if the XICGroup has more than one ID in one file.
+                        if ( (!FlashParams.RequireMultipleIdsInOneFiles || MoreThanOneID(xicGroup)) && xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
                             xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;
@@ -1928,6 +1935,16 @@ namespace FlashLFQ
                 });
             if (!FlashParams.Silent)
                 Console.WriteLine("Finished quantifying isobaric species!");
+        }
+
+        /// <summary>
+        /// Check if any XIC has more than one ID
+        /// </summary>
+        /// <param name="xics"></param>
+        /// <returns></returns>
+        internal bool MoreThanOneID(List<XIC> xics)
+        {
+            return xics.Any(p=> p.Ids.Count > 1);
         }
 
         /// <summary>
