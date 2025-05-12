@@ -10,6 +10,7 @@ using Omics.Fragmentation;
 using Readers;
 using MzLibUtil;
 using FlashLFQ;
+using Easy.Common.Extensions;
 
 namespace Test.FileReadingTests
 {
@@ -132,6 +133,10 @@ namespace Test.FileReadingTests
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings);
             PsmFromTsv psm = psms.First();
+
+            // assert that in 1st elt PEP and PEP_Q values exists and are less than one to imporve code cov
+            Assert.That(psm.PEP, Is.LessThan(1.0));
+            Assert.That(psm.PEP_QValue, Is.LessThan(1.0));
 
             // non ambiguous construction should not be successful
             string fullSeq = psm.FullSequence;
