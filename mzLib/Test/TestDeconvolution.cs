@@ -310,7 +310,9 @@ namespace Test
             List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
 
             // Flatten all peaks from all envelopes into a single list
-            var allMzPeaks = isolatedMasses.SelectMany(env => env.Peaks.Select(p => p.mz)).ToList();
+            var allMzPeaks = isolatedMasses.SelectMany(env => env.Peaks.Select(p => p.mz))
+                .OrderBy(p => p)
+                .ToList();
 
             // Count unique m/z values (using a tolerance for floating point comparison)
             double mzTolerance = 1e-6;

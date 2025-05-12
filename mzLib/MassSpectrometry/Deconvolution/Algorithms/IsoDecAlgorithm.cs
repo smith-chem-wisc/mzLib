@@ -89,7 +89,7 @@ namespace MassSpectrometry
                 IsoDecDeconvolutionParameters.IsoSettings settings = deconParams.ToIsoSettings();
                 int result = process_spectrum(mzs, intensities, intensities.Length, null, matchedPeaksPtr, settings);
                 if (result <= 0)
-                    return Enumerable.Empty<IsotopicEnvelope>();
+                    return [];
 
                 // Handle results
                 MatchedPeak[] matchedpeaks = new MatchedPeak[result];
@@ -118,28 +118,26 @@ namespace MassSpectrometry
             List<IsotopicEnvelope> result = new List<IsotopicEnvelope>();
             int currentId = 0;
             var tolerance = new PpmTolerance(5);
-            foreach(MatchedPeak peak in matchedpeaks)
+
+            // Each matched peak is a separate isotopic envelope
+            foreach (MatchedPeak peak in matchedpeaks)
             {
                 List<(double,double)> peaks = new List<(double,double)> ();
+
+                // Get the isotopic distribution for this peak
                 for (int i = 0; i < peak.realisolength; i++)
                 {
+                    float targetMz = peak.isomz[i];
+                    if (targetMz <= 0) // Skip negative or uninitialized m/z values (array initialization is 64 0's)
+                        continue;  
 
-                    List<int> indicesWithinTolerance = spectrum.GetPeakIndicesWithinTolerance(peak.isomz[i], tolerance);
-                    double maxIntensity = 0;
-                    int maxIndex = -1;
-                    foreach (int index in indicesWithinTolerance)
-                    {
-                        if (spectrum.YArray[index] > maxIntensity) { maxIntensity = spectrum.YArray[index]; maxIndex = index; }
-                    }
-                    if (maxIndex >= 0)
-                    {
-                        peaks.Add((spectrum.XArray[maxIndex], spectrum.YArray[maxIndex]));
-                    }
-                    else
-                    {
-                        peaks.Add((peak.isomz[i], 0));
-                    }
+                    var targetMzIndex = spectrum.GetClosestPeakIndex(peak.isomz[i]);
 
+                    if (tolerance.Within(peak.isomz[i], spectrum.XArray[targetMzIndex]))
+                    {
+                        peaks.Add((spectrum.XArray[targetMzIndex], spectrum.YArray[targetMzIndex]));
+                        continue;
+                    }
                 }
                 int charge = peak.z;
                 if(parameters.Polarity == Polarity.Negative) { charge = -peak.z; }
