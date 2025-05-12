@@ -1525,6 +1525,89 @@ namespace Test
             Assert.IsTrue(results_2.IsobaricPeptideDict.Count == 0);
             Directory.Delete(outputDirectory, true);
         }
+
+        [Test]
+        public static void DavidTesting()
+        {
+            var filePath = "E:\\IsoTracker\\1-100 for testing\\FileName_list.txt";
+            Dictionary<string, SpectraFileInfo> fileNameList = new Dictionary<string, SpectraFileInfo>();
+            foreach (var line in File.ReadAllLines(filePath))
+            {
+                string fileName = line.Split('\\')[3];
+                if (!fileNameList.ContainsKey(fileName))
+                {
+                    SpectraFileInfo file = new SpectraFileInfo(line, "", 1, 1, 1);
+                    fileNameList[fileName] = file;
+                }
+            }
+            string testDataDirectory = "E:\\IsoTracker\\1-100 for testing";
+            string psmFile = Path.Combine(testDataDirectory, "pTest", "Task1-GlycoSearchTask", "AllPSMs.psmtsv");
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+                file = fileNameList.First(p => split[0].Contains(p.Key)).Value;
+
+                var decoy = split[24];
+                var qvalue = double.Parse(split[25]);
+                string baseSequence = split[11];
+                string fullSequence = split[13];
+
+                if (baseSequence.Contains("|") || fullSequence.Contains("|"))
+                {
+                    continue;
+                }
+                if (decoy.Contains("C") || decoy.Contains("D") || qvalue > 0.01)
+                {
+                    continue;
+                }
+
+                double monoMass = double.Parse(split[15].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[5]);
+                var proteins = split[7].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+
+            }
+            List<char> motifs = new List<char>(){'N'};
+
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: true,
+                motifsList: motifs,
+                maxThreads: 20);
+            var results = engine.Run();
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
+            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
+
+
+
+        }
     }
 
 }
