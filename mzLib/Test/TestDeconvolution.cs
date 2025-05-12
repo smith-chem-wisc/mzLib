@@ -14,6 +14,7 @@ using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Test.FileReadingTests;
+using OxyPlot.Series;
 
 namespace Test
 {
@@ -244,44 +245,30 @@ namespace Test
         #region IsoDec Deconvolution
 
         [Test]
+        [TestCase(562.8449, 25, 19983212, 562.84)]
         [TestCase(586.2143122, 24, 41983672, 586.2)]//This is a lesser abundant charge state envelope at the low mz end
+        [TestCase(611.7001613, 23, 60069992, 611.70)]
+        [TestCase(639.4601902, 22, 75176328, 639.46)]
+        [TestCase(669.9094719, 21, 107761392, 669.90)]
+        [TestCase(703.2539588, 20, 124011392, 703.25)]
         [TestCase(740.372202090153, 19, 108419280, 740.37)]//This is the most abundant charge state envelope
+        [TestCase(781.3931421, 18, 124907912, 781.39)]
+        [TestCase(827.1797156, 17, 86587560, 827.17)]
+        [TestCase(878.8786051, 16, 91039392, 878.87)]
+        [TestCase(937.3376762, 15, 70963344, 937.33)]
+        [TestCase(1004.289548, 14, 71522392, 1004.28)]
         [TestCase(1081.385183, 13, 35454636, 1081.385)]//This is a lesser abundant charge state envelope at the high mz end
-        public void TestIsoDecDeconvolutionProteoformMultiChargeState(double selectedIonMz, int selectedIonChargeStateGuess, double selectedIonIntensity, double isolationMz)
+        public void IsoDecDeconvolution_ProteoformMs1_GetsMassCorrect(double selectedIonMz, int selectedIonChargeStateGuess, double selectedIonIntensity, double isolationMz)
         {
-            MsDataScan[] Scans = new MsDataScan[1];
+            MzSpectrum spectrum = LoadJohnTestSpectrum();
 
-            //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
-            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
-
-            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
-
-            int mzIntensityPairsCount = spectrumLines.Length;
-            double[] ms1mzs = new double[mzIntensityPairsCount];
-            double[] ms1intensities = new double[mzIntensityPairsCount];
-
-            for (int i = 0; i < mzIntensityPairsCount; i++)
-            {
-                string[] pair = spectrumLines[i].Split('\t');
-                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
-                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
-            }
-
-            MzSpectrum spectrum = new MzSpectrum(ms1mzs, ms1intensities, false);
-
-            Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617), "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz, selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
-
-            var myMsDataFile = new FakeMsDataFile(Scans);
-
-            MsDataScan scan = myMsDataFile.GetAllScansList()[0];
-
-            // The ones marked 2 are for checking an overload method
+            MsDataScan scan = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617), "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz, selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
 
             DeconvolutionParameters deconParameters = new IsoDecDeconvolutionParameters();
-
             IsoDecAlgorithm alg  = new IsoDecAlgorithm(deconParameters);
             List<IsotopicEnvelope> allMasses = alg.Deconvolute(scan.MassSpectrum, new MzRange((double)scan.MassSpectrum.FirstX, (double)scan.MassSpectrum.LastX)).ToList();
 
+            // The ones marked 2 are for checking an overload method
             List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
             List<IsotopicEnvelope> isolatedMasses2 = scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, deconParameters).ToList();
 
@@ -297,6 +284,48 @@ namespace Test
             bool isAnyEqual2 = monoIsotopicMasses2.Any(m => m >= 14037.926829 - ppmwidth && m <= 14037.926826 + ppmwidth);
             Assert.That(isAnyEqual1);
             Assert.That(isAnyEqual2);
+        }
+
+        [Test]
+        [TestCase(562.8449, 25, 19983212, 562.84)]
+        [TestCase(586.2143122, 24, 41983672, 586.2)]//This is a lesser abundant charge state envelope at the low mz end
+        [TestCase(611.7001613, 23, 60069992, 611.70)]
+        [TestCase(639.4601902, 22, 75176328, 639.46)]
+        [TestCase(669.9094719, 21, 107761392, 669.90)]
+        [TestCase(703.2539588, 20, 124011392, 703.25)]
+        [TestCase(740.372202090153, 19, 108419280, 740.37)]//This is the most abundant charge state envelope
+        [TestCase(781.3931421, 18, 124907912, 781.39)]
+        [TestCase(827.1797156, 17, 86587560, 827.17)]
+        [TestCase(878.8786051, 16, 91039392, 878.87)]
+        [TestCase(937.3376762, 15, 70963344, 937.33)]
+        [TestCase(1004.289548, 14, 71522392, 1004.28)]
+        [TestCase(1081.385183, 13, 35454636, 1081.385)]//This is a lesser abundant charge state envelope at the high mz end
+        public void IsoDecDeconvolution_ProteoformMs1_DoesNotReuseMzPeaks(double selectedIonMz, int selectedIonChargeStateGuess, double selectedIonIntensity, double isolationMz)
+        {
+            MzSpectrum spectrum = LoadJohnTestSpectrum();
+            MsDataScan scan = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617), "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz, selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+
+            // Deconvolute the charge state of interest for the test case
+            DeconvolutionParameters deconParameters = new IsoDecDeconvolutionParameters();
+            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
+
+            // Flatten all peaks from all envelopes into a single list
+            var allMzPeaks = isolatedMasses.SelectMany(env => env.Peaks.Select(p => p.mz)).ToList();
+
+            // Count unique m/z values (using a tolerance for floating point comparison)
+            double mzTolerance = 1e-6;
+            var uniqueMzPeaks = new List<double>();
+            foreach (var mz in allMzPeaks)
+            {
+                if (!uniqueMzPeaks.Any(u => Math.Abs(u - mz) < mzTolerance))
+                {
+                    uniqueMzPeaks.Add(mz);
+                }
+            }
+
+            // Assert that the number of unique m/z values equals the total number of m/z values
+            // (i.e., no m/z peak is reused across envelopes)
+            Assert.That(uniqueMzPeaks.Count, Is.EqualTo(allMzPeaks.Count), "Some m/z peaks are reused across isotopic envelopes.");
         }
 
         [Test]
@@ -528,6 +557,32 @@ namespace Test
                 Assert.That(result[i].Peaks.First().intensity, Is.EqualTo(yArray[i]));
                 Assert.That(result[i].Charge, Is.EqualTo(charges[i]));
             }
+        }
+
+        //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
+        private static MzSpectrum LoadJohnTestSpectrum()
+        {
+            MsDataScan[] Scans = new MsDataScan[1];
+
+            //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
+
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+
+            int mzIntensityPairsCount = spectrumLines.Length;
+            double[] ms1mzs = new double[mzIntensityPairsCount];
+            double[] ms1intensities = new double[mzIntensityPairsCount];
+
+            for (int i = 0; i < mzIntensityPairsCount; i++)
+            {
+                string[] pair = spectrumLines[i].Split('\t');
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
+            }
+
+            MzSpectrum spectrum = new MzSpectrum(ms1mzs, ms1intensities, false);
+
+            return spectrum;
         }
     }
 }
