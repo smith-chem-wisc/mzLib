@@ -115,6 +115,7 @@ namespace MassSpectrometry
         /// <returns></returns>
         private List<IsotopicEnvelope> ConvertToIsotopicEnvelopes(IsoDecDeconvolutionParameters parameters, MatchedPeak[] matchedpeaks, MzSpectrum spectrum)
         {
+            List<(double, double)> peaks = new List<(double, double)>();
             List<IsotopicEnvelope> result = new List<IsotopicEnvelope>();
             int currentId = 0;
             var tolerance = new PpmTolerance(5);
@@ -122,7 +123,7 @@ namespace MassSpectrometry
             // Each matched peak is a separate isotopic envelope
             foreach (MatchedPeak peak in matchedpeaks)
             {
-                List<(double,double)> peaks = new List<(double,double)> ();
+                peaks.Clear();
 
                 // Get the isotopic distribution for this peak
                 for (int i = 0; i < peak.realisolength; i++)
@@ -136,9 +137,9 @@ namespace MassSpectrometry
                     if (tolerance.Within(peak.isomz[i], spectrum.XArray[targetMzIndex]))
                     {
                         peaks.Add((spectrum.XArray[targetMzIndex], spectrum.YArray[targetMzIndex]));
-                        continue;
                     }
                 }
+
                 int charge = peak.z;
                 if(parameters.Polarity == Polarity.Negative) { charge = -peak.z; }
                 if(parameters.ReportMulitpleMonoisos)
