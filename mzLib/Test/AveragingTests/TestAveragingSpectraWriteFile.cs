@@ -25,7 +25,7 @@ namespace Test.AveragingTests
         public static void OneTimeSetup()
         {
             Parameters = new SpectralAveragingParameters();
-            OutputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTestData");
+            OutputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "AveragingTests", "TestData");
             SpectraPath = Path.Combine(OutputDirectory, "TDYeastFractionMS1.mzML");
             Scans = MsDataFileReader.GetDataFile(SpectraPath).GetAllScansList().Take(50).ToList();
 
@@ -114,6 +114,13 @@ namespace Test.AveragingTests
             Parameters.OutputType = OutputType.MzML;
             string customDestinationDirectory = Path.Combine(OutputDirectory, "NewTestingDirectory");
             string customDestinationDirectory2 = Path.Combine(OutputDirectory, "NewTestingDirectory2");
+
+            // clean up from any previous tests, if they exist
+            if (Directory.Exists(customDestinationDirectory))
+            {
+                Directory.Delete(customDestinationDirectory, true);
+                Directory.CreateDirectory(customDestinationDirectory);
+            }
             Directory.CreateDirectory(customDestinationDirectory);
             string customName = "AveragedSpectra";
 

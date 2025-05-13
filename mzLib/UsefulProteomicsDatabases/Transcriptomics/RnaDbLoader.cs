@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using Chemistry;
 using Transcriptomics;
+using Omics.BioPolymer;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -64,7 +65,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         /// <exception cref="MzLibUtil.MzLibException">Thrown if the FASTA header format is unknown or other issues occur during loading.</exception>
 
         public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
-            bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
+            bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null, 
+            int maxThreads = 1, string decoyIdentifier = "DECOY")
         {
             RnaFastaHeaderType? headerType = null;
             Regex substituteWhitespace = new Regex(@"\s+");
@@ -142,9 +144,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
                         // Do we need to sanitize the sequence? 
 
-                        RNA rna = new RNA(sequence, name, identifier, organism, rnaDbLocation,
-                            fivePrimeTerm, threePrimeTerm, null,
-                            isContaminant, false, null, additonalDatabaseFields);
+                        RNA rna = new RNA(sequence, identifier,
+                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: false, geneNames: null, databaseAdditionalFields: additonalDatabaseFields);
                         if (rna.Length == 0)
                             errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
                         else
@@ -170,11 +171,10 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             if (!targets.Any())
                 errors.Add("No targets were loaded from database: " + rnaDbLocation);
 
-            List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType);
+            List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
 
-        
 
         private static Dictionary<string, string> ParseRegexFields(string line,
             Dictionary<string, FastaHeaderFieldRegex> regexes)
@@ -196,7 +196,9 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, IEnumerable<Modification> allKnownModifications,
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
-            int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
+            int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            string decoyIdentifier = "DECOY")
         {
             var prespecified = ProteinDbLoader.GetPtmListFromProteinXml(rnaDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -253,9 +255,9 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 File.Delete(newProteinDbLocation);
             }
 
-            List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads);
+            List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.ToList();
+            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
         }
     }
 }

@@ -190,16 +190,10 @@ namespace UsefulProteomicsDatabases
             return chargeMatch.Groups[1].Value;
         }
 
+        [Obsolete("This method is obsolete. It happens automatically on first call to periodic table in static constructor")]
         public static void LoadElements()
         {
-            // has the periodic table already been loaded?
-            if (PeriodicTable.GetElement(1) != null)
-            {
-                return;
-            }
 
-            // periodic table has not been loaded yet - load it
-            PeriodicTableLoader.Load();
         }
 
         public static IEnumerable<Modification> LoadUnimod(string unimodLocation)
@@ -214,7 +208,6 @@ namespace UsefulProteomicsDatabases
         public static Generated.obo LoadPsiMod(string psimodLocation)
         {
             var psimodSerializer = new XmlSerializer(typeof(Generated.obo));
-
             if (!File.Exists(psimodLocation))
             {
                 UpdatePsiMod(psimodLocation);
@@ -223,6 +216,12 @@ namespace UsefulProteomicsDatabases
             {
                 return psimodSerializer.Deserialize(stream) as Generated.obo;
             }
+        }
+
+        internal static Generated.obo LoadPsiMod(Stream stream)
+        {
+            var psimodSerializer = new XmlSerializer(typeof(Generated.obo));
+            return psimodSerializer.Deserialize(stream) as Generated.obo;
         }
 
         public static IEnumerable<Modification> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)

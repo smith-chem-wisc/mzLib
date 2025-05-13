@@ -17,7 +17,8 @@ using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using MzLibUtil;
-using System.Runtime.CompilerServices;
+using Omics.BioPolymer;
+using Omics;
 
 namespace Test
 {
@@ -49,10 +50,10 @@ namespace Test
             string path4 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
             var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
             
-            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path1, proteaseMods)); 
-            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path2, proteaseMods));
-            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path3, proteaseMods));
-            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path4, proteaseMods));
+            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path1, proteaseMods)); 
+            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path2, proteaseMods));
+            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path3, proteaseMods));
+            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path4, proteaseMods));
         }
 
         [Test]
@@ -62,7 +63,7 @@ namespace Test
             var prot = new Protein("PEPTIDEMPEPTIDEM", null);
             var prot2 = new Protein("MPEPTIDEMPEPTIDE", null);
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
-            Assert.That(File.Exists(path));
+            NUnit.Framework.Assert.That(File.Exists(path));
 
             var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
             ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ProteolyticDigestion", "proteases.tsv"), proteaseMods);
@@ -161,7 +162,7 @@ namespace Test
         public static void TestNoCleavage()
         {
             List<Modification> fixedModifications = new List<Modification>();
-            var prot = new Protein("MNNNKQQQQ", null, null, null, new Dictionary<int, List<Modification>>(), new List<ProteolysisProduct> { new ProteolysisProduct(5, 6, "lala") });
+            var prot = new Protein("MNNNKQQQQ", null, null, null, new Dictionary<int, List<Modification>>(), new List<TruncationProduct> { new TruncationProduct(5, 6, "lala") });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 5);
             var ye = prot.Digest(digestionParams, fixedModifications, new List<Modification>()).ToList();
             Assert.AreEqual(3, ye.Count);
@@ -224,36 +225,110 @@ namespace Test
             Assert.AreEqual("[H]M[H][H]", ye.Last().SequenceWithChemicalFormulas);
 
             double m1 = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
-
             m1 = Math.Round(m1, 9, MidpointRounding.AwayFromZero);
-
             double m2 = ye.Last().MonoisotopicMass;
             double m3 = m1 - m2;
-
             Assert.IsTrue(m3 < 1e-9);
         }
 
         [Test]
-        public static void TestPeptideWithFixedModifications()
+        public static void TestPeptideDigestion_FixedModifications_ProtModsOverwritePepMods()
         {
-            var prot = new Protein("M", null);
+            string baseSequence = "M";
+            var prot = new Protein(baseSequence, null);
             DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
             List<Modification> fixedMods = new List<Modification>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
-
             fixedMods.Add(new Modification(_originalId: "ProtNmod", _target: motif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
             fixedMods.Add(new Modification(_originalId: "pepNmod", _target: motif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
             fixedMods.Add(new Modification(_originalId: "resMod", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_originalId: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
             fixedMods.Add(new Modification(_originalId: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-
+            fixedMods.Add(new Modification(_originalId: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
             var ok = prot.Digest(digestionParams, fixedMods, new List<Modification>()).ToList();
 
             Assert.AreEqual(1, ok.Count);
+            
+            string expectedFullSequence = "[:ProtNmod on M]M[:resMod on M][:ProtCmod on M]";
+            Assert.AreEqual(expectedFullSequence, ok.First().FullSequence);
+            var mods = ok.First().AllModsOneIsNterminus;
 
-            Assert.AreEqual("[:pepNmod on M]M[:resMod on M][:ProtCmod on M]", ok.First().FullSequence);
+            NUnit.Framework.Assert.That(IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(expectedFullSequence), Is.EqualTo(baseSequence));
+            NUnit.Framework.Assert.That(IBioPolymerWithSetMods.DetermineFullSequence(baseSequence, mods), Is.EqualTo(expectedFullSequence));
+            NUnit.Framework.Assert.That(ok.First().DetermineFullSequence(), Is.EqualTo(expectedFullSequence));
 
             Assert.AreEqual("[H]M[H][H]", ok.First().SequenceWithChemicalFormulas);
+            Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ok.Last().MonoisotopicMass, 1e-9);
+        }
+
+        [Test]
+        public static void TestPeptideDigestion_FixedModifications_ProtModsOverwritePepMods_RandomizedModOrder()
+        {
+            var rand = new Random(42);
+            string baseSequence = "M";
+            var prot = new Protein(baseSequence, null);
+            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
+            List<Modification> fixedMods = new List<Modification>();
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
+            fixedMods.Add(new Modification(_originalId: "ProtNmod", _target: motif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "pepNmod", _target: motif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "resMod", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+
+            // set expected values
+            int expectedDigestionProducts = 1;
+            string expectedFullSequence = "[:ProtNmod on M]M[:resMod on M][:ProtCmod on M]";
+            string expectedSequenceWithChemicalFormulas = "[H]M[H][H]";
+            double expectedMonoisotopicMass = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
+
+            
+
+            // randomly scramble all mods, digest, and ensure the answer is correct. 
+            for (int i = 0; i < 10; i++)
+            {
+                var shuffledFixedMods = fixedMods.OrderBy(a => rand.Next()).ToList();
+                var ok = prot.Digest(digestionParams, shuffledFixedMods, new List<Modification>()).ToList();
+                var mods = ok.First().AllModsOneIsNterminus;
+
+                NUnit.Framework.Assert.That(IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(expectedFullSequence), Is.EqualTo(baseSequence));
+                NUnit.Framework.Assert.That(IBioPolymerWithSetMods.DetermineFullSequence(baseSequence, mods), Is.EqualTo(expectedFullSequence));
+                NUnit.Framework.Assert.That(ok.First().DetermineFullSequence(), Is.EqualTo(expectedFullSequence));
+
+                Assert.AreEqual(expectedDigestionProducts, ok.Count);
+                Assert.AreEqual(expectedFullSequence, ok.First().FullSequence);
+                Assert.AreEqual(expectedSequenceWithChemicalFormulas, ok.First().SequenceWithChemicalFormulas);
+                Assert.AreEqual(expectedMonoisotopicMass, ok.Last().MonoisotopicMass, 1e-9);
+            }
+        }
+
+        [Test]
+        public static void TestPeptideDigestion_FixedModifications_ProtModsOverwritePepMods_TwoProducts()
+        {
+            var prot = new Protein("MKM", null);
+            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            List<Modification> fixedMods = new List<Modification>();
+            ModificationMotif.TryGetMotif("M", out ModificationMotif mMotif);
+            ModificationMotif.TryGetMotif("K", out ModificationMotif kMotif);
+
+            fixedMods.Add(new Modification(_originalId: "ProtNmod", _target: mMotif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "ProtNmod", _target: kMotif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "pepNmod", _target: mMotif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "pepNmod", _target: kMotif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "resMod", _target: mMotif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "ProtCmod", _target: mMotif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "ProtCmod", _target: kMotif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "PepCmod", _target: mMotif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "PepCmod", _target: kMotif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+
+            var ok = prot.Digest(digestionParams, fixedMods, new List<Modification>()).ToList();
+
+            Assert.AreEqual(2, ok.Count);
+
+            Assert.AreEqual("[:ProtNmod on M]M[:resMod on M]K[:PepCmod on K]", ok.First().FullSequence);
+            Assert.AreEqual("[:pepNmod on M]M[:resMod on M][:ProtCmod on M]", ok.Skip(1).First().FullSequence);
+
+            Assert.AreEqual("[H]M[H]K[H]", ok.First().SequenceWithChemicalFormulas);
+            Assert.AreEqual("[H]M[H][H]", ok.Skip(1).First().SequenceWithChemicalFormulas);
             Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ok.Last().MonoisotopicMass, 1e-9);
         }
 
@@ -361,6 +436,40 @@ namespace Test
             Assert.AreEqual("MED[mt:mod1 on D]EEK", pep2.FullSequence);
         }
 
+        /// <summary>
+        /// We want to have protein digestion yield the same set of peptides regardless of the order their modifications are encoded in the XML.
+        /// While all of the positions of the modifications are the same, the order of the modifications in the XML is different.
+        /// </summary>
+        [Test]
+        public static void TestDigestionOfSameProteinFromDifferentXmls()
+        {
+            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
+            Modification carbamidomethylOnC = new Modification(_originalId: "Carbamidomethyl on C", _modificationType: "Common Fixed", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
+            var fixedModifications = new List<Modification> { carbamidomethylOnC };
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motifM);
+            Modification oxidationOnM = new Modification(_originalId: "Oxidation on M", _modificationType: "Common Variable", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"));
+            var variableModifications = new List<Modification> { oxidationOnM };
+
+            // Load in proteins
+            var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SingleEntry_ModOrder1.xml");
+            var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SingleEntry_ModOrder2.xml");
+
+            var proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, DecoyType.None, null, false, null, out var unknownModificationsFive);
+            var proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, DecoyType.None, null, false, null, out var unknownModificationsSix);
+
+            var fiveMods = ProteinDbLoader.GetPtmListFromProteinXml(dbFive);
+            var sixMods = ProteinDbLoader.GetPtmListFromProteinXml(dbSix);
+
+            Assert.AreEqual(fiveMods.Count, sixMods.Count);
+            CollectionAssert.AreEquivalent(fiveMods, sixMods);
+
+            var peptides5 = proteins5.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
+            var peptides6 = proteins6.First().Digest(digestionParams, fixedModifications, variableModifications).ToList();
+            Assert.AreEqual(peptides5.Count, peptides6.Count);
+            CollectionAssert.AreEqual(peptides5, peptides6);
+        }
+
         [Test]
         [TestCase("cRAP_databaseGPTMD.xml")]
         [TestCase("uniprot_aifm1.fasta")]
@@ -383,7 +492,7 @@ namespace Test
             }
             else
             {
-                Assert.Fail("Unknown file type");
+                NUnit.Framework.Assert.Fail("Unknown file type");
             }
 
             DigestionParams d = new DigestionParams(
@@ -410,13 +519,13 @@ namespace Test
             List<Protein> decoys1 = new();
             foreach (var protein in proteins1.Where(p => p.IsDecoy))
             {
-                decoys1.Add(Protein.ScrambleDecoyProteinSequence(protein, d, pepsToReplace));
+                decoys1.Add(DecoySequenceValidator.ScrambleDecoyBioPolymer(protein, d, pepsToReplace));
             }
             // Scramble every decoy from db2
             List<Protein> decoys2 = new();
             foreach (var protein in proteins2.Where(p => p.IsDecoy))
             {
-                decoys2.Add(Protein.ScrambleDecoyProteinSequence(protein, d, pepsToReplace));
+                decoys2.Add(DecoySequenceValidator.ScrambleDecoyBioPolymer(protein, d, pepsToReplace));
             }
 
             // check are equivalent lists of proteins
@@ -447,105 +556,18 @@ namespace Test
 
             Assert.AreEqual(2, offendingDecoys.Count);
 
-            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy,  d, targetPepSeqs, offendingDecoys);
+            Protein scrambledDecoy = DecoySequenceValidator.ScrambleDecoyBioPolymer(decoy,  d, targetPepSeqs, offendingDecoys);
             var scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
 
             Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
             Assert.IsFalse(scrambledPep.Any(p => offendingDecoys.Contains(p.FullSequence)));
 
             // Check to make sure that decoy generation also works in no offending sequences are passed in
-            scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs);
+            scrambledDecoy = DecoySequenceValidator.ScrambleDecoyBioPolymer(decoy, d, targetPepSeqs);
             scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
 
             Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
             Assert.IsFalse(scrambledPep.Any(p => offendingDecoys.Contains(p.FullSequence)));
-        }
-
-        [Test]
-        public static void TestDecoyScramblerModificationHandling()
-        {
-            DigestionParams d = new DigestionParams(
-                        maxMissedCleavages: 1,
-                        minPeptideLength: 5,
-                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-
-            ModificationMotif.TryGetMotif("G", out ModificationMotif motifG);
-            ModificationMotif.TryGetMotif("F", out ModificationMotif motifF);
-            Modification modG = new Modification("myMod", null, "myModType", null, motifG, "Anywhere.", null, 10, null, null, null, null, null, null);
-            Modification modF = new Modification("myMod", null, "myModType", null, motifF, "Anywhere.", null, 10, null, null, null, null, null, null);
-
-            IDictionary<int, List<Modification>> modDictDecoy = new Dictionary<int, List<Modification>>
-            {
-                {8, new List<Modification> { modG } },
-                {10, new List<Modification> { modF } }
-            };
-
-            Protein target = new Protein("MEDEEKFVGYKYGVFK", "target"); //, oneBasedModifications: modDictTarget);
-            Protein decoy = new Protein("EEDEMKYGVFKFVGYK", "decoy", oneBasedModifications: modDictDecoy);
-
-            var targetPep = target.Digest(d, new List<Modification>(), new List<Modification>());
-            var decoyPep = decoy.Digest(d, new List<Modification>(), new List<Modification>());
-
-            HashSet<string> targetPepSeqs = targetPep.Select(p => p.FullSequence).ToHashSet();
-            var offendingDecoys = decoyPep.Where(p => targetPepSeqs.Contains(p.FullSequence)).Select(d => d.FullSequence).ToList();
-            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs, offendingDecoys);
-
-            var fIndex = scrambledDecoy.BaseSequence.IndexOf("F");
-            var gIndex = scrambledDecoy.BaseSequence.IndexOf("G"); // We modified the first residue, so we don't need all locations, just the first
-            var fIndices = scrambledDecoy.BaseSequence.IndexOfAll("F");
-            var gIndices = scrambledDecoy.BaseSequence.IndexOfAll("G");
-
-            Assert.AreEqual(2, gIndices.Count());
-            Assert.AreEqual(2, fIndices.Count());
-            Assert.AreEqual(fIndices.First(), fIndex);
-
-            Assert.True(scrambledDecoy.OneBasedPossibleLocalizedModifications.ContainsKey(fIndex + 1));
-            Assert.True(scrambledDecoy.OneBasedPossibleLocalizedModifications[fIndex+1].Contains(modF));
-
-            Assert.True(scrambledDecoy.OneBasedPossibleLocalizedModifications.ContainsKey(gIndex + 1));
-            Assert.True(scrambledDecoy.OneBasedPossibleLocalizedModifications[gIndex + 1].Contains(modG));
-
-            Assert.AreEqual(scrambledDecoy.OneBasedPossibleLocalizedModifications.Count, 2);
-        }
-
-        
-
-        [Test, Timeout(5000)]
-        public static void TestDecoyScramblerNoInfiniteLoops()
-        {
-            DigestionParams d = new DigestionParams(
-                        maxMissedCleavages: 0,
-                        minPeptideLength: 3,
-                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-
-            Protein target = new Protein("MEK", "target");
-            Protein decoy = new Protein("EMK", "decoy");
-
-            var targetPep = target.Digest(d, new List<Modification>(), new List<Modification>());
-            var decoyPep = decoy.Digest(d, new List<Modification>(), new List<Modification>());
-
-            HashSet<string> targetPepSeqs = targetPep.Select(p => p.FullSequence).ToHashSet();
-            
-            // We'll pretend that this is also a target sequence and can't be used as a decoy
-            HashSet<string> offendingDecoys = new HashSet<string> { "EMK" };
-
-            // You can't win in this scenario, there's no way to scramble that results in a different decoy
-            Protein scrambledDecoy = Protein.ScrambleDecoyProteinSequence(decoy, d, targetPepSeqs.Union(offendingDecoys).ToHashSet(), offendingDecoys);
-            var scrambledPep = scrambledDecoy.Digest(d, new List<Modification>(), new List<Modification>());
-
-            Assert.AreEqual(decoyPep.Count(), scrambledPep.Count());
-
-            d = new DigestionParams(
-                        maxMissedCleavages: 1,
-                        minPeptideLength: 3,
-                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-
-            offendingDecoys = new HashSet<string> { "KEK" };
-
-            var impossibleDecoy = new Protein("KEK", "target"); // This guy could crash the shuffling algorithm
-            scrambledDecoy = Protein.ScrambleDecoyProteinSequence(impossibleDecoy, d, offendingDecoys, offendingDecoys);
-
-            Assert.AreEqual("KEK", scrambledDecoy.BaseSequence);
         }
 
         [Test]
@@ -565,21 +587,21 @@ namespace Test
             PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification> { { carbamidomethylOnC.IdWithMotif, carbamidomethylOnC } });
 
             // test base sequence and full sequence
-            Assert.That(peptide.BaseSequence == "HQVCTPGGTTIAGLCVMEEK");
-            Assert.That(peptide.FullSequence == sequence);
+            NUnit.Framework.Assert.That(peptide.BaseSequence == "HQVCTPGGTTIAGLCVMEEK");
+            NUnit.Framework.Assert.That(peptide.FullSequence == sequence);
 
             // test peptide mass
-            Assert.That(Math.Round(peptide.MonoisotopicMass, 5) == 2187.01225);
+            NUnit.Framework.Assert.That(Math.Round(peptide.MonoisotopicMass, 5) == 2187.01225);
 
             // test mods (correct id, correct number of mods, correct location of mods)
-            Assert.That(peptide.AllModsOneIsNterminus.First().Value.IdWithMotif == "Carbamidomethyl on C");
-            Assert.That(peptide.AllModsOneIsNterminus.Count == 2);
-            Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
+            NUnit.Framework.Assert.That(peptide.AllModsOneIsNterminus.First().Value.IdWithMotif == "Carbamidomethyl on C");
+            NUnit.Framework.Assert.That(peptide.AllModsOneIsNterminus.Count == 2);
+            NUnit.Framework.Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
 
             // calculate fragments. just check that they exist and it doesn't crash
             List<Product> theoreticalFragments = new List<Product>();
             peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theoreticalFragments);
-            Assert.That(theoreticalFragments.Count > 0);
+            NUnit.Framework.Assert.That(theoreticalFragments.Count > 0);
         }
 
         [Test]
@@ -628,7 +650,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
 
             digestionParams = new DigestionParams(
                 protease: "top-down",
@@ -659,7 +681,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
         }
 
 
@@ -690,7 +712,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
 
             digestionParams = new DigestionParams(
                 protease: "top-down",
@@ -721,7 +743,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
 
             digestionParamsClone = (DigestionParams)digestionParams.Clone(FragmentationTerminus.C);
             Assert.AreNotEqual(digestionParams, digestionParamsClone);
@@ -738,7 +760,7 @@ namespace Test
             Assert.AreEqual(digestionParams.KeepNGlycopeptide, digestionParamsClone.KeepNGlycopeptide);
             Assert.AreEqual(digestionParams.KeepOGlycopeptide, digestionParamsClone.KeepOGlycopeptide);
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
-            Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
+            NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
         }
 
         [Test]

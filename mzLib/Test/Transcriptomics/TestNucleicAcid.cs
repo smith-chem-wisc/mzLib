@@ -22,8 +22,6 @@ namespace Test.Transcriptomics
 
         public static IEnumerable<SixmerTestCase> GetSixmerIndividualFragmentTypeTestCases()
         {
-            Loaders.LoadElements();
-
             yield return new SixmerTestCase("GUACUG", ProductType.a,
                 new[] { 267.089, 573.114, 902.167, 1207.208, 1513.233 },
                 new[] { "C10H13N5O4", "C19H24N7O12P", "C29H36N12O18P2", "C38H48N15O25P3", "C47H59N17O33P4" });
@@ -103,7 +101,7 @@ namespace Test.Transcriptomics
             }
             Assert.That(rna.NucleicAcidArray.SequenceEqual(nucList.ToArray()));
 
-            var rna2 = new RNA(sequence, NucleicAcid.DefaultFivePrimeTerminus, NucleicAcid.DefaultThreePrimeTerminus);
+            var rna2 = new RNA(sequence, fivePrimeTerm: NucleicAcid.DefaultFivePrimeTerminus, threePrimeTerm: NucleicAcid.DefaultThreePrimeTerminus);
 
             Assert.That(rna2.Length, Is.EqualTo(sequence.Length));
             Assert.That(rna2.MonoisotopicMass, Is.EqualTo(monoMass).Within(0.01));

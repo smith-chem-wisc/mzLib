@@ -120,7 +120,7 @@ namespace Test.Transcriptomics
             RNA rna = new RNA(testCase.BaseSequence);
             Rnase rnase = RnaseDictionary.Dictionary[testCase.Enzyme];
             var digestionProducts =
-                rnase.GetUnmodifiedOligos(rna, testCase.MissedCleavages, testCase.MinLength, testCase.MaxLength);
+                rnase.GetUnmodifiedOligos(rna, testCase.MissedCleavages, testCase.MinLength, testCase.MaxLength).ToList();
 
             Assert.That(digestionProducts.Count, Is.EqualTo(testCase.Sequences.Length));
             for (var i = 0; i < digestionProducts.Count; i++)
@@ -168,7 +168,7 @@ namespace Test.Transcriptomics
         {
             RNA rna = new("GUACUG");
             Rnase rnase = RnaseDictionary.Dictionary["RNase U2"];
-            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6);
+            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(3));
 
             var oligo = digestionProducts[0];
@@ -187,7 +187,7 @@ namespace Test.Transcriptomics
         {
             RNA rna = new("GUACUG");
             Rnase rnase = RnaseDictionary.Dictionary["RNase U2"];
-            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6);
+            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(3));
 
             NucleolyticOligo oligo = digestionProducts[2];
@@ -206,7 +206,7 @@ namespace Test.Transcriptomics
         {
             RNA rna = new("GUACUG");
             Rnase rnase = RnaseDictionary.Dictionary["RNase U2"];
-            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6);
+            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(3));
 
             NucleolyticOligo oligo = digestionProducts[1];
@@ -225,7 +225,7 @@ namespace Test.Transcriptomics
         {
             RNA rna = new("GUACUG");
             Rnase rnase = RnaseDictionary.Dictionary["top-down"];
-            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6);
+            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(1));
 
             NucleolyticOligo oligo = digestionProducts[0];
@@ -381,8 +381,9 @@ namespace Test.Transcriptomics
             variableMods = new List<Modification> { oligoCyclicPhosphate };
             digestionProducts = rna.Digest(digestionParams, new List<Modification>(), variableMods)
                 .Select(p => (OligoWithSetMods)p).ToList();
-            Assert.That(digestionProducts.Count, Is.EqualTo(1));
+            Assert.That(digestionProducts.Count, Is.EqualTo(2));
             Assert.That(digestionProducts[0].FullSequence, Is.EqualTo("UAGUCGUUGAUAG"));
+            Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("UAGUCGUUGAUAG[Digestion Termini:Cyclic Phosphate on X]"));
 
             // RNase T1 digestion, 3' terminal modification
             digestionParams = new RnaDigestionParams("RNase T1");
@@ -403,13 +404,13 @@ namespace Test.Transcriptomics
             variableMods = new List<Modification> { oligoCyclicPhosphate };
             digestionProducts = rna.Digest(digestionParams, new List<Modification>(), variableMods)
                 .Select(p => (OligoWithSetMods)p).ToList();
-            Assert.That(digestionProducts.Count, Is.EqualTo(7));
+            Assert.That(digestionProducts.Count, Is.EqualTo(8));
             expected = new List<string>()
             {
                 "UAG", "UAG[Digestion Termini:Cyclic Phosphate on X]",
                 "UCG", "UCG[Digestion Termini:Cyclic Phosphate on X]",
                 "UUG", "UUG[Digestion Termini:Cyclic Phosphate on X]",
-                "AUAG",
+                "AUAG","AUAG[Digestion Termini:Cyclic Phosphate on X]"
             };
 
             for (int i = 0; i < expected.Count; i++)
@@ -431,7 +432,7 @@ namespace Test.Transcriptomics
                 out errors).First();
             Assert.That(!errors.Any());
 
-            // top-down digestion, 5' terminal modification
+            // top-down digestion, 5' terminal modification, expect two products
             var variableMods = new List<Modification> { nucleicAcidLargeMod };
             var digestionParams = new RnaDigestionParams("top-down");
             var digestionProducts = rna.Digest(digestionParams, new List<Modification>(), variableMods)
@@ -440,12 +441,13 @@ namespace Test.Transcriptomics
             Assert.That(digestionProducts[0].FullSequence, Is.EqualTo("UAGUCGUUGAUAG"));
             Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("[Standard:Pfizer 5'-Cap on X]UAGUCGUUGAUAG"));
 
-            // top-down digestion, 5' oligo terminal modification
+            // top-down digestion, 5' oligo terminal modification, expect two products
             variableMods = new List<Modification> { oligoLargeMod };
             digestionProducts = rna.Digest(digestionParams, new List<Modification>(), variableMods)
                 .Select(p => (OligoWithSetMods)p).ToList();
-            Assert.That(digestionProducts.Count, Is.EqualTo(1));
+            Assert.That(digestionProducts.Count, Is.EqualTo(2));
             Assert.That(digestionProducts[0].FullSequence, Is.EqualTo("UAGUCGUUGAUAG"));
+            Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("[Standard:Pfizer 5'-Cap on X]UAGUCGUUGAUAG"));
 
             // RNase T1 digestion, 5' terminal modification
             digestionParams = new RnaDigestionParams("RNase T1");
@@ -466,10 +468,10 @@ namespace Test.Transcriptomics
             variableMods = new List<Modification> { oligoLargeMod };
             digestionProducts = rna.Digest(digestionParams, new List<Modification>(), variableMods)
                 .Select(p => (OligoWithSetMods)p).ToList();
-            Assert.That(digestionProducts.Count, Is.EqualTo(7));
+            Assert.That(digestionProducts.Count, Is.EqualTo(8));
             expected = new List<string>()
             {
-                "UAG",
+                "UAG", "[Standard:Pfizer 5'-Cap on X]UAG",
                 "UCG", "[Standard:Pfizer 5'-Cap on X]UCG",
                 "UUG", "[Standard:Pfizer 5'-Cap on X]UUG",
                 "AUAG", "[Standard:Pfizer 5'-Cap on X]AUAG"
@@ -899,7 +901,7 @@ namespace Test.Transcriptomics
             {
                 { 23, new List<Modification>() { PotassiumAdducts[1] } }
             };
-            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+            var rna = new RNA("GUACUG", oneBasedModifications);
             
             for (int i = 1; i < 3; i++)
             {

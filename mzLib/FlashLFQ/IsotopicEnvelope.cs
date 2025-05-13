@@ -1,4 +1,6 @@
-﻿namespace FlashLFQ
+﻿using MassSpectrometry;
+
+namespace FlashLFQ
 {
     /// <summary>
     /// Contains the summed intensities of all isotope peaks detected in a single MS1 scan for a given species.
@@ -8,8 +10,16 @@
         /// <summary>
         /// The most abundant isotopic peak used for peak finding.
         /// </summary>
-        public readonly IndexedMassSpectralPeak IndexedPeak;
+        public readonly IIndexedPeak IndexedPeak;
         public readonly int ChargeState;
+
+        public IsotopicEnvelope(IIndexedPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
+        {
+            IndexedPeak = monoisotopicPeak;
+            ChargeState = chargeState;
+            Intensity = intensity / chargeState;
+            PearsonCorrelation = pearsonCorrelation;
+        }
 
         public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double pearsonCorrelation)
         {
@@ -36,7 +46,7 @@
 
         public override string ToString()
         {
-            return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedPeak.RetentionTime.ToString("F3") + "|" + IndexedPeak.ZeroBasedMs1ScanIndex;
+            return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedPeak.RetentionTime.ToString("F3") + "|" + IndexedPeak.ZeroBasedScanIndex;
         }
 
         public override bool Equals(object obj)

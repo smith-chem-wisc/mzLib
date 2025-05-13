@@ -25,6 +25,12 @@ namespace MzLibUtil
 {
     public static class ClassExtensions
     {
+        /// <summary>
+        /// Applies a boxcar smoothing algorithm to the input data.
+        /// </summary>
+        /// <param name="data">The input data.</param>
+        /// <param name="points">The number of points to use for smoothing. Must be an odd number.</param>
+        /// <returns>The smoothed data.</returns>
         public static double[] BoxCarSmooth(this double[] data, int points)
         {
             // Force to be odd
@@ -50,6 +56,14 @@ namespace MzLibUtil
             return smoothedData;
         }
 
+        /// <summary>
+        /// Returns a subarray of the input array.
+        /// </summary>
+        /// <typeparam name="T">The type of the array elements.</typeparam>
+        /// <param name="data">The input array.</param>
+        /// <param name="index">The starting index of the subarray.</param>
+        /// <param name="length">The length of the subarray.</param>
+        /// <returns>The subarray.</returns>
         public static T[] SubArray<T>(this T[] data, int index, int length)
         {
             T[] result = new T[length];
@@ -57,9 +71,25 @@ namespace MzLibUtil
             return result;
         }
 
+        public static bool ToEnum<T>(this int modeInt, out T result) where T : Enum
+        {
+            Type enumType = typeof(T);
+            if (!Enum.IsDefined(enumType, modeInt))
+            {
+                result = default(T);
+                return false;
+            }
+            result = (T)Enum.ToObject(enumType, modeInt);
+            return true;
+        }
+
         /// <summary>
         /// Checks if two collections are equivalent, regardless of the order of their contents
         /// </summary>
+        /// <typeparam name="T">The type of the collection elements.</typeparam>
+        /// <param name="list1">The first collection.</param>
+        /// <param name="list2">The second collection.</param>
+        /// <returns>True if the collections are equivalent, false otherwise.</returns>
         public static bool ScrambledEquals<T>(this IEnumerable<T> list1, IEnumerable<T> list2)
         {
             var cnt = new Dictionary<T, int>();
@@ -81,11 +111,11 @@ namespace MzLibUtil
         }
 
         /// <summary>
-        /// Determines if all items in collection are equal
+        /// Determines if all items in the collection are equal.
         /// </summary>
-        /// <typeparam name="T">type to check</typeparam>
-        /// <param name="list">collection to check</param>
-        /// <returns></returns>
+        /// <typeparam name="T">The type of the collection elements.</typeparam>
+        /// <param name="list">The collection to check.</param>
+        /// <returns>True if all items in the collection are equal, false otherwise.</returns>
         public static bool AllSame<T>(this IEnumerable<T> list)
         {
             var enumerable = list.ToList();
@@ -123,5 +153,95 @@ namespace MzLibUtil
             return PeriodTolerantFilenameWithoutExtension.GetPeriodTolerantFilenameWithoutExtension(filePath);
         }
 
+        /// <summary>
+        /// Determines whether the collection is null or contains no elements.
+        /// </summary>
+        /// <typeparam name="T">The IEnumerable type.</typeparam>
+        /// <param name="enumerable">The enumerable, which may be null or empty.</param>
+        /// <returns>
+        ///     <c>true</c> if the IEnumerable is null or empty; otherwise, <c>false</c>.
+        /// </returns>
+        public static bool IsNullOrEmpty<T>(this IEnumerable<T> enumerable)
+        {
+            if (enumerable == null)
+            {
+                return true;
+            }
+            /* If this is a list, use the Count property.
+             * The Count property is O(1) while IEnumerable.Count() is O(N). */
+            if (enumerable is ICollection<T> collection)
+            {
+                return collection.Count < 1;
+            }
+            return !enumerable.Any();
+        }
+
+        /// <summary>
+        /// Determines whether the dictionary is null or contains no elements.
+        /// </summary>
+        /// <param name="dictionary">The dictionary, which may be null or empty.</param>
+        /// <returns>
+        ///     <c>true</c> if the dictionary is null or empty; otherwise, <c>false</c>.
+        /// </returns>
+        public static bool IsNullOrEmpty<TKey, TValue>(this IDictionary<TKey, TValue> dictionary)
+        {
+            return dictionary == null || dictionary.Count < 1;
+        }
+
+        /// <summary>
+        /// Converts a string to a nullable double.
+        /// </summary>
+        /// <param name="value">The string value.</param>
+        /// <returns>The nullable double value, or null if the conversion fails.</returns>
+        public static double? ToNullableDouble(this string value)
+        {
+            if (double.TryParse(value, out var result))
+            {
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Converts a string to a nullable integer.
+        /// </summary>
+        /// <param name="value">The string value.</param>
+        /// <returns>The nullable integer value, or null if the conversion fails.</returns>
+        public static int? ToNullableInt(this string value)
+        {
+            if (int.TryParse(value, out var result))
+            {
+                return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// For generic types, checks if the value is the default value or null.
+        /// Used in cases where generic type could be a non-nullable struct.
+        /// Calling an extension method on a null does work, because extension methods compile to
+        /// ClassExtensions.IsDefaultOrNull(value)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="value">Value to be checked</param>
+        /// <returns>True if value is null or equal to the default value for type T</returns>
+        public static bool IsDefaultOrNull<T>(this T value)
+        {
+            return EqualityComparer<T>.Default.Equals(value, default(T)) || value == null;
+        }
+
+        /// <summary>
+        /// For generic types, checks if the value is the default value or null.
+        /// Used in cases where generic type could be a non-nullable struct.
+        /// Calling an extension method on a null does work, because extension methods compile to
+        /// ClassExtensions.IsDefaultOrNull(value)
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="value">Value to be checked</param>
+        /// <returns>False if value is null or equal to the default value for type T</returns>
+        public static bool IsNotDefaultOrNull<T>(this T value)
+        {
+            return !value.IsDefaultOrNull();
+        }
     }
 }
