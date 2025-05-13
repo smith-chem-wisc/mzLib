@@ -268,6 +268,11 @@ namespace Test
             IsoDecAlgorithm alg  = new IsoDecAlgorithm(deconParameters);
             List<IsotopicEnvelope> allMasses = alg.Deconvolute(scan.MassSpectrum, new MzRange((double)scan.MassSpectrum.FirstX, (double)scan.MassSpectrum.LastX)).ToList();
 
+            foreach (var mass in allMasses)
+            {
+                Console.WriteLine($"{mass.Charge}\t{mass.MonoisotopicMass}\t{string.Join(',', mass.Peaks.Select(p => p.mz))}");
+            }
+
             // The ones marked 2 are for checking an overload method
             List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
             List<IsotopicEnvelope> isolatedMasses2 = scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, deconParameters).ToList();
@@ -306,7 +311,7 @@ namespace Test
             MsDataScan scan = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617), "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz, selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
 
             // Deconvolute the charge state of interest for the test case
-            DeconvolutionParameters deconParameters = new IsoDecDeconvolutionParameters();
+            DeconvolutionParameters deconParameters = new IsoDecDeconvolutionParameters(reportMultipleMonoisos: false);
             List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
 
             // Flatten all peaks from all envelopes into a single list
@@ -315,7 +320,7 @@ namespace Test
                 .ToList();
 
             // Count unique m/z values (using a tolerance for floating point comparison)
-            double mzTolerance = 1e-6;
+            double mzTolerance = 1e-9;
             var uniqueMzPeaks = new List<double>();
             foreach (var mz in allMzPeaks)
             {

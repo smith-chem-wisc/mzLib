@@ -144,12 +144,15 @@ namespace MassSpectrometry
                 if(parameters.Polarity == Polarity.Negative) { charge = -peak.z; }
                 if(parameters.ReportMulitpleMonoisos)
                 {
-                    foreach (float monoiso in peak.monoisos)
+                    foreach (float monoiso in peak.monoisos.Where(p => p > 0))
                     {
-                        if (monoiso > 0) { result.Add(new IsotopicEnvelope(currentId, peaks, (double)monoiso, charge, peak.peakint, peak.score)); }
+                        result.Add(new IsotopicEnvelope(currentId, peaks, (double)monoiso, charge, peak.peakint, peak.score)); 
                     }
                 }
-                else { result.Add(new IsotopicEnvelope(currentId, peaks, (double)peak.monoiso, charge, peak.peakint, peak.score)); }
+                else 
+                { 
+                    result.Add(new IsotopicEnvelope(currentId, peaks, (double)peak.monoiso, charge, peak.peakint, peak.score)); 
+                }
                 currentId++;
             }
             return result;
