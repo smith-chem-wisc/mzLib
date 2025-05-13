@@ -39,7 +39,7 @@ public sealed class Averagine : AverageResidue
             chemicalFormula.Add("S", Convert.ToInt32(averageS * averagineMultiplier));
 
             var chemicalFormulaReg = chemicalFormula;
-            IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaReg, fineRes, minRes);
+            IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaReg, FineRes, MinRes);
             var masses = ye.Masses.ToArray();
             var intensities = ye.Intensities.ToArray();
             Array.Sort(intensities, masses);

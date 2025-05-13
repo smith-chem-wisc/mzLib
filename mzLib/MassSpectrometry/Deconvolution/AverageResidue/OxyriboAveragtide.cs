@@ -40,7 +40,7 @@ public sealed class OxyriboAveragtide : AverageResidue
 
             {
                 var chemicalFormulaReg = chemicalFormula;
-                IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaReg, fineRes, minRes);
+                IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaReg, FineRes, MinRes);
                 var masses = ye.Masses.ToArray();
                 var intensities = ye.Intensities.ToArray();
                 Array.Sort(intensities, masses);
