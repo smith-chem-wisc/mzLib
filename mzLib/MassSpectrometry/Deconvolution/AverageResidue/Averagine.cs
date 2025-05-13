@@ -20,6 +20,7 @@ public sealed class Averagine : AverageResidue
     public override double GetDiffToMonoisotopic(int index) => DiffToMonoisotopic[index];
     static Averagine() 
     {
+        // Magic numbers determined by https://pmc.ncbi.nlm.nih.gov/articles/PMC6166224/
         double averageC = 4.9384;
         double averageH = 7.7583;
         double averageO = 1.4773;
