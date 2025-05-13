@@ -15,7 +15,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Constructor should initialize all fields that are used by every deconvolution algorithm
         /// </summary>
-        public DeconvolutionParameters(int minCharge, int maxCharge, Polarity polarity = Polarity.Positive, AverageResidue? averageResidueModel = null)
+        protected DeconvolutionParameters(int minCharge, int maxCharge, Polarity polarity = Polarity.Positive, AverageResidue? averageResidueModel = null)
         {
             MinAssumedChargeState = minCharge;
             MaxAssumedChargeState = maxCharge;
