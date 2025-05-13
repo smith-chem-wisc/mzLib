@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using MassSpectrometry.Deconvolution;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -9,7 +8,7 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class DeconvolutionAlgorithm
     {
-        public readonly AverageResidue AverageResidueModel;
+        protected readonly AverageResidue AverageResidueModel;
         protected readonly DeconvolutionParameters DeconvolutionParameters;
 
         /// <summary>
@@ -20,7 +19,7 @@ namespace MassSpectrometry
         protected DeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
         {
             DeconvolutionParameters = deconParameters;
-            AverageResidueModel = deconParameters.Polarity == Polarity.Positive ? new Averagine() : new Averatide();
+            AverageResidueModel = deconParameters.AverageResidueModel;
         }
 
         /// <summary>
