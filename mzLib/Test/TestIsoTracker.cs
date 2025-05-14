@@ -1619,35 +1619,35 @@ namespace Test
             var results = engine.Run();
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
 
-            // Classify the isopeptides by their peakRegion number. The best will be 2
-            var peptide_Level1 = results.IsobaricPeptideDict.Count(p => p.Value.Count < 2);
-            var peptide_Level2 = results.IsobaricPeptideDict.Count(p => p.Value.Count == 2);
-            var peptide_Level3 = results.IsobaricPeptideDict.Count(p => p.Value.Count > 2);
+            //// Classify the isopeptides by their peakRegion number. The best will be 2
+            //var peptide_Level1 = results.IsobaricPeptideDict.Count(p => p.Value.Count < 2);
+            //var peptide_Level2 = results.IsobaricPeptideDict.Count(p => p.Value.Count == 2);
+            //var peptide_Level3 = results.IsobaricPeptideDict.Count(p => p.Value.Count > 2);
 
-            //In level 2, we will classify the peakRegion by their valid peak across the runs. <30, 30- 60 , >60. Then the peakRegion with more than 60 valid peaks will be the best
-            var peptide_L2 = results.IsobaricPeptideDict.Where(p => p.Value.Count == 2).ToList();
-            var peak_L2 = peptide_L2.SelectMany(p => p.Value).ToList();
-            var peak_L2_30found = peak_L2.Count(p => p.Value.Count(p => p != null) <= 30);
-            var peak_L2_60found = peak_L2.Count(p => p.Value.Count(p => p != null) <= 60 && p.Value.Count(p => p != null) > 30);
-            var peak_L2_90found = peak_L2.Count(p => p.Value.Count(p => p != null) > 60);
+            ////In level 2, we will classify the peakRegion by their valid peak across the runs. <30, 30- 60 , >60. Then the peakRegion with more than 60 valid peaks will be the best
+            //var peptide_L2 = results.IsobaricPeptideDict.Where(p => p.Value.Count == 2).ToList();
+            //var peak_L2 = peptide_L2.SelectMany(p => p.Value).ToList();
+            //var peak_L2_30found = peak_L2.Count(p => p.Value.Count(p => p != null) <= 30);
+            //var peak_L2_60found = peak_L2.Count(p => p.Value.Count(p => p != null) <= 60 && p.Value.Count(p => p != null) > 30);
+            //var peak_L2_90found = peak_L2.Count(p => p.Value.Count(p => p != null) > 60);
 
-            // GoodQuality peakRegion, we classify by their detectionType. 30%, 30-60%, >60% MSMS
-            var peak_goodQ = peak_L2.Where(p => p.Value.Count(p => p != null) > 60).ToList();
-            int MSMS_L1 = 0;
-            int MSMS_L2 = 0;
-            int MSMS_L3 = 0;
-            foreach (var peak in peak_goodQ)
-            {
-                var validPeaks = peak.Value.Where(p => p != null).ToList();
-                var peak_MSMS = validPeaks.Where(p => p.DetectionType == DetectionType.MSMS).ToList();
-                var peak_IsoMBR = validPeaks.Where(p => p.DetectionType == DetectionType.IsoTrack_MBR);
-                int MSMS = peak_MSMS.Count();
-                int total = validPeaks.Count();
-                double ratio = (double)MSMS/total;
-                if (ratio <= 0.3) MSMS_L1++;
-                if (ratio > 0.3 && ratio <= 0.6) MSMS_L2++;
-                else MSMS_L3++;
-            }
+            //// GoodQuality peakRegion, we classify by their detectionType. 30%, 30-60%, >60% MSMS
+            //var peak_goodQ = peak_L2.Where(p => p.Value.Count(p => p != null) > 60).ToList();
+            //int MSMS_L1 = 0;
+            //int MSMS_L2 = 0;
+            //int MSMS_L3 = 0;
+            //foreach (var peak in peak_goodQ)
+            //{
+            //    var validPeaks = peak.Value.Where(p => p != null).ToList();
+            //    var peak_MSMS = validPeaks.Where(p => p.DetectionType == DetectionType.MSMS).ToList();
+            //    var peak_IsoMBR = validPeaks.Where(p => p.DetectionType == DetectionType.IsoTrack_MBR);
+            //    int MSMS = peak_MSMS.Count();
+            //    int total = validPeaks.Count();
+            //    double ratio = (double)MSMS/total;
+            //    if (ratio <= 0.3) MSMS_L1++;
+            //    if (ratio > 0.3 && ratio <= 0.6) MSMS_L2++;
+            //    else MSMS_L3++;
+            //}
 
         }
     }
