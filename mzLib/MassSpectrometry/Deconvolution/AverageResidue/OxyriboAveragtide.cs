@@ -24,6 +24,9 @@ public sealed class OxyriboAveragtide : AverageResidue
     static OxyriboAveragtide()
     {
         // Magic numbers determined by counting atoms in the main 4 canonical RNA bases. 
+        // This is not the best approach and future work should refine these numbers. 
+        // One possible approach is to also incorporate the residue frequency in RNA sequences. 
+
         double averageC = 9.5;
         double averageH = 12.75;
         double averageO = 3.75;
