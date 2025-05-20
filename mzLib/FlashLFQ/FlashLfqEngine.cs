@@ -1347,11 +1347,6 @@ namespace FlashLFQ
             {
                 tryPeak.CalculateIntensityForThisFeature(FlashParams.Integrate);
                 tryPeak.ResolveIdentifications();
-                if (tryPeak.Identifications.Any(p =>
-                        p.ModifiedSequence == "EASIVGEN[N-Glycosylation:H9N2 on N]ETYPR"))
-                {
-                    int iiii = 0;
-                }
                 if (tryPeak.Apex == null)
                 {
                     if (tryPeak.DetectionType == DetectionType.MBR)
@@ -1375,12 +1370,6 @@ namespace FlashLFQ
                         {
                             if (PeptideModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
                             {
-                                if (storedPeak.Identifications.Any(p =>
-                                        p.ModifiedSequence == "EASIVGEN[N-Glycosylation:H9N2 on N]ETYPR"))
-                                {
-                                    int iiii = 0;
-                                }
-
                                 storedPeak.MergeFeatureWith(tryPeak, FlashParams.Integrate);
                             }
                             else
@@ -2158,6 +2147,7 @@ namespace FlashLFQ
                 _results.Peaks[fileInfo].AddRange(allChromPeaksInFile);
                 _results.Peaks[fileInfo] = _results.Peaks[fileInfo]
                     .DistinctBy(peak => new { peak.ApexRetentionTime, peak.SpectraFileInfo, peak.Identifications.First().BaseSequence }).ToList();
+                int iiii = 0;
             }
         }
 
@@ -2204,7 +2194,7 @@ namespace FlashLFQ
                 .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy) // Only keep the non-decoy IDs and modified peptide
                 .GroupBy(p => new
                     { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.1) }) // Group by the base sequence and monoisotopic mass
-                .OrderByDescending(g => g.Key.MonoisotopicMassGroup)// Group by the base sequence and monoisotopic mass
+                .OrderBy(g => g.Key.MonoisotopicMassGroup)// Group by the base sequence and monoisotopic mass
                 .ToList();
 
             // Step 2: Merge the groups with similar mass and RT
@@ -2218,11 +2208,24 @@ namespace FlashLFQ
                 }
                 var currentGroup = idGroupedBySeq[i].ToList();
                 visited.Add(i);
-                
+                if (currentGroup.Select(p => p).Any(p =>
+                        p.ModifiedSequence == "GTN[N-Glycosylation:H5N2 on N]ESDSATTQFTTEIDAPK" ||
+                        p.ModifiedSequence == "NYEIIQQPMSYDN[N-Glycosylation:H5N2 on N]LTQR"))
+                {
+                    int iiii = 0;
+                }
+
                 for (int j = i + 1; j < idGroupedBySeq.Count; j++)
                 {
                     if (visited.Contains(j)) continue;
-
+                    var nextGroup = idGroupedBySeq[j];
+                    if (nextGroup.Select(p => p).Any(p =>
+                                               p.ModifiedSequence == "GTN[N-Glycosylation:H5N2 on N]ESDSATTQFTTEIDAPK" ||
+                                               p.ModifiedSequence == "NYEIIQQPMSYDN[N-Glycosylation:H5N2 on N]LTQR" ||
+                                               p.ModifiedSequence == "EASIVGEN[N-Glycosylation:H9N2 on N]ETYPR"))
+                    {
+                        int iiii = 0;
+                    }
                     // If the two pepGroup have similar mass within the tolerance, then we check the RT
                     if (tol.Within(idGroupedBySeq[i].Key.MonoisotopicMassGroup, idGroupedBySeq[j].Key.MonoisotopicMassGroup))
                     {
