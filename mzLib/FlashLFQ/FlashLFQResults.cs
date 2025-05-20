@@ -6,6 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using FlashLFQ.IsoTracker;
+using Newtonsoft.Json.Linq;
+using System.Reflection.Metadata.Ecma335;
+using IO.ThermoRawFileReader;
 
 namespace FlashLFQ
 {
@@ -138,7 +141,6 @@ namespace FlashLFQ
                     sequence.Value.SetRetentionTime(file,0);
                 }
             }
-
 
             foreach (var filePeaks in Peaks)
             {
@@ -795,54 +797,162 @@ namespace FlashLFQ
         {
             int isoGroupIndex = 1;
             //If the isobaric peptide dictionary is not empty, then we need to revise the peptide list.
+            // The isobaric peptide dict uses modified peptide sequences as the key
+            // However, in ambiguous cases, the first modified peptide is used as the key
+            // but there may be multiple peptides that are associated. 
             foreach (var isoPeptides in IsobaricPeptideDict.Where(p=>p.Value.Count != 0))
             {
                 string peptideSequence = isoPeptides.Key;
-                Peptide originalPeptide = PeptideModifiedSequences[peptideSequence];
-
-                // Remove the formal peptide from the peptide list
-                var allIDs = isoPeptides.Value.Values
-                    .SelectMany(p => p)
-                    .Where(p => p != null)
-                    .SelectMany(p=>p.Identifications)
-                    .DistinctBy(p => p.ModifiedSequence)
-                    .Select(p => p.ModifiedSequence)
-                    .ToList();
-                foreach (var modSeq in allIDs)
+                var isoPeptidesForSequence = isoPeptides.Value;
+                Peptide originalPeptide = null;
+                try
                 {
-                    if (PeptideModifiedSequences.ContainsKey(modSeq))
-                    {
-                        PeptideModifiedSequences.Remove(modSeq);
-                    }
+                    originalPeptide = PeptideModifiedSequences[peptideSequence];
                 }
+                catch (Exception e)
+                {
+                    originalPeptide = null;
+                }
+
 
                 // Add the isobaric peptides to the peptide list
-                //If there is only one peak for the isobaric peptides, then we don't view them as isobaric peptides.
-                if (isoPeptides.Value.Values.Count == 1)
+                // If there is only one peak region for the isobaric peptides, then we don't view them as isobaric peptides.
+                if (isoPeptidesForSequence.Values.Count == 1)
                 {
-                    var isoPeptidePeaks = isoPeptides.Value.Values.First();
-                    var allSeq = isoPeptidePeaks
-                        .Where(p => p != null)
-                        .SelectMany(p => p.Identifications)
-                        .Select(p => p.ModifiedSequence)
-                        .Distinct()
-                        .ToList();
-                    Peptide peptide = new Peptide(string.Join(" | ", allSeq), originalPeptide.BaseSequence, originalPeptide.UseForProteinQuant, originalPeptide.ProteinGroups);
-                    peptide.SetIsobaricPeptide(isoPeptidePeaks); //When we set the peptide as IsobaricPeptide, then the retention time, intensity and detectionType will be set from the chromPeak automatically.
-                    PeptideModifiedSequences[peptide.Sequence] = peptide;
+                    var isoPeptidePeaks = isoPeptidesForSequence.Values.First(); // First because the
+
+                    foreach (var peaksByFile in isoPeptidePeaks.GroupBy( p => p.SpectraFileInfo))
+                    {
+                        var allIds = peaksByFile
+                            .SelectMany(p => p.Identifications);
+
+                        var allSequences = peaksByFile
+                            .SelectMany(p => p.Identifications.Select(id => id.ModifiedSequence).Distinct().ToList());
+                        if (allSequences.Count() > 1)
+                        {
+                            // If, for a given file, we have multiple sequences, we should set those sequences to be ambiguous for the file
+                            foreach (var peak in peaksByFile)
+                            {
+                                foreach (var id in peak.Identifications)
+                                {
+                                    PeptideModifiedSequences[id.ModifiedSequence].SetDetectionType(peaksByFile.Key, DetectionType.IsoTrack_Ambiguous);
+                                    PeptideModifiedSequences[id.ModifiedSequence].SetIntensity(peaksByFile.Key, 0);
+                                    PeptideModifiedSequences[id.ModifiedSequence].SetRetentionTime(peaksByFile.Key, peak.ApexRetentionTime);
+                                }
+                            }
+
+                            PeptideModifiedSequences.TryAdd(string.Join(" | ", allSequences), new Peptide(
+                                string.Join(" | ", allSequences),
+                                string.Join(" | ", allIds.Select(id => id.BaseSequence).Distinct()),
+                                useForProteinQuant: false, 
+                                allIds.SelectMany(id => id.ProteinGroups).ToHashSet())
+                                );
+                        }
+                        else if(peaksByFile.Count() == 1)
+                        {
+                            originalPeptide.SetIsobaricPeptide(peaksByFile.ToList());
+                        }
+                    }
                 }
-                //If there are multiple peaks for the isobaric peptides, then we view them as isobaric peptides.
+                //If there are multiple peak regions for the isobaric peptides, then we view them as isobaric peptides.
+                // We have to create a new peptide that stores information about the different peak regions
                 else
                 {
                     int peakIndex = 1;
-                    foreach (var isoPeptidePeaks in isoPeptides.Value.Values.ToList())
+                    var allSequences = isoPeptidesForSequence
+                        .SelectMany(kvp => kvp.Value
+                            .SelectMany(p => p.Identifications
+                                .Select(id => id.ModifiedSequence))).ToHashSet();
+
+                    if (allSequences.Count == 1)
                     {
+                        // this is the easy case
+                    }
+                    if(allSequences.Count > 1)
+                    {
+                        // this is the complicated case
+
+                        // For each identification, check how many different peak regions it appears in 
+                        foreach (var seq in allSequences)
+                        {
+                            var peakRegionsInWhichPeptideWasDetected = new List<PeakRegion>();
+                            foreach(var peakList in isoPeptidesForSequence)
+                            {
+                                if(peakList.Value.Any(p => p.Identifications.Select(id => id.ModifiedSequence).Contains(seq)))
+                                {
+                                    peakRegionsInWhichPeptideWasDetected.Add(peakList.Key);
+                                }
+                            }
+
+                            // If we see the peptide in multiple peak regions, it's an isobaric peptide
+                            if(peakRegionsInWhichPeptideWasDetected.Count > 1)
+                            {
+                                if (PeptideModifiedSequences.TryGetValue(seq, out originalPeptide)) continue; // unclear what we should actually do here, but for now, we just continue
+
+                                foreach (var region in peakRegionsInWhichPeptideWasDetected.OrderBy(r => r.StartRT))
+                                {
+                                    Peptide peptideForRegion = new Peptide(string.Join(seq) + " Isopeptide_peak " + peakIndex, originalPeptide.BaseSequence, originalPeptide.UseForProteinQuant, originalPeptide.ProteinGroups, isoGroupIndex, peakIndex);
+
+                                    var peaksWithPeptide = isoPeptidesForSequence[region].Where(p =>
+                                        p.Identifications.Select(id => id.ModifiedSequence).Contains(seq));
+
+                                    // Get all peaks from the selecte region where the isobaric peptide was detected
+                                    peptideForRegion.SetIsobaricPeptide(isoPeptidesForSequence[region].Where(p => 
+                                        p.Identifications.Select(id => id.ModifiedSequence).Contains(seq)));
+                                }
+                            }
+                           
+
+
+                        }
+                    }
+
+                    // For each identification, check how many different peak regions it appears in 
+                    foreach(var seq in allSequences)
+                    {
+
+                    }
+
+
+
+                    // iterate through key-value pairs where the key is the peak region and the value is the list of all peaks in the region for different files
+                    foreach (var isoPeptidePeaks in isoPeptides.Value.Values)
+                    {
+                        foreach (var peaksByFile in isoPeptidePeaks.GroupBy(p => p.SpectraFileInfo))
+                        {
+                            if (peaksByFile.SelectMany(p => p.Identifications.Select(id => id.ModifiedSequence).Distinct()).Count() > 1)
+                            {
+                                // If, for a given file, we have multiple sequences, we should set those sequences to be ambiguous for the file
+                                foreach (var peak in peaksByFile)
+                                {
+                                    foreach (var id in peak.Identifications)
+                                    {
+                                        PeptideModifiedSequences[id.ModifiedSequence].SetDetectionType(peaksByFile.Key, DetectionType.IsoTrack_Ambiguous);
+                                        PeptideModifiedSequences[id.ModifiedSequence].SetIntensity(peaksByFile.Key, 0);
+                                        PeptideModifiedSequences[id.ModifiedSequence].SetRetentionTime(peaksByFile.Key, peak.ApexRetentionTime);
+                                    }
+                                }
+                            }
+                            else if (peaksByFile.Count() == 1)
+                            {
+                                originalPeptide.SetIntensity(peaksByFile.Key, peaksByFile.First().Intensity);
+                            }
+                        }
+
+
                         var allSeq = isoPeptidePeaks
                             .Where(p => p != null)
                             .SelectMany(p => p.Identifications)
                             .Select(p => p.ModifiedSequence)
                             .Distinct()
                             .ToList();
+
+                        if(allSeq.Count > 1) // Ambiguous case
+                        {
+
+                        }
+
+
                         Peptide peptide = new Peptide(string.Join(" | ", allSeq) + " Isopeptide_peak" + peakIndex, originalPeptide.BaseSequence, originalPeptide.UseForProteinQuant, originalPeptide.ProteinGroups, isoGroupIndex, peakIndex);
                         peptide.SetIsobaricPeptide(isoPeptidePeaks); //When we set the peptide as IsobaricPeptide, then the retention time, intensity and detectionType will be set from the chromPeak automatically.
                         PeptideModifiedSequences[peptide.Sequence] = peptide;

@@ -158,7 +158,7 @@ namespace FlashLFQ
             }
         }
 
-        public void SetIsobaricPeptide(List<ChromatographicPeak> peakList)
+        public void SetIsobaricPeptide(IEnumerable<ChromatographicPeak> peakList)
         {
             foreach (var peak in peakList.Where(p=>p != null))
             {
