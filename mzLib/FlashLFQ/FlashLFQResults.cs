@@ -887,6 +887,10 @@ namespace FlashLFQ
                             // If we see the peptide in multiple peak regions, it's an isobaric peptide
                             if(peakRegionsInWhichPeptideWasDetected.Count > 1)
                             {
+                                // If the sequence/peptide is detected in multiple regions, then we can delete the original occurence of the peptide 
+                                // from the PeptideModifiedSequences dictionary
+
+
                                 if (PeptideModifiedSequences.TryGetValue(seq, out originalPeptide)) continue; // unclear what we should actually do here, but for now, we just continue
 
                                 foreach (var region in peakRegionsInWhichPeptideWasDetected.OrderBy(r => r.StartRT))
