@@ -223,7 +223,6 @@ namespace FlashLFQ
                     Console.WriteLine("Finished " + spectraFile.FilenameWithoutExtension);
                 }
             }
-
             //IsoTracker
             if (FlashParams.IsoTracker)
             {
@@ -231,10 +230,34 @@ namespace FlashLFQ
                 IsobaricPeptideDict = new ConcurrentDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>>();
                 QuantifyIsobaricPeaks();
                 _results.IsobaricPeptideDict = IsobaricPeptideDict;
+                foreach (var isopep in IsobaricPeptideDict)
+                {
+                    var allPeaks = isopep.Value.SelectMany(p => p.Value).Where(p => p != null).ToList();
+                    var allId = allPeaks.SelectMany(p => p.Identifications).DistinctBy(p => p.ModifiedSequence);
+                    if (allId.Any(p => p.ModifiedSequence == "EASIVGEN[N-Glycosylation:H9N2 on N]ETYPR"))
+                    {
+                        int iii = 0;
+                    }
+                }
                 AddIsoPeaks();
+                foreach (var file in _results.SpectraFiles)
+                {
+                    RunErrorChecking(file);
+                }
+
+                foreach (var isopep in IsobaricPeptideDict)
+                {
+                    var allPeaks = isopep.Value.SelectMany(p => p.Value).Where(p=>p!=null).ToList();
+                    var allId = allPeaks.SelectMany(p => p.Identifications).DistinctBy(p => p.ModifiedSequence);
+                    if (allId.Any(p => p.ModifiedSequence == "EASIVGEN[N-Glycosylation:H9N2 on N]ETYPR"))
+                    {
+                        int iii = 0;
+                    }
+                }
+
+                var pep = IsobaricPeptideDict.Where(p => p.Key.Contains("GTN[N-Glycosylation:H5N2 on N]ESDSATTQFTTEIDAPK")).ToList();
             }
             IsoTrackerIsRunning = false;
-
             // do MBR
             if (FlashParams.MatchBetweenRuns)
             {
@@ -255,28 +278,23 @@ namespace FlashLFQ
                     }
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
                     IndexingEngineDictionary[spectraFile].ClearIndex();
-
                     if (!FlashParams.Silent)
                     {
                         Console.WriteLine("Finished MBR for " + spectraFile.FilenameWithoutExtension);
                     }
                 }
-
                 Console.WriteLine("Computing PEP for MBR Transfers");
                 bool pepSuccesful = RunPEPAnalysis();
-
                 foreach (var spectraFile in SpectraFileInfoList)
                 {
                     CalculateFdrForMbrPeaks(spectraFile, pepSuccesful);
                 }
             }
-
             // normalize
             if (FlashParams.Normalize)
             {
                 new IntensityNormalizationEngine(_results, FlashParams.Integrate, FlashParams.Silent, FlashParams.MaxThreads).NormalizeResults();
             }
-
             // calculate peptide intensities
             _results.CalculatePeptideResults(FlashParams.QuantifyAmbiguousPeptides);
 
@@ -1319,7 +1337,6 @@ namespace FlashLFQ
             {
                 Console.WriteLine("Checking errors");
             }
-
             _results.Peaks[spectraFile].RemoveAll(p => p == null || p.DetectionType == DetectionType.MBR && !p.IsotopicEnvelopes.Any());
 
             // merge duplicate peaks and handle MBR/MSMS peakfinding conflicts
@@ -1330,7 +1347,11 @@ namespace FlashLFQ
             {
                 tryPeak.CalculateIntensityForThisFeature(FlashParams.Integrate);
                 tryPeak.ResolveIdentifications();
-
+                if (tryPeak.Identifications.Any(p =>
+                        p.ModifiedSequence == "EASIVGEN[N-Glycosylation:H9N2 on N]ETYPR"))
+                {
+                    int iiii = 0;
+                }
                 if (tryPeak.Apex == null)
                 {
                     if (tryPeak.DetectionType == DetectionType.MBR)
@@ -1354,6 +1375,12 @@ namespace FlashLFQ
                         {
                             if (PeptideModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
                             {
+                                if (storedPeak.Identifications.Any(p =>
+                                        p.ModifiedSequence == "EASIVGEN[N-Glycosylation:H9N2 on N]ETYPR"))
+                                {
+                                    int iiii = 0;
+                                }
+
                                 storedPeak.MergeFeatureWith(tryPeak, FlashParams.Integrate);
                             }
                             else
@@ -1398,7 +1425,6 @@ namespace FlashLFQ
                     errorCheckedPeaksGroupedByApex.Add(apexImsPeak, tryPeak);
                 }
             }
-
             errorCheckedPeaks.AddRange(errorCheckedPeaksGroupedByApex.Values.Where(p => p != null));
             
             _results.Peaks[spectraFile] = errorCheckedPeaks;
@@ -1841,20 +1867,15 @@ namespace FlashLFQ
 
             // Filter out the id with motif checking from the motif list we uploaded
             // Isotracker only runs IF modified AND modification contains residue. Then grouped the IDs by their base sequence and monoisotopic mass -> isobaric peptide
-            var idGroupedBySeq = _allIdentifications
-                .Where(p => FlashParams.IsoTrackerIdFilter.ContainsAcceptableModifiedResidue(p.ModifiedSequence)) // Filtering part with motif
-                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy) // Only keep the non-decoy IDs and modified peptide
-                .GroupBy(p => new
-                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.0001) }) // Group by the base sequence and monoisotopic mass
-                .ToList();
+            var IsoPepGroup = PeptideGrouping();
 
-            Parallel.ForEach(Partitioner.Create(0, idGroupedBySeq.Count),
+            Parallel.ForEach(Partitioner.Create(0, IsoPepGroup.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = FlashParams.MaxThreads },
                 (range, loopState) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        var idGroup = idGroupedBySeq[i];
+                        var idGroup = IsoPepGroup[i];
                         List<XIC> xicGroup = new List<XIC>();
                         var mostCommonChargeIdGroup = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
                         var id = mostCommonChargeIdGroup.First();
@@ -1922,7 +1943,7 @@ namespace FlashLFQ
                         {
                             Interlocked.Increment(ref isoGroupsSearched);
 
-                            double percentProgress = ((double)isoGroupsSearched / idGroupedBySeq.Count * 100);
+                            double percentProgress = ((double)isoGroupsSearched / IsoPepGroup.Count * 100);
                             currentProgress = Math.Max(percentProgress, currentProgress);
 
                             if (currentProgress > lastReportedProgress + 10)
@@ -2165,6 +2186,97 @@ namespace FlashLFQ
                 }
             }
             return true;
+        }
+
+        /// <summary>
+        /// Group the peptides by the following steps:
+        /// (1) base sequence and monoisotopic mass
+        /// (2) If there are more than one group with similar mass and RT, then we merge them
+        /// </summary>
+        /// <returns></returns>
+        public List<List<Identification>> PeptideGrouping()
+        {
+            PpmTolerance tol = new PpmTolerance(20);
+
+            // Step 1: Group the peptides by base sequence and monoisotopic mass
+            var idGroupedBySeq = _allIdentifications
+                .Where(p => FlashParams.IsoTrackerIdFilter.ContainsAcceptableModifiedResidue(p.ModifiedSequence)) // Filtering part with motif
+                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy) // Only keep the non-decoy IDs and modified peptide
+                .GroupBy(p => new
+                    { p.BaseSequence, MonoisotopicMassGroup = Math.Round(p.MonoisotopicMass / 0.1) }) // Group by the base sequence and monoisotopic mass
+                .OrderByDescending(g => g.Key.MonoisotopicMassGroup)// Group by the base sequence and monoisotopic mass
+                .ToList();
+
+            // Step 2: Merge the groups with similar mass and RT
+            List<List<Identification>> groupedPepList = new();
+            var visited = new HashSet<int>();
+            for (int i = 0; i < idGroupedBySeq.Count; i++)
+            {
+                if(visited.Contains(i)) // don't check the same group again
+                {
+                    continue;
+                }
+                var currentGroup = idGroupedBySeq[i].ToList();
+                visited.Add(i);
+                
+                for (int j = i + 1; j < idGroupedBySeq.Count; j++)
+                {
+                    if (visited.Contains(j)) continue;
+
+                    // If the two pepGroup have similar mass within the tolerance, then we check the RT
+                    if (tol.Within(idGroupedBySeq[i].Key.MonoisotopicMassGroup, idGroupedBySeq[j].Key.MonoisotopicMassGroup))
+                    {
+                        var candidateGroup = idGroupedBySeq[j].ToList();
+
+                        //Checking retention time
+                        if (IsRTOverlap(currentGroup, candidateGroup))
+                        {
+                            currentGroup.AddRange(candidateGroup); // Merge the two groups
+                            visited.Add(j);
+                        }
+                    }
+                    else break;
+                }
+
+                // create the new peptide group by similar mass and RT
+                groupedPepList.Add(currentGroup);
+            }
+            return groupedPepList;
+        }
+
+        /// <summary>
+        /// Check if the two groups of identifications have similar retention time
+        /// </summary>
+        /// <param name="ids_group1"></param>
+        /// <param name="ids_group2"></param>
+        /// <returns></returns>
+        public bool IsRTOverlap(List<Identification> ids_group1, List<Identification> ids_group2)
+        {
+            double maxRt_1 = ids_group1.Max(id=>id.Ms2RetentionTimeInMinutes);
+            double minRt_1 = ids_group1.Min(id => id.Ms2RetentionTimeInMinutes);
+            double width_1 = maxRt_1 - minRt_1;
+
+            double maxRt_2 = ids_group2.Max(id => id.Ms2RetentionTimeInMinutes);
+            double minRt_2 = ids_group2.Min(id => id.Ms2RetentionTimeInMinutes);
+            double width_2 = maxRt_2 - minRt_2;
+
+
+            // (1) group1 is completely within group2
+            bool group1_within_group2 = minRt_1 >= minRt_2 && maxRt_1 <= maxRt_2;
+
+            // (2) group2 is completely within group1
+            bool group2_within_group1 = minRt_2 >= minRt_1 && maxRt_2 <= maxRt_1;
+
+            // (3) at least 50% width overlap
+            double overlapStart = Math.Max(minRt_1, minRt_2);
+            double overlapEnd = Math.Min(maxRt_1, maxRt_2);
+            double overlapWidth = Math.Max(0, overlapEnd - overlapStart);
+
+            bool overlap_50percent =
+                (overlapWidth >= 0.5 * width_1) ||
+                (overlapWidth >= 0.5 * width_2);
+
+            return group1_within_group2 || group2_within_group1 || overlap_50percent;
         }
     }
 

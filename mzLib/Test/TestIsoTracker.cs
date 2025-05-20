@@ -20,6 +20,127 @@ namespace Test
     [ExcludeFromCodeCoverage]
     internal class TestIsoTracker
     {
+        //Test the basic function in Peptide Group
+        [Test]
+        public static void Test_IsRTOverlap()
+        {
+            // Test the IsRTOverlap function in FlashLfqEngine
+            // The function will check if the two groups of identifications are overlapped in RT
+            SpectraFileInfo spectraFile = new SpectraFileInfo("test.raw", "Condition", 1, 1, 1);
+            ProteinGroup protein = new ProteinGroup("protein", "gene", "ass");
+
+            List<Identification> ids_group1 = new List<Identification>() // window is 100-120 mins
+            {
+                new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 120, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 100, 1, new List<ProteinGroup>(){protein} )
+            };
+            FlashLfqEngine engine = new FlashLfqEngine(ids_group1, null, false, ppmTolerance: 10);
+
+            List<Identification> ids_group2 = new List<Identification>() // window is 110-115 mins
+            {
+                new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 110, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 115, 1, new List<ProteinGroup>(){protein} )
+            };
+            //Group 1 and Group 2 should be overlapped, even flip the compare order
+            Assert.AreEqual(engine.IsRTOverlap(ids_group1,ids_group2), true);
+            Assert.AreEqual(engine.IsRTOverlap(ids_group2, ids_group1), true);
+
+            List<Identification> ids_group3 = new List<Identification>() // window is 110-125 mins
+            {
+                new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 110, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 125, 1, new List<ProteinGroup>(){protein} )
+            };
+            List<Identification> ids_group4 = new List<Identification>() // window is 75-115 mins
+            {
+                new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 80, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 110, 1, new List<ProteinGroup>(){protein} )
+            };
+            //Group 1 and Group 3 should be overlapped over 50% width of group 3
+            Assert.AreEqual(engine.IsRTOverlap(ids_group1, ids_group3), true);
+            //Group 1 and Group 4 should be overlapped over 50% width of group 4
+            Assert.AreEqual(engine.IsRTOverlap(ids_group1, ids_group4), true);
+            //Group 3 and Group 4 should not be overlapped
+            Assert.AreEqual(engine.IsRTOverlap(ids_group3, ids_group4), false);
+        }
+
+        [Test]
+        public static void Test_PeptideGrouping_noMassDifference()
+        {
+            SpectraFileInfo spectraFile = new SpectraFileInfo("test.raw", "Condition", 1, 1, 1);
+            ProteinGroup protein = new ProteinGroup("protein", "gene", "ass");
+            List<Identification> ids_group1 = new List<Identification>()
+            {
+                new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 95.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 100, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 100, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 99.00, 1, new List<ProteinGroup>(){protein} )
+            };
+            List<Identification> ids_group2 = new List<Identification>()
+            {
+                new Identification(spectraFile, "Peptide2", "Peptide2_modified", 1000.00, 125.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide2", "Peptide2_modified", 1000.00, 127.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide2", "Peptide2_modified", 1000.00, 130.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide2", "Peptide2_modified", 1000.00, 128.00, 1, new List<ProteinGroup>(){protein} )
+            };
+            List<Identification> ids_group3 = new List<Identification>()
+            {
+                new Identification(spectraFile, "Peptide3", "Peptide3_modified", 1000.00, 125.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide3", "Peptide3_modified", 1000.00, 127.00, 1, new List<ProteinGroup>(){protein} )
+            };
+            List<Identification> ids_group4 = new List<Identification>()
+            {
+                new Identification(spectraFile, "Peptide4", "Peptide4_modified", 1000.00, 97.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide4", "Peptide4_modified", 1000.00, 98.00, 1, new List<ProteinGroup>(){protein} )
+            };
+
+            List<Identification> _allIdentifications = ids_group1.Concat(ids_group2)
+                .Concat(ids_group3)
+                .Concat(ids_group4)
+                .ToList();
+            FlashLfqEngine engine = new FlashLfqEngine(_allIdentifications, null, false, ppmTolerance: 10);
+            var ids = engine.PeptideGrouping();
+        }
+
+        [Test]
+        public static void Test_PeptideGrouping_withMassDifference()
+        {
+            SpectraFileInfo spectraFile = new SpectraFileInfo("test.raw", "Condition", 1, 1, 1);
+            ProteinGroup protein = new ProteinGroup("protein", "gene", "ass");
+            List<Identification> ids_group1 = new List<Identification>()
+            {
+                new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.00, 95.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.0001, 100, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.0002, 100, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide1", "Peptide1_modified", 1000.0003, 99.00, 1, new List<ProteinGroup>(){protein} )
+            };
+            List<Identification> ids_group2 = new List<Identification>()
+            {
+                new Identification(spectraFile, "Peptide2", "Peptide2_modified", 1000.00, 125.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide2", "Peptide2_modified", 1000.0001, 127.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide2", "Peptide2_modified", 1000.0002, 130.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide2", "Peptide2_modified", 1000.0003, 128.00, 1, new List<ProteinGroup>(){protein} )
+            };
+            List<Identification> ids_group3 = new List<Identification>()
+            {
+                new Identification(spectraFile, "Peptide3", "Peptide3_modified", 1000.0001, 125.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide3", "Peptide3_modified", 1000.0002, 127.00, 1, new List<ProteinGroup>(){protein} )
+            };
+            List<Identification> ids_group4 = new List<Identification>()
+            {
+                new Identification(spectraFile, "Peptide4", "Peptide4_modified", 1000.0001, 97.00, 1, new List<ProteinGroup>(){protein} )
+                ,new Identification(spectraFile, "Peptide4", "Peptide4_modified", 1000.0002, 98.00, 1, new List<ProteinGroup>(){protein} )
+            };
+
+            List<Identification> _allIdentifications = ids_group1.Concat(ids_group2)
+                .Concat(ids_group3)
+                .Concat(ids_group4)
+                .ToList();
+            FlashLfqEngine engine = new FlashLfqEngine(_allIdentifications, null, false, ppmTolerance: 10);
+            var ids = engine.PeptideGrouping();
+            int iiii = 0;
+
+        }
+
         //Test the basic function in IsoTracker
         [Test]
         public static void TestIsoTrackerIdFilter_constructor()
@@ -1134,8 +1255,8 @@ namespace Test
             string psmFile = Path.Combine(testDataDirectory, "AllPSMs_IsoID_Combined.psmtsv");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
             string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
-            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
-            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "two", 1, 1, 1);
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 0, 0, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "one", 1, 0, 1);
 
             List<Identification> ids = new List<Identification>();
             Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
@@ -1200,11 +1321,12 @@ namespace Test
             }
 
             var engine = new FlashLfqEngine(ids,
-                matchBetweenRuns: false,
+                matchBetweenRuns: true,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
                 requireMultipleIdsInOneFiles: false,
+                normalize: false,
                 maxThreads: 1);
             var results = engine.Run();
 
@@ -1649,6 +1771,98 @@ namespace Test
             //    else MSMS_L3++;
             //}
 
+        }
+
+        [Test]
+        public static void David_CombinedTest()
+        {
+            string testDataDirectory = "E:\\IsoTracker\\GUI-TestingForCombinedSearch";
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
+            Directory.CreateDirectory(outputDirectory);
+
+            string psmFile = Path.Combine(testDataDirectory, "PSMs_FlashLFQFormat.psmtsv");
+            string file1 = "HFX_MB_14751_1";
+            string file2 = "HFX_MB_14751_2_23052022";
+            string file3 = "HFX_MB_14751_3_29052022";
+            string file4 = "HFX_MB_14751_4_02062022";
+            string file5 = "HFX_MB_14751_5_02062022";
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".raw"), "one", 1, 1, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".raw"), "two", 1, 1, 1);
+            SpectraFileInfo f1r3 = new SpectraFileInfo(Path.Combine(testDataDirectory, file3 + ".raw"), "three", 1, 1, 1);
+            SpectraFileInfo f1r4 = new SpectraFileInfo(Path.Combine(testDataDirectory, file4 + ".raw"), "four", 1, 1, 1);
+            SpectraFileInfo f1r5 = new SpectraFileInfo(Path.Combine(testDataDirectory, file5 + ".raw"), "five", 1, 1, 1);
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+                switch (split[0])
+                {
+                    case string s when s.Contains(file1):
+                        file = f1r1;
+                        break;
+                    case string s when s.Contains(file2):
+                        file = f1r2;
+                        break;
+                    case string s when s.Contains(file3):
+                        file = f1r3;
+                        break;
+                    case string s when s.Contains(file4):
+                        file = f1r4;
+                        break;
+                    case string s when s.Contains(file5):
+                        file = f1r5;
+                        break;
+                }
+
+
+                string baseSequence = split[3];
+                string fullSequence = split[4];
+
+                if (baseSequence.Contains("|") || fullSequence.Contains("|"))
+                {
+                    continue;
+                }
+
+                double monoMass = double.Parse(split[5].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[2]);
+                var proteins = split[6].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: true,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: true,
+                maxThreads: 20);
+            var results = engine.Run();
+
+            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
         }
     }
 

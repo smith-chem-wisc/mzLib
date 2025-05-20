@@ -221,7 +221,6 @@ namespace FlashLFQ
                 }
                 
             }
-
             if (IsoTracker && IsobaricPeptideDict != null)
             {
                 // We view each Isobaric peak as an individual peptide, so we need to add them to the peptide list
@@ -796,7 +795,7 @@ namespace FlashLFQ
         {
             int isoGroupIndex = 1;
             //If the isobaric peptide dictionary is not empty, then we need to revise the peptide list.
-            foreach (var isoPeptides in IsobaricPeptideDict.Where(p=>p.Value.Count != 0)) 
+            foreach (var isoPeptides in IsobaricPeptideDict.Where(p=>p.Value.Count != 0))
             {
                 string peptideSequence = isoPeptides.Key;
                 Peptide originalPeptide = PeptideModifiedSequences[peptideSequence];
@@ -806,8 +805,8 @@ namespace FlashLFQ
                     .SelectMany(p => p)
                     .Where(p => p != null)
                     .SelectMany(p=>p.Identifications)
-                    .DistinctBy(p=>p.ModifiedSequence)
-                    .Select(p=>p.ModifiedSequence)
+                    .DistinctBy(p => p.ModifiedSequence)
+                    .Select(p => p.ModifiedSequence)
                     .ToList();
                 foreach (var modSeq in allIDs)
                 {
@@ -818,7 +817,6 @@ namespace FlashLFQ
                 }
 
                 // Add the isobaric peptides to the peptide list
-
                 //If there is only one peak for the isobaric peptides, then we don't view them as isobaric peptides.
                 if (isoPeptides.Value.Values.Count == 1)
                 {
