@@ -806,6 +806,7 @@ namespace FlashLFQ
                     .SelectMany(p => p)
                     .Where(p => p != null)
                     .SelectMany(p=>p.Identifications)
+                    .Where(p=>p.BaseSequence == originalPeptide.BaseSequence) // Avoid to remove any peptide with different base sequence
                     .DistinctBy(p=>p.ModifiedSequence)
                     .Select(p=>p.ModifiedSequence)
                     .ToList();
@@ -826,6 +827,7 @@ namespace FlashLFQ
                     var allSeq = isoPeptidePeaks
                         .Where(p => p != null)
                         .SelectMany(p => p.Identifications)
+                        .Where(p=>p.BaseSequence == originalPeptide.BaseSequence) // do not output the peptide with different base sequence in the peptide result
                         .Select(p => p.ModifiedSequence)
                         .Distinct()
                         .ToList();
@@ -842,6 +844,7 @@ namespace FlashLFQ
                         var allSeq = isoPeptidePeaks
                             .Where(p => p != null)
                             .SelectMany(p => p.Identifications)
+                            .Where(p=>p.BaseSequence == originalPeptide.BaseSequence)// do not output the peptide with different base sequence in the peptide result
                             .Select(p => p.ModifiedSequence)
                             .Distinct()
                             .ToList();
