@@ -1616,7 +1616,47 @@ namespace Test
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
-            int iiii = 0;
+
+            List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
+            List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
+            foreach (var peak in peaksList)
+            {
+                var fullSeq = peak.Split('\t')[2];
+                if (fullSeq == "PEPTIDEA|PEPTIDEB")
+                {
+                    Assert.AreEqual(peak.Split('\t')[16], "MSMSAmbiguousPeakfinding");
+                }
+            }
+
+            foreach (var pep in peptidesList)
+            {
+                var baseSeq = pep.Split('\t')[1];
+                var peakOrder = pep.Split('\t')[2];
+                var detectionType_File1 = pep.Split('\t')[10];
+                var detectionType_File2 = pep.Split('\t')[11];
+                if (baseSeq == "PEPTIDEA")
+                {
+                    if (peakOrder == "1")
+                    {
+                        Assert.AreEqual(detectionType_File1, "IsoTrack_MSMS");
+                        Assert.AreEqual(detectionType_File2, "IsoTrack_MBR");
+                    }
+
+                    if (peakOrder == "2")
+                    {
+                        Assert.AreEqual(detectionType_File1, "MSMSAmbiguousPeakfinding");
+                        Assert.AreEqual(detectionType_File2, "MSMSAmbiguousPeakfinding");
+                    }
+                }
+
+                if (baseSeq == "PEPTIDEB")
+                {
+                    Assert.AreEqual(peakOrder, "");
+                    Assert.AreEqual(detectionType_File1, "MSMSAmbiguousPeakfinding");
+                    Assert.AreEqual(detectionType_File2, "MSMSAmbiguousPeakfinding");
+                }
+            }
+
         }
     }
 
