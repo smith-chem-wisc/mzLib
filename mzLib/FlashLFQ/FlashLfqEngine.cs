@@ -232,6 +232,10 @@ namespace FlashLFQ
                 QuantifyIsobaricPeaks();
                 _results.IsobaricPeptideDict = IsobaricPeptideDict;
                 AddIsoPeaks();
+                foreach (var file in _results.SpectraFiles)
+                {
+                    RunErrorChecking(file);
+                }
             }
             IsoTrackerIsRunning = false;
 
@@ -1354,6 +1358,13 @@ namespace FlashLFQ
                         {
                             if (PeptideModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
                             {
+                                // if the store peak is merge into other peaks, the store peak should be labeled as MSMSAmbiguousPeakfinding and then the intensity should be set as  0 in the result
+                                if (tryPeak.DetectionType == DetectionType.IsoTrack_MSMS ||
+                                    tryPeak.DetectionType == DetectionType.IsoTrack_MBR)
+                                {
+                                    tryPeak.DetectionType = DetectionType.MSMSAmbiguousPeakfinding;
+                                }
+
                                 storedPeak.MergeFeatureWith(tryPeak, FlashParams.Integrate);
                             }
                             else
@@ -2009,7 +2020,7 @@ namespace FlashLFQ
                 double peakStart = sharedPeak.StartRT ;
                 double PeakEnd = sharedPeak.EndRT ;
                 bool isMBR = false;
-                DetectionType detectionType = DetectionType.MSMS;
+                DetectionType detectionType = DetectionType.IsoTrack_MSMS;
 
                 // Check is there any Id in the XIC within the time window.
                 // Yes: use the Id from the same file. No: use the Id from other file, then set the detection type property as MBR.
@@ -2033,7 +2044,7 @@ namespace FlashLFQ
 
                         break;
                     case 1: // If there is one Id from the same file in the time window, then detectionType should be MSMS.
-                        detectionType = DetectionType.MSMS;
+                        detectionType = DetectionType.IsoTrack_MSMS;
                         break;
                     case > 1: // If there are more than one Id from the same file in the time window, then detectionType should be IsoTrack_Ambiguous.
                         detectionType = DetectionType.IsoTrack_Ambiguous;
@@ -2119,24 +2130,37 @@ namespace FlashLFQ
         /// </summary>
         internal void AddIsoPeaks()
         {
-
             foreach (var fileInfo in SpectraFileInfoList)
             {
-                var allChromPeaksInFile = IsobaricPeptideDict
+                var allIsoTrackerPeaksInFile = IsobaricPeptideDict
                     .SelectMany(p => p.Value)
                     .SelectMany(p => p.Value)
                     .Where(peak => peak != null && peak.SpectraFileInfo.Equals(fileInfo))
                     .ToList();
-                //remove the repeated peaks from FlashLFQ with the same identification list
-                foreach (var peak in allChromPeaksInFile)
+
+                //remove the repeated peaks from FlashLFQ with the same identification list, the priority is IsoTrack > MSMS
+                foreach (var peak in allIsoTrackerPeaksInFile)
                 {
                     _results.Peaks[fileInfo].RemoveAll(p => IDsEqual(p.Identifications,peak.Identifications));
                 }
 
                 // Add the peaks into the result dictionary, and remove the duplicated peaks.
-                _results.Peaks[fileInfo].AddRange(allChromPeaksInFile);
+                // And we choice the IsoTrack_MSMS as the priority.
+                _results.Peaks[fileInfo].AddRange(allIsoTrackerPeaksInFile);
                 _results.Peaks[fileInfo] = _results.Peaks[fileInfo]
-                    .DistinctBy(peak => new { peak.ApexRetentionTime, peak.SpectraFileInfo, peak.Identifications.First().BaseSequence }).ToList();
+                   .GroupBy(peak => new { peak.ApexRetentionTime, peak.SpectraFileInfo, peak.Identifications.First().BaseSequence })
+                   .Select(group =>
+                   {
+                       // Prioritize IsoTrack_MSMS over other detection types
+                       var prioritizedPeak = group
+                           .OrderByDescending(p => p.DetectionType == DetectionType.IsoTrack_MSMS)
+                           .ThenByDescending(p => p.DetectionType == DetectionType.IsoTrack_MBR)
+                            .ThenByDescending(p => p.DetectionType == DetectionType.IsoTrack_Ambiguous)
+                           .ThenByDescending(p => p.DetectionType == DetectionType.MSMS)
+                           .First();
+                       return prioritizedPeak;
+                   })
+                   .ToList();
             }
         }
 

@@ -183,7 +183,7 @@ namespace FlashLFQ
                 else
                 {
                     RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
-                    Intensities[peak.SpectraFileInfo] = peak.Apex.Intensity;
+                    Intensities[peak.SpectraFileInfo] = peak.DetectionType == DetectionType.IsoTrack_Ambiguous ? 0 : peak.Apex.Intensity; //if the peak is ambiguous, set the intensity to 0
                     DetectionTypes[peak.SpectraFileInfo] = peak.DetectionType;
                 }
             }
