@@ -11,6 +11,7 @@ using MathNet.Numerics.Interpolation;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using MassSpectrometry;
+using System.Windows.Media;
 
 namespace Test
 {
@@ -1740,7 +1741,7 @@ namespace Test
             }
 
             var engine = new FlashLfqEngine(ids,
-                matchBetweenRuns: false,
+                matchBetweenRuns: true,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,
@@ -1757,7 +1758,9 @@ namespace Test
             {
                 var fullSeq = peak.Split('\t')[2];
                 var retentionTime = peak.Split('\t')[6];
-                if (fullSeq == "PEPTIDEA|PEPTIDEB")
+                double.TryParse(peak.Split('\t')[9], out double intensity);
+                Assert.AreNotEqual(intensity, 0);
+                if (fullSeq == "PEPTIDEA_1|PEPTIDEB_1")
                 {
                     if (retentionTime == "")
                     {

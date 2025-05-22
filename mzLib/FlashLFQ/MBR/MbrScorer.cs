@@ -40,7 +40,6 @@ namespace FlashLFQ
             Normal logIntensityDistribution)
         {
             ApexToAcceptorFilePeakDict = apexToAcceptorFilePeakDict;
-            // I found a bug, if every peak is ambiguous, then the list of acceptor peaks is empty
             UnambiguousMsMsAcceptorPeaks = acceptorFileMsmsPeaks.Where(p => p.Apex != null && p.DetectionType != DetectionType.MBR && p.NumIdentificationsByFullSeq == 1).ToList();
             MaxNumberOfScansObserved = acceptorFileMsmsPeaks.Max(peak => peak.ScanCount);
             _logIntensityDistribution = logIntensityDistribution;

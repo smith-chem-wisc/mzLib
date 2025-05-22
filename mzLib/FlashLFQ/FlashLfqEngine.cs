@@ -835,8 +835,14 @@ namespace FlashLFQ
                 .ToList();
             double medianAcceptorLogIntensity = acceptorFileLogIntensities.Median();
             Normal logIntensityDistribution = new Normal(acceptorFileLogIntensities.Median(), acceptorFileLogIntensities.InterquartileRange() / 1.36);
-
-            return new MbrScorer(apexToAcceptorFilePeakDict, acceptorFileIdentifiedPeaks, ppmDistribution, logIntensityDistribution);
+            try // if the constructor fails, we don't want to crash the program
+            {
+                return new MbrScorer(apexToAcceptorFilePeakDict, acceptorFileIdentifiedPeaks, ppmDistribution, logIntensityDistribution);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>
