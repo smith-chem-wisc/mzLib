@@ -1364,7 +1364,6 @@ namespace FlashLFQ
                                 {
                                     tryPeak.DetectionType = DetectionType.MSMSAmbiguousPeakfinding;
                                 }
-
                                 storedPeak.MergeFeatureWith(tryPeak, FlashParams.Integrate);
                             }
                             else

@@ -216,9 +216,16 @@ namespace FlashLFQ
                     orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
 
                 foreach (var file in rawFiles)
-                {
-                    double intensity = GetIntensity(file);
-                    str.Append(intensity + "\t");
+                {   //In the intensity output, we set the intensity to 0 if the detectionType is IsoTrack_Ambiguous or MSMSAmbiguousPeakfinding
+                    if (GetDetectionType(file) == DetectionType.IsoTrack_Ambiguous ||
+                        GetDetectionType(file) == DetectionType.MSMSAmbiguousPeakfinding)
+                    {
+                        str.Append(0 + "\t");
+                    }
+                    else
+                    {
+                        str.Append(GetIntensity(file) + "\t");
+                    }
                 }
 
                 foreach (var file in rawFiles)

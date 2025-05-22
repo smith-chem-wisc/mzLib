@@ -123,6 +123,7 @@ namespace FlashLFQ
             if (DetectionType == DetectionType.IsoTrack_MBR || DetectionType == DetectionType.IsoTrack_MSMS)
             {
                 DetectionType = DetectionType.MSMSAmbiguousPeakfinding;
+                Intensity = 0; // Reset intensity to 0, as the peak is now ambiguous
             }
         }
 
