@@ -118,6 +118,12 @@ namespace FlashLFQ
                     .Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
                 this.CalculateIntensityForThisFeature(integrate);
             }
+
+            // If any merge happens on Isobaric peak, the detection type should be set to MSMSAmbiguousPeakfinding
+            if (DetectionType == DetectionType.IsoTrack_MBR || DetectionType == DetectionType.IsoTrack_MSMS)
+            {
+                DetectionType = DetectionType.MSMSAmbiguousPeakfinding;
+            }
         }
 
         /// <summary>
@@ -225,7 +231,7 @@ namespace FlashLFQ
 
             sb.Append(NumChargeStatesObserved.ToString(CultureInfo.InvariantCulture) + "\t");
 
-            // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous and MSMS peaks
+            // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous, MSMSAmbiguousPeakfinding and MSMS peaks
             switch (this.DetectionType)
             {
                 case DetectionType.IsoTrack_MBR:
@@ -233,6 +239,9 @@ namespace FlashLFQ
                     break;
                 case DetectionType.IsoTrack_Ambiguous:
                     sb.Append("IsoTrack_Ambiguous" + "\t");
+                    break;
+                case DetectionType.MSMSAmbiguousPeakfinding:
+                    sb.Append("MSMSAmbiguousPeakfinding" + "\t");
                     break;
                 default:
                     sb.Append("MSMS" + "\t");
