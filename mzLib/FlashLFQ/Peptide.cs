@@ -180,10 +180,12 @@ namespace FlashLFQ
                     }
 
                 }
-                else
+                else //Some situation, the peak is merged in RunErrorCheck but still existed in IsoPeptideDict. We labeled as ambiguous and we need to set the intensity to 0 here!!
                 {
                     RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
-                    Intensities[peak.SpectraFileInfo] = peak.DetectionType == DetectionType.IsoTrack_Ambiguous ? 0 : peak.Apex.Intensity; //if the peak is ambiguous, set the intensity to 0
+                    Intensities[peak.SpectraFileInfo] = (peak.DetectionType == DetectionType.IsoTrack_Ambiguous || peak.DetectionType == DetectionType.MSMSAmbiguousPeakfinding)
+                                                        ? 0
+                                                        : peak.Apex.Intensity;
                     DetectionTypes[peak.SpectraFileInfo] = peak.DetectionType;
                 }
             }
@@ -217,15 +219,8 @@ namespace FlashLFQ
 
                 foreach (var file in rawFiles)
                 {   //In the intensity output, we set the intensity to 0 if the detectionType is IsoTrack_Ambiguous or MSMSAmbiguousPeakfinding
-                    if (GetDetectionType(file) == DetectionType.IsoTrack_Ambiguous ||
-                        GetDetectionType(file) == DetectionType.MSMSAmbiguousPeakfinding)
-                    {
-                        str.Append(0 + "\t");
-                    }
-                    else
-                    {
-                        str.Append(GetIntensity(file) + "\t");
-                    }
+                    double intensity = GetIntensity(file);
+                    str.Append(intensity + "\t");
                 }
 
                 foreach (var file in rawFiles)
