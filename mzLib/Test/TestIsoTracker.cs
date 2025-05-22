@@ -1089,7 +1089,7 @@ namespace Test
                     var detectionType_run1 = peptide.Split('\t')[10];
                     var detectionType_run2 = peptide.Split('\t')[11];
                     Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
-                    Assert.AreEqual(detectionType_run2, "MSMS");
+                    Assert.AreEqual(detectionType_run2, "IsoTrack_MSMS");
 
                     //The output sequence should be the same as the expected sequence
                     foreach (var seq in expectedSequence_Peak1)
@@ -1242,26 +1242,26 @@ namespace Test
                 {
                     if (peakOrder == 1)
                     {
-                        Assert.AreEqual(detectionType_run1, "MSMS");
+                        Assert.AreEqual(detectionType_run1, "IsoTrack_MSMS");
                         Assert.AreEqual(detectionType_run2, "IsoTrack_MBR");
                     }
                     if (peakOrder == 2)
                     {
                         Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
-                        Assert.AreEqual(detectionType_run2, "MSMS");
+                        Assert.AreEqual(detectionType_run2, "IsoTrack_MSMS");
                     }
                 }
                 if (baseSequence == "LLQFYAETCPAPER")
                 {
                     if (peakOrder == 1)
                     {
-                        Assert.AreEqual(detectionType_run1, "MSMS");
+                        Assert.AreEqual(detectionType_run1, "IsoTrack_MSMS");
                         Assert.AreEqual(detectionType_run2, "IsoTrack_MBR");
                     }
                     if (peakOrder == 2)
                     {
                         Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
-                        Assert.AreEqual(detectionType_run2, "MSMS");
+                        Assert.AreEqual(detectionType_run2, "IsoTrack_MSMS");
                     }
                 }
                 if (baseSequence == "DIVENYFMR")
@@ -1269,7 +1269,7 @@ namespace Test
                     if (peakOrder == 1)
                     {
                         Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
-                        Assert.AreEqual(detectionType_run2, "MSMS");
+                        Assert.AreEqual(detectionType_run2, "IsoTrack_MSMS");
                     }
                     if (peakOrder == 2)
                     {
@@ -1529,10 +1529,10 @@ namespace Test
         [Test]
         public static void Test_mergeConflict()
         {
-            //In this test, there are two unmodifiedPeptide, one ambiguous isoPeptide set, and two normal isobaric peptides.
+            //In this test, we want to ensure there is no conflict when peaks were merged in RunErrorCheck.
 
-            //There are two isobaric peptide, Iso_A and Iso_B
-            //Try to turn on the MBR and Isotracker at the same time
+            //There are two isobaric peptide, Iso_A and Iso_B (with similar mass)
+            //RunErrorCheck will merge the two peaks, and we hope there is no crush and the detectionType will be set as MSMSAmbiguousPeakfinding
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
@@ -1606,7 +1606,7 @@ namespace Test
             }
 
             var engine = new FlashLfqEngine(ids,
-                matchBetweenRuns: false,
+                matchBetweenRuns: true,
                 requireMsmsIdInCondition: false,
                 useSharedPeptidesForProteinQuant: false,
                 isoTracker: true,

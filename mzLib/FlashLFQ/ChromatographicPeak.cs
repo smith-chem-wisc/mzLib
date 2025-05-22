@@ -210,7 +210,7 @@ namespace FlashLFQ
             sb.Append(DetectionType == DetectionType.MSMS ? Identifications.First().Ms2RetentionTimeInMinutes.ToString(CultureInfo.InvariantCulture) + '\t' : '\t');
             sb.Append(Identifications.First().PrecursorChargeState.ToString(CultureInfo.InvariantCulture) + '\t');
             sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState).ToString(CultureInfo.InvariantCulture) + '\t');
-            sb.Append(Intensity.ToString(CultureInfo.InvariantCulture) + "\t");
+            sb.Append(Intensity.ToString(CultureInfo.InvariantCulture) + "\t"); //The intensity of the peak should be modified to deal with ambiguous peaks
 
             if (Apex != null)
             {
