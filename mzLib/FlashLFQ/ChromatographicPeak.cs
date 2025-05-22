@@ -119,7 +119,7 @@ namespace FlashLFQ
                 this.CalculateIntensityForThisFeature(integrate);
             }
 
-            // Only for isoTrack peak, if any merge happens, the detection type should be set to IsoTrack_Ambiguous
+            // If any merge happens on Isobaric peak, the detection type should be set to MSMSAmbiguousPeakfinding
             if (DetectionType == DetectionType.IsoTrack_MBR || DetectionType == DetectionType.IsoTrack_MSMS)
             {
                 DetectionType = DetectionType.MSMSAmbiguousPeakfinding;
@@ -210,7 +210,7 @@ namespace FlashLFQ
             sb.Append(DetectionType == DetectionType.MSMS ? Identifications.First().Ms2RetentionTimeInMinutes.ToString(CultureInfo.InvariantCulture) + '\t' : '\t');
             sb.Append(Identifications.First().PrecursorChargeState.ToString(CultureInfo.InvariantCulture) + '\t');
             sb.Append(ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState).ToString(CultureInfo.InvariantCulture) + '\t');
-            sb.Append(Intensity.ToString(CultureInfo.InvariantCulture) + "\t"); //The intensity of the peak should be modified to deal with ambiguous peaks
+            sb.Append(Intensity.ToString(CultureInfo.InvariantCulture) + "\t");
 
             if (Apex != null)
             {

@@ -1364,7 +1364,7 @@ namespace FlashLFQ
                         {
                             if (PeptideModifiedSequencesToQuantify.Contains(storedPeak.Identifications.First().ModifiedSequence))
                             {
-                                // if the store peak is merge into other peaks, the store peak should be labeled as MSMSAmbiguousPeakfinding and then the intensity should be set as  0 in the result
+                                // if the try peak is merge into stored peaks, the try peak should be labeled as MSMSAmbiguousPeakfinding and then the intensity should be set as 0 in the peptide result
                                 if (tryPeak.DetectionType == DetectionType.IsoTrack_MSMS ||
                                     tryPeak.DetectionType == DetectionType.IsoTrack_MBR)
                                 {

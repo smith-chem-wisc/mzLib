@@ -844,7 +844,7 @@ namespace FlashLFQ
                         var allSeq = isoPeptidePeaks
                             .Where(p => p != null)
                             .SelectMany(p => p.Identifications)
-                            .Where(p=>p.BaseSequence == originalPeptide.BaseSequence)// do not output the peptide with different base sequence in the peptide result
+                            .Where(p=>p.BaseSequence == originalPeptide.BaseSequence)// do not output the peptide with different base sequence that was merged in RunErrorCheck
                             .Select(p => p.ModifiedSequence)
                             .Distinct()
                             .ToList();

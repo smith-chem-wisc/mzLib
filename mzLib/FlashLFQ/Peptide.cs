@@ -170,7 +170,7 @@ namespace FlashLFQ
                 {
                     RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
                     Intensities[peak.SpectraFileInfo] = 0;
-                    if (peak.DetectionType != DetectionType.IsoTrack_Ambiguous) // If the detectionType is not IsoTrack_amb but with more than one id. That extra id is added by runErrorChecking
+                    if (peak.DetectionType != DetectionType.IsoTrack_Ambiguous) // If the detectionType is not IsoTrack_amb but with more than one id. That extra id must be added by RunErrorCheck
                     {
                         DetectionTypes[peak.SpectraFileInfo] = DetectionType.MSMSAmbiguousPeakfinding;
                     }
@@ -180,9 +180,10 @@ namespace FlashLFQ
                     }
 
                 }
-                else //Some situation, the peak is merged in RunErrorCheck but still existed in IsoPeptideDict. We labeled as ambiguous and we need to set the intensity to 0 here!!
+                else 
                 {
                     RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
+                    //Some situation, the peak is merged in RunErrorCheck but still existed in IsoPeptideDict. In RunErrorCheck, we labeled it as ambiguous peak. At here, we set the intensity to 0!!
                     Intensities[peak.SpectraFileInfo] = (peak.DetectionType == DetectionType.IsoTrack_Ambiguous || peak.DetectionType == DetectionType.MSMSAmbiguousPeakfinding)
                                                         ? 0
                                                         : peak.Apex.Intensity;
@@ -218,7 +219,7 @@ namespace FlashLFQ
                     orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
 
                 foreach (var file in rawFiles)
-                {   //In the intensity output, we set the intensity to 0 if the detectionType is IsoTrack_Ambiguous or MSMSAmbiguousPeakfinding
+                {  
                     double intensity = GetIntensity(file);
                     str.Append(intensity + "\t");
                 }
