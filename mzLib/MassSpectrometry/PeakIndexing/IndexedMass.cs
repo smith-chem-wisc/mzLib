@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MassSpectrometry.PeakIndexing
+namespace MassSpectrometry
 {
     public class IndexedMass : IIndexedPeak
     {
