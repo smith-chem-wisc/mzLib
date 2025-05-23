@@ -269,5 +269,48 @@ namespace Test
             Assert.Throws<MzLibException>(() => indexingEngine.GetIndexedPeak(500.0, 0, new PpmTolerance(20), 1));
         }
 
+        [Test]
+        public static void TestMassIndexingEngine()
+        {
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+            var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
+
+            MsDataScan[] scans = new MsDataScan[10];
+            double[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+            IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+
+            // Create mzSpectra where two peaks appear very close together
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double[] mz = dist.Masses.Select(v => v.ToMz(2)).Concat(dist.Masses.Select(v => v.ToMz(1))).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).Concat(dist.Intensities.Select(v => v * intensity * intensityMultipliers[s])).ToArray();
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            //Test the mass indexing function
+            var massIndexingEngine = new MassIndexingEngine();
+            Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters));
+
+            //Test GetXIC with indexed masses
+            var xic1 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 1, 5, new PpmTolerance(20), 2);
+            Assert.That(xic1.Count, Is.EqualTo(10));
+
+            //Test GetXIC with different charge states
+            var xic2 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 2, 5, new PpmTolerance(20), 2);
+            Assert.That(xic2.Count, Is.EqualTo(10));
+
+            //Test GetXIC with different starting scan and they should return the same list of peaks
+            var xic3 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 1, 1, new PpmTolerance(20), 2);
+            for (int i = 0; i < xic1.Count; i++)
+            {
+                Assert.That(Object.ReferenceEquals(xic1[i], xic3[i]));
+            }
+        }
     }
 }
