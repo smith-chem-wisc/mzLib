@@ -88,9 +88,9 @@ namespace Test
             IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak((idMass + 0.001).ToMz(1), 1.1, 1, 25);
             IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak((idMass - 0.001).ToMz(1), 1, 2, 26);
             IndexedMassSpectralPeak imsPeak3 = new IndexedMassSpectralPeak((idMass + 0.002).ToMz(1), 1.2, 3, 27);
-            var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1, 0.98);
+            var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1.2, 0.98);
             var iso2 = new FlashLFQ.IsotopicEnvelope(imsPeak2, 1, 1, 0.9);
-            var iso3 = new FlashLFQ.IsotopicEnvelope(imsPeak3, 1, 1, 0.95);
+            var iso3 = new FlashLFQ.IsotopicEnvelope(imsPeak3, 1, 0.8, 0.95);
 
             peak1.IsotopicEnvelopes.Add(iso1);
             peak1.IsotopicEnvelopes.Add(iso2);
@@ -122,12 +122,15 @@ namespace Test
 
             acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak, predictedRt: 25.1);
 
-            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(58.7).Within(0.1));
-            Assert.That(acceptorPeak.PpmScore, Is.EqualTo(0.62).Within(0.01));
-            Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.32).Within(0.01));
+            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(73.7).Within(0.1));
+            Assert.That(acceptorPeak.PpmScore, Is.EqualTo(1).Within(0.01));
+            Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.46).Within(0.01));
             Assert.That(acceptorPeak.RtScore, Is.EqualTo(0.96).Within(0.01));
             Assert.That(acceptorPeak.ScanCountScore, Is.EqualTo(0.59).Within(0.01));
             Assert.That(acceptorPeak.IsotopicDistributionScore, Is.EqualTo(0.83).Within(0.01));
+
+            double manualMbrScore = Math.Pow( acceptorPeak.PpmScore * acceptorPeak.IntensityScore * acceptorPeak.RtScore * acceptorPeak.ScanCountScore * acceptorPeak.IsotopicDistributionScore, 1.0 / 5.0) * 100;
+            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(manualMbrScore).Within(0.1));
         }
 
         [Test]
