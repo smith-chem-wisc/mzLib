@@ -1,15 +1,18 @@
 ﻿using Easy.Common.EasyComparer;
+using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Linq;
-using MassSpectrometry;
 
 namespace FlashLFQ
 {
+
+
     /// <summary>
     /// This class takes in an intensity distribution, a log foldchange distribution, and a ppm distribution 
     /// unique to each donor file - acceptor file pair
@@ -21,6 +24,7 @@ namespace FlashLFQ
         private readonly Normal _ppmDistribution;
         private readonly Normal _scanCountDistribution;
         private readonly Gamma _isotopicCorrelationDistribution;
+
         // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
         private Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
         private Dictionary<SpectraFileInfo, Normal> _rtPredictionErrorDistributionDictionary;
@@ -35,23 +39,57 @@ namespace FlashLFQ
         /// </summary>
         internal MbrScorer(
             Dictionary<IIndexedPeak, ChromatographicPeak> apexToAcceptorFilePeakDict,
-            List<ChromatographicPeak> acceptorFileMsmsPeaks,
-            Normal ppmDistribution, 
-            Normal logIntensityDistribution)
+            List<ChromatographicPeak> unambiguousAcceptorFilePeaks)
         {
             ApexToAcceptorFilePeakDict = apexToAcceptorFilePeakDict;
-            UnambiguousMsMsAcceptorPeaks = acceptorFileMsmsPeaks.Where(p => p.Apex != null && p.DetectionType != DetectionType.MBR && p.NumIdentificationsByFullSeq == 1).ToList();
-            MaxNumberOfScansObserved = acceptorFileMsmsPeaks.Max(peak => peak.ScanCount);
-            _logIntensityDistribution = logIntensityDistribution;
-            _ppmDistribution = ppmDistribution;
+            UnambiguousMsMsAcceptorPeaks = unambiguousAcceptorFilePeaks;
+            MaxNumberOfScansObserved = unambiguousAcceptorFilePeaks.Max(peak => peak.ScanCount);
+
+            // Populate distributions for scoring MBR matches
+            _logIntensityDistribution = GetLogIntensityDistribution();
+            _ppmDistribution = GetPpmErrorDistribution();
             _isotopicCorrelationDistribution = GetIsotopicEnvelopeCorrDistribution();
+            _scanCountDistribution = GetScanCountDistribution();
+
+            // Initialize the dictionaries that will hold the log fold change and RT prediction error distributions
+            // for each donor file
             _logFcDistributionDictionary = new();
             _rtPredictionErrorDistributionDictionary = new();
+        }
 
-            // This is kludgey, because scan counts are discrete
+        private Normal GetPpmErrorDistribution()
+        {
+            // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
+            List<double> ppmErrors = UnambiguousMsMsAcceptorPeaks.Select(p => p.MassError).ToList();
+            double ppmSpread = ppmErrors.Count > 30 ? ppmErrors.InterquartileRange() / 1.36 : ppmErrors.StandardDeviation();
+            Normal ppmDistribution = new Normal(ppmErrors.Median(), ppmSpread);
+            return ppmDistribution;
+        }
+
+        private Normal GetLogIntensityDistribution()
+        {
+            var logIntensities = UnambiguousMsMsAcceptorPeaks
+                .Where(p => p.Intensity > 0)
+                .Select(p => Math.Log(p.Intensity, 2))
+                .ToList();
+
+            if (logIntensities.Count == 0)
+            {
+                return null;
+            }
+
+            return new Normal(
+                logIntensities.Median(),
+                logIntensities.InterquartileRange() / 1.36
+            );
+        }
+
+        // This is kludgey, because scan counts are discrete
+        private Normal GetScanCountDistribution()
+        {
             List<double> scanList = UnambiguousMsMsAcceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
             // build a normal distribution for the scan list of the acceptor peaks
-            _scanCountDistribution = new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
+            return new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
         }
 
         /// <summary>
@@ -137,6 +175,14 @@ namespace FlashLFQ
                 * acceptorPeak.PpmScore 
                 * acceptorPeak.ScanCountScore
                 * acceptorPeak.IsotopicDistributionScore, 0.20);
+        }
+
+        /// <summary>
+        /// Returns the standard deviation of the Ppm error distribution + the median of the Ppm error distribution
+        /// </summary>
+        internal double GetPpmErrorTolerance()
+        {
+            return _ppmDistribution.StdDev * 4 + Math.Abs(_ppmDistribution.Median);
         }
 
         // Setting a minimum score prevents the MBR score from going to zero if one component of that score is 0

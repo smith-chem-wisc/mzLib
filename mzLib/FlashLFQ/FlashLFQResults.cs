@@ -810,6 +810,7 @@ namespace FlashLFQ
                     .DistinctBy(p=>p.ModifiedSequence)
                     .Select(p=>p.ModifiedSequence)
                     .ToList();
+
                 foreach (var modSeq in allIDs)
                 {
                     if (PeptideModifiedSequences.ContainsKey(modSeq))
