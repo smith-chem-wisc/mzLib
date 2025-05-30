@@ -16,7 +16,9 @@ public class PufParserTests
     {
         var combinedLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, TestFile);
         Assert.That(File.Exists(combinedLocation), $"Test file not found: {combinedLocation}");
-        _dataSet = PufParser.Parse(combinedLocation);
+        var file = new PufResultFile(combinedLocation);
+        file.LoadResults();
+        _dataSet = file.DataSet;
     }
 
     [Test]

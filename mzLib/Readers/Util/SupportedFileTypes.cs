@@ -1,4 +1,5 @@
 ﻿using MzLibUtil;
+using Readers.Puf;
 
 namespace Readers
 {
@@ -30,7 +31,8 @@ namespace Readers
         CruxResult,
         ExperimentAnnotation,
         BrukerD,
-        BrukerTimsTof
+        BrukerTimsTof,
+        Puf
     }
 
     public static class SupportedFileTypeExtensions
@@ -72,6 +74,7 @@ namespace Readers
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
+                SupportedFileType.Puf => ".puf",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -90,7 +93,7 @@ namespace Readers
                     if (fileList.Any(file => file == "analysis.tdf"))
                         return SupportedFileType.BrukerTimsTof;
                     throw new MzLibException("Bruker file type not recognized");
-
+                case ".puf": return SupportedFileType.Puf;
                 case ".psmtsv":
                 case ".tsv" when filePath.Contains("Intralinks"):
                     return SupportedFileType.psmtsv;
@@ -206,6 +209,7 @@ namespace Readers
                 SupportedFileType.BrukerTimsTof => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms1Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms2Align => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.Puf => typeof(PufResultFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
