@@ -1,5 +1,6 @@
 ﻿using MassSpectrometry;
 using MathNet.Numerics;
+using MzLibUtil;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Readers;
@@ -194,7 +195,7 @@ namespace Test.FileReadingTests
         public void TestFileDoesntExist()
         {
             string fakePath = "fakePath.d";
-            Assert.Throws<FileNotFoundException>(() =>
+            Assert.Throws<MzLibException>(() =>
                 MsDataFileReader.GetDataFile(fakePath));
 
             TimsTofFileReader reader = new TimsTofFileReader(fakePath);
