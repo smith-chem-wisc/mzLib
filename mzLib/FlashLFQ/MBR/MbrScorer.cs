@@ -61,6 +61,10 @@ namespace FlashLFQ
         {
             // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
             List<double> ppmErrors = UnambiguousMsMsAcceptorPeaks.Select(p => p.MassError).ToList();
+            if ( ppmErrors.Count <= 1)
+            {
+                return null;
+            }
             double ppmSpread = ppmErrors.Count > 30 ? ppmErrors.InterquartileRange() / 1.36 : ppmErrors.StandardDeviation();
             Normal ppmDistribution = new Normal(ppmErrors.Median(), ppmSpread);
             return ppmDistribution;
@@ -73,7 +77,7 @@ namespace FlashLFQ
                 .Select(p => Math.Log(p.Intensity, 2))
                 .ToList();
 
-            if (logIntensities.Count == 0)
+            if (logIntensities.Count <= 1)
             {
                 return null;
             }
@@ -88,6 +92,10 @@ namespace FlashLFQ
         private Normal GetScanCountDistribution()
         {
             List<double> scanList = UnambiguousMsMsAcceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
+            if (scanList.Count <= 1)
+            {
+                return null;
+            }
             // build a normal distribution for the scan list of the acceptor peaks
             return new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
         }
