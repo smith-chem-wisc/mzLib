@@ -22,7 +22,7 @@ internal class PufResultFile : ResultFile<PufMsMsExperiment>
 
     public PufResultFile() : base("") { }
 
-    public PufResultFile(string filePath) : base(filePath, Software.ProsightPD) { }
+    public PufResultFile(string filePath) : base(filePath, Software.ProsightPC) { }
 
     /// <summary>
     /// Loads all identifications from the PUF file into the Results list.
@@ -32,7 +32,7 @@ internal class PufResultFile : ResultFile<PufMsMsExperiment>
         if (!File.Exists(FilePath))
             throw new FileNotFoundException($"PUF file not found: {FilePath}");
 
-        var stream = File.OpenRead(FilePath);
+        using var stream = File.OpenRead(FilePath);
         DataSet = Read(stream);
         Results = DataSet.Experiments;
     }
@@ -42,7 +42,7 @@ internal class PufResultFile : ResultFile<PufMsMsExperiment>
     /// </summary>
     public override void WriteResults(string outputPath)
     {
-        var stream = File.Create(outputPath);
+        using var stream = File.Create(outputPath);
         Write(DataSet, stream);
     }
 

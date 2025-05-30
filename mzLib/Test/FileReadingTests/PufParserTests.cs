@@ -257,4 +257,94 @@ public class PufParserTests
         Assert.That(match.MassDifferenceDa, Is.EqualTo(0.00830999999993765).Within(1e-12));
         Assert.That(match.MassDifferencePpm, Is.EqualTo(5.83264851180369).Within(1e-10));
     }
+
+    [Test]
+    public void CanWriteAndReadBackPufResultFile()
+    {
+        var combinedLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, TestFile);
+        var originalFile = new PufResultFile(combinedLocation);
+        originalFile.LoadResults();
+
+        // Write to a temp file
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            originalFile.WriteResults(tempFile);
+
+            // Read back
+            var roundTripFile = new PufResultFile(tempFile);
+            roundTripFile.LoadResults();
+
+            // Compare top-level dataset properties
+            Assert.That(roundTripFile.DataSet.Version, Is.EqualTo(originalFile.DataSet.Version));
+            Assert.That(roundTripFile.DataSet.Experiments.Count, Is.EqualTo(originalFile.DataSet.Experiments.Count));
+
+            // Compare experiment-level properties
+            var origExp = originalFile.DataSet.Experiments[0];
+            var roundExp = roundTripFile.DataSet.Experiments[0];
+            Assert.That(roundExp.Id, Is.EqualTo(origExp.Id));
+            Assert.That(roundExp.Source, Is.EqualTo(origExp.Source));
+            Assert.That(roundExp.Comment, Is.EqualTo(origExp.Comment));
+
+            // Compare instrument data
+            Assert.That(roundExp.InstrumentData.FragmentationMethod, Is.EqualTo(origExp.InstrumentData.FragmentationMethod));
+            Assert.That(roundExp.InstrumentData.IonType, Is.EqualTo(origExp.InstrumentData.IonType));
+            Assert.That(roundExp.InstrumentData.Intacts.Count, Is.EqualTo(origExp.InstrumentData.Intacts.Count));
+            Assert.That(roundExp.InstrumentData.Fragments.Count, Is.EqualTo(origExp.InstrumentData.Fragments.Count));
+
+            // Compare analysis/search/results
+            Assert.That(roundExp.Analyses.Count, Is.EqualTo(origExp.Analyses.Count));
+            var origAnalysis = origExp.Analyses[0];
+            var roundAnalysis = roundExp.Analyses[0];
+            Assert.That(roundAnalysis.Id, Is.EqualTo(origAnalysis.Id));
+            Assert.That(roundAnalysis.Type, Is.EqualTo(origAnalysis.Type));
+            Assert.That(roundAnalysis.SearchParameters.Database.InternalName, Is.EqualTo(origAnalysis.SearchParameters.Database.InternalName));
+            Assert.That(roundAnalysis.Results.HitLists.Count, Is.EqualTo(origAnalysis.Results.HitLists.Count));
+            Assert.That(roundAnalysis.Results.Legend, Is.EqualTo(origAnalysis.Results.Legend));
+
+            // Compare a hit
+            var origHit = origAnalysis.Results.HitLists[0].Hits[0];
+            var roundHit = roundAnalysis.Results.HitLists[0].Hits[0];
+            Assert.That(roundHit.Id, Is.EqualTo(origHit.Id));
+            Assert.That(roundHit.Description, Is.EqualTo(origHit.Description));
+            Assert.That(roundHit.SequenceLength, Is.EqualTo(origHit.SequenceLength));
+            Assert.That(roundHit.TheoreticalMass, Is.EqualTo(origHit.TheoreticalMass));
+            Assert.That(roundHit.MassDifferenceDa, Is.EqualTo(origHit.MassDifferenceDa));
+            Assert.That(roundHit.MassDifferencePpm, Is.EqualTo(origHit.MassDifferencePpm));
+            Assert.That(roundHit.Score.PScore, Is.EqualTo(origHit.Score.PScore));
+            Assert.That(roundHit.MatchingSequence.Resid, Is.EqualTo(origHit.MatchingSequence.Resid));
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
+
+    [Test]
+    public void WriteResults_CreatesValidXmlFile()
+    {
+        var combinedLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, TestFile);
+        var file = new PufResultFile(combinedLocation);
+        file.LoadResults();
+
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            file.WriteResults(tempFile);
+
+            // Check that the file exists and is not empty
+            Assert.That(File.Exists(tempFile), Is.True);
+            var xml = File.ReadAllText(tempFile);
+            Assert.That(xml, Does.Contain("<data_set"));
+            Assert.That(xml, Does.Contain("<ms-ms_experiment"));
+            Assert.That(xml, Does.Contain("<analysis"));
+            Assert.That(xml, Does.Contain("<results"));
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
 }
