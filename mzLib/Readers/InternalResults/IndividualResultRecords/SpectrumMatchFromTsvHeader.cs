@@ -15,6 +15,7 @@
         public const string PrecursorIntensity = "Precursor Intensity";
         public const string PrecursorMz = "Precursor MZ";
         public const string PrecursorMass = "Precursor Mass";
+        public const string OneOverK0 = "1/K0";
         public const string Score = "Score";
         public const string DeltaScore = "Delta Score";
         public const string Notch = "Notch";

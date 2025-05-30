@@ -97,9 +97,13 @@ namespace Readers
             }
         }
 
+        /// <summary>
+        /// Returns retention time in minutes for a given frame ID.
+        /// </summary>
+        /// <returns>Retention time in minutes</returns>
         internal double GetRetentionTime(long frameId)
         {
-            return (double)FramesTable.RetentionTime[frameId - 1];
+            return (double)FramesTable.RetentionTime[frameId - 1] / 60;
         }
 
         internal double GetInjectionTime(long frameId)

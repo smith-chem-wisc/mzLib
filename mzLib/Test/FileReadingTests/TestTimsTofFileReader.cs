@@ -219,6 +219,7 @@ namespace Test.FileReadingTests
             Assert.That(_testMs2Scan.ScanNumberStart == 410);
             Assert.That(_testMs2Scan.OneOverK0, Is.EqualTo(1.0424).Within(0.0001));
             Assert.That(_testReader.Scans.All(s => s != null));
+            Assert.That(_testMs1Scan.RetentionTime, Is.EqualTo(11.28).Within(0.01));
         }
 
         [Test]
