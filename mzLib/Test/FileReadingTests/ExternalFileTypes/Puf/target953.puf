@@ -1,0 +1,736 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<data_set version="1.1">
+  <ms-ms_experiment id="953" source="">
+    <comment>Characterization score: 365.02</comment>
+    <instrument_data>
+      <fragmentation_method>HCD</fragmentation_method>
+      <ion_type>BY</ion_type>
+      <intact_list>
+        <intact id="267272">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16154.7751</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>102053.91</intensity>
+        </intact>
+      </intact_list>
+      <fragment_list>
+        <fragment id="266898">
+          <mz_monoisotopic>1795.87585</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16153.8172</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>129822.34</intensity>
+        </fragment>
+        <fragment id="266899">
+          <mz_monoisotopic>1792.09998</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16119.8343</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>32548.71</intensity>
+        </fragment>
+        <fragment id="266900">
+          <mz_monoisotopic>1793.98608</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16136.8093</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>81833.23</intensity>
+        </fragment>
+        <fragment id="266901">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16169.7198</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>49884.67</intensity>
+        </fragment>
+        <fragment id="266902">
+          <mz_monoisotopic>1779.54028</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16006.7971</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>15252.52</intensity>
+        </fragment>
+        <fragment id="266903">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16111.7833</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>11655</intensity>
+        </fragment>
+        <fragment id="266904">
+          <mz_monoisotopic>1777.63342</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15989.6353</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>9059.04</intensity>
+        </fragment>
+        <fragment id="266905">
+          <mz_monoisotopic>1787.87683</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16081.826</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>5605.9</intensity>
+        </fragment>
+        <fragment id="266906">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16092.7533</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>6027.46</intensity>
+        </fragment>
+        <fragment id="266907">
+          <mz_monoisotopic>1781.42517</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16023.761</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>6299.49</intensity>
+        </fragment>
+        <fragment id="266908">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>16066.718</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>2352.31</intensity>
+        </fragment>
+        <fragment id="266909">
+          <mz_monoisotopic>1775.53003</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15970.7048</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>3311.64</intensity>
+        </fragment>
+        <fragment id="266910">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15450.0745</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>2021.3</intensity>
+        </fragment>
+        <fragment id="266911">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17200.4585</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1765.38</intensity>
+        </fragment>
+        <fragment id="266912">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>10919.5101</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1389.77</intensity>
+        </fragment>
+        <fragment id="266913">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>9595.7555</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1491.16</intensity>
+        </fragment>
+        <fragment id="266914">
+          <mz_monoisotopic>1723.75586</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15504.7372</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1013.98</intensity>
+        </fragment>
+        <fragment id="266915">
+          <mz_monoisotopic>1776.42444</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15978.7545</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>959.79</intensity>
+        </fragment>
+        <fragment id="266916">
+          <mz_monoisotopic>1735.16174</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>3468.3089</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1920.38</intensity>
+        </fragment>
+        <fragment id="266917">
+          <mz_monoisotopic>1734.96948</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>3467.9244</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1418.93</intensity>
+        </fragment>
+        <fragment id="266918">
+          <mz_monoisotopic>1735.3595</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>3468.7044</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1892.47</intensity>
+        </fragment>
+        <fragment id="266919">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15707.6404</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1247.81</intensity>
+        </fragment>
+        <fragment id="266920">
+          <mz_monoisotopic>1770.87598</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1769.8687</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>2208.51</intensity>
+        </fragment>
+        <fragment id="266921">
+          <mz_monoisotopic>1774.87024</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1773.863</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>2817.68</intensity>
+        </fragment>
+        <fragment id="266922">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15520.5465</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>397.89</intensity>
+        </fragment>
+        <fragment id="266923">
+          <mz_monoisotopic>1774.64246</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1773.6352</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>2293.93</intensity>
+        </fragment>
+        <fragment id="266924">
+          <mz_monoisotopic>1773.09509</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>5316.2634</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1589.81</intensity>
+        </fragment>
+        <fragment id="266925">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17183.4836</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>386.78</intensity>
+        </fragment>
+        <fragment id="266926">
+          <mz_monoisotopic>1598.46167</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>4792.3632</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>2263.64</intensity>
+        </fragment>
+        <fragment id="266927">
+          <mz_monoisotopic>713.88092</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1425.7473</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>615.11</intensity>
+        </fragment>
+        <fragment id="266928">
+          <mz_monoisotopic>713.38068</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1424.7468</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>221.83</intensity>
+        </fragment>
+        <fragment id="266929">
+          <mz_monoisotopic>1732.96484</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>8659.7878</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>555.41</intensity>
+        </fragment>
+        <fragment id="266930">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>8669.7721</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>575.2</intensity>
+        </fragment>
+        <fragment id="266931">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15725.636</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>199.04</intensity>
+        </fragment>
+        <fragment id="266932">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15689.6278</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>639.36</intensity>
+        </fragment>
+        <fragment id="266933">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>10935.5231</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>726.34</intensity>
+        </fragment>
+        <fragment id="266934">
+          <mz_monoisotopic>1774.19824</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15958.7187</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>522.36</intensity>
+        </fragment>
+        <fragment id="266935">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>15930.6994</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>364.36</intensity>
+        </fragment>
+        <fragment id="266936">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>5681.2043</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>722.81</intensity>
+        </fragment>
+        <fragment id="266937">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17566.671</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>341.86</intensity>
+        </fragment>
+        <fragment id="266938">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>8654.2606</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>616.23</intensity>
+        </fragment>
+        <fragment id="266939">
+          <mz_monoisotopic>1731.56287</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>8652.7779</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>580.32</intensity>
+        </fragment>
+        <fragment id="266940">
+          <mz_monoisotopic>1759.98157</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17589.7429</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>188.12</intensity>
+        </fragment>
+        <fragment id="266941">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17571.7196</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>148.66</intensity>
+        </fragment>
+        <fragment id="266942">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>9610.751</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>306.51</intensity>
+        </fragment>
+        <fragment id="267246">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>6599.3564</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>813.81</intensity>
+        </fragment>
+        <fragment id="267247">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17217.5215</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>439.68</intensity>
+        </fragment>
+        <fragment id="267248">
+          <mz_monoisotopic>1738.26782</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17372.6055</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>373.49</intensity>
+        </fragment>
+        <fragment id="267249">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17357.555</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>308.15</intensity>
+        </fragment>
+        <fragment id="267250">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>6670.3973</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>488.27</intensity>
+        </fragment>
+        <fragment id="267251">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>8786.406</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>480.71</intensity>
+        </fragment>
+        <fragment id="267252">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>6970.5177</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>320.24</intensity>
+        </fragment>
+        <fragment id="267253">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>3527.5206</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>498.5</intensity>
+        </fragment>
+        <fragment id="267254">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>8748.3566</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>243.29</intensity>
+        </fragment>
+        <fragment id="267255">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>8801.3573</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>389.58</intensity>
+        </fragment>
+        <fragment id="267256">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>3526.9346</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>396.72</intensity>
+        </fragment>
+        <fragment id="267257">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>3524.1089</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>457.64</intensity>
+        </fragment>
+        <fragment id="267258">
+          <mz_monoisotopic>1772.29346</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>5313.8585</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>951.51</intensity>
+        </fragment>
+        <fragment id="267259">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>5315.5656</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1369.17</intensity>
+        </fragment>
+        <fragment id="267260">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>3502.1349</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>515.87</intensity>
+        </fragment>
+        <fragment id="267261">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>10902.4973</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>188.92</intensity>
+        </fragment>
+        <fragment id="267262">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>3786.8162</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>467.09</intensity>
+        </fragment>
+        <fragment id="267263">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>5680.6927</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>395.73</intensity>
+        </fragment>
+        <fragment id="267264">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>4677.3456</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>221.01</intensity>
+        </fragment>
+        <fragment id="267265">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>17282.5101</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>268.22</intensity>
+        </fragment>
+        <fragment id="267266">
+          <mz_monoisotopic>595.31689</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1188.6192</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>264.82</intensity>
+        </fragment>
+        <fragment id="267267">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>6807.4606</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>287.42</intensity>
+        </fragment>
+        <fragment id="267268">
+          <mz_monoisotopic>1288.69421</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1287.6869</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>509.83</intensity>
+        </fragment>
+        <fragment id="267269">
+          <mz_monoisotopic>0</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>6471.2587</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>178.4</intensity>
+        </fragment>
+        <fragment id="267270">
+          <mz_monoisotopic>1081.35974</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1080.3525</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>278.15</intensity>
+        </fragment>
+        <fragment id="267271">
+          <mz_monoisotopic>1785.6665</mz_monoisotopic>
+          <mz_average>0</mz_average>
+          <mass_monoisotopic>1784.6592</mass_monoisotopic>
+          <mass_average>0</mass_average>
+          <intensity>1729.09</intensity>
+        </fragment>
+      </fragment_list>
+    </instrument_data>
+    <analysis id="1" type="absolute_mass">
+      <comment />
+      <search_parameters>
+        <database>
+          <internal_name>pseudomonas_aeruginosa_2012_11_top_down_complex</internal_name>
+          <display>Pseudomonas Aeruginosa 2012 11 Top Down Complex</display>
+        </database>
+        <ptm_list>
+          <pyroglutamic_acid>Pyroglutamic acid from glutamic acid</pyroglutamic_acid>
+          <dimethylation>Dimethylation</dimethylation>
+          <carboxylation>Carboxylation</carboxylation>
+          <quinone>Quinone</quinone>
+          <pyruvic_acid>Pyruvic acid</pyruvic_acid>
+          <amide>Amide</amide>
+          <citrulline>L-citrulline</citrulline>
+          <fad>FAD</fad>
+          <GPI>GPI-anchor</GPI>
+          <palmitate>Palmitate</palmitate>
+          <double_oxidation>Double oxidation</double_oxidation>
+          <hydroxylation>Hydroxylation</hydroxylation>
+          <oxidation>Oxidation</oxidation>
+          <phospho_dna>Phospho_DNA</phospho_dna>
+          <trimethylation>Trimethylation</trimethylation>
+          <heme>Heme</heme>
+          <retinylation>Retinylation</retinylation>
+          <phosphorylation>Phosphorylation</phosphorylation>
+          <acetylation>Acetylation</acetylation>
+          <oxoalanine>L-3-oxoalanine</oxoalanine>
+          <carboxy_ethyl>Carboxy ethyl</carboxy_ethyl>
+          <hypusine>Hypusine</hypusine>
+          <nitrosyl_cysteine>S-nitrosyl-L-cysteine</nitrosyl_cysteine>
+          <sulfation>Sulfation</sulfation>
+          <methylation>Methylation (mono)</methylation>
+          <farnesyl>Farnesyl</farnesyl>
+          <myristate>Myristate</myristate>
+          <geranyl>Geranyl geranyl</geranyl>
+        </ptm_list>
+        <fixed_modification_list />
+        <terminal_modification_list />
+        <intact_tolerance unit="Da">1000</intact_tolerance>
+        <intact_mass_type>monoisotopic</intact_mass_type>
+        <fragment_tolerance unit="ppm">15</fragment_tolerance>
+        <fragment_mass_type>monoisotopic</fragment_mass_type>
+        <delta_m>true</delta_m>
+        <multiplexing>false</multiplexing>
+        <iTraq>false</iTraq>
+        <disulfide>false</disulfide>
+        <hit_criteria max="25">
+          <minimum_matches_num>4</minimum_matches_num>
+          <minimum_matches_percent>0</minimum_matches_percent>
+          <score good="" type="">0</score>
+        </hit_criteria>
+      </search_parameters>
+      <results>
+        <hit_list intact_id="1">
+          <hit id="1">
+            <matching_gene_id>0</matching_gene_id>
+            <protein_form>0</protein_form>
+            <description>Q9HUM9, RS6_PSEAE, 30S ribosomal protein S6</description>
+            <signalp>false</signalp>
+            <propep>false</propep>
+            <matching_sequence>
+              <resid>MRHYEIVFLVHPDQSEQVGGMVERYTKAIEEDGGKIHRLEDWGRRQLAYAINNVHKAHYVLMNVECSAKALAELEDNFRYNDAVIRNLVMRRDEAVTEQSEMLKAEESRNERRERRERPNDNAEGADGDDNSDSDNADE</resid>
+              <format>M~RHYEIVFL|V|H|PDQSEQVGGMVERYTKAIEED|GGKIHRLE|D|WGRRQLAYAINNVH|K|A|H|Y|VLMNVECSAKALAELED|NFRYND|AVIRNLVMRRD|EAVTEQSEMLKAEESRNERRERRERPNDNAEGADGD~DNSDSD|NADE</format>
+              <display>0@000M!0^000R!0@000H!0@000Y!0@000E!0@000I!0@000V!0@000F!0@000L%0@000V%0@000H%0@000P!0@000D!0@000Q!0@000S!0@000E!0@000Q!0@000V!0@000G!0@000G!0@000M!0@000V!0@000E!0@000R!0@000Y!0@000T!0@000K!0@000A!0@000I!0@000E!0@000E!0@000D%0@000G!0@000G!0@000K!0@000I!0@000H!0@000R!0@000L!0@000E%0@000D%0@000W!0@000G!0@000R!0@000R!0@000Q!0@000L!0@000A!0@000Y!0@000A!0@000I!0@000N!0@000N!0@000V!0@000H%0@000K%0@000A%0@000H%0@000Y%0@000V!0@000L!0@000M!0@000N!0@000V!0@000E!0@fc1C!0@000S!0@000A!0@000K!0@000A!0@000L!0@000A!0@000E!0@000L!0@000E!0@000D%0@000N!0@000F!0@000R!0@000Y!0@000N!0@000D%0@000A!0@000V!0@000I!0@000R!0@000N!0@000L!0@000V!0@000M!0@000R!0@000R!0@000D%0@000E!0@000A!0@000V!0@000T!0@000E!0@000Q!0@000S!0@000E!0@000M!0@000L!0@000K!0@000A!0@000E!0@000E!0@000S!0@000R!0@000N!0@000E!0@000R!0@000R!0@000E!0@000R!0@000R!0@000E!0@000R!0@000P!0@000N!0@000D!0@000N!0@000A!0@000E!0@000G!0@000A!0@000D!0@000G!0@000D!0^000D!0@000N!0@000S!0@000D!0@000S!0@000D%0@000N!0@000A!0@000D!0@000E!</display>
+            </matching_sequence>
+            <sequence_length>139</sequence_length>
+            <theoretical_mass>16154.70955469</theoretical_mass>
+            <mass_difference_da>0.0655453100298473</mass_difference_da>
+            <mass_difference_ppm>4.05734995160086</mass_difference_ppm>
+            <score>
+              <p_score>2.31e-021</p_score>
+              <expected>6.97e-017</expected>
+              <mcluckey_score>0.0</mcluckey_score>
+            </score>
+            <matching_fragment_list total="17" B-Ions="15" Y-Ions="2">
+              <matching_fragment>
+                <name>Y10</name>
+                <theoretical_mass>1080.347945</theoretical_mass>
+                <match id="267270">
+                  <mass_difference_da>0.0045549999999821</mass_difference_da>
+                  <mass_difference_ppm>4.21623424292449</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B9</name>
+                <theoretical_mass>1188.61137</theoretical_mass>
+                <match id="267266">
+                  <mass_difference_da>0.00783000000001266</mass_difference_da>
+                  <mass_difference_ppm>6.58751901389994</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B10</name>
+                <theoretical_mass>1287.67978</theoretical_mass>
+                <match id="267268">
+                  <mass_difference_da>0.00711999999975887</mass_difference_da>
+                  <mass_difference_ppm>5.52932500016337</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B11</name>
+                <theoretical_mass>1424.73869</theoretical_mass>
+                <match id="266928">
+                  <mass_difference_da>0.00810999999976048</mass_difference_da>
+                  <mass_difference_ppm>5.69227189286231</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B32</name>
+                <theoretical_mass>3786.81336</theoretical_mass>
+                <match id="267262">
+                  <mass_difference_da>0.0028399999996509</mass_difference_da>
+                  <mass_difference_ppm>0.749970946455861</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B40</name>
+                <theoretical_mass>4677.32197</theoretical_mass>
+                <match id="267264">
+                  <mass_difference_da>0.0236299999996845</mass_difference_da>
+                  <mass_difference_ppm>5.05203621885464</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B41</name>
+                <theoretical_mass>4792.34891</theoretical_mass>
+                <match id="266926">
+                  <mass_difference_da>0.0142900000000736</mass_difference_da>
+                  <mass_difference_ppm>2.98183631209641</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B55</name>
+                <theoretical_mass>6471.22933</theoretical_mass>
+                <match id="267269">
+                  <mass_difference_da>0.0293700000020181</mass_difference_da>
+                  <mass_difference_ppm>4.53855032858464</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B56</name>
+                <theoretical_mass>6599.32429</theoretical_mass>
+                <match id="267246">
+                  <mass_difference_da>0.0321100000010119</mass_difference_da>
+                  <mass_difference_ppm>4.86564966199167</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B57</name>
+                <theoretical_mass>6670.3614</theoretical_mass>
+                <match id="267250">
+                  <mass_difference_da>0.0359000000007654</mass_difference_da>
+                  <mass_difference_ppm>5.38201723234448</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B58</name>
+                <theoretical_mass>6807.42031</theoretical_mass>
+                <match id="267267">
+                  <mass_difference_da>0.0402900000017326</mass_difference_da>
+                  <mass_difference_ppm>5.91854155715156</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B59</name>
+                <theoretical_mass>6970.48364</theoretical_mass>
+                <match id="267252">
+                  <mass_difference_da>0.034060000001773</mass_difference_da>
+                  <mass_difference_ppm>4.88631804632899</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B76</name>
+                <theoretical_mass>8786.35827999999</theoretical_mass>
+                <match id="267251">
+                  <mass_difference_da>0.0477200000059383</mass_difference_da>
+                  <mass_difference_ppm>5.43114661219328</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B82</name>
+                <theoretical_mass>9595.70393</theoretical_mass>
+                <match id="266913">
+                  <mass_difference_da>0.0515700000050856</mass_difference_da>
+                  <mass_difference_ppm>5.37428003003065</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B93</name>
+                <theoretical_mass>10919.45967</theoretical_mass>
+                <match id="266912">
+                  <mass_difference_da>0.0504300000102376</mass_difference_da>
+                  <mass_difference_ppm>4.61836038909402</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>B135</name>
+                <theoretical_mass>15707.54942</theoretical_mass>
+                <match id="266919">
+                  <mass_difference_da>0.0909800000263203</mass_difference_da>
+                  <mass_difference_ppm>5.79211929204425</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+              <matching_fragment>
+                <name>Y138</name>
+                <theoretical_mass>16023.669065</theoretical_mass>
+                <match id="266907">
+                  <mass_difference_da>0.0919350000185659</mass_difference_da>
+                  <mass_difference_ppm>5.73744999635425</mass_difference_ppm>
+                </match>
+              </matching_fragment>
+            </matching_fragment_list>
+          </hit>
+        </hit_list>
+        <legend>Cysteine|fc1:</legend>
+      </results>
+    </analysis>
+  </ms-ms_experiment>
+</data_set>

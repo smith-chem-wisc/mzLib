@@ -8,7 +8,7 @@ namespace Test.FileReadingTests;
 [TestFixture]
 public class PufParserTests
 {
-    private const string TestFile = @"DataFiles\target955.puf";
+    private const string TestFile = @"FileReadingTests\ExternalFileTypes\Puf\target955.puf";
     private PufDataSet _dataSet;
 
     [SetUp]
