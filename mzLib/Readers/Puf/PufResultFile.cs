@@ -7,7 +7,7 @@ namespace Readers.Puf;
 /// ResultFile implementation for Prosight PUF files.
 /// Each result is a PufIdentification (i.e., a single identification from the file).
 /// </summary>
-internal class PufResultFile : ResultFile<PufMsMsExperiment>
+public class PufResultFile : ResultFile<PufMsMsExperiment>
 {
     internal PufDataSet DataSet;
 

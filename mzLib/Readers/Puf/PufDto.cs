@@ -1,15 +1,20 @@
-﻿namespace Readers.Puf;
+﻿using System.CodeDom;
+using System.Runtime.CompilerServices;
+using MassSpectrometry;
+using MzLibUtil;
+
+namespace Readers.Puf;
 
 /// <summary>
 /// An entire Puf data file. 
 /// </summary>
-internal class PufDataSet
+public class PufDataSet
 {
     internal string Version { get; set; } = default!;
     internal List<PufMsMsExperiment> Experiments { get; set; } = new();
 }
 
-internal class PufMsMsExperiment
+public class PufMsMsExperiment
 {
     internal string Id { get; set; } = default!;
     internal string Source { get; set; } = default!;
@@ -27,6 +32,26 @@ internal class PufDataScan
     internal string IonType { get; set; } = default!;
     internal List<PufIntact> Intacts { get; set; } = new();
     internal List<PufFragment> Fragments { get; set; } = new();
+
+    // Conversion operator to MsDataScan
+    public static explicit operator NeutralMassSpectrum(PufDataScan scan)
+    {
+        // Use all fragments as peaks
+        var mzs = scan.Fragments.Select(f => f.MzMonoisotopic ?? 0).ToArray();
+        var intensities = scan.Fragments.Select(f => f.Intensity ?? 0).ToArray();
+
+        // Remove zero m/z
+        var peaks = mzs.Zip(intensities, (mz, inten) => new { mz, inten })
+                       .Where(p => p.mz > 0)
+                       .ToArray();
+        if (peaks.Length == 0)
+            throw new InvalidOperationException("No valid peaks found in the scan.");
+        mzs = peaks.Select(p => p.mz).ToArray();
+        intensities = peaks.Select(p => p.inten).ToArray();
+        var charges = peaks.Select(p => 1).ToArray(); // 1 for all fragments for neutral mass spectrum
+
+        return new NeutralMassSpectrum(mzs, intensities, charges, true);
+    }
 }
 
 /// <summary>

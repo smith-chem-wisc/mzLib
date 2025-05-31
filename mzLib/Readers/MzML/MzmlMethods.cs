@@ -1,5 +1,6 @@
 using MassSpectrometry;
 using MzLibUtil;
+using Readers.Puf;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -972,7 +973,7 @@ namespace Readers
                 }
             }
 
-            if (!writeIndexed)
+            if (!writeIndexed || myMsDataFile is PufMsDataFile)
             {
                 using (XmlWriter writer = XmlWriter.Create(outputFile, new() { NewLineChars = "\n", Indent = true }))
                 {
