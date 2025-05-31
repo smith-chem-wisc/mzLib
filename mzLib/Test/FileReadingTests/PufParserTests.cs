@@ -399,4 +399,25 @@ public class PufParserTests
         Assert.That(y138.Mz, Is.EqualTo(16023.669065 + 0.0974350000178674).Within(1e-5));
         Assert.That(y138.Charge, Is.EqualTo(1));
     }
+
+    [Test]
+    public void PufResultFile_Scans_AreParsedCorrectly()
+    {
+        // Arrange
+        var testDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "ExternalFileTypes", "Puf");
+        var pufFilePath = Path.Combine(testDir, "target955.puf");
+        var pufFile = new PufResultFile(pufFilePath);
+        pufFile.LoadResults();
+
+        // Act
+        var scans = pufFile.Scans;
+
+        // Assert
+        Assert.That(scans, Is.Not.Null.And.Count.EqualTo(1));
+        var scan = scans[0];
+        Assert.That(scan.OneBasedScanNumber, Is.EqualTo(955));
+        Assert.That(scan.SelectedIonMZ, Is.EqualTo(0).Within(1e-6)); // from <mz_monoisotopic>0</mz_monoisotopic>
+        Assert.That(scan.SelectedIonIntensity, Is.EqualTo(88912.86).Within(1e-2)); // from <intensity>88912.86</intensity>
+        Assert.That(scan.ScanDescription, Does.Contain("Characterization score: 221.13"));
+    }
 }

@@ -26,59 +26,17 @@ namespace Readers.Puf
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
-            var scans = new List<MsDataScan>();
             foreach (var file in _pufFilePaths)
             {
                 var pufFile = new PufResultFile(file);
                 pufFile.LoadResults();
                 PufFiles.Add(pufFile);
-
-                foreach (var exp in pufFile.DataSet.Experiments)
-                {
-                    // Map PufMsMsExperiment to MsDataScan
-                    var inst = exp.InstrumentData;
-                    if (inst == null)
-                        continue;
-
-                    // Use the first intact as precursor, if available
-                    var intact = inst.Intacts.FirstOrDefault();
-                    double precursorMz = intact?.MzMonoisotopic ?? 0;
-                    double intensity = intact?.Intensity ?? 0;
-                    double retentionTime = 0; // PUF does not store RT, set to 0 or parse from comment if available
-
-                    int scanNumber = int.Parse(exp.Id);
-
-                    var dissociationType = Enum.TryParse<DissociationType>(inst.FragmentationMethod, true, out var dissType)
-                        ? dissType
-                        : DissociationType.Unknown;
-
-                    var spectrum = (NeutralMassSpectrum)inst;
-                    var scan = new MsDataScan(
-                        spectrum,
-                        scanNumber,
-                        2,
-                        true,
-                        Polarity.Unknown,
-                        retentionTime,
-                        new MzLibUtil.MzRange(spectrum.FirstX!.Value, spectrum.LastX!.Value),
-                        null,
-                        MZAnalyzerType.Unknown,
-                        spectrum.SumOfAllY,
-                        null, 
-                        null,
-                        "",
-                        precursorMz,
-                        1,
-                        intensity,
-                        precursorMz,
-                        1,
-                        dissociationType, null, precursorMz, null, exp.Comment);
-
-                    scans.Add(scan);
-                }
             }
 
-            Scans = scans.OrderBy(p => p.OneBasedScanNumber).ToArray();
+            Scans = PufFiles.SelectMany(p => p.Scans)
+                .OrderBy(p => p.OneBasedScanNumber)
+                .ToArray();
+
             return this;
         }
 

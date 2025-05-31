@@ -52,6 +52,29 @@ public class PufDirectoryResultFileTests
     }
 
     [Test]
+    public void PufDirectoryResultFile_Scans_AggregateAndOrderCorrectly()
+    {
+        // Arrange
+        var testDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "ExternalFileTypes", "Puf");
+        var dirFile = new PufDirectoryResultFile(testDir);
+        dirFile.LoadResults();
+
+        // Act
+        var scans = dirFile.Scans;
+
+        // Assert
+        Assert.That(scans, Is.Not.Null.And.Count.EqualTo(3));
+        var scanNumbers = scans.Select(s => s.OneBasedScanNumber).ToList();
+        Assert.That(scanNumbers, Is.EquivalentTo(new[] { 953, 955, 956 }));
+
+        // Check precursor m/z and intensity for one scan (target953.puf)
+        var scan953 = scans.First(s => s.OneBasedScanNumber == 953);
+        Assert.That(scan953.SelectedIonMZ, Is.EqualTo(0).Within(1e-6));
+        Assert.That(scan953.SelectedIonIntensity, Is.EqualTo(102053.91).Within(1e-2));
+        Assert.That(scan953.ScanDescription, Does.Contain("Characterization score: 365.02"));
+    }
+
+    [Test]
     public void CanWriteAndReadBackPufDirectory()
     {
         Assert.That(Directory.Exists(TestDir), $"Test directory not found: {TestDir}");
@@ -126,5 +149,38 @@ public class PufDirectoryResultFileTests
             if (File.Exists(tempMzml))
                 File.Delete(tempMzml);
         }
+    }
+
+    [Test]
+    public void PufDirectoryResultFile_AggregatesIdentificationsAcrossMultipleFiles()
+    {
+        // Arrange: directory containing the three PUF files
+        var testDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "ExternalFileTypes", "Puf");
+        Assert.That(Directory.Exists(testDir), $"Test directory not found: {testDir}");
+
+        // Act: load the directory result file
+        var dirResultFile = new Readers.Puf.PufDirectoryResultFile(testDir);
+        dirResultFile.LoadResults();
+
+        // Assert: should aggregate all identifications from all files
+        var allIds = dirResultFile.Identifications;
+        Assert.That(allIds, Is.Not.Null.And.Count.EqualTo(3), "Should have one identification per PUF file");
+
+        // Check that each peptide sequence is as expected (all three files have the same sequence in this test set)
+        foreach (var (peptide, matchedIons) in allIds)
+        {
+            Assert.That(peptide.FullSequence, Does.StartWith("MRHYEIVFLVHPDQSEQV"));
+            Assert.That(peptide.Length, Is.EqualTo(139));
+            Assert.That(matchedIons, Is.Not.Null.And.Not.Empty);
+        }
+
+        // Optionally, check that the union of all matched ion names covers the expected set
+        var allIonNames = allIds.SelectMany(t => t.Item2)
+            .Select(m => $"{m.NeutralTheoreticalProduct.ProductType}{m.NeutralTheoreticalProduct.FragmentNumber}")
+            .ToList();
+
+        // Example: check that B11 and Y138 are present in at least one file
+        Assert.That(allIonNames, Does.Contain("b11"));
+        Assert.That(allIonNames, Does.Contain("y138"));
     }
 }
