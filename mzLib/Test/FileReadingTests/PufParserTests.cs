@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -346,5 +347,56 @@ public class PufParserTests
             if (File.Exists(tempFile))
                 File.Delete(tempFile);
         }
+    }
+
+    [Test]
+    public void ExtractIdentificationInformation_ReturnsExpectedPeptideAndMatchedIons()
+    {
+        var combinedLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, TestFile);
+        var file = new PufResultFile(combinedLocation);
+        file.LoadResults();
+
+        var identifications = file.Identifications;
+        Assert.That(identifications, Is.Not.Null.And.Count.EqualTo(1));
+
+        var (peptide, matchedIons) = identifications[0];
+
+        // Check peptide sequence
+        Assert.That(peptide.FullSequence, Does.StartWith("MRHYEIVFLVHPDQSEQV"));
+        Assert.That(peptide.Length, Is.EqualTo(139));
+
+        // Check number of matched ions (should match the number of matching_fragment elements)
+        Assert.That(matchedIons, Is.Not.Null.And.Count.EqualTo(11));
+
+        // Check a specific matched ion (B11)
+        var b11 = matchedIons.FirstOrDefault(m =>
+            m.NeutralTheoreticalProduct.ProductType.ToString().Equals("B", StringComparison.OrdinalIgnoreCase) &&
+            m.NeutralTheoreticalProduct.FragmentNumber == 11);
+
+        Assert.That(b11, Is.Not.Null);
+        Assert.That(b11.NeutralTheoreticalProduct.NeutralMass, Is.EqualTo(1424.73869).Within(1e-5));
+        Assert.That(b11.Mz, Is.EqualTo(1424.73869 + 0.00830999999993765).Within(1e-5));
+        Assert.That(b11.Charge, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ExtractIdentificationInformation_MatchedIonProperties_AreCorrect()
+    {
+        var combinedLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, TestFile);
+        var file = new PufResultFile(combinedLocation);
+        file.LoadResults();
+
+        var identifications = file.Identifications;
+        var (_, matchedIons) = identifications[0];
+
+        // Check Y138 ion
+        var y138 = matchedIons.FirstOrDefault(m =>
+            m.NeutralTheoreticalProduct.ProductType.ToString().Equals("Y", StringComparison.OrdinalIgnoreCase) &&
+            m.NeutralTheoreticalProduct.FragmentNumber == 138);
+
+        Assert.That(y138, Is.Not.Null);
+        Assert.That(y138.NeutralTheoreticalProduct.NeutralMass, Is.EqualTo(16023.669065).Within(1e-5));
+        Assert.That(y138.Mz, Is.EqualTo(16023.669065 + 0.0974350000178674).Within(1e-5));
+        Assert.That(y138.Charge, Is.EqualTo(1));
     }
 }

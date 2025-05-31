@@ -1,5 +1,9 @@
+using Omics.Fragmentation;
+using Omics;
 using System.Globalization;
 using System.Xml.Linq;
+using Proteomics.ProteolyticDigestion;
+using Chemistry;
 
 namespace Readers.Puf;
 
@@ -10,15 +14,13 @@ namespace Readers.Puf;
 public class PufResultFile : ResultFile<PufMsMsExperiment>
 {
     internal PufDataSet DataSet;
+    private List<(IBioPolymerWithSetMods SpecificBioPolymer, List<MatchedFragmentIon> MatchedIons)>? _identifications;
+    public List<(IBioPolymerWithSetMods SpecificBioPolymer, List<MatchedFragmentIon> MatchedIons)> Identifications
+        => _identifications ??= ExtractIdentificationInformation();
 
     public override SupportedFileType FileType => SupportedFileType.Puf;
 
-    private Software _software = Software.ProsightPC;
-    public override Software Software
-    {
-        get => _software;
-        set => _software = value;
-    }
+    public override Software Software { get; set; } = Software.ProsightPC;
 
     public PufResultFile() : base("") { }
 
@@ -45,6 +47,106 @@ public class PufResultFile : ResultFile<PufMsMsExperiment>
         using var stream = File.Create(outputPath);
         Write(DataSet, stream);
     }
+
+    private List<(IBioPolymerWithSetMods SpecificBioPolymer, List<MatchedFragmentIon> MatchedIons)> ExtractIdentificationInformation()
+    {
+        var results = new List<(IBioPolymerWithSetMods, List<MatchedFragmentIon>)>();
+
+        if (DataSet == null)
+            return results;
+
+        foreach (var experiment in DataSet.Experiments)
+        {
+            foreach (var analysis in experiment.Analyses)
+            {
+                if (analysis.Results == null)
+                    continue;
+
+                foreach (var hitList in analysis.Results.HitLists)
+                {
+                    foreach (var hit in hitList.Hits)
+                    {
+                        // Construct PeptideWithSetModifications from sequence
+                        string sequence = hit.MatchingSequence?.Resid;
+                        if (string.IsNullOrWhiteSpace(sequence))
+                            continue;
+
+                        // No modification info available, so pass empty dictionary
+                        var peptide = new PeptideWithSetModifications(
+                            sequence,
+                            ModificationConverter.AllModsKnownDictionary
+                        );
+
+                        // Build matched ions
+                        var matchedIons = new List<MatchedFragmentIon>();
+                        foreach (var frag in hit.MatchingFragments)
+                        {
+                            // Parse ion type and number from fragment name
+                            if (string.IsNullOrWhiteSpace(frag.Name))
+                                continue;
+
+                            char ionTypeChar = char.ToLowerInvariant(frag.Name[0]);
+                            if (!Enum.TryParse<ProductType>(ionTypeChar.ToString(), true, out var productType))
+                                continue;
+
+                            int fragmentNumber = 0;
+                            if (frag.Name.Length > 1)
+                                int.TryParse(frag.Name.Substring(1), out fragmentNumber);
+
+                            double neutralMass = frag.TheoreticalMass ?? 0;
+                            FragmentationTerminus term = Omics.Fragmentation.Peptide.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
+
+                            int residueNumber;
+                            if (term is FragmentationTerminus.N)
+                            {
+                                residueNumber = fragmentNumber; 
+                            }
+                            else if (term is FragmentationTerminus.C)
+                            {
+                                // We need to adjust for the peptide length
+                                residueNumber = peptide.Length - fragmentNumber;
+                            }
+                            else
+                            {
+                                // Unsupported term, skip this fragment
+                                continue;
+                            }
+
+                            // Build theoretical Product
+                            var product = new Product(
+                                productType,
+                                term,
+                                neutralMass,
+                                fragmentNumber,
+                                residueNumber,
+                                0 // neutralLoss
+                            );
+
+                            foreach (var match in frag.Matches)
+                            { 
+                                int charge = 1; // no charge provided in file. 
+                                double experMass = neutralMass;
+                                if (match.MassDifferenceDa.HasValue)
+                                    experMass += match.MassDifferenceDa.Value;
+
+                                matchedIons.Add(new MatchedFragmentIon(
+                                    product,
+                                    experMass,
+                                    1, // intensity not available
+                                    1 // charge not available, assuming +1
+                                ));
+                            }
+                        }
+
+                        results.Add((peptide, matchedIons));
+                    }
+                }
+            }
+        }
+
+        return results;
+    }
+
 
     internal static PufDataSet Read(Stream stream)
     {
@@ -396,40 +498,5 @@ public class PufResultFile : ResultFile<PufMsMsExperiment>
     {
         if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var d)) return d;
         return null;
-    }
-}
-
-internal class PufDirectoryResultFile : ResultFile<PufMsMsExperiment>
-{
-    public List<PufResultFile> PufFiles { get; } = new();
-
-    public override SupportedFileType FileType => SupportedFileType.PufDirectory;
-    public override Software Software { get; set; } = Software.ProsightPC;
-
-    public PufDirectoryResultFile() : base("") { }
-    public PufDirectoryResultFile(string directoryPath) : base(directoryPath) { }
-
-    public override void LoadResults()
-    {
-        var localResults = new List<PufMsMsExperiment>();
-        foreach (var file in Directory.GetFiles(FilePath, "*.puf"))
-        {
-            var pufFile = new PufResultFile(file);
-            pufFile.LoadResults();
-            PufFiles.Add(pufFile);
-            localResults.AddRange(pufFile.Results); // or aggregate identifications as needed
-        }
-        Results = localResults;
-    }
-
-    public override void WriteResults(string outputPath)
-    {
-        Directory.CreateDirectory(outputPath);
-        foreach (var pufFile in PufFiles)
-        {
-            var specificFileName = pufFile.FilePath.Replace(Path.GetDirectoryName(pufFile.FilePath) ?? "", "").TrimStart(Path.DirectorySeparatorChar);
-            var outputFilePath = Path.Combine(outputPath, specificFileName);
-            pufFile.WriteResults(outputFilePath);
-        }
     }
 }

@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using MassSpectrometry;
 using MzLibUtil;
+using Omics.Fragmentation;
 
 namespace Readers.Puf;
 

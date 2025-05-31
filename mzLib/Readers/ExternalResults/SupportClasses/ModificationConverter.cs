@@ -13,6 +13,7 @@ public static class ModificationConverter
     private static readonly ConcurrentDictionary<(string, char), Modification> _modificationCache;
 
     internal static List<Modification> AllKnownMods;
+    internal static Dictionary<string, Modification> AllModsKnownDictionary;
 
     static ModificationConverter()
     {
@@ -35,6 +36,16 @@ public static class ModificationConverter
         var modsTextMods = PtmListLoader.ReadModsFromFile(new StreamReader(modsTextStream), formalChargeDict, out _);
 
         AllKnownMods = unimodMods.Concat(uniprotMods).Concat(modsTextMods).ToList();
+
+        AllModsKnownDictionary = [];
+        foreach (Modification mod in AllKnownMods)
+        {
+            if (!AllModsKnownDictionary.ContainsKey(mod.IdWithMotif))
+            {
+                AllModsKnownDictionary.Add(mod.IdWithMotif, mod);
+            }
+            // no error thrown if multiple mods with this ID are present - just pick one
+        }
     }
 
     #endregion
