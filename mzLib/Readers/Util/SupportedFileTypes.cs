@@ -1,4 +1,5 @@
 ﻿using MzLibUtil;
+using Readers.Puf;
 
 namespace Readers
 {
@@ -30,7 +31,9 @@ namespace Readers
         CruxResult,
         ExperimentAnnotation,
         BrukerD,
-        BrukerTimsTof
+        BrukerTimsTof,
+        Puf, // A single puf file
+        PufDirectory // a directory of many puf files
     }
 
     public static class SupportedFileTypeExtensions
@@ -72,25 +75,45 @@ namespace Readers
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
+                SupportedFileType.Puf => ".puf",
+
+                // PufDirectory does not have a specific file extension, it is a directory of puf files
+                // To Support more non-specific directories in the future we will need to adjust this logic
+                SupportedFileType.PufDirectory => "", 
                 _ => throw new MzLibException("File type not supported")
             };
         }
         public static SupportedFileType ParseFileType(this string filePath)
         {
-            switch (Path.GetExtension(filePath).ToLower())
+            var extension = Path.GetExtension(filePath).ToLower();
+
+            // Directory Types
+            if (Directory.Exists(filePath))
             {
-                case ".raw": return SupportedFileType.ThermoRaw;
-                case ".mzml": return SupportedFileType.MzML;
-                case ".mgf": return SupportedFileType.Mgf;
-                case ".d":
-                    if(!Directory.Exists(filePath)) throw new FileNotFoundException();
-                    var fileList = Directory.GetFiles(filePath).Select(p => Path.GetFileName(p));
+                if (extension == ".d")
+                {
+                    var fileList = Directory.GetFiles(filePath).Select(Path.GetFileName);
                     if (fileList.Any(file => file == "analysis.baf"))
                         return SupportedFileType.BrukerD;
                     if (fileList.Any(file => file == "analysis.tdf"))
                         return SupportedFileType.BrukerTimsTof;
-                    throw new MzLibException("Bruker file type not recognized");
+                }
+                else // Non-specific directories, does not have specific extension
+                {
+                    var pufFiles = Directory.GetFiles(filePath, "*.puf");
+                    if (pufFiles.Length > 0)
+                        return SupportedFileType.PufDirectory;
+                    // ... other directory types ...
+                }
+            }
 
+            // File Types
+            switch (extension)
+            {
+                case ".raw": return SupportedFileType.ThermoRaw;
+                case ".mzml": return SupportedFileType.MzML;
+                case ".mgf": return SupportedFileType.Mgf;
+                case ".puf": return SupportedFileType.Puf;
                 case ".psmtsv":
                 case ".tsv" when filePath.Contains("Intralinks"):
                     return SupportedFileType.psmtsv;
@@ -206,6 +229,8 @@ namespace Readers
                 SupportedFileType.BrukerTimsTof => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms1Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms2Align => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.Puf => typeof(PufResultFile),
+                SupportedFileType.PufDirectory => typeof(PufDirectoryResultFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
