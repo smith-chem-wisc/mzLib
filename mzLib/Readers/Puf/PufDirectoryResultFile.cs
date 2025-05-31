@@ -31,7 +31,7 @@ internal class PufDirectoryResultFile : ResultFile<PufMsMsExperiment>
             var pufFile = new PufResultFile(file);
             pufFile.LoadResults();
             PufFiles.Add(pufFile);
-            localResults.AddRange(pufFile.Results); // or aggregate identifications as needed
+            localResults.AddRange(pufFile.Results); 
         }
         Results = localResults;
     }

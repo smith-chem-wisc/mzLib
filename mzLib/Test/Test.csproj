@@ -303,9 +303,9 @@
     <None Update="FileReadingTests\ExternalFileTypes\Puf\target955.puf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="DataFiles\target956.puf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+	<None Update="FileReadingTests\ExternalFileTypes\Puf\target956.puf">
+		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\protein.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -380,9 +380,6 @@
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Puf\target956.puf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\SmallCalibratibleYeastFragger_psm.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

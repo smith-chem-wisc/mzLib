@@ -1,10 +1,12 @@
-﻿using System.CodeDom;
-using System.Runtime.CompilerServices;
-using MassSpectrometry;
-using MzLibUtil;
-using Omics.Fragmentation;
+﻿using MassSpectrometry;
 
 namespace Readers.Puf;
+
+// Puf data is structured as a set of experiments, each containing scans and analyses.
+// Each experiment can have multiple analyses, which are searches against a database.
+// Each analysis has its own search parameters and results.
+// These objects are for intermediary data housing after read, before conversion to MsDataScan or other formats.
+
 
 /// <summary>
 /// An entire Puf data file. 

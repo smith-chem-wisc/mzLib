@@ -973,6 +973,7 @@ namespace Readers
                 }
             }
 
+            // Puf does not have enough information to do the indexing properly. 
             if (!writeIndexed || myMsDataFile is PufMsDataFile)
             {
                 using (XmlWriter writer = XmlWriter.Create(outputFile, new() { NewLineChars = "\n", Indent = true }))
