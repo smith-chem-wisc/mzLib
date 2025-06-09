@@ -10,15 +10,17 @@ namespace MzLibUtil
     public class QuantifiedModification
     {
         public string IdWithMotif { get; set; }
+        public string ModificationLocalization { get; set; } // e.g. "N-term", "C-term", or amino acid name
         public int PeptidePositionZeroIsNTerminus { get; set; }
         public int ProteinPositionZeroIsNTerminus { get; set; }
         public double Intensity { get; set; }
 
-        public QuantifiedModification(string name, int positionInPeptide, int? positionInProtein=null, double intensity=0)
+        public QuantifiedModification(string name, int positionInPeptide, int? positionInProtein=null, string modLocalization=null, double intensity=0)
         {
             IdWithMotif = name;
             PeptidePositionZeroIsNTerminus = positionInPeptide;
             ProteinPositionZeroIsNTerminus = positionInProtein ?? -1; // -1 means that the position in the protein is unknown
+            ModificationLocalization = modLocalization ?? "?"; // ? means that the localization is unknown
             Intensity = intensity;
         }
     }
@@ -39,8 +41,7 @@ namespace MzLibUtil
             ModifiedAminoAcidPositions = new Dictionary<int, Dictionary< string, QuantifiedModification>>();
             OneBasedStartIndexInProtein = oneBasedStartIndexInProtein; // -1 means that the position in the protein is unknown
             Intensity = intensity;
-            FullSequences = new HashSet<string>();
-            FullSequences.Add(fullSequence);
+            FullSequences = new HashSet<string>{ fullSequence };
             _SetBaseSequence(fullSequence, modPattern);
             _SetModifications(fullSequence, intensity);
         }
@@ -59,6 +60,20 @@ namespace MzLibUtil
             }
         }
 
+        public void MergePeptide(QuantifiedPeptide peptideToMerge)
+        {
+            if (peptideToMerge == null || peptideToMerge.BaseSequence != BaseSequence)
+            {
+                throw new Exception("The base sequence of the peptide to merge does not match the base sequence of this peptide.");
+            }
+            foreach (var fullSeq in peptideToMerge.FullSequences)
+            {
+                FullSequences.Add(fullSeq);
+                _SetModifications(fullSeq, peptideToMerge.Intensity); // updating the intensity is done here
+            }
+            Intensity += peptideToMerge.Intensity;
+        }
+
         private void _SetModifications(string fullSeq, double intensity = 0)
         {
             var mods  = fullSeq.ParseModifications();
@@ -75,7 +90,8 @@ namespace MzLibUtil
 
                     if (!ModifiedAminoAcidPositions[modpos].ContainsKey(mod))
                     {
-                        ModifiedAminoAcidPositions[modpos][mod] = new QuantifiedModification(mod, modpos, intensity:0);
+                        var modLocalization = modpos == 0 ? "N-term" : (modpos == BaseSequence.Length + 1 ? "C-term" : BaseSequence[modpos+1].ToString());
+                        ModifiedAminoAcidPositions[modpos][mod] = new QuantifiedModification(mod, modpos, modLocalization: modLocalization, intensity:0);
                     }
                     ModifiedAminoAcidPositions[modpos][mod].Intensity += intensity;
 
@@ -194,10 +210,7 @@ namespace MzLibUtil
 
         public Dictionary<int, Dictionary<string, QuantifiedModification>> GetModStoichiometryFromProteinMods()
         {
-            if (ModifiedAminoAcidPositionsInProtein == null)
-            {
-                SetProteinModsFromPeptides();
-            }
+            SetProteinModsFromPeptides();
 
             var aaModsStoichiometry = ModifiedAminoAcidPositionsInProtein;
             foreach (var modpos in aaModsStoichiometry.Keys)
