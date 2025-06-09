@@ -17,7 +17,15 @@ namespace UsefulProteomicsDatabases.Transcriptomics
     public enum RnaFastaHeaderType
     {
         Modomics,
+        Ensembl,
+        NcbiRefSeq,
         Unknown,
+    }
+
+    public enum SequenceTransformationOnRead
+    {
+        None,
+        ConvertAllTtoU
     }
 
     public static class RnaDbLoader
@@ -25,10 +33,19 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
         #region Header Detection and Property Regexes
 
+        /// <summary>
+        /// Checks for XX_YYYY where x is a capital letter and y is a number. 
+        /// </summary>
+        private static readonly Regex _ncbiRefSeqHeaderRegex = new Regex(@"\b[A-Z]{2}_[0-9]{4}\b"); 
+
         public static RnaFastaHeaderType DetectRnaFastaHeaderType(string line)
         {
             if (line.StartsWith(">id"))
                 return RnaFastaHeaderType.Modomics;
+            if (line.StartsWith(">ENST"))
+                return RnaFastaHeaderType.Ensembl;
+            if (_ncbiRefSeqHeaderRegex.IsMatch(line))
+                return RnaFastaHeaderType.NcbiRefSeq;
 
             return RnaFastaHeaderType.Unknown;
         }
@@ -48,6 +65,26 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 { "Organism", new FastaHeaderFieldRegex("Organism", @"Species:(?<Species>.+?)$", 0, 1) },
                 { "Cellular Localization", new FastaHeaderFieldRegex("CellularLocalization", @"Cellular_Localization:(?<Cellular_Localization>.+?)\|", 0, 1) },
             };
+
+        public static readonly Dictionary<string, FastaHeaderFieldRegex> EnsemblFieldRegexes =
+            new()
+            {
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>(NC_\d+\.\d+)", 0, 1) },
+                { "Gene", new FastaHeaderFieldRegex("Gene", @"\[GeneID=(\d+)\]", 0, 1) },
+                { "Organism", new FastaHeaderFieldRegex("Organism", @"\[organism=([^\]]+)\]", 0, 1) },
+                { "Chromosome", new FastaHeaderFieldRegex("Chromosome", @"\[chromosome=([^\]]+)\]", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"^>NC_\d+\.\d+:\d+-\d+ ([^\[]+)", 0, 1) },
+            };
+
+        public static readonly Dictionary<string, FastaHeaderFieldRegex> NcbiRefSeqFieldRegexes =
+            new()
+            {
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>(NM_\d+\.\d+)", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"^>NM_\d+\.\d+ ([^(]+)", 0, 1) },
+                { "Gene", new FastaHeaderFieldRegex("Gene", @"\(([^)]+)\)", 0, 1) },
+                { "Organism", new FastaHeaderFieldRegex("Organism", @"^>NM_\d+\.\d+ ([^ ]+)", 0, 1) },
+            };
+
 
         #endregion
 
@@ -114,6 +151,14 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                                 case RnaFastaHeaderType.Modomics:
                                     regexes = ModomicsFieldRegexes;
                                     identifierHeader = "SOterm";
+                                    break;
+                                case RnaFastaHeaderType.Ensembl:
+                                    regexes = EnsemblFieldRegexes;
+                                    identifierHeader = "Accession";
+                                    break;
+                                case RnaFastaHeaderType.NcbiRefSeq:
+                                    regexes = NcbiRefSeqFieldRegexes;
+                                    identifierHeader = "Accession";
                                     break;
                                 default:
                                     throw new MzLibUtil.MzLibException("Unknown fasta header format: " + line);
