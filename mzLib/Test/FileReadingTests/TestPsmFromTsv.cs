@@ -134,7 +134,7 @@ namespace Test.FileReadingTests
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings);
             PsmFromTsv psm = psms.First();
 
-            // assert that in 1st elt PEP and PEP_Q values exists and are less than one to imporve code cov
+            // assert that in 1st elt PEP and PEP_Q values exists and are less than one
             Assert.That(psm.PEP, Is.LessThan(1.0));
             Assert.That(psm.PEP_QValue, Is.LessThan(1.0));
 
@@ -196,6 +196,19 @@ namespace Test.FileReadingTests
                     }
                 }
             }
+        }
+
+        [Test]
+        public static void TestIncompletePsmFile() 
+        {
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\AllPSMs2.psmtsv");
+            List<string> warnings = new();
+            List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings);
+            PsmFromTsv psm = psms.First();
+
+            Assert.That(psm.PEP, Is.NaN);
+            Assert.That(psm.PEP_QValue, Is.NaN);
+            Assert.That(psm.RetentionTime, Is.EqualTo(-1));
         }
 
         [Test]
