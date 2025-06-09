@@ -347,8 +347,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         }
 
 
-        #region Sequence Transformation
-
+        // TODO: Some oligo databases may have the reverse strand, this is currently not handled yet and this code assumes we are always reading in the strand to search against. 
         public static string SanitizeAndTransform(string rawSequence, SequenceTransformationOnRead sequenceTransformation)
         {
             var cleanedSequence = SubstituteWhitespace.Replace(rawSequence, "");
@@ -363,7 +362,5 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                     throw new ArgumentOutOfRangeException(nameof(sequenceTransformation), sequenceTransformation, null);
             }
         }
-
-        #endregion
     }
 }
