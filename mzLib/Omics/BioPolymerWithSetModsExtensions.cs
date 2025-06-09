@@ -46,11 +46,11 @@ public static class BioPolymerWithSetModsExtensions
         {
             if (mod.MonoisotopicMass > 0)
             {
-                subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
+                subsequence.Append($"-[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
             }
             else
             {
-                subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
+                subsequence.Append($"-[{mod.MonoisotopicMass.RoundedDouble(6)}]");
             }
         }
         return subsequence.ToString();

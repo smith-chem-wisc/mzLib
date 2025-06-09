@@ -1,0 +1,45 @@
+﻿Base Sequence	Full Sequence	Mods
+CEDCGKPLSIEADDNGCFPLDGHVLCR	[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]EDC[Common Fixed:Carbamidomethyl on C]GKPLSIEADDNGC[Common Fixed:Carbamidomethyl on C]FPLDGHVLC[Common Fixed:Carbamidomethyl on C]R	Ammonia loss on C Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C
+HTGPGILSMANAGPNTNGSQFFICTAK	HTGP[Less Common:Proline pyrrole to pyrrolidine six member ring on P]GILSMANAGPNTN[Common Artifact:Deamidation on N]GSQFFIC[Common Fixed:Carbamidomethyl on C]TAK	Carbamidomethyl on C Deamidation on N Proline pyrrole to pyrrolidine six member ring on P
+GTGRGGGGGGGGGAPR	GTGR[UniProt:Asymmetric dimethylarginine on R]GGGGGGGGGAPR[UniProt:Omega-N-methylarginine on R]	Asymmetric dimethylarginine on R Omega-N-methylarginine on R
+YPIEHGIVTNWDDMEK	YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDD[Less Common:Water loss on D]MEK	Tele-methylhistidine on H Water loss on D
+PHSEAGTAFIQTQQLHAAMADTFLEHMCR	P[Less Common:Proline pyrrole to pyrrolidine six member ring on P]HSEAGTAFIQTQQLHAAMADTFLEHMC[Common Fixed:Carbamidomethyl on C]R|[Less Common:Formylation on X]PHS[Less Common:Reduction on S]EAGTAFIQTQQLHAAMADTFLEHMC[Common Fixed:Carbamidomethyl on C]R	Carbamidomethyl on C Proline pyrrole to pyrrolidine six member ring on P|Carbamidomethyl on C Formylation on X Reduction on S
+AATDAQDANQCCTSCEDNAPATSYCVECSEPLCETCVEAHQR	AATDAQDANQC[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]TSC[Common Fixed:Carbamidomethyl on C]EDNAPATSYC[Common Fixed:Carbamidomethyl on C]VEC[Common Fixed:Carbamidomethyl on C]SEPLC[Common Fixed:Carbamidomethyl on C]ETC[Common Fixed:Carbamidomethyl on C]VEAHQR	Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C
+YPIEHGIVTNWDDMEK	YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWD[Less Common:Water loss on D]DMEK	Tele-methylhistidine on H Water loss on D
+CSVCPDYDLCSVCEGK	[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]SVC[Common Fixed:Carbamidomethyl on C]PDYDLC[Common Fixed:Carbamidomethyl on C]SVC[Common Fixed:Carbamidomethyl on C]EGK	Ammonia loss on C Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C Carbamidomethyl on C
+GVAMNPVEHPFGGGNHQHIGK	GVAMNPVEHPFGGGNH[UniProt:(3S)-3-hydroxyhistidine on H]QHIGK	(3S)-3-hydroxyhistidine on H
+GVAMNPVEHPFGGGNHQHIGKPSTIR	GVAMNPVEHPFGGGNH[UniProt:(3S)-3-hydroxyhistidine on H]QHIGKPSTIR	(3S)-3-hydroxyhistidine on H
+SVEMHHEALSEALPGDNVGFNVK	SVEMHHEALSE[UniProt:5-glutamyl glycerylphosphorylethanolamine on E]ALPGDNVGFNVK	5-glutamyl glycerylphosphorylethanolamine on E
+TCNCETEDYGEK	TC[Common Fixed:Carbamidomethyl on C]NC[Common Fixed:Carbamidomethyl on C]E[Metal:Fe[III] on E]TEDYGEK	Carbamidomethyl on C Carbamidomethyl on C Fe[III] on E
+VAKFCYADKSLLNK	VAK[UniProt:N6-acetyllysine on K]FC[Common Fixed:Carbamidomethyl on C]YADK[UniProt:N6-succinyllysine on K]SLLNK	Carbamidomethyl on C N6-acetyllysine on K N6-succinyllysine on K
+GEKGELGPPGLLGPTGPKGDIGNK	GEKGELGPPGLLGPTGPK[UniProt:5-hydroxylysine on K]GDIGNK	5-hydroxylysine on K
+VGGTAPASKR	VGGTAPAS[UniProt:ADP-ribosylserine on S]K[UniProt:N6,N6,N6-trimethyllysine on K]R	ADP-ribosylserine on S N6,N6,N6-trimethyllysine on K
+PVICATQMLESMIK	P[Less Common:Proline pyrrole to pyrrolidine six member ring on P]VIC[Common Fixed:Carbamidomethyl on C]ATQM[Less Common:Oxidation and then loss on oxidized M side chain]LESMIK	Carbamidomethyl on C Oxidation and then loss on oxidized M side chain Proline pyrrole to pyrrolidine six member ring on P
+KGMNMYLTK	KGMNMY[UniProt:3'-nitrotyrosine on Y]LTK	3'-nitrotyrosine on Y
+AGGKGLGKGGK	AGGK[UniProt:N6-(beta-hydroxybutyryl)lysine on K]GLGK[UniProt:N6-(beta-hydroxybutyryl)lysine on K]GGK	N6-(beta-hydroxybutyryl)lysine on K N6-(beta-hydroxybutyryl)lysine on K
+RPPSGFFLFCSEFR	R[Common Biological:Citrullination on R]PPSGFFLFC[UniProt:Cysteine sulfonic acid (-SO3H) on C]SEFR	Citrullination on R Cysteine sulfonic acid (-SO3H) on C
+PGAQGEPGPKGDK	PGAQGEPGPK[UniProt:5-hydroxylysine on K]GDK	5-hydroxylysine on K
+KHPGGRGNAGGLHHHR	KHPGGRGNAGGLH[UniProt:(3S)-3-hydroxyhistidine on H]HHR	(3S)-3-hydroxyhistidine on H
+VGGTAPASKRAVK	VGGTAPAS[UniProt:ADP-ribosylserine on S]KRAVK[UniProt:N6-(beta-hydroxybutyryl)lysine on K]	ADP-ribosylserine on S N6-(beta-hydroxybutyryl)lysine on K
+EGAPGKPGAVGDAGPFGR	EGAPGK[UniProt:5-hydroxylysine on K]PGAVGDAGPFGR	5-hydroxylysine on K
+TILCCNICRSGIR	TILC[UniProt:S-farnesyl cysteine on C]C[Common Fixed:Carbamidomethyl on C]NIC[Common Fixed:Carbamidomethyl on C]RSGIR	Carbamidomethyl on C Carbamidomethyl on C S-farnesyl cysteine on C
+GLGLSKAYVGQKSSFTVDCSK	GLGLSK[UniProt:N6-succinyllysine on K]AYVGQK[UniProt:N6-acetyllysine on K]SSFTVDC[Common Fixed:Carbamidomethyl on C]SK	Carbamidomethyl on C N6-acetyllysine on K N6-succinyllysine on K
+EGPLGALGDFGRDGK	EGPLGALGDFGRDGK[UniProt:5-hydroxylysine on K]	5-hydroxylysine on K
+KATAWQAPR	K[UniProt:N6-(2-hydroxyisobutyryl)lysine on K]ATAWQ[Common Artifact:Deamidation on Q]APR	Deamidation on Q N6-(2-hydroxyisobutyryl)lysine on K
+IGGTPPARKGAAK	IGGTPPARK[UniProt:N6-(beta-hydroxybutyryl)lysine on K]GAAK[UniProt:N6-(beta-hydroxybutyryl)lysine on K]	N6-(beta-hydroxybutyryl)lysine on K N6-(beta-hydroxybutyryl)lysine on K
+VPDESLFLNSGGDSLK	VPDESLFLNSGGDS[UniProt:O-(pantetheine 4'-phosphoryl)serine on S]LK	O-(pantetheine 4'-phosphoryl)serine on S
+HIGFVYHPTK	HIGFVY[UniProt:3'-nitrotyrosine on Y]HPTK	3'-nitrotyrosine on Y
+GQTDRCNVNDPSSLKK	GQTDRC[Common Fixed:Carbamidomethyl on C]N[UniProt:(3S)-3-hydroxyasparagine on N]VNDPSSLKK	(3S)-3-hydroxyasparagine on N Carbamidomethyl on C
+QTARKSTGGK	QTARK[UniProt:N6,N6,N6-trimethyllysine on K]S[UniProt:ADP-ribosylserine on S]TGGK	ADP-ribosylserine on S N6,N6,N6-trimethyllysine on K
+DYKRGYPITIK	DYKRGY[UniProt:3'-nitrotyrosine on Y]PITIK	3'-nitrotyrosine on Y
+RTGVIHEKQTAVSVENFIAELLPDK	RTGVIHEKQTAVSVEN[Common Artifact:Ammonia loss on N]FIAELLP[Less Common:Proline pyrrole to pyrrolidine six member ring on P]DK	Ammonia loss on N Proline pyrrole to pyrrolidine six member ring on P
+FAELKEK	FAE[UniProt:5-glutamyl glycerylphosphorylethanolamine on E]LKEK	5-glutamyl glycerylphosphorylethanolamine on E
+GIPVMGHSEGICHMYVDSEASVDK	GIPVM[Less Common:Oxidation and then loss on oxidized M side chain]GHSEGIC[Common Fixed:Carbamidomethyl on C]HM[Less Common:Oxidation and then loss on oxidized M side chain]YVDSEASVDK	Carbamidomethyl on C Oxidation and then loss on oxidized M side chain Oxidation and then loss on oxidized M side chain
+GPPGAKGNK	GPPGAKGNK[UniProt:5-hydroxylysine on K]	5-hydroxylysine on K
+MGCTLSAEERAALERSK	M[Common Variable:Oxidation on M]GC[UniProt:S-palmitoyl cysteine on C]TLSAEERAALERSK	Oxidation on M S-palmitoyl cysteine on C
+SPCCMPTTVFANIFHAGGQEMIR	SPC[Common Fixed:Carbamidomethyl on C]C[UniProt:3-oxoalanine (Cys) on C]M[Common Variable:Oxidation on M]PTTVFANIFHAGGQEMIR	3-oxoalanine (Cys) on C Carbamidomethyl on C Oxidation on M
+DGTSGEKGER	DGTSGEK[UniProt:5-hydroxylysine on K]GER	5-hydroxylysine on K
+GRGGPMGRGGYGGGGSGGGGR	GRGGPMGR[UniProt:Asymmetric dimethylarginine on R]GGYGGGGSGGGGR[UniProt:Omega-N-methylarginine on R]	Asymmetric dimethylarginine on R Omega-N-methylarginine on R
+TILCCNICR	TILC[UniProt:S-farnesyl cysteine on C]C[Common Fixed:Carbamidomethyl on C]NIC[Common Fixed:Carbamidomethyl on C]R	Carbamidomethyl on C Carbamidomethyl on C S-farnesyl cysteine on C
+KATNEACSGMHIKNYVDTLGDK	K[UniProt:N6-succinyllysine on K]ATNEAC[Common Fixed:Carbamidomethyl on C]SGMHIK[UniProt:N6-acetyllysine on K]NYVDTLGDK	Carbamidomethyl on C N6-acetyllysine on K N6-succinyllysine on K
+GFPGADGVAGPKGPAGER	GFPGADGVAGPK[UniProt:5-hydroxylysine on K]GPAGER	5-hydroxylysine on K
