@@ -17,9 +17,11 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Permissions;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("Test")]
 namespace Readers
-{ 
+{
     public class TimsTofFileReader : MsDataFile, IDisposable
     {
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
@@ -68,6 +70,8 @@ namespace Readers
 
             CountFrames();
             BuildProxyFactory();
+            CountMS1Frames();
+            CountPrecursors();
         }
 
         internal void OpenSqlConnection()
@@ -244,9 +248,6 @@ namespace Readers
         {
             InitiateDynamicConnection();
 
-            CountMS1Frames();
-            CountPrecursors();
-            
             _maxThreads = maxThreads;
             Ms1ScansNoPrecursorsBag = new();
             Parallel.ForEach(
@@ -470,45 +471,7 @@ namespace Readers
                 pasefScans.Add(dataScan);
             }
 
-            // Grab all fragmentation spectra for each precursor
-            // Each TimsDataScan in pasefScans corresponds to one precursor.
-            // A precursor can be isolated and fragmented in multiple pasef frames
-            // Here, we iterate through each frame, averaging the scans that correspond to each precursor
-            foreach (long frameId in allFrames)
-            {
-                FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
-                if (frame == null || !frame.IsFrameValid())
-                {
-                    FaultyFrameIds.Add(frameId);
-                    continue; // If the frame is null, then we can't build any scans for it
-                }
-                //Iterate through all the datascans created above with this frame
-                foreach (var scan in pasefScans)
-                {
-                    if (scan.FrameIds.Contains(frameId))
-                    {
-                        List<uint[]> indexArrays = new();
-                        List<int[]> intensityArrays = new();
-                        for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
-                        {
-                            indexArrays.Add(frame.GetScanIndices(mobilityScanIdx-1));
-                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx-1));
-                        }
-                        // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
-                        // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
-                        (double[] Mzs, int[] Intensities) summedArrays = TofSpectraMerger.MergeArraysToMzArray(indexArrays, intensityArrays, FrameProxyFactory);
-                        scan.AddComponentArrays(summedArrays.Mzs, summedArrays.Intensities);
-                    }
-                }
-            }
-
-            // Now, we average the fragmentation spectra (each spectra originating in a different frame)
-            // to yield one spectrum per precursor
-            foreach (TimsDataScan scan in pasefScans)
-            {
-                scan.AverageComponentSpectra(FrameProxyFactory, filteringParams);
-            }
-
+            PopulateSpectraForPasefScans(pasefScans, allFrames, filteringParams);
             return pasefScans;
         }
 
@@ -550,6 +513,54 @@ namespace Readers
                     yield return new PasefRecord(frameList, precursorId, scanStart, scanEnd, scanMedian, isolationMz, isolationWidth, collisionEnergy, mostAbundantPrecursorPeak, precursorMonoisotopicMz, charge, precursorIntensity);
                 }
             }
+        }
+
+        /// <summary>
+        /// Grab all fragmentation spectra for each precursor
+        /// Each TimsDataScan in pasefScansWithNullSpectra corresponds to one precursor.
+        /// A precursor can be isolated and fragmented in multiple pasef frames
+        /// Here, we iterate through each frame, averaging the scans that correspond to each precursor
+        /// </summary>
+        /// <param name="pasefScansWithNullSpectra">List of timsDataScans with metadata but no MzSpectrum</param>
+        /// <param name="relevantFrameIds">Frames that contains scans to average for the given pasefScans</param>
+        /// <param name="filteringParams">Filtering params that specify MS2 spectrum filtering options</param>
+        internal void PopulateSpectraForPasefScans(List<TimsDataScan> pasefScansWithNullSpectra, IEnumerable<long> relevantFrameIds, FilteringParams filteringParams)
+        {
+            foreach (long frameId in relevantFrameIds)
+            {
+                FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+                if (frame == null || !frame.IsFrameValid())
+                {
+                    FaultyFrameIds.Add(frameId);
+                    continue; // If the frame is null, then we can't build any scans for it
+                }
+                //Iterate through all the datascans created above with this frame
+                foreach (var scan in pasefScansWithNullSpectra)
+                {
+                    if (scan.FrameIds.Contains(frameId))
+                    {
+                        List<uint[]> indexArrays = new();
+                        List<int[]> intensityArrays = new();
+                        for (int mobilityScanIdx = scan.ScanNumberStart; mobilityScanIdx < scan.ScanNumberEnd; mobilityScanIdx++)
+                        {
+                            indexArrays.Add(frame.GetScanIndices(mobilityScanIdx - 1));
+                            intensityArrays.Add(frame.GetScanIntensities(mobilityScanIdx - 1));
+                        }
+                        // Perform frame level averaging, where all scans from one frame associated with a given precursor are merged and centroided
+                        // Need to convert indexArrays to one uint[] and intensityArrays to one int[]
+                        (double[] Mzs, int[] Intensities) summedArrays = TofSpectraMerger.MergeArraysToMzArray(indexArrays, intensityArrays, FrameProxyFactory);
+                        scan.AddComponentArrays(summedArrays.Mzs, summedArrays.Intensities);
+                    }
+                }
+            }
+
+            // Now, we average the fragmentation spectra (each spectra originating in a different frame)
+            // to yield one spectrum per precursor
+            foreach (TimsDataScan scan in pasefScansWithNullSpectra)
+            {
+                scan.AverageComponentSpectra(FrameProxyFactory, filteringParams);
+            }
+            pasefScansWithNullSpectra.RemoveAll(scan => scan.MassSpectrum == null || scan.MassSpectrum.Size < 1);
         }
 
         private const string nativeIdFormat = "Frame ID + scan number range format";

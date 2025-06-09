@@ -1,6 +1,8 @@
 ﻿using MassSpectrometry;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+[assembly: InternalsVisibleTo("Test")]
 namespace Readers
 {
     /// <summary>
@@ -32,7 +34,10 @@ namespace Readers
             InitializeLookupTables(fileHandle);
         }   
 
-        internal FrameProxy GetFrameProxy(long frameId)
+        /// <summary>
+        /// This class is marked virtual for testing purposes only.
+        /// </summary>
+        internal virtual FrameProxy GetFrameProxy(long frameId)
         {
             return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
         }
@@ -278,13 +283,9 @@ namespace Readers
         {
             int start = NumberOfScans + 2*_scanOffsets[zeroIndexedScanNumber] + offset;
             int end = Math.Min(_rawData.Length, start + (int)_rawData[zeroIndexedScanNumber]);
-            if (end > _rawData.Length)
+            if (start >= _rawData.Length)
             {
-                throw new ArgumentException("Scan data exceeds raw data array length.");
-            }
-            if (start + (int)_rawData[zeroIndexedScanNumber] > _rawData.Length)
-            {
-                throw new ArgumentException("Scan data exceeds raw data array length.");
+                throw new ArgumentException("Scan data exceeds raw data array length. This indicates that the .tdf_bin file is corrupted");
             }
             return new Range(start, end);
         }
