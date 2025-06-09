@@ -16,9 +16,9 @@ public class IBioPolymerWithSetModsTests
     [TestCase("AC{Phospho}DEFGH", "ACDEFGH", '{', '}')]
     [TestCase("A<Oxidation>C<Phospho>DEFGH", "ACDEFGH", '<', '>')]
     [TestCase("A(Oxidation)C(Phospho)DEFGH", "ACDEFGH", '(', ')')]
-    public void TestGetBaseSequenceFromFullSequence(string fullSequence, string expectedBaseSequence, char startDelimiter, char endDelimiter)
+    public void TestGetBaseSequenceFromFullSequence(string fullSequence, string expectedBaseSequence, string modPattern=null)
     {
-        string actualBaseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(fullSequence, startDelimiter, endDelimiter);
+        string actualBaseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(fullSequence, modPattern);
         Assert.That(actualBaseSequence, Is.EqualTo(expectedBaseSequence));
     }
 }

@@ -374,8 +374,8 @@ namespace Test.Transcriptomics
             Assert.That(digestionProducts[0].FullSequenceWithMassShift(), Is.EqualTo("UAGUCGUUGAUAG"));
             
             Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("UAGUCGUUGAUAG-[Digestion Termini:Cyclic Phosphate on X]"));
-            Assert.That(digestionProducts[1].SequenceWithChemicalFormulas, Is.EqualTo("UAGUCGUUGAUAG[H-2O-1]"));
-            Assert.That(digestionProducts[1].FullSequenceWithMassShift(), Is.EqualTo("UAGUCGUUGAUAG[-18.010565]"));
+            Assert.That(digestionProducts[1].SequenceWithChemicalFormulas, Is.EqualTo("UAGUCGUUGAUAG-[H-2O-1]"));
+            Assert.That(digestionProducts[1].FullSequenceWithMassShift(), Is.EqualTo("UAGUCGUUGAUAG-[-18.010565]"));
 
             // top-down digestion, 3' oligo terminal modification
             variableMods = new List<Modification> { oligoCyclicPhosphate };

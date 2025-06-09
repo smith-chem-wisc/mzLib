@@ -90,7 +90,7 @@ namespace MzLibUtil
 
                     if (!ModifiedAminoAcidPositions[modpos].ContainsKey(mod))
                     {
-                        var modLocalization = modpos == 0 ? "N-term" : (modpos == BaseSequence.Length + 1 ? "C-term" : BaseSequence[modpos+1].ToString());
+                        var modLocalization = modpos == 0 ? "N-term" : (modpos == BaseSequence.Length + 1 ? "C-term" : BaseSequence[modpos-1].ToString());
                         ModifiedAminoAcidPositions[modpos][mod] = new QuantifiedModification(mod, modpos, modLocalization: modLocalization, intensity:0);
                     }
                     ModifiedAminoAcidPositions[modpos][mod].Intensity += intensity;
@@ -190,7 +190,7 @@ namespace MzLibUtil
 
                             if (!ModifiedAminoAcidPositionsInProtein[modPositionInProtein].ContainsKey(mod.IdWithMotif))
                             {
-                                ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif] = new QuantifiedModification(mod.IdWithMotif, mod.PeptidePositionZeroIsNTerminus, modPositionInProtein, 0);
+                                ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif] = new QuantifiedModification(mod.IdWithMotif, mod.PeptidePositionZeroIsNTerminus, modPositionInProtein, null, 0);
                             }
                             ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif].Intensity += mod.Intensity;
                         }

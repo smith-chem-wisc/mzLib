@@ -151,7 +151,7 @@ namespace Test
             Assert.AreEqual(stoich[10]["Test Mod1: ModName1 on K"].Intensity, 2.0 / 3.0);
             Assert.AreEqual(stoich[13]["Common Variable3: Oxidation on M"].Intensity, 5.0 / 6.0);
             Assert.AreEqual(stoich[20]["Test Mod3: ModName3 on K"].Intensity, 5.0 / 6.0);
-            Assert.AreEqual(stoich[23]["C ommon Variable4: Oxidation on M"].Intensity, 7.0 / 8.0);
+            Assert.AreEqual(stoich[23]["Common Variable4: Oxidation on M"].Intensity, 7.0 / 8.0);
             Assert.AreEqual(stoich[30]["Test Mod4: ModName4 on K"].Intensity, 7.0 / 8.0);
             Assert.AreEqual(stoich[31]["Test Mod: ModName on K C-Terminus"].Intensity, 7.0 / 8.0);
         }

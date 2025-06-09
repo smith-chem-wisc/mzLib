@@ -296,7 +296,7 @@ namespace Readers
             return fullSeq.ParseModifications(ignoreTerminusMod);
         }
 
-        protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string matchedMassErrorDaString = null)
+        protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string matchedMassErrorDaString = null, bool isProtein = true)
         {
             List<MatchedFragmentIon> matchedIons = new List<MatchedFragmentIon>();
 

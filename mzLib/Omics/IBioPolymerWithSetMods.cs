@@ -4,6 +4,7 @@ using MassSpectrometry;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using MzLibUtil;
 
 namespace Omics
 {
@@ -61,26 +62,9 @@ namespace Omics
         /// <returns></returns>
         public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize);
 
-        public static string GetBaseSequenceFromFullSequence(string fullSequence, char modStartDelimiter = '[', char modEndDelimiter = ']')
+        public static string GetBaseSequenceFromFullSequence(string fullSequence, string modPattern=null)
         {
-            StringBuilder sb = new StringBuilder();
-            int bracketCount = 0;
-            foreach (char c in fullSequence)
-            {
-                if (c == modStartDelimiter)
-                {
-                    bracketCount++;
-                }
-                else if (c == modEndDelimiter)
-                {
-                    bracketCount--;
-                }
-                else if (bracketCount == 0)
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
+            return fullSequence.ParseBaseSequence(modPattern);
         }
 
         /// <summary>
@@ -192,7 +176,7 @@ namespace Omics
             // modification on peptide C-terminus
             if (allModsOneIsNterminus.TryGetValue(baseSequence.Length + 2, out mod))
             {
-                subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
+                subSequence.Append($"-[{mod.ModificationType}:{mod.IdWithMotif}]");
             }
 
             return subSequence.ToString();
