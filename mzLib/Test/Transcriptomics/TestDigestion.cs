@@ -120,7 +120,7 @@ namespace Test.Transcriptomics
             RNA rna = new RNA(testCase.BaseSequence);
             Rnase rnase = RnaseDictionary.Dictionary[testCase.Enzyme];
             var digestionProducts =
-                rnase.GetUnmodifiedOligos(rna, testCase.MissedCleavages, testCase.MinLength, testCase.MaxLength);
+                rnase.GetUnmodifiedOligos(rna, testCase.MissedCleavages, testCase.MinLength, testCase.MaxLength).ToList();
 
             Assert.That(digestionProducts.Count, Is.EqualTo(testCase.Sequences.Length));
             for (var i = 0; i < digestionProducts.Count; i++)
@@ -168,7 +168,7 @@ namespace Test.Transcriptomics
         {
             RNA rna = new("GUACUG");
             Rnase rnase = RnaseDictionary.Dictionary["RNase U2"];
-            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6);
+            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(3));
 
             var oligo = digestionProducts[0];
@@ -187,7 +187,7 @@ namespace Test.Transcriptomics
         {
             RNA rna = new("GUACUG");
             Rnase rnase = RnaseDictionary.Dictionary["RNase U2"];
-            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6);
+            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(3));
 
             NucleolyticOligo oligo = digestionProducts[2];
@@ -206,7 +206,7 @@ namespace Test.Transcriptomics
         {
             RNA rna = new("GUACUG");
             Rnase rnase = RnaseDictionary.Dictionary["RNase U2"];
-            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6);
+            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(3));
 
             NucleolyticOligo oligo = digestionProducts[1];
@@ -225,7 +225,7 @@ namespace Test.Transcriptomics
         {
             RNA rna = new("GUACUG");
             Rnase rnase = RnaseDictionary.Dictionary["top-down"];
-            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6);
+            var digestionProducts = rnase.GetUnmodifiedOligos(rna, 0, 1, 6).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(1));
 
             NucleolyticOligo oligo = digestionProducts[0];
@@ -901,7 +901,7 @@ namespace Test.Transcriptomics
             {
                 { 23, new List<Modification>() { PotassiumAdducts[1] } }
             };
-            var rna = new RNA("GUACUG", oneBasedPossibleLocalizedModifications: oneBasedModifications);
+            var rna = new RNA("GUACUG", oneBasedModifications);
             
             for (int i = 1; i < 3; i++)
             {

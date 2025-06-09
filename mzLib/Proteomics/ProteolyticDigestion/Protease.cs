@@ -42,13 +42,13 @@ namespace Proteomics.ProteolyticDigestion
                 //if the start index is a cleavable index (-1 because one based) OR if the start index is after a cleavable methionine
                 if (indicesToCleave.Contains(startIndex - 1) ||
                     (startIndex == 2 && protein.BaseSequence[0] == 'M' && !retainMethionine) ||
-                    protein.ProteolysisProducts.Any(x => x.OneBasedBeginPosition == startIndex))
+                    protein.TruncationProducts.Any(x => x.OneBasedBeginPosition == startIndex))
                 {
                     cleavableMatches++;
                 }
                 //if the end index is a cleavable index
                 if (indicesToCleave.Contains(endIndex) ||
-                    protein.ProteolysisProducts.Any(x => x.OneBasedEndPosition == endIndex))
+                    protein.TruncationProducts.Any(x => x.OneBasedEndPosition == endIndex))
                 {
                     cleavableMatches++;
                 }
@@ -163,7 +163,7 @@ namespace Proteomics.ProteolyticDigestion
 
                 //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete all of the code below
                 // Also digest using the proteolysis product start/end indices
-                foreach (var proteolysisProduct in protein.ProteolysisProducts)
+                foreach (var proteolysisProduct in protein.TruncationProducts)
                 {
                     //if the proteolysis product contains something other than just the start AND end residues of the protein
                     if (proteolysisProduct.OneBasedBeginPosition != 1 || proteolysisProduct.OneBasedEndPosition != protein.Length)
@@ -208,7 +208,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             //add intact proteolysis products (if acceptable)
-            foreach (var proteolysisProduct in protein.ProteolysisProducts)
+            foreach (var proteolysisProduct in protein.TruncationProducts)
             {
                 if (proteolysisProduct.OneBasedBeginPosition.HasValue //begin has value
                     && proteolysisProduct.OneBasedEndPosition.HasValue //and end has value
@@ -269,7 +269,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // Also digest using the proteolysis product start/end indices
-            foreach (var proteolysisProduct in protein.ProteolysisProducts)
+            foreach (var proteolysisProduct in protein.TruncationProducts)
             {
                 if (proteolysisProduct.OneBasedEndPosition.HasValue && proteolysisProduct.OneBasedBeginPosition.HasValue
                                                                     && ValidLength(proteolysisProduct.OneBasedEndPosition.Value - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptideLength, maxPeptideLength))
@@ -367,7 +367,7 @@ namespace Proteomics.ProteolyticDigestion
 
             // Also digest using the proteolysis product start/end indices
             // This should only be things where the proteolysis is not K/R and the
-            foreach (var proteolysisProduct in protein.ProteolysisProducts)
+            foreach (var proteolysisProduct in protein.TruncationProducts)
             {
                 if (proteolysisProduct.OneBasedEndPosition.HasValue && proteolysisProduct.OneBasedBeginPosition.HasValue
                     && (proteolysisProduct.OneBasedBeginPosition != 1 || proteolysisProduct.OneBasedEndPosition != protein.Length)) //if at least one side is not a terminus

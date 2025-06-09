@@ -61,17 +61,17 @@ namespace Omics
         /// <returns></returns>
         public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize);
 
-        public static string GetBaseSequenceFromFullSequence(string fullSequence)
+        public static string GetBaseSequenceFromFullSequence(string fullSequence, char modStartDelimiter = '[', char modEndDelimiter = ']')
         {
             StringBuilder sb = new StringBuilder();
             int bracketCount = 0;
             foreach (char c in fullSequence)
             {
-                if (c == '[')
+                if (c == modStartDelimiter)
                 {
                     bracketCount++;
                 }
-                else if (c == ']')
+                else if (c == modEndDelimiter)
                 {
                     bracketCount--;
                 }
@@ -163,5 +163,39 @@ namespace Omics
         /// <returns></returns>
         public static List<Modification> GetModificationsFromFullSequence(string fullSequence,
             Dictionary<string, Modification> allModsKnown) => [.. GetModificationDictionaryFromFullSequence(fullSequence, allModsKnown).Values];
+
+        /// <summary>
+        /// Determines the full sequence of a BioPolymerWithSetMods from its base sequence and modifications
+        /// </summary>
+        public static string DetermineFullSequence(string baseSequence, IDictionary<int, Modification> allModsOneIsNterminus)
+        {
+            // start string builder with initial capacity to avoid resizing costs. 
+            var subSequence = new StringBuilder(baseSequence.Length + allModsOneIsNterminus.Count * 60);
+
+            // modification on peptide N-terminus
+            if (allModsOneIsNterminus.TryGetValue(1, out Modification? mod))
+            {
+                subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
+            }
+
+            for (int r = 0; r < baseSequence.Length; r++)
+            {
+                subSequence.Append(baseSequence[r]);
+
+                // modification on this residue
+                if (allModsOneIsNterminus.TryGetValue(r + 2, out mod))
+                {
+                    subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
+                }
+            }
+
+            // modification on peptide C-terminus
+            if (allModsOneIsNterminus.TryGetValue(baseSequence.Length + 2, out mod))
+            {
+                subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
+            }
+
+            return subSequence.ToString();
+        }
     }
 }

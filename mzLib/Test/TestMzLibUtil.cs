@@ -205,5 +205,93 @@ namespace Test
             Assert.IsFalse(7.ToEnum<TimsTofMsMsType>(out result));
             
         }
+
+        [Test]
+        public void IsNullOrEmpty_IEnumerable_Null_ReturnsTrue()
+        {
+            IEnumerable<int> nullEnumerable = null;
+            Assert.IsTrue(nullEnumerable.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IEnumerable_Empty_ReturnsTrue()
+        {
+            IEnumerable<int> emptyEnumerable = new List<int>();
+            Assert.IsTrue(emptyEnumerable.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IEnumerable_NotEmpty_ReturnsFalse()
+        {
+            IEnumerable<int> notEmptyEnumerable = new List<int> { 1 };
+            Assert.IsFalse(notEmptyEnumerable.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IDictionary_Null_ReturnsTrue()
+        {
+            IDictionary<int, int> nullDictionary = null;
+            Assert.IsTrue(nullDictionary.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IDictionary_Empty_ReturnsTrue()
+        {
+            IDictionary<int, int> emptyDictionary = new Dictionary<int, int>();
+            Assert.IsTrue(emptyDictionary.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsNullOrEmpty_IDictionary_NotEmpty_ReturnsFalse()
+        {
+            IDictionary<int, int> notEmptyDictionary = new Dictionary<int, int> { { 1, 1 } };
+            Assert.IsFalse(notEmptyDictionary.IsNullOrEmpty());
+        }
+
+        [Test]
+        public void IsDefaultOrNull_WithNullReferenceType_ReturnsTrue()
+        {
+            string value = null;
+            bool result = value.IsDefaultOrNull();
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void IsDefaultOrNull_WithNonNullReferenceType_ReturnsFalse()
+        {
+            string value = "test";
+            bool result = value.IsDefaultOrNull();
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void IsDefaultOrNull_WithDefaultStruct_ReturnsTrue()
+        {
+            TestStruct value = default(TestStruct);
+            bool result = value.IsDefaultOrNull();
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void IsDefaultOrNull_WithNonDefaultStruct_ReturnsFalse()
+        {
+            TestStruct value = new TestStruct { X = 1, Y = 2 };
+            bool result = value.IsDefaultOrNull();
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void IsNotDefaultOrNull_WithNullReferenceType_ReturnsFalse()
+        {
+            string value = null;
+            bool result = value.IsNotDefaultOrNull();
+            Assert.IsFalse(result);
+        }
+
+        public struct TestStruct
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+        }
     }
 }

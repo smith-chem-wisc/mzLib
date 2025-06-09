@@ -9,6 +9,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <None Remove="Resources\Mods.txt" />
+	  <None Remove="Resources\PSI-MOD.obo.xml" />
+	  <None Remove="Resources\ptmlist.txt" />
+	  <None Remove="Resources\unimod.xml" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="CsvHelper" Version="32.0.3" />
 		<PackageReference Include="OpenMcdf" Version="2.3.1" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.3.1" />
@@ -19,6 +26,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
 		<ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+		<ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
 		<ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
 	</ItemGroup>
 
@@ -41,6 +49,21 @@
 		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
 			<_Parameter1>Test</_Parameter1>
 		</AssemblyAttribute>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <EmbeddedResource Include="Resources\Mods.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\PSI-MOD.obo.xml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\ptmlist.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="Resources\unimod.xml">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	</ItemGroup>
 
 	<ItemGroup>

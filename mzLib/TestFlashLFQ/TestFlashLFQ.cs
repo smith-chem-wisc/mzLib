@@ -53,8 +53,10 @@ namespace Test
             Identification id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
+            FlashLfqParameters flashParams = new FlashLfqParameters() { Normalize = true, MaxThreads = 1 };
+
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
+            FlashLfqEngine engine = new FlashLfqEngine(flashParams, new List<Identification> { id1, id2, id3, id4 });
 
             // run the engine
             var results = engine.Run();
@@ -62,7 +64,7 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
 
             // NOTE: this is commented out because the protein quantity will be listed as NaN.
@@ -80,7 +82,7 @@ namespace Test
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR );
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -121,7 +123,7 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
 
             // NOTE: this is commented out because the protein quantity will be listed as NaN.
@@ -139,7 +141,7 @@ namespace Test
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -180,7 +182,7 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
 
             // NOTE: this is commented out because the protein quantity will be listed as NaN.
@@ -198,7 +200,7 @@ namespace Test
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -239,7 +241,7 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGF[+42]QVADGPLYR"].GetIntensity(raw) > 0);
 
             // NOTE: this is commented out because the protein quantity will be listed as NaN.
@@ -257,7 +259,7 @@ namespace Test
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGF[+42]QVADGPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -298,14 +300,14 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVAD[15.99]GPLYR"].GetIntensity(raw) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(raw) > 0);
 
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.PeptideModifiedSequences["EGFQVAD[15.99]GPLYR"].GetIntensity(mzml) > 0);
             //Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -600,9 +602,9 @@ namespace Test
             var results = engine.Run();
 
             Assert.That(results.Peaks[file2].Count == 5);
-            Assert.That(results.Peaks[file2].Where(p => p.IsMbrPeak).Count() == 1);
+            Assert.That(results.Peaks[file2].Count(p => p.DetectionType == DetectionType.MBR) == 1);
 
-            var peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
+            var peak = results.Peaks[file2].First(p => p.DetectionType == DetectionType.MBR);
             var otherFilePeak = results.Peaks[file1].Where(p => p.Identifications.First().BaseSequence ==
                 peak.Identifications.First().BaseSequence).First();
 
@@ -616,10 +618,10 @@ namespace Test
             }
 
             Assert.That(results.Peaks[file1].Count == 5);
-            Assert.That(!results.Peaks[file1].Any(p => p.IsMbrPeak));
+            Assert.That(!results.Peaks[file1].Any(p => p.DetectionType == DetectionType.MBR));
 
             results = interquartileEngine.Run();
-            peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
+            peak = results.Peaks[file2].Where(p => p.DetectionType == DetectionType.MBR).First();
 
             for (int i = 0; i < 5; i++)
             {
@@ -634,7 +636,7 @@ namespace Test
             Assert.False(results.PeptideModifiedSequences.Select(kvp => kvp.Key).Contains("DECOYPEP"));
             Assert.False(results.Peaks[file1].Any(peak => peak.Identifications.Any(id => id.ModifiedSequence.Contains("DECOYPEP"))));
             Assert.That(results.Peaks[file2].Any(peak => peak.Identifications.First().ModifiedSequence == "TARGETPEP"));
-            Assert.AreEqual(results.Peaks[file2].Count(peak => peak.IsMbrPeak), 2);
+            Assert.AreEqual(results.Peaks[file2].Count(peak => peak.DetectionType == DetectionType.MBR), 2);
         }
 
         [Test]
@@ -1014,7 +1016,7 @@ namespace Test
                 new List<ProteinGroup> { proteinGroup });
             string idString = identification.ToString();
 
-            var chromPeak = new ChromatographicPeak(identification, false, spectraFile);
+            var chromPeak = new ChromatographicPeak(identification, spectraFile);
             string chromPeakString = chromPeak.ToString();
             chromPeak.CalculateIntensityForThisFeature(true);
             string peakAfterCalculatingIntensity = chromPeak.ToString();
@@ -1059,7 +1061,7 @@ namespace Test
 
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.Peaks[mzml].First().NumIdentificationsByFullSeq == 2);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) == 0);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml) == 0);
@@ -1078,7 +1080,7 @@ namespace Test
 
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().DetectionType != DetectionType.MBR);
             Assert.That(results.Peaks[mzml].First().NumIdentificationsByFullSeq == 2);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml) > 0);
@@ -1179,14 +1181,14 @@ namespace Test
             FlashLfqEngine engine = new FlashLfqEngine(
                 new List<Identification>
                 {
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on Mz]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on Mz]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on Mz]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on Mz]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
                 },
                 ppmTolerance: 5,
                 silent: true,
-                maxThreads: 7
+                maxThreads: 1
                 );
             var results = engine.Run();
             Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
@@ -1346,8 +1348,8 @@ namespace Test
             var peptides = results.PeptideModifiedSequences.Values.ToList();
             var proteins = results.ProteinGroups.Values.ToList();
 
-            Assert.AreEqual(4, peaks[0].Count(m => m.IsMbrPeak == false));
-            Assert.AreEqual(5, peaks[1].Count(m => m.IsMbrPeak == false));
+            Assert.AreEqual(4, peaks[0].Count(m => m.DetectionType != DetectionType.MBR));
+            Assert.AreEqual(5, peaks[1].Count(m => m.DetectionType != DetectionType.MBR));
 
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "Q7KZF4", "P52298", "Q15149", "Q15149" }, peaks[0].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
             CollectionAssert.AreEquivalent(new string[] { "Q7KZF4", "P52298", "Q15149", "Q15149", "Q7KZF4", "Q7KZF4", "P52298" }, peaks[1].SelectMany(i => i.Identifications).Select(g => g.ProteinGroups.First()).Select(m => m.ProteinGroupName).ToArray());
@@ -1771,8 +1773,8 @@ namespace Test
             Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
             Identification id3 = new Identification(fraction2, "peptide2", "peptide2", 0, 0, 0, new List<ProteinGroup>());
 
-            ChromatographicPeak peak1 = new ChromatographicPeak(id1, false, fraction1);
-            ChromatographicPeak peak2 = new ChromatographicPeak(id2, false, fraction1);
+            ChromatographicPeak peak1 = new ChromatographicPeak(id1, fraction1);
+            ChromatographicPeak peak2 = new ChromatographicPeak(id2, fraction1);
             peak2.Identifications.Add(id3);
 
             peak1.ResolveIdentifications();
@@ -2186,11 +2188,11 @@ namespace Test
             var scans = new MsDataScan[] { scan1, scan2, scan3, scan4, scan5 };
 
             //This tests if the length of XIC is limited by the maxRT parameter. Peak finding starts at mz 1000.003 from scan4 and maxRT limit is set to 0.15.
-            //Without RT limit, the XIC would find 5 peaks, but with the limit, the peak from scan1 will be excluded.
-            var indexedPeaks = new PeakIndexingEngine(scans);
-            var xic = FlashLfqEngine.GetXIC(1000.003, 3, indexedPeaks, 5, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
-            Assert.That(xic.Count == 4);
-            Assert.That(xic.First().Mz == 1000.001);
+            //Without RT limit, the XIC would find 5 peaks, but with the limit, the peak from scan1 and 2 (because scan4.RT - scan2.RT = 0.2 and 0.2 > 0.15) will be excluded.
+            var indexedPeaks = PeakIndexingEngine.InitializeIndexingEngine(scans);
+            var xic = indexedPeaks.GetXic(1000.003, 3, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
+            Assert.That(xic.Count == 3);
+            Assert.That(xic.First().M == 1000.002);
         }
     }
 }

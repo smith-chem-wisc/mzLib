@@ -1,22 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+﻿using System.Globalization;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
-using MassSpectrometry;
-using Omics.Modifications;
-using Proteomics.AminoAcidPolymer;
-using Proteomics;
-using static System.Net.Mime.MediaTypeNames;
-using ThermoFisher.CommonCore.Data.Interfaces;
-using Readers.ExternalResults.BaseClasses;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.CompilerServices;
 using Easy.Common.Extensions;
 
 namespace Readers
@@ -44,7 +28,7 @@ namespace Readers
         public string BaseSequence { get; set; }
 
         [Name("Modified Peptide")]
-        public string FullSequence { get; set; }
+        public string ModifiedPeptide { get; set; }
 
         [Name("Extended Peptide")]
         public string ExtendedSequence { get; set; }
@@ -177,6 +161,8 @@ namespace Readers
             }
         }
 
+        [Ignore] public string FullSequence => ModifiedPeptide.IsNullOrEmpty() ? BaseSequence : ModifiedPeptide;
+
         /// <summary>
         /// Creates a list of tuples, each of which represents a protein.
         /// Each tuple contains the accession number, gene name, and organism.
@@ -226,7 +212,7 @@ namespace Readers
 
         [Ignore] private List<(string, string, string)> _proteinGroupInfos;
 
-        [Ignore] public string ModifiedSequence => FullSequence.IsNullOrEmpty() ? BaseSequence : FullSequence;
+        
 
         [Ignore] public int ChargeState => Charge;
 
