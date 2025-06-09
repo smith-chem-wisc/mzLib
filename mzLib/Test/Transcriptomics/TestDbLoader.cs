@@ -247,5 +247,72 @@ namespace Test.Transcriptomics
             Assert.That(rna.Count, Is.EqualTo(1));
             Assert.That(rna.First().BaseSequence, Is.EqualTo("GUACUGCCUCUAGUGAAGCA"));
         }
+
+        [Test]
+        public static void TestEnsemblFastaParsing()
+        {
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "TestDatabase_Ensembl.GRCh38.ncrna.fa");
+            var oligos = RnaDbLoader.LoadRnaFasta(dbPath, true, DecoyType.None, false, out var errors);
+
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(oligos.Count, Is.EqualTo(6));
+
+            var first = oligos.First();
+            Assert.That(first.Accession, Is.EqualTo("ENST00000616830.1"));
+            Assert.That(first.Name, Is.EqualTo("GRCh38:KI270744.1:51009:51114:-1"));
+            Assert.That(first.BaseSequence, Is.EqualTo("GUACUUAUUUCAACAGCACAUAUUUUAAAUUGGAUCAAUACAGAGCAGAUAAGCAUGGUU" +
+                "ACUGCCUAGGGAUGGCACACAAAUUCAGAAAGCAUUCCAUAUUUUG"));
+            Assert.That(first.Organism, Is.EqualTo("GRCh38"));
+
+            // GeneNames: should contain the gene ENSG00000278625.1
+            Assert.That(first.GeneNames.Count, Is.EqualTo(1));
+            Assert.That(first.GeneNames.First().Item1, Is.EqualTo("ENSG00000278625.1"));
+
+            // Additional fields
+            var fields = first.AdditionalDatabaseFields!;
+            Assert.That(fields["GeneBiotype"], Is.EqualTo("snRNA"));
+            Assert.That(fields["TranscriptBiotype"], Is.EqualTo("snRNA"));
+            Assert.That(fields["GeneSymbol"], Is.EqualTo("U6"));
+            Assert.That(fields["Description"], Does.Contain("U6 spliceosomal RNA"));
+
+        }
+
+        [Test]
+        public static void TestNcbiAssemblyFastaParsing()
+        {
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "TestDatabase_NcbiAssembly.fna");
+            var oligos = RnaDbLoader.LoadRnaFasta(dbPath, true, DecoyType.None, false, out var errors);
+
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(oligos.Count, Is.GreaterThanOrEqualTo(1));
+
+            var first = oligos.First();
+            Assert.That(first.Accession, Is.EqualTo("NM_000014.6"));
+            Assert.That(first.Name, Is.EqualTo("Homo sapiens alpha-2-macroglobulin "));
+            Assert.That(first.BaseSequence, Does.StartWith("GGGACCAGAUGGAUUGUAGGGAGUAGGGUACAAUACAGUCUGUUCUCCUCCAGCUCCUUCUUUCUGCAACAUGGGGAAGA"));
+            Assert.That(first.Organism, Is.EqualTo("Homo sapiens"));
+            Assert.That(first.GeneNames.Count, Is.EqualTo(1));
+            Assert.That(first.GeneNames.First().Item1, Is.EqualTo("alpha-2-macroglobulin (A2M)"));
+        }
+
+        [Test]
+        public static void TestNcbiRefSeqGeneFastaParsing()
+        {
+            var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "TestDatabase_NcbiRefSeq_gene.fna");
+            var oligos = RnaDbLoader.LoadRnaFasta(dbPath, true, DecoyType.None, false, out var errors);
+
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(oligos.Count, Is.GreaterThanOrEqualTo(1));
+
+            var first = oligos.First();
+            Assert.That(first.Accession, Is.EqualTo("NC_051336.1"));
+            Assert.That(first.Name, Is.EqualTo("Muc2 "));
+            Assert.That(first.BaseSequence, Does.StartWith("GCUCUUCUGUGCCACCCUCGUGAGCCACCAUGGGGCUGCCACUAGCUCGCCUGGUGGCUGUGUGCCUAGU"));
+            Assert.That(first.Organism, Is.EqualTo("Rattus norvegicus"));
+            Assert.That(first.GeneNames.Count, Is.EqualTo(1));
+            Assert.That(first.GeneNames.First().Item1, Is.EqualTo("24572"));
+            Assert.That(first.AdditionalDatabaseFields!["Chromosome"], Is.EqualTo("1"));
+        }
+
     }
 }
