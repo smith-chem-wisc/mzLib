@@ -27,7 +27,10 @@ namespace Readers
         // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
         // a single spectrum
 
-        public TimsTofFileReader(string filePath) : base (filePath) { }
+        public TimsTofFileReader(string filePath) : base (filePath) 
+        {
+            FaultyFrameIds = new();
+        }
 
         private UInt64? _fileHandle;
         private Object _fileLock;
@@ -36,7 +39,12 @@ namespace Readers
         public int NumberOfFrames { get; private set; }
         public List<long> Ms1FrameIds { get; private set; }
         internal FrameProxyFactory FrameProxyFactory { get; private set; }
-        
+
+        internal List<long> FaultyFrameIds { get; }
+
+        public string? Warnings => FaultyFrameIds.Count > 0 ? 
+            "The following frames were not read correctly: " + String.Join(", ", FaultyFrameIds) : null;
+
         // I don't know what the default scan range is, and at this point I'm too afraid to ask...
         private MzRange? _scanWindow;
         public MzRange ScanWindow => _scanWindow ??= new MzRange(20, 2000);
@@ -48,6 +56,9 @@ namespace Readers
             {
                 throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
             }
+
+            if (Scans.IsNotNullOrEmpty() && Scans.All(s => s != null)) // If all scans have been loaded, then don't reload
+                return;
 
             OpenSqlConnection();
 
@@ -89,6 +100,7 @@ namespace Readers
         {
             if (_sqlConnection?.State == ConnectionState.Open) _sqlConnection.Close();
             _sqlConnection?.Dispose();
+            _sqlConnection = null;
             if (_fileHandle != null)
             {
                 tims_close((UInt64)_fileHandle);
@@ -315,6 +327,11 @@ namespace Readers
         internal void BuildAllScans(long frameId, FilteringParams filteringParams)
         {
             FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+            if (frame == null || !frame.IsFrameValid())
+            {
+                FaultyFrameIds.Add(frameId);
+                return; // If the frame is null, then we can't build any scans for it
+            }
             var records = GetMs1Records(frameId);
             foreach(Ms1Record record in records)
             {
@@ -460,6 +477,11 @@ namespace Readers
             foreach (long frameId in allFrames)
             {
                 FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+                if (frame == null || !frame.IsFrameValid())
+                {
+                    FaultyFrameIds.Add(frameId);
+                    continue; // If the frame is null, then we can't build any scans for it
+                }
                 //Iterate through all the datascans created above with this frame
                 foreach (var scan in pasefScans)
                 {

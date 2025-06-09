@@ -17,7 +17,9 @@ namespace Test.FileReadingTests
     public class TestTimsTofFileReader
     {
 
-        public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
+        //public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
+
+        public string _testDataPath = @"C:\Users\Alex\Downloads\20231024_750ppbHeLa+NaB_200ppbQC_1_1-5_1_2175.d\20231024_750ppbHeLa+NaB_200ppbQC_1_1-5_1_2175.d";
         public TimsTofFileReader _testReader;
         public TimsDataScan _testMs2Scan;
         public TimsDataScan _testMs1Scan;
@@ -30,6 +32,15 @@ namespace Test.FileReadingTests
             _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
+        }
+
+        [Test]
+        public void TestDynamicConnection()
+        {
+            _testReader.InitiateDynamicConnection();
+            _testReader.CloseDynamicConnection();
+            _testReader.InitiateDynamicConnection();
+            Assert.Pass();
         }
 
         [Test]
