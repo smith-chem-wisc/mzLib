@@ -2,7 +2,7 @@
 {
     public class SpectrumMatchFromTsvHeader
     {
-        public static readonly string[] AcceptedSpectraFormats = { ".raw", ".mzML", ".mgf", ".d" };
+        public static readonly string[] AcceptedSpectraFormats = { ".raw", ".mzML", ".mgf", ".d", "ms1.msalign", "ms2.msalign" };
 
         // File and scan information
         public const string FileName = "File Name";
@@ -15,6 +15,7 @@
         public const string PrecursorIntensity = "Precursor Intensity";
         public const string PrecursorMz = "Precursor MZ";
         public const string PrecursorMass = "Precursor Mass";
+        public const string OneOverK0 = "1/K0";
         public const string Score = "Score";
         public const string DeltaScore = "Delta Score";
         public const string Notch = "Notch";
