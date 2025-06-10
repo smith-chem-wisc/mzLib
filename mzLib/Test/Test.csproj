@@ -628,6 +628,12 @@
     <None Update="XICData\AllPSMs.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="XICData\AllPSMs_IDMergeConflict_2.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="XICData\AllPSMs_IDMergeConflict.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="XICData\AllPSMs_IsoID.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
