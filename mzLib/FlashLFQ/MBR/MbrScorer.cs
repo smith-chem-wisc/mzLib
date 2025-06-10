@@ -146,18 +146,17 @@ namespace FlashLFQ
                 rtPredictionErrors.Add(avgDiff - anchorPeptideRtDiffs[i]);
             }
 
-            Normal rtPredictionErrorDist = new Normal(0, 0);
             // Default distribution. Effectively assigns a RT Score of zero if no alignment can be performed
             // between the donor and acceptor based on shared MS/MS IDs
+            Normal rtPredictionErrorDist = new Normal(0, 0);
+            if (rtPredictionErrors.Count >= 2)
+            {
+                double medianRtError = rtPredictionErrors.Median();
+                double stdDevRtError = rtPredictionErrors.StandardDeviation();
+                if (Normal.IsValidParameterSet(medianRtError, stdDevRtError))
+                    rtPredictionErrorDist = new Normal(medianRtError, 1);
+            }
 
-            if (rtPredictionErrors.Count < 2)
-                return;
-            
-            double medianRtError = rtPredictionErrors.Median();
-            double stdDevRtError = rtPredictionErrors.StandardDeviation();
-            if(Normal.IsValidParameterSet(medianRtError, stdDevRtError))
-                rtPredictionErrorDist = new Normal(medianRtError, 1);
-            
             _rtPredictionErrorDistributionDictionary.Add(donorFile, rtPredictionErrorDist);
         }
 
@@ -297,12 +296,18 @@ namespace FlashLFQ
                 && IsValid();
         }
 
+        /// <summary>
+        /// This method checks whether the scorer is validly parameterized and capable of scoring MBR transfers
+        /// Notably, it is indifferent to the isotopic correlation distribution being null, as a null isotopic distribution correlation
+        /// results in all MBR transfers receiving the minimum score for the isotopic distribution component.
+        /// This could be changed in the future, but currently multiple tests results in null isotopic distributions, and will break if they can't do MBR
+        /// </summary>
+        /// <returns></returns>
         internal bool IsValid()
         {
             return _ppmDistribution != null
                 && _scanCountDistribution != null
-                && _logIntensityDistribution != null
-                && _isotopicCorrelationDistribution != null;
+                && _logIntensityDistribution != null;
         }
 
     }
