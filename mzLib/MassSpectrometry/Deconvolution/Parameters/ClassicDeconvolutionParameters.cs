@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MzLibUtil;
+﻿#nullable enable
 
 namespace MassSpectrometry
 {
@@ -19,13 +14,8 @@ namespace MassSpectrometry
         /// <summary>
         /// Construct Classic deconvolution parameters
         /// </summary>
-        /// <param name="minCharge"></param>
-        /// <param name="maxCharge"></param>
-        /// <param name="deconPpm"></param>
-        /// <param name="intensityRatio"></param>
-        /// <param name="range">Isolation range of the scan to be deconvoluted</param>
-        public ClassicDeconvolutionParameters(int minCharge, int maxCharge, double deconPpm, double intensityRatio, Polarity polarity = Polarity.Positive)
-            : base(minCharge, maxCharge, polarity)
+        public ClassicDeconvolutionParameters(int minCharge, int maxCharge, double deconPpm, double intensityRatio, Polarity polarity = Polarity.Positive, AverageResidue? averageResidueModel = null)
+            : base(minCharge, maxCharge, polarity, averageResidueModel)
         {
             IntensityRatioLimit = intensityRatio;
             DeconvolutionTolerancePpm = deconPpm;
