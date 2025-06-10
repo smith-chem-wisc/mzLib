@@ -28,23 +28,16 @@ namespace FlashLFQ
                 .DistinctBy(p => p.Apex.IndexedPeak)
                 .ToDictionary(p => p.Apex.IndexedPeak, p => p);
 
-            // Then, filter down so that only unambiguous peaks are used to construct scoring distributions
-            List<ChromatographicPeak> unambiguousAcceptorFilePeaks = apexToAcceptorFilePeakDict
-                .Select(kvp => kvp.Value)
-                .Where(p => p.NumIdentificationsByFullSeq == 1 && p.DetectionType != DetectionType.MBR && p.DetectionType != DetectionType.IsoTrack_MBR)
-                .ToList();
-
-            // If we don't have enough unambiguous peaks, return null
-            if (unambiguousAcceptorFilePeaks.Count < 3)
+            MbrScorer scorer = new MbrScorer(apexToAcceptorFilePeakDict, acceptorFileMsmsPeaks);
+            // Try to initialize the scorer, which will fail if the acceptor file is empty or has no MSMS peaks.
+            if (!scorer.InitializeScorer())
             {
                 fileSpecificMbrTolerance = null;
                 return null;
             }
 
-            MbrScorer scorer = new MbrScorer(apexToAcceptorFilePeakDict, acceptorFileMsmsPeaks);
             double mbrPpmTolerance = Math.Min(scorer.GetPpmErrorTolerance(), flashParams.MbrPpmTolerance);
             fileSpecificMbrTolerance = new PpmTolerance(mbrPpmTolerance); // match between runs PPM tolerance
-
             return scorer;
         }
 

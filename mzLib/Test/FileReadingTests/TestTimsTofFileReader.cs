@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using MathNet.Numerics.Statistics;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace Test.FileReadingTests
