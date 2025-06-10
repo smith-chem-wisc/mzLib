@@ -797,55 +797,6 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Constructs a MbrScorer object that is used to score all MBR peaks for a given acceptor file
-        /// </summary>
-        /// <param name="acceptorFileIdentifiedPeaks"> All MSMS identified peaks in the acceptor file </param>
-        /// <param name="fileSpecificMbrTolerance">A ppm tolerance specific to the given file</param>
-        /// <returns> A MbrScorer object </returns>
-        private MbrScorer BuildMbrScorer(List<ChromatographicPeak> acceptorFileIdentifiedPeaks, out PpmTolerance fileSpecificMbrTolerance)
-        {
-            // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
-            var apexToAcceptorFilePeakDict = new Dictionary<IIndexedPeak, ChromatographicPeak>();
-            List<double> ppmErrors = new List<double>();
-            foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null
-                && PeptideModifiedSequencesToQuantify.Contains(p.Identifications.First().ModifiedSequence)
-                && p.Identifications.First().QValue < FlashParams.DonorQValueThreshold)) 
-            {
-                if (!apexToAcceptorFilePeakDict.ContainsKey(peak.Apex.IndexedPeak))
-                {
-                    apexToAcceptorFilePeakDict.Add(peak.Apex.IndexedPeak, peak);
-                }
-
-                ppmErrors.Add(peak.MassError);
-            }
-            if (ppmErrors.Count < 3)
-            {
-                fileSpecificMbrTolerance = null;
-                return null;
-            }
-            double ppmSpread = ppmErrors.Count > 30 ? ppmErrors.InterquartileRange() / 1.36 : ppmErrors.StandardDeviation();
-            Normal ppmDistribution = new Normal(ppmErrors.Median(), ppmSpread);
-            double fileSpecificMbrPpmTolerance = Math.Min(Math.Abs(ppmErrors.Median()) + ppmSpread * 4, FlashParams.MbrPpmTolerance);
-            fileSpecificMbrTolerance = new PpmTolerance(fileSpecificMbrPpmTolerance); // match between runs PPM tolerance
-
-            // Construct a distribution of peak log intensities for all MSMS peaks in the acceptor file
-            var acceptorFileLogIntensities = acceptorFileIdentifiedPeaks
-                .Where(p => p.Intensity > 0)
-                .Select(p => Math.Log(p.Intensity, 2))
-                .ToList();
-            double medianAcceptorLogIntensity = acceptorFileLogIntensities.Median();
-            Normal logIntensityDistribution = new Normal(acceptorFileLogIntensities.Median(), acceptorFileLogIntensities.InterquartileRange() / 1.36);
-            try // if the constructor fails, we don't want to crash the program
-            {
-                return new MbrScorer(apexToAcceptorFilePeakDict, acceptorFileIdentifiedPeaks, ppmDistribution, logIntensityDistribution);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
         /// Returns a pseudo-randomly selected peak that does not have the same mass as the donor
         /// </summary>
         /// <param name="peaksOrderedByMass"></param>
@@ -911,14 +862,16 @@ namespace FlashLFQ
                 .Count() > 1;
 
             // acceptor file known peaks
-            var acceptorFileIdentifiedPeaks = _results.Peaks[acceptorFile];
+            var acceptorFileIdentifiedPeaks = _results.Peaks[acceptorFile]
+                .Where(p => p.Identifications.Any(id => PeptideModifiedSequencesToQuantify.Contains(id.ModifiedSequence)))
+                .ToList();
 
             // these are the analytes already identified in this run. we don't need to try to match them from other runs
             var acceptorFileIdentifiedSequences = new HashSet<string>(acceptorFileIdentifiedPeaks
                 .Where(peak => peak.IsotopicEnvelopes.Any() && peak.Identifications.Min(id => id.QValue) < 0.01)
                 .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence)));
 
-            MbrScorer scorer = BuildMbrScorer(acceptorFileIdentifiedPeaks, out var mbrTol);
+            MbrScorer scorer = MbrScorerFactory.BuildMbrScorer(acceptorFileIdentifiedPeaks, FlashParams, out var mbrTol);
             if (scorer == null)
                 return;
 
