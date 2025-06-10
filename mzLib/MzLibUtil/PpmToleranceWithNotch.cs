@@ -12,13 +12,6 @@ namespace MzLibUtil
         public const double NotchStep = 1.00335483810;
         public PpmTolerance PpmTolerance { get; init; }
 
-        public PpmToleranceWithNotch(double value, IEnumerable<double> acceptableMassShifts)
-            : base(value)
-        {
-            AcceptableSortedMassShifts = acceptableMassShifts.OrderBy(Math.Abs).ThenBy(p => p < 0).ToArray();
-            NumNotches = AcceptableSortedMassShifts.Length;
-        }
-
         public PpmToleranceWithNotch(double value, int protonNotches)
             : base(value)
         {
