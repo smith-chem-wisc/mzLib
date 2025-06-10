@@ -21,7 +21,6 @@ namespace Test
     [ExcludeFromCodeCoverage]
     public sealed class TestDeconvolution
     {
-
         #region Old Deconvolution
 
         [Test]
@@ -218,7 +217,7 @@ namespace Test
         [TestCase(473.05, -4, 1896.26)] // GUAGUC +Na -H -4
         [TestCase(631.07, -3, 1896.26)] // GUAGUC +Na -H -3
         [TestCase(947.121, -2, 1896.26)] // GUAGUC +Na -H -2
-        public void TestNegativeModeClassicDeconvolution(double expectedMz, int expectedCharge, double expectedMonoMass)
+        public void TestNegativeModeClassicDeconvolution_Averagine(double expectedMz, int expectedCharge, double expectedMonoMass)
         {
             // get scan
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
@@ -228,6 +227,35 @@ namespace Test
 
             // set up deconvolution
             DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(-10, -1, 20, 3, Polarity.Negative);
+
+            List<IsotopicEnvelope> deconvolutionResults = Deconvoluter.Deconvolute(scan, deconParams).ToList();
+            // ensure each expected result is found, with correct mz, charge, and monoisotopic mass
+            var resultsWithPeakOfInterest = deconvolutionResults.FirstOrDefault(envelope =>
+                envelope.Peaks.Any(peak => tolerance.Within(peak.mz, expectedMz)));
+            if (resultsWithPeakOfInterest is null) Assert.Fail();
+
+            Assert.That(expectedMonoMass, Is.EqualTo(resultsWithPeakOfInterest.MonoisotopicMass).Within(0.01));
+            Assert.That(expectedCharge, Is.EqualTo(resultsWithPeakOfInterest.Charge));
+        }
+
+        [Test]
+        [TestCase(373.85, -5, 1874.28)] // GUAGUC -5
+        [TestCase(467.57, -4, 1874.28)] // GUAGUC -4
+        [TestCase(623.75, -3, 1874.28)] // GUAGUC -3
+        [TestCase(936.13, -2, 1874.28)] // GUAGUC -2
+        [TestCase(473.05, -4, 1896.26)] // GUAGUC +Na -H -4
+        [TestCase(631.07, -3, 1896.26)] // GUAGUC +Na -H -3
+        [TestCase(947.121, -2, 1896.26)] // GUAGUC +Na -H -2
+        public void TestNegativeModeClassicDeconvolution_Averagtide(double expectedMz, int expectedCharge, double expectedMonoMass)
+        {
+            // get scan
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "GUACUG_NegativeMode_Sliced.mzML");
+            var scan = MsDataFileReader.GetDataFile(filePath).GetAllScansList().First();
+            var tolerance = new PpmTolerance(20);
+
+            // set up deconvolution
+            DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(-10, -1, 20, 3, Polarity.Negative, new OxyriboAveragine());
 
             List<IsotopicEnvelope> deconvolutionResults = Deconvoluter.Deconvolute(scan, deconParams).ToList();
             // ensure each expected result is found, with correct mz, charge, and monoisotopic mass
