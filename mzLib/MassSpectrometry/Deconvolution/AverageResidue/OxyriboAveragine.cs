@@ -8,7 +8,7 @@ namespace MassSpectrometry;
 /// Represents the average RNA nucleotide and is used for most abundant isotopic peak to monoisotopic peak difference
 /// </summary>
 /// <remarks>All instance methods return a reference to its static precalculated values</remarks>
-public sealed class OxyriboAveragtide : AverageResidue
+public sealed class OxyriboAveragine : AverageResidue
 {
     public static readonly double[][] AllMasses = new double[NumAveraginesToGenerate][];
     public static readonly double[][] AllIntensities = new double[NumAveraginesToGenerate][];
@@ -21,7 +21,7 @@ public sealed class OxyriboAveragtide : AverageResidue
     public override double[] GetAllTheoreticalIntensities(int index) => AllIntensities[index];
 
     public override double GetDiffToMonoisotopic(int index) => DiffToMonoisotopic[index];
-    static OxyriboAveragtide()
+    static OxyriboAveragine()
     {
         // Magic numbers determined by counting atoms in the main 4 canonical RNA bases. 
         // This is not the best approach and future work should refine these numbers. 

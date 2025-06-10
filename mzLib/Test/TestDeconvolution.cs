@@ -255,7 +255,7 @@ namespace Test
             var tolerance = new PpmTolerance(20);
 
             // set up deconvolution
-            DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(-10, -1, 20, 3, Polarity.Negative, new OxyriboAveragtide());
+            DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(-10, -1, 20, 3, Polarity.Negative, new OxyriboAveragine());
 
             List<IsotopicEnvelope> deconvolutionResults = Deconvoluter.Deconvolute(scan, deconParams).ToList();
             // ensure each expected result is found, with correct mz, charge, and monoisotopic mass
