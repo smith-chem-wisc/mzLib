@@ -22,6 +22,7 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Newtonsoft.Json.Linq;
 
 namespace Test
 {
@@ -363,6 +364,23 @@ namespace Test
             Assert.AreEqual(20, tol.GetRange(1e7).Width);
 
             Assert.AreEqual("±1.0000 PPM", tol.ToString());
+        }
+
+        [Test]
+        public void PpmToleranceWithNotch()
+        {
+            var tol = new PpmToleranceWithNotch(10, 2);
+            Assert.AreEqual(tol.GetMaximumValue(100), (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
+            Assert.AreEqual(tol.GetMinimumValue(100), (100 - 2 * 1.00335483810) * (1 - (10 / 1e6)));
+            Assert.AreEqual(tol.GetRange(100).Maximum, (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
+            Assert.AreEqual(tol.GetRange(100).Minimum, (100 - 2 * 1.00335483810) * (1 - (10 / 1e6)));
+
+            //notch +1
+            Assert.IsTrue(tol.Within(100, 101.003));
+            //notch -1
+            Assert.IsTrue(tol.Within(100, 98.997));
+            //notch 0
+            Assert.IsTrue(tol.Within(100, 100.001));
         }
     }
 }
