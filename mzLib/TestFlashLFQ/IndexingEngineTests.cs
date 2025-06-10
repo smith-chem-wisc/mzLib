@@ -281,7 +281,7 @@ namespace Test
             ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
             IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
 
-            // Create mzSpectra where two peaks appear very close together
+            // Create mzSpectra
             for (int s = 0; s < scans.Length; s++)
             {
                 double[] mz = dist.Masses.Select(v => v.ToMz(2)).Concat(dist.Masses.Select(v => v.ToMz(1))).ToArray();
@@ -310,6 +310,24 @@ namespace Test
             for (int i = 0; i < xic1.Count; i++)
             {
                 Assert.That(Object.ReferenceEquals(xic1[i], xic3[i]));
+            }
+
+            //Get XIC with a mass that does not belong to any bins, should return an empty list
+            var xic4 = massIndexingEngine.GetXic(5000.0, 1, 5, new PpmTolerance(20), 2);
+            Assert.That(xic4.IsNullOrEmpty());
+        }
+
+        [Test]
+        public static void TestMassIndexingExceptions()
+        {
+            var massIndexingEngine = new MassIndexingEngine();
+            Assert.That(massIndexingEngine.IndexPeaks(new MsDataScan[] { }, new ClassicDeconvolutionParameters(1, 20, 4, 3)), Is.EqualTo(false));
+            try
+            {
+                massIndexingEngine.GetXic(500.0, 1, 5, new PpmTolerance(20), 2);
+            } catch (MzLibException e)
+            {
+                Assert.That(e.Message, Is.EqualTo("Error: Attempt to retrieve XIC before peak indexing was performed"));
             }
         }
     }

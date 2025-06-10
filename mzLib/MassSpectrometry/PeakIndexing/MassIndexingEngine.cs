@@ -102,6 +102,8 @@ namespace MassSpectrometry
 
             if (initialMass.IsNotDefaultOrNull())
                 xic.Add(initialMass);
+            else
+                return xic; 
 
             foreach (int direction in new List<int> { -1, 1 })
             {
