@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using MathNet.Numerics.Statistics;
+using System.Reflection;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace Test.FileReadingTests
@@ -34,6 +34,94 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestDynamicConnection()
+        {
+            _testReader.InitiateDynamicConnection();
+            _testReader.CloseDynamicConnection();
+            _testReader.InitiateDynamicConnection();
+            Assert.Pass();
+        }
+
+        [Test, NonParallelizable]
+        public void TestCorruptedDataDoesntThrowException()
+        {
+            var tempReader = new TimsTofFileReader(_testDataPath);
+            try
+            {
+                tempReader.InitiateDynamicConnection();
+                FrameProxy frame = tempReader.FrameProxyFactory.GetFrameProxy(100);
+                var scanOffsetsProperty = typeof(FrameProxy).GetField("_scanOffsets", BindingFlags.NonPublic | BindingFlags.Instance);
+                int[] corruptedOffsets = new int[frame.NumberOfScans];
+                int bigNumber = int.MaxValue / 3; // Use a large number to simulate corruption
+                for (int i = 0; i < corruptedOffsets.Length; i++)
+                {
+                    corruptedOffsets[i] = bigNumber; // Set all offsets to a large number to simulate corruption
+                }
+                scanOffsetsProperty.SetValue(frame, corruptedOffsets); // Simulate corrupted data by setting scan offsets to null
+                Assert.That(!frame.IsFrameValid());
+                Assert.Throws<ArgumentException>(() => frame.GetScanIntensities(100));
+            }
+            finally
+            {
+                tempReader.CloseDynamicConnection();
+            }
+        }
+
+        [Test, NonParallelizable]
+        public void TestCorruptedDataProducesCorrectWarningMessage()
+        {
+            var tempReader = new TimsTofFileReader(_testDataPath);
+            try
+            {
+                tempReader.InitiateDynamicConnection();
+                var mockFactory = new MockFrameProxyFactory(tempReader.FrameProxyFactory);
+                var x = typeof(TimsTofFileReader).GetProperty("FrameProxyFactory", BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.That(x, Is.Not.Null, "FrameProxyFactory property is null. This should not happen.");
+                x.SetValue(tempReader, mockFactory);
+                //typeof(TimsTofFileReader).GetProperty("FrameProxyFactory", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(tempReader, mockFactory);
+
+                tempReader.BuildAllScans(frameId: 1, null);
+                var scan = new TimsDataScan(massSpectrum: null,
+                    oneBasedScanNumber: -1, // This will be adjusted once all scans have been read
+                    msnOrder: 2,
+                    isCentroid: true,
+                    polarity: Polarity.Positive,
+                    retentionTime: 1,
+                    scanWindowRange: new MzLibUtil.MzRange(200, 2000),
+                    scanFilter: "xyz",
+                    mzAnalyzer: MZAnalyzerType.TOF,
+                    totalIonCurrent: -1, // Will be set later
+                    injectionTime: 1,
+                    noiseData: null,
+                    nativeId: "frames=",
+                    frameId: 2,
+                    scanNumberStart: 1,
+                    scanNumberEnd:900,
+                    medianOneOverK0: 1, // Needs to be set later
+                    precursorId: 1,
+                    selectedIonMz:1,
+                    selectedIonChargeStateGuess: 1,
+                    selectedIonIntensity: 1,
+                    isolationMZ: 1,
+                    isolationWidth: 1,
+                    dissociationType: DissociationType.CID,
+                    oneBasedPrecursorScanNumber: -1, // This will be set later
+                    selectedIonMonoisotopicGuessMz: 1,
+                    hcdEnergy: "1",
+                    frames:new List<long> { 2 });
+                tempReader.PopulateSpectraForPasefScans(new List<TimsDataScan>() { scan }, new List<long> { 2 }, null);
+
+                Assert.That(tempReader.FaultyFrameIds.Contains(1));
+                Assert.That(tempReader.FaultyFrameIds.Contains(2));
+                Assert.That(tempReader.Warnings, Is.EqualTo("The following frames were not read correctly: 1, 2"));
+            }
+            finally
+            {
+                tempReader.CloseDynamicConnection();
+            }
+        }
+
+        [Test, NonParallelizable]
         public void TestGetPasefScanFromDynamicConnectionUsingFrameId()
         {
             var dynamicReader = new TimsTofFileReader(_testDataPath);
@@ -55,7 +143,7 @@ namespace Test.FileReadingTests
             Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs2Scan.MassSpectrum), "Mass spectra are not equal");
         }
 
-        [Test]
+        [Test, NonParallelizable]
         public void TestGetMs1ScanFromDynamicConnectionUsingFrameId()
         {
             var dynamicReader = new TimsTofFileReader(_testDataPath);
@@ -77,7 +165,7 @@ namespace Test.FileReadingTests
             Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs1Scan.MassSpectrum), "Mass spectra are not equal");
         }
 
-        [Test]
+        [Test, NonParallelizable]
         public void TestGetScanFromDynamicConnectionUsingOneBasedScanNumber()
         {
             var dynamicReader = new TimsTofFileReader(_testDataPath);
@@ -313,6 +401,18 @@ namespace Test.FileReadingTests
             CollectionAssert.AreEqual(outSpectrum.XArray.Select(mz => mz.Round(7)).ToArray(),
                 new double[] { 1 + 9e-7, 2 + 8e-7, 3, 4, 5, 6, 7, 8, 9, 10, 11 + 1e-6 });
             CollectionAssert.AreEqual(outSpectrum.YArray, new double[] { 11, 12, 3, 4, 5, 6, 7, 8, 9, 10, 11 });
+        }
+    }
+
+    internal class MockFrameProxyFactory : FrameProxyFactory
+    {
+        public MockFrameProxyFactory(FrameProxyFactory realFactory) : base(realFactory.FramesTable, realFactory.FileHandle, realFactory.FileLock, realFactory.MaxIndex)
+        {
+            // Mock constructor does not need to do anything special
+        }
+        internal override FrameProxy GetFrameProxy(long frameId)
+        {
+            return null;
         }
     }
 }
