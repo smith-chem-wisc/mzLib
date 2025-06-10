@@ -70,7 +70,9 @@ namespace FlashLFQ
         private Normal GetPpmErrorDistribution()
         {
             // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
-            List<double> ppmErrors = UnambiguousMsMsAcceptorPeaks.Select(p => p.MassError).ToList();
+            List<double> ppmErrors = UnambiguousMsMsAcceptorPeaks.Select(p => p.MassError).Where(e => !double.IsNaN(e)).ToList();
+            if (ppmErrors.Count < 2)
+                return null;
             double ppmSpread = ppmErrors.Count > 30 ? ppmErrors.InterquartileRange() / 1.36 : ppmErrors.StandardDeviation();
             Normal ppmDistribution = new Normal(ppmErrors.Median(), ppmSpread);
             return ppmDistribution;
