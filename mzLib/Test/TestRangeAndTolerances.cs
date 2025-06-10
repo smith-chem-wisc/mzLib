@@ -23,6 +23,7 @@ using System;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace Test
 {
@@ -381,6 +382,12 @@ namespace Test
             Assert.IsTrue(tol.Within(100, 98.997));
             //notch 0
             Assert.IsTrue(tol.Within(100, 100.001));
+            //between notches
+            Assert.IsFalse(tol.Within(100, 100.5));
+
+            //test second constructor
+            var tol2 = new PpmToleranceWithNotch(10, new List<int> { 1, 2});
+            Assert.IsFalse(tol2.Within(98.997, 100));
         }
     }
 }

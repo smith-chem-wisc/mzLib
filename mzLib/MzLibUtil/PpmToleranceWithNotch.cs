@@ -15,18 +15,27 @@ namespace MzLibUtil
         public PpmToleranceWithNotch(double value, int protonNotches)
             : base(value)
         {
-            var massShifts = new List<double>();
+            var massShifts = new List<double> { 0 };
             for (int i = 1; i <= protonNotches; i++)
             {
                 massShifts.Add(NotchStep * i);
                 massShifts.Add(-NotchStep * i);
             }
-            AcceptableSortedMassShifts = massShifts.OrderBy(p => p).ToArray();
-            NumNotches = protonNotches;
+            AcceptableSortedMassShifts = massShifts.OrderBy(Math.Abs).ThenBy(p => p).ToArray();
             PpmTolerance = new PpmTolerance(value);
         }
 
-        int NumNotches { get; init; }
+        public PpmToleranceWithNotch(double value, List<int> massShifts)
+            : base(value)
+        {
+            var shifts = new List<double> { 0 };
+            foreach (int shift in massShifts)
+            {
+                shifts.Add(NotchStep * shift);
+            }
+            AcceptableSortedMassShifts = shifts.OrderBy(Math.Abs).ThenBy(p => p).Distinct().ToArray();
+            PpmTolerance = new PpmTolerance(value);
+        }
 
         public override double GetMaximumValue(double mean)
         {
@@ -35,7 +44,7 @@ namespace MzLibUtil
 
         public override double GetMinimumValue(double mean)
         {
-            return (PpmTolerance.GetMinimumValue(AcceptableSortedMassShifts[0] + mean));
+            return (PpmTolerance.GetMinimumValue(AcceptableSortedMassShifts[AcceptableSortedMassShifts.Length - 2] + mean));
         }
 
         public override DoubleRange GetRange(double mean)
@@ -45,16 +54,11 @@ namespace MzLibUtil
 
         public override bool Within(double experimental, double theoretical)
         {
-            if (PpmTolerance.Within(experimental, theoretical))
-            return true;
-            else
+            for (int i = 0; i < AcceptableSortedMassShifts.Length - 1; i++)
             {
-                for (int i = 0; i < AcceptableSortedMassShifts.Length - 1; i++)
+                if (PpmTolerance.Within(experimental, theoretical + AcceptableSortedMassShifts[i]))
                 {
-                    if (PpmTolerance.Within(experimental, theoretical + AcceptableSortedMassShifts[i]))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
             return false;
