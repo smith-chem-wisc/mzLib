@@ -10,14 +10,14 @@ namespace Omics.Modifications
     /// </summary>
     public class Modification : IComparable<Modification>
     {
-        public string IdWithMotif { get; private set; }
-        public string OriginalId { get; private set; }
-        public string Accession { get; private set; }
-        public string ModificationType { get; private set; }
-        public string FeatureType { get; private set; }
-        public ModificationMotif Target { get; private set; }
-        public string LocationRestriction { get; private set; }
-        public ChemicalFormula ChemicalFormula { get; private set; }
+        public string IdWithMotif { get; protected set; }
+        public string OriginalId { get; protected set; }
+        public string Accession { get; protected set; }
+        public string ModificationType { get; protected set; }
+        public string FeatureType { get; protected set; }
+        public ModificationMotif Target { get; protected set; }
+        public string LocationRestriction { get; protected set; }
+        public ChemicalFormula ChemicalFormula { get; protected set; }
         private double? monoisotopicMass = null;
 
         public double? MonoisotopicMass
@@ -32,11 +32,11 @@ namespace Omics.Modifications
             }
         }
 
-        public Dictionary<string, IList<string>> DatabaseReference { get; private set; }
-        public Dictionary<string, IList<string>> TaxonomicRange { get; private set; }
-        public List<string> Keywords { get; private set; }
-        public Dictionary<DissociationType, List<double>> NeutralLosses { get; private set; }
-        public Dictionary<DissociationType, List<double>> DiagnosticIons { get; private set; }
+        public Dictionary<string, IList<string>> DatabaseReference { get; protected set; }
+        public Dictionary<string, IList<string>> TaxonomicRange { get; protected set; }
+        public List<string> Keywords { get; protected set; }
+        public Dictionary<DissociationType, List<double>> NeutralLosses { get; protected set; }
+        public Dictionary<DissociationType, List<double>> DiagnosticIons { get; protected set; }
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
 
