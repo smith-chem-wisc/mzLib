@@ -32,7 +32,6 @@ namespace MassSpectrometry
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans?.Length ?? 0;
         public string FilePath { get; }
-
         protected MsDataFile(int numSpectra, SourceFile sourceFile)
         {
             Scans = new MsDataScan[numSpectra];

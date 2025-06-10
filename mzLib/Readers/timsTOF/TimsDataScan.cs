@@ -66,7 +66,7 @@ namespace MassSpectrometry
             ComponentSpectraTotalPeaks = 0;
         }
 
-        internal void AverageComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
+        internal void SumComponentSpectra(FrameProxyFactory proxyFactory, FilteringParams filteringParams = null)
         {
             MassSpectrum = TofSpectraMerger.MergeArraysToMs2Spectrum(mzArrays, intensityArrays, filteringParams);
             if (MassSpectrum == null) return;

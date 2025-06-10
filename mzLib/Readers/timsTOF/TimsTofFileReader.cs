@@ -19,7 +19,6 @@ using System.Security.Permissions;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("Test")]
 namespace Readers
 {
     public class TimsTofFileReader : MsDataFile, IDisposable
@@ -558,7 +557,7 @@ namespace Readers
             // to yield one spectrum per precursor
             foreach (TimsDataScan scan in pasefScansWithNullSpectra)
             {
-                scan.AverageComponentSpectra(FrameProxyFactory, filteringParams);
+                scan.SumComponentSpectra(FrameProxyFactory, filteringParams);
             }
             pasefScansWithNullSpectra.RemoveAll(scan => scan.MassSpectrum == null || scan.MassSpectrum.Size < 1);
         }
