@@ -298,22 +298,22 @@ namespace Test
             Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters));
 
             //Test GetXIC with indexed masses
-            var xic1 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 1, 5, new PpmTolerance(20), 2);
+            var xic1 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
             Assert.That(xic1.Count, Is.EqualTo(10));
 
             //Test GetXIC with different charge states
-            var xic2 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 2, 5, new PpmTolerance(20), 2);
+            var xic2 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
             Assert.That(xic2.Count, Is.EqualTo(10));
 
             //Test GetXIC with different starting scan and they should return the same list of peaks
-            var xic3 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 1, 1, new PpmTolerance(20), 2);
+            var xic3 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
             for (int i = 0; i < xic1.Count; i++)
             {
                 Assert.That(Object.ReferenceEquals(xic1[i], xic3[i]));
             }
 
             //Get XIC with a mass that does not belong to any bins, should return an empty list
-            var xic4 = massIndexingEngine.GetXic(5000.0, 1, 5, new PpmTolerance(20), 2);
+            var xic4 = massIndexingEngine.GetXic(5000.0, 5, new PpmTolerance(20), 2, 1);
             Assert.That(xic4.IsNullOrEmpty());
         }
 
@@ -324,7 +324,7 @@ namespace Test
             Assert.That(massIndexingEngine.IndexPeaks(new MsDataScan[] { }, new ClassicDeconvolutionParameters(1, 20, 4, 3)), Is.EqualTo(false));
             try
             {
-                massIndexingEngine.GetXic(500.0, 1, 5, new PpmTolerance(20), 2);
+                massIndexingEngine.GetXic(500.0,  5, new PpmTolerance(20), 2, 1);
             } catch (MzLibException e)
             {
                 Assert.That(e.Message, Is.EqualTo("Error: Attempt to retrieve XIC before peak indexing was performed"));

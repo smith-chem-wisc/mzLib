@@ -3,6 +3,7 @@ using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 #nullable enable
 namespace MassSpectrometry
@@ -18,7 +19,7 @@ namespace MassSpectrometry
         /// </summary>
         protected List<T>[]? IndexedPeaks;
         protected virtual int BinsPerDalton => 100;
-        public ScanInfo[]? ScanInfoArray { get; private set; }
+        public ScanInfo[]? ScanInfoArray { get; protected set; }
 
         /// <summary>
         /// Read in all spectral peaks from scans, index the peaks and store them in a list ordered by m/z
@@ -89,7 +90,8 @@ namespace MassSpectrometry
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double mz, double retentionTime, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
+        public List<IIndexedPeak> GetXic(double mz, double retentionTime, PpmTolerance ppmTolerance,
+            int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
         {
             // get precursor scan to start at
             int scanIndex = -1;
@@ -106,7 +108,7 @@ namespace MassSpectrometry
                 }
             }
 
-            return GetXic(mz, scanIndex, ppmTolerance, missedScansAllowed, maxPeakHalfWidth);
+            return GetXic(mz, scanIndex, ppmTolerance, missedScansAllowed, maxPeakHalfWidth, charge);
         }
 
         /// <summary>
@@ -121,7 +123,7 @@ namespace MassSpectrometry
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double mz, int zeroBasedStartIndex, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue)
+        public List<IIndexedPeak> GetXic(double mz, int zeroBasedStartIndex, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
         {
             if (IndexedPeaks == null || ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
             List<IIndexedPeak> xic = new List<IIndexedPeak>();
@@ -131,7 +133,7 @@ namespace MassSpectrometry
 
             // For each bin, find + store a pointer to the current index
             int[] peakPointerArray = allBins.Select(b => BinarySearchForIndexedPeak(b, zeroBasedStartIndex)).ToArray();
-            var initialPeak = GetBestPeakFromBins(allBins, mz, zeroBasedStartIndex, peakPointerArray, ppmTolerance);
+            var initialPeak = GetBestPeakFromBins(allBins, mz, zeroBasedStartIndex, peakPointerArray, ppmTolerance, charge);
 
             if (initialPeak.IsNotDefaultOrNull())
                 xic.Add(initialPeak);
@@ -172,7 +174,7 @@ namespace MassSpectrometry
                     }
 
                     // Search for the next peak
-                    var nextPeak = GetBestPeakFromBins(allBins, mz, currentZeroBasedScanIndex, pointerArrayCopy, ppmTolerance);
+                    var nextPeak = GetBestPeakFromBins(allBins, mz, currentZeroBasedScanIndex, pointerArrayCopy, ppmTolerance, charge);
 
                     // Add the peak to the XIC or increment the missed peaks
                     if (nextPeak == null)
@@ -207,12 +209,12 @@ namespace MassSpectrometry
             return allBins;
         }
 
-        internal static T? GetBestPeakFromBins(List<List<T>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, PpmTolerance ppmTolerance)
+        internal static T? GetBestPeakFromBins(List<List<T>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, PpmTolerance ppmTolerance, int? charge = null)
         {
             T? bestPeak = default(T);
             for (int i = 0; i < allBins.Count; i++)
             {
-                var tempPeak = GetPeakFromBin(allBins[i], mz, zeroBasedScanIndex, peakIndicesInBins[i], ppmTolerance);
+                var tempPeak = GetPeakFromBin(allBins[i], mz, zeroBasedScanIndex, peakIndicesInBins[i], ppmTolerance, charge);
                 if (tempPeak.IsDefaultOrNull()) continue;
                 // Check if the peak is within the tolerance and if it is closer to the target M than the current peak
                 if (bestPeak.IsDefaultOrNull() || Math.Abs(tempPeak.M - mz) < Math.Abs(bestPeak.M - mz))
@@ -226,7 +228,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Returns the peak that is closest to the target mz
         /// </summary>
-        internal static T GetPeakFromBin(List<T> bin, double mz, int zeroBasedScanIndex, int peakIndexInBin, PpmTolerance ppmTolerance)
+        internal static T GetPeakFromBin(List<T> bin, double mz, int zeroBasedScanIndex, int peakIndexInBin, PpmTolerance ppmTolerance, int? charge = null)
         {
             T? bestPeak = default(T);
             if (peakIndexInBin < 0 || peakIndexInBin >= bin.Count) return bestPeak;
@@ -241,7 +243,8 @@ namespace MassSpectrometry
 
                 if (ppmTolerance.Within(peak.M, mz)
                     && peak.ZeroBasedScanIndex == zeroBasedScanIndex
-                    && (bestPeak.IsDefaultOrNull() || Math.Abs(peak.M - mz) < Math.Abs(bestPeak.M - mz)))
+                    && (bestPeak.IsDefaultOrNull() || Math.Abs(peak.M - mz) < Math.Abs(bestPeak.M - mz))
+                    && (charge == null || (peak is IndexedMass mass && mass.Charge == charge)))
                 {
                     bestPeak = peak;
                 }
