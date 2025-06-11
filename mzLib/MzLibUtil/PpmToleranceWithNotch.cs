@@ -9,7 +9,7 @@ namespace MzLibUtil
     public class PpmToleranceWithNotch : Tolerance
     {
         private readonly double[] AcceptableSortedMassShifts;
-        public const double NotchStep = 1.00335483810;
+        public const double NotchStep = 1.00335483810; //C13MinusC12 = 1.00335483810
         public PpmTolerance PpmTolerance { get; init; }
 
         public PpmToleranceWithNotch(double value, int protonNotches)
