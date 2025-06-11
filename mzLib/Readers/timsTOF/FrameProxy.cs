@@ -1,4 +1,5 @@
 ﻿using MassSpectrometry;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Readers
@@ -32,7 +33,10 @@ namespace Readers
             InitializeLookupTables(fileHandle);
         }   
 
-        internal FrameProxy GetFrameProxy(long frameId)
+        /// <summary>
+        /// This class is marked virtual for testing purposes only.
+        /// </summary>
+        internal virtual FrameProxy GetFrameProxy(long frameId)
         {
             return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
         }
@@ -97,9 +101,13 @@ namespace Readers
             }
         }
 
+        /// <summary>
+        /// Returns retention time in minutes for a given frame ID.
+        /// </summary>
+        /// <returns>Retention time in minutes</returns>
         internal double GetRetentionTime(long frameId)
         {
-            return (double)FramesTable.RetentionTime[frameId - 1];
+            return (double)FramesTable.RetentionTime[frameId - 1] / 60;
         }
 
         internal double GetInjectionTime(long frameId)
@@ -149,6 +157,24 @@ namespace Readers
 
             _rawData = GetScanRawData(fileHandle, frameId, (uint)numScans, fileLock);
             _scanOffsets = PartialSum(_rawData, 0, numScans);
+        }
+
+
+        /// <summary>
+        /// Sometimes, with corrupted data, the _scanOffsets array will specify a scan range that is 
+        /// greater than the legnth of the _rawData array or is negative. This method checks if the frame is valid
+        /// </summary>
+        /// <returns></returns>
+        internal bool IsFrameValid()
+        {
+            // All offsets should be non-negative and smaller than tge _rawData length
+            for (int i = 0; i < _scanOffsets.Length - 1; i++)
+            {
+                if (_scanOffsets[i] < 0 || _scanOffsets[i] > _rawData.Length)
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -255,7 +281,12 @@ namespace Readers
         private Range GetScanRange(int zeroIndexedScanNumber, int offset)
         {
             int start = NumberOfScans + 2*_scanOffsets[zeroIndexedScanNumber] + offset;
-            return new Range(start, start + (int)_rawData[zeroIndexedScanNumber]);
+            int end = Math.Min(_rawData.Length, start + (int)_rawData[zeroIndexedScanNumber]);
+            if (start >= _rawData.Length)
+            {
+                throw new ArgumentException("Scan data exceeds raw data array length. This indicates that the .tdf_bin file is corrupted");
+            }
+            return new Range(start, end);
         }
 
         /// <summary>

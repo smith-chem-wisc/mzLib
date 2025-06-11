@@ -11,6 +11,7 @@ using MathNet.Numerics.Interpolation;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using MassSpectrometry;
+using System.Windows.Media;
 
 namespace Test
 {
@@ -1089,7 +1090,7 @@ namespace Test
                     var detectionType_run1 = peptide.Split('\t')[10];
                     var detectionType_run2 = peptide.Split('\t')[11];
                     Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
-                    Assert.AreEqual(detectionType_run2, "MSMS");
+                    Assert.AreEqual(detectionType_run2, "IsoTrack_MSMS");
 
                     //The output sequence should be the same as the expected sequence
                     foreach (var seq in expectedSequence_Peak1)
@@ -1242,26 +1243,26 @@ namespace Test
                 {
                     if (peakOrder == 1)
                     {
-                        Assert.AreEqual(detectionType_run1, "MSMS");
+                        Assert.AreEqual(detectionType_run1, "IsoTrack_MSMS");
                         Assert.AreEqual(detectionType_run2, "IsoTrack_MBR");
                     }
                     if (peakOrder == 2)
                     {
                         Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
-                        Assert.AreEqual(detectionType_run2, "MSMS");
+                        Assert.AreEqual(detectionType_run2, "IsoTrack_MSMS");
                     }
                 }
                 if (baseSequence == "LLQFYAETCPAPER")
                 {
                     if (peakOrder == 1)
                     {
-                        Assert.AreEqual(detectionType_run1, "MSMS");
+                        Assert.AreEqual(detectionType_run1, "IsoTrack_MSMS");
                         Assert.AreEqual(detectionType_run2, "IsoTrack_MBR");
                     }
                     if (peakOrder == 2)
                     {
                         Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
-                        Assert.AreEqual(detectionType_run2, "MSMS");
+                        Assert.AreEqual(detectionType_run2, "IsoTrack_MSMS");
                     }
                 }
                 if (baseSequence == "DIVENYFMR")
@@ -1269,7 +1270,7 @@ namespace Test
                     if (peakOrder == 1)
                     {
                         Assert.AreEqual(detectionType_run1, "IsoTrack_MBR");
-                        Assert.AreEqual(detectionType_run2, "MSMS");
+                        Assert.AreEqual(detectionType_run2, "IsoTrack_MSMS");
                     }
                     if (peakOrder == 2)
                     {
@@ -1524,6 +1525,262 @@ namespace Test
             var results_2 = new_engine.Run();
             Assert.IsTrue(results_2.IsobaricPeptideDict.Count == 0);
             Directory.Delete(outputDirectory, true);
+        }
+
+        [Test]
+        public static void Test_mergeConflict()
+        {
+            //In this test, we want to ensure there is no conflict when peaks were merged in RunErrorCheck.
+
+            //There are two isobaric peptide, Iso_A and Iso_B (with similar mass)
+            //RunErrorCheck will merge the two peaks, and we hope there is no crush and the detectionType will be set as MSMSAmbiguousPeakfinding
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
+            Directory.CreateDirectory(outputDirectory);
+
+            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_IDMergeConflict.psmtsv");
+            string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
+            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 0, 0, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "one", 1, 0, 1);
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains(file1))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains(file2))
+                {
+                    file = f1r2;
+                }
+
+
+                var decoy = split[33];
+                var contaminant = split[32];
+                var qvalue = double.Parse(split[51]);
+                var qvalueNotch = double.Parse(split[54]);
+                string baseSequence = split[13];
+                string fullSequence = split[14];
+
+                if (baseSequence.Contains("|") || fullSequence.Contains("|"))
+                {
+                    continue;
+                }
+                if (decoy.Contains("Y") || contaminant.Contains("Y") || qvalue > 0.01 || qvalueNotch > 0.01)
+                {
+                    continue;
+                }
+
+                double monoMass = double.Parse(split[23].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[26].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+
+            }
+
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: true,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: true,
+                requireMultipleIdsInOneFiles: false,
+                normalize: false,
+                maxThreads: 1);
+            var results = engine.Run();
+
+            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
+
+            List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
+            List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
+            foreach (var peak in peaksList)
+            {
+                var fullSeq = peak.Split('\t')[2];
+                if (fullSeq == "PEPTIDEA|PEPTIDEB")
+                {
+                    Assert.AreEqual(peak.Split('\t')[16], "MSMSAmbiguousPeakfinding");
+                }
+            }
+
+            foreach (var pep in peptidesList)
+            {
+                var baseSeq = pep.Split('\t')[1];
+                var peakOrder = pep.Split('\t')[2];
+                var detectionType_File1 = pep.Split('\t')[10];
+                var detectionType_File2 = pep.Split('\t')[11];
+                if (baseSeq == "PEPTIDEA")
+                {
+                    if (peakOrder == "1")
+                    {
+                        Assert.AreEqual(detectionType_File1, "IsoTrack_MSMS");
+                        Assert.AreEqual(detectionType_File2, "IsoTrack_MBR");
+                    }
+
+                    if (peakOrder == "2")
+                    {
+                        Assert.AreEqual(detectionType_File1, "MSMSAmbiguousPeakfinding");
+                        Assert.AreEqual(detectionType_File2, "MSMSAmbiguousPeakfinding");
+                    }
+                }
+
+                if (baseSeq == "PEPTIDEB")
+                {
+                    Assert.AreEqual(peakOrder, "");
+                    Assert.AreEqual(detectionType_File1, "MSMSAmbiguousPeakfinding");
+                    Assert.AreEqual(detectionType_File2, "MSMSAmbiguousPeakfinding");
+                }
+            }
+
+        }
+
+        [Test]
+        public static void Test_mergeConflict_test2()
+        {
+            //In this test, we want to ensure there is no conflict when peaks were merged in RunErrorCheck.
+
+            //There are two isobaric peptide, Iso_A and Iso_B (with similar mass)
+            //RunErrorCheck will merge the two peaks, total four merge isoPeaks
+            //According to the definition of IsoTracker, the detectionType should be set as MSMSAmbiguousPeakfinding, and their intensity should be set as 0
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
+            Directory.CreateDirectory(outputDirectory);
+
+            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_IDMergeConflict_2.psmtsv");
+            string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
+            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 0, 0, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "one", 1, 0, 1);
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains(file1))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains(file2))
+                {
+                    file = f1r2;
+                }
+
+
+                var decoy = split[33];
+                var contaminant = split[32];
+                var qvalue = double.Parse(split[51]);
+                var qvalueNotch = double.Parse(split[54]);
+                string baseSequence = split[13];
+                string fullSequence = split[14];
+
+                if (baseSequence.Contains("|") || fullSequence.Contains("|"))
+                {
+                    continue;
+                }
+                if (decoy.Contains("Y") || contaminant.Contains("Y") || qvalue > 0.01 || qvalueNotch > 0.01)
+                {
+                    continue;
+                }
+
+                double monoMass = double.Parse(split[23].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[26].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+
+            }
+
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: true,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: true,
+                requireMultipleIdsInOneFiles: false,
+                normalize: false,
+                maxThreads: 1);
+            var results = engine.Run();
+
+            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
+
+            List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
+            List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
+            foreach (var peak in peaksList)
+            {
+                var fullSeq = peak.Split('\t')[2];
+                var retentionTime = peak.Split('\t')[6];
+                double.TryParse(peak.Split('\t')[9], out double intensity);
+                Assert.AreNotEqual(intensity, 0);
+                if (fullSeq == "PEPTIDEA_1|PEPTIDEB_1")
+                {
+                    if (retentionTime == "")
+                    {
+                        Assert.AreEqual(peak.Split('\t')[16], "MSMSAmbiguousPeakfinding");
+                    }
+                }
+            }
+            // In IsoTracker, each peak are label as MSMSAmbiguousPeakfinding by RunErrorCheck
+            foreach (var pep in peptidesList)
+            {
+                double.TryParse(pep.Split('\t')[6], out double intensity_File1);
+                double.TryParse(pep.Split('\t')[7], out double intensity_File2);
+                var detectionType_File1 = pep.Split('\t')[10];
+                var detectionType_File2 = pep.Split('\t')[11];
+                Assert.AreEqual(intensity_File1, 0);
+                Assert.AreEqual(intensity_File2, 0);
+                Assert.AreEqual(detectionType_File1, "MSMSAmbiguousPeakfinding");
+                Assert.AreEqual(detectionType_File2, "MSMSAmbiguousPeakfinding");
+            }
+
         }
     }
 
