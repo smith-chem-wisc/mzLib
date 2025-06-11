@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using MassSpectrometry;
 using NUnit.Framework;
 using Readers;
 using Readers.Puf;
@@ -8,6 +10,7 @@ using Readers.Puf;
 namespace Test.FileReadingTests;
 
 [TestFixture]
+[ExcludeFromCodeCoverage]
 public class PufDirectoryResultFileTests
 {
     private static readonly string TestDir = Path.Combine(
@@ -49,6 +52,29 @@ public class PufDirectoryResultFileTests
         Assert.That(allExperimentIds, Does.Contain(953));
         Assert.That(allExperimentIds, Does.Contain(955));
         Assert.That(allExperimentIds, Does.Contain(956));
+
+        // Should not crash
+        dirFile.InitiateDynamicConnection();
+        dirFile.CloseDynamicConnection();
+    }
+
+    [Test]
+    public void GetOneBasedScanNumber_MsDataFile()
+    {
+        Assert.That(Directory.Exists(TestDir), $"Test directory not found: {TestDir}");
+
+        var dirFile = MsDataFileReader.GetDataFile(TestDir) as PufMsDataFile;
+        dirFile!.LoadAllStaticData();
+
+        // Should find all three files
+        Assert.That(dirFile.PufFiles.Count, Is.EqualTo(3));
+
+        var scan = dirFile.GetOneBasedScan(953);
+        Assert.That(scan, Is.Not.Null);
+        Assert.That(scan.OneBasedScanNumber, Is.EqualTo(953));
+        Assert.That(scan.DissociationType, Is.EqualTo(DissociationType.HCD));
+        Assert.That(scan.MsnOrder, Is.EqualTo(2));
+
     }
 
     [Test]

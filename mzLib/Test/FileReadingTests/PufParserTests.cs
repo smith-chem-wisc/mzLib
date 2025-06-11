@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -7,6 +8,7 @@ using Readers.Puf;
 namespace Test.FileReadingTests;
 
 [TestFixture]
+[ExcludeFromCodeCoverage]
 public class PufParserTests
 {
     private const string TestFile = @"FileReadingTests\ExternalFileTypes\Puf\target955.puf";
