@@ -19,6 +19,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
     <PackageReference Include="TopDownProteomics" Version="0.0.297" />
+	<AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
   </ItemGroup>
 
   <ItemGroup>
@@ -296,6 +297,12 @@
     </None>
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf_bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\protein.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -622,6 +629,12 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="XICData\AllPSMs.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="XICData\AllPSMs_IDMergeConflict_2.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="XICData\AllPSMs_IDMergeConflict.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="XICData\AllPSMs_IsoID.psmtsv">

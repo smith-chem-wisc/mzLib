@@ -214,8 +214,6 @@ namespace Readers
 
         [Ignore] private List<(string, string, string)> _proteinGroupInfos;
 
-        
-
         [Ignore] public int ChargeState => Charge;
 
         // decoy reading isn't currently supported for MsFragger psms, this will be revisited later
