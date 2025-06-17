@@ -10,6 +10,7 @@ using Omics;
 using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
+using System.Data;
 
 namespace UsefulProteomicsDatabases
 {
@@ -101,6 +102,11 @@ namespace UsefulProteomicsDatabases
                 foreach (var nucleicAcid in nonVariantRna)
                 {
                     writer.WriteStartElement("entry");
+                    writer.WriteAttributeString("dataset", "dataset");
+                    writer.WriteAttributeString("created", "created");
+                    writer.WriteAttributeString("modified", "modified");
+                    writer.WriteAttributeString("version", "version");
+                    writer.WriteAttributeString("xmlns", "xmlns");
                     writer.WriteStartElement("accession");
                     writer.WriteString(nucleicAcid.Accession);
                     writer.WriteEndElement();
@@ -333,7 +339,11 @@ namespace UsefulProteomicsDatabases
 
                 foreach (Protein protein in nonVariantProteins)
                 {
-                    writer.WriteStartElement("entry");
+                    writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
+                    writer.WriteAttributeString("dataset", "dataset");
+                    writer.WriteAttributeString("created", "created");
+                    writer.WriteAttributeString("modified", "modified");
+                    writer.WriteAttributeString("version", "version");
                     writer.WriteStartElement("accession");
                     writer.WriteString(protein.Accession);
                     writer.WriteEndElement();
