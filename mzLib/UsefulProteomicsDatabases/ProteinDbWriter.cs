@@ -101,12 +101,11 @@ namespace UsefulProteomicsDatabases
 
                 foreach (var nucleicAcid in nonVariantRna)
                 {
-                    writer.WriteStartElement("entry");
+                    writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
                     writer.WriteAttributeString("dataset", "dataset");
                     writer.WriteAttributeString("created", "created");
                     writer.WriteAttributeString("modified", "modified");
                     writer.WriteAttributeString("version", "version");
-                    writer.WriteAttributeString("xmlns", "xmlns");
                     writer.WriteStartElement("accession");
                     writer.WriteString(nucleicAcid.Accession);
                     writer.WriteEndElement();
