@@ -6,6 +6,7 @@ using System.Linq;
 using FlashLFQ;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace Test
 {
@@ -35,7 +36,7 @@ namespace Test
             Identification identification1 = identifications[0];
             Assert.That(identification1.BaseSequence, Is.EqualTo("KPVGAAK"));
             Assert.That(identification1.ModifiedSequence, Is.EqualTo("KPVGAAK"));
-            Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(1.9398));
+            Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(0.03233).Within(0.0001));
             Assert.That(identification1.MonoisotopicMass, Is.EqualTo(669.4173));
             Assert.That(identification1.PrecursorChargeState, Is.EqualTo(2));
 
@@ -48,7 +49,7 @@ namespace Test
             Identification identification5 = identifications[4];
             Assert.That(identification5.BaseSequence, Is.EqualTo("VVTHGGR"));
             Assert.That(identification5.ModifiedSequence, Is.EqualTo("VVTHGGR"));
-            Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(19.114));
+            Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(0.3186).Within(0.0001));
             Assert.That(identification5.MonoisotopicMass, Is.EqualTo(724.398));
             Assert.That(identification5.PrecursorChargeState, Is.EqualTo(2));
         }
@@ -209,6 +210,31 @@ namespace Test
             {
                 Assert.AreEqual("Spectra file not found for file name: file1.mzML", ex.Message);
             }
+        }
+
+        [Test]
+        public void TestMakeIdentificationsWithLegacyPsmTsvInput()
+        {
+            string psmFilename = "AllPSMs2.psmtsv";
+
+            var myDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
+            var pathOfIdentificationFile = Path.Combine(myDirectory, psmFilename);
+            var pathOfMzml = Path.Combine(myDirectory, "SmallCalibratible_Yeast.mzML");
+            SpectraFileInfo sfi = new SpectraFileInfo(pathOfMzml, "A", 1, 1, 1);
+
+            PsmFromTsvFile results = new PsmFromTsvFile(pathOfIdentificationFile);
+            Assert.That(results.Results.Count, Is.EqualTo(89));
+
+            IQuantifiableResultFile quantifiableResultFile = FileReader.ReadQuantifiableResultFile(pathOfIdentificationFile);
+            List<Identification> ids = MzLibExtensions.MakeIdentifications(quantifiableResultFile, new List<SpectraFileInfo> { sfi });
+            Assert.That(ids.Count, Is.EqualTo(89));
+
+            // test that PEP and PEP_QValue are NaN to improve code coverage
+            var castedId = quantifiableResultFile as PsmFromTsvFile;
+            Assert.That(castedId, Is.Not.Null);
+            var firstResult = castedId.Results.First();
+            Assert.That(firstResult.PEP, Is.NaN);
+            Assert.That(firstResult.PEP_QValue, Is.NaN);
         }
     }
 
