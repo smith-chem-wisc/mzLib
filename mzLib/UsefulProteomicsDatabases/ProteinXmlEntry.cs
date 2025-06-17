@@ -8,6 +8,7 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
+using System.Data;
 
 namespace UsefulProteomicsDatabases
 {
@@ -15,6 +16,11 @@ namespace UsefulProteomicsDatabases
     {
         private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
 
+        public string Dataset { get; private set; }
+        public string Created { get; private set; }
+        public string Modified { get; private set; }
+        public string Version { get; private set; }
+        public string Xmlns { get; private set; }
         public string Accession { get; private set; }
         public string Name { get; private set; }
         public string FullName { get; private set; }
@@ -56,6 +62,9 @@ namespace UsefulProteomicsDatabases
             int outValue;
             switch (elementName)
             {
+                case "entry":
+                    ParseEntryAttributes(xml);
+                    break;
                 case "accession":
                     if (Accession == null)
                     {
@@ -149,6 +158,19 @@ namespace UsefulProteomicsDatabases
                     Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
                     break;
             }
+        }
+
+        /// <summary>
+        /// Parses the attributes of the current <entry> element from the provided XmlReader.
+        /// Extracts and stores the values for dataset, created, modified, version, and xmlns attributes.
+        /// </summary>
+        public void ParseEntryAttributes(XmlReader xml)
+        {
+            Dataset = xml.GetAttribute("dataset");
+            Created = xml.GetAttribute("created");
+            Modified = xml.GetAttribute("modified");
+            Version = xml.GetAttribute("version");
+            Xmlns = xml.GetAttribute("xmlns");
         }
 
         /// <summary>
@@ -432,6 +454,11 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         private void Clear()
         {
+            Dataset = null;
+            Created = null;
+            Modified = null;
+            Version = null;
+            Xmlns = null;
             Accession = null;
             Name = null;
             FullName = null;
