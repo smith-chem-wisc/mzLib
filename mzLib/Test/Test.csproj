@@ -511,6 +511,9 @@
     <None Update="FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\SearchResults\OneOverK0Example.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\SearchResults\XLink.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
