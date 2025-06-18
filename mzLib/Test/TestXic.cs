@@ -9,11 +9,6 @@ using FlashLFQ;
 using MzLibUtil;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MassSpectrometry;
-using Test.FileReadingTests;
-using MathNet.Numerics.Interpolation;
-using Proteomics.AminoAcidPolymer;
-using FlashLFQ.IsoTracker;
-using Omics.Fragmentation;
 
 namespace Test
 {
@@ -76,18 +71,36 @@ namespace Test
             var xic = new ExtractedIonChromatogram(PeakList);
 
             //Test XIC spline
+            //in retention time
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
-            cubicSpline.SetXicSplineXYData(xic, xic.StartRT, xic.EndRT);
+            cubicSpline.SetXicSplineXYData(xic);
             Assert.That(xic.XYData.Length, Is.EqualTo(19));
-            linearSpline.SetXicSplineXYData(xic, xic.StartRT, xic.EndRT);
+            linearSpline.SetXicSplineXYData(xic);
             Assert.That(xic.XYData.Length, Is.EqualTo(19));
+            //in scan cycle
+            cubicSpline.SetXicSplineXYData(xic, cycle: true);
+            Assert.That(xic.XYData.Length, Is.EqualTo(181));
 
-            //Test spline exception handling
+            //Test adding peaks
+            var cubicSpline2 = new XicCubicSpline(0.05, 1, 0.1);
+            cubicSpline2.SetXicSplineXYData(xic);
+            Assert.That(xic.XYData.Min(xy => xy.Item1), Is.EqualTo(0.9).Within(0.0000001));
+            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(2).Within(0.0000001));
+        }
+
+        [Test]
+        public static void TestExceptionHandling()
+        {
+            var cubicSpline = new XicCubicSpline(0.05);
+            var linearSpline = new XicLinearSpline(0.05);
             var rtArray = new double[] { 1.0, 1.1, 1.2 };
             var intensityArray = new double[] { 100, 200, 300 };
-            var ex = Assert.Throws<MzLibException>(() => cubicSpline.GetSplineXYData(rtArray, intensityArray, 1.0, 1.2));
+            var ex = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray, 1.0, 1.2));
             Assert.That(ex.Message, Is.EqualTo("Input arrays must contain at least 5 points."));
+            var intensityArray2 = new double[] { 100, 200, 300, 400, 500 };
+            var ex2 = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray2, 1.0, 1.2));
+            Assert.That(ex2.Message, Is.EqualTo("Input arrays must have the same length."));
         }
     }
 }

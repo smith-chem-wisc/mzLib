@@ -1,4 +1,5 @@
 ﻿using MathNet.Numerics.Interpolation;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,9 +10,11 @@ namespace MassSpectrometry
 {
     public abstract class XicSpline
     {
-        public double SplineRtInterval { get; set; } //in minutes
+        public double SplineRtInterval { get; set; } //can be in RT or scan cycle
+        public int NumberOfPeaksToAdd { get; set; } //number of peaks to add on each side of the chromatogram
+        public double Gap { get; set; } // gap between added peaks
 
-        public abstract (double, double)[] GetSplineXYData(double[] rtArray, double[] intensityArray, double startRT, double endRT);
+        public abstract (double, double)[] GetXicSplineData(double[] rtArray, double[] intensityArray, double start = -1, double end = -1);
 
         protected (double, double)[] CalculateSpline(double startRT, double endRT, double splineRtInterval, IInterpolation spline)
         {
@@ -26,11 +29,61 @@ namespace MassSpectrometry
             return xyData;
         }
 
-        public void SetXicSplineXYData(ExtractedIonChromatogram xic, double start, double end)
+        public void SetXicSplineXYData(ExtractedIonChromatogram xic, bool cycle = false, double start = -1, double end = -1)
         {
-            var peakRts = xic.Peaks.Select(p => p.RetentionTime).ToArray();
+            double[] peakRts = null;
+            if (cycle)
+            {
+                peakRts = xic.Peaks.Select(p => (double)p.ZeroBasedScanIndex).ToArray();
+            }
+            else
+            {
+                peakRts = xic.Peaks.Select(p => p.RetentionTime).ToArray();
+            }
             var peakIntensities = xic.Peaks.Select(p => p.Intensity).ToArray();
-            xic.XYData = GetSplineXYData(peakRts, peakIntensities, start, end);
+            xic.XYData = GetXicSplineData(peakRts, peakIntensities, start, end);
+        }
+
+        protected void CheckArrays(double[] rtArray, double[] intensityArray)
+        {
+            if (rtArray.Length != intensityArray.Length)
+            {
+                throw new MzLibException("Input arrays must have the same length.");
+            }
+            if (rtArray.Length < 5)
+            {
+                throw new MzLibException("Input arrays must contain at least 5 points.");
+            }
+        }
+
+        protected void AddPeaks(double[] rtArray, double[] intensityArray, out double[] newRtArray, out double[] newIntensityArray)
+        {
+            if (NumberOfPeaksToAdd == 0)
+            {
+                newRtArray = rtArray;
+                newIntensityArray = intensityArray;
+                return;
+            }
+            newRtArray = new double[rtArray.Length + NumberOfPeaksToAdd * 2];
+            newIntensityArray = new double[intensityArray.Length + NumberOfPeaksToAdd * 2];
+            for (int i = 0; i < newRtArray.Length; i++)
+            {
+                if (i < NumberOfPeaksToAdd)
+                {
+                    newRtArray[i] = rtArray[0] - (NumberOfPeaksToAdd - i) * Gap;
+                    newIntensityArray[i] = 0;
+                }
+                else if (i >= rtArray.Length + NumberOfPeaksToAdd - 1)
+                {
+                    newRtArray[i] = newRtArray[i - 1] + Gap;
+                    newIntensityArray[i] = 0;
+                }
+                else
+                {
+                    newRtArray[i] = rtArray[i - NumberOfPeaksToAdd];
+                    newIntensityArray[i] = intensityArray[i - NumberOfPeaksToAdd];
+                }
+            }
         }
     }
 }
