@@ -44,5 +44,6 @@ namespace MassSpectrometry
             double sumIntensity = Peaks.Sum(p => p.Intensity);
             NormalizedPeakIntensities = Peaks.Select(p => p.Intensity / sumIntensity * 100).ToArray();
         }
+
     }
 }

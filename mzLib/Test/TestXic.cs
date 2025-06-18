@@ -13,6 +13,7 @@ using Test.FileReadingTests;
 using MathNet.Numerics.Interpolation;
 using Proteomics.AminoAcidPolymer;
 using FlashLFQ.IsoTracker;
+using Omics.Fragmentation;
 
 namespace Test
 {
