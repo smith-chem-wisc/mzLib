@@ -18,7 +18,8 @@ namespace Test.FileReadingTests
     public class TestTimsTofFileReader
     {
 
-        public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
+        //public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
+        public string _testDataPath = @"\\bison.chem.wisc.edu\share\Users\AlexanderS_Bison\timsTOF reader\MetaDrawTest\Bulk_Elastase_100ng_DDAPASEF_Slot1-47_1_11945.d";
         public TimsTofFileReader _testReader;
         public TimsDataScan _testMs2Scan;
         public TimsDataScan _testMs1Scan;
