@@ -34,7 +34,7 @@ namespace FlashLFQ.Interfaces
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double mz, double retentionTime, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = int.MaxValue);
+        public List<IIndexedPeak> GetXic(double mz, double retentionTime, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = int.MaxValue, int? charge = null);
         /// <summary>
         /// Clear the indexed peaks and the jagged array of indexed peaks to free up memory
         /// </summary>
