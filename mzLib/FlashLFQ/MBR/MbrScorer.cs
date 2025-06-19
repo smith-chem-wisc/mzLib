@@ -1,12 +1,13 @@
 ﻿using Easy.Common.EasyComparer;
+using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Entity.ModelConfiguration.Conventions;
 using System.Linq;
-using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -17,10 +18,11 @@ namespace FlashLFQ
     internal class MbrScorer
     {
         // Intensity and ppm distributions are specific to each acceptor file
-        private readonly Normal _logIntensityDistribution;
-        private readonly Normal _ppmDistribution;
-        private readonly Normal _scanCountDistribution;
-        private readonly Gamma _isotopicCorrelationDistribution;
+        private Normal _logIntensityDistribution;
+        private Normal _ppmDistribution;
+        private Normal _scanCountDistribution;
+        private  Gamma _isotopicCorrelationDistribution;
+
         // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
         private Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
         private Dictionary<SpectraFileInfo, Normal> _rtPredictionErrorDistributionDictionary;
@@ -35,23 +37,69 @@ namespace FlashLFQ
         /// </summary>
         internal MbrScorer(
             Dictionary<IIndexedPeak, ChromatographicPeak> apexToAcceptorFilePeakDict,
-            List<ChromatographicPeak> acceptorFileMsmsPeaks,
-            Normal ppmDistribution, 
-            Normal logIntensityDistribution)
+            List<ChromatographicPeak> unambiguousAcceptorFilePeaks)
         {
             ApexToAcceptorFilePeakDict = apexToAcceptorFilePeakDict;
-            UnambiguousMsMsAcceptorPeaks = acceptorFileMsmsPeaks.Where(p => p.Apex != null && p.DetectionType != DetectionType.MBR && p.NumIdentificationsByFullSeq == 1).ToList();
-            MaxNumberOfScansObserved = acceptorFileMsmsPeaks.Max(peak => peak.ScanCount);
-            _logIntensityDistribution = logIntensityDistribution;
-            _ppmDistribution = ppmDistribution;
-            _isotopicCorrelationDistribution = GetIsotopicEnvelopeCorrDistribution();
+            UnambiguousMsMsAcceptorPeaks = unambiguousAcceptorFilePeaks;
+            MaxNumberOfScansObserved = unambiguousAcceptorFilePeaks.Max(peak => peak.ScanCount);
+
+            // Initialize the dictionaries that will hold the log fold change and RT prediction error distributions
+            // for each donor file
             _logFcDistributionDictionary = new();
             _rtPredictionErrorDistributionDictionary = new();
+        }
 
-            // This is kludgey, because scan counts are discrete
+        /// <summary>
+        /// Constructs the distributions that are used to score MBR matches
+        /// </summary>
+        /// <returns>Returns true if the scorer was initialized successfully, false otherwise</returns>
+        internal bool InitializeScorer()
+        {
+            if (UnambiguousMsMsAcceptorPeaks.Count < 3)
+                return false;
+
+            // Populate distributions for scoring MBR matches
+            _logIntensityDistribution = GetLogIntensityDistribution();
+            _ppmDistribution = GetPpmErrorDistribution();
+            _isotopicCorrelationDistribution = GetIsotopicEnvelopeCorrDistribution();
+            _scanCountDistribution = GetScanCountDistribution();
+
+            return IsValid();
+        }
+
+        private Normal GetPpmErrorDistribution()
+        {
+            // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
+            List<double> ppmErrors = UnambiguousMsMsAcceptorPeaks.Select(p => p.MassError).Where(e => !double.IsNaN(e)).ToList();
+            if (ppmErrors.Count < 2)
+                return null;
+            double ppmSpread = ppmErrors.Count > 30 ? ppmErrors.InterquartileRange() / 1.36 : ppmErrors.StandardDeviation();
+            Normal ppmDistribution = new Normal(ppmErrors.Median(), ppmSpread);
+            return ppmDistribution;
+        }
+
+        private Normal GetLogIntensityDistribution()
+        {
+            var logIntensities = UnambiguousMsMsAcceptorPeaks
+                .Where(p => p.Intensity > 0)
+                .Select(p => Math.Log(p.Intensity, 2))
+                .ToList();
+
+            if (logIntensities.Count < 2)
+                return null;
+            
+            double mean = logIntensities.Median();
+            double stdDev = logIntensities.InterquartileRange() / 1.36;
+            return new Normal(mean, stdDev);
+        }
+
+        // This is kludgey, because scan counts are discrete
+        private Normal GetScanCountDistribution()
+        {
             List<double> scanList = UnambiguousMsMsAcceptorPeaks.Select(peak => (double)peak.ScanCount).ToList();
+
             // build a normal distribution for the scan list of the acceptor peaks
-            _scanCountDistribution = new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
+            return new Normal(scanList.Average(), scanList.Count > 30 ? scanList.StandardDeviation() : scanList.InterquartileRange() / 1.36);
         }
 
         /// <summary>
@@ -61,11 +109,13 @@ namespace FlashLFQ
         private Gamma GetIsotopicEnvelopeCorrDistribution()
         {
             var pearsonCorrs = UnambiguousMsMsAcceptorPeaks.Select(p => 1 - p.IsotopicPearsonCorrelation).Where(p => p > 0).ToList();
-            if (pearsonCorrs.Count <= 1) return null;
+            if (pearsonCorrs.Count < 2) return null;
             double mean = pearsonCorrs.Mean();
             double variance = pearsonCorrs.Variance();
             var alpha = Math.Pow(mean, 2) / variance;
             var beta = mean / variance;
+            if (!Gamma.IsValidParameterSet(alpha, beta))
+                return null;
             return new Gamma(alpha, beta);
         }
 
@@ -98,20 +148,17 @@ namespace FlashLFQ
                 rtPredictionErrors.Add(avgDiff - anchorPeptideRtDiffs[i]);
             }
 
-            Normal rtPredictionErrorDist = new Normal(0, 0); 
             // Default distribution. Effectively assigns a RT Score of zero if no alignment can be performed
             // between the donor and acceptor based on shared MS/MS IDs
-
-            if(rtPredictionErrors.Any())
+            Normal rtPredictionErrorDist = new Normal(0, 0);
+            if (rtPredictionErrors.Count >= 2)
             {
                 double medianRtError = rtPredictionErrors.Median();
                 double stdDevRtError = rtPredictionErrors.StandardDeviation();
-                if(stdDevRtError >= 0.0 && !double.IsNaN(medianRtError))
-                {
+                if (Normal.IsValidParameterSet(medianRtError, stdDevRtError))
                     rtPredictionErrorDist = new Normal(medianRtError, 1);
-                }
             }
-            
+
             _rtPredictionErrorDistributionDictionary.Add(donorFile, rtPredictionErrorDist);
         }
 
@@ -137,6 +184,14 @@ namespace FlashLFQ
                 * acceptorPeak.PpmScore 
                 * acceptorPeak.ScanCountScore
                 * acceptorPeak.IsotopicDistributionScore, 0.20);
+        }
+
+        /// <summary>
+        /// Returns the standard deviation of the Ppm error distribution + the median of the Ppm error distribution
+        /// </summary>
+        internal double GetPpmErrorTolerance()
+        {
+            return _ppmDistribution.StdDev * 4 + Math.Abs(_ppmDistribution.Median);
         }
 
         // Setting a minimum score prevents the MBR score from going to zero if one component of that score is 0
@@ -189,10 +244,6 @@ namespace FlashLFQ
         /// <param name="idDonorPeaks"> List of peaks in the donoro file. </param>
         internal void CalculateFoldChangeBetweenFiles(List<ChromatographicPeak> idDonorPeaks)
         {
-
-            var donorFileLogIntensities = idDonorPeaks.Where(p => p.Intensity > 0).Select(p => Math.Log(p.Intensity, 2)).ToList();
-            double medianDonorLogIntensity = donorFileLogIntensities.Median();
-
             // Find the difference in peptide intensities between donor and acceptor files
             // this intensity score creates a conservative bias in MBR
             List<double> listOfFoldChangesBetweenTheFiles = new List<double>();
@@ -244,7 +295,19 @@ namespace FlashLFQ
         {
             return _rtPredictionErrorDistributionDictionary.TryGetValue(donorFile, out var rtDist)
                 && rtDist != null
-                && _ppmDistribution != null
+                && IsValid();
+        }
+
+        /// <summary>
+        /// This method checks whether the scorer is validly parameterized and capable of scoring MBR transfers
+        /// Notably, it is indifferent to the isotopic correlation distribution being null, as a null isotopic distribution correlation
+        /// results in all MBR transfers receiving the minimum score for the isotopic distribution component.
+        /// This could be changed in the future, but currently multiple tests results in null isotopic distributions, and will break if they can't do MBR
+        /// </summary>
+        /// <returns></returns>
+        internal bool IsValid()
+        {
+            return _ppmDistribution != null
                 && _scanCountDistribution != null
                 && _logIntensityDistribution != null;
         }
