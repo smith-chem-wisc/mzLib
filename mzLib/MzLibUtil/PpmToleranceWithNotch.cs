@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace MzLibUtil
 {
+    /// <summary>
+    /// PpmToleranceWithNotch is only used for neutral mass, considering possible deconvolution errors
+    /// </summary>
     public class PpmToleranceWithNotch : Tolerance
     {
         private readonly double[] AcceptableSortedMassShifts;
