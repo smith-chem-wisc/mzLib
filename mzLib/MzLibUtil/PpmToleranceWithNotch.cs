@@ -12,28 +12,19 @@ namespace MzLibUtil
         public const double NotchStep = 1.00335483810; //C13MinusC12 = 1.00335483810
         public PpmTolerance PpmTolerance { get; init; }
 
-        public PpmToleranceWithNotch(double value, int protonNotches)
+        public PpmToleranceWithNotch(double value, int positiveNotch, int negativeNotch)
             : base(value)
         {
             var massShifts = new List<double> { 0 };
-            for (int i = 1; i <= protonNotches; i++)
+            for (int i = 1; i <= positiveNotch; i++)
             {
                 massShifts.Add(NotchStep * i);
+            }
+            for (int i = 1; i <= negativeNotch; i++)
+            {
                 massShifts.Add(-NotchStep * i);
             }
             AcceptableSortedMassShifts = massShifts.OrderBy(Math.Abs).ThenBy(p => p).ToArray();
-            PpmTolerance = new PpmTolerance(value);
-        }
-
-        public PpmToleranceWithNotch(double value, List<int> massShifts)
-            : base(value)
-        {
-            var shifts = new List<double> { 0 };
-            foreach (int shift in massShifts)
-            {
-                shifts.Add(NotchStep * shift);
-            }
-            AcceptableSortedMassShifts = shifts.OrderBy(Math.Abs).ThenBy(p => p).Distinct().ToArray();
             PpmTolerance = new PpmTolerance(value);
         }
 

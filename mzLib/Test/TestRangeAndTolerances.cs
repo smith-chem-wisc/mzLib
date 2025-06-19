@@ -370,7 +370,7 @@ namespace Test
         [Test]
         public void PpmToleranceWithNotch()
         {
-            var tol = new PpmToleranceWithNotch(10, 2);
+            var tol = new PpmToleranceWithNotch(10, 2, 2);
             Assert.AreEqual(tol.GetMaximumValue(100), (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
             Assert.AreEqual(tol.GetMinimumValue(100), (100 - 2 * 1.00335483810) * (1 - (10 / 1e6)));
             Assert.AreEqual(tol.GetRange(100).Maximum, (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
@@ -384,10 +384,6 @@ namespace Test
             Assert.IsTrue(tol.Within(100, 100.001));
             //between notches
             Assert.IsFalse(tol.Within(100, 100.5));
-
-            //test second constructor
-            var tol2 = new PpmToleranceWithNotch(10, new List<int> { 1, 2});
-            Assert.IsFalse(tol2.Within(98.997, 100));
         }
     }
 }
