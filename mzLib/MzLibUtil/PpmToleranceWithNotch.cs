@@ -27,7 +27,7 @@ namespace MzLibUtil
             {
                 massShifts.Add(-NotchStep * i);
             }
-            AcceptableSortedMassShifts = massShifts.OrderBy(Math.Abs).ThenBy(p => p).ToArray();
+            AcceptableSortedMassShifts = massShifts.OrderBy(p => p).ToArray();
             PpmTolerance = new PpmTolerance(value);
         }
 
@@ -38,7 +38,7 @@ namespace MzLibUtil
 
         public override double GetMinimumValue(double mean)
         {
-            return (PpmTolerance.GetMinimumValue(AcceptableSortedMassShifts[AcceptableSortedMassShifts.Length - 2] + mean));
+            return (PpmTolerance.GetMinimumValue(AcceptableSortedMassShifts[0] + mean));
         }
 
         public override DoubleRange GetRange(double mean)
@@ -48,7 +48,7 @@ namespace MzLibUtil
 
         public override bool Within(double experimental, double theoretical)
         {
-            for (int i = 0; i < AcceptableSortedMassShifts.Length - 1; i++)
+            for (int i = 0; i < AcceptableSortedMassShifts.Length; i++)
             {
                 if (PpmTolerance.Within(experimental, theoretical + AcceptableSortedMassShifts[i]))
                 {

@@ -370,20 +370,22 @@ namespace Test
         [Test]
         public void PpmToleranceWithNotch()
         {
-            var tol = new PpmToleranceWithNotch(10, 2, 2);
+            var tol = new PpmToleranceWithNotch(10, 2, 1);
             Assert.AreEqual(tol.GetMaximumValue(100), (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
-            Assert.AreEqual(tol.GetMinimumValue(100), (100 - 2 * 1.00335483810) * (1 - (10 / 1e6)));
+            Assert.AreEqual(tol.GetMinimumValue(100), (100 - 1 * 1.00335483810) * (1 - (10 / 1e6)));
             Assert.AreEqual(tol.GetRange(100).Maximum, (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
-            Assert.AreEqual(tol.GetRange(100).Minimum, (100 - 2 * 1.00335483810) * (1 - (10 / 1e6)));
+            Assert.AreEqual(tol.GetRange(100).Minimum, (100 - 1 * 1.00335483810) * (1 - (10 / 1e6)));
 
-            //notch +1
-            Assert.IsTrue(tol.Within(100, 101.003));
+            //notch +2
+            Assert.IsTrue(tol.Within(102.0067, 100));
             //notch -1
-            Assert.IsTrue(tol.Within(100, 98.997));
+            Assert.IsTrue(tol.Within(98.997, 100));
             //notch 0
-            Assert.IsTrue(tol.Within(100, 100.001));
+            Assert.IsTrue(tol.Within(100.0009, 100));
             //between notches
-            Assert.IsFalse(tol.Within(100, 100.5));
+            Assert.IsFalse(tol.Within(100.5, 100));
+            //notch -2
+            Assert.IsFalse(tol.Within(97.993, 100));
         }
     }
 }
