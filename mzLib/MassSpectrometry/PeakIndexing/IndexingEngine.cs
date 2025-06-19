@@ -35,7 +35,7 @@ namespace MassSpectrometry
 
             for (int scanIndex = 0; scanIndex < scanArray.Length; scanIndex++)
             {
-                ScanInfoArray[scanIndex] = new ScanInfo(scanArray[scanIndex].OneBasedScanNumber, scanIndex, scanArray[scanIndex].RetentionTime);
+                ScanInfoArray[scanIndex] = new ScanInfo(scanArray[scanIndex].OneBasedScanNumber, scanIndex, scanArray[scanIndex].RetentionTime, scanArray[scanIndex].MsnOrder);
 
                 for (int j = 0; j < scanArray[scanIndex].MassSpectrum.XArray.Length; j++)
                 {

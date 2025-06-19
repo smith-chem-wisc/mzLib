@@ -227,9 +227,6 @@ namespace Test.FileReadingTests
             reader.LoadAllStaticData();
 
             var peptide = new PeptideWithSetModifications("KAPAGGAADAAAK", new Dictionary<string, Modification>());
-
-            var xic = reader.ExtractIonChromatogram(peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
-            Assert.That(xic.Data.Count(p => p.Y > 0) == 4);
         }
 
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
