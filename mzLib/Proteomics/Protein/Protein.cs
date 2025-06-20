@@ -17,13 +17,6 @@ namespace Proteomics
     public class Protein : IBioPolymer, IEquatable<Protein>, IComparable<Protein>
     {
         private List<TruncationProduct> _proteolysisProducts;
-        private string sequence;
-        private Dictionary<int, List<Modification>> oneBasedModifications;
-        private List<TruncationProduct> proteolysisProducts;
-        private bool v;
-        private object value1;
-        private object value2;
-        private string proteinDbLocation;
 
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
