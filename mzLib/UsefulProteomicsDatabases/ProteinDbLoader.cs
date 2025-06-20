@@ -358,6 +358,11 @@ namespace UsefulProteomicsDatabases
 
             foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
             {
+                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
+                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
+                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
+                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
+                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
                 HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
                 HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
                 HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
@@ -386,6 +391,7 @@ namespace UsefulProteomicsDatabases
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
                 yield return new Protein(
+
                     proteins.Key.Item2,
                     proteins.Key.Item1,
                     isContaminant: proteins.Key.Item3,
@@ -398,7 +404,12 @@ namespace UsefulProteomicsDatabases
                     databaseReferences: references.ToList(),
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList(),
-                    spliceSites: splices.ToList()
+                    spliceSites: splices.ToList(),
+                    dataset: datasets.FirstOrDefault(),
+                    created: createds.FirstOrDefault(),
+                    modified: modifieds.FirstOrDefault(),
+                    version: versions.FirstOrDefault(),
+                    xmlns: xmlnses.FirstOrDefault()
                     );
             }
         }

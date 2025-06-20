@@ -9,6 +9,8 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using MzLibUtil;
 using Omics.BioPolymer;
+using System.Data;
+
 
 namespace Proteomics
 {
@@ -38,7 +40,8 @@ namespace Proteomics
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<TruncationProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
-            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false)
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false, 
+            string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot")
         {
             // Mandatory
             BaseSequence = sequence;
@@ -74,6 +77,11 @@ namespace Proteomics
             {
                 this.AddTruncations();
             }
+            DatasetEntryTag = dataset;
+            CreatedEntryTag = created;
+            ModifiedEntryTag = modified;
+            VersionEntryTag = version;
+            XmlnsEntryTag = xmlns;
         }
 
         /// <summary>
@@ -105,6 +113,11 @@ namespace Proteomics
             DisulfideBonds = originalProtein.DisulfideBonds;
             SpliceSites = originalProtein.SpliceSites;
             DatabaseFilePath = originalProtein.DatabaseFilePath;
+            DatasetEntryTag = originalProtein.DatasetEntryTag;
+            CreatedEntryTag = originalProtein.CreatedEntryTag;
+            ModifiedEntryTag = originalProtein.ModifiedEntryTag;
+            VersionEntryTag = originalProtein.VersionEntryTag;
+            XmlnsEntryTag = originalProtein.XmlnsEntryTag;
         }
 
         /// <summary>
@@ -118,7 +131,8 @@ namespace Proteomics
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
             IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
-            : this(variantBaseSequence,
+            : this(
+                  variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
@@ -132,7 +146,12 @@ namespace Proteomics
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
-                  databaseFilePath: protein.DatabaseFilePath)
+                  databaseFilePath: protein.DatabaseFilePath,
+                  dataset: protein.DatasetEntryTag,
+                  created: protein.CreatedEntryTag,
+                  modified: protein.ModifiedEntryTag,
+                  version: protein.VersionEntryTag,
+                  xmlns: protein.XmlnsEntryTag)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -198,6 +217,11 @@ namespace Proteomics
         public List<DatabaseReference> DatabaseReferences { get; }
 
         public string DatabaseFilePath { get; }
+        public string DatasetEntryTag { get; private set; }
+        public string CreatedEntryTag { get; private set; }
+        public string ModifiedEntryTag { get; private set; }
+        public string VersionEntryTag { get; private set; }
+        public string XmlnsEntryTag { get; private set; }
 
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.

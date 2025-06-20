@@ -12,6 +12,7 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using System.DirectoryServices.ActiveDirectory;
 
 namespace Test.DatabaseTests
 {
@@ -87,6 +88,50 @@ namespace Test.DatabaseTests
             Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
         }
+
+
+        [Test]
+        public void Test_readUniProtXML_writeProteinXmlCheckEntry()
+        {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
+            var nice = new List<Modification>
+            {
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null)
+            };
+
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, uniprotPtms.Concat(nice), false, null,
+                out Dictionary<string, Modification> un);
+            Protein zero = ok[0];
+            Protein one = ok[1];
+            Dictionary<int, List<Modification>> zero_mods = zero.OneBasedPossibleLocalizedModifications as Dictionary<int, List<Modification>>;
+            Dictionary<int, List<Modification>> one_mods = one.OneBasedPossibleLocalizedModifications as Dictionary<int, List<Modification>>;
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outputPath);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None, nice, false,
+                new List<string>(), out un);
+
+            foreach (var line in File.ReadLines(outputPath))
+            {
+                if (line.Contains("<entry"))
+                {
+                    // Checks if the line contains the exact entry text
+                    Assert.IsTrue(line.Contains("<entry dataset=\"dataset\" created=\"created\" modified=\"modified\" version=\"version\" xmlns=\"http://uniprot.org/uniprot\">"));
+
+                }
+            }
+
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+
 
         [Test]
         public void Test_read_Ensembl_pepAllFasta()
