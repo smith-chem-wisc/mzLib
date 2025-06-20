@@ -187,11 +187,6 @@ namespace UsefulProteomicsDatabases
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 2; //for isoforms. the first will be "accession", the next will be "accession_2"
-            string dataset = "unknown"; //this is not used in fasta files, but is required by the Protein constructor
-            string created = "unknown"; //this is not used in fasta files, but is required by the Protein constructor
-            string modified = "unknown"; //this is not used in fasta files, but is required by the Protein constructor
-            string version = "unknown"; //this is not used in fasta files, but is required by the Protein constructor
-            string xmlns = "http://www.uniprot.org/uniprot"; //this is not used in fasta files, but is required by the Protein constructor
             string accession = null;
             string name = null;
             string fullName = null;
@@ -304,8 +299,7 @@ namespace UsefulProteomicsDatabases
                         }
                         unique_accessions.Add(accession);
                         Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
-                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation, addTruncations: addTruncations,
-                            dataset: "", created: "", modified: "", version: "", xmlns: "http://uniprot.org/uniprot");
+                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
                         if (protein.Length == 0)
                         {
                             errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);

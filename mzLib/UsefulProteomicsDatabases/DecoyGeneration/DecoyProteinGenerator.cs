@@ -170,12 +170,11 @@ namespace UsefulProteomicsDatabases
                     decoyDisulfides,
                     spliceSites,
                     protein.DatabaseFilePath,
-                    protein.TruncationProducts.Any(),
-                    protein.DatasetEntryTag,
-                    protein.CreatedEntryTag,
-                    protein.ModifiedEntryTag,
-                    protein.VersionEntryTag,
-                    protein.XmlnsEntryTag);
+                    dataset: protein.DatasetEntryTag,
+                    created: protein.CreatedEntryTag,
+                    modified: protein.ModifiedEntryTag,
+                    version: protein.VersionEntryTag,
+                    xmlns: protein.XmlnsEntryTag);
 
                 lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
             });
