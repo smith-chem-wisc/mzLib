@@ -187,6 +187,11 @@ namespace UsefulProteomicsDatabases
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 2; //for isoforms. the first will be "accession", the next will be "accession_2"
+            string dataset = "unknown"; //this is not used in fasta files, but is required by the Protein constructor
+            string created = "unknown"; //this is not used in fasta files, but is required by the Protein constructor
+            string modified = "unknown"; //this is not used in fasta files, but is required by the Protein constructor
+            string version = "unknown"; //this is not used in fasta files, but is required by the Protein constructor
+            string xmlns = "http://www.uniprot.org/uniprot"; //this is not used in fasta files, but is required by the Protein constructor
             string accession = null;
             string name = null;
             string fullName = null;
@@ -298,7 +303,7 @@ namespace UsefulProteomicsDatabases
                             unique_identifier = 2; //reset
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
+                        Protein protein = new Protein(dataset, created, modified, version, xmlns, sequence, accession, organism, geneName, name: name, fullName: fullName,
                             isContaminant: isContaminant, databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
                         if (protein.Length == 0)
                         {
@@ -358,6 +363,11 @@ namespace UsefulProteomicsDatabases
 
             foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
             {
+                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
+                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
+                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
+                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
+                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
                 HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
                 HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
                 HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
@@ -386,6 +396,11 @@ namespace UsefulProteomicsDatabases
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
                 yield return new Protein(
+                    dataset: datasets.FirstOrDefault(),
+                    created: createds.FirstOrDefault(),
+                    modified: modifieds.FirstOrDefault(),
+                    version: versions.FirstOrDefault(),
+                    xmlns: xmlnses.FirstOrDefault(),
                     proteins.Key.Item2,
                     proteins.Key.Item1,
                     isContaminant: proteins.Key.Item3,

@@ -16,11 +16,11 @@ namespace UsefulProteomicsDatabases
     {
         private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
 
-        public string Dataset { get; private set; }
-        public string Created { get; private set; }
-        public string Modified { get; private set; }
-        public string Version { get; private set; }
-        public string Xmlns { get; private set; }
+        public string DatasetEntryTag { get; private set; }
+        public string CreatedEntryTag { get; private set; }
+        public string ModifiedEntryTag { get; private set; }
+        public string VersionEntryTag { get; private set; }
+        public string XmlnsEntryTag { get; private set; }
         public string Accession { get; private set; }
         public string Name { get; private set; }
         public string FullName { get; private set; }
@@ -164,13 +164,13 @@ namespace UsefulProteomicsDatabases
         /// Parses the attributes of the current <entry> element from the provided XmlReader.
         /// Extracts and stores the values for dataset, created, modified, version, and xmlns attributes.
         /// </summary>
-        public void ParseEntryAttributes(XmlReader xml)
+        private void ParseEntryAttributes(XmlReader xml)
         {
-            Dataset = xml.GetAttribute("dataset");
-            Created = xml.GetAttribute("created");
-            Modified = xml.GetAttribute("modified");
-            Version = xml.GetAttribute("version");
-            Xmlns = xml.GetAttribute("xmlns");
+            DatasetEntryTag = xml.GetAttribute("dataset");
+            CreatedEntryTag = xml.GetAttribute("created");
+            ModifiedEntryTag = xml.GetAttribute("modified");
+            VersionEntryTag = xml.GetAttribute("version");
+            XmlnsEntryTag = xml.GetAttribute("xmlns");
         }
 
         /// <summary>
@@ -252,7 +252,7 @@ namespace UsefulProteomicsDatabases
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
-                result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
+                result = new Protein(DatasetEntryTag, CreatedEntryTag, ModifiedEntryTag, VersionEntryTag, XmlnsEntryTag, Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
             }
             Clear();
@@ -454,11 +454,11 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         private void Clear()
         {
-            Dataset = null;
-            Created = null;
-            Modified = null;
-            Version = null;
-            Xmlns = null;
+            DatasetEntryTag = null;
+            CreatedEntryTag = null;
+            ModifiedEntryTag = null;
+            VersionEntryTag = null;
+            XmlnsEntryTag = null;
             Accession = null;
             Name = null;
             FullName = null;

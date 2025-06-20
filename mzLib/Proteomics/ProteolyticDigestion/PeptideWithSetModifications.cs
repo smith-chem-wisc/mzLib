@@ -1107,7 +1107,7 @@ namespace Proteomics.ProteolyticDigestion
             aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
             proteinSequence = aStringBuilder.ToString();
 
-            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            Protein decoyProtein = new Protein(this.Protein.DatasetEntryTag, this.Protein.CreatedEntryTag, this.Protein.ModifiedEntryTag, this.Protein.VersionEntryTag, this.Protein.XmlnsEntryTag, proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = _digestionParams;
 
             PeptideWithSetModifications decoyPeptide;
@@ -1284,7 +1284,7 @@ namespace Proteomics.ProteolyticDigestion
             aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
             proteinSequence = aStringBuilder.ToString();
 
-            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            Protein decoyProtein = new Protein(this.Protein.DatasetEntryTag, this.Protein.CreatedEntryTag, this.Protein.ModifiedEntryTag, this.Protein.VersionEntryTag, this.Protein.XmlnsEntryTag, proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = _digestionParams;
             PeptideWithSetModifications decoyPeptide;
             //Make the "peptideDescription" store the corresponding target's sequence
@@ -1375,7 +1375,7 @@ namespace Proteomics.ProteolyticDigestion
             aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
             proteinSequence = aStringBuilder.ToString();
 
-            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            Protein decoyProtein = new Protein(this.Protein.DatasetEntryTag, this.Protein.CreatedEntryTag, this.Protein.ModifiedEntryTag, this.Protein.VersionEntryTag, this.Protein.XmlnsEntryTag, proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
 
             DigestionParams d = _digestionParams;
 

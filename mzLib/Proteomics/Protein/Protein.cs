@@ -9,12 +9,21 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using MzLibUtil;
 using Omics.BioPolymer;
+using System.Data;
+
 
 namespace Proteomics
 {
     public class Protein : IBioPolymer, IEquatable<Protein>, IComparable<Protein>
     {
         private List<TruncationProduct> _proteolysisProducts;
+        private string sequence;
+        private Dictionary<int, List<Modification>> oneBasedModifications;
+        private List<TruncationProduct> proteolysisProducts;
+        private bool v;
+        private object value1;
+        private object value2;
+        private string proteinDbLocation;
 
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
@@ -34,12 +43,18 @@ namespace Proteomics
         /// <param name="disulfideBonds"></param>
         /// <param name="spliceSites"></param>
         /// <param name="databaseFilePath"></param>
-        public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
+        public Protein(string dataset, string created, string modified, string version, string xmlns, string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<TruncationProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false)
         {
+
+            DatasetEntryTag = dataset;
+            CreatedEntryTag = created;
+            ModifiedEntryTag = modified;
+            VersionEntryTag = version;
+            XmlnsEntryTag = xmlns;
             // Mandatory
             BaseSequence = sequence;
             NonVariantProtein = this;
@@ -85,6 +100,11 @@ namespace Proteomics
         /// <param name="silacAccession"></param>
         public Protein(Protein originalProtein, string newBaseSequence)
         {
+            DatasetEntryTag = originalProtein.DatasetEntryTag;
+            CreatedEntryTag = originalProtein.CreatedEntryTag;
+            ModifiedEntryTag = originalProtein.ModifiedEntryTag;
+            VersionEntryTag = originalProtein.VersionEntryTag;
+            XmlnsEntryTag = originalProtein.XmlnsEntryTag;
             BaseSequence = newBaseSequence;
             Accession = originalProtein.Accession;
             NonVariantProtein = originalProtein.ConsensusVariant as Protein;
@@ -118,7 +138,13 @@ namespace Proteomics
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
             IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
-            : this(variantBaseSequence,
+            : this(
+                  dataset: protein.DatasetEntryTag,
+                  created: protein.CreatedEntryTag,
+                  modified: protein.ModifiedEntryTag,
+                  version: protein.VersionEntryTag,
+                  xmlns: protein.XmlnsEntryTag,
+                  variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
@@ -139,6 +165,37 @@ namespace Proteomics
             AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }
+
+        public Protein(string dataset, string created, string modified, string version, string xmlns, string sequence, string accession, string organism, List<Tuple<string, string>> geneNames, Dictionary<int, List<Modification>> oneBasedModifications, List<TruncationProduct> proteolysisProducts, string name, string fullName, bool v, bool isContaminant, List<DatabaseReference> databaseReferences, List<SequenceVariation> sequenceVariations, object value1, object value2, List<DisulfideBond> disulfideBonds, List<SpliceSite> spliceSites, string proteinDbLocation)
+        {
+            this.DatasetEntryTag = dataset;
+            this.CreatedEntryTag = created;
+            this.ModifiedEntryTag = modified;
+            this.VersionEntryTag = version;
+            this.XmlnsEntryTag = xmlns;
+            this.sequence = sequence;
+            Accession = accession;
+            Organism = organism;
+            GeneNames = geneNames;
+            this.oneBasedModifications = oneBasedModifications;
+            this.proteolysisProducts = proteolysisProducts;
+            Name = name;
+            FullName = fullName;
+            this.v = v;
+            IsContaminant = isContaminant;
+            DatabaseReferences = databaseReferences;
+            SequenceVariations = sequenceVariations;
+            this.value1 = value1;
+            this.value2 = value2;
+            DisulfideBonds = disulfideBonds;
+            SpliceSites = spliceSites;
+            this.proteinDbLocation = proteinDbLocation;
+        }
+        public string DatasetEntryTag { get; private set; }
+        public string CreatedEntryTag { get; private set; }
+        public string ModifiedEntryTag { get; private set; }
+        public string VersionEntryTag { get; private set; }
+        public string XmlnsEntryTag { get; private set; }
 
         /// <summary>
         /// Modifications (values) located at one-based protein positions (keys)

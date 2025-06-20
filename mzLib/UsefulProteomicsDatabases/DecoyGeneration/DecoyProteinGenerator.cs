@@ -153,6 +153,11 @@ namespace UsefulProteomicsDatabases
                 List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(protein.AppliedSequenceVariations, protein, reversedSequence);
 
                 var decoyProtein = new Protein(
+                    protein.DatasetEntryTag,
+                    protein.CreatedEntryTag,
+                    protein.ModifiedEntryTag,
+                    protein.VersionEntryTag,
+                    protein.XmlnsEntryTag,
                     reversedSequence,
                     $"{decoyIdentifier}_" + protein.Accession,
                     protein.Organism,
@@ -349,7 +354,7 @@ namespace UsefulProteomicsDatabases
                         decoyVariationsSlide.Add(new SequenceVariation(decoy_begin, decoy_end, sv.OriginalSequence, new string(variationArraySlided), $"{decoyIdentifier} VARIANT: " + sv.Description));
                     }
                 }
-                var decoyProteinSlide = new Protein(slided_sequence, $"{decoyIdentifier}_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
+                var decoyProteinSlide = new Protein(protein.DatasetEntryTag, protein.CreatedEntryTag, protein.ModifiedEntryTag, protein.VersionEntryTag, protein.XmlnsEntryTag, slided_sequence, $"{decoyIdentifier}_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
                     protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
             });
