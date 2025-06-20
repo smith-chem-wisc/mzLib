@@ -12,6 +12,7 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using System.DirectoryServices.ActiveDirectory;
 
 namespace Test.DatabaseTests
 {
@@ -115,7 +116,20 @@ namespace Test.DatabaseTests
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None, nice, false,
                 new List<string>(), out un);
 
+            foreach (var line in File.ReadLines(outputPath))
+            {
+                if (line.Contains("<entry"))
+                {
+                    // Checks if the line contains the exact entry text
+                    Assert.IsTrue(line.Contains("<entry dataset=\"dataset\" created=\"created\" modified=\"modified\" version=\"version\" xmlns=\"http://uniprot.org/uniprot\">"));
 
+                }
+            }
+
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
         }
 
 
