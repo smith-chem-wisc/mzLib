@@ -303,8 +303,9 @@ namespace UsefulProteomicsDatabases
                             unique_identifier = 2; //reset
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(dataset, created, modified, version, xmlns, sequence, accession, organism, geneName, name: name, fullName: fullName,
-                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
+                        Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
+                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation, addTruncations: addTruncations,
+                            dataset: "", created: "", modified: "", version: "", xmlns: "http://uniprot.org/uniprot");
                         if (protein.Length == 0)
                         {
                             errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
@@ -396,11 +397,7 @@ namespace UsefulProteomicsDatabases
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
                 yield return new Protein(
-                    dataset: datasets.FirstOrDefault(),
-                    created: createds.FirstOrDefault(),
-                    modified: modifieds.FirstOrDefault(),
-                    version: versions.FirstOrDefault(),
-                    xmlns: xmlnses.FirstOrDefault(),
+
                     proteins.Key.Item2,
                     proteins.Key.Item1,
                     isContaminant: proteins.Key.Item3,
@@ -413,7 +410,12 @@ namespace UsefulProteomicsDatabases
                     databaseReferences: references.ToList(),
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList(),
-                    spliceSites: splices.ToList()
+                    spliceSites: splices.ToList(),
+                    dataset: datasets.FirstOrDefault(),
+                    created: createds.FirstOrDefault(),
+                    modified: modifieds.FirstOrDefault(),
+                    version: versions.FirstOrDefault(),
+                    xmlns: xmlnses.FirstOrDefault()
                     );
             }
         }

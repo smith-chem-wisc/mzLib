@@ -252,8 +252,9 @@ namespace UsefulProteomicsDatabases
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
-                result = new Protein(DatasetEntryTag, CreatedEntryTag, ModifiedEntryTag, VersionEntryTag, XmlnsEntryTag, Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
+                result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
+                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
+                    false, DatasetEntryTag, CreatedEntryTag, ModifiedEntryTag, VersionEntryTag, XmlnsEntryTag);
             }
             Clear();
             return result;
