@@ -425,7 +425,17 @@ namespace UsefulProteomicsDatabases
                         writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
                         writer.WriteStartElement("location");
                         writer.WriteStartElement("begin");
-                        writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
+
+                        if(proteolysisProduct.OneBasedBeginPosition == null)
+                        {
+                            writer.WriteAttributeString("status", "unknown");
+                        }
+                        else
+                        {
+                            writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
+                        }
+
+                        //writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
                         writer.WriteEndElement();
                         writer.WriteStartElement("end");
                         writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());

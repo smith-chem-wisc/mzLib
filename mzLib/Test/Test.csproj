@@ -262,6 +262,9 @@
     <None Update="DatabaseTests\uniprot_aifm1.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\unknownStatus.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\unprocessedMzAndIntensities.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
