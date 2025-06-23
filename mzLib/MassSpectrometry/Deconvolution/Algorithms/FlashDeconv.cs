@@ -18,6 +18,17 @@ namespace MassSpectrometry
         {
             var logTransformedSpectrum = LogTransformSpectrum(spectrum);
             var acceptibleLogMzDifferences = AllAcceptibleLogMzDifferences();
+            var myList = new List<List<(int,int)>>();
+            for (int i = 0; i < logTransformedSpectrum.XArray.Length; i++)
+            {
+                var l = FindIndexedLogMassDifferences(acceptibleLogMzDifferences, logTransformedSpectrum, i);
+                if (l.Count > 1)
+                {
+                    myList.Add(l);
+                }
+            }
+            
+            return new List<IsotopicEnvelope>();
 
         }
         /// <summary>
@@ -73,44 +84,43 @@ namespace MassSpectrometry
         {
             return new MzSpectrum(spectrum.XArray.Select(x => Math.Log(x)).ToArray(), spectrum.YArray, true);
         }
-        private List<KeyValuePair<int, double>> AllAcceptibleLogMzDifferences(int lowValue = 1, int highValue = 60)
+        private List<KeyValuePair<int,double>> AllAcceptibleLogMzDifferences(int lowValue = 2, int highValue = 60)
         {
             return Enumerable.Range(lowValue, highValue)
-                    .Select(i => new KeyValuePair<int, double>(i, Math.Log(i)))
-                    .ToList();
-        }
-        private List<(int mzDiffInt,double mzDiff)> Acceptible(int lowValue = 1, int highValue = 60)
-        {
-            return Enumerable.Range(lowValue, highValue)
-            .Select(i => (i, Math.Log(i)))
+            .Select(i => new KeyValuePair<int, double>(i, Math.Log(i)))
             .ToList();
         }
-        private List<(int, int)> FindIndexedLogMassDifferences(List<(int mzDiffInt, double mzDiff)> acceptibleLogMzDifferences, MzSpectrum spectrum, int selectedLogMzIndex)
+        private List<(int, int)> FindIndexedLogMassDifferences(List<KeyValuePair<int, double>> acceptibleLogMzDifferences, MzSpectrum logTransformedSpectrum, int selectedLogMzIndex)
         {
-            double tolerance = 0.0001;
-            List<(int, int)> indexedLogMassDifferences = new ();
-            if(selectedLogMzIndex < spectrum.XArray.Length)
+            double tolerance = 0.01;
+            //List<(int, int)> indexedLogMassDifferences = new() {(selectedLogMzIndex, 0) };
+            List<(int, int)> indexedLogMassDifferences = new();
+            foreach (var pair in acceptibleLogMzDifferences)
             {
-                int logMzDiffIndex = 1;
-                while (logMzDiffIndex < acceptibleLogMzDifferences.Select(i=>i.mzDiffInt).Max())
+                double targetLogMz = logTransformedSpectrum.XArray[selectedLogMzIndex] + pair.Value;
+                if (targetLogMz > (logTransformedSpectrum.XArray.Max() + tolerance))
+                    break;
+                else
                 {
-                    var i = FindIndexWithinTolerance(spectrum.XArray.ToList(), spectrum.XArray[selectedLogMzIndex] + acceptibleLogMzDifferences[logMzDiffIndex].mzDiff, tolerance);
-                    if (i >= 0)
+                    var indexOfTargetMzInTheLogMzArray = FindIndexWithinTolerance(logTransformedSpectrum.XArray, targetLogMz, tolerance);
+                    if (indexOfTargetMzInTheLogMzArray >= 0)
                     {
-                        indexedLogMassDifferences.Add((selectedLogMzIndex, i));
+                        indexedLogMassDifferences.Add((indexOfTargetMzInTheLogMzArray, pair.Key));
                     }
-                    logMzDiffIndex++;
+                    else
+                    {
+                        // If no match is found, we can break or continue based on the logic needed
+                        // For now, we will just continue to the next pair
+                        continue;
+                    }
                 }
-
             }
             return indexedLogMassDifferences;
-
-
         }
         // Finds the index of the first value in a sorted list of doubles matching the target within a given tolerance
-        int FindIndexWithinTolerance(List<double> sortedList, double target, double tolerance)
+        private int FindIndexWithinTolerance(double[] sortedList, double target, double tolerance)
         {
-            for (int i = 0; i < sortedList.Count; i++)
+            for (int i = 0; i < sortedList.Length; i++)
             {
                 if (Math.Abs(sortedList[i] - target) <= tolerance)
                     return i;
