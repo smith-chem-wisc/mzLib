@@ -16,6 +16,7 @@ namespace MassSpectrometry
         }
         internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
+            var t = LogTransformSpectrum(spectrum);
 
         }
         /// <summary>
@@ -66,6 +67,11 @@ namespace MassSpectrometry
                 currentId++;
             }
             return result;
+        }
+    
+        private MzSpectrum LogTransformSpectrum(MzSpectrum spectrum)
+        {
+            return new MzSpectrum(spectrum.XArray.Select(x => Math.Log(x)).ToArray(), spectrum.YArray, true);
         }
     }
 }
