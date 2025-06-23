@@ -4,6 +4,7 @@
     {
         ClassicDeconvolution,
         ExampleNewDeconvolutionTemplate,
+        FlashDeconv,
         IsoDecDeconvolution,
     }
 }

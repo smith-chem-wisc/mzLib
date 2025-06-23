@@ -9,14 +9,14 @@ namespace MassSpectrometry.Deconvolution.Parameters
 {
     internal class FlashDeconvDeconvolutionParameters : DeconvolutionParameters
     {
-        public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.IsoDecDeconvolution;
+        public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.FlashDeconv;
 
         #region Interop Parameters 
 
         /// <summary>
         /// The struct that is passed into the isodec.dll
         /// </summary>
-        public struct IsoSettings
+        public struct FlashDeconvSettings
         {
             public int phaseres; // Precision of encoding matrix
             public int verbose; // Verbose output
@@ -42,14 +42,14 @@ namespace MassSpectrometry.Deconvolution.Parameters
             public float zscore_threshold; //Ratio above which a secondary charge state prediction will be returned.
         }
 
-        private IsoSettings? _isoSettings;
+        private FlashDeconvSettings? _flashDeconvSettings;
 
-        internal IsoSettings ToIsoSettings()
+        internal FlashDeconvSettings ToIsoSettings()
         {
-            if (_isoSettings != null)
-                return _isoSettings.Value;
+            if (_flashDeconvSettings != null)
+                return _flashDeconvSettings.Value;
 
-            IsoSettings result = new IsoSettings
+            FlashDeconvSettings result = new FlashDeconvSettings
             {
                 phaseres = PhaseRes,
                 verbose = Verbose,
@@ -73,7 +73,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
                 zscore_threshold = ZScoreThreshold
             };
 
-            _isoSettings = result;
+            _flashDeconvSettings = result;
             return result;
         }
 
