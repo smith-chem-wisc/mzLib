@@ -79,8 +79,8 @@ namespace Readers
                 return;
 
             _sqlConnection = new SQLiteConnection("Data Source=" +
-                Path.Combine(FilePath, "analysis.tdf") +
-                "; Version=3");
+                                    Path.Combine(FilePath, "analysis.tdf") +
+                                    "; Version=3", parseViaFramework: true);
             try
             {
                 _sqlConnection.Open();
