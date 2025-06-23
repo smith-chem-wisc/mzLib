@@ -50,7 +50,7 @@ namespace UsefulProteomicsDatabases
         /// </remarks>
         public static Dictionary<string, int> WriteXmlDatabase(
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<RNA> nucleicAcidList, string outputFileName)
+            List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             
@@ -101,11 +101,18 @@ namespace UsefulProteomicsDatabases
 
                 foreach (var nucleicAcid in nonVariantRna)
                 {
-                    writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
-                    writer.WriteAttributeString("dataset", "dataset");
-                    writer.WriteAttributeString("created", "created");
-                    writer.WriteAttributeString("modified", "modified");
-                    writer.WriteAttributeString("version", "version");
+                    writer.WriteStartElement("entry", "undefined"); //this should be a website with the XSD namespace
+                    //writer.WriteAttributeString("dataset", nucleicAcid.DatasetEntryTag);
+                    //writer.WriteAttributeString("created", nucleicAcid.CreatedEntryTag);
+                    //if (updateTimeStamp)
+                    //{
+                    //    writer.WriteAttributeString("modified", DateTime.Now.ToString("yyyy-MM-dd"));
+                    //}
+                    //else
+                    //{
+                    //    writer.WriteAttributeString("modified", nucleicAcid.ModifiedEntryTag);
+                    //}
+                    //writer.WriteAttributeString("version", nucleicAcid.VersionEntryTag);
                     writer.WriteStartElement("accession");
                     writer.WriteString(nucleicAcid.Accession);
                     writer.WriteEndElement();
@@ -287,7 +294,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
         public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<Protein> proteinList, string outputFileName)
+            List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
@@ -339,10 +346,17 @@ namespace UsefulProteomicsDatabases
                 foreach (Protein protein in nonVariantProteins)
                 {
                     writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
-                    writer.WriteAttributeString("dataset", "dataset");
-                    writer.WriteAttributeString("created", "created");
-                    writer.WriteAttributeString("modified", "modified");
-                    writer.WriteAttributeString("version", "version");
+                    writer.WriteAttributeString("dataset", protein.DatasetEntryTag);
+                    writer.WriteAttributeString("created", protein.CreatedEntryTag);
+                    if (updateTimeStamp)
+                    {
+                        writer.WriteAttributeString("modified", DateTime.Now.ToString("yyyy-MM-dd"));
+                    }
+                    else
+                    {
+                        writer.WriteAttributeString("modified", protein.ModifiedEntryTag);
+                    }         
+                    writer.WriteAttributeString("version", protein.VersionEntryTag);
                     writer.WriteStartElement("accession");
                     writer.WriteString(protein.Accession);
                     writer.WriteEndElement();
