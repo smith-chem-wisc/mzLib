@@ -177,6 +177,10 @@ namespace UsefulProteomicsDatabases
                         writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
                         writer.WriteStartElement("location");
                         writer.WriteStartElement("begin");
+
+                        //TODO: handle proteolysis products with null begin position
+                        //see protein writer for example. 
+
                         writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
                         writer.WriteEndElement();
                         writer.WriteStartElement("end");
