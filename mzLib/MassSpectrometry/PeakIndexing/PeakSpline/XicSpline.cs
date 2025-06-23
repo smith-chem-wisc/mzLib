@@ -8,14 +8,24 @@ using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
+    /// <summary>
+    /// Impute/smooth a given XIC based on raw data points.
+    /// </summary>
     public abstract class XicSpline
     {
         public double SplineRtInterval { get; set; } //can be in RT or scan cycle
         public int NumberOfPeaksToAdd { get; set; } //number of peaks to add on each side of the chromatogram
         public double Gap { get; set; } // gap between added peaks
 
+        /// <summary>
+        /// Get the data points as a list of tuple (rt/scanIndex, intensity) after smoothing/interpolation.
+        /// Requires a rt/scanIndex array and an intensity array as input. Start and end of rt/index as optionl parameters.
+        /// </summary>
         public abstract (double, double)[] GetXicSplineData(double[] rtArray, double[] intensityArray, double start = -1, double end = -1);
 
+        /// <summary>
+        /// Helper method that takes a start and end retention time, a spline interval, and an IInterpolation object to calculate the spline data points.
+        /// </summary>
         protected (double, double)[] CalculateSpline(double startRT, double endRT, double splineRtInterval, IInterpolation spline)
         {
             int numPoints = (int)Math.Floor((endRT - startRT) / splineRtInterval + 1e-8) + 1;
@@ -29,6 +39,9 @@ namespace MassSpectrometry
             return xyData;
         }
 
+        /// <summary>
+        /// Set the XYData field of an ExtractedIonChromatogram object as the result of spline.
+        /// </summary>
         public void SetXicSplineXYData(ExtractedIonChromatogram xic, bool cycle = false, double start = -1, double end = -1)
         {
             double[] peakRts = null;
@@ -44,6 +57,9 @@ namespace MassSpectrometry
             xic.XYData = GetXicSplineData(peakRts, peakIntensities, start, end);
         }
 
+        /// <summary>
+        /// Check if the input arrays meet the requirements of interpolation.
+        /// </summary>
         protected void CheckArrays(double[] rtArray, double[] intensityArray)
         {
             if (rtArray.Length != intensityArray.Length)
@@ -56,6 +72,9 @@ namespace MassSpectrometry
             }
         }
 
+        /// <summary>
+        /// Add points with 0 intensity to the beginning and end of the XIC before interpolation.
+        /// </summary>
         protected void AddPeaks(double[] rtArray, double[] intensityArray, out double[] newRtArray, out double[] newIntensityArray)
         {
             if (NumberOfPeaksToAdd == 0)

@@ -54,7 +54,7 @@ namespace Test
             //Test XIC properties
             Assert.That(xic.Peaks.Count, Is.EqualTo(10));
             Assert.That(xic.ApexRT, Is.EqualTo(1.6));
-            Assert.That(xic.ApexCycle, Is.EqualTo(6));
+            Assert.That(xic.ApexScanIndex, Is.EqualTo(6));
             Assert.That(xic.StartRT, Is.EqualTo(1.0));
             Assert.That(xic.EndRT, Is.EqualTo(1.9));
             Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0000001));

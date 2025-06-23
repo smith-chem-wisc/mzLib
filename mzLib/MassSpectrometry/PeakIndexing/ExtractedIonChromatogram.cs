@@ -9,12 +9,15 @@ using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
+    /// <summary>
+    /// A generic XIC class for all IIndexedPeak objects (mz peak, isotopic envelope, etc.) that can be traced across retention time.
+    /// </summary>
     public class ExtractedIonChromatogram
     {
         public List<IIndexedPeak> Peaks { get; set; }
 
-        public double ApexRT => Peaks.OrderByDescending(p => p.Intensity).First().RetentionTime;
-        public int ApexCycle => Peaks.OrderByDescending(p => p.Intensity).First().ZeroBasedScanIndex;
+        public double ApexRT;
+        public int ApexScanIndex;
         public double AveragedM => AverageM();
         public (double, double)[] XYData { get; set; }
         public double[] NormalizedPeakIntensities { get; set; }
@@ -37,6 +40,8 @@ namespace MassSpectrometry
         public ExtractedIonChromatogram(List<IIndexedPeak> peaks)
         {
             Peaks = peaks;
+            ApexRT = Peaks.OrderByDescending(p => p.Intensity).First().RetentionTime;
+            ApexScanIndex = Peaks.OrderByDescending(p => p.Intensity).First().ZeroBasedScanIndex;
         }
 
         public void SetNormalizedPeakIntensities()
