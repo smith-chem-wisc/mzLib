@@ -9,6 +9,7 @@ using FlashLFQ.PEP;
 using System;
 using Chemistry;
 using MassSpectrometry;
+using MathNet.Numerics.Distributions;
 using MzLibUtil;
 using Test.FileReadingTests;
 
@@ -80,23 +81,27 @@ namespace Test
             donorId.PeakfindingMass = idMass;
 
             var peak1 = new ChromatographicPeak(id, fakeFile);
-            var peak2 = new ChromatographicPeak(id, fakeFile);
-            var peak3 = new ChromatographicPeak(id2, fakeFile);
-            var peak4 = new ChromatographicPeak(id, fakeFile);
+            var peak2 = new ChromatographicPeak(id2, fakeFile);
+            var peak3 = new ChromatographicPeak(id, fakeFile);
             var donorPeak = new ChromatographicPeak(donorId, fakeDonorFile);
             var acceptorPeak = new MbrChromatographicPeak(donorId, fakeFile, 1, false);
 
             IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak((idMass + 0.001).ToMz(1), 1.1, 1, 25);
             IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak((idMass - 0.001).ToMz(1), 1, 2, 26);
-            var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1, 0.98);
+            IndexedMassSpectralPeak imsPeak3 = new IndexedMassSpectralPeak((idMass + 0.002).ToMz(1), 1.2, 3, 27);
+            var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1.2, 0.98);
             var iso2 = new FlashLFQ.IsotopicEnvelope(imsPeak2, 1, 1, 0.9);
+            var iso3 = new FlashLFQ.IsotopicEnvelope(imsPeak3, 1, 0.8, 0.95);
 
             peak1.IsotopicEnvelopes.Add(iso1);
             peak1.IsotopicEnvelopes.Add(iso2);
             peak1.CalculateIntensityForThisFeature(false);
 
-            peak4.IsotopicEnvelopes.Add(iso2);
-            peak4.CalculateIntensityForThisFeature(false);
+            peak2.IsotopicEnvelopes.Add(iso3);
+            peak2.CalculateIntensityForThisFeature(false);
+
+            peak3.IsotopicEnvelopes.Add(iso2);
+            peak3.CalculateIntensityForThisFeature(false);
 
             donorPeak.IsotopicEnvelopes.Add(iso2);
             donorPeak.CalculateIntensityForThisFeature(false);
@@ -105,22 +110,28 @@ namespace Test
             acceptorPeak.CalculateIntensityForThisFeature(false);
 
 
-            var peakList = new List<ChromatographicPeak> { peak1, peak4 };
-            var peakDict = peakList.ToDictionary(keySelector: p => p.Apex.IndexedPeak, elementSelector: p => p);
+            var peakList = new List<ChromatographicPeak> { peak1, peak3 };
 
             // Builds a scorer. Ppm Error and Intensity distributions both have mean and std-dev of 1
-            MbrScorer scorer = new MbrScorer(peakDict, peakList, new MathNet.Numerics.Distributions.Normal(1, 1), new MathNet.Numerics.Distributions.Normal(1,1));
-            
+            MbrScorer scorer = MbrScorerFactory.BuildMbrScorer(peakList, new FlashLfqParameters(), out var tol);
+            Assert.That(scorer, Is.Null);   // Not enough peaks to build a scorer
+
+            peakList = new List<ChromatographicPeak> { peak1, peak2, peak3 };
+            scorer = MbrScorerFactory.BuildMbrScorer(peakList, new FlashLfqParameters(), out tol);
+
             scorer.AddRtPredErrorDistribution(fakeDonorFile, new List<double> { 0.5, 0.6, 0.5, 0.6, 0.5, 0.6, 0.5 }, 2);
 
             acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak, predictedRt: 25.1);
 
-            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(58.7).Within(0.1));
-            Assert.That(acceptorPeak.PpmScore, Is.EqualTo(0.62).Within(0.01));
-            Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.32).Within(0.01));
+            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(73.7).Within(0.1));
+            Assert.That(acceptorPeak.PpmScore, Is.EqualTo(1).Within(0.01));
+            Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.46).Within(0.01));
             Assert.That(acceptorPeak.RtScore, Is.EqualTo(0.96).Within(0.01));
-            Assert.That(acceptorPeak.ScanCountScore, Is.EqualTo(0.5).Within(0.01));
-            Assert.That(acceptorPeak.IsotopicDistributionScore, Is.EqualTo(0.74).Within(0.01));
+            Assert.That(acceptorPeak.ScanCountScore, Is.EqualTo(0.59).Within(0.01));
+            Assert.That(acceptorPeak.IsotopicDistributionScore, Is.EqualTo(0.83).Within(0.01));
+
+            double manualMbrScore = Math.Pow( acceptorPeak.PpmScore * acceptorPeak.IntensityScore * acceptorPeak.RtScore * acceptorPeak.ScanCountScore * acceptorPeak.IsotopicDistributionScore, 1.0 / 5.0) * 100;
+            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(manualMbrScore).Within(0.1));
         }
 
         [Test]
@@ -306,6 +317,5 @@ namespace Test
             Assert.That(peak.Identifications.First().FileInfo == file3); // assure that the ID came from file 3, ie, the most intense donor peaks
 
         }
-
     }
 }
