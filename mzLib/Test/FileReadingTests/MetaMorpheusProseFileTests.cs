@@ -88,7 +88,7 @@ Databases:
         Assert.That(proseFile.DatabasePaths[0], Is.EqualTo(@"B:\Users\Nic\Chimeras\Mann_11cell_analysis\uniprotkb_human_proteome_AND_reviewed_t_2024_03_22.xml"));
     }
 
-    [Test]
+    [Test] 
     public void FindUnaveragedFile_ReturnsCorrectUnaveragedPath_ForAveragedAndCalib()
     {
         // Arrange
@@ -97,7 +97,13 @@ Databases:
 
         // Create a dummy averaged file path that matches the first spectra file, but with -averaged
         var original = proseFile!.SpectraFilePaths[0]; // e.g. ..._1-calib.mzML
-        var averagedFileName = Path.GetFileNameWithoutExtension(original).Replace("-calib", "") + "-averaged.mzML";
+
+        // Change the original path to a file that exists in the temp directory for cross-platform compatibility
+        var localOriginal = Path.Combine(_tempDir, "20100726_Velos1_TaGe_SA_HepG2_2-calib.mzML");
+        File.WriteAllText(localOriginal, "dummy");
+        proseFile.SpectraFilePaths[0] = localOriginal;
+
+        var averagedFileName = Path.GetFileNameWithoutExtension(localOriginal).Replace("-calib", "") + "-averaged.mzML";
         var averagedFilePath = Path.Combine(_tempDir, averagedFileName);
 
         // The method requires the file to exist
@@ -107,7 +113,7 @@ Databases:
         var result = proseFile.FindUnaveragedFile(averagedFilePath);
 
         // Assert
-        Assert.That(result, Is.EqualTo(original));
+        Assert.That(result, Is.EqualTo(@"B:\RawSpectraFiles\Mann_11cell_lines\HepG2\107_Calibrated-HepG2_2\Task1CalibrationTask\20100726_Velos1_TaGe_SA_HepG2_2-calib.mzML"));
     }
 
     [Test]
@@ -158,14 +164,19 @@ Databases:
         Assert.That(result, Is.Null);
     }
 
-    [Test]
+    [Test] 
     public void FindUnaveragedFile_HandlesCalibAndAveragedSuffixes()
     {
         var proseFile = MetaMorpheusProseFile.LocateInDirectory(_tempDir);
         Assert.That(proseFile, Is.Not.Null);
 
+        // Change the original path to a file that exists in the temp directory for cross-platform compatibility
+        var localOriginal = Path.Combine(_tempDir, "20100726_Velos1_TaGe_SA_HepG2_2.mzML");
+        File.WriteAllText(localOriginal, "dummy");
+        proseFile.SpectraFilePaths[0] = localOriginal;
+
         // Use a spectra file with -calib, simulate an averaged version
-        var original = proseFile!.SpectraFilePaths[2]; // e.g. ..._3-calib.mzML
+        var original = proseFile!.SpectraFilePaths[0]; // e.g. ..._3-calib.mzML
         var baseName = Path.GetFileNameWithoutExtension(original).Replace("-calib", "");
         var averagedFileName = baseName + "-calib-averaged.mzML";
         var averagedFilePath = Path.Combine(_tempDir, averagedFileName);
@@ -174,6 +185,6 @@ Databases:
 
         var result = proseFile.FindUnaveragedFile(averagedFilePath);
 
-        Assert.That(result, Is.EqualTo(original));
+        Assert.That(result, Is.EqualTo(@"B:\RawSpectraFiles\Mann_11cell_lines\HepG2\107_Calibrated-HepG2_2\Task1CalibrationTask\20100726_Velos1_TaGe_SA_HepG2_2-calib.mzML"));
     }
 }
