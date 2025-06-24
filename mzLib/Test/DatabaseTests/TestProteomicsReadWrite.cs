@@ -12,7 +12,6 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using System.DirectoryServices.ActiveDirectory;
 
 namespace Test.DatabaseTests
 {
@@ -96,18 +95,21 @@ namespace Test.DatabaseTests
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
-            string inputXmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml");
+            string inputXmlPath = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml");
+            bool lineModified = false;
             foreach (var line in File.ReadLines(inputXmlPath))
             {
                 if (line.Contains("<entry"))
                 {
                     string modified = "modified=\"" + "2017-02-15";
                     // Checks if the line contains the exact entry text
-                    Assert.IsTrue(line.Contains(modified));
+                    lineModified = line.Contains(modified);
+                    
                     break;
                 }
             }
-
+            Assert.IsTrue(lineModified);
+            lineModified = false; // Reset for the next check
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
                 out Dictionary<string, Modification> un);
 
@@ -125,9 +127,11 @@ namespace Test.DatabaseTests
                     string todaysDate = DateTime.Now.ToString("yyyy-MM-dd");
                     string modified = "modified=\"" + todaysDate;
                     // Checks if the line contains the exact entry text
-                    Assert.IsTrue(line.Contains(modified));
+                    lineModified = line.Contains(modified);
+                    
                 }
             }
+            Assert.IsTrue(lineModified);
             // Clean up the output file after the test
             if (File.Exists(outputPath))
             {
