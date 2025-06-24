@@ -2,7 +2,6 @@
 
 using NUnit.Framework;
 using Readers.InternalResults;
-using System;
 using System.IO;
 
 namespace Test.FileReadingTests;
@@ -87,5 +86,94 @@ Databases:
         Assert.That(proseFile.DatabasePaths, Is.Not.Null);
         Assert.That(proseFile.DatabasePaths.Length, Is.EqualTo(1));
         Assert.That(proseFile.DatabasePaths[0], Is.EqualTo(@"B:\Users\Nic\Chimeras\Mann_11cell_analysis\uniprotkb_human_proteome_AND_reviewed_t_2024_03_22.xml"));
+    }
+
+    [Test]
+    public void FindUnaveragedFile_ReturnsCorrectUnaveragedPath_ForAveragedAndCalib()
+    {
+        // Arrange
+        var proseFile = MetaMorpheusProseFile.LocateInDirectory(_tempDir);
+        Assert.That(proseFile, Is.Not.Null);
+
+        // Create a dummy averaged file path that matches the first spectra file, but with -averaged
+        var original = proseFile!.SpectraFilePaths[0]; // e.g. ..._1-calib.mzML
+        var averagedFileName = Path.GetFileNameWithoutExtension(original).Replace("-calib", "") + "-averaged.mzML";
+        var averagedFilePath = Path.Combine(_tempDir, averagedFileName);
+
+        // The method requires the file to exist
+        File.WriteAllText(averagedFilePath, "dummy");
+
+        // Act
+        var result = proseFile.FindUnaveragedFile(averagedFilePath);
+
+        // Assert
+        Assert.That(result, Is.EqualTo(original));
+    }
+
+    [Test]
+    public void FindUnaveragedFile_AveragedFileDoesNotExist_ReturnsNull()
+    {
+        var proseFile = MetaMorpheusProseFile.LocateInDirectory(_tempDir);
+        Assert.That(proseFile, Is.Not.Null);
+
+        var nonExistentPath = Path.Combine(_tempDir, "nonexistent-averaged.mzML");
+        var result = proseFile!.FindUnaveragedFile(nonExistentPath);
+
+        Assert.That(result, Is.Null);
+    }
+    [Test]
+    public void FindUnaveragedFile_UnaveragedFileDoesNotExist_ReturnsNull()
+    {
+        var proseFile = MetaMorpheusProseFile.LocateInDirectory(_tempDir);
+        Assert.That(proseFile, Is.Not.Null);
+
+        // Ensure unaveraged file does not exist. 
+        proseFile!.SpectraFilePaths[0] = proseFile.SpectraFilePaths[0].Replace("B:", "W:");
+        var original = proseFile!.SpectraFilePaths[0];
+        var averagedFileName = Path.GetFileNameWithoutExtension(original).Replace("-calib", "") + "-averaged.mzML";
+        var averagedFilePath = Path.Combine(_tempDir, averagedFileName);
+
+        File.WriteAllText(averagedFilePath, "dummy");
+
+        // Simulate that the unaveraged file does not exist
+        // (do not create a file at the path 'original')
+
+        var result = proseFile.FindUnaveragedFile(averagedFilePath);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public void FindUnaveragedFile_ReturnsNull_IfNoMatchingUnaveragedFile()
+    {
+        var proseFile = MetaMorpheusProseFile.LocateInDirectory(_tempDir);
+        Assert.That(proseFile, Is.Not.Null);
+
+        // Create a file with a name that will not match any cleaned spectra file name
+        var unmatchedAveragedFilePath = Path.Combine(_tempDir, "not_in_list-averaged.mzML");
+        File.WriteAllText(unmatchedAveragedFilePath, "dummy");
+
+        var result = proseFile!.FindUnaveragedFile(unmatchedAveragedFilePath);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public void FindUnaveragedFile_HandlesCalibAndAveragedSuffixes()
+    {
+        var proseFile = MetaMorpheusProseFile.LocateInDirectory(_tempDir);
+        Assert.That(proseFile, Is.Not.Null);
+
+        // Use a spectra file with -calib, simulate an averaged version
+        var original = proseFile!.SpectraFilePaths[2]; // e.g. ..._3-calib.mzML
+        var baseName = Path.GetFileNameWithoutExtension(original).Replace("-calib", "");
+        var averagedFileName = baseName + "-calib-averaged.mzML";
+        var averagedFilePath = Path.Combine(_tempDir, averagedFileName);
+
+        File.WriteAllText(averagedFilePath, "dummy");
+
+        var result = proseFile.FindUnaveragedFile(averagedFilePath);
+
+        Assert.That(result, Is.EqualTo(original));
     }
 }
