@@ -1,10 +1,13 @@
 ﻿using MzLibUtil;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using static MassSpectrometry.IsoDecAlgorithm;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace MassSpectrometry
 {
@@ -18,19 +21,37 @@ namespace MassSpectrometry
         {
             var logTransformedSpectrum = LogTransformSpectrum(spectrum);
             var acceptibleLogMzDifferences = AllAcceptibleLogMzDifferences();
-            var myList = new List<List<(int,int)>>();
-            for (int i = 0; i < logTransformedSpectrum.XArray.Length; i++)
+            var arrayWideDifferences = StandardArrayWideLogMzDifferences(acceptibleLogMzDifferences, logTransformedSpectrum);
+            var matches = CountMatchesWithinTolerance(arrayWideDifferences, logTransformedSpectrum.XArray);
+            var matchesIntensities = ConvertMatchesToIntensities(matches, logTransformedSpectrum.YArray);
+            List<string> result = new List<string>();
+            result.Add(string.Join("\t", logTransformedSpectrum.XArray));
+            foreach(var match in matches)
             {
-                var l = FindIndexedLogMassDifferences(acceptibleLogMzDifferences, logTransformedSpectrum, i);
-                if (l.Count > 1)
-                {
-                    myList.Add(l);
-                }
+                result.Add($"{match.Key}\t{string.Join("\t", match.Value)}");
             }
-            
-            return new List<IsotopicEnvelope>();
+            foreach (var mi in matchesIntensities)
+            {
+                result.Add($"{mi.Key}\t{string.Join("\t", mi.Value)}");
+            }
+            File.WriteAllLines(@"C:\Users\trish\Downloads\result.tsv", result);
 
+            var myList = new List<List<(int,int)>>();
+ 
+            return new List<IsotopicEnvelope>();
         }
+
+        private List<KeyValuePair<int, double[]>> ConvertMatchesToIntensities(List<KeyValuePair<int, int[]>> matches, double[] yArray)
+        {
+            List < KeyValuePair<int, double[]> > result = new List<KeyValuePair<int, double[]>>();
+            foreach (var match in matches)
+            {
+                double[] intensities = match.Value.Zip(yArray, (i, d) => i * d).ToArray();
+                result.Add(new KeyValuePair<int, double[]>(match.Key, intensities));
+            }
+            return result;
+        }
+
         /// <summary>
         /// Converts the isodec output (MatchedPeak) to IsotopicEnvelope for return
         /// </summary>
@@ -87,45 +108,64 @@ namespace MassSpectrometry
         private List<KeyValuePair<int,double>> AllAcceptibleLogMzDifferences(int lowValue = 2, int highValue = 60)
         {
             return Enumerable.Range(lowValue, highValue)
-            .Select(i => new KeyValuePair<int, double>(i, Math.Log(i)))
+            .Select(i => new KeyValuePair<int, double>(i, Math.Log(i) - Math.Log(i-1)))
             .ToList();
         }
-        private List<(int, int)> FindIndexedLogMassDifferences(List<KeyValuePair<int, double>> acceptibleLogMzDifferences, MzSpectrum logTransformedSpectrum, int selectedLogMzIndex)
+        private List<KeyValuePair<int, double[]>> StandardArrayWideLogMzDifferences(List<KeyValuePair<int, double>> acceptibleLogMzDifferences, MzSpectrum logTransformedSpectrum)
         {
-            double tolerance = 0.01;
-            //List<(int, int)> indexedLogMassDifferences = new() {(selectedLogMzIndex, 0) };
-            List<(int, int)> indexedLogMassDifferences = new();
+            List<KeyValuePair<int, double[]>> runningSum = new List<KeyValuePair<int, double[]>>();
+            double sum = 0;
             foreach (var pair in acceptibleLogMzDifferences)
             {
-                double targetLogMz = logTransformedSpectrum.XArray[selectedLogMzIndex] + pair.Value;
-                if (targetLogMz > (logTransformedSpectrum.XArray.Max() + tolerance))
-                    break;
-                else
-                {
-                    var indexOfTargetMzInTheLogMzArray = FindIndexWithinTolerance(logTransformedSpectrum.XArray, targetLogMz, tolerance);
-                    if (indexOfTargetMzInTheLogMzArray >= 0)
-                    {
-                        indexedLogMassDifferences.Add((indexOfTargetMzInTheLogMzArray, pair.Key));
-                    }
-                    else
-                    {
-                        // If no match is found, we can break or continue based on the logic needed
-                        // For now, we will just continue to the next pair
-                        continue;
-                    }
-                }
+                runningSum.Add(new KeyValuePair<int, double[]>(pair.Key, logTransformedSpectrum.XArray.Select(x => x - pair.Value).ToArray()));
             }
-            return indexedLogMassDifferences;
+            return runningSum;
         }
-        // Finds the index of the first value in a sorted list of doubles matching the target within a given tolerance
-        private int FindIndexWithinTolerance(double[] sortedList, double target, double tolerance)
+
+        List<KeyValuePair<int, int[]>> CountMatchesWithinTolerance(
+            List<KeyValuePair<int, double[]>> inputList,
+            double[] reference,
+            double tolerance = 10.0)
         {
-            for (int i = 0; i < sortedList.Length; i++)
+            var result = new List<KeyValuePair<int, int[]>>();
+
+            foreach (var pair in inputList)
             {
-                if (Math.Abs(sortedList[i] - target) <= tolerance)
-                    return i;
+                var counts = new int[pair.Value.Length];
+                int refIdx = 0;
+
+                for (int i = 0; i < pair.Value.Length; i++)
+                {
+                    double target = pair.Value[i];
+                    int count = 0;
+
+                    // Advance refIdx to the first possible match
+                    while (refIdx < reference.Length && reference[refIdx] < target - LogMzDependentTolerance(reference[refIdx]))
+                        refIdx++;
+
+                    int tempIdx = refIdx;
+                    // Count all matches within tolerance
+                    while (tempIdx < reference.Length && reference[tempIdx] <= target + LogMzDependentTolerance(reference[refIdx]))
+                    {
+                        if (Math.Abs(reference[tempIdx] - target) <= LogMzDependentTolerance(reference[refIdx]))
+                            count++;
+                        tempIdx++;
+                    }
+                    counts[i] = count;
+                }
+
+                result.Add(new KeyValuePair<int, int[]>(pair.Key, counts));
             }
-            return -1; // Not found
+
+            return result;
+        }
+        private double LogMzDependentTolerance(double logMz, double tolerance = 10.0)
+        {
+            var m = Math.Exp(logMz);
+            var mPlus = m + m * tolerance / 1000000.0;
+            var lmPlus = Math.Log(mPlus);
+            var newT = lmPlus - logMz;
+            return newT;
         }
         // Finds the longest sequence of consecutive integers in a sorted list
         List<int> FindLongestConsecutiveSequence(List<int> sortedList)
