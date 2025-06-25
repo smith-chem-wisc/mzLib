@@ -114,7 +114,14 @@ namespace UsefulProteomicsDatabases
                         }
 
                     }
+                    
                 }
+
+            }
+
+            if (newProteinDbLocation != proteinDbLocation)
+            {
+                File.Delete(newProteinDbLocation);
             }
 
             if (newProteinDbLocation != proteinDbLocation)
