@@ -169,7 +169,12 @@ namespace UsefulProteomicsDatabases
                     protein.SampleNameForVariants,
                     decoyDisulfides,
                     spliceSites,
-                    protein.DatabaseFilePath);
+                    protein.DatabaseFilePath,
+                    dataset: protein.DatasetEntryTag,
+                    created: protein.CreatedEntryTag,
+                    modified: protein.ModifiedEntryTag,
+                    version: protein.VersionEntryTag,
+                    xmlns: protein.XmlnsEntryTag);
 
                 lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
             });
@@ -350,7 +355,8 @@ namespace UsefulProteomicsDatabases
                     }
                 }
                 var decoyProteinSlide = new Protein(slided_sequence, $"{decoyIdentifier}_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
-                    protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath);
+                    protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath,
+                    false, protein.DatasetEntryTag, protein.CreatedEntryTag, protein.ModifiedEntryTag, protein.VersionEntryTag, protein.XmlnsEntryTag);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
             });
             decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
