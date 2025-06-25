@@ -89,6 +89,103 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public void Test_readUniProtXML_writeProteinXmlCheckEntryUpdated()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            string inputXmlPath = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml");
+            bool lineModified = false;
+            foreach (var line in File.ReadLines(inputXmlPath))
+            {
+                if (line.Contains("<entry"))
+                {
+                    string modified = "modified=\"" + "2017-02-15";
+                    // Checks if the line contains the exact entry text
+                    lineModified = line.Contains(modified);
+                    
+                    break;
+                }
+            }
+            Assert.IsTrue(lineModified);
+            lineModified = false; // Reset for the next check
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un);
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outputPath, true);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None, uniprotPtms, false,
+                new List<string>(), out un);
+
+            foreach (var line in File.ReadLines(outputPath))
+            {
+                if (line.Contains("<entry"))
+                {
+                    //make sure that when the xml is written, the modified date is updated to today's date
+                    string todaysDate = DateTime.Now.ToString("yyyy-MM-dd");
+                    string modified = "modified=\"" + todaysDate;
+                    // Checks if the line contains the exact entry text
+                    lineModified = line.Contains(modified);
+                    
+                }
+            }
+            Assert.IsTrue(lineModified);
+            // Clean up the output file after the test
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+
+        [Test]
+        public void Test_readUniProtXML_featureBeginEndPosition()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            string inputXmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"unknownStatus.xml");
+            string targetLine = "<begin status=\"unknown\"/>";
+            bool foundTargetLine = false;
+            foreach (var line in File.ReadLines(inputXmlPath))
+            {
+                if (line.Equals(targetLine))
+                {
+                    foundTargetLine = true;
+                    Assert.IsTrue(foundTargetLine); //"Found the target line with unknown status for begin position."
+                    foundTargetLine = false; // Reset for the next check
+                    break;
+                }
+            }
+
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un);
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_unknownStatus.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outputPath, true);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(outputPath, true, DecoyType.None, uniprotPtms, false,
+                new List<string>(), out un);
+
+            foreach (var line in File.ReadLines(outputPath))
+            {
+                if (line.Equals(targetLine))
+                {
+                    foundTargetLine = true;
+                    Assert.IsTrue(foundTargetLine); //"Found the target line with unknown status for begin position."
+                    break;
+                }
+            }
+            // Clean up the output file after the test
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+
+        [Test]
         public void Test_read_Ensembl_pepAllFasta()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
