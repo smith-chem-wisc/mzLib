@@ -382,16 +382,16 @@ namespace Readers
                     if (peakMassErrorDa != null && peakMassErrorDa.Count > index && !string.IsNullOrEmpty(peakMassErrorDa[index]))
                         errorSplit = peakMassErrorDa[index].Split(new char[] { '+', ':', ']' });
 
-                    int fragmentNumber, secondaryFragmentNumber = 0, z;
+                    int fragmentNumber, secondaryFragmentNumber = 0;
                     ProductType productType;
                     ProductType? secondaryProductType = null;
                     FragmentationTerminus terminus = FragmentationTerminus.None; //default for internal fragments
                     int aminoAcidPosition;
-                    double neutralLoss = 0, intensity, errorDa = 0, mz;
+                    double neutralLoss = 0, intensity, errorDa = 0;
 
 
                     //if an internal fragment
-                    if (ionTypeAndNumber.Contains("["))
+                    if (ionTypeAndNumber.Contains('['))
                     {
                         if (!double.TryParse(intensitySplit[3], NumberStyles.Any, CultureInfo.InvariantCulture, out intensity))
                             intensity = 1;
@@ -405,7 +405,8 @@ namespace Readers
                         secondaryFragmentNumber = int.Parse(positionSplit[1]);
                         aminoAcidPosition = secondaryFragmentNumber - fragmentNumber;
 
-                        if (errorSplit != null && errorSplit.Length > 3)
+                        //get mass error in Daltons
+                        if (errorSplit is { Length: > 3 })
                             double.TryParse(errorSplit[3], NumberStyles.Any, CultureInfo.InvariantCulture, out errorDa);
 
                     }
@@ -419,7 +420,7 @@ namespace Readers
                         fragmentNumber = int.Parse(result.Groups[2].Value);
 
                         // check for neutral loss  
-                        if (ionTypeAndNumber.Contains("("))
+                        if (ionTypeAndNumber.Contains('('))
                         {
                             string temp = ionTypeAndNumber.Replace("(", "");
                             temp = temp.Replace(")", "");
@@ -440,13 +441,14 @@ namespace Readers
                             peptideBaseSequence.Split('|')[0].Length - fragmentNumber :
                             fragmentNumber;
 
-                        if (errorSplit != null && errorSplit.Length > 2)
+                        //get mass error in Daltons
+                        if (errorSplit is { Length: > 2 })
                             double.TryParse(errorSplit[2], NumberStyles.Any, CultureInfo.InvariantCulture, out errorDa);
                     }
 
                     //get charge and mz
-                    z = int.Parse(split[1]);
-                    mz = double.Parse(split[2], CultureInfo.InvariantCulture);
+                    int z = int.Parse(split[1]);
+                    double mz = double.Parse(split[2], CultureInfo.InvariantCulture);
                     double neutralExperimentalMass = mz.ToMass(z); //read in m/z converted to mass
                     double neutralTheoreticalMass = neutralExperimentalMass - errorDa; //theoretical mass is measured mass - measured error
 
