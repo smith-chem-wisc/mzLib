@@ -63,6 +63,18 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public static void TestOneOverK0Reading()
+        {
+            string psmFile = @"FileReadingTests\SearchResults\OneOverK0Example.psmtsv";
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
+            Assert.AreEqual(14, parsedPsms.Count);
+            var oneOverK0 = parsedPsms[0].OneOverK0;
+            Assert.That(oneOverK0, Is.EqualTo(1.1068).Within(0.0001));
+            var clonedPsm = new PsmFromTsv(parsedPsms[0], parsedPsms[0].FullSequence, 0);
+            Assert.That(clonedPsm.OneOverK0, Is.EqualTo(1.1068).Within(0.0001));
+        }
+
+        [Test]
         [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
         [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
         public static void ReadOGlycoPsmsLocalizedGlycans(string psmFile)
