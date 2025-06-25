@@ -1,11 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Readers;
 using MassSpectrometry;
 using MzLibUtil;
+using Readers.Puf;
 
 namespace Readers
 {
@@ -23,6 +20,7 @@ namespace Readers
                 SupportedFileType.BrukerTimsTof => new TimsTofFileReader(filePath),
                 SupportedFileType.Ms1Align => new Ms1Align(filePath),
                 SupportedFileType.Ms2Align => new Ms2Align(filePath),
+                SupportedFileType.PufDirectory => new PufMsDataFile(filePath),
                 _ => throw new MzLibException("File type not supported"),
             };
         }

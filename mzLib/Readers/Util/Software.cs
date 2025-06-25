@@ -18,6 +18,7 @@
         MsPathFinderT,
         Crux,
         ProteomeDiscoverer,
+        ProsightPC,
         ProsightPD,
         Chimerys,
 
