@@ -388,10 +388,11 @@ namespace Test
 
         #endregion
         #region FlashDeconv
+
         [Test]
         [TestCase(586.2143122, 24, 41983672, 586.2)]
-        public static void TestSimpleFlashDeconv(double selectedIonMz, int selectedIonChargeStateGuess,
-            double selectedIonIntensity, double isolationMz)
+        public static void TestSimpleFlashDeconv2(double selectedIonMz, int selectedIonChargeStateGuess,
+    double selectedIonIntensity, double isolationMz)
         {
             MsDataScan[] Scans = new MsDataScan[1];
 

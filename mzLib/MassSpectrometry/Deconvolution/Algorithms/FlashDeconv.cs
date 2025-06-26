@@ -1,13 +1,9 @@
 ﻿using MzLibUtil;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using static MassSpectrometry.IsoDecAlgorithm;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace MassSpectrometry
 {
@@ -123,13 +119,13 @@ namespace MassSpectrometry
         }
 
         List<KeyValuePair<int, int[]>> CountMatchesWithinTolerance(
-            List<KeyValuePair<int, double[]>> inputList,
-            double[] reference,
+            List<KeyValuePair<int, double[]>> arrayWideDifferences,
+            double[] logTransformedSpectrumXarray,
             double tolerance = 10.0)
         {
             var result = new List<KeyValuePair<int, int[]>>();
 
-            foreach (var pair in inputList)
+            foreach (var pair in arrayWideDifferences)
             {
                 var counts = new int[pair.Value.Length];
                 int refIdx = 0;
@@ -140,14 +136,14 @@ namespace MassSpectrometry
                     int count = 0;
 
                     // Advance refIdx to the first possible match
-                    while (refIdx < reference.Length && reference[refIdx] < target - LogMzDependentTolerance(reference[refIdx]))
+                    while (refIdx < logTransformedSpectrumXarray.Length && logTransformedSpectrumXarray[refIdx] < target - LogMzDependentTolerance(logTransformedSpectrumXarray[refIdx]))
                         refIdx++;
 
                     int tempIdx = refIdx;
                     // Count all matches within tolerance
-                    while (tempIdx < reference.Length && reference[tempIdx] <= target + LogMzDependentTolerance(reference[refIdx]))
+                    while (tempIdx < logTransformedSpectrumXarray.Length && logTransformedSpectrumXarray[tempIdx] <= target + LogMzDependentTolerance(logTransformedSpectrumXarray[refIdx]))
                     {
-                        if (Math.Abs(reference[tempIdx] - target) <= LogMzDependentTolerance(reference[refIdx]))
+                        if (Math.Abs(logTransformedSpectrumXarray[tempIdx] - target) <= LogMzDependentTolerance(logTransformedSpectrumXarray[refIdx]))
                             count++;
                         tempIdx++;
                     }

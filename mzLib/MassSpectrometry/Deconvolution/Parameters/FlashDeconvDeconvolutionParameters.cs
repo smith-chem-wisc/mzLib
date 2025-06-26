@@ -9,7 +9,7 @@ namespace MassSpectrometry.Deconvolution.Parameters
 {
     internal class FlashDeconvDeconvolutionParameters : DeconvolutionParameters
     {
-        public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.FlashDeconv;
+        public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.FlashDeconv2;
 
         #region Interop Parameters 
 
