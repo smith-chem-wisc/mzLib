@@ -368,7 +368,7 @@ namespace Test
         }
 
         [Test]
-        public void PpmToleranceWithNotch()
+        public void PpmToleranceWithNotch_()
         {
             var tol = new PpmToleranceWithNotch(10, 2, 1);
             Assert.AreEqual(tol.GetMaximumValue(100), (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
@@ -386,6 +386,77 @@ namespace Test
             Assert.IsFalse(tol.Within(100.5, 100));
             //notch -2
             Assert.IsFalse(tol.Within(97.993, 100));
+        }
+
+        [Test]
+        [TestCase(100, 10, 2, 1)]
+        [TestCase(100, 10, 0, 0)]
+        [TestCase(100, 10, 10, 10)]
+        [TestCase(1e4, 10, 2, 1)]
+        [TestCase(100, 1e-2, 2, 1)]
+        [TestCase(100, 1e2, 2, 1)]
+        [TestCase(100, 10, 10, 0)]
+        [TestCase(100, 10, 0, 10)]
+        [TestCase(100, 10, 1, 2)]
+        [TestCase(100, 10, 0, 2)]
+        [TestCase(100, 10, 2, 0)]
+        [TestCase(100, 10, 50, 50)]
+        [TestCase(1.10335483810, 10, 2, 1)]
+        [TestCase(100, 10, 1, 1)]
+        [TestCase(100, 10, 5, 5)]
+        [TestCase(100, 10, 20, 20)]
+        [TestCase(100, 10, 0, 0)]
+        [TestCase(100, 10, 1, 0)]
+        [TestCase(100, 10, 0, 1)]
+        public void PpmToleranceWithNotchTest(double baseValue, double tolerance, int positiveNotches, int negativeNotches)
+        {
+            var tol = new PpmToleranceWithNotch(tolerance, positiveNotches, negativeNotches);
+            double maxValue = (baseValue + positiveNotches * PpmToleranceWithNotch.NotchStep) * (1 + (tolerance / 1e6));
+            double minValue = (baseValue - negativeNotches * PpmToleranceWithNotch.NotchStep) * (1 - (tolerance / 1e6));
+            Assert.That(tol.GetMaximumValue(baseValue), Is.EqualTo(maxValue).Within(1e-6), "GetMaximumValue failed");
+            Assert.That(tol.GetMinimumValue(baseValue), Is.EqualTo(minValue).Within(1e-6), "GetMinimumValue failed");
+            Assert.That(tol.GetRange(baseValue).Maximum, Is.EqualTo(maxValue).Within(1e-6), "GetRange.Maximum failed");
+            Assert.That(tol.GetRange(baseValue).Minimum, Is.EqualTo(minValue).Within(1e-6), "GetRange.Minimum failed");
+            // Test values at notches and between
+            double notchPlus = (baseValue + positiveNotches * PpmToleranceWithNotch.NotchStep) * (1 + (tolerance / 1e6)) - 1e-6;
+            double notchMinus = (baseValue - negativeNotches * PpmToleranceWithNotch.NotchStep) * (1 - (tolerance / 1e6)) + 1e-6;
+            double notchZero = baseValue * (1 + (tolerance / 1e6)) - 1e-6;
+            double betweenNotches = baseValue + (positiveNotches + 1) * PpmToleranceWithNotch.NotchStep;
+            double belowMin = minValue - 10;
+            double aboveMax = maxValue + 10;
+            Assert.That(tol.Within(notchPlus, baseValue), Is.True, "Within failed at notchPlus");
+            Assert.That(tol.Within(notchMinus, baseValue), Is.True, "Within failed at notchMinus");
+            Assert.That(tol.Within(notchZero, baseValue), Is.True, "Within failed at notchZero");
+            if (tolerance <= 100) // Only test between notches if both notches exist
+            {
+                Assert.That(tol.Within(betweenNotches, baseValue), Is.False, "Within should not match at betweenNotches for high tolerance");
+            }
+            else
+            {
+                Assert.That(tol.Within(betweenNotches, baseValue), Is.True, "Within failed at betweenNotches");
+            }
+            Assert.That(tol.Within(belowMin, baseValue), Is.False, "Within failed at belowMin");
+            Assert.That(tol.Within(aboveMax, baseValue), Is.False, "Within failed at aboveMax");
+            // Edge: test all notches individually
+            for (int i = -negativeNotches; i <= positiveNotches; i++)
+            {
+                double shifted = baseValue + i * PpmToleranceWithNotch.NotchStep;
+                double testVal = shifted * (1 + (tolerance / 1e6)) - 1e-6;
+                Assert.That(tol.Within(testVal, baseValue), Is.True, $"Within failed at notch {i} (testVal={testVal})");
+            }
+            // Edge: test just outside all notches
+            for (int i = -negativeNotches; i <= positiveNotches; i++)
+            {
+                double shifted = baseValue + i * PpmToleranceWithNotch.NotchStep;
+                double testVal = shifted * (1 + (tolerance / 1e6)) + 1e-3;
+                Assert.That(tol.Within(testVal, baseValue), Is.False, $"Within failed at outside notch {i} (testVal={testVal})");
+            }
+            // Edge: test zero tolerance (should only match exact)
+            if (tolerance == 0)
+            {
+                Assert.That(tol.Within(baseValue, baseValue), Is.True, "Zero tolerance should match exact");
+                Assert.That(tol.Within(baseValue + 1e-6, baseValue), Is.False, "Zero tolerance should not match offset");
+            }
         }
     }
 }
