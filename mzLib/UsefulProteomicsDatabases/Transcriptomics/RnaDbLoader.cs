@@ -17,7 +17,16 @@ namespace UsefulProteomicsDatabases.Transcriptomics
     public enum RnaFastaHeaderType
     {
         Modomics,
+        Ensembl,
+        NcbiRefSeq,
+        NcbiAssembly,
         Unknown,
+    }
+
+    public enum SequenceTransformationOnRead
+    {
+        None,
+        ConvertAllTtoU
     }
 
     public static class RnaDbLoader
@@ -25,10 +34,27 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
         #region Header Detection and Property Regexes
 
+        public static string[] RnaFastaExtensions = [".fasta", ".fna", ".fa"];
+
+        /// <summary>
+        /// Checks for XX_YYYY where x is a capital letter and y is a number. 
+        /// </summary>
+        private static readonly Regex _ncbiRefSeqHeaderRegex = new Regex(@"\b[A-Z]{2}_[0-9]{4}\b");
+        private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
+        private static readonly Regex _ncbiAssemblyHeaderRegex = new Regex(@"^>NM_\d+\.\d+ ", RegexOptions.Compiled);
+        private static readonly Regex _ncbiRefSeqGeneHeaderRegex = new Regex(@"^>NC_\d+\.\d+:", RegexOptions.Compiled);
+
+
         public static RnaFastaHeaderType DetectRnaFastaHeaderType(string line)
         {
             if (line.StartsWith(">id"))
                 return RnaFastaHeaderType.Modomics;
+            if (line.StartsWith(">ENST"))
+                return RnaFastaHeaderType.Ensembl;
+            if (_ncbiAssemblyHeaderRegex.IsMatch(line))
+                return RnaFastaHeaderType.NcbiAssembly;
+            if (_ncbiRefSeqGeneHeaderRegex.IsMatch(line))
+                return RnaFastaHeaderType.NcbiRefSeq;
 
             return RnaFastaHeaderType.Unknown;
         }
@@ -47,6 +73,41 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 { "Feature", new FastaHeaderFieldRegex("Feature", @"Feature:(?<Feature>.+?)\|", 0, 1) },
                 { "Organism", new FastaHeaderFieldRegex("Organism", @"Species:(?<Species>.+?)$", 0, 1) },
                 { "Cellular Localization", new FastaHeaderFieldRegex("CellularLocalization", @"Cellular_Localization:(?<Cellular_Localization>.+?)\|", 0, 1) },
+            };
+
+        public static readonly Dictionary<string, FastaHeaderFieldRegex> EnsemblFieldRegexes =
+            new()
+            {
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>(ENST\d+\.\d+)", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"scaffold:([^\s]+)", 0, 1) },
+                { "Organism", new FastaHeaderFieldRegex("Organism", @"scaffold:([^\s:]+):([^\s:]+):", 0, 1) }, 
+                { "Gene", new FastaHeaderFieldRegex("Gene", @"gene:(ENSG\d+\.\d+)", 0, 1) },
+                { "GeneBiotype", new FastaHeaderFieldRegex("GeneBiotype", @"gene_biotype:([^\s]+)", 0, 1) },
+                { "TranscriptBiotype", new FastaHeaderFieldRegex("TranscriptBiotype", @"transcript_biotype:([^\s]+)", 0, 1) },
+                { "GeneSymbol", new FastaHeaderFieldRegex("GeneSymbol", @"gene_symbol:([^\s]+)", 0, 1) },
+                { "Description", new FastaHeaderFieldRegex("Description", @"description:([^\[]+)", 0, 1) },
+            };
+
+        public static readonly Dictionary<string, FastaHeaderFieldRegex> NcbiAssemblyFieldRegexes =
+            new()
+            {
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>(NM_\d+\.\d+)", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"^>NM_\d+\.\d+ ([^(]+)", 0, 1) },
+                // Gene: everything after "Homo sapiens" and before the first comma
+                { "Gene", new FastaHeaderFieldRegex("Gene", @"^>NM_\d+\.\d+ ([A-Za-z]+ [A-Za-z]+) ([^,]+)", 0, 2) },
+                {
+                    "Organism", new FastaHeaderFieldRegex("Organism", @"^>NM_\d+\.\d+ (([A-Za-z]+ ){1}[A-Za-z]+)", 0, 1)
+                },
+            };
+
+        public static readonly Dictionary<string, FastaHeaderFieldRegex> NcbiRefSeqGeneFieldRegexes =
+            new()
+            {
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>(NC_\d+\.\d+)", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"^\S+:\d+-\d+ ([^\[]+)", 0, 1) },
+                { "Organism", new FastaHeaderFieldRegex("Organism", @"\[organism=([^\]]+)\]", 0, 1) },
+                { "Gene", new FastaHeaderFieldRegex("Gene", @"\[GeneID=(\d+)\]", 0, 1) },
+                { "Chromosome", new FastaHeaderFieldRegex("Chromosome", @"\[chromosome=([^\]]+)\]", 0, 1) },
             };
 
         #endregion
@@ -69,7 +130,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             int maxThreads = 1, string decoyIdentifier = "DECOY")
         {
             RnaFastaHeaderType? headerType = null;
-            Regex substituteWhitespace = new Regex(@"\s+");
+            SequenceTransformationOnRead sequenceTransformation = SequenceTransformationOnRead.None;
             errors = new List<string>();
             List<RNA> targets = new List<RNA>();
             string identifierHeader = null;
@@ -115,6 +176,21 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                                     regexes = ModomicsFieldRegexes;
                                     identifierHeader = "SOterm";
                                     break;
+                                case RnaFastaHeaderType.Ensembl:
+                                    regexes = EnsemblFieldRegexes;
+                                    identifierHeader = "Accession";
+                                    sequenceTransformation = SequenceTransformationOnRead.ConvertAllTtoU;
+                                    break;
+                                case RnaFastaHeaderType.NcbiAssembly:
+                                    regexes = NcbiAssemblyFieldRegexes;
+                                    identifierHeader = "Accession";
+                                    sequenceTransformation = SequenceTransformationOnRead.ConvertAllTtoU;
+                                    break;
+                                case RnaFastaHeaderType.NcbiRefSeq:
+                                    regexes = NcbiRefSeqGeneFieldRegexes;
+                                    identifierHeader = "Accession";
+                                    sequenceTransformation = SequenceTransformationOnRead.ConvertAllTtoU;
+                                    break;
                                 default:
                                     throw new MzLibUtil.MzLibException("Unknown fasta header format: " + line);
                             }
@@ -138,14 +214,24 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
                     if ((fasta.Peek() == '>' || fasta.Peek() == -1) /*&& accession != null*/ && sb != null)
                     {
-                        string sequence = substituteWhitespace.Replace(sb.ToString(), "");
                         Dictionary<string, string> additonalDatabaseFields =
                             regexResults.ToDictionary(x => x.Key, x => x.Value);
 
-                        // Do we need to sanitize the sequence? 
+                        List<Tuple<string, string>> geneNames = null!;
+                        if (regexResults.ContainsKey("Gene"))
+                        {
+                            string geneName = regexResults["Gene"];
+                            regexResults.Remove("Gene");
+                            if (!string.IsNullOrEmpty(geneName))
+                            {
+                                geneNames = new List<Tuple<string, string>> { new Tuple<string, string>(geneName, geneName) };
+                            }
+                        }
+
+                        var sequence = SanitizeAndTransform(sb.ToString(), sequenceTransformation);
 
                         RNA rna = new RNA(sequence, identifier,
-                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: false, geneNames: null, databaseAdditionalFields: additonalDatabaseFields);
+                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: false, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields);
                         if (rna.Length == 0)
                             errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
                         else
@@ -258,6 +344,23 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
             return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
+        }
+
+
+        // TODO: Some oligo databases may have the reverse strand, this is currently not handled yet and this code assumes we are always reading in the strand to search against. 
+        public static string SanitizeAndTransform(string rawSequence, SequenceTransformationOnRead sequenceTransformation)
+        {
+            var cleanedSequence = SubstituteWhitespace.Replace(rawSequence, "");
+
+            switch (sequenceTransformation)
+            {
+                case SequenceTransformationOnRead.ConvertAllTtoU:
+                    return cleanedSequence.Replace('T', 'U');
+                case SequenceTransformationOnRead.None:
+                    return cleanedSequence;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(sequenceTransformation), sequenceTransformation, null);
+            }
         }
     }
 }
