@@ -11,6 +11,7 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics; 
 using Readers;
 using Proteomics.ProteolyticDigestion;
+using Omics.Modifications;
 
 namespace Test;
 
@@ -77,6 +78,17 @@ public class TestGenericMsDataFile
         {
             gFile.InitiateDynamicConnection();
         }); 
+    }
+
+    [Test]
+    public static void TestXicExtraction()
+    {
+        string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
+        var reader = MsDataFileReader.GetDataFile(dataFilePath);
+        reader.LoadAllStaticData();
+        var peptide = new PeptideWithSetModifications("KAPAGGAADAAAK", new Dictionary<string, Modification>());
+        var xic = reader.ExtractIonChromatogram(peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
+        Assert.That(xic.Peaks.Count(p => p.Intensity > 0) == 4);
     }
 
     private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)

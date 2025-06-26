@@ -10,10 +10,10 @@ namespace MassSpectrometry
         public double M => Mz;
         public double RetentionTime { get; init; }
         public double Intensity { get; init; }
-        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
+        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedScanIndex, double retentionTime)
         {
             this.Mz = mz;
-            this.ZeroBasedScanIndex = zeroBasedMs1ScanIndex;
+            this.ZeroBasedScanIndex = zeroBasedScanIndex;
             this.RetentionTime = retentionTime;
             this.Intensity = intensity;
         }
