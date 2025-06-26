@@ -21,10 +21,10 @@ namespace MassSpectrometry
         public double AveragedM => AverageM();
         public (double, double)[] XYData { get; set; }
         public double[] NormalizedPeakIntensities { get; set; }
-        public double StartRT => Peaks.Min(p => p.RetentionTime);
-        public double EndRT => Peaks.Max(p => p.RetentionTime);
-        public int StartCycle => Peaks.Min(p => p.ZeroBasedScanIndex);
-        public int EndCycle => Peaks.Max(p => p.ZeroBasedScanIndex);
+        public double StartRT { get; set; }
+        public double EndRT { get; set; }
+        public int StartScanIndex { get; set; }
+        public int EndScanIndex { get; set; }
         public double AverageM()
         {
             double sumIntensity = Peaks.Sum(p => p.Intensity);
@@ -41,7 +41,11 @@ namespace MassSpectrometry
         {
             Peaks = peaks;
             ApexRT = Peaks.OrderByDescending(p => p.Intensity).First().RetentionTime;
+            StartRT = Peaks.Min(p => p.RetentionTime);
+            EndRT = Peaks.Max(p => p.RetentionTime);
             ApexScanIndex = Peaks.OrderByDescending(p => p.Intensity).First().ZeroBasedScanIndex;
+            StartScanIndex = Peaks.Min(p => p.ZeroBasedScanIndex);
+            EndScanIndex = Peaks.Max(p => p.ZeroBasedScanIndex);
         }
 
         public void SetNormalizedPeakIntensities()
