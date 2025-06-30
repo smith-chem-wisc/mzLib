@@ -10,6 +10,7 @@ using Omics;
 using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
+using System.Data;
 
 namespace UsefulProteomicsDatabases
 {
@@ -49,7 +50,7 @@ namespace UsefulProteomicsDatabases
         /// </remarks>
         public static Dictionary<string, int> WriteXmlDatabase(
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<RNA> nucleicAcidList, string outputFileName)
+            List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             
@@ -100,7 +101,18 @@ namespace UsefulProteomicsDatabases
 
                 foreach (var nucleicAcid in nonVariantRna)
                 {
-                    writer.WriteStartElement("entry");
+                    writer.WriteStartElement("entry", "undefined"); //this should be a website with the XSD namespace
+                    //writer.WriteAttributeString("dataset", nucleicAcid.DatasetEntryTag);
+                    //writer.WriteAttributeString("created", nucleicAcid.CreatedEntryTag);
+                    //if (updateTimeStamp)
+                    //{
+                    //    writer.WriteAttributeString("modified", DateTime.Now.ToString("yyyy-MM-dd"));
+                    //}
+                    //else
+                    //{
+                    //    writer.WriteAttributeString("modified", nucleicAcid.ModifiedEntryTag);
+                    //}
+                    //writer.WriteAttributeString("version", nucleicAcid.VersionEntryTag);
                     writer.WriteStartElement("accession");
                     writer.WriteString(nucleicAcid.Accession);
                     writer.WriteEndElement();
@@ -165,6 +177,10 @@ namespace UsefulProteomicsDatabases
                         writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
                         writer.WriteStartElement("location");
                         writer.WriteStartElement("begin");
+
+                        //TODO: handle proteolysis products with null begin position
+                        //see protein writer for example. 
+
                         writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
                         writer.WriteEndElement();
                         writer.WriteStartElement("end");
@@ -282,7 +298,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
         public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<Protein> proteinList, string outputFileName)
+            List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
@@ -333,7 +349,18 @@ namespace UsefulProteomicsDatabases
 
                 foreach (Protein protein in nonVariantProteins)
                 {
-                    writer.WriteStartElement("entry");
+                    writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
+                    writer.WriteAttributeString("dataset", protein.DatasetEntryTag);
+                    writer.WriteAttributeString("created", protein.CreatedEntryTag);
+                    if (updateTimeStamp)
+                    {
+                        writer.WriteAttributeString("modified", DateTime.Now.ToString("yyyy-MM-dd"));
+                    }
+                    else
+                    {
+                        writer.WriteAttributeString("modified", protein.ModifiedEntryTag);
+                    }         
+                    writer.WriteAttributeString("version", protein.VersionEntryTag);
                     writer.WriteStartElement("accession");
                     writer.WriteString(protein.Accession);
                     writer.WriteEndElement();
@@ -402,7 +429,17 @@ namespace UsefulProteomicsDatabases
                         writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
                         writer.WriteStartElement("location");
                         writer.WriteStartElement("begin");
-                        writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
+
+                        if(proteolysisProduct.OneBasedBeginPosition == null)
+                        {
+                            writer.WriteAttributeString("status", "unknown");
+                        }
+                        else
+                        {
+                            writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
+                        }
+
+                        //writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
                         writer.WriteEndElement();
                         writer.WriteStartElement("end");
                         writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());
