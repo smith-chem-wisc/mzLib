@@ -625,6 +625,15 @@
     <None Update="Transcriptomics\TestData\StopGained.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Transcriptomics\TestData\TestDatabase_Ensembl.GRCh38.ncrna.fa">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\TestDatabase_NcbiAssembly.fna">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\TestDatabase_NcbiRefSeq_gene.fna">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Transcriptomics\TestData\TruncationAndVariantMods.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
