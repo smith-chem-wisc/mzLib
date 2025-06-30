@@ -2,6 +2,7 @@
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -19,19 +20,24 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             var logTransformedSpectrum = LogTransformSpectrum(spectrum);
             var logX = logTransformedSpectrum.XArray;
             var logY = logTransformedSpectrum.YArray;
-            var acceptibleLogMzDifferences = AllAcceptibleLogMzDifferences();
-            var groups = FindMatchingGroups(logX, logY, acceptibleLogMzDifferences);
-            var filteredGroups = RemoveSubsetGroups(groups);
-            var transformedFilteredGroups = TransformGroupsToExpX(filteredGroups);
-            var mzValuesWithIntensitiesAndChargeStates = AssignChargeStatesToGroups(transformedFilteredGroups, acceptibleLogMzDifferences);
-            var massIntensityGroups = CreateMassIntensityGroups(mzValuesWithIntensitiesAndChargeStates);
+            var acceptibleLogMzDifferencesBetweenNearbyValues = AllAcceptibleLogMzDifferencesForAdjacentValues();
+            var groups = FindMatchingGroups(logX, logY, acceptibleLogMzDifferencesBetweenNearbyValues);
+            var massIntensityGroups = CreateNeutralMassIntensityGroups(groups);
             return new List<IsotopicEnvelope>();
         }
-        private MzSpectrum LogTransformSpectrum(MzSpectrum spectrum)
+        private MzSpectrum LogTransformSpectrum(MzSpectrum spectrum, double intensityThresholdForFilter = 0.01)
         {
-            return new MzSpectrum(spectrum.XArray.Select(x => Math.Log(x)).ToArray(), spectrum.YArray, true);
+            var filtered = spectrum.XArray
+                .Zip(spectrum.YArray, (x, y) => new { x, y })
+                .Where(pair => pair.y > intensityThresholdForFilter)
+                .ToArray();
+
+            double[] xArray = filtered.Select(pair => Math.Log(pair.x)).ToArray();
+            double[] yArray = filtered.Select(pair => pair.y).ToArray();
+
+            return new MzSpectrum(xArray, yArray, true);
         }
-        private List<double> AllAcceptibleLogMzDifferences(int lowValue = 1, int highValue = 60)
+        private List<double> AllAcceptibleLogMzDifferencesForAdjacentValues(int lowValue = 1, int highValue = 60)
         {
             return Enumerable.Range(lowValue, highValue)
             .Select(i => Math.Log(i+1)-Math.Log(i))
@@ -40,54 +46,71 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         // Finds all groups in logTransformedXArray where the differences between consecutive elements
         // (from high to low) match (within a tolerance) a subsequence of acceptibleLogMzDifferences.
         // Returns a list of (X[], Y[]) for each group found.
-        private static List<(double[] X, double[] Y)> FindMatchingGroups(
+        private static List<(double[] X, double[] Y, int[] ChargeState)> FindMatchingGroups(
             double[] logTransformedXArray,
             double[] yArray,
             List<double> acceptibleLogMzDifferences)
         {
-            var results = new List<(double[], double[])>();
+            var results = new List<(double[], double[], int[])>();
             int n = logTransformedXArray.Length;
-            var reversedPattern = acceptibleLogMzDifferences.AsEnumerable().Reverse().ToList();
+
+            // Sort by descending m/z (i.e., descending log(m/z))
+            var sorted = logTransformedXArray
+                .Select((val, idx) => (val, idx))
+                .OrderByDescending(x => x.val)
+                .ToList();
+
+            var sortedLogX = sorted.Select(x => x.val).ToArray();
+            var sortedY = sorted.Select(x => yArray[x.idx]).ToArray();
+            var sortedIndices = sorted.Select(x => x.idx).ToArray();
 
             for (int start = 0; start < n - 1; start++)
             {
                 var groupIndices = new List<int> { start };
+                List<int> groupCharges = new ();
                 int prevIdx = start;
-                int pIdx = 0;
-
-                while (pIdx < reversedPattern.Count)
+                double longRangeExpectedDiff = 0;
+                double firstValue = sortedLogX[start];
+                for (int p = 0; p < acceptibleLogMzDifferences.Count; p++)
                 {
-                    bool found = false;
-                    double expectedDiff = reversedPattern[pIdx];
-                    double prevValue = logTransformedXArray[prevIdx];
+                    double expectedDiff = acceptibleLogMzDifferences[p];
+                    double prevValue = sortedLogX[prevIdx];
                     double tolerance = LogMzDependentTolerance(prevValue);
-
-                    // Search for the next index that matches the expected difference within tolerance
+                    bool found = false;
                     for (int nextIdx = prevIdx + 1; nextIdx < n; nextIdx++)
                     {
-                        double diff = logTransformedXArray[nextIdx] - prevValue;
+                        double diff = prevValue - sortedLogX[nextIdx]; // Correct direction: high to low
                         if (Math.Abs(diff - expectedDiff) <= tolerance)
                         {
-                            groupIndices.Add(nextIdx);
-                            prevIdx = nextIdx;
-                            found = true;
-                            break;
+                            longRangeExpectedDiff += diff; // Accumulate the difference
+                            double longRangeDiff = firstValue - sortedLogX[nextIdx]; // Calculate the long-range expected difference
+                            if (Math.Abs(longRangeDiff - longRangeExpectedDiff) <= tolerance)
+                            {
+                                if(groupCharges.Count == 0) 
+                                {
+                                    groupCharges.Add(p + 1); // Charge states are 1-indexed
+                                    groupCharges.Add(p + 2); // Charge states are 1-indexed
+                                }
+                                else
+                                {
+                                    groupCharges.Add(p + 2); // Charge states are 1-indexed
+                                }
+                                groupIndices.Add(nextIdx);
+                                prevIdx = nextIdx;
+                                found = true;
+                                break;
+                            }
                         }
                     }
-
-                    pIdx++;
                     if (!found)
-                    {
-                        // Allow missing pattern value, just move to next pattern
-                        continue;
-                    }
+                        break; // Stop if the next expected difference is not found
                 }
 
                 if (groupIndices.Count > 1)
                 {
-                    var groupX = groupIndices.Select(i => logTransformedXArray[i]).ToArray();
-                    var groupY = groupIndices.Select(i => yArray[i]).ToArray();
-                    results.Add((groupX, groupY));
+                    var groupX = groupIndices.Select(i => sortedLogX[i]).ToArray();
+                    var groupY = groupIndices.Select(i => sortedY[i]).ToArray();
+                    results.Add((groupX, groupY, groupCharges.ToArray()));
                 }
             }
             return results;
@@ -95,30 +118,42 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         // Removes any group from 'groups' where the double[] X is a subset of any other double[] X
         private static List<(double[] X, double[] Y)> RemoveSubsetGroups(List<(double[] X, double[] Y)> groups)
         {
-            var result = new List<(double[] X, double[] Y)>();
-            var groupCount = groups.Count;
+            // Sort groups by length of X (ascending)
+            var sortedGroups = groups
+                .Select((g, idx) => (g, idx))
+                .OrderBy(x => x.g.X.Length)
+                .ToList();
+
+            var toRemove = new HashSet<int>();
+            int groupCount = sortedGroups.Count;
 
             for (int i = 0; i < groupCount; i++)
             {
-                var xSet = new HashSet<double>(groups[i].X);
-                bool isSubset = false;
+                var (group, idx) = sortedGroups[i];
+                var xArray = group.X;
 
-                for (int j = 0; j < groupCount; j++)
+                for (int j = i + 1; j < groupCount; j++)
                 {
-                    if (i == j) continue;
-                    var otherSet = new HashSet<double>(groups[j].X);
-                    if (xSet.IsSubsetOf(otherSet) && xSet.Count < otherSet.Count)
+                    var (otherGroup, otherIdx) = sortedGroups[j];
+                    var otherX = otherGroup.X;
+
+                    // Check if every value in xArray has a match in otherX within tolerance
+                    bool isSubset = xArray.All(x =>
+                        otherX.Any(ox => Math.Abs(ox - x) <= LogMzDependentTolerance(x))
+                    );
+
+                    if (isSubset && xArray.Length < otherX.Length)
                     {
-                        isSubset = true;
+                        toRemove.Add(idx);
                         break;
                     }
                 }
-
-                if (!isSubset)
-                    result.Add(groups[i]);
             }
 
-            return result;
+            // Return groups not marked for removal, preserving original order
+            return groups
+                .Where((g, idx) => !toRemove.Contains(idx))
+                .ToList();
         }
         // Creates new groups from filteredGroups where each value in double[] X is transformed by the inverse natural log (Math.Exp)
         private static List<(double[] X, double[] Y)> TransformGroupsToExpX(List<(double[] X, double[] Y)> filteredGroups)
@@ -127,47 +162,21 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                 .Select(g => (X: g.X.Select(Math.Exp).ToArray(), Y: g.Y))
                 .ToList();
         }
-        // Assigns charge states to each value in double[] X for each group, based on the pattern of log differences
-        private static List<(double[] X, double[] Y, int[] chargeStates)> AssignChargeStatesToGroups(
-            List<(double[] X, double[] Y)> transformedFilteredGroups,
-            List<double> acceptibleLogMzDifferences)
+
+        private static List<(double[] neutralMass, double[] intensity)> CreateNeutralMassIntensityGroups(
+            List<(double[] X, double[] Y, int[] ChargeState)> groups)
         {
-            // Map: log(n) => n for n in [2, 60]
-            var logToInt = Enumerable.Range(2, 59)
-                .ToDictionary(n => Math.Log(n), n => n);
+            var result = new List<(double[] neutralMass, double[] intensity)>();
 
-            var result = new List<(double[] X, double[] Y, int[] chargeStates)>();
-
-            foreach (var group in transformedFilteredGroups)
+            foreach (var group in groups)
             {
                 int len = group.X.Length;
-                var chargeStates = new int[len];
-
-                // Start with charge state 1 at the highest X (first, since X is sorted high-to-low in pattern)
-                chargeStates[0] = 1;
-
-                for (int i = 1; i < len; i++)
+                var neutralMass = new double[len];
+                for (int i = 0; i < len; i++)
                 {
-                    double diff = Math.Log(group.X[i - 1]) - Math.Log(group.X[i]);
-                    int chargePrev = chargeStates[i - 1];
-                    int matchedCharge = -1;
-
-                    // Find the integer n such that diff ≈ log(n) within tolerance
-                    foreach (var kvp in logToInt)
-                    {
-                        double tolerance = LogMzDependentTolerance(Math.Log(group.X[i - 1]));
-                        if (Math.Abs(diff - kvp.Key) <= tolerance)
-                        {
-                            matchedCharge = chargePrev + 1;
-                            break;
-                        }
-                    }
-
-                    // If not found, keep previous charge or set to -1 (unknown)
-                    chargeStates[i] = matchedCharge > 0 ? matchedCharge : -1;
+                    neutralMass[i] = NeutralMassFromLogMz(group.X[i], group.ChargeState[i]);
                 }
-
-                result.Add((group.X, group.Y, chargeStates));
+                result.Add((neutralMass, group.Y));
             }
 
             return result;
@@ -178,30 +187,13 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             var mPlus = m + m * tolerance / 1000000.0;
             var lmPlus = Math.Log(mPlus);
             var newT = lmPlus - logMz;
-            return newT;
+            //return newT;
+            return 0.0001;
         }
-        // Creates new groups where mass is computed using NeutralMassFromMz for each X and chargeState
-        private List<(double[] mass, double[] intensity)> CreateMassIntensityGroups(
-            List<(double[] X, double[] Y, int[] chargeStates)> mzValuesWithIntensitiesAndChargeStates)
-        {
-            var result = new List<(double[] mass, double[] intensity)>();
 
-            foreach (var group in mzValuesWithIntensitiesAndChargeStates)
-            {
-                int len = group.X.Length;
-                var mass = new double[len];
-                for (int i = 0; i < len; i++)
-                {
-                    mass[i] = NeutralMassFromMz(group.X[i], group.chargeStates[i]);
-                }
-                result.Add((mass, group.Y));
-            }
-
-            return result;
-        }
-        private static double NeutralMassFromMz(double mz, int chargeState)
+        private static double NeutralMassFromLogMz(double logmz, int chargeState)
         {
-            return mz.ToMass(chargeState);
+            return Math.Exp(logmz).ToMass(chargeState);
         }
     }
 }

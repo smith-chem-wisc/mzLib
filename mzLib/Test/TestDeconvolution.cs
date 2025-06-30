@@ -426,7 +426,6 @@ namespace Test
             // The ones marked 2 are for checking an overload method
 
             DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters();
-
             List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
             List<IsotopicEnvelope> isolatedMasses2 =
                 scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, deconParameters).ToList();

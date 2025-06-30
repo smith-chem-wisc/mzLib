@@ -301,6 +301,9 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\groupOne.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
