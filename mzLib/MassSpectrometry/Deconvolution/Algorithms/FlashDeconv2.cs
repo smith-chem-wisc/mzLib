@@ -181,14 +181,14 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 
             return result;
         }
-        private static double LogMzDependentTolerance(double logMz, double tolerance = 10.0)
+        private static double LogMzDependentTolerance(double logMz, double tolerance = 250.0)
         {
             var m = Math.Exp(logMz);
             var mPlus = m + m * tolerance / 1000000.0;
             var lmPlus = Math.Log(mPlus);
             var newT = lmPlus - logMz;
-            //return newT;
-            return 0.0001;
+            return newT;
+            //return 0.0001;
         }
 
         private static double NeutralMassFromLogMz(double logmz, int chargeState)
