@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FlashLFQ.Interfaces;
+using MzLibUtil;
 
 namespace FlashLFQ
 {
@@ -80,7 +81,6 @@ namespace FlashLFQ
             {
                 _serializer.Serialize(indexFile, IndexedPeaks);
             }
-            ClearIndex();
         }
 
         public void DeserializeIndex()
@@ -94,6 +94,31 @@ namespace FlashLFQ
             }
 
             File.Delete(indexPath);
+        }
+
+        /// <summary>  
+        /// Prune the index engine to remove any unnecessary data or entries for the better memory usage.  
+        /// </summary>  
+        public void PruneIndex(List<double> targetMz)
+        {
+            if (IndexedPeaks == null || targetMz == null || !targetMz.Any())
+                return;
+
+            // Define a tolerance for matching target masses  
+            PpmTolerance ppmTolerance = new PpmTolerance(10);
+
+            // Prune each bin of indexed peaks by only conserving the target mass  
+            for (int i = 0 ; i < IndexedPeaks.Length ; i++)
+            {
+                if (IndexedPeaks[i] == null || !IndexedPeaks[i].Any())
+                    continue;
+
+                var keepMz = (double)i / 100;
+                if (!targetMz.Any(mz=> ppmTolerance.Within(mz, (double)i/100)))
+                {
+                    IndexedPeaks[i] = null; // Remove the bin if it does not contain any target mass peaks
+                }
+            }
         }
     }
 }

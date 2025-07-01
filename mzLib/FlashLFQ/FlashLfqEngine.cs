@@ -188,6 +188,8 @@ namespace FlashLFQ
             _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
+            var targetMass = GetTargetMz();
+
             // quantify each file
             foreach (var spectraFile in SpectraFileInfoList)
             {
@@ -205,15 +207,25 @@ namespace FlashLFQ
                 QuantifyMs2IdentifiedPeptides(spectraFile);
 
                 // Retain, Serialize and Clear, or Clear the indexing engine
-                if(!FlashParams.IsoTracker) // If IsoTracker is on, we don't need to serialize the index for each file. The indexed peaks are retained
+                // If IsoTracker is on, we don't need to serialize the index for each file. The indexed peaks are retained.
+                if (FlashParams.IsoTracker) 
                 {
-                    if (FlashParams.MatchBetweenRuns) // If IsoTracker is off, and MBR is on then we need to serialize the index before clearing the array.
-                        IndexingEngineDictionary[spectraFile].SerializeIndex();
-                    else
-                        IndexingEngineDictionary[spectraFile].ClearIndex(); // If IsoTracker and MBR are off, we simply clear the indexing engine array to save memory
+                    if (FlashParams.MatchBetweenRuns)
+                    {
+                        IndexingEngineDictionary[spectraFile].SerializeIndex();  // If MBR is on then we need to serialize the index.
+                    }
+                    IndexingEngineDictionary[spectraFile].PruneIndex(targetMass); // remove some unuseful data from the index to save memory for IsoTracker
+
                 }
-
-
+                // If IsoTracker is off, we  need to clear the indexing engine array to save memory.
+                else
+                {
+                    if (FlashParams.MatchBetweenRuns)
+                    {
+                        IndexingEngineDictionary[spectraFile].SerializeIndex();  // If IsoTracker is off, and MBR is on then we need to serialize the index before clearing the array.
+                    }
+                    IndexingEngineDictionary[spectraFile].ClearIndex();
+                }
                 // error checking function
                 // handles features with multiple identifying scans and scans that are associated with more than one feature
                 RunErrorChecking(spectraFile);
@@ -253,10 +265,7 @@ namespace FlashLFQ
                     }
 
                     //Deserialize the relevant index prior to MBR
-                    if (!FlashParams.IsoTracker) //If IsoTracker is on, there is no serializer then we don't need to deserialize the index
-                    {
-                        IndexingEngineDictionary[spectraFile].DeserializeIndex();
-                    }
+                    IndexingEngineDictionary[spectraFile].DeserializeIndex();
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
                     IndexingEngineDictionary[spectraFile].ClearIndex();
 
@@ -2147,6 +2156,37 @@ namespace FlashLFQ
                 }
             }
             return true;
+        }
+
+        private List<double> GetTargetMz()
+        {
+            HashSet<double> interestedMass = new HashSet<double>();
+            foreach (var peptide in ModifiedSequenceToIsotopicDistribution)
+            {
+                var id = _allIdentifications.First(p => p.ModifiedSequence == peptide.Key);
+                List<double> massOfInterest = peptide.Value.Select(p => p.massShift + id.MonoisotopicMass).ToList();
+                massOfInterest.Add(massOfInterest.Min() - Constants.C13MinusC12);
+                massOfInterest.Add(massOfInterest.Max() + Constants.C13MinusC12);
+                massOfInterest.Add(massOfInterest.Max() + 2*Constants.C13MinusC12);
+                interestedMass.AddRange(massOfInterest);
+            }
+
+            List<double> targetMass = interestedMass.ToList();
+            return MassesToMzs(targetMass);
+        }
+
+        private List<double> MassesToMzs(List<double> targetMasses)
+        {
+            List<double> targetMzs = new();
+            foreach (var mass in targetMasses)
+            {
+                _chargeStates.ForEach(chargeState =>
+                {
+                    targetMzs.Add(mass.ToMz(chargeState));
+                });
+            }
+            targetMzs.Sort();
+            return targetMzs;
         }
     }
 
