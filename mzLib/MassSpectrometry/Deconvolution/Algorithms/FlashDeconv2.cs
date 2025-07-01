@@ -22,7 +22,18 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             var logY = logTransformedSpectrum.YArray;
             var acceptibleLogMzDifferencesBetweenNearbyValues = AllAcceptibleLogMzDifferencesForAdjacentValues();
             var groups = FindMatchingGroups(logX, logY, acceptibleLogMzDifferencesBetweenNearbyValues);
+
             var massIntensityGroups = CreateNeutralMassIntensityGroups(groups);
+            FilterMassIntensityGroupsByPpmTolerance(
+                massIntensityGroups,
+                out var likelyCorrect,
+                out var likelyIncorrect,
+                correctPpmTolerance: 25,
+                incorrectPpmTolerance: 250,
+                correctFraction: 0.7);
+            var neutralMassIntensityGroups = GetMostCommonNeutralMassAndSummedIntensity(
+                likelyCorrect,
+                ppmTolerance: 25);
             return new List<IsotopicEnvelope>();
         }
         private MzSpectrum LogTransformSpectrum(MzSpectrum spectrum, double intensityThresholdForFilter = 0.01)
@@ -162,7 +173,101 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                 .Select(g => (X: g.X.Select(Math.Exp).ToArray(), Y: g.Y))
                 .ToList();
         }
+        
+        public static void FilterMassIntensityGroupsByPpmTolerance(
+            IEnumerable<(double[] neutralMass, double[] intensity)> massIntensityGroups,
+            out List<(double[] neutralMass, double[] intensity)> likelyCorrect,
+            out List<(double[] neutralMass, double[] intensity)> likelyIncorrect,
+            double correctPpmTolerance = 25,
+            double incorrectPpmTolerance = 250,
+            double correctFraction = 0.7)
+        {
+            likelyCorrect = new List<(double[] neutralMass, double[] intensity)>();
+            likelyIncorrect = new List<(double[] neutralMass, double[] intensity)>();
 
+            foreach (var group in massIntensityGroups)
+            {
+                var masses = group.neutralMass;
+                if (masses.Length < 2)
+                {
+                    // Not enough data to judge, treat as correct by default
+                    likelyCorrect.Add(group);
+                    continue;
+                }
+
+                int closeCount = 0;
+                int farCount = 0;
+                int totalPairs = 0;
+
+                // Compare all pairs
+                for (int i = 0; i < masses.Length; i++)
+                {
+                    for (int j = i + 1; j < masses.Length; j++)
+                    {
+                        double ppm = Math.Abs(masses[i] - masses[j]) / ((masses[i] + masses[j]) / 2.0) * 1e6;
+                        if (ppm <= correctPpmTolerance)
+                            closeCount++;
+                        if (ppm > incorrectPpmTolerance)
+                            farCount++;
+                        totalPairs++;
+                    }
+                }
+
+                // If most pairs are close, it's likely correct
+                if (totalPairs == 0 || (closeCount >= correctFraction * totalPairs && farCount < (1 - correctFraction) * totalPairs))
+                    likelyCorrect.Add(group);
+                else if (farCount > (1 - correctFraction) * totalPairs)
+                    likelyIncorrect.Add(group);
+                else
+                    likelyIncorrect.Add(group); // ambiguous, treat as incorrect
+            }
+        }
+        public static List<(double mostCommonNeutralMass, double summedIntensity)> GetMostCommonNeutralMassAndSummedIntensity(
+            IEnumerable<(double[] neutralMass, double[] intensity)> likelyCorrectGroups,
+            double ppmTolerance = 25)
+        {
+            var results = new List<(double mostCommonNeutralMass, double summedIntensity)>();
+
+            foreach (var group in likelyCorrectGroups)
+            {
+                var masses = group.neutralMass;
+                var intensities = group.intensity;
+
+                // Cluster masses within ppmTolerance
+                var clusters = new List<List<int>>(); // Each cluster is a list of indices
+
+                for (int i = 0; i < masses.Length; i++)
+                {
+                    bool added = false;
+                    for (int c = 0; c < clusters.Count; c++)
+                    {
+                        // Compare to first mass in cluster
+                        double refMass = masses[clusters[c][0]];
+                        double ppm = Math.Abs(masses[i] - refMass) / refMass * 1e6;
+                        if (ppm <= ppmTolerance)
+                        {
+                            clusters[c].Add(i);
+                            added = true;
+                            break;
+                        }
+                    }
+                    if (!added)
+                    {
+                        clusters.Add(new List<int> { i });
+                    }
+                }
+
+                // Find the largest cluster (the mode)
+                var modeCluster = clusters.OrderByDescending(cl => cl.Count).First();
+                // Use the average mass of the mode cluster as the representative value
+                double mostCommonNeutralMass = modeCluster.Select(idx => masses[idx]).Average();
+                double summedIntensity = modeCluster.Select(idx => intensities[idx]).Sum();
+
+                results.Add((mostCommonNeutralMass, summedIntensity));
+            }
+
+            return results;
+        }
         private static List<(double[] neutralMass, double[] intensity)> CreateNeutralMassIntensityGroups(
             List<(double[] X, double[] Y, int[] ChargeState)> groups)
         {
