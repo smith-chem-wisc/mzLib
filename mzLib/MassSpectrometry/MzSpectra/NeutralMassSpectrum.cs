@@ -51,6 +51,10 @@ namespace MassSpectrometry
             LastX = maxMz;
         }
 
+        public NeutralMassSpectrum(double[] mz, double[] intensities, bool shouldCopy) : base(mz, intensities, shouldCopy)
+        {
+        }
+
         public override double? FirstX { get; } // in m/z
         public override double? LastX { get; } // in m/z
 

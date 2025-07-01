@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using MassSpectrometry.Deconvolution.Parameters;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
@@ -34,6 +35,14 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             var neutralMassIntensityGroups = GetMostCommonNeutralMassAndSummedIntensity(
                 likelyCorrect,
                 ppmTolerance: 25);
+
+            var neutralMassSpectrum = new NeutralMassSpectrum(
+                neutralMassIntensityGroups.Select(g => g.mostCommonNeutralMass.ToMz(1)).ToArray(),
+                    neutralMassIntensityGroups.Select(g => g.summedIntensity).ToArray(),
+                    Enumerable.Repeat(1, neutralMassIntensityGroups.Count).ToArray(),
+                    shouldCopy: true);
+            FlashDeconvDeconvolutionParameters deconvolutionParameters = (FlashDeconvDeconvolutionParameters)DeconvolutionParameters;
+            var k = Deconvoluter.Deconvolute(neutralMassSpectrum, deconvolutionParameters, range);
             return new List<IsotopicEnvelope>();
         }
         private MzSpectrum LogTransformSpectrum(MzSpectrum spectrum, double intensityThresholdForFilter = 0.01)
@@ -300,5 +309,10 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         {
             return Math.Exp(logmz).ToMass(chargeState);
         }
+
+        //internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
+        //{
+        //    throw new NotImplementedException();
+        //}
     }
 }
