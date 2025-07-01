@@ -306,13 +306,12 @@ namespace Readers
 
             RemoveSpecialCharacters(ref fullSeq);
             MatchCollection matches = regex.Matches(fullSeq);
-            int currentPosition = 0;
+            int totalCaptureLength = 0;
             foreach (Match match in matches)
             {
                 GroupCollection group = match.Groups;
                 string val = group[1].Value;
                 int startIndex = group[0].Index;
-                int captureLength = group[0].Length;
                 int position = group["(.+?)"].Index;
 
                 List<string> modList = new List<string>();
@@ -324,7 +323,7 @@ namespace Readers
                 // otherwise, add the modification to the dict.
 
                 // int to add is startIndex - current position
-                int positionToAddToDict = startIndex - currentPosition;
+                int positionToAddToDict = startIndex - totalCaptureLength;
                 if (modDict.ContainsKey(positionToAddToDict))
                 {
                     modDict[positionToAddToDict].Add(val);
@@ -333,7 +332,7 @@ namespace Readers
                 {
                     modDict.Add(positionToAddToDict, modList);
                 }
-                currentPosition += startIndex + captureLength;
+                totalCaptureLength = totalCaptureLength + group[0].Length;
             }
             return modDict;
         }
