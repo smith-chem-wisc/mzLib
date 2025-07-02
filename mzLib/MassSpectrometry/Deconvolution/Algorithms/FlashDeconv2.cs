@@ -10,6 +10,8 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 {
     internal class FlashDeconv2 : DeconvolutionAlgorithm
     {
+        private static readonly ClassicDeconvolutionParameters ToEnvelopeDeconParams = new ClassicDeconvolutionParameters(1, 1, 10, 3);
+        private static readonly ClassicDeconvolutionAlgorithm ToEnvelopeDeconvoluter = new(ToEnvelopeDeconParams);
         internal FlashDeconv2(DeconvolutionParameters deconParameters) : base(deconParameters)
         {
 
@@ -49,13 +51,20 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             // 8. For each likely correct group, determine the most common neutral mass (mode) and sum the corresponding intensities.
             var summarizedEnvelopes = GetMostCommonNeutralMassAndSummedIntensity(likelyCorrectGroups);
 
-            //// 9. Convert the summarized results into IsotopicEnvelope objects for output.
+            var nms = new MzSpectrum(
+                summarizedEnvelopes.Select(x => x.mostCommonNeutralMass).ToArray(),
+                summarizedEnvelopes.Select(x => x.summedIntensity).ToArray(),
+                true);
+
+            var envelopes = ToEnvelopeDeconvoluter.Deconvolute(nms, nms.Range);
+
+            // 9. Convert the summarized results into IsotopicEnvelope objects for output.
             //foreach (var (mostCommonNeutralMass, summedIntensity) in summarizedEnvelopes)
             //{
             //    // Construct and yield an IsotopicEnvelope for each result.
             //    yield return new IsotopicEnvelope(mostCommonNeutralMass, summedIntensity);
             //}
-            return new List<IsotopicEnvelope> { };
+            return envelopes;
         }
         private MzSpectrum LogTransformSpectrum(MzSpectrum spectrum, double intensityThresholdForFilter = 0.01)
         {
@@ -309,7 +318,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                 results.Add((mostCommonNeutralMass, summedIntensity));
             }
 
-            return results;
+            return results.OrderBy(x => x.mostCommonNeutralMass).ToList();
         }
         private static List<(double[] neutralMass, double[] intensity)> CreateNeutralMassIntensityGroups(
             List<(double[] X, double[] Y, int[] ChargeState)> groups)
