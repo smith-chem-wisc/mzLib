@@ -413,9 +413,9 @@ namespace Test
                 ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
             }
 
-            MzSpectrum spectrum = new MzSpectrum(ms1mzs, ms1intensities, false);
+            MzSpectrum spectrum = new MzSpectrum(ms1mzs, ms1intensities, true);
 
-            Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617),
+            Scans[0] = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0, new MzRange(ms1mzs.Min(), ms1mzs.Max()),
                 "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz,
                 selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
 
@@ -425,7 +425,7 @@ namespace Test
 
             // The ones marked 2 are for checking an overload method
 
-            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters();
+            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters(1,60);
             List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
             List<IsotopicEnvelope> isolatedMasses2 =
                 scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, deconParameters).ToList();
