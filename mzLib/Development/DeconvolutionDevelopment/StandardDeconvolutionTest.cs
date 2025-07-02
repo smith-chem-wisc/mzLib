@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
+using MassSpectrometry.Deconvolution.Parameters;
 using NUnit.Framework;
 using UsefulProteomicsDatabases;
 
@@ -14,7 +15,7 @@ namespace Development.Deconvolution
     /// </remarks>
     /// </summary>
     [TestFixture]
-    [Ignore("Only needed when developing deconvolution methods")]
+    //[Ignore("Only needed when developing deconvolution methods")]
     [ExcludeFromCodeCoverage]
     public class StandardDeconvolutionTest
     {
@@ -47,13 +48,15 @@ namespace Development.Deconvolution
             List<DeconvolutionParameters> topDownDeconvolutionParametersToTest =
             [
                 new ClassicDeconvolutionParameters(1, 60, 4, 3),
-                new IsoDecDeconvolutionParameters()
+                new IsoDecDeconvolutionParameters(),
+                new FlashDeconvDeconvolutionParameters(1, 60, Polarity.Positive)
             ];
 
             List<DeconvolutionParameters> bottomUpDeconvolutionParametersToTest =
             [
                 new ClassicDeconvolutionParameters(1, 12, 4, 3),
-                new IsoDecDeconvolutionParameters()
+                new IsoDecDeconvolutionParameters(),
+                new FlashDeconvDeconvolutionParameters(1, 60, Polarity.Positive)
             ];
 
 

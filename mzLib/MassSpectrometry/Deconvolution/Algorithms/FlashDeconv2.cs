@@ -52,18 +52,11 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             var summarizedEnvelopes = GetMostCommonNeutralMassAndSummedIntensity(likelyCorrectGroups);
 
             var nms = new MzSpectrum(
-                summarizedEnvelopes.Select(x => x.mostCommonNeutralMass).ToArray(),
+                summarizedEnvelopes.Select(x => x.mostCommonNeutralMass.ToMz(1)).ToArray(),
                 summarizedEnvelopes.Select(x => x.summedIntensity).ToArray(),
                 true);
 
             var envelopes = ToEnvelopeDeconvoluter.Deconvolute(nms, nms.Range);
-
-            // 9. Convert the summarized results into IsotopicEnvelope objects for output.
-            //foreach (var (mostCommonNeutralMass, summedIntensity) in summarizedEnvelopes)
-            //{
-            //    // Construct and yield an IsotopicEnvelope for each result.
-            //    yield return new IsotopicEnvelope(mostCommonNeutralMass, summedIntensity);
-            //}
             return envelopes;
         }
         private MzSpectrum LogTransformSpectrum(MzSpectrum spectrum, double intensityThresholdForFilter = 0.01)
