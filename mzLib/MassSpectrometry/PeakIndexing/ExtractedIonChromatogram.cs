@@ -117,7 +117,7 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="peakBoundaries"></param>
         /// <param name="separationValueAtPeakCenter"></param>
-        public void RemovePeaks(List<IIndexedPeak> peakBoundaries, double separationValueAtPeakCenter)
+        public static void RemovePeaks(List<IIndexedPeak> peaks, List<IIndexedPeak> peakBoundaries, double separationValueAtPeakCenter)
         {
             if (peakBoundaries.IsNotNullOrEmpty())
             {
@@ -125,11 +125,11 @@ namespace MassSpectrometry
                 {
                     if (boundary.RetentionTime > separationValueAtPeakCenter)
                     {
-                        Peaks.RemoveAll(d => d.RetentionTime >= boundary.RetentionTime);
+                        peaks.RemoveAll(d => d.RetentionTime >= boundary.RetentionTime);
                     }
                     else
                     {
-                        Peaks.RemoveAll(d => d.RetentionTime <= boundary.RetentionTime);
+                        peaks.RemoveAll(d => d.RetentionTime <= boundary.RetentionTime);
                     }
                 }
             }
@@ -139,15 +139,15 @@ namespace MassSpectrometry
         {
             var apexPeak = Peaks.FirstOrDefault(p => p.ZeroBasedScanIndex == ApexScanIndex);
             var peakBoundaries = FindPeakBoundaries(Peaks, Peaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
-            CutPeak(peakBoundaries, apexPeak.RetentionTime);
+            RemovePeaks(Peaks, peakBoundaries, apexPeak.RetentionTime);
         }
 
-        public List<IIndexedPeak> CutPeak(List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)
+        public static void CutPeak(ref List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)
         {
             var apexPeak = peaks.OrderByDescending(p => p.Intensity).FirstOrDefault();
             var sortedPeaks = peaks.OrderBy(p => p.RetentionTime).ToList();
             var peakBoundaries = FindPeakBoundaries(sortedPeaks, sortedPeaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
-            RemovePeaks(peakBoundaries, apexPeak.RetentionTime);
+            RemovePeaks(peaks, peakBoundaries, apexPeak.RetentionTime);
         }
     }
 }
