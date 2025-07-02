@@ -436,6 +436,54 @@ namespace Test
             //this case is interesting because other monoisotopic mass may have a sodium adduct. The unit test could be expanded to consider this.
             Assert.That(monoIsotopicMasses[0], Is.EqualTo(4718.268226).Within(0.01));
         }
+        [Test]
+        [TestCase(586.2143122, 24, 41983672, 586.2)]
+        public static void TestTwoProteoformFlashDeconv2(double selectedIonMz, int selectedIonChargeStateGuess,
+    double selectedIonIntensity, double isolationMz)
+        {
+            MsDataScan[] Scans = new MsDataScan[1];
+
+            //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"DataFiles\mZchargeTwoProteoformSpectrum.txt");
+
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+
+            int mzIntensityPairsCount = spectrumLines.Length;
+            double[] ms1mzs = new double[mzIntensityPairsCount];
+            double[] ms1intensities = new double[mzIntensityPairsCount];
+
+            for (int i = 0; i < mzIntensityPairsCount; i++)
+            {
+                string[] pair = spectrumLines[i].Split('\t');
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
+            }
+
+            MzSpectrum spectrum = new MzSpectrum(ms1mzs, ms1intensities, true);
+
+            Scans[0] = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0, new MzRange(ms1mzs.Min(), ms1mzs.Max()),
+                "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz,
+                selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+
+            var myMsDataFile = new FakeMsDataFile(Scans);
+
+            MsDataScan scan = myMsDataFile.GetAllScansList()[0];
+
+            // The ones marked 2 are for checking an overload method
+
+            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters(1, 60);
+            var isolatedMasses = Deconvoluter.Deconvolute(scan, deconParameters);
+            var isolatedMasses2 = Deconvoluter.Deconvolute(scan.MassSpectrum, deconParameters);
+
+            List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
+            List<double> monoIsotopicMasses2 = isolatedMasses2.Select(m => m.MonoisotopicMass).ToList();
+
+            //The primary monoisotopic mass should be the same regardless of which peak in which charge state was selected for isolation.
+            //this case is interesting because other monoisotopic mass may have a sodium adduct. The unit test could be expanded to consider this.
+            Assert.That(monoIsotopicMasses[0], Is.EqualTo(4718.268226).Within(0.01));
+            Assert.That(monoIsotopicMasses[1], Is.EqualTo(4815.320814).Within(0.01));
+        }
         #endregion
         [Test]
         public static void TestExampleNewDeconvolutionInDeconvoluter()

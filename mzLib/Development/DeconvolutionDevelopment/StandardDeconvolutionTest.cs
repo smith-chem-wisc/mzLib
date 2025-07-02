@@ -15,7 +15,7 @@ namespace Development.Deconvolution
     /// </remarks>
     /// </summary>
     [TestFixture]
-    //[Ignore("Only needed when developing deconvolution methods")]
+    [Ignore("Only needed when developing deconvolution methods")]
     [ExcludeFromCodeCoverage]
     public class StandardDeconvolutionTest
     {
