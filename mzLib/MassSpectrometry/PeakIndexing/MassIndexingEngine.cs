@@ -27,7 +27,7 @@ namespace MassSpectrometry
             ScanInfoArray = new ScanInfo[scanArray.Length];
             for (int scanIndex = 0; scanIndex < scanArray.Length; scanIndex++)
             {
-                ScanInfoArray[scanIndex] = new ScanInfo(scanArray[scanIndex].OneBasedScanNumber, scanIndex, scanArray[scanIndex].RetentionTime);
+                ScanInfoArray[scanIndex] = new ScanInfo(scanArray[scanIndex].OneBasedScanNumber, scanIndex, scanArray[scanIndex].RetentionTime, scanArray[scanIndex].MsnOrder);
                 var envelopes = Deconvoluter.Deconvolute(scanArray[scanIndex].MassSpectrum, deconParameters, mzRange);
                 foreach (var envelope in envelopes)
                 {
