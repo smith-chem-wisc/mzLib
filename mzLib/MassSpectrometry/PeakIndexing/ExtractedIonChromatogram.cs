@@ -41,12 +41,7 @@ namespace MassSpectrometry
         public ExtractedIonChromatogram(List<IIndexedPeak> peaks)
         {
             Peaks = peaks;
-            ApexRT = Peaks.OrderByDescending(p => p.Intensity).First().RetentionTime;
-            StartRT = Peaks.Min(p => p.RetentionTime);
-            EndRT = Peaks.Max(p => p.RetentionTime);
-            ApexScanIndex = Peaks.OrderByDescending(p => p.Intensity).First().ZeroBasedScanIndex;
-            StartScanIndex = Peaks.Min(p => p.ZeroBasedScanIndex);
-            EndScanIndex = Peaks.Max(p => p.ZeroBasedScanIndex);
+            SetRtInfo();
         }
 
         public void SetNormalizedPeakIntensities()
@@ -137,17 +132,27 @@ namespace MassSpectrometry
 
         public void CutPeak(double discriminationFactorToCutPeak = 0.6)
         {
-            var apexPeak = Peaks.FirstOrDefault(p => p.ZeroBasedScanIndex == ApexScanIndex);
-            var peakBoundaries = FindPeakBoundaries(Peaks, Peaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
-            RemovePeaks(Peaks, peakBoundaries, apexPeak.RetentionTime);
+            CutPeak(Peaks, discriminationFactorToCutPeak);
+            SetRtInfo(); // Update RT info after cutting the peak
         }
 
-        public static void CutPeak(ref List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)
+        public static void CutPeak(List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)
         {
+            if (peaks == null || peaks.Count < 5) return;
             var apexPeak = peaks.OrderByDescending(p => p.Intensity).FirstOrDefault();
             var sortedPeaks = peaks.OrderBy(p => p.RetentionTime).ToList();
             var peakBoundaries = FindPeakBoundaries(sortedPeaks, sortedPeaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
             RemovePeaks(peaks, peakBoundaries, apexPeak.RetentionTime);
+        }
+
+        public void SetRtInfo()
+        {
+            ApexRT = Peaks.OrderByDescending(p => p.Intensity).First().RetentionTime;
+            StartRT = Peaks.Min(p => p.RetentionTime);
+            EndRT = Peaks.Max(p => p.RetentionTime);
+            ApexScanIndex = Peaks.OrderByDescending(p => p.Intensity).First().ZeroBasedScanIndex;
+            StartScanIndex = Peaks.Min(p => p.ZeroBasedScanIndex);
+            EndScanIndex = Peaks.Max(p => p.ZeroBasedScanIndex);
         }
     }
 }
