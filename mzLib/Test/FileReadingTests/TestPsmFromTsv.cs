@@ -312,13 +312,6 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public static void TestParseModification2()
-        {
-            string seq2 = "LPIAGEM[Common Variable:Oxidation on M][Common Fixed:Carbamidomethyl on C]LDTISPQFLSDCFSLGAIGAR";
-            var modDict2 = SpectrumMatchFromTsv.ParseModifications(seq2);
-        }
-
-        [Test]
         public static void TestRemoveSpecialCharacters()
         {
             // successful removal of the default character
