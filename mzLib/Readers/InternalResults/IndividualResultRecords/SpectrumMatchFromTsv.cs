@@ -58,6 +58,7 @@ namespace Readers
         public string NextResidue { get; protected set; }
         public string DecoyContamTarget { get; protected set; }
         public double? QValueNotch { get; protected set; }
+        public double? OneOverK0 { get; protected set; }
 
         public List<MatchedFragmentIon> VariantCrossingIons { get; protected set; }
 
@@ -171,6 +172,7 @@ namespace Readers
             RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? -1 : double.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture, out double rt) ? rt : -1;
             PEP = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
             PEP_QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
+            OneOverK0 = (parsedHeader[SpectrumMatchFromTsvHeader.OneOverK0] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.OneOverK0]].Trim(), CultureInfo.InvariantCulture);
             VariantCrossingIons = FindVariantCrossingIons();
             SpectralAngle = (parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle] < 0)
                 ? null
@@ -251,6 +253,7 @@ namespace Readers
             DecoyContamTarget = psm.DecoyContamTarget;
             QValueNotch = psm.QValueNotch;
             RetentionTime = psm.RetentionTime;
+            OneOverK0 = psm.OneOverK0;
         }
 
         /// <summary>
@@ -370,31 +373,29 @@ namespace Readers
                     string peak = peakMzs[index];
                     string[] split = peak.Split(new char[] { '+', ':' }); //TODO: needs update for negative charges that doesn't break internal fragment ions or neutral losses
 
-                    // if there is a mismatch between the number of peaks and number of intensities from the psmtsv, the intensity will be set to 1
-                    double intensity = peakMzs.Count == peakIntensities.Count ? //TODO: needs update for negative charges that doesn't break internal fragment ions or neutral losses
-                        double.Parse(peakIntensities[index].Split(new char[] { '+', ':', ']' })[2], CultureInfo.InvariantCulture) :
-                        1.0;
+                    //get theoretical fragment
+                    string ionTypeAndNumber = split[0];
 
-                    int fragmentNumber = 0;
-                    int secondaryFragmentNumber = 0;
+                    // Pre-split intensity and error arrays
+                    string[] intensitySplit = peakIntensities[index].Split(new char[] { '+', ':', ']' });
+                    string[] errorSplit = null;
+                    if (peakMassErrorDa != null && peakMassErrorDa.Count > index && !string.IsNullOrEmpty(peakMassErrorDa[index]))
+                        errorSplit = peakMassErrorDa[index].Split(new char[] { '+', ':', ']' });
+
+                    int fragmentNumber, secondaryFragmentNumber = 0;
                     ProductType productType;
                     ProductType? secondaryProductType = null;
                     FragmentationTerminus terminus = FragmentationTerminus.None; //default for internal fragments
                     int aminoAcidPosition;
-                    double neutralLoss = 0;
+                    double neutralLoss = 0, intensity, errorDa = 0;
 
-                    //get theoretical fragment
-                    string ionTypeAndNumber = split[0];
 
                     //if an internal fragment
-                    if (ionTypeAndNumber.Contains("["))
+                    if (ionTypeAndNumber.Contains('['))
                     {
-                        // if there is no mismatch between intensity and peak counts from the psmtsv
-                        if (!intensity.Equals(1.0))
-                        {
-                            intensity = double.Parse(peakIntensities[index].Split(new char[] { '+', ':', ']' })[3],
-                                CultureInfo.InvariantCulture);
-                        }
+                        if (!double.TryParse(intensitySplit[3], NumberStyles.Any, CultureInfo.InvariantCulture, out intensity))
+                            intensity = 1;
+
                         string[] internalSplit = split[0].Split('[');
                         string[] productSplit = internalSplit[0].Split("I");
                         string[] positionSplit = internalSplit[1].Replace("]", "").Split('-');
@@ -403,14 +404,23 @@ namespace Readers
                         fragmentNumber = int.Parse(positionSplit[0]);
                         secondaryFragmentNumber = int.Parse(positionSplit[1]);
                         aminoAcidPosition = secondaryFragmentNumber - fragmentNumber;
+
+                        //get mass error in Daltons
+                        if (errorSplit is { Length: > 3 })
+                            double.TryParse(errorSplit[3], NumberStyles.Any, CultureInfo.InvariantCulture, out errorDa);
+
                     }
                     else //terminal fragment
                     {
+                        if (!double.TryParse(intensitySplit[2], NumberStyles.Any, CultureInfo.InvariantCulture, out intensity))
+                            intensity = 1;
+
                         Match result = IonParser.Match(ionTypeAndNumber);
                         productType = (ProductType)Enum.Parse(typeof(ProductType), result.Groups[1].Value);
                         fragmentNumber = int.Parse(result.Groups[2].Value);
+
                         // check for neutral loss  
-                        if (ionTypeAndNumber.Contains("("))
+                        if (ionTypeAndNumber.Contains('('))
                         {
                             string temp = ionTypeAndNumber.Replace("(", "");
                             temp = temp.Replace(")", "");
@@ -423,23 +433,17 @@ namespace Readers
                             TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
                         else
-                            Omics.Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                           Omics.Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
-
 
                         //get amino acid position
                         aminoAcidPosition = terminus is FragmentationTerminus.C or FragmentationTerminus.ThreePrime ?
                             peptideBaseSequence.Split('|')[0].Length - fragmentNumber :
                             fragmentNumber;
-                    }
 
-                    //get mass error in Daltons
-                    double errorDa = 0;
-                    if (matchedMassErrorDaString.IsNotNullOrEmpty() && peakMassErrorDa[index].IsNotNullOrEmpty())
-                    {
-                        string peakError = peakMassErrorDa[index];
-                        string[] errorSplit = peakError.Split(new char[] { '+', ':', ']' });
-                        errorDa = double.Parse(errorSplit[2], CultureInfo.InvariantCulture);
+                        //get mass error in Daltons
+                        if (errorSplit is { Length: > 2 })
+                            double.TryParse(errorSplit[2], NumberStyles.Any, CultureInfo.InvariantCulture, out errorDa);
                     }
 
                     //get charge and mz

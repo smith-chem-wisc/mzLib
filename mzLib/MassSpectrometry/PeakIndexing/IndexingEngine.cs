@@ -36,7 +36,7 @@ namespace MassSpectrometry
 
             for (int scanIndex = 0; scanIndex < scanArray.Length; scanIndex++)
             {
-                ScanInfoArray[scanIndex] = new ScanInfo(scanArray[scanIndex].OneBasedScanNumber, scanIndex, scanArray[scanIndex].RetentionTime);
+                ScanInfoArray[scanIndex] = new ScanInfo(scanArray[scanIndex].OneBasedScanNumber, scanIndex, scanArray[scanIndex].RetentionTime, scanArray[scanIndex].MsnOrder);
 
                 for (int j = 0; j < scanArray[scanIndex].MassSpectrum.XArray.Length; j++)
                 {
@@ -61,7 +61,7 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="mz"> the m/z of the peak to be searched for </param>
         /// <param name="zeroBasedScanIndex"> the zero based index of the scan where the peak is to be found </param>
-        public IIndexedPeak? GetIndexedPeak(double theorMass, int zeroBasedScanIndex, PpmTolerance ppmTolerance, int chargeState) =>
+        public IIndexedPeak? GetIndexedPeak(double theorMass, int zeroBasedScanIndex, Tolerance ppmTolerance, int chargeState) =>
             GetIndexedPeak(theorMass.ToMz(chargeState), zeroBasedScanIndex, ppmTolerance);
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="mz"> the m/z of the peak to be searched for </param>
         /// <param name="zeroBasedScanIndex"> the zero based index of the scan where the peak is to be found </param>
-        public IIndexedPeak? GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance ppmTolerance)
+        public IIndexedPeak? GetIndexedPeak(double mz, int zeroBasedScanIndex, Tolerance ppmTolerance)
         {
             if (IndexedPeaks == null) throw new MzLibException("Error: Attempt to retrieve indexed peak before peak indexing was performed");
             var bins = GetBinsInRange(mz, ppmTolerance);
@@ -195,7 +195,7 @@ namespace MassSpectrometry
 
         #region Peak finding helper functions
 
-        internal List<List<T>> GetBinsInRange(double mz, PpmTolerance ppmTolerance)
+        internal List<List<T>> GetBinsInRange(double mz, Tolerance ppmTolerance)
         {
             int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(mz) * BinsPerDalton);
             int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(mz) * BinsPerDalton);

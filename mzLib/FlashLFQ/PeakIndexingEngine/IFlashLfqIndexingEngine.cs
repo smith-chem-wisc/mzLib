@@ -21,7 +21,7 @@ namespace FlashLFQ.Interfaces
         /// </summary>
         /// <param name="mz"> the m/z of the peak to be searched for </param>
         /// <param name="zeroBasedScanIndex"> the zero based index of the scan where the peak is to be found </param>
-        public IIndexedPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, PpmTolerance tolerance);
+        public IIndexedPeak GetIndexedPeak(double mz, int zeroBasedScanIndex, Tolerance tolerance);
         /// <summary>
         /// A generic method of peak tracing across the retention time. Finds peaks with a given mz that occur on either side of a given
         /// retention time. Peak searching iterates backwards through the scans until the peak 
