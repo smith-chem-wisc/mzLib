@@ -93,7 +93,7 @@ namespace FlashLFQ.IsoTracker
 
             for (int i = 5; i > 0; i--) //add 4 peaks before the first peak
             {
-                paddedPeaks.Add(new IndexedMassSpectralPeak(0, 0, 0, firstPeak.RetentionTime - gap * i));    // not sure about the m/z and index    
+                paddedPeaks.Add(new IndexedMassSpectralPeak(0, 0, 0, (float)(firstPeak.RetentionTime - gap * i)));    // not sure about the m/z and index    
             }
 
             for (int i = 0; i < Ms1Peaks.Count; i++)
@@ -103,7 +103,7 @@ namespace FlashLFQ.IsoTracker
 
             for (int i = 1; i < 6; i++) //add 5 peaks after the last peak
             {
-                paddedPeaks.Add(new IndexedMassSpectralPeak(0, 0, 0, lastPeak.RetentionTime + gap * i));
+                paddedPeaks.Add(new IndexedMassSpectralPeak(0, 0, 0, (float)(lastPeak.RetentionTime + gap * i)));
             }
 
             return paddedPeaks;
@@ -111,8 +111,9 @@ namespace FlashLFQ.IsoTracker
 
         internal void BuildLinearSpline()
         {
-            double[] x = PadPeaks().Select(p => p.RetentionTime).ToArray();
-            double[] y = PadPeaks().Select(p => p.Intensity).ToArray();
+            var paddedPeaks = PadPeaks();
+            double[] x = paddedPeaks.Select(p => (double)p.RetentionTime).ToArray();
+            double[] y = paddedPeaks.Select(p => (double)p.Intensity).ToArray();
             this.LinearSpline = LinearSpline.InterpolateSorted(x, y);  // I am not sure what to put in the last parameter
         }
 
@@ -177,11 +178,11 @@ namespace FlashLFQ.IsoTracker
         /// <exception cref="ArgumentException"></exception>
         public void BuildSmoothedCubicSpline(int smoothDegree)
         {
-            double[] retentionTime = Ms1Peaks.Select(p => p.RetentionTime).ToArray();
-            double[] intensity = Ms1Peaks.Select(p => p.Intensity).ToArray();
+            double[] retentionTime = Ms1Peaks.Select(p => (double)p.RetentionTime).ToArray();
+            float[] intensity = Ms1Peaks.Select(p => p.Intensity).ToArray();
 
-            SmoothedIntensity = IntensitySmoothing_weight(intensity, smoothDegree).ToList();
-            SmoothedIntensity = IntensitySmoothing_normal(SmoothedIntensity.ToArray(), smoothDegree).ToList();
+            var intermediateSmoothedValues = IntensitySmoothing_weight(intensity, smoothDegree).ToArray();
+            SmoothedIntensity = IntensitySmoothing_normal(intermediateSmoothedValues, smoothDegree).ToList();
 
 
             SmoothedRetentionTime = retentionTime.ToList();
@@ -195,7 +196,7 @@ namespace FlashLFQ.IsoTracker
         /// <param name="pointsToAverage"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        public double[] IntensitySmoothing_weight(double[] intensity, int pointsToAverage)
+        public double[] IntensitySmoothing_weight(float[] intensity, int pointsToAverage)
         {
             if (pointsToAverage <= 0)
             {

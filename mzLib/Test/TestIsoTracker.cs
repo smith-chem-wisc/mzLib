@@ -98,11 +98,11 @@ namespace Test
             // Arrange
             var peaks = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 200, 0, 1.0),
-                new IndexedMassSpectralPeak(100, 210, 1, 2.0),
-                new IndexedMassSpectralPeak(100, 220, 2, 3.0),
-                new IndexedMassSpectralPeak(100, 230, 3, 4.0),
-                new IndexedMassSpectralPeak(100, 240, 4, 5.0)
+                new IndexedMassSpectralPeak(100, 200, 0, 1.0f),
+                new IndexedMassSpectralPeak(100, 210, 1, 2.0f),
+                new IndexedMassSpectralPeak(100, 220, 2, 3.0f),
+                new IndexedMassSpectralPeak(100, 230, 3, 4.0f),
+                new IndexedMassSpectralPeak(100, 240, 4, 5.0f)
             };
             double peakFindingMass = 100.0;
             var spectraFile = new SpectraFileInfo("path/to/file.raw", "Condition", 1, 1, 1);
@@ -131,11 +131,11 @@ namespace Test
 
             var peaks = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 100, 0, 1.0),
-                new IndexedMassSpectralPeak(100, 200, 1, 2.0),
-                new IndexedMassSpectralPeak(100, 300, 2, 3.0),
-                new IndexedMassSpectralPeak(100, 400, 3, 4.0),
-                new IndexedMassSpectralPeak(100, 500, 4, 5.0)
+                new IndexedMassSpectralPeak(100, 100, 0, 1.0f),
+                new IndexedMassSpectralPeak(100, 200, 1, 2.0f),
+                new IndexedMassSpectralPeak(100, 300, 2, 3.0f),
+                new IndexedMassSpectralPeak(100, 400, 3, 4.0f),
+                new IndexedMassSpectralPeak(100, 500, 4, 5.0f)
             };
             var xic = new XIC(peaks, 100, new SpectraFileInfo("file.raw", "Condition", 1, 1, 1));
 
@@ -175,21 +175,21 @@ namespace Test
             //The Apex of the peak2 is at 3.1
             var peaks2 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 10, 0, 1.1),
-                new IndexedMassSpectralPeak(100, 20, 1, 2.1),
-                new IndexedMassSpectralPeak(100, 30, 2, 3.1),
-                new IndexedMassSpectralPeak(100, 20, 3, 4.1),
-                new IndexedMassSpectralPeak(100, 10, 4, 5.1)
+                new IndexedMassSpectralPeak(100, 10, 0, 1.1f),
+                new IndexedMassSpectralPeak(100, 20, 1, 2.1f),
+                new IndexedMassSpectralPeak(100, 30, 2, 3.1f),
+                new IndexedMassSpectralPeak(100, 20, 3, 4.1f),
+                new IndexedMassSpectralPeak(100, 10, 4, 5.1f)
             };
 
             //The Apex of the peak is at 2.9
             var peaks3 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 10, 0, 0.9),
-                new IndexedMassSpectralPeak(100, 20, 1, 1.9),
-                new IndexedMassSpectralPeak(100, 30, 2, 2.9),
-                new IndexedMassSpectralPeak(100, 20, 3, 3.9),
-                new IndexedMassSpectralPeak(100, 10, 4, 4.9)
+                new IndexedMassSpectralPeak(100, 10, 0, 0.9f),
+                new IndexedMassSpectralPeak(100, 20, 1, 1.9f),
+                new IndexedMassSpectralPeak(100, 30, 2, 2.9f),
+                new IndexedMassSpectralPeak(100, 20, 3, 3.9f),
+                new IndexedMassSpectralPeak(100, 10, 4, 4.9f)
             };
 
             var spectraFile = new SpectraFileInfo("test.raw", "Condition", 1, 1, 1);
@@ -213,10 +213,10 @@ namespace Test
             // Arrange
             var peaks = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 100, 0, 1.0),
-                new IndexedMassSpectralPeak(100, 200, 1, 2.0),
-                new IndexedMassSpectralPeak(100, 300, 2, 3.0),
-                new IndexedMassSpectralPeak(100, 500, 4, 5.0)
+                new IndexedMassSpectralPeak(100, 100, 0, 1.0f),
+                new IndexedMassSpectralPeak(100, 200, 1, 2.0f),
+                new IndexedMassSpectralPeak(100, 300, 2, 3.0f),
+                new IndexedMassSpectralPeak(100, 500, 4, 5.0f)
             };
             var xic = new XIC(peaks, 100, new SpectraFileInfo("file.raw", "Condition", 1, 1, 1));
 
@@ -235,7 +235,7 @@ namespace Test
             List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
             {
-                peaks.Add(new IndexedMassSpectralPeak(mz: peakFindingMass, intensity: peak.Density(timesPoints[k]), 0, retentionTime: timesPoints[k]));
+                peaks.Add(new IndexedMassSpectralPeak(mz: (float)peakFindingMass, intensity: (float)peak.Density(timesPoints[k]), 0, retentionTime: (float)timesPoints[k]));
             }
 
             var spectraFile = new SpectraFileInfo("test.raw", "TestCondition", 1, 1, 1);
@@ -257,7 +257,7 @@ namespace Test
             List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
             {
-                peaks.Add(new IndexedMassSpectralPeak(mz: peakFindingMass, intensity: peak.Density(timesPoints[k]), 0, retentionTime: timesPoints[k]));
+                peaks.Add(new IndexedMassSpectralPeak(mz: (float)peakFindingMass, intensity: (float)peak.Density(timesPoints[k]), 0, retentionTime: (float)timesPoints[k]));
             }
 
             var spectraFile = new SpectraFileInfo("test.raw", "TestCondition", 1, 1, 1);
@@ -278,20 +278,20 @@ namespace Test
             // XIC building
             var peaks = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 200, 0, 1.0),
-                new IndexedMassSpectralPeak(100, 210, 1, 2.0),
-                new IndexedMassSpectralPeak(100, 220, 2, 3.0),
-                new IndexedMassSpectralPeak(100, 230, 3, 4.0),
-                new IndexedMassSpectralPeak(100, 240, 4, 5.0)
+                new IndexedMassSpectralPeak(100, 200, 0, 1.0f),
+                new IndexedMassSpectralPeak(100, 210, 1, 2.0f),
+                new IndexedMassSpectralPeak(100, 220, 2, 3.0f),
+                new IndexedMassSpectralPeak(100, 230, 3, 4.0f),
+                new IndexedMassSpectralPeak(100, 240, 4, 5.0f)
             };
 
             var peaks2 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 200, 0, 1.0),
-                new IndexedMassSpectralPeak(100, 210, 1, 2.0),
-                new IndexedMassSpectralPeak(100, 220, 2, 3.0),
-                new IndexedMassSpectralPeak(100, 230, 3, 4.0),
-                new IndexedMassSpectralPeak(100, 240, 4, 5.0)
+                new IndexedMassSpectralPeak(100, 200, 0, 1.0f),
+                new IndexedMassSpectralPeak(100, 210, 1, 2.0f),
+                new IndexedMassSpectralPeak(100, 220, 2, 3.0f),
+                new IndexedMassSpectralPeak(100, 230, 3, 4.0f),
+                new IndexedMassSpectralPeak(100, 240, 4, 5.0f)
             };
 
             var spectraFile = new SpectraFileInfo("path/to/file.raw", "Condition", 1, 1, 1);
@@ -345,21 +345,21 @@ namespace Test
             //The Apex of the peak2 is at 3.1
             var peaks2 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 10, 0, 1.1),
-                new IndexedMassSpectralPeak(100, 20, 1, 2.1),
-                new IndexedMassSpectralPeak(100, 30, 2, 3.1),
-                new IndexedMassSpectralPeak(100, 20, 3, 4.1),
-                new IndexedMassSpectralPeak(100, 10, 4, 5.1)
+                new IndexedMassSpectralPeak(100, 10, 0, 1.1f),
+                new IndexedMassSpectralPeak(100, 20, 1, 2.1f),
+                new IndexedMassSpectralPeak(100, 30, 2, 3.1f),
+                new IndexedMassSpectralPeak(100, 20, 3, 4.1f),
+                new IndexedMassSpectralPeak(100, 10, 4, 5.1f)
             };
 
             //The Apex of the peak is at 2.9
             var peaks3 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 10, 0, 0.9),
-                new IndexedMassSpectralPeak(100, 20, 1, 1.9),
-                new IndexedMassSpectralPeak(100, 30, 2, 2.9),
-                new IndexedMassSpectralPeak(100, 20, 3, 3.9),
-                new IndexedMassSpectralPeak(100, 10, 4, 4.9)
+                new IndexedMassSpectralPeak(100, 10, 0, 0.9f),
+                new IndexedMassSpectralPeak(100, 20, 1, 1.9f),
+                new IndexedMassSpectralPeak(100, 30, 2, 2.9f),
+                new IndexedMassSpectralPeak(100, 20, 3, 3.9f),
+                new IndexedMassSpectralPeak(100, 10, 4, 4.9f)
             };
 
             var spectraFile = new SpectraFileInfo("test.raw", "Condition", 1, 1, 1);
@@ -443,9 +443,9 @@ namespace Test
 
             for (int j = 0; j < 200; j++)
             {
-                p1List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: intensities_P1[j], j, timesPoints[j]));
-                p2List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: intensities_P2[j], j, timesPoints[j]));
-                p3List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: intensities_P3[j], j, timesPoints[j]));
+                p1List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: (float)intensities_P1[j], j, (float)timesPoints[j]));
+                p2List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: (float)intensities_P2[j], j, (float)timesPoints[j]));
+                p3List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: (float)intensities_P3[j], j, (float)timesPoints[j]));
             }
 
             XIC xic = new XIC(p1List, 500, new SpectraFileInfo("", "", 1, 1, 1), true);
@@ -1783,22 +1783,113 @@ namespace Test
 
         }
 
-
         [Test]
-        public static void Test_memory()
+        public static void DavidTesting()
+        {
+            var filePath = "E:\\IsoTracker\\1-100 for testing\\FileName_list.txt";
+            Dictionary<string, SpectraFileInfo> fileNameList = new Dictionary<string, SpectraFileInfo>();
+            foreach (var line in File.ReadAllLines(filePath))
+            {
+                string fileName = line.Split('\\')[3];
+                if (!fileNameList.ContainsKey(fileName))
+                {
+                    SpectraFileInfo file = new SpectraFileInfo(line, "", 1, 1, 1);
+                    fileNameList[fileName] = file;
+                }
+            }
+
+            string testDataDirectory = "E:\\IsoTracker\\1-100 for testing";
+            string psmFile = Path.Combine(testDataDirectory, "O-pair search", "Task1-GlycoSearchTask", "AllPSMs.psmtsv");
+            string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
+            Directory.CreateDirectory(outputDirectory);
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+                //skip the header
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+                file = fileNameList.First(p => split[0].Contains(p.Key)).Value;
+
+                var decoy = split[24];
+                var qvalue = double.Parse(split[25]);
+                string baseSequence = split[11];
+                string fullSequence = split[13];
+
+                if (baseSequence.Contains("|") || fullSequence.Contains("|"))
+                {
+                    continue;
+                }
+                if (decoy.Contains("C") || decoy.Contains("D") || qvalue > 0.01)
+                {
+                    continue;
+                }
+
+                double monoMass = double.Parse(split[15].Split(new char[] { '|' }).First());
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[5]);
+                var proteins = split[7].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+
+            }
+
+            List<Identification> id_t = new List<Identification>();
+            foreach (var id in ids)
+            {
+                if (id.ModifiedSequence.ToString() == "GN[N-Glycosylation:H6N3F1 on N]ETIVNLIHSTR")
+                {
+                    id_t.Add(id);
+                }
+            }
+
+            List<char> motifs = new List<char>() { 'N' };
+
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: true,
+                motifsList: motifs,
+                maxThreads: 20);
+            var results = engine.Run();
+            results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
+
+        }
+        [Test]
+        public static void Test_smallData()
         {
             //In this test, we want to ensure there is no conflict when peaks were merged in RunErrorCheck.
 
             //There are two isobaric peptide, Iso_A and Iso_B (with similar mass)
             //RunErrorCheck will merge the two peaks, total four merge isoPeaks
             //According to the definition of IsoTracker, the detectionType should be set as MSMSAmbiguousPeakfinding, and their intensity should be set as 0
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = "E:\\MBR\\TestingFile\\DataSet_forLFQ\\RTshift";
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
-            string psmFile = Path.Combine(testDataDirectory, "AllPSMs_IDMergeConflict_2.psmtsv");
-            string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
-            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
+            string psmFile = Path.Combine(testDataDirectory, "MetaSearch", "Task1-SearchTask", "AllPSMs.psmtsv");
+            string file1 = "20100604_Velos1_TaGe_SA_A549_3_first";
+            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 0, 0, 1);
             SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "one", 1, 0, 1);
 
@@ -1825,10 +1916,6 @@ namespace Test
                 }
 
 
-                var decoy = split[33];
-                var contaminant = split[32];
-                var qvalue = double.Parse(split[51]);
-                var qvalueNotch = double.Parse(split[54]);
                 string baseSequence = split[13];
                 string fullSequence = split[14];
 
@@ -1836,10 +1923,7 @@ namespace Test
                 {
                     continue;
                 }
-                if (decoy.Contains("Y") || contaminant.Contains("Y") || qvalue > 0.01 || qvalueNotch > 0.01)
-                {
-                    continue;
-                }
+
 
                 double monoMass = double.Parse(split[23].Split(new char[] { '|' }).First());
                 double rt = double.Parse(split[2]);
@@ -1871,41 +1955,12 @@ namespace Test
                 isoTracker: true,
                 requireMultipleIdsInOneFiles: false,
                 normalize: false,
-                maxThreads: 1);
+                maxThreads: 20);
             var results = engine.Run();
 
             results.WriteResults(Path.Combine(outputDirectory, "peaks.tsv"), Path.Combine(outputDirectory, "peptides.tsv"), Path.Combine(outputDirectory, "proteins.tsv"), null, true);
-
-            List<string> peaksList = File.ReadAllLines(Path.Combine(outputDirectory, "peaks.tsv")).Skip(1).ToList();
-            List<string> peptidesList = File.ReadAllLines(Path.Combine(outputDirectory, "peptides.tsv")).Skip(1).ToList();
-            foreach (var peak in peaksList)
-            {
-                var fullSeq = peak.Split('\t')[2];
-                var retentionTime = peak.Split('\t')[6];
-                double.TryParse(peak.Split('\t')[9], out double intensity);
-                Assert.AreNotEqual(intensity, 0);
-                if (fullSeq == "PEPTIDEA_1|PEPTIDEB_1")
-                {
-                    if (retentionTime == "")
-                    {
-                        Assert.AreEqual(peak.Split('\t')[16], "MSMSAmbiguousPeakfinding");
-                    }
-                }
-            }
-            // In IsoTracker, each peak are label as MSMSAmbiguousPeakfinding by RunErrorCheck
-            foreach (var pep in peptidesList)
-            {
-                double.TryParse(pep.Split('\t')[6], out double intensity_File1);
-                double.TryParse(pep.Split('\t')[7], out double intensity_File2);
-                var detectionType_File1 = pep.Split('\t')[10];
-                var detectionType_File2 = pep.Split('\t')[11];
-                Assert.AreEqual(intensity_File1, 0);
-                Assert.AreEqual(intensity_File2, 0);
-                Assert.AreEqual(detectionType_File1, "MSMSAmbiguousPeakfinding");
-                Assert.AreEqual(detectionType_File2, "MSMSAmbiguousPeakfinding");
-            }
-
         }
+
     }
 
 }

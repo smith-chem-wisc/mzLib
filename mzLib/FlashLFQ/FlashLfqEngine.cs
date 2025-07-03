@@ -210,12 +210,12 @@ namespace FlashLFQ
                 // If IsoTracker is on, we don't need to serialize the index for each file. The indexed peaks are retained.
                 if (FlashParams.IsoTracker) 
                 {
+                    IndexingEngineDictionary[spectraFile].PruneIndex(targetMass); // remove some unuseful data from the index to save memory for IsoTracker
                     if (FlashParams.MatchBetweenRuns)
                     {
                         IndexingEngineDictionary[spectraFile].SerializeIndex();  // If MBR is on then we need to serialize the index.
                     }
-                    IndexingEngineDictionary[spectraFile].PruneIndex(targetMass); // remove some unuseful data from the index to save memory for IsoTracker
-
+                    //IndexingEngineDictionary[spectraFile].PruneIndex(targetMass); // remove some unuseful data from the index to save memory for IsoTracker
                 }
                 // If IsoTracker is off, we  need to clear the indexing engine array to save memory.
                 else
@@ -504,10 +504,10 @@ namespace FlashLFQ
                                     MissedScansAllowed)
                                 .OrderBy(p => p.RetentionTime)
                                 .ToList();
-
+                            
                             // filter by smaller mass tolerance
                             xic.RemoveAll(p => 
-                                !ppmTolerance.Within(p.M.ToMass(chargeState), identification.PeakfindingMass));
+                                !ppmTolerance.Within(((double)p.M).ToMass(chargeState), identification.PeakfindingMass));
 
                             // filter by isotopic distribution
                             List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState, fileInfo);
@@ -1572,7 +1572,7 @@ namespace FlashLFQ
                 }
 
                 // isotope masses are calculated relative to the observed peak
-                double observedMass = peak.M.ToMass(chargeState);
+                double observedMass = ((double)peak.M).ToMass(chargeState);
                 double observedMassError = observedMass - identification.PeakfindingMass;
 
                 foreach (var shift in massShiftToIsotopePeaks)
@@ -2167,26 +2167,25 @@ namespace FlashLFQ
                 List<double> massOfInterest = peptide.Value.Select(p => p.massShift + id.MonoisotopicMass).ToList();
                 massOfInterest.Add(massOfInterest.Min() - Constants.C13MinusC12);
                 massOfInterest.Add(massOfInterest.Max() + Constants.C13MinusC12);
-                massOfInterest.Add(massOfInterest.Max() + 2*Constants.C13MinusC12);
+                massOfInterest.Add(massOfInterest.Max() + 2 * Constants.C13MinusC12);
                 interestedMass.AddRange(massOfInterest);
             }
-
-            List<double> targetMass = interestedMass.ToList();
-            return MassesToMzs(targetMass);
+            return MassesToMzs(interestedMass);
         }
 
-        private List<double> MassesToMzs(List<double> targetMasses)
+        private List<double> MassesToMzs(HashSet<double> targetMasses)
         {
-            List<double> targetMzs = new();
+            HashSet<double> targetMzs = new();
             foreach (var mass in targetMasses)
             {
                 _chargeStates.ForEach(chargeState =>
                 {
-                    targetMzs.Add(mass.ToMz(chargeState));
+                    targetMzs.Add(Math.Round(mass.ToMz(chargeState),2));
                 });
             }
-            targetMzs.Sort();
-            return targetMzs;
+            var sortedTargetMzs = targetMzs.ToList();
+            sortedTargetMzs.Sort();
+            return sortedTargetMzs;
         }
     }
 

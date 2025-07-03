@@ -103,22 +103,20 @@ namespace FlashLFQ
         {
             if (IndexedPeaks == null || targetMz == null || !targetMz.Any())
                 return;
+            List<IndexedMassSpectralPeak>[] indexedPeaks = new List<IndexedMassSpectralPeak>[IndexedPeaks.Length];
+            var maxIndex = IndexedPeaks.Length - 1;
 
-            // Define a tolerance for matching target masses  
-            PpmTolerance ppmTolerance = new PpmTolerance(10);
-
-            // Prune each bin of indexed peaks by only conserving the target mass  
-            for (int i = 0 ; i < IndexedPeaks.Length ; i++)
+            foreach (var mz in targetMz)
             {
-                if (IndexedPeaks[i] == null || !IndexedPeaks[i].Any())
-                    continue;
-
-                var keepMz = (double)i / 100;
-                if (!targetMz.Any(mz=> ppmTolerance.Within(mz, (double)i/100)))
+                int index =(int) (mz * 100);
+                if (index > maxIndex)
                 {
-                    IndexedPeaks[i] = null; // Remove the bin if it does not contain any target mass peaks
+                    // If the mz is out of bounds, skip it
+                    continue;
                 }
+                indexedPeaks[index] = IndexedPeaks[index];
             }
+            IndexedPeaks = indexedPeaks;
         }
     }
 }

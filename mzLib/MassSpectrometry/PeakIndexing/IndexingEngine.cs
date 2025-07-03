@@ -43,10 +43,10 @@ namespace MassSpectrometry
                     IndexedPeaks[roundedMz] ??= new List<T>();
                     IndexedPeaks[roundedMz].Add((T)(IIndexedPeak)
                         new IndexedMassSpectralPeak(
-                            scanArray[scanIndex].MassSpectrum.XArray[j],
-                            scanArray[scanIndex].MassSpectrum.YArray[j],
+                            (float)scanArray[scanIndex].MassSpectrum.XArray[j],
+                            (float)scanArray[scanIndex].MassSpectrum.YArray[j],
                             scanIndex,
-                            scanArray[scanIndex].RetentionTime));
+                            (float)scanArray[scanIndex].RetentionTime));
                 }
             }
             if (IndexedPeaks == null || IndexedPeaks.Length == 0)
