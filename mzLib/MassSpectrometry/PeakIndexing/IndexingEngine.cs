@@ -90,7 +90,7 @@ namespace MassSpectrometry
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double mz, double retentionTime, PpmTolerance ppmTolerance,
+        public List<IIndexedPeak> GetXic(double mz, double retentionTime, Tolerance ppmTolerance,
             int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
         {
             // get precursor scan to start at
@@ -123,7 +123,7 @@ namespace MassSpectrometry
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double mz, int zeroBasedStartIndex, PpmTolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
+        public List<IIndexedPeak> GetXic(double mz, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
         {
             if (IndexedPeaks == null || ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
             List<IIndexedPeak> xic = new List<IIndexedPeak>();
@@ -209,7 +209,7 @@ namespace MassSpectrometry
             return allBins;
         }
 
-        internal static T? GetBestPeakFromBins(List<List<T>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, PpmTolerance ppmTolerance, int? charge = null)
+        internal static T? GetBestPeakFromBins(List<List<T>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, Tolerance ppmTolerance, int? charge = null)
         {
             T? bestPeak = default(T);
             for (int i = 0; i < allBins.Count; i++)
@@ -228,7 +228,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Returns the peak that is closest to the target mz
         /// </summary>
-        internal static T GetPeakFromBin(List<T> bin, double mz, int zeroBasedScanIndex, int peakIndexInBin, PpmTolerance ppmTolerance, int? charge = null)
+        internal static T GetPeakFromBin(List<T> bin, double mz, int zeroBasedScanIndex, int peakIndexInBin, Tolerance ppmTolerance, int? charge = null)
         {
             T? bestPeak = default(T);
             if (peakIndexInBin < 0 || peakIndexInBin >= bin.Count) return bestPeak;
