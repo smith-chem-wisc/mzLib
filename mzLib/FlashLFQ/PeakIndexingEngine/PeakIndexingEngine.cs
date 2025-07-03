@@ -1,12 +1,13 @@
-﻿using Readers;
+﻿using FlashLFQ.Interfaces;
 using MassSpectrometry;
+using MzLibUtil;
 using NetSerializer;
+using Readers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using FlashLFQ.Interfaces;
-using MzLibUtil;
+using System.Reflection;
 
 namespace FlashLFQ
 {
@@ -101,6 +102,7 @@ namespace FlashLFQ
         /// </summary>  
         public void PruneIndex(List<double> targetMz)
         {
+            PpmTolerance ppmTolerance = new PpmTolerance(10); // Default tolerance, can be adjusted as needed
             if (IndexedPeaks == null || targetMz == null || !targetMz.Any())
                 return;
             List<IndexedMassSpectralPeak>[] indexedPeaks = new List<IndexedMassSpectralPeak>[IndexedPeaks.Length];
@@ -108,13 +110,21 @@ namespace FlashLFQ
 
             foreach (var mz in targetMz)
             {
-                int index =(int) (mz * 100);
-                if (index > maxIndex)
+                int ceilingMz = (int)Math.Ceiling(ppmTolerance.GetMaximumValue(mz) * BinsPerDalton);
+                int floorMz = (int)Math.Floor(ppmTolerance.GetMinimumValue(mz) * BinsPerDalton);
+                if (ceilingMz > maxIndex || floorMz > maxIndex)
                 {
                     // If the mz is out of bounds, skip it
                     continue;
                 }
-                indexedPeaks[index] = IndexedPeaks[index];
+
+                for (int i = floorMz; i <= ceilingMz; i++)
+                {
+                    if (indexedPeaks[i] == null)
+                    {
+                        indexedPeaks[i] = IndexedPeaks[i];
+                    }
+                }
             }
             IndexedPeaks = indexedPeaks;
         }

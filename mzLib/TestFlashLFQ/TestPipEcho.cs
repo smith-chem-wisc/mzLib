@@ -86,9 +86,9 @@ namespace Test
             var donorPeak = new ChromatographicPeak(donorId, fakeDonorFile);
             var acceptorPeak = new MbrChromatographicPeak(donorId, fakeFile, 1, false);
 
-            IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak((idMass + 0.001).ToMz(1), 1.1, 1, 25);
-            IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak((idMass - 0.001).ToMz(1), 1, 2, 26);
-            IndexedMassSpectralPeak imsPeak3 = new IndexedMassSpectralPeak((idMass + 0.002).ToMz(1), 1.2, 3, 27);
+            IndexedMassSpectralPeak imsPeak = new IndexedMassSpectralPeak((float)(idMass + 0.001).ToMz(1), 1.1f, 1, 25);
+            IndexedMassSpectralPeak imsPeak2 = new IndexedMassSpectralPeak((float)(idMass - 0.001).ToMz(1), 1f, 2, 26);
+            IndexedMassSpectralPeak imsPeak3 = new IndexedMassSpectralPeak((float)(idMass + 0.002).ToMz(1), 1.2f, 3, 27);
             var iso1 = new FlashLFQ.IsotopicEnvelope(imsPeak, 1, 1.2, 0.98);
             var iso2 = new FlashLFQ.IsotopicEnvelope(imsPeak2, 1, 1, 0.9);
             var iso3 = new FlashLFQ.IsotopicEnvelope(imsPeak3, 1, 0.8, 0.95);

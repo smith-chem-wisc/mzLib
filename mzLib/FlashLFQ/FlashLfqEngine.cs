@@ -188,7 +188,11 @@ namespace FlashLFQ
             _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
-            var targetMass = GetTargetMz();
+            List<double> targetMass = new List<double>();
+            if (FlashParams.IsoTracker)
+            {
+                targetMass = GetTargetMz();
+            }
 
             // quantify each file
             foreach (var spectraFile in SpectraFileInfoList)
@@ -210,12 +214,11 @@ namespace FlashLFQ
                 // If IsoTracker is on, we don't need to serialize the index for each file. The indexed peaks are retained.
                 if (FlashParams.IsoTracker) 
                 {
-                    IndexingEngineDictionary[spectraFile].PruneIndex(targetMass); // remove some unuseful data from the index to save memory for IsoTracker
                     if (FlashParams.MatchBetweenRuns)
                     {
                         IndexingEngineDictionary[spectraFile].SerializeIndex();  // If MBR is on then we need to serialize the index.
                     }
-                    //IndexingEngineDictionary[spectraFile].PruneIndex(targetMass); // remove some unuseful data from the index to save memory for IsoTracker
+                    IndexingEngineDictionary[spectraFile].PruneIndex(targetMass); // remove some unuseful data from the index to save memory for IsoTracker
                 }
                 // If IsoTracker is off, we  need to clear the indexing engine array to save memory.
                 else
