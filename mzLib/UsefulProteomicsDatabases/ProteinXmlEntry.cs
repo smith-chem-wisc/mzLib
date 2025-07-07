@@ -9,6 +9,7 @@ using Omics.Modifications;
 using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
 using System.Data;
+using Easy.Common.Extensions;
 
 namespace UsefulProteomicsDatabases
 {
@@ -57,7 +58,7 @@ namespace UsefulProteomicsDatabases
         
         public string EntryModified { get; private set; } // This is not used in the current implementation, but can be set if needed
         public int? SequenceVersion { get; private set; } // This is not used in the current implementation, but can be set if needed
-        public bool IsPrecursor { get; private set; } = false; // This is not used in the current implementation, but can be set if needed
+        public bool? IsPrecursor { get; private set; } // This is not used in the current implementation, but can be set if needed
 
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
@@ -195,42 +196,50 @@ namespace UsefulProteomicsDatabases
         private void ParseSequenceAttributes(XmlReader xml)
         {
             // Example attributes: length="770" mass="86943" checksum="A12EE761403740F5" modified="1991-11-01" version="3" precursor="true"
-            string lengthAttr = xml.GetAttribute("Length");
+            string lengthAttr = xml.GetAttribute("length");
             string massAttr = xml.GetAttribute("mass");
             string checksumAttr = xml.GetAttribute("checksum");
             string modifiedAttr = xml.GetAttribute("modified");
-            string sequenceVersionAttribute = xml.GetAttribute("SequenceVersion");
+            string sequenceVersionAttribute = xml.GetAttribute("version");
             string precursorAttr = xml.GetAttribute("precursor");
 
-            // You may want to add backing fields/properties for these if not already present
+            // This length is read from the database. It may not match the length of the sequence read from the <sequence> element.
+            // If the length is not provided, it will be calculated from the sequence.
+            // If the length provide does not match the sequence length it will be corrected
             if (int.TryParse(lengthAttr, out int Length))
             {
                 this.Length = Length;
-                // Example: this.SequenceLength = length;
             }
             if (int.TryParse(massAttr, out int mass))
             {
-                // Example: this.SequenceMass = mass;
+                this.Mass = mass;
             }
             if (!string.IsNullOrEmpty(checksumAttr))
             {
-                // Example: this.SequenceChecksum = checksumAttr;
+                this.Checksum = checksumAttr;
             }
             if (!string.IsNullOrEmpty(modifiedAttr))
             {
-                ModifiedEntryTag = modifiedAttr;
+                this.EntryModified = modifiedAttr;
             }
             if(int.TryParse(sequenceVersionAttribute, out int sequenceVersion))
             {
-                SequenceVersion = sequenceVersion;
+                this.SequenceVersion = sequenceVersion;
             }
             if (!string.IsNullOrEmpty(precursorAttr))
             {
-                // Example: this.SequenceIsPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
+                this.IsPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
             }
             // This method is not used in the current implementation, but can be used to parse sequence attributes if needed.
             // For now, we just read the sequence from the <sequence> element.
             Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+
+            //update the Length property if it is not set and the sequence is not null or empty
+            // or if the Length property is set but does not match the length of the sequence
+            if ((this.Length == null && !Sequence.IsNullOrEmpty()) || this.Length != Sequence.Length )
+            {
+                this.Length = Sequence.Length;
+            }
         }
 
         /// <summary>
