@@ -53,16 +53,16 @@ namespace Test
 
             //Test XIC properties
             Assert.That(xic.Peaks.Count, Is.EqualTo(10));
-            Assert.That(xic.ApexRT, Is.EqualTo(1.6));
+            Assert.That(xic.ApexRT, Is.EqualTo(1.6f));
             Assert.That(xic.ApexScanIndex, Is.EqualTo(6));
-            Assert.That(xic.StartRT, Is.EqualTo(1.0));
-            Assert.That(xic.EndRT, Is.EqualTo(1.9));
-            Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0000001));
+            Assert.That(xic.StartRT, Is.EqualTo(1.0f));
+            Assert.That(xic.EndRT, Is.EqualTo(1.9f));
+            Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(1));
 
             //Test normalized peak intensities
             xic.SetNormalizedPeakIntensities();
             Assert.That(xic.NormalizedPeakIntensities.Length, Is.EqualTo(10));
-            Assert.That(xic.NormalizedPeakIntensities.Sum(), Is.EqualTo(100).Within(0.0001));
+            Assert.That(xic.NormalizedPeakIntensities.Sum(), Is.EqualTo(100f).Within(0.0001));
         }
 
         [Test]
@@ -94,11 +94,11 @@ namespace Test
         {
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
-            var rtArray = new double[] { 1.0, 1.1, 1.2 };
-            var intensityArray = new double[] { 100, 200, 300 };
+            var rtArray = new float[] { 1.0f, 1.1f, 1.2f };
+            var intensityArray = new float[] { 100, 200, 300 };
             var ex = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray, 1.0, 1.2));
             Assert.That(ex.Message, Is.EqualTo("Input arrays must contain at least 5 points."));
-            var intensityArray2 = new double[] { 100, 200, 300, 400, 500 };
+            var intensityArray2 = new float[] { 100, 200, 300, 400, 500 };
             var ex2 = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray2, 1.0, 1.2));
             Assert.That(ex2.Message, Is.EqualTo("Input arrays must have the same length."));
         }

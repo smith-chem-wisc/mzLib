@@ -21,7 +21,7 @@ namespace MassSpectrometry
         /// Get the data points as a list of tuple (rt/scanIndex, intensity) after smoothing/interpolation.
         /// Requires a rt/scanIndex array and an intensity array as input. Start and end of rt/index as optionl parameters.
         /// </summary>
-        public abstract (double, double)[] GetXicSplineData(double[] rtArray, double[] intensityArray, double start = -1, double end = -1);
+        public abstract (double, double)[] GetXicSplineData(float[] rtArray, float[] intensityArray, double start = -1, double end = -1);
 
         /// <summary>
         /// Helper method that takes a start and end retention time, a spline interval, and an IInterpolation object to calculate the spline data points.
@@ -44,10 +44,10 @@ namespace MassSpectrometry
         /// </summary>
         public void SetXicSplineXYData(ExtractedIonChromatogram xic, bool cycle = false, double start = -1, double end = -1)
         {
-            double[] peakRts = null;
+            float[] peakRts = null;
             if (cycle)
             {
-                peakRts = xic.Peaks.Select(p => (double)p.ZeroBasedScanIndex).ToArray();
+                peakRts = xic.Peaks.Select(p =>(float)p.ZeroBasedScanIndex).ToArray();
             }
             else
             {
@@ -75,12 +75,12 @@ namespace MassSpectrometry
         /// <summary>
         /// Add points with 0 intensity to the beginning and end of the XIC before interpolation.
         /// </summary>
-        protected void AddPeaks(double[] rtArray, double[] intensityArray, out double[] newRtArray, out double[] newIntensityArray)
+        protected void AddPeaks(float[] rtArray, float[] intensityArray, out double[] newRtArray, out double[] newIntensityArray)
         {
             if (NumberOfPeaksToAdd == 0)
             {
-                newRtArray = rtArray;
-                newIntensityArray = intensityArray;
+                newRtArray = rtArray.Select(x => (double)x).ToArray();
+                newIntensityArray = intensityArray.Select(x => (double)x).ToArray();
                 return;
             }
             newRtArray = new double[rtArray.Length + NumberOfPeaksToAdd * 2];

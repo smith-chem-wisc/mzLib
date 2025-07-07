@@ -21,11 +21,11 @@ namespace Readers
                 double expMz = scan.MassSpectrum.XArray[ind];
                 if (massTolerance.Within(expMz.ToMass(charge), neutralMass))
                 {
-                    xicData.Add(new IndexedMassSpectralPeak(expMz, scan.MassSpectrum.YArray[ind], scan.OneBasedScanNumber - 1, scan.RetentionTime));
+                    xicData.Add(new IndexedMassSpectralPeak((float)expMz, (float)scan.MassSpectrum.YArray[ind], scan.OneBasedScanNumber - 1, (float)scan.RetentionTime));
                 }
                 else
                 {
-                    xicData.Add(new IndexedMassSpectralPeak(expMz, 0, scan.OneBasedScanNumber - 1, scan.RetentionTime));
+                    xicData.Add(new IndexedMassSpectralPeak((float)expMz, 0, scan.OneBasedScanNumber - 1, (float)scan.RetentionTime));
                 }
             }
             return new ExtractedIonChromatogram(xicData);
