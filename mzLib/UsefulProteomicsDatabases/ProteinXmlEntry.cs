@@ -52,13 +52,18 @@ namespace UsefulProteomicsDatabases
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
-        public int? Length { get; private set; }
-        public int? Mass { get; private set; }
+        #region XML sequence attributes that are not used in the current implementation but can be set if needed
+        /// <summary>
+        /// The following REQUIRED properties are read from the <sequence> element attributes:
+        public int Length { get; private set; }
+        public int Mass { get; private set; }
         public string Checksum { get; private set; }
-        
-        public string EntryModified { get; private set; } // This is not used in the current implementation, but can be set if needed
-        public int? SequenceVersion { get; private set; } // This is not used in the current implementation, but can be set if needed
+        public string EntryModified { get; private set; }
+        public int SequenceVersion { get; private set; }
+        /// The following OPTIONAL properties are read from the <sequence> element attributes:
         public bool? IsPrecursor { get; private set; } // This is not used in the current implementation, but can be set if needed
+        public SequenceFragment Fragment { get; private set; } = SequenceFragment.NotSet; // This is not used in the current implementation, but can be set if needed
+        #endregion
 
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
@@ -195,13 +200,15 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         private void ParseSequenceAttributes(XmlReader xml)
         {
-            // Example attributes: length="770" mass="86943" checksum="A12EE761403740F5" modified="1991-11-01" version="3" precursor="true"
+            // Required attributes
             string lengthAttr = xml.GetAttribute("length");
             string massAttr = xml.GetAttribute("mass");
             string checksumAttr = xml.GetAttribute("checksum");
             string modifiedAttr = xml.GetAttribute("modified");
             string sequenceVersionAttribute = xml.GetAttribute("version");
+            // Optional attributes
             string precursorAttr = xml.GetAttribute("precursor");
+            SequenceFragment fragmentAttr = SequenceFragment.NotSet; //TODO find an example and do something with this.
 
             // This length is read from the database. It may not match the length of the sequence read from the <sequence> element.
             // If the length is not provided, it will be calculated from the sequence.
@@ -230,13 +237,11 @@ namespace UsefulProteomicsDatabases
             {
                 this.IsPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
             }
-            // This method is not used in the current implementation, but can be used to parse sequence attributes if needed.
-            // For now, we just read the sequence from the <sequence> element.
+            Fragment = fragmentAttr;//TODO find an example and do something with this.
             Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
 
-            //update the Length property if it is not set and the sequence is not null or empty
-            // or if the Length property is set but does not match the length of the sequence
-            if ((this.Length == null && !Sequence.IsNullOrEmpty()) || this.Length != Sequence.Length )
+            // if the Length property does not match the length of the sequence
+            if (this.Length != Sequence.Length )
             {
                 this.Length = Sequence.Length;
             }
@@ -556,6 +561,12 @@ namespace UsefulProteomicsDatabases
             GeneNames = new List<Tuple<string, string>>();
             ReadingGene = false;
             ReadingOrganism = false;
+        }
+        public enum SequenceFragment
+        {
+            Single,
+            Multiple,
+            NotSet
         }
     }
 }
