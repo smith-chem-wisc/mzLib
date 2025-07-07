@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using Chemistry;
-using MassSpectrometry.Deconvolution.Algorithms;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -59,7 +58,6 @@ namespace MassSpectrometry
             {
                 DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(parameters),
                 DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(parameters),
-                DeconvolutionType.FlashDeconv2 => new FlashDeconv2(parameters),
                 DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(parameters),
                 _ => throw new MzLibException("DeconvolutionType not yet supported")
             };

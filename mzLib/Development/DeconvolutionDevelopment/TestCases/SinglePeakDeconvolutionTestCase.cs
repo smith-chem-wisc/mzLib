@@ -1,5 +1,4 @@
 ﻿using MassSpectrometry;
-using MassSpectrometry.Deconvolution.Parameters;
 using MzLibUtil;
 using Readers;
 
@@ -35,10 +34,6 @@ namespace Development.Deconvolution
                 .GetAllScansList()
                 .First(p => p.OneBasedScanNumber == scanNumber).MassSpectrum;
 
-            if (deconParameters is FlashDeconvDeconvolutionParameters)
-                RangeToDeconvolute = null!;
-            else
-                // 8.5 was selected as this is the magic number found in Classic Deconvolution
                 RangeToDeconvolute = new MzRange(selectedIonMz - 8.5, selectedIonMz + 8.5);
         }
 
