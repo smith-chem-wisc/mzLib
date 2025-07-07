@@ -12,13 +12,6 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using Omics.BioPolymer;
 using Omics.Modifications;
-using MassSpectrometry;
-using MathNet.Numerics;
-using MzLibUtil.NoiseEstimation;
-using System.Collections;
-using System.Linq.Expressions;
-using System.Runtime.ConstrainedExecution;
-using System.Security.Policy;
 
 namespace UsefulProteomicsDatabases
 {
