@@ -295,7 +295,10 @@
     <None Update="DataFiles\14kDaProteoformMzIntensityMs1.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="DataFiles\mZchargeTwoProteoformSpectrum.txt">
+    <None Update="DataFiles\mZchargeTwoProteoformSpectrum - Copy.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\mZchargeIsdProteoformSpectrum.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\4734.304mZchargeOneProteoformSpectrum.txt">

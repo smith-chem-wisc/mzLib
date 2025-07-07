@@ -211,8 +211,8 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             IEnumerable<(double[] neutralMass, double[] intensity)> massIntensityGroups,
             out List<(double[] neutralMass, double[] intensity)> likelyCorrect,
             out List<(double[] neutralMass, double[] intensity)> likelyIncorrect,
-            double correctPpmTolerance = 25,
-            double incorrectPpmTolerance = 250,
+            double correctPpmTolerance = 2,
+            double incorrectPpmTolerance = 25,
             double correctFraction = 0.7)
         {
             // Initialize output lists
@@ -265,7 +265,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         // Returns a list of (mostCommonNeutralMass, summedIntensity) for all groups.
         public static List<(double mostCommonNeutralMass, double summedIntensity)> GetMostCommonNeutralMassAndSummedIntensity(
             IEnumerable<(double[] neutralMass, double[] intensity)> likelyCorrectGroups,
-            double ppmTolerance = 25)
+            double ppmTolerance = 2)
         {
             var results = new List<(double mostCommonNeutralMass, double summedIntensity)>();
 
@@ -331,7 +331,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 
             return result;
         }
-        private static double LogMzDependentTolerance(double logMz, double tolerance = 250.0)
+        private static double LogMzDependentTolerance(double logMz, double tolerance = 10)
         {
             var m = Math.Exp(logMz);
             var mPlus = m + m * tolerance / 1000000.0;
