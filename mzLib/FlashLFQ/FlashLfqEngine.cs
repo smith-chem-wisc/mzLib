@@ -188,10 +188,10 @@ namespace FlashLFQ
             _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
-            List<double> targetMass = new List<double>();
-            if (FlashParams.IsoTracker)
+            List<double> targetMzs = new List<double>();
+            if (FlashParams.IsoTracker) // If IsoTracker is on, we need to set the target mass for pruning
             {
-                targetMass = GetTargetMz();
+                targetMzs = GetTargetMz();
             }
 
             // quantify each file
@@ -214,18 +214,18 @@ namespace FlashLFQ
                 // If IsoTracker is on, we don't need to serialize the index for each file. The indexed peaks are retained.
                 if (FlashParams.IsoTracker) 
                 {
-                    if (FlashParams.MatchBetweenRuns)
+                    if (FlashParams.MatchBetweenRuns) // If MBR is on then we need to serialize the index.
                     {
-                        IndexingEngineDictionary[spectraFile].SerializeIndex();  // If MBR is on then we need to serialize the index.
+                        IndexingEngineDictionary[spectraFile].SerializeIndex(); 
                     }
-                    IndexingEngineDictionary[spectraFile].PruneIndex(targetMass); // remove some unuseful data from the index to save memory for IsoTracker
+                    IndexingEngineDictionary[spectraFile].PruneIndex(targetMzs); // Remove some unused data from the index to save memory for IsoTracker
                 }
                 // If IsoTracker is off, we  need to clear the indexing engine array to save memory.
                 else
                 {
-                    if (FlashParams.MatchBetweenRuns)
+                    if (FlashParams.MatchBetweenRuns) // If MBR is turned on then we need to serialize the index before clearing the array.
                     {
-                        IndexingEngineDictionary[spectraFile].SerializeIndex();  // If IsoTracker is off, and MBR is on then we need to serialize the index before clearing the array.
+                        IndexingEngineDictionary[spectraFile].SerializeIndex(); 
                     }
                     IndexingEngineDictionary[spectraFile].ClearIndex();
                 }
@@ -2161,6 +2161,11 @@ namespace FlashLFQ
             return true;
         }
 
+        /// <summary>
+        /// Calculates the target m/z (mass-to-charge) values based on isotopic distributions and modifications for the
+        /// peptides in the current dataset.
+        /// </summary>
+        /// <returns>A list of doubles representing the calculated m/z values of interest.</returns>
         private List<double> GetTargetMz()
         {
             HashSet<double> interestedMass = new HashSet<double>();
@@ -2168,7 +2173,7 @@ namespace FlashLFQ
             {
                 var id = _allIdentifications.First(p => p.ModifiedSequence == peptide.Key);
                 List<double> massOfInterest = peptide.Value.Select(p => p.massShift + id.MonoisotopicMass).ToList();
-                massOfInterest.Add(massOfInterest.Min() - Constants.C13MinusC12);
+                massOfInterest.Add(massOfInterest.Min() - Constants.C13MinusC12); // Except the isotopic distribution, we also add three mass (oen before the lowest, two over the biggest)
                 massOfInterest.Add(massOfInterest.Max() + Constants.C13MinusC12);
                 massOfInterest.Add(massOfInterest.Max() + 2 * Constants.C13MinusC12);
                 interestedMass.AddRange(massOfInterest);

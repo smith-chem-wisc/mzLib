@@ -50,7 +50,7 @@ namespace FlashLFQ.Interfaces
 
         /// <summary>
         /// Prune the index engine to remove any unnecessary data or entries for the better memory usage.
-        /// </summary
+        /// </summary>
         public void PruneIndex(List<double> targetMass);
     }
 }
