@@ -563,6 +563,13 @@ namespace UsefulProteomicsDatabases
 
                     writer.WriteStartElement("sequence");
                     writer.WriteAttributeString("length", protein.Length.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteAttributeString("mass", "mass");
+                    writer.WriteAttributeString("checksum", "checksum");
+                    writer.WriteAttributeString("modified", "modified");
+                    //optional attributes
+                    //writer.WriteAttributeString("precursor", "precursor");
+                    //writer.WriteAttributeString("fragment", "fragment");
+                    //end optional attributes
                     writer.WriteString(protein.BaseSequence);
                     writer.WriteEndElement(); // sequence
                     writer.WriteEndElement(); // entry

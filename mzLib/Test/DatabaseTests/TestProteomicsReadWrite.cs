@@ -12,6 +12,7 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using NUnit.Framework.Legacy;
 
 namespace Test.DatabaseTests
 {
@@ -269,6 +270,28 @@ namespace Test.DatabaseTests
             Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
             Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+        }
+        [Test]
+        public void Test_read_write_read_uniprot_fasta()
+        {
+            List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.None, false, out var a,
+                ProteinDbLoader.UniprotAccessionRegex, 
+                ProteinDbLoader.UniprotFullNameRegex, 
+                ProteinDbLoader.UniprotAccessionRegex, 
+                ProteinDbLoader.UniprotGeneNameRegex, 
+                ProteinDbLoader.UniprotOrganismRegex, 
+                ProteinDbLoader.UniprotSequenceVersionRegex);
+            ProteinDbWriter.WriteFastaDatabase(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"), " ");
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"), true, DecoyType.None, false, out var b,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex, null);
+
+            Assert.AreEqual(ok.Count, ok2.Count);
+            Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
+
+            if(File.Exists(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta")))
+            {
+                File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"));
+            }
         }
 
         [Test]
@@ -618,5 +641,27 @@ namespace Test.DatabaseTests
 
             Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PROXEINX");
         }
+        [Test]
+        public static void TestWriteSimplePeffFromProtein()
+        {
+            // Arrange: create a minimal Protein object
+            List<Tuple<string, string>> geneNames = new List<Tuple<string, string>> { new Tuple<string, string>("gene", "GENE1") };
+            string name = "Test Protein";
+            Protein protein = new Protein("MPEPTIDESEQ", "P12345", "9606", geneNames, fullName: name);
+
+            // Act: create ProteinPeffEntry and get string
+            var peffEntry = new ProteinPeffEntry(protein);
+            string peffString = peffEntry.ToString();
+
+            // Assert: check header and sequence
+            StringAssert.Contains(">up:P12345", peffString);
+            StringAssert.Contains("\\PName=Test Protein", peffString);
+            StringAssert.Contains("\\GName=GENE1", peffString);
+            StringAssert.Contains("\\NcbiTaxId=9606", peffString);
+            StringAssert.Contains("\\Length= 11", peffString);
+            StringAssert.Contains("MPEPTIDESEQ", peffString);
+        }
+        // Minimal test double for Protein with only required properties
+
     }
 }
