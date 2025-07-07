@@ -12,6 +12,7 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using NUnit.Framework.Legacy;
 
 namespace Test.DatabaseTests
 {
@@ -618,5 +619,24 @@ namespace Test.DatabaseTests
 
             Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PROXEINX");
         }
+        [Test]
+        public static void TestWriteSimplePeffFromProtein()
+        {
+            // Arrange: create a minimal Protein object
+            Protein protein = new Protein("MPEPTIDESEQ", "P12345", "9606");
+
+            // Act: create ProteinPeffEntry and get string
+            var peffEntry = new ProteinPeffEntry(protein);
+            string peffString = peffEntry.ToString();
+
+            // Assert: check header and sequence
+            StringAssert.Contains(">up:P12345", peffString);
+            StringAssert.Contains("\\DbUniqueId=P12345", peffString);
+            StringAssert.Contains("\\OX=9606", peffString);
+            StringAssert.Contains("\\Length= 11", peffString);
+            StringAssert.Contains("MPEPTIDESEQ", peffString);
+        }
+        // Minimal test double for Protein with only required properties
+
     }
 }
