@@ -623,7 +623,9 @@ namespace Test.DatabaseTests
         public static void TestWriteSimplePeffFromProtein()
         {
             // Arrange: create a minimal Protein object
-            Protein protein = new Protein("MPEPTIDESEQ", "P12345", "9606");
+            List<Tuple<string, string>> geneNames = new List<Tuple<string, string>> { new Tuple<string, string>("gene", "GENE1") };
+            string name = "Test Protein";
+            Protein protein = new Protein("MPEPTIDESEQ", "P12345", "9606", geneNames, fullName: name);
 
             // Act: create ProteinPeffEntry and get string
             var peffEntry = new ProteinPeffEntry(protein);
@@ -631,8 +633,9 @@ namespace Test.DatabaseTests
 
             // Assert: check header and sequence
             StringAssert.Contains(">up:P12345", peffString);
-            StringAssert.Contains("\\DbUniqueId=P12345", peffString);
-            StringAssert.Contains("\\OX=9606", peffString);
+            StringAssert.Contains("\\PName=Test Protein", peffString);
+            StringAssert.Contains("\\GName=GENE1", peffString);
+            StringAssert.Contains("\\NcbiTaxId=9606", peffString);
             StringAssert.Contains("\\Length= 11", peffString);
             StringAssert.Contains("MPEPTIDESEQ", peffString);
         }

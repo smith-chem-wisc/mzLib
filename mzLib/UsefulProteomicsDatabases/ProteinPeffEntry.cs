@@ -10,9 +10,11 @@ namespace UsefulProteomicsDatabases
     public class ProteinPeffEntry
     {
         public string Accession { get; set; }
+        public string Name { get; set; }
         //public string Description { get; set; }
-        //public string GeneName { get; set; }
+        public string GeneName { get; set; }
         public string Organism { get; set; }
+        public string TaxonIdNumber { get; set; }
         public string Sequence { get; set; }
         //public List<string> Synonyms { get; set; } = new List<string>();
         // List<string> CrossReferences { get; set; } = new List<string>();
@@ -40,9 +42,11 @@ namespace UsefulProteomicsDatabases
         public ProteinPeffEntry(Protein protein, PeffEntrySourceDatabase source = PeffEntrySourceDatabase.Uniprot)
         {
             Accession = protein.Accession;
-            //Description = protein.Description;
-            //GeneName = protein.GeneName;
-            Organism = protein.Organism;
+            Name = protein.FullName;
+            //Description = protein.FullDescription;
+            //TODO handle multiple gene names
+            GeneName = protein.GeneNames.FirstOrDefault().Item2;
+            TaxonIdNumber = protein.Organism;
             Sequence = protein.BaseSequence;
             SourceDatabase = source;
         }
@@ -50,8 +54,9 @@ namespace UsefulProteomicsDatabases
         {
             StringBuilder sb = new StringBuilder();
             sb.Append($">{PeffEntrySourceDatabaseAbbreviation(SourceDatabase)}:{Accession}");
-            sb.Append($" \\DbUniqueId={Accession}");
-            sb.Append($" \\OX={Organism}");
+            sb.Append($" \\PName={Name}");
+            sb.Append($" \\GName={GeneName}");
+            sb.Append($" \\NcbiTaxId={TaxonIdNumber}");
             sb.AppendLine($" \\Length= {Sequence.Length}");
             int currentPosition = 0;
             int lineLength = 60; // Length of each line in the wrapped string
