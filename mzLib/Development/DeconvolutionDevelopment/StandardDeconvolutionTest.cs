@@ -47,13 +47,13 @@ namespace Development.Deconvolution
             List<DeconvolutionParameters> topDownDeconvolutionParametersToTest =
             [
                 new ClassicDeconvolutionParameters(1, 60, 4, 3),
-                new IsoDecDeconvolutionParameters(),
+                new IsoDecDeconvolutionParameters()
             ];
 
             List<DeconvolutionParameters> bottomUpDeconvolutionParametersToTest =
             [
                 new ClassicDeconvolutionParameters(1, 12, 4, 3),
-                new IsoDecDeconvolutionParameters(),
+                new IsoDecDeconvolutionParameters()
             ];
 
 

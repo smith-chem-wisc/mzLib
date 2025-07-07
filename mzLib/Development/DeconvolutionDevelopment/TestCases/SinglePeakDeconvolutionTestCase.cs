@@ -34,7 +34,8 @@ namespace Development.Deconvolution
                 .GetAllScansList()
                 .First(p => p.OneBasedScanNumber == scanNumber).MassSpectrum;
 
-                RangeToDeconvolute = new MzRange(selectedIonMz - 8.5, selectedIonMz + 8.5);
+            // 8.5 was selected as this is the magic number found in Classic Deconvolution   
+            RangeToDeconvolute = new MzRange(selectedIonMz - 8.5, selectedIonMz + 8.5);
         }
 
         /// <summary>

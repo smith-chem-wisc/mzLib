@@ -295,22 +295,10 @@
     <None Update="DataFiles\14kDaProteoformMzIntensityMs1.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="DataFiles\mZchargeTwoProteoformSpectrum - Copy.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\mZchargeIsdProteoformSpectrum.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\4734.304mZchargeOneProteoformSpectrum.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="DataFiles\badScan7192.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\BinGenerationTest.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\groupOne.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf">
