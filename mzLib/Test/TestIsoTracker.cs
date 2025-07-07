@@ -1285,7 +1285,7 @@ namespace Test
 
         // Test the IsoTracker searchTarget
         [Test]
-        public static void TestRun_SearchginTarget()
+        public static void TestRun_SearchgingTarget()
         {
             //Description: we will upload a motifList for IsoTracker
             //Only peptide with motif on N can be searched
