@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MathNet.Numerics;
 
 namespace MassSpectrometry
 {
@@ -79,7 +80,7 @@ namespace MassSpectrometry
         {
             if (NumberOfPeaksToAdd == 0)
             {
-                newRtArray = rtArray.Select(x => (double)x).ToArray();
+                newRtArray = rtArray.Select(x => Math.Round((double)x, 3)).ToArray(); //in order to keep the same precision as in the original data
                 newIntensityArray = intensityArray.Select(x => (double)x).ToArray();
                 return;
             }
@@ -89,17 +90,17 @@ namespace MassSpectrometry
             {
                 if (i < NumberOfPeaksToAdd)
                 {
-                    newRtArray[i] = rtArray[0] - (NumberOfPeaksToAdd - i) * Gap;
+                    newRtArray[i] = Math.Round(rtArray[0] - (NumberOfPeaksToAdd - i) * Gap,3);
                     newIntensityArray[i] = 0;
                 }
                 else if (i >= rtArray.Length + NumberOfPeaksToAdd - 1)
                 {
-                    newRtArray[i] = newRtArray[i - 1] + Gap;
+                    newRtArray[i] = Math.Round(newRtArray[i - 1] + Gap, 3);
                     newIntensityArray[i] = 0;
                 }
                 else
                 {
-                    newRtArray[i] = rtArray[i - NumberOfPeaksToAdd];
+                    newRtArray[i] = Math.Round(rtArray[i - NumberOfPeaksToAdd], 3);
                     newIntensityArray[i] = intensityArray[i - NumberOfPeaksToAdd];
                 }
             }
