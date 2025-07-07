@@ -209,7 +209,7 @@ namespace UsefulProteomicsDatabases
             string sequenceVersionAttribute = xml.GetAttribute("version");
             // Optional attributes
             string precursorAttr = xml.GetAttribute("precursor");
-            SequenceFragment fragmentAttr = SequenceFragment.NotSet; //TODO find an example and do something with this.
+            string fragmentAttrString = xml.GetAttribute("fragment");
 
             // This length is read from the database. It may not match the length of the sequence read from the <sequence> element.
             // If the length is not provided, it will be calculated from the sequence.
@@ -238,7 +238,18 @@ namespace UsefulProteomicsDatabases
             {
                 this.IsPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
             }
-            Fragment = fragmentAttr;//TODO find an example and do something with this.
+            if(!string.IsNullOrEmpty(fragmentAttrString))
+            {
+                if (Enum.TryParse(fragmentAttrString, true, out SequenceFragment fragment))
+                {
+                    this.Fragment = fragment;
+                }
+                else
+                {
+                    this.Fragment = SequenceFragment.NotSet; // Default to NotSet if parsing fails
+                }
+            }
+
             Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
 
             // if the Length property does not match the length of the sequence
@@ -539,6 +550,13 @@ namespace UsefulProteomicsDatabases
             Name = null;
             FullName = null;
             Sequence = null;
+                Length = -1;
+                Mass = -1;
+                Checksum = null;
+                EntryModified = null;
+                SequenceVersion = -1;
+                IsPrecursor = null;
+                Fragment = SequenceFragment.NotSet;
             Organism = null;
             FeatureType = null;
             FeatureDescription = null;
@@ -563,11 +581,12 @@ namespace UsefulProteomicsDatabases
             ReadingGene = false;
             ReadingOrganism = false;
         }
-        public enum SequenceFragment
-        {
-            Single,
-            Multiple,
-            NotSet
-        }
+
+    }
+    public enum SequenceFragment
+    {
+        Single,
+        Multiple,
+        NotSet
     }
 }
