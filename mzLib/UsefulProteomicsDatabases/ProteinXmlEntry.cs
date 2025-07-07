@@ -197,6 +197,7 @@ namespace UsefulProteomicsDatabases
         /// - modified: (string) The date the sequence was last modified; assigned to ModifiedEntryTag.
         /// - version: (string) The version of the sequence; assigned to VersionEntryTag.
         /// - precursor: (string) Indicates if the sequence is a precursor.
+        /// - fragment: (SequenceFragment) Indicates the type of fragment (Single, Multiple, NotSet).
         /// </summary>
         private void ParseSequenceAttributes(XmlReader xml)
         {
