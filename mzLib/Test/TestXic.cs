@@ -1,14 +1,11 @@
-﻿using System;
-using NUnit.Framework;
-using Readers;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Chemistry;
+﻿using Chemistry;
 using FlashLFQ;
-using MzLibUtil;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MassSpectrometry;
+using MzLibUtil;
+using NUnit.Framework;
+using System.Collections.Generic;
+using System.Linq;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace Test
 {
@@ -57,7 +54,8 @@ namespace Test
             Assert.That(xic.ApexScanIndex, Is.EqualTo(6));
             Assert.That(xic.StartRT, Is.EqualTo(1.0f));
             Assert.That(xic.EndRT, Is.EqualTo(1.9f));
-            Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(1));
+            var mass = Dist.Masses.First().ToMz(1);
+            Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0001));
 
             //Test normalized peak intensities
             xic.SetNormalizedPeakIntensities();
