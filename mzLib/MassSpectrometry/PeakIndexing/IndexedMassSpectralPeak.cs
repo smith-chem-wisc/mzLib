@@ -13,7 +13,7 @@ namespace MassSpectrometry
         public IndexedMassSpectralPeak(float mz, float intensity, int zeroBasedMs1ScanIndex, float retentionTime)
         {
             this.Mz = mz;
-            this.ZeroBasedScanIndex = zeroBasedMs1ScanIndex;
+            this.ZeroBasedScanIndex = zeroBasedScanIndex;
             this.RetentionTime = retentionTime;
             this.Intensity = intensity;
         }
