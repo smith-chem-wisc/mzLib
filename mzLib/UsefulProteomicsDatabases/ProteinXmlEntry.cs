@@ -18,6 +18,7 @@ namespace UsefulProteomicsDatabases
 
         public string DatasetEntryTag { get; private set; }
         public string CreatedEntryTag { get; private set; }
+        //todo this should be renamed DatabaseModified
         public string ModifiedEntryTag { get; private set; }
         public string VersionEntryTag { get; private set; }
         public string XmlnsEntryTag { get; private set; }
@@ -50,6 +51,13 @@ namespace UsefulProteomicsDatabases
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
+        public int? Length { get; private set; }
+        public int? Mass { get; private set; }
+        public string Checksum { get; private set; }
+        
+        public string EntryModified { get; private set; } // This is not used in the current implementation, but can be set if needed
+        public int? SequenceVersion { get; private set; } // This is not used in the current implementation, but can be set if needed
+        public bool IsPrecursor { get; private set; } = false; // This is not used in the current implementation, but can be set if needed
 
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
@@ -155,7 +163,7 @@ namespace UsefulProteomicsDatabases
                     break;
 
                 case "sequence":
-                    Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+                    ParseSequenceAttributes(xml);
                     break;
             }
         }
@@ -171,6 +179,58 @@ namespace UsefulProteomicsDatabases
             ModifiedEntryTag = xml.GetAttribute("modified");
             VersionEntryTag = xml.GetAttribute("version");
             XmlnsEntryTag = xml.GetAttribute("xmlns");
+        }
+
+        /// <summary>
+        /// Parses the attributes of a &lt;sequence&gt; XML element and assigns their values to the corresponding properties of the ProteinXmlEntry.
+        /// 
+        /// Attribute definitions:
+        /// - length: (string) The length of the protein sequence.
+        /// - mass: (string) The mass of the protein sequence.
+        /// - checksum: (string) The checksum value for the sequence.
+        /// - modified: (string) The date the sequence was last modified; assigned to ModifiedEntryTag.
+        /// - version: (string) The version of the sequence; assigned to VersionEntryTag.
+        /// - precursor: (string) Indicates if the sequence is a precursor.
+        /// </summary>
+        private void ParseSequenceAttributes(XmlReader xml)
+        {
+            // Example attributes: length="770" mass="86943" checksum="A12EE761403740F5" modified="1991-11-01" version="3" precursor="true"
+            string lengthAttr = xml.GetAttribute("Length");
+            string massAttr = xml.GetAttribute("mass");
+            string checksumAttr = xml.GetAttribute("checksum");
+            string modifiedAttr = xml.GetAttribute("modified");
+            string sequenceVersionAttribute = xml.GetAttribute("SequenceVersion");
+            string precursorAttr = xml.GetAttribute("precursor");
+
+            // You may want to add backing fields/properties for these if not already present
+            if (int.TryParse(lengthAttr, out int Length))
+            {
+                this.Length = Length;
+                // Example: this.SequenceLength = length;
+            }
+            if (int.TryParse(massAttr, out int mass))
+            {
+                // Example: this.SequenceMass = mass;
+            }
+            if (!string.IsNullOrEmpty(checksumAttr))
+            {
+                // Example: this.SequenceChecksum = checksumAttr;
+            }
+            if (!string.IsNullOrEmpty(modifiedAttr))
+            {
+                ModifiedEntryTag = modifiedAttr;
+            }
+            if(int.TryParse(sequenceVersionAttribute, out int sequenceVersion))
+            {
+                SequenceVersion = sequenceVersion;
+            }
+            if (!string.IsNullOrEmpty(precursorAttr))
+            {
+                // Example: this.SequenceIsPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+            // This method is not used in the current implementation, but can be used to parse sequence attributes if needed.
+            // For now, we just read the sequence from the <sequence> element.
+            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
         }
 
         /// <summary>

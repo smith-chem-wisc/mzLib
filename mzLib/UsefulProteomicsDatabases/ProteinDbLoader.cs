@@ -32,6 +32,7 @@ namespace UsefulProteomicsDatabases
         public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|(?:.+)\|(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\s(GN=|PE=|SV=|OX=)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotSequenceVersionRegex = new FastaHeaderFieldRegex("sequenceVersion", @"SV=(\d+)(?:\s|$)", 0, 1);
 
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
@@ -189,7 +190,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
-            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY")
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, FastaHeaderFieldRegex sequenceVersionRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -247,6 +248,7 @@ namespace UsefulProteomicsDatabases
                                     nameRegex = UniprotNameRegex;
                                     organismRegex = UniprotOrganismRegex;
                                     geneNameRegex = UniprotGeneNameRegex;
+                                    sequenceVersionRegex = UniprotSequenceVersionRegex;
                                     break;
 
                                 case FastaHeaderType.Ensembl:
@@ -268,6 +270,7 @@ namespace UsefulProteomicsDatabases
                         name = ApplyRegex(nameRegex, line);
                         organism = ApplyRegex(organismRegex, line);
                         string geneNameString = ApplyRegex(geneNameRegex, line);
+                        string sequenceVersion = ApplyRegex(sequenceVersionRegex, line);
                         if (geneNameString != null)
                         {
                             geneName.Add(new Tuple<string, string>("primary", geneNameString));

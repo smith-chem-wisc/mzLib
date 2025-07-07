@@ -275,7 +275,12 @@ namespace Test.DatabaseTests
         public void Test_read_write_read_uniprot_fasta()
         {
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.None, false, out var a,
-                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex, null);
+                ProteinDbLoader.UniprotAccessionRegex, 
+                ProteinDbLoader.UniprotFullNameRegex, 
+                ProteinDbLoader.UniprotAccessionRegex, 
+                ProteinDbLoader.UniprotGeneNameRegex, 
+                ProteinDbLoader.UniprotOrganismRegex, 
+                ProteinDbLoader.UniprotSequenceVersionRegex);
             ProteinDbWriter.WriteFastaDatabase(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"), " ");
             List<Protein> ok2 = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"), true, DecoyType.None, false, out var b,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex, null);
