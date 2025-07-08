@@ -20,9 +20,9 @@ namespace Proteomics
         public FragmentType Fragment { get; private set; } //optional
         public enum FragmentType
         {
-            unspecified,
-            single,
-            multiple
+            unspecified = 0,
+            single = 1,
+            multiple = 2
         }
         public UniProtSequenceAttributes(int length, int mass, string checkSum, DateTime entryModified, int sequenceVersion, bool? isPrecursor = null, FragmentType fragment = FragmentType.unspecified)
         {

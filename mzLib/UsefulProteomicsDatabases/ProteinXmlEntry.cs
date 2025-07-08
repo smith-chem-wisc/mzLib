@@ -9,6 +9,7 @@ using Omics.Modifications;
 using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
 using System.Data;
+using Proteomics.ProteolyticDigestion;
 
 namespace UsefulProteomicsDatabases
 {
@@ -186,6 +187,8 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         private void ParseSequenceAttributes(XmlReader xml)
         {
+            //read sequence immediately so we can use information from it if necessary
+            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
             // Required attributes
             string lengthAttr = xml.GetAttribute("length");
             int length = -1;
@@ -215,13 +218,21 @@ namespace UsefulProteomicsDatabases
             {
                 mass = _mass;
             }
+            else
+            {
+                mass = (int)Math.Round(new PeptideWithSetModifications(Sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+            }
             if (!string.IsNullOrEmpty(checksumAttr))
             {
                 checksum = checksumAttr;
             }
             if (!string.IsNullOrEmpty(modifiedAttr))
             {
-                entryModified = DateTime.ParseExact(modifiedAttr, "yy-MM-dd", System.Globalization.CultureInfo.InvariantCulture); ;
+                entryModified = DateTime.ParseExact(modifiedAttr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture); ;
+            }
+            else
+            {
+                entryModified = DateTime.Now; // Default to now if not specified
             }
             if (int.TryParse(sequenceVersionAttribute, out int _sequenceVersion))
             {
@@ -242,9 +253,6 @@ namespace UsefulProteomicsDatabases
                     fragment = UniProtSequenceAttributes.FragmentType.unspecified; // Default to NotSet if parsing fails
                 }
             }
-
-            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
-
             // if the Length property does not match the length of the sequence
             if (length != Sequence.Length)
             {
