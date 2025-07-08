@@ -10,6 +10,7 @@ using Omics.Modifications;
 using MzLibUtil;
 using Omics.BioPolymer;
 using System.Data;
+using Chemistry;
 
 
 namespace Proteomics
@@ -42,7 +43,7 @@ namespace Proteomics
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false, 
             string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot",
-            int? length = null, int? mass = null, string? checksum = null, string? entryModified = null, bool? precursor = null)
+            UniProtSequenceAttributes uniProtSequenceAttributes = null)
         {
             BaseSequence = sequence;
             NonVariantProtein = this;
@@ -82,6 +83,7 @@ namespace Proteomics
             ModifiedEntryTag = modified;
             VersionEntryTag = version;
             XmlnsEntryTag = xmlns;
+            UniProtSequenceAttributes = uniProtSequenceAttributes ?? new UniProtSequenceAttributes(Length, (int)Math.Round(new PeptideWithSetModifications(BaseSequence, new Dictionary<string,Modification>()).ToMz(1).ToMass(1)), "unknown", DateTime.Now, -1);
         }
 
         /// <summary>
@@ -222,7 +224,7 @@ namespace Proteomics
         public string ModifiedEntryTag { get; private set; }
         public string VersionEntryTag { get; private set; }
         public string XmlnsEntryTag { get; private set; }
-
+        public UniProtSequenceAttributes UniProtSequenceAttributes { get; private set; }
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
         /// Note that the db field isn't very applicable here, so mz is placed in to denote written by mzLib.
