@@ -180,8 +180,8 @@ namespace UsefulProteomicsDatabases
         /// - length: (string) The length of the protein sequence.
         /// - mass: (string) The mass of the protein sequence.
         /// - checksum: (string) The checksum value for the sequence.
-        /// - modified: (string) The date the sequence was last modified; assigned to ModifiedEntryTag.
-        /// - version: (string) The version of the sequence; assigned to VersionEntryTag.
+        /// - modified: (string) The date the sequence was last modified.
+        /// - version: (string) The version of the sequence.
         /// - precursor: (string) Indicates if the sequence is a precursor.
         /// - fragment: (FragmentType) Indicates the type of fragment (unspecified, single, multiple).
         /// </summary>
@@ -207,7 +207,7 @@ namespace UsefulProteomicsDatabases
             }
             if (!string.IsNullOrEmpty(modifiedAttr))
             {
-                entryModified = DateTime.ParseExact(modifiedAttr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture); ;
+                entryModified = DateTime.ParseExact(modifiedAttr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             }
             else
             {
