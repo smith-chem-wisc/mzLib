@@ -13,7 +13,7 @@ namespace Proteomics
     {
         public int Length { get; private set; } //mandatory
         public int Mass { get; private set; } //mandatory
-        public string CheckSum { get; private set; } //mandatory
+        public string Checksum { get; private set; } //mandatory
         public DateTime EntryModified { get; private set; } //mandatory
         public int SequenceVersion { get; private set; } //mandatory
         public bool? IsPrecursor { get; private set; } //optional
@@ -28,7 +28,7 @@ namespace Proteomics
         {
             Length = length;
             Mass = mass;
-            CheckSum = checkSum;
+            Checksum = checkSum;
             EntryModified = entryModified;
             SequenceVersion = sequenceVersion;
             IsPrecursor = isPrecursor;

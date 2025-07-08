@@ -564,7 +564,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteStartElement("sequence");
                     writer.WriteAttributeString("length", protein.UniProtSequenceAttributes.Length.ToString());
                     writer.WriteAttributeString("mass", protein.UniProtSequenceAttributes.Mass.ToString());
-                    writer.WriteAttributeString("checksum", protein.UniProtSequenceAttributes.CheckSum);
+                    writer.WriteAttributeString("checksum", protein.UniProtSequenceAttributes.Checksum);
                     writer.WriteAttributeString("modified", protein.UniProtSequenceAttributes.EntryModified.ToString("yyyy-MM-dd"));
                     writer.WriteAttributeString("version", protein.UniProtSequenceAttributes.SequenceVersion.ToString());
                     //optional attributes

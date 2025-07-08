@@ -29,7 +29,7 @@ namespace Test
             // Assert
             Assert.That(attr.Length, Is.EqualTo(length));
             Assert.That(attr.Mass, Is.EqualTo(mass));
-            Assert.That(attr.CheckSum, Is.EqualTo(checkSum));
+            Assert.That(attr.Checksum, Is.EqualTo(checkSum));
             Assert.That(attr.EntryModified, Is.EqualTo(entryModified));
             Assert.That(attr.SequenceVersion, Is.EqualTo(sequenceVersion));
             Assert.That(attr.IsPrecursor, Is.Null);
@@ -65,7 +65,7 @@ namespace Test
             // Assert
             Assert.That(attr.Length, Is.EqualTo(10));
             Assert.That(attr.Mass, Is.EqualTo(20));
-            Assert.That(attr.CheckSum, Is.EqualTo("DEF456"));
+            Assert.That(attr.Checksum, Is.EqualTo("DEF456"));
             Assert.That(attr.EntryModified, Is.EqualTo(new DateTime(2022, 12, 31)));
             Assert.That(attr.SequenceVersion, Is.EqualTo(4));
             Assert.That(attr.IsPrecursor, Is.False);
@@ -171,7 +171,7 @@ namespace Test
             Assert.That(protein.UniProtSequenceAttributes, Is.EqualTo(uniProtAttrs));
             Assert.That(protein.UniProtSequenceAttributes.Length, Is.EqualTo(100));
             Assert.That(protein.UniProtSequenceAttributes.Mass, Is.EqualTo(12345));
-            Assert.That(protein.UniProtSequenceAttributes.CheckSum, Is.EqualTo("CHK123"));
+            Assert.That(protein.UniProtSequenceAttributes.Checksum, Is.EqualTo("CHK123"));
             Assert.That(protein.UniProtSequenceAttributes.EntryModified, Is.EqualTo(new DateTime(2024, 6, 13)));
             Assert.That(protein.UniProtSequenceAttributes.SequenceVersion, Is.EqualTo(2));
             Assert.That(protein.UniProtSequenceAttributes.IsPrecursor, Is.True);
@@ -275,7 +275,7 @@ namespace Test
             Assert.That(entry.SequenceAttributes, Is.EqualTo(attrs));
             Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(42));
             Assert.That(entry.SequenceAttributes.Mass, Is.EqualTo(1234));
-            Assert.That(entry.SequenceAttributes.CheckSum, Is.EqualTo("CHK"));
+            Assert.That(entry.SequenceAttributes.Checksum, Is.EqualTo("CHK"));
             Assert.That(entry.SequenceAttributes.EntryModified, Is.EqualTo(new DateTime(2024, 6, 13)));
             Assert.That(entry.SequenceAttributes.SequenceVersion, Is.EqualTo(1));
         }

@@ -183,22 +183,16 @@ namespace UsefulProteomicsDatabases
         /// - modified: (string) The date the sequence was last modified; assigned to ModifiedEntryTag.
         /// - version: (string) The version of the sequence; assigned to VersionEntryTag.
         /// - precursor: (string) Indicates if the sequence is a precursor.
-        /// - fragment: (SequenceFragment) Indicates the type of fragment (Single, Multiple, NotSet).
+        /// - fragment: (FragmentType) Indicates the type of fragment (unspecified, single, multiple).
         /// </summary>
         private void ParseSequenceAttributes(XmlReader xml)
         {
-            //read sequence immediately so we can use information from it if necessary
-            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
             // Required attributes
-
-            //The length attribute value in the database is ignored and we simply compute it from the actual sequence length
-            int length = Sequence.Length;
-            // The mass attribute value in the database is ignored and we simply compute it from the actual sequence mass
-            int mass = (int)Math.Round(new PeptideWithSetModifications(Sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+            // mandatory attributes length and mass are computed after sequence is read below
             string checksumAttr = xml.GetAttribute("checksum");
             string checksum = "";
             string modifiedAttr = xml.GetAttribute("modified");
-            DateTime entryModified = DateTime.Now;
+            DateTime entryModified;
             string sequenceVersionAttribute = xml.GetAttribute("version");
             int sequenceVersion = -1;
             // Optional attributes
@@ -238,11 +232,13 @@ namespace UsefulProteomicsDatabases
                     fragment = UniProtSequenceAttributes.FragmentType.unspecified; // Default to NotSet if parsing fails
                 }
             }
-            // if the Length property does not match the length of the sequence
-            if (length != Sequence.Length)
-            {
-                length = Sequence.Length;
-            }
+
+            //ReadElementString must come after the attributes are parsed, otherwise the attributes will be null
+            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+            //The length attribute value in the database is ignored and we simply compute it from the actual sequence length
+            int length = Sequence.Length;
+            // The mass attribute value in the database is ignored and we simply compute it from the actual sequence mass
+            int mass = (int)Math.Round(new PeptideWithSetModifications(Sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
             SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment);
         }
         /// <summary>
