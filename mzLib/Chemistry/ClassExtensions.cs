@@ -41,9 +41,25 @@ namespace Chemistry
         }
 
         /// <summary>
+        /// Calculates m/z value for a given mass assuming charge comes from losing or gaining protons
+        /// </summary>
+        public static double ToMz(this float mass, int charge)
+        {
+            return mass / Math.Abs(charge) + Math.Sign(charge) * Constants.ProtonMass;
+        }
+
+        /// <summary>
         /// Determines the original mass from an m/z value, assuming charge comes from a proton
         /// </summary>
         public static double ToMass(this double massToChargeRatio, int charge)
+        {
+            return Math.Abs(charge) * massToChargeRatio - charge * Constants.ProtonMass;
+        }
+
+        /// <summary>
+        /// Determines the original mass from an m/z value, assuming charge comes from a proton
+        /// </summary>
+        public static double ToMass(this float massToChargeRatio, int charge)
         {
             return Math.Abs(charge) * massToChargeRatio - charge * Constants.ProtonMass;
         }

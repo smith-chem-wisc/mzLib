@@ -22,8 +22,8 @@ namespace Test
             // Create a ChromatographicPeak instance
             ChromatographicPeak chromatographicPeak = new ChromatographicPeak(identification, spectraFileInfo);
 
-            IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5f);
-            IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5f);
+            IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5);
+            IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);
 
             // Add sample IsotopicEnvelopes
             chromatographicPeak.IsotopicEnvelopes = new List<IsotopicEnvelope>()
@@ -70,8 +70,8 @@ namespace Test
             // create the sample ChromatographicPeaks with different DetectionTypes
             SpectraFileInfo spectraFileInfo = new SpectraFileInfo("sampleFile", "A", 1, 1, 1);
             Identification identification = new Identification(spectraFileInfo, "MPEPTIDE", "Mz[Oxidation]PEPTIDE", 100, 10, 2, new List<ProteinGroup>());
-            IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5f);
-            IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5f);
+            IndexedMassSpectralPeak peak1 = new IndexedMassSpectralPeak(100, 300, 1, 9.5);
+            IndexedMassSpectralPeak peak2 = new IndexedMassSpectralPeak(100, 300, 1, 10.5);
 
             ChromatographicPeak peak_MSMS = new ChromatographicPeak(identification, spectraFileInfo);
             MbrChromatographicPeak peak_MBR = new MbrChromatographicPeak(identification, spectraFileInfo, 1, false);

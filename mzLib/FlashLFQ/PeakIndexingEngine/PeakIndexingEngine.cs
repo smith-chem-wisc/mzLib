@@ -100,7 +100,7 @@ namespace FlashLFQ
         /// <summary>  
         /// Prune the index engine to remove any unnecessary data or entries for the better memory usage.  
         /// </summary>  
-        public void PruneIndex(List<double> targetMz)
+        public void PruneIndex(List<float> targetMz)
         {
             PpmTolerance ppmTolerance = new PpmTolerance(10); // Default tolerance, can be adjusted as needed
             if (IndexedPeaks == null || targetMz == null || !targetMz.Any())
@@ -124,6 +124,7 @@ namespace FlashLFQ
                     {
                         indexedPeaks[i] = IndexedPeaks[i];
                     }
+
                 }
             }
             IndexedPeaks = indexedPeaks;

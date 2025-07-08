@@ -131,11 +131,11 @@ namespace Test
 
             var peaks = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 100, 0, 1.0f),
-                new IndexedMassSpectralPeak(100, 200, 1, 2.0f),
-                new IndexedMassSpectralPeak(100, 300, 2, 3.0f),
-                new IndexedMassSpectralPeak(100, 400, 3, 4.0f),
-                new IndexedMassSpectralPeak(100, 500, 4, 5.0f)
+                new IndexedMassSpectralPeak(100, 100, 0, 1.0),
+                new IndexedMassSpectralPeak(100, 200, 1, 2.0),
+                new IndexedMassSpectralPeak(100, 300, 2, 3.0),
+                new IndexedMassSpectralPeak(100, 400, 3, 4.0),
+                new IndexedMassSpectralPeak(100, 500, 4, 5.0)
             };
             var xic = new XIC(peaks, 100, new SpectraFileInfo("file.raw", "Condition", 1, 1, 1));
 
@@ -175,21 +175,21 @@ namespace Test
             //The Apex of the peak2 is at 3.1
             var peaks2 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 10, 0, 1.1f),
-                new IndexedMassSpectralPeak(100, 20, 1, 2.1f),
-                new IndexedMassSpectralPeak(100, 30, 2, 3.1f),
-                new IndexedMassSpectralPeak(100, 20, 3, 4.1f),
-                new IndexedMassSpectralPeak(100, 10, 4, 5.1f)
+                new IndexedMassSpectralPeak(100, 10, 0, 1.1),
+                new IndexedMassSpectralPeak(100, 20, 1, 2.1),
+                new IndexedMassSpectralPeak(100, 30, 2, 3.1),
+                new IndexedMassSpectralPeak(100, 20, 3, 4.1),
+                new IndexedMassSpectralPeak(100, 10, 4, 5.1)
             };
 
             //The Apex of the peak is at 2.9
             var peaks3 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 10, 0, 0.9f),
-                new IndexedMassSpectralPeak(100, 20, 1, 1.9f),
-                new IndexedMassSpectralPeak(100, 30, 2, 2.9f),
-                new IndexedMassSpectralPeak(100, 20, 3, 3.9f),
-                new IndexedMassSpectralPeak(100, 10, 4, 4.9f)
+                new IndexedMassSpectralPeak(100, 10, 0, 0.9),
+                new IndexedMassSpectralPeak(100, 20, 1, 1.9),
+                new IndexedMassSpectralPeak(100, 30, 2, 2.9),
+                new IndexedMassSpectralPeak(100, 20, 3, 3.9),
+                new IndexedMassSpectralPeak(100, 10, 4, 4.9)
             };
 
             var spectraFile = new SpectraFileInfo("test.raw", "Condition", 1, 1, 1);
@@ -213,10 +213,10 @@ namespace Test
             // Arrange
             var peaks = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 100, 0, 1.0f),
-                new IndexedMassSpectralPeak(100, 200, 1, 2.0f),
-                new IndexedMassSpectralPeak(100, 300, 2, 3.0f),
-                new IndexedMassSpectralPeak(100, 500, 4, 5.0f)
+                new IndexedMassSpectralPeak(100, 100, 0, 1.0),
+                new IndexedMassSpectralPeak(100, 200, 1, 2.0),
+                new IndexedMassSpectralPeak(100, 300, 2, 3.0),
+                new IndexedMassSpectralPeak(100, 500, 4, 5.0)
             };
             var xic = new XIC(peaks, 100, new SpectraFileInfo("file.raw", "Condition", 1, 1, 1));
 
@@ -235,7 +235,7 @@ namespace Test
             List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
             {
-                peaks.Add(new IndexedMassSpectralPeak(mz: (float)peakFindingMass, intensity: (float)peak.Density(timesPoints[k]), 0, retentionTime: (float)timesPoints[k]));
+                peaks.Add(new IndexedMassSpectralPeak(mz:peakFindingMass, intensity: peak.Density(timesPoints[k]), 0, retentionTime: timesPoints[k]));
             }
 
             var spectraFile = new SpectraFileInfo("test.raw", "TestCondition", 1, 1, 1);
@@ -257,7 +257,7 @@ namespace Test
             List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
             {
-                peaks.Add(new IndexedMassSpectralPeak(mz: (float)peakFindingMass, intensity: (float)peak.Density(timesPoints[k]), 0, retentionTime: (float)timesPoints[k]));
+                peaks.Add(new IndexedMassSpectralPeak(mz: peakFindingMass, intensity: peak.Density(timesPoints[k]), 0, retentionTime: timesPoints[k]));
             }
 
             var spectraFile = new SpectraFileInfo("test.raw", "TestCondition", 1, 1, 1);
@@ -278,20 +278,20 @@ namespace Test
             // XIC building
             var peaks = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 200, 0, 1.0f),
-                new IndexedMassSpectralPeak(100, 210, 1, 2.0f),
-                new IndexedMassSpectralPeak(100, 220, 2, 3.0f),
-                new IndexedMassSpectralPeak(100, 230, 3, 4.0f),
-                new IndexedMassSpectralPeak(100, 240, 4, 5.0f)
+                new IndexedMassSpectralPeak(100, 200, 0, 1.0),
+                new IndexedMassSpectralPeak(100, 210, 1, 2.0),
+                new IndexedMassSpectralPeak(100, 220, 2, 3.0),
+                new IndexedMassSpectralPeak(100, 230, 3, 4.0),
+                new IndexedMassSpectralPeak(100, 240, 4, 5.0)
             };
 
             var peaks2 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 200, 0, 1.0f),
-                new IndexedMassSpectralPeak(100, 210, 1, 2.0f),
-                new IndexedMassSpectralPeak(100, 220, 2, 3.0f),
-                new IndexedMassSpectralPeak(100, 230, 3, 4.0f),
-                new IndexedMassSpectralPeak(100, 240, 4, 5.0f)
+                new IndexedMassSpectralPeak(100, 200, 0, 1.0),
+                new IndexedMassSpectralPeak(100, 210, 1, 2.0),
+                new IndexedMassSpectralPeak(100, 220, 2, 3.0),
+                new IndexedMassSpectralPeak(100, 230, 3, 4.0),
+                new IndexedMassSpectralPeak(100, 240, 4, 5.0)
             };
 
             var spectraFile = new SpectraFileInfo("path/to/file.raw", "Condition", 1, 1, 1);
@@ -345,21 +345,21 @@ namespace Test
             //The Apex of the peak2 is at 3.1
             var peaks2 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 10, 0, 1.1f),
-                new IndexedMassSpectralPeak(100, 20, 1, 2.1f),
-                new IndexedMassSpectralPeak(100, 30, 2, 3.1f),
-                new IndexedMassSpectralPeak(100, 20, 3, 4.1f),
-                new IndexedMassSpectralPeak(100, 10, 4, 5.1f)
+                new IndexedMassSpectralPeak(100, 10, 0, 1.1),
+                new IndexedMassSpectralPeak(100, 20, 1, 2.1),
+                new IndexedMassSpectralPeak(100, 30, 2, 3.1),
+                new IndexedMassSpectralPeak(100, 20, 3, 4.1),
+                new IndexedMassSpectralPeak(100, 10, 4, 5.1)
             };
 
             //The Apex of the peak is at 2.9
             var peaks3 = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 10, 0, 0.9f),
-                new IndexedMassSpectralPeak(100, 20, 1, 1.9f),
-                new IndexedMassSpectralPeak(100, 30, 2, 2.9f),
-                new IndexedMassSpectralPeak(100, 20, 3, 3.9f),
-                new IndexedMassSpectralPeak(100, 10, 4, 4.9f)
+                new IndexedMassSpectralPeak(100, 10, 0, 0.9),
+                new IndexedMassSpectralPeak(100, 20, 1, 1.9),
+                new IndexedMassSpectralPeak(100, 30, 2, 2.9),
+                new IndexedMassSpectralPeak(100, 20, 3, 3.9),
+                new IndexedMassSpectralPeak(100, 10, 4, 4.9)
             };
 
             var spectraFile = new SpectraFileInfo("test.raw", "Condition", 1, 1, 1);
@@ -443,9 +443,9 @@ namespace Test
 
             for (int j = 0; j < 200; j++)
             {
-                p1List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: (float)intensities_P1[j], j, (float)timesPoints[j]));
-                p2List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: (float)intensities_P2[j], j, (float)timesPoints[j]));
-                p3List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: (float)intensities_P3[j], j, (float)timesPoints[j]));
+                p1List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: intensities_P1[j], j, timesPoints[j]));
+                p2List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: intensities_P2[j], j, timesPoints[j]));
+                p3List.Add(new IndexedMassSpectralPeak(mz: 500, intensity: intensities_P3[j], j, timesPoints[j]));
             }
 
             XIC xic = new XIC(p1List, 500, new SpectraFileInfo("", "", 1, 1, 1), true);
@@ -1285,7 +1285,7 @@ namespace Test
 
         // Test the IsoTracker searchTarget
         [Test]
-        public static void TestRun_SearchgingTarget()
+        public static void TestRun_SearchingTarget()
         {
             //Description: we will upload a motifList for IsoTracker
             //Only peptide with motif on N can be searched

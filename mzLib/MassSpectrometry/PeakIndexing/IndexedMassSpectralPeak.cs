@@ -10,12 +10,12 @@ namespace MassSpectrometry
         public float M => Mz;
         public float RetentionTime { get; init; }
         public float Intensity { get; init; }
-        public IndexedMassSpectralPeak(float mz, float intensity, int zeroBasedScanIndex, float retentionTime)
+        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedScanIndex, double retentionTime)
         {
-            this.Mz = mz;
+            this.Mz = (float)mz;
             this.ZeroBasedScanIndex = zeroBasedScanIndex;
-            this.RetentionTime = retentionTime;
-            this.Intensity = intensity;
+            this.RetentionTime = (float)retentionTime;
+            this.Intensity = (float)intensity;
         }
         public override bool Equals(object obj)
         {

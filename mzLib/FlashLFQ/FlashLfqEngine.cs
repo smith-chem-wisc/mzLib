@@ -188,7 +188,7 @@ namespace FlashLFQ
             _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
-            List<double> targetMzs = new List<double>();
+            List<float> targetMzs = new List<float>();
             if (FlashParams.IsoTracker) // If IsoTracker is on, we need to set the target mass for pruning
             {
                 targetMzs = GetTargetMz();
@@ -371,7 +371,7 @@ namespace FlashLFQ
 
                 ChemicalFormula formula = id.OptionalChemicalFormula;
 
-                var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundance)>();
+                var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundancence)>();
 
                 if(formula is null)
                 {
@@ -510,7 +510,7 @@ namespace FlashLFQ
                             
                             // filter by smaller mass tolerance
                             xic.RemoveAll(p => 
-                                !ppmTolerance.Within(((double)p.M).ToMass(chargeState), identification.PeakfindingMass));
+                                !ppmTolerance.Within(p.M.ToMass(chargeState), identification.PeakfindingMass));
 
                             // filter by isotopic distribution
                             List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState, fileInfo);
@@ -1575,7 +1575,7 @@ namespace FlashLFQ
                 }
 
                 // isotope masses are calculated relative to the observed peak
-                double observedMass = ((double)peak.M).ToMass(chargeState);
+                double observedMass = peak.M.ToMass(chargeState);
                 double observedMassError = observedMass - identification.PeakfindingMass;
 
                 foreach (var shift in massShiftToIsotopePeaks)
@@ -2166,35 +2166,39 @@ namespace FlashLFQ
         /// peptides in the current dataset.
         /// </summary>
         /// <returns>A list of doubles representing the calculated m/z values of interest.</returns>
-        private List<double> GetTargetMz()
+        private List<float> GetTargetMz()
         {
-            HashSet<double> interestedMass = new HashSet<double>();
+            HashSet<float> interestedMass = new HashSet<float>();
             foreach (var peptide in ModifiedSequenceToIsotopicDistribution)
             {
                 var id = _allIdentifications.First(p => p.ModifiedSequence == peptide.Key);
-                List<double> massOfInterest = peptide.Value.Select(p => p.massShift + id.MonoisotopicMass).ToList();
-                massOfInterest.Add(massOfInterest.Min() - Constants.C13MinusC12); // Except the isotopic distribution, we also add three mass (oen before the lowest, two over the biggest)
-                massOfInterest.Add(massOfInterest.Max() + Constants.C13MinusC12);
-                massOfInterest.Add(massOfInterest.Max() + 2 * Constants.C13MinusC12);
-                interestedMass.AddRange(massOfInterest);
+                List<float> massesOfInterest = peptide.Value.Select(p => (float)(p.massShift + id.MonoisotopicMass)).ToList();
+                var minMass = massesOfInterest.Min();
+                var maxMass = massesOfInterest.Max();
+                massesOfInterest.Add(minMass - (float)Constants.C13MinusC12); // Except the isotopic distribution, we also add three mass (one before the lowest, two over the biggest)
+                massesOfInterest.Add(maxMass + (float)Constants.C13MinusC12);
+                massesOfInterest.Add(maxMass + 2f * (float)Constants.C13MinusC12);
+                interestedMass.AddRange(massesOfInterest);
             }
-            return MassesToMzs(interestedMass);
+            return MassesToMzsFloat(interestedMass);
         }
 
-        private List<double> MassesToMzs(HashSet<double> targetMasses)
+        // Helper method for float version
+        private List<float> MassesToMzsFloat(HashSet<float> targetMasses)
         {
-            HashSet<double> targetMzs = new();
+            HashSet<float> targetMzs = new();
             foreach (var mass in targetMasses)
             {
                 _chargeStates.ForEach(chargeState =>
                 {
-                    targetMzs.Add(Math.Round(mass.ToMz(chargeState),2));
+                    targetMzs.Add((float)Math.Round(mass.ToMz(chargeState), 2));
                 });
             }
             var sortedTargetMzs = targetMzs.ToList();
             sortedTargetMzs.Sort();
             return sortedTargetMzs;
         }
+        
     }
 
 }
