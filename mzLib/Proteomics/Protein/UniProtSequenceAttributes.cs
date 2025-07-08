@@ -20,6 +20,7 @@ namespace Proteomics
         public FragmentType Fragment { get; private set; } //optional
         public enum FragmentType
         {
+            //note that these enum values do not follow the .Net naming convention (PascalCase) because they are specified by UniProt as all lowercase
             unspecified = 0,
             single = 1,
             multiple = 2
