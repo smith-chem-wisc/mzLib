@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Proteomics.Protein
+namespace Proteomics
 {
     public class UniProtSequenceAttributes
     {
