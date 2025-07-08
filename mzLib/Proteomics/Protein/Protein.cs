@@ -41,9 +41,9 @@ namespace Proteomics
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false, 
-            string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot")
+            string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot"
+            int? length = null, int? mass = null, string? checksum = null, string? entryModified = null, bool? precursor = null)
         {
-            // Mandatory
             BaseSequence = sequence;
             NonVariantProtein = this;
             Accession = accession;
