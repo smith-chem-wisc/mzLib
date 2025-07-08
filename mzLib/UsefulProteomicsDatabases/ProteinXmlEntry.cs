@@ -50,18 +50,7 @@ namespace UsefulProteomicsDatabases
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
-        #region XML sequence attributes that are not used in the current implementation but can be set if needed
-        /// <summary>
-        /// The following REQUIRED properties are read from the <sequence> element attributes:
-        public int Length { get; private set; }
-        public int Mass { get; private set; }
-        public string Checksum { get; private set; }
-        public string EntryModified { get; private set; }
-        public int SequenceVersion { get; private set; }
-        /// The following OPTIONAL properties are read from the <sequence> element attributes:
-        public bool? IsPrecursor { get; private set; } // This is not used in the current implementation, but can be set if needed
-        public SequenceFragment Fragment { get; private set; } = SequenceFragment.NotSet; // This is not used in the current implementation, but can be set if needed
-        #endregion
+        public UniProtSequenceAttributes SequenceAttributes { get; set; } = null; // this is used to store the sequence attributes from the <sequence> element, if present
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
 
@@ -199,60 +188,69 @@ namespace UsefulProteomicsDatabases
         {
             // Required attributes
             string lengthAttr = xml.GetAttribute("length");
+            int length = -1;
             string massAttr = xml.GetAttribute("mass");
+            int mass = -1;
             string checksumAttr = xml.GetAttribute("checksum");
+            string checksum = "";
             string modifiedAttr = xml.GetAttribute("modified");
+            DateTime entryModified = DateTime.Now;
             string sequenceVersionAttribute = xml.GetAttribute("version");
+            int sequenceVersion = -1;
             // Optional attributes
             string precursorAttr = xml.GetAttribute("precursor");
+            bool isPrecursor = false; // Default to false if not specified
             string fragmentAttrString = xml.GetAttribute("fragment");
+            UniProtSequenceAttributes.FragmentType fragment = UniProtSequenceAttributes.FragmentType.unspecified; // Default to NotSet if not specified
 
             // This length is read from the database. It may not match the length of the sequence read from the <sequence> element.
             // If the length is not provided, it will be calculated from the sequence.
             // If the length provide does not match the sequence length it will be corrected
-            if (int.TryParse(lengthAttr, out int Length))
+
+            if (int.TryParse(lengthAttr, out int _length))
             {
-                this.Length = Length;
+                length = _length;
             }
-            if (int.TryParse(massAttr, out int mass))
+            if (int.TryParse(massAttr, out int _mass))
             {
-                this.Mass = mass;
+                mass = _mass;
             }
             if (!string.IsNullOrEmpty(checksumAttr))
             {
-                this.Checksum = checksumAttr;
+                checksum = checksumAttr;
             }
             if (!string.IsNullOrEmpty(modifiedAttr))
             {
-                this.EntryModified = modifiedAttr;
+                entryModified = DateTime.ParseExact(modifiedAttr, "yy-MM-dd", System.Globalization.CultureInfo.InvariantCulture); ;
             }
-            if (int.TryParse(sequenceVersionAttribute, out int sequenceVersion))
+            if (int.TryParse(sequenceVersionAttribute, out int _sequenceVersion))
             {
-                this.SequenceVersion = sequenceVersion;
+                sequenceVersion = _sequenceVersion;
             }
             if (!string.IsNullOrEmpty(precursorAttr))
             {
-                this.IsPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
+                isPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
             }
             if (!string.IsNullOrEmpty(fragmentAttrString))
             {
-                if (Enum.TryParse(fragmentAttrString, true, out SequenceFragment fragment))
+                if (Enum.TryParse(fragmentAttrString, true, out UniProtSequenceAttributes.FragmentType _fragment))
                 {
-                    this.Fragment = fragment;
+                    fragment = _fragment;
                 }
                 else
                 {
-                    this.Fragment = SequenceFragment.NotSet; // Default to NotSet if parsing fails
+                    fragment = UniProtSequenceAttributes.FragmentType.unspecified; // Default to NotSet if parsing fails
                 }
             }
 
             Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
 
             // if the Length property does not match the length of the sequence
-            if (this.Length != Sequence.Length)
+            if (length != Sequence.Length)
             {
-                this.Length = Sequence.Length;
+                length = Sequence.Length;
             }
+            SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment);
         }
         /// <summary>
         /// Finish parsing at the end of an element

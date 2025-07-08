@@ -5,6 +5,7 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -243,6 +244,72 @@ namespace Test
             // Assert
             Assert.That(protein.UniProtSequenceAttributes.Length, Is.EqualTo(60));
             Assert.That(protein.UniProtSequenceAttributes.Mass, Is.EqualTo(6000));
+        }
+        [Test]
+        public void SequenceAttributes_Default_IsNull()
+        {
+            // Arrange
+            var entry = new ProteinXmlEntry();
+
+            // Assert
+            Assert.That(entry.SequenceAttributes, Is.Null);
+        }
+
+        [Test]
+        public void SequenceAttributes_CanBeSet_AndRetrieved()
+        {
+            // Arrange
+            var entry = new ProteinXmlEntry();
+            var attrs = new UniProtSequenceAttributes(
+                length: 42,
+                mass: 1234,
+                checkSum: "CHK",
+                entryModified: new DateTime(2024, 6, 13),
+                sequenceVersion: 1
+            );
+
+            // Act
+            entry.SequenceAttributes = attrs;
+
+            // Assert
+            Assert.That(entry.SequenceAttributes, Is.EqualTo(attrs));
+            Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(42));
+            Assert.That(entry.SequenceAttributes.Mass, Is.EqualTo(1234));
+            Assert.That(entry.SequenceAttributes.CheckSum, Is.EqualTo("CHK"));
+            Assert.That(entry.SequenceAttributes.EntryModified, Is.EqualTo(new DateTime(2024, 6, 13)));
+            Assert.That(entry.SequenceAttributes.SequenceVersion, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SequenceAttributes_CanBeSetToNull()
+        {
+            // Arrange
+            var entry = new ProteinXmlEntry();
+            var attrs = new UniProtSequenceAttributes(10, 100, "A", DateTime.Now, 1);
+            entry.SequenceAttributes = attrs;
+
+            // Act
+            entry.SequenceAttributes = null;
+
+            // Assert
+            Assert.That(entry.SequenceAttributes, Is.Null);
+        }
+
+        [Test]
+        public void SequenceAttributes_IsMutable_WhenSet()
+        {
+            // Arrange
+            var entry = new ProteinXmlEntry();
+            var attrs = new UniProtSequenceAttributes(10, 100, "A", DateTime.Now, 1);
+            entry.SequenceAttributes = attrs;
+
+            // Act
+            entry.SequenceAttributes.UpdateLengthAttribute(99);
+            entry.SequenceAttributes.UpdateMassAttribute(999);
+
+            // Assert
+            Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(99));
+            Assert.That(entry.SequenceAttributes.Mass, Is.EqualTo(999));
         }
     }
 }
