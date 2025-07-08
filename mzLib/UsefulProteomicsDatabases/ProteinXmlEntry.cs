@@ -50,7 +50,18 @@ namespace UsefulProteomicsDatabases
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
-
+        #region XML sequence attributes that are not used in the current implementation but can be set if needed
+        /// <summary>
+        /// The following REQUIRED properties are read from the <sequence> element attributes:
+        public int Length { get; private set; }
+        public int Mass { get; private set; }
+        public string Checksum { get; private set; }
+        public string EntryModified { get; private set; }
+        public int SequenceVersion { get; private set; }
+        /// The following OPTIONAL properties are read from the <sequence> element attributes:
+        public bool? IsPrecursor { get; private set; } // This is not used in the current implementation, but can be set if needed
+        public SequenceFragment Fragment { get; private set; } = SequenceFragment.NotSet; // This is not used in the current implementation, but can be set if needed
+        #endregion
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
 
@@ -155,7 +166,7 @@ namespace UsefulProteomicsDatabases
                     break;
 
                 case "sequence":
-                    Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+                    ParseSequenceAttributes(xml);
                     break;
             }
         }
@@ -172,7 +183,77 @@ namespace UsefulProteomicsDatabases
             DatabaseVersionEntryTag = xml.GetAttribute("version");
             XmlnsEntryTag = xml.GetAttribute("xmlns");
         }
+        /// <summary>
+        /// Parses the attributes of a &lt;sequence&gt; XML element and assigns their values to the corresponding properties of the ProteinXmlEntry.
+        /// 
+        /// Attribute definitions:
+        /// - length: (string) The length of the protein sequence.
+        /// - mass: (string) The mass of the protein sequence.
+        /// - checksum: (string) The checksum value for the sequence.
+        /// - modified: (string) The date the sequence was last modified; assigned to ModifiedEntryTag.
+        /// - version: (string) The version of the sequence; assigned to VersionEntryTag.
+        /// - precursor: (string) Indicates if the sequence is a precursor.
+        /// - fragment: (SequenceFragment) Indicates the type of fragment (Single, Multiple, NotSet).
+        /// </summary>
+        private void ParseSequenceAttributes(XmlReader xml)
+        {
+            // Required attributes
+            string lengthAttr = xml.GetAttribute("length");
+            string massAttr = xml.GetAttribute("mass");
+            string checksumAttr = xml.GetAttribute("checksum");
+            string modifiedAttr = xml.GetAttribute("modified");
+            string sequenceVersionAttribute = xml.GetAttribute("version");
+            // Optional attributes
+            string precursorAttr = xml.GetAttribute("precursor");
+            string fragmentAttrString = xml.GetAttribute("fragment");
 
+            // This length is read from the database. It may not match the length of the sequence read from the <sequence> element.
+            // If the length is not provided, it will be calculated from the sequence.
+            // If the length provide does not match the sequence length it will be corrected
+            if (int.TryParse(lengthAttr, out int Length))
+            {
+                this.Length = Length;
+            }
+            if (int.TryParse(massAttr, out int mass))
+            {
+                this.Mass = mass;
+            }
+            if (!string.IsNullOrEmpty(checksumAttr))
+            {
+                this.Checksum = checksumAttr;
+            }
+            if (!string.IsNullOrEmpty(modifiedAttr))
+            {
+                this.EntryModified = modifiedAttr;
+            }
+            if (int.TryParse(sequenceVersionAttribute, out int sequenceVersion))
+            {
+                this.SequenceVersion = sequenceVersion;
+            }
+            if (!string.IsNullOrEmpty(precursorAttr))
+            {
+                this.IsPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+            if (!string.IsNullOrEmpty(fragmentAttrString))
+            {
+                if (Enum.TryParse(fragmentAttrString, true, out SequenceFragment fragment))
+                {
+                    this.Fragment = fragment;
+                }
+                else
+                {
+                    this.Fragment = SequenceFragment.NotSet; // Default to NotSet if parsing fails
+                }
+            }
+
+            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+
+            // if the Length property does not match the length of the sequence
+            if (this.Length != Sequence.Length)
+            {
+                this.Length = Sequence.Length;
+            }
+        }
         /// <summary>
         /// Finish parsing at the end of an element
         /// </summary>
@@ -488,5 +569,11 @@ namespace UsefulProteomicsDatabases
             ReadingGene = false;
             ReadingOrganism = false;
         }
+    }
+    public enum SequenceFragment
+    {
+        Single,
+        Multiple,
+        NotSet
     }
 }
