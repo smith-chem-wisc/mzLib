@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
@@ -130,6 +131,118 @@ namespace Test
 
             // Assert
             Assert.That(attr.Mass, Is.EqualTo(expectedMass));
+        }
+        [Test]
+        public void Constructor_Sets_UniProtSequenceAttributes()
+        {
+            // Arrange
+            var uniProtAttrs = new UniProtSequenceAttributes(
+                length: 100,
+                mass: 12345,
+                checkSum: "CHK123",
+                entryModified: new DateTime(2024, 6, 13),
+                sequenceVersion: 2,
+                isPrecursor: true,
+                fragment: UniProtSequenceAttributes.FragmentType.single
+            );
+
+            // Act
+            var protein = new Protein(
+                accession: "P12345",
+                sequence: "MPEPTIDESEQ",
+                organism: "Homo sapiens",
+                isDecoy: false,
+                geneNames: new List<Tuple<string, string>>(),
+                name: "Test",
+                fullName: "Test Protein",
+                isContaminant: false,
+                sequenceVariations: new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>(),
+                spliceSites: new List<SpliceSite>(),
+                databaseReferences: new List<DatabaseReference>(),
+                databaseFilePath: "db.fasta",
+                uniProtSequenceAttributes: uniProtAttrs,
+                appliedSequenceVariations: new List<SequenceVariation>(),
+                sampleNameForVariants: null
+            );
+
+            // Assert
+            Assert.That(protein.UniProtSequenceAttributes, Is.EqualTo(uniProtAttrs));
+            Assert.That(protein.UniProtSequenceAttributes.Length, Is.EqualTo(100));
+            Assert.That(protein.UniProtSequenceAttributes.Mass, Is.EqualTo(12345));
+            Assert.That(protein.UniProtSequenceAttributes.CheckSum, Is.EqualTo("CHK123"));
+            Assert.That(protein.UniProtSequenceAttributes.EntryModified, Is.EqualTo(new DateTime(2024, 6, 13)));
+            Assert.That(protein.UniProtSequenceAttributes.SequenceVersion, Is.EqualTo(2));
+            Assert.That(protein.UniProtSequenceAttributes.IsPrecursor, Is.True);
+            Assert.That(protein.UniProtSequenceAttributes.Fragment, Is.EqualTo(UniProtSequenceAttributes.FragmentType.single));
+        }
+
+        [Test]
+        public void Constructor_Allows_Null_UniProtSequenceAttributes()
+        {
+            // Act
+            var protein = new Protein(
+                accession: "P12345",
+                sequence: "MPEPTIDESEQ",
+                organism: "Homo sapiens",
+                isDecoy: false,
+                geneNames: new List<Tuple<string, string>>(),
+                name: "Test",
+                fullName: "Test Protein",
+                isContaminant: false,
+                sequenceVariations: new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>(),
+                spliceSites: new List<SpliceSite>(),
+                databaseReferences: new List<DatabaseReference>(),
+                databaseFilePath: "db.fasta",
+                uniProtSequenceAttributes: null,
+                appliedSequenceVariations: new List<SequenceVariation>(),
+                sampleNameForVariants: null
+            );
+
+            // Assert
+            Assert.That(protein.UniProtSequenceAttributes, Is.Not.Null);
+            Assert.That(protein.UniProtSequenceAttributes.Length, Is.EqualTo(11));
+            Assert.That(protein.UniProtSequenceAttributes.Mass, Is.EqualTo(1275));
+        }
+
+        [Test]
+        public void UniProtSequenceAttributes_AreAccessible_And_Mutable_IfSet()
+        {
+            // Arrange
+            var uniProtAttrs = new UniProtSequenceAttributes(
+                length: 50,
+                mass: 5000,
+                checkSum: "CHK999",
+                entryModified: new DateTime(2020, 1, 1),
+                sequenceVersion: 1
+            );
+            var protein = new Protein(
+                accession: "P67890",
+                sequence: "MPEPTIDESEQ",
+                organism: "Mus musculus",
+                isDecoy: false,
+                geneNames: new List<Tuple<string, string>>(),
+                name: "Test2",
+                fullName: "Test Protein 2",
+                isContaminant: false,
+                sequenceVariations: new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>(),
+                spliceSites: new List<SpliceSite>(),
+                databaseReferences: new List<DatabaseReference>(),
+                databaseFilePath: "db2.fasta",
+                uniProtSequenceAttributes: uniProtAttrs,
+                appliedSequenceVariations: new List<SequenceVariation>(),
+                sampleNameForVariants: null
+            );
+
+            // Act
+            protein.UniProtSequenceAttributes.UpdateLengthAttribute(60);
+            protein.UniProtSequenceAttributes.UpdateMassAttribute(6000);
+
+            // Assert
+            Assert.That(protein.UniProtSequenceAttributes.Length, Is.EqualTo(60));
+            Assert.That(protein.UniProtSequenceAttributes.Mass, Is.EqualTo(6000));
         }
     }
 }

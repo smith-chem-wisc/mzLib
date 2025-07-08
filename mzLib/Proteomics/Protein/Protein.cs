@@ -120,6 +120,7 @@ namespace Proteomics
             ModifiedEntryTag = originalProtein.ModifiedEntryTag;
             VersionEntryTag = originalProtein.VersionEntryTag;
             XmlnsEntryTag = originalProtein.XmlnsEntryTag;
+            UniProtSequenceAttributes = originalProtein.UniProtSequenceAttributes;
         }
 
         /// <summary>
@@ -153,7 +154,8 @@ namespace Proteomics
                   created: protein.CreatedEntryTag,
                   modified: protein.ModifiedEntryTag,
                   version: protein.VersionEntryTag,
-                  xmlns: protein.XmlnsEntryTag)
+                  xmlns: protein.XmlnsEntryTag,
+                  uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
