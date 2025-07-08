@@ -588,11 +588,11 @@ namespace Test.DatabaseTests
             string messedUpSequence = @"PRO�EIN�";
 
             // just test the string sanitation method alone
-            var sanitized = ProteinDbLoader.SanitizeAminoAcidSequence(messedUpSequence, 'X');
-            Assert.That(sanitized == "PROXEINX");
+            var sanitized = ProteinDbLoader.SanitizeAminoAcidSequence(messedUpSequence, 'C');
+            Assert.That(sanitized == "PROCEINC");
 
             // test reading from a fasta
-            Protein protein = new Protein(messedUpSequence, "accession");
+            Protein protein = new Protein(sanitized, "accession");
 
             string fastaPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"messedUp.fasta");
             ProteinDbWriter.WriteFastaDatabase(new List<Protein> { protein }, fastaPath, "|");
@@ -601,7 +601,7 @@ namespace Test.DatabaseTests
                 ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
 
-            Assert.That(fastaProteins.First(p => !p.IsDecoy).BaseSequence == "PROXEINX");
+            Assert.That(fastaProteins.First(p => !p.IsDecoy).BaseSequence == "PROCEINC");
 
             // digest and fragment to check that there isn't a crash
             var peptides = fastaProteins.First().Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
@@ -616,7 +616,7 @@ namespace Test.DatabaseTests
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, xmlPath);
             var xmlProteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var unk);
 
-            Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PROXEINX");
+            Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PROCEINC");
         }
     }
 }
