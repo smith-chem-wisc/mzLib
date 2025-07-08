@@ -207,7 +207,14 @@ namespace UsefulProteomicsDatabases
             }
             if (!string.IsNullOrEmpty(modifiedAttr))
             {
-                entryModified = DateTime.ParseExact(modifiedAttr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                try
+                {
+                    entryModified = DateTime.ParseExact(modifiedAttr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                }
+                catch
+                {
+                    entryModified = DateTime.Now;
+                }
             }
             else
             {
@@ -216,6 +223,10 @@ namespace UsefulProteomicsDatabases
             if (int.TryParse(sequenceVersionAttribute, out int _sequenceVersion))
             {
                 sequenceVersion = _sequenceVersion;
+            }
+            else
+            {
+                sequenceVersion = -1; // Default to -1 if parsing fails
             }
             if (!string.IsNullOrEmpty(precursorAttr))
             {
@@ -238,7 +249,11 @@ namespace UsefulProteomicsDatabases
             //The length attribute value in the database is ignored and we simply compute it from the actual sequence length
             int length = Sequence.Length;
             // The mass attribute value in the database is ignored and we simply compute it from the actual sequence mass
-            int mass = (int)Math.Round(new PeptideWithSetModifications(Sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+            int mass = 0;
+            if (length > 0) 
+            {
+                mass = (int)Math.Round(new PeptideWithSetModifications(Sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+            }
             SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment);
         }
         /// <summary>

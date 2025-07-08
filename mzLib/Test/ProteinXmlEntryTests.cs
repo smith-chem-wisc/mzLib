@@ -87,5 +87,100 @@ namespace Test
             Assert.That(4, Is.EqualTo(entry.SequenceAttributes.Length));
             Assert.That(entry.SequenceAttributes.Mass, Is.GreaterThan(0));
         }
+        private ProteinXmlEntry CreateEntryAndParse(string xml)
+        {
+            var entry = new ProteinXmlEntry();
+            using var reader = XmlReader.Create(new StringReader(xml));
+            reader.Read(); // Move to <sequence>
+            var method = typeof(ProteinXmlEntry).GetMethod("ParseSequenceAttributes", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            method.Invoke(entry, new object[] { reader });
+            return entry;
+        }
+
+        [Test]
+        public void Parses_All_Attributes_Correctly()
+        {
+            string xml = "<sequence length=\"10\" mass=\"1234\" checksum=\"CHK\" modified=\"2024-06-13\" version=\"2\" precursor=\"true\" fragment=\"single\">PEPTIDE</sequence>";
+            var entry = CreateEntryAndParse(xml);
+            Assert.That(entry.SequenceAttributes, Is.Not.Null);
+            Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(7)); //note that the read length 10 is incorrect for the sequence PEPTIDE. It should be corrected to 7
+            Assert.That(entry.SequenceAttributes.Mass, Is.EqualTo(799)); //note that the read mass 1234 is incorrect for the sequence PEPTIDE. It should be corrected to 799
+            Assert.That(entry.SequenceAttributes.Checksum, Is.EqualTo("CHK"));
+            Assert.That(entry.SequenceAttributes.EntryModified, Is.EqualTo(new DateTime(2024, 6, 13)));
+            Assert.That(entry.SequenceAttributes.SequenceVersion, Is.EqualTo(2));
+            Assert.That(entry.SequenceAttributes.IsPrecursor, Is.True);
+            Assert.That(entry.SequenceAttributes.Fragment, Is.EqualTo(UniProtSequenceAttributes.FragmentType.single));
+        }
+
+        [Test]
+        public void Handles_Missing_Optional_Attributes()
+        {
+            string xml = "<sequence>ACDEFGHIKL</sequence>";
+            var entry = CreateEntryAndParse(xml);
+            Assert.That(entry.SequenceAttributes, Is.Not.Null);
+            Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(10));
+            Assert.That(entry.Sequence, Is.EqualTo("ACDEFGHIKL"));
+        }
+
+        [Test]
+        public void Handles_Malformed_Length_And_Mass()
+        {
+            string xml = "<sequence length=\"abc\" mass=\"xyz\">ACDE</sequence>";
+            var entry = CreateEntryAndParse(xml);
+            Assert.That(entry.SequenceAttributes, Is.Not.Null);
+            Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(4)); // fallback to sequence length
+            Assert.That(entry.SequenceAttributes.Mass, Is.GreaterThan(0)); // fallback to computed mass
+        }
+
+        [Test]
+        public void Handles_Missing_Sequence_Text()
+        {
+            string xml = "<sequence length=\"5\" mass=\"1000\" />";
+            var entry = CreateEntryAndParse(xml);
+            Assert.That(entry.SequenceAttributes, Is.Not.Null);
+            Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(0)); //This value is 0 'zero' because no sequence text is provided and it is computed rather than read
+            Assert.That(entry.SequenceAttributes.Mass, Is.EqualTo(0)); //This value is 0 'zero' because no sequence text is provided and it is computed rather than read
+            Assert.That(entry.Sequence, Is.Empty);
+        }
+
+        [Test]
+        public void Handles_Invalid_Modified_Date()
+        {
+            string xml = "<sequence modified=\"notadate\">ACDE</sequence>";
+            var entry = CreateEntryAndParse(xml);
+            Assert.That(entry.SequenceAttributes, Is.Not.Null);
+
+            // Compare only the date part (year, month, day)
+            var expected = DateTime.Now.Date;
+            var actual = entry.SequenceAttributes.EntryModified.Date;
+            Assert.That(actual, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void Handles_Invalid_Version()
+        {
+            string xml = "<sequence version=\"notanint\">ACDE</sequence>";
+            var entry = CreateEntryAndParse(xml);
+            Assert.That(entry.SequenceAttributes, Is.Not.Null);
+            Assert.That(entry.SequenceAttributes.SequenceVersion, Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void Handles_Invalid_Precursor()
+        {
+            string xml = "<sequence precursor=\"notabool\">ACDE</sequence>";
+            var entry = CreateEntryAndParse(xml);
+            Assert.That(entry.SequenceAttributes, Is.Not.Null);
+            Assert.That(entry.SequenceAttributes.IsPrecursor, Is.False);
+        }
+
+        [Test]
+        public void Handles_Invalid_Fragment()
+        {
+            string xml = "<sequence fragment=\"notavalidfragment\">ACDE</sequence>";
+            var entry = CreateEntryAndParse(xml);
+            Assert.That(entry.SequenceAttributes, Is.Not.Null);
+            Assert.That(entry.SequenceAttributes.Fragment, Is.EqualTo(UniProtSequenceAttributes.FragmentType.unspecified));
+        }
     }
 }
