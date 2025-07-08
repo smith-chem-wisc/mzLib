@@ -190,10 +190,11 @@ namespace UsefulProteomicsDatabases
             //read sequence immediately so we can use information from it if necessary
             Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
             // Required attributes
-            string lengthAttr = xml.GetAttribute("length");
-            int length = -1;
-            string massAttr = xml.GetAttribute("mass");
-            int mass = -1;
+
+            //The length attribute value in the database is ignored and we simply compute it from the actual sequence length
+            int length = Sequence.Length;
+            // The mass attribute value in the database is ignored and we simply compute it from the actual sequence mass
+            int mass = (int)Math.Round(new PeptideWithSetModifications(Sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
             string checksumAttr = xml.GetAttribute("checksum");
             string checksum = "";
             string modifiedAttr = xml.GetAttribute("modified");
@@ -205,23 +206,7 @@ namespace UsefulProteomicsDatabases
             bool isPrecursor = false; // Default to false if not specified
             string fragmentAttrString = xml.GetAttribute("fragment");
             UniProtSequenceAttributes.FragmentType fragment = UniProtSequenceAttributes.FragmentType.unspecified; // Default to NotSet if not specified
-
-            // This length is read from the database. It may not match the length of the sequence read from the <sequence> element.
-            // If the length is not provided, it will be calculated from the sequence.
-            // If the length provide does not match the sequence length it will be corrected
-
-            if (int.TryParse(lengthAttr, out int _length))
-            {
-                length = _length;
-            }
-            if (int.TryParse(massAttr, out int _mass))
-            {
-                mass = _mass;
-            }
-            else
-            {
-                mass = (int)Math.Round(new PeptideWithSetModifications(Sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
-            }
+            
             if (!string.IsNullOrEmpty(checksumAttr))
             {
                 checksum = checksumAttr;
