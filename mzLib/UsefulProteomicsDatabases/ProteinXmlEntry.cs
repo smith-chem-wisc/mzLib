@@ -17,9 +17,9 @@ namespace UsefulProteomicsDatabases
         private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
 
         public string DatasetEntryTag { get; private set; }
-        public string CreatedEntryTag { get; private set; }
-        public string ModifiedEntryTag { get; private set; }
-        public string VersionEntryTag { get; private set; }
+        public string DatabaseCreatedEntryTag { get; private set; }
+        public string DatabaseModifiedEntryTag { get; private set; }
+        public string DatabaseVersionEntryTag { get; private set; }
         public string XmlnsEntryTag { get; private set; }
         public string Accession { get; private set; }
         public string Name { get; private set; }
@@ -167,9 +167,9 @@ namespace UsefulProteomicsDatabases
         private void ParseEntryAttributes(XmlReader xml)
         {
             DatasetEntryTag = xml.GetAttribute("dataset");
-            CreatedEntryTag = xml.GetAttribute("created");
-            ModifiedEntryTag = xml.GetAttribute("modified");
-            VersionEntryTag = xml.GetAttribute("version");
+            DatabaseCreatedEntryTag = xml.GetAttribute("created");
+            DatabaseModifiedEntryTag = xml.GetAttribute("modified");
+            DatabaseVersionEntryTag = xml.GetAttribute("version");
             XmlnsEntryTag = xml.GetAttribute("xmlns");
         }
 
@@ -254,7 +254,7 @@ namespace UsefulProteomicsDatabases
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
-                    false, DatasetEntryTag, CreatedEntryTag, ModifiedEntryTag, VersionEntryTag, XmlnsEntryTag);
+                    false, DatasetEntryTag, DatabaseCreatedEntryTag, DatabaseModifiedEntryTag, DatabaseVersionEntryTag, XmlnsEntryTag);
             }
             Clear();
             return result;
@@ -456,9 +456,9 @@ namespace UsefulProteomicsDatabases
         private void Clear()
         {
             DatasetEntryTag = null;
-            CreatedEntryTag = null;
-            ModifiedEntryTag = null;
-            VersionEntryTag = null;
+            DatabaseCreatedEntryTag = null;
+            DatabaseModifiedEntryTag = null;
+            DatabaseVersionEntryTag = null;
             XmlnsEntryTag = null;
             Accession = null;
             Name = null;
