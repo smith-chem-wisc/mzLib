@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
+using Omics.Modifications;
 using Proteomics;
+using Proteomics.ProteolyticDigestion;
 
 namespace Test
 {
@@ -55,16 +58,7 @@ namespace Test
         public void Properties_CanBeSetAndGet()
         {
             // Arrange
-            var attr = new UniProtSequenceAttributes(1, 2, "C", DateTime.Now, 3);
-
-            // Act
-            attr.Length = 10;
-            attr.Mass = 20;
-            attr.CheckSum = "DEF456";
-            attr.EntryModified = new DateTime(2022, 12, 31);
-            attr.SequenceVersion = 4;
-            attr.IsPrecursor = false;
-            attr.Fragment = UniProtSequenceAttributes.FragmentType.single;
+            var attr = new UniProtSequenceAttributes(10, 20, "DEF456", new DateTime(2022, 12, 31), 4,false,UniProtSequenceAttributes.FragmentType.single);
 
             // Assert
             Assert.That(attr.Length, Is.EqualTo(10));
@@ -82,6 +76,60 @@ namespace Test
             Assert.That(UniProtSequenceAttributes.FragmentType.single, Is.Not.EqualTo(UniProtSequenceAttributes.FragmentType.multiple));
             Assert.That(UniProtSequenceAttributes.FragmentType.unspecified, Is.Not.EqualTo(UniProtSequenceAttributes.FragmentType.single));
             Assert.That(UniProtSequenceAttributes.FragmentType.unspecified, Is.Not.EqualTo(UniProtSequenceAttributes.FragmentType.multiple));
+        }
+        [Test]
+        public void UpdateLengthAttribute_WithInt_UpdatesLength()
+        {
+            // Arrange
+            var attr = new UniProtSequenceAttributes(10, 1000, "CHK", DateTime.Now, 1);
+
+            // Act
+            attr.UpdateLengthAttribute(25);
+
+            // Assert
+            Assert.That(attr.Length, Is.EqualTo(25));
+        }
+
+        [Test]
+        public void UpdateLengthAttribute_WithString_UpdatesLengthToStringLength()
+        {
+            // Arrange
+            var attr = new UniProtSequenceAttributes(10, 1000, "CHK", DateTime.Now, 1);
+
+            // Act
+            attr.UpdateLengthAttribute("MPEPTIDESEQ");
+
+            // Assert
+            Assert.That(attr.Length, Is.EqualTo("MPEPTIDESEQ".Length));
+        }
+        [Test]
+        public void UpdateMassAttribute_WithInt_UpdatesMass()
+        {
+            // Arrange
+            var attr = new UniProtSequenceAttributes(10, 1000, "CHK", DateTime.Now, 1);
+
+            // Act
+            attr.UpdateMassAttribute(2500);
+
+            // Assert
+            Assert.That(attr.Mass, Is.EqualTo(2500));
+        }
+
+        [Test]
+        public void UpdateMassAttribute_WithString_UpdatesMassToMonoisotopicMass()
+        {
+            // Arrange
+            var attr = new UniProtSequenceAttributes(10, 1000, "CHK", DateTime.Now, 1);
+            string sequence = "PEPTIDE";
+            // The expected mass is calculated using PeptideWithSetModifications
+            var peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>());
+            int expectedMass = (int)Math.Round(peptide.MonoisotopicMass);
+
+            // Act
+            attr.UpdateMassAttribute(sequence);
+
+            // Assert
+            Assert.That(attr.Mass, Is.EqualTo(expectedMass));
         }
     }
 }

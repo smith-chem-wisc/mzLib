@@ -1,4 +1,7 @@
-﻿using System;
+﻿using Chemistry;
+using Omics.Modifications;
+using Proteomics.ProteolyticDigestion;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,13 +11,13 @@ namespace Proteomics
 {
     public class UniProtSequenceAttributes
     {
-        public int Length { get; set; } //mandatory
-        public int Mass { get; set; } //mandatory
-        public string CheckSum { get; set; } //mandatory
-        public DateTime EntryModified { get; set; } //mandatory
-        public int SequenceVersion { get; set; } //mandatory
-        public bool? IsPrecursor { get; set; } //optional
-        public FragmentType Fragment { get; set; } //optional
+        public int Length { get; private set; } //mandatory
+        public int Mass { get; private set; } //mandatory
+        public string CheckSum { get; private set; } //mandatory
+        public DateTime EntryModified { get; private set; } //mandatory
+        public int SequenceVersion { get; private set; } //mandatory
+        public bool? IsPrecursor { get; private set; } //optional
+        public FragmentType Fragment { get; private set; } //optional
         public enum FragmentType
         {
             unspecified,
@@ -31,6 +34,21 @@ namespace Proteomics
             IsPrecursor = isPrecursor;
             Fragment = fragment;
         }
-
+        public void UpdateLengthAttribute(int newLength)
+        {
+            Length = newLength;
+        }
+        public void UpdateLengthAttribute(string newBaseSequence)
+        {
+            Length = newBaseSequence.Length;
+        }
+        public void UpdateMassAttribute(int newMass)
+        {
+            Mass = newMass;
+        }
+        public void UpdateMassAttribute(string newBaseSequence)
+        {
+            Mass = (int)Math.Round(new PeptideWithSetModifications(newBaseSequence, new Dictionary<string, Modification>()).MonoisotopicMass); 
+        }
     }
 }
