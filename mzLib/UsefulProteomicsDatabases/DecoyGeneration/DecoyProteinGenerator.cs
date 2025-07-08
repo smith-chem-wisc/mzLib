@@ -176,7 +176,6 @@ namespace UsefulProteomicsDatabases
                     version: protein.VersionEntryTag,
                     xmlns: protein.XmlnsEntryTag,
                     uniProtSequenceAttributes: protein.UniProtSequenceAttributes);
-            ;
 
                 lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
             });

@@ -561,10 +561,4 @@ namespace UsefulProteomicsDatabases
             ReadingOrganism = false;
         }
     }
-    public enum SequenceFragment
-    {
-        Single,
-        Multiple,
-        NotSet
-    }
 }
