@@ -83,7 +83,7 @@ namespace Proteomics
             ModifiedEntryTag = modified;
             VersionEntryTag = version;
             XmlnsEntryTag = xmlns;
-            UniProtSequenceAttributes = uniProtSequenceAttributes ?? new UniProtSequenceAttributes(Length, (int)Math.Round(new PeptideWithSetModifications(BaseSequence, new Dictionary<string,Modification>()).ToMz(1).ToMass(1)), "unknown", DateTime.Now, -1);
+            UniProtSequenceAttributes = uniProtSequenceAttributes ?? new UniProtSequenceAttributes(Length, (int)Math.Round(new PeptideWithSetModifications(BaseSequence, new Dictionary<string,Modification>()).MonoisotopicMass), "unknown", DateTime.Now, -1);
         }
 
         /// <summary>
