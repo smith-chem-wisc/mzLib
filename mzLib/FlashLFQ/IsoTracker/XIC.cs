@@ -88,9 +88,6 @@ namespace FlashLFQ.IsoTracker
             double gap = (lastPeak.RetentionTime - firstPeak.RetentionTime) / (Ms1Peaks.Count - 1);
 
             // because we hope to have an odd number of peaks, we have to add the odd number padded peaks
-
-
-
             for (int i = 5; i > 0; i--) //add 4 peaks before the first peak
             {
                 paddedPeaks.Add(new IndexedMassSpectralPeak(0, 0, 0, firstPeak.RetentionTime - gap * i));    // not sure about the m/z and index    
