@@ -162,7 +162,7 @@ namespace Proteomics
 
         public string Organism { get; }
         public bool IsDecoy { get; }
-        public int Length => BaseSequence.Length;
+        public int Length => BaseSequence.Length;   
         public string FullDescription => Accession + "|" + Name + "|" + FullName;
         public string Name { get; }
         public string FullName { get; }
