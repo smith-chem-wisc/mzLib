@@ -360,6 +360,134 @@ namespace Test
             Assert.That(obj.cvParam, Is.EqualTo(cvParams));
             Assert.That(obj.userParam, Is.EqualTo(userParams));
         }
+        [Test]
+        public void PeptideEvidenceRefType_Properties_SetAndGet()
+        {
+            var obj = new PeptideEvidenceRefType();
+            obj.peptideEvidence_ref = "pe1";
+            Assert.That(obj.peptideEvidence_ref, Is.EqualTo("pe1"));
+        }
 
+        [Test]
+        public void CVParamType_Properties_SetAndGet()
+        {
+            var obj = new CVParamType();
+            obj.cvRef = "cv1";
+            obj.accession = "ACC";
+            obj.value = "val";
+            obj.unitCvRef = "unitcv";
+            obj.unitAccession = "unitacc";
+            obj.unitName = "unitname";
+            obj.name = "paramname";
+
+            Assert.That(obj.cvRef, Is.EqualTo("cv1"));
+            Assert.That(obj.accession, Is.EqualTo("ACC"));
+            Assert.That(obj.value, Is.EqualTo("val"));
+            Assert.That(obj.unitCvRef, Is.EqualTo("unitcv"));
+            Assert.That(obj.unitAccession, Is.EqualTo("unitacc"));
+            Assert.That(obj.unitName, Is.EqualTo("unitname"));
+            Assert.That(obj.name, Is.EqualTo("paramname"));
+        }
+
+        [Test]
+        public void UserParamType_Properties_SetAndGet()
+        {
+            var obj = new UserParamType();
+            obj.name = "username";
+            obj.value = "uservalue";
+            obj.type = "usertype";
+            obj.unitAccession = "unitacc";
+            obj.unitCvRef = "unitcv";
+            obj.unitName = "unitname";
+
+            Assert.That(obj.name, Is.EqualTo("username"));
+            Assert.That(obj.value, Is.EqualTo("uservalue"));
+            Assert.That(obj.type, Is.EqualTo("usertype"));
+            Assert.That(obj.unitAccession, Is.EqualTo("unitacc"));
+            Assert.That(obj.unitCvRef, Is.EqualTo("unitcv"));
+            Assert.That(obj.unitName, Is.EqualTo("unitname"));
+        }
+
+        [Test]
+        public void PeptideEvidenceType_Properties_SetAndGet()
+        {
+            var obj = new PeptideEvidenceType();
+            obj.id = "pe1";
+            obj.peptide_ref = "pep1";
+            obj.dBSequence_ref = "db1";
+            obj.start = 1;
+            obj.end = 10;
+            obj.pre = "K";
+            obj.post = "R";
+            obj.frame = 2;
+            obj.isDecoy = true;
+            obj.translationTable_ref = "tt1";
+            obj.name = "evidence";
+
+            Assert.That(obj.id, Is.EqualTo("pe1"));
+            Assert.That(obj.peptide_ref, Is.EqualTo("pep1"));
+            Assert.That(obj.dBSequence_ref, Is.EqualTo("db1"));
+            Assert.That(obj.start, Is.EqualTo(1));
+            Assert.That(obj.end, Is.EqualTo(10));
+            Assert.That(obj.pre, Is.EqualTo("K"));
+            Assert.That(obj.post, Is.EqualTo("R"));
+            Assert.That(obj.frame, Is.EqualTo(2));
+            Assert.That(obj.isDecoy, Is.EqualTo(true));
+            Assert.That(obj.translationTable_ref, Is.EqualTo("tt1"));
+            Assert.That(obj.name, Is.EqualTo("evidence"));
+        }
+
+        [Test]
+        public void DBSequenceType_Properties_SetAndGet()
+        {
+            var obj = new DBSequenceType();
+            obj.id = "db1";
+            obj.length = 100;
+            obj.lengthSpecified = true;
+            obj.searchDatabase_ref = "sdb1";
+            obj.accession = "acc1";
+            obj.name = "dbseq";
+            obj.cvParam = new CVParamType[1] { new CVParamType() };
+            obj.userParam = new UserParamType[1] { new UserParamType() };
+
+            Assert.That(obj.id, Is.EqualTo("db1"));
+            Assert.That(obj.length, Is.EqualTo(100));
+            Assert.That(obj.lengthSpecified, Is.EqualTo(true));
+            Assert.That(obj.searchDatabase_ref, Is.EqualTo("sdb1"));
+            Assert.That(obj.accession, Is.EqualTo("acc1"));
+            Assert.That(obj.name, Is.EqualTo("dbseq"));
+            Assert.That(obj.cvParam, Is.EqualTo(new CVParamType[1] { obj.cvParam[0] }));
+            Assert.That(obj.userParam, Is.EqualTo(new UserParamType[1] { obj.userParam[0] }));
+        }
+
+        [Test]
+        public void PeptideType_Properties_SetAndGet()
+        {
+            var obj = new PeptideType();
+            obj.id = "pep1";
+            obj.name = "peptide";
+            obj.cvParam = new CVParamType[1] { new CVParamType() };
+            obj.userParam = new UserParamType[1] { new UserParamType() };
+
+            Assert.That(obj.id, Is.EqualTo("pep1"));
+            Assert.That(obj.name, Is.EqualTo("peptide"));
+            Assert.That(obj.cvParam, Is.EqualTo(new CVParamType[1] { obj.cvParam[0] }));
+            Assert.That(obj.userParam, Is.EqualTo(new UserParamType[1] { obj.userParam[0] }));
+        }
+
+        [Test]
+        public void ModificationType_Properties_SetAndGet()
+        {
+            var obj = new ModificationType();
+            obj.location = 3;
+            obj.locationSpecified = true;
+            obj.residues = new string[2] { "A", "C" };
+            obj.cvParam = new CVParamType[1] { new CVParamType() };
+
+            Assert.That(obj.location, Is.EqualTo(3));
+            Assert.That(obj.locationSpecified, Is.EqualTo(true));
+            Assert.That(obj.residues, Is.EqualTo(new string[2] { "A", "C" }));
+            Assert.That(obj.cvParam, Is.EqualTo(new CVParamType[1] { obj.cvParam[0] }));
+        }
     }
 }
