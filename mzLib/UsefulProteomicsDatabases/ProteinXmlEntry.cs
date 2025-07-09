@@ -174,7 +174,8 @@ namespace UsefulProteomicsDatabases
             XmlnsEntryTag = xml.GetAttribute("xmlns");
         }
         /// <summary>
-        /// Parses the attributes of a &lt;sequence&gt; XML element and assigns their values to the corresponding properties of the ProteinXmlEntry.
+        /// Parses some attributes of a &lt;sequence&gt; XML element and assigns their values to the corresponding properties of the ProteinXmlEntry.
+        /// Note: the Length and Mass of the sequence are computed based on the sequence string after parsing it.
         /// 
         /// Attribute definitions:
         /// - length: (string) The length of the protein sequence.
@@ -359,7 +360,7 @@ namespace UsefulProteomicsDatabases
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
-                    false, DatasetEntryTag, DatabaseCreatedEntryTag, DatabaseModifiedEntryTag, DatabaseVersionEntryTag, XmlnsEntryTag);
+                    false, DatasetEntryTag, DatabaseCreatedEntryTag, DatabaseModifiedEntryTag, DatabaseVersionEntryTag, XmlnsEntryTag, SequenceAttributes);
             }
             Clear();
             return result;
