@@ -63,6 +63,65 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public static void ReadInternalIonsPsms_IntensitiesCorrect()
+        {
+            string psmFile = @"FileReadingTests\SearchResults\internalIons.psmtsv";
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
+            Assert.AreEqual(10, parsedPsms.Count);
+
+            var internalIons = parsedPsms[0].MatchedIons.Where(i => i.Annotation.Contains("yIb")).ToList();
+            Assert.AreEqual(97, internalIons.Count);
+
+            // Example: check a few known intensities from the file
+            // yIb[2-6]+1:286.11465:1:177
+            var ion = internalIons.FirstOrDefault(i => i.Annotation.StartsWith("yIb[2-6]+1"));
+            Assert.IsNotNull(ion);
+            Assert.AreEqual(177, ion.Intensity, 1e-6);
+
+            // yIb[2-9]+1:457.17603:1:140
+            ion = internalIons.FirstOrDefault(i => i.Annotation.StartsWith("yIb[2-9]+1"));
+            Assert.IsNotNull(ion);
+            Assert.AreEqual(140, ion.Intensity, 1e-6);
+
+            // yIb[2-10]+1:514.20691:1:168
+            ion = internalIons.FirstOrDefault(i => i.Annotation.StartsWith("yIb[2-10]+1"));
+            Assert.IsNotNull(ion);
+            Assert.AreEqual(168, ion.Intensity, 1e-6);
+        }
+
+        [Test]
+        public static void ReadInternalIonsPsms_MassErrorCorrect()
+        {
+            string psmFile = @"FileReadingTests\SearchResults\internalIons.psmtsv";
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
+            Assert.AreEqual(10, parsedPsms.Count);
+
+            var internalIons = parsedPsms[0].MatchedIons.Where(i => i.Annotation.Contains("yIb")).ToList();
+            Assert.AreEqual(97, internalIons.Count);
+
+            // Example: check a few known mass errors from the file
+            // yIb[2-6]+1:286.11465:1:177:-0.00006
+            var ion = internalIons.FirstOrDefault(i => i.Annotation.StartsWith("yIb[2-6]+1"));
+            Assert.IsNotNull(ion);
+            Assert.AreEqual(0.00006, ion.MassErrorDa, 1e-6);
+
+            // yIb[2-9]+1:457.17603:1:140:-0.00296
+            ion = internalIons.FirstOrDefault(i => i.Annotation.StartsWith("yIb[2-9]+1"));
+            Assert.IsNotNull(ion);
+            Assert.AreEqual(-0.00296, ion.MassErrorDa, 1e-6);
+
+            // yIb[2-10]+1:514.20691:1:168:0.00646
+            ion = internalIons.FirstOrDefault(i => i.Annotation.StartsWith("yIb[2-10]+1"));
+            Assert.IsNotNull(ion);
+            Assert.AreEqual(0.00646, ion.MassErrorDa, 1e-6);
+
+            // Check MassErrorPpm as well (values from file: 0.21, -6.49, 12.59, etc.)
+            Assert.AreEqual(0.21, internalIons.First(i => i.Annotation.StartsWith("yIb[2-6]+1")).MassErrorPpm, 1e-2);
+            Assert.AreEqual(-6.49, internalIons.First(i => i.Annotation.StartsWith("yIb[2-9]+1")).MassErrorPpm, 1e-2);
+            Assert.AreEqual(12.59, internalIons.First(i => i.Annotation.StartsWith("yIb[2-10]+1")).MassErrorPpm, 1e-2);
+        }
+
+        [Test]
         public static void TestOneOverK0Reading()
         {
             string psmFile = @"FileReadingTests\SearchResults\OneOverK0Example.psmtsv";
