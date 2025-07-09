@@ -8,13 +8,18 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
+using System.Data;
 
 namespace UsefulProteomicsDatabases
 {
     public class ProteinXmlEntry
     {
         private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
-
+        public string DatasetEntryTag { get; private set; }
+        public string CreatedEntryTag { get; private set; }
+        public string ModifiedEntryTag { get; private set; }
+        public string VersionEntryTag { get; private set; }
+        public string XmlnsEntryTag { get; private set; }
         public string Accession { get; private set; }
         public string Name { get; private set; }
         public string FullName { get; private set; }
@@ -56,6 +61,9 @@ namespace UsefulProteomicsDatabases
             int outValue;
             switch (elementName)
             {
+                case "entry":
+                    ParseEntryAttributes(xml);
+                    break;
                 case "accession":
                     if (Accession == null)
                     {
@@ -152,6 +160,19 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
+        /// Parses the attributes of the current <entry> element from the provided XmlReader.
+        /// Extracts and stores the values for dataset, created, modified, version, and xmlns attributes.
+        /// </summary>
+        private void ParseEntryAttributes(XmlReader xml)
+        {
+            DatasetEntryTag = xml.GetAttribute("dataset");
+            CreatedEntryTag = xml.GetAttribute("created");
+            ModifiedEntryTag = xml.GetAttribute("modified");
+            VersionEntryTag = xml.GetAttribute("version");
+            XmlnsEntryTag = xml.GetAttribute("xmlns");
+        }
+
+        /// <summary>
         /// Finish parsing at the end of an element
         /// </summary>
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
@@ -231,7 +252,8 @@ namespace UsefulProteomicsDatabases
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
+                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
+                    false, DatasetEntryTag, CreatedEntryTag, ModifiedEntryTag, VersionEntryTag, XmlnsEntryTag);
             }
             Clear();
             return result;
@@ -432,6 +454,11 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         private void Clear()
         {
+            DatasetEntryTag = null;
+            CreatedEntryTag = null;
+            ModifiedEntryTag = null;
+            VersionEntryTag = null;
+            XmlnsEntryTag = null;
             Accession = null;
             Name = null;
             FullName = null;
