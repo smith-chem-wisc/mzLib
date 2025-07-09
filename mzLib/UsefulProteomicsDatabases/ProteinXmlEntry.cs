@@ -187,74 +187,96 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         private void ParseSequenceAttributes(XmlReader xml)
         {
-            // Required attributes
-            // mandatory attributes length and mass are computed after sequence is read below
             string checksumAttr = xml.GetAttribute("checksum");
-            string checksum = "";
             string modifiedAttr = xml.GetAttribute("modified");
-            DateTime entryModified;
             string sequenceVersionAttribute = xml.GetAttribute("version");
-            int sequenceVersion = -1;
-            // Optional attributes
             string precursorAttr = xml.GetAttribute("precursor");
-            bool isPrecursor = false; // Default to false if not specified
             string fragmentAttrString = xml.GetAttribute("fragment");
-            UniProtSequenceAttributes.FragmentType fragment = UniProtSequenceAttributes.FragmentType.unspecified; // Default to NotSet if not specified
-            
-            if (!string.IsNullOrEmpty(checksumAttr))
-            {
-                checksum = checksumAttr;
-            }
+
+            string checksum = string.IsNullOrEmpty(checksumAttr) ? "" : checksumAttr;
+            DateTime entryModified = ParseModifiedDate(modifiedAttr);
+            int sequenceVersion = ParseSequenceVersion(sequenceVersionAttribute);
+            bool isPrecursor = ParseIsPrecursor(precursorAttr);
+            UniProtSequenceAttributes.FragmentType fragment = ParseFragmentType(fragmentAttrString);
+
+            // Read sequence and compute length/mass
+            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+            int length = Sequence.Length;
+            int mass = ComputeSequenceMass(Sequence);
+
+            SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment);
+
+        }
+        // Helper method to parse the modified date attribute, with fallback to DateTime.Now if parsing fails.
+        /// <summary>
+        /// Parses the modified date attribute from the sequence element.
+        /// Returns DateTime.Now if parsing fails or the attribute is missing.
+        /// </summary>
+        private static DateTime ParseModifiedDate(string modifiedAttr)
+        {
             if (!string.IsNullOrEmpty(modifiedAttr))
             {
                 try
                 {
-                    entryModified = DateTime.ParseExact(modifiedAttr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                    return DateTime.ParseExact(modifiedAttr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
                 }
                 catch
                 {
-                    entryModified = DateTime.Now;
+                    // Fallback to current date if parsing fails
                 }
             }
-            else
-            {
-                entryModified = DateTime.Now; // Default to now if not specified
-            }
-            if (int.TryParse(sequenceVersionAttribute, out int _sequenceVersion))
-            {
-                sequenceVersion = _sequenceVersion;
-            }
-            else
-            {
-                sequenceVersion = -1; // Default to -1 if parsing fails
-            }
-            if (!string.IsNullOrEmpty(precursorAttr))
-            {
-                isPrecursor = precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
-            }
-            if (!string.IsNullOrEmpty(fragmentAttrString))
-            {
-                if (Enum.TryParse(fragmentAttrString, true, out UniProtSequenceAttributes.FragmentType _fragment))
-                {
-                    fragment = _fragment;
-                }
-                else
-                {
-                    fragment = UniProtSequenceAttributes.FragmentType.unspecified; // Default to NotSet if parsing fails
-                }
-            }
+            return DateTime.Now;
+        }
 
-            //ReadElementString must come after the attributes are parsed, otherwise the attributes will be null
-            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
-            //The length attribute value in the database is ignored and we simply compute it from the actual sequence length
-            int length = Sequence.Length;
-            // The mass attribute value in the database is ignored and we simply compute it from the actual sequence mass
-            int mass = 0;
-            if (length > 0) 
+        // Helper method to parse the sequence version attribute.
+        /// <summary>
+        /// Parses the version attribute from the sequence element.
+        /// Returns -1 if parsing fails or the attribute is missing.
+        /// </summary>
+        private static int ParseSequenceVersion(string versionAttr)
+        {
+            if (int.TryParse(versionAttr, out int version))
             {
-                mass = (int)Math.Round(new PeptideWithSetModifications(Sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+                return version;
             }
-            SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment);
+            return -1;
+        }
+
+        // Helper method to parse the precursor attribute.
+        /// <summary>
+        /// Parses the precursor attribute from the sequence element.
+        /// Returns false if the attribute is missing or not "true".
+        /// </summary>
+        private static bool ParseIsPrecursor(string precursorAttr)
+        {
+            return !string.IsNullOrEmpty(precursorAttr) && precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Helper method to parse the fragment type attribute.
+        /// <summary>
+        /// Parses the fragment attribute from the sequence element.
+        /// Returns FragmentType.unspecified if parsing fails or the attribute is missing.
+        /// </summary>
+        private static UniProtSequenceAttributes.FragmentType ParseFragmentType(string fragmentAttr)
+        {
+            if (!string.IsNullOrEmpty(fragmentAttr) &&
+                Enum.TryParse(fragmentAttr, true, out UniProtSequenceAttributes.FragmentType fragment))
+            {
+                return fragment;
+            }
+            return UniProtSequenceAttributes.FragmentType.unspecified;
+        }
+
+        // Helper method to compute the monoisotopic mass of a sequence.
+        /// <summary>
+        /// Computes the monoisotopic mass of the given sequence.
+        /// Returns 0 if the sequence is empty.
+        /// </summary>
+        private static int ComputeSequenceMass(string sequence)
+        {
+            if (string.IsNullOrEmpty(sequence))
+                return 0;
+            return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
         }
         /// <summary>
         /// Finish parsing at the end of an element
