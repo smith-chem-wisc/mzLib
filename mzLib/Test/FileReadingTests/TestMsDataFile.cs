@@ -355,7 +355,7 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public static void NegativeModeSetsCorrectCharge()
+        public static void NegativeModeSetsCorrectCharge_FromFile()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
                 "GUACUG_NegativeMode_Sliced.mzML");
@@ -370,6 +370,19 @@ namespace Test.FileReadingTests
             Assert.That(ms2.Polarity, Is.EqualTo(Polarity.Negative), "MS2 scan polarity is not negative.");
             Assert.That(ms2.SelectedIonChargeStateGuess.HasValue, Is.True, filePath + " does not have charge state guess for MS2 scan.");
             Assert.That(ms2.SelectedIonChargeStateGuess!.Value, Is.EqualTo(-3), "MS2 scan charge state guess is not -3.");
+        }
+
+        [TestCase(Polarity.Positive, 3, 3, TestName = "PositiveMode_PositiveCharge")]
+        [TestCase(Polarity.Negative, -3, -3, TestName = "NegativeMode_NegativeCharge")]
+        [TestCase(Polarity.Negative, 3, -3, TestName = "NegativeMode_PositiveCharge")]
+        [TestCase(Polarity.Positive, -3, 3, TestName = "PositiveMode_NegativeCharge")]
+        public static void NegativeModeSetsCorrectCharge_FromConstructedScan(Polarity polarity, int inputCharge, int expectedCharge)
+        {
+            var scan = new MsDataScan(new([], [], false), 1, 2, true, polarity, 2, new(100, 1000), "", MZAnalyzerType.Orbitrap, 100, 2, null, "", 120, inputCharge, 20, 120, inputCharge, DissociationType.CID, 1, 120, "30", "");
+
+            Assert.That(scan.Polarity, Is.EqualTo(polarity), "Newly created scan has incorrect polarity.");
+            Assert.That(scan.SelectedIonChargeStateGuess, Is.Not.Null, "Charge state guess for newly created scan.");
+            Assert.That(scan.SelectedIonChargeStateGuess!.Value, Is.EqualTo(expectedCharge), $"Newly created scan charge state guess is not {expectedCharge}.");
         }
     }
 }

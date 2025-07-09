@@ -70,15 +70,17 @@ namespace MassSpectrometry
             DissociationType = dissociationType;
             SelectedIonMZ = selectedIonMz;
             SelectedIonIntensity = selectedIonIntensity;
-            SelectedIonChargeStateGuess = selectedIonChargeStateGuess;
             SelectedIonMonoisotopicGuessMz = selectedIonMonoisotopicGuessMz;
             HcdEnergy = hcdEnergy;
             ScanDescription = scanDescription;
 
-            if (Polarity == Polarity.Negative && SelectedIonChargeStateGuess is > 0)
+            // Ensure the charge of the selected ion matches the polarity of the scan 
+            SelectedIonChargeStateGuess = Polarity switch
             {
-                SelectedIonChargeStateGuess = -SelectedIonChargeStateGuess;
-            }
+                Polarity.Negative when selectedIonChargeStateGuess is > 0 => -selectedIonChargeStateGuess,
+                Polarity.Positive when selectedIonChargeStateGuess is < 0 =>  Math.Abs(selectedIonChargeStateGuess.Value),
+                _ => selectedIonChargeStateGuess
+            };
         }
 
         /// <summary>
