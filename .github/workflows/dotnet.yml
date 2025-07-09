@@ -2,9 +2,9 @@ name: Build and Test
 
 on:
   push:
-    branches: [ master ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ master ]
+    branches: [ "**" ]
 
 jobs:
   build:
@@ -38,6 +38,8 @@ jobs:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+    - name: Debug coverage files
+      run: ls -R mzLib
   integration:
     runs-on: windows-latest
     timeout-minutes: 15
