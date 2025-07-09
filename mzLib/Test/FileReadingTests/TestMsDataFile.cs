@@ -337,7 +337,7 @@ namespace Test.FileReadingTests
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
             Assert.That(!dataFile.CheckIfScansLoaded());
-            var scanslistInTimeRange = dataFile.GetMsScansInTimeRange(0,100).ToList();
+            var scanslistInTimeRange = dataFile.GetMsScansInTimeRange(0, 100).ToList();
             Assert.That(dataFile.CheckIfScansLoaded());
             Assert.That(scanslistInTimeRange.Count == 142);
 
@@ -352,6 +352,24 @@ namespace Test.FileReadingTests
             var index = dataFile.GetClosestOneBasedSpectrumNumber(5);
             Assert.That(dataFile.CheckIfScansLoaded());
             Assert.That(scanslist.Count == 142);
+        }
+
+        [Test]
+        public static void NegativeModeSetsCorrectCharge()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "GUACUG_NegativeMode_Sliced.mzML");
+            var scans = MsDataFileReader.GetDataFile(filePath).GetAllScansList();
+            var ms1 = scans.FirstOrDefault(s => s.MsnOrder == 1);
+
+            Assert.That(ms1, Is.Not.Null, "No MS1 scan found in the file.");
+            Assert.That(ms1.Polarity, Is.EqualTo(Polarity.Negative), "MS1 scan polarity is not negative.");
+
+            var ms2 = scans.FirstOrDefault(s => s.MsnOrder == 2);
+            Assert.That(ms2, Is.Not.Null, "No MS2 scan found in the file.");
+            Assert.That(ms2.Polarity, Is.EqualTo(Polarity.Negative), "MS2 scan polarity is not negative.");
+            Assert.That(ms2.SelectedIonChargeStateGuess.HasValue, Is.True, filePath + " does not have charge state guess for MS2 scan.");
+            Assert.That(ms2.SelectedIonChargeStateGuess!.Value, Is.EqualTo(-3), "MS2 scan charge state guess is not -3.");
         }
     }
 }

@@ -74,6 +74,11 @@ namespace MassSpectrometry
             SelectedIonMonoisotopicGuessMz = selectedIonMonoisotopicGuessMz;
             HcdEnergy = hcdEnergy;
             ScanDescription = scanDescription;
+
+            if (Polarity == Polarity.Negative && SelectedIonChargeStateGuess is > 0)
+            {
+                SelectedIonChargeStateGuess = -SelectedIonChargeStateGuess;
+            }
         }
 
         /// <summary>
