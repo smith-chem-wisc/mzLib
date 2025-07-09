@@ -223,7 +223,8 @@ namespace UsefulProteomicsDatabases
                 }
                 catch
                 {
-                    // Fallback to current date if parsing fails
+                    // Parsing failed; falling back to current date. Exception details: 
+                    Console.WriteLine($"Warning: Failed to parse modified date '{modifiedAttr}'. Using DateTime.Now.");
                 }
             }
             return DateTime.Now;

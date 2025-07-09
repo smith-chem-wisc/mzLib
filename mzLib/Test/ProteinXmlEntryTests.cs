@@ -120,6 +120,8 @@ namespace Test
             Assert.That(entry.SequenceAttributes, Is.Not.Null);
             Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(10));
             Assert.That(entry.Sequence, Is.EqualTo("ACDEFGHIKL"));
+            Assert.That(entry.SequenceAttributes.IsPrecursor, Is.False);
+            Assert.That(entry.SequenceAttributes.Fragment, Is.EqualTo(UniProtSequenceAttributes.FragmentType.unspecified));
         }
 
         [Test]
