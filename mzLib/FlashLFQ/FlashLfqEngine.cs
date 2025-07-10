@@ -2010,7 +2010,7 @@ namespace FlashLFQ
                         if (xicGroup.Count > 1)
                         {
                             // Step 1: Find the XIC with most IDs then, set as reference XIC
-                            xicGroup.OrderBy(p => p.Ids.Count()).First().Reference = true;
+                            xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;
 
                             //Step 2: Build the XICGroups
                             XICGroups xICGroups = new XICGroups(xicGroup);
