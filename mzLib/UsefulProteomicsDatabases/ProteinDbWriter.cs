@@ -568,7 +568,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteAttributeString("modified", protein.UniProtSequenceAttributes.EntryModified.ToString("yyyy-MM-dd"));
                     writer.WriteAttributeString("version", protein.UniProtSequenceAttributes.SequenceVersion.ToString(CultureInfo.InvariantCulture));
                     //optional attributes
-                    if (protein.UniProtSequenceAttributes.IsPrecursor.HasValue)
+                    if (protein.UniProtSequenceAttributes.IsPrecursor != null)
                     {
                         writer.WriteAttributeString("precursor", protein.UniProtSequenceAttributes.IsPrecursor.Value.ToString().ToLowerInvariant());
                     }
