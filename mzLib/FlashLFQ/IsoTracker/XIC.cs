@@ -15,11 +15,11 @@ namespace FlashLFQ.IsoTracker
     public class XIC
     {
         /// <summary>
-        /// A list of smoothed intensity values.
+        /// A list of smoothed intensity values. Will be used for metaDraw in the future.
         /// </summary>
         public List<double> SmoothedIntensity { get; set; }
         /// <summary>
-        /// A list of smoothed retention time values.
+        /// A list of smoothed retention time values. Will be used for metaDraw in the future.
         /// </summary>
         public List<double> SmoothedRetentionTime { get; set; }
         /// <summary>
@@ -176,14 +176,14 @@ namespace FlashLFQ.IsoTracker
         public void BuildSmoothedCubicSpline(int smoothDegree)
         {
             double[] retentionTime = Ms1Peaks.Select(p => (double)p.RetentionTime).ToArray();
-            float[] intensity = Ms1Peaks.Select(p => p.Intensity).ToArray();
+            double[] intensity = Ms1Peaks.Select(p => (double)p.Intensity).ToArray();
 
-            var intermediateSmoothedValues = IntensitySmoothing_weight(intensity, smoothDegree).ToArray();
-            SmoothedIntensity = IntensitySmoothing_normal(intermediateSmoothedValues, smoothDegree).ToList();
+            double[] intermediateSmoothedValues = IntensitySmoothing_weight(intensity, smoothDegree);
+            double[] smoothedIntensity = IntensitySmoothing_normal(intermediateSmoothedValues, smoothDegree);
 
-
+            SmoothedIntensity = smoothedIntensity.ToList();
             SmoothedRetentionTime = retentionTime.ToList();
-            this.SmoothedCubicSpline = CubicSpline.InterpolateAkimaSorted(retentionTime, SmoothedIntensity.ToArray());
+            this.SmoothedCubicSpline = CubicSpline.InterpolateAkimaSorted(retentionTime, smoothedIntensity);
         }
 
         /// <summary>
@@ -193,12 +193,13 @@ namespace FlashLFQ.IsoTracker
         /// <param name="pointsToAverage"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        public double[] IntensitySmoothing_weight(float[] intensity, int pointsToAverage)
+        public double[] IntensitySmoothing_weight(double[] intensity, int pointsToAverage)
         {
             if (pointsToAverage <= 0)
             {
                 throw new ArgumentException("pointsToAverage must be greater than 0");
-            }          
+            }
+
             double[] smoothedIntensity = new double[intensity.Length];
 
             for (int i = 0; i < intensity.Length; i++) //smooth the intensity

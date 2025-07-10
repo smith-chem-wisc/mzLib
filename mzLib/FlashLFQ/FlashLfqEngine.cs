@@ -2180,18 +2180,18 @@ namespace FlashLFQ
                 massesOfInterest.Add(maxMass + 2f * (float)Constants.C13MinusC12);
                 interestedMass.AddRange(massesOfInterest);
             }
-            return MassesToMzsFloat(interestedMass);
+            return GetAllPossibleMzs(interestedMass);
         }
 
         // Helper method for float version
-        private List<float> MassesToMzsFloat(HashSet<float> targetMasses)
+        private List<float> GetAllPossibleMzs(HashSet<float> targetMasses)
         {
             HashSet<float> targetMzs = new();
             foreach (var mass in targetMasses)
             {
                 _chargeStates.ForEach(chargeState =>
                 {
-                    targetMzs.Add((float)Math.Round(mass.ToMz(chargeState), 2));
+                    targetMzs.Add((float)mass.ToMz(chargeState));
                 });
             }
             var sortedTargetMzs = targetMzs.ToList();

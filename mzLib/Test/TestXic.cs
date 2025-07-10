@@ -73,9 +73,9 @@ namespace Test
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
             cubicSpline.SetXicSplineXYData(xic);
-            Assert.That(xic.XYData.Length, Is.EqualTo(19));
-            linearSpline.SetXicSplineXYData(xic);
-            Assert.That(xic.XYData.Length, Is.EqualTo(19));
+            Assert.That(xic.XYData.Length, Is.EqualTo(18)); // Because the last time point will be stored as 18.999999 (origin 19) while convert the float to double. 
+            linearSpline.SetXicSplineXYData(xic);                            // Then we will lose one bin from 19 to 18. 
+            Assert.That(xic.XYData.Length, Is.EqualTo(18));
             //in scan cycle
             cubicSpline.SetXicSplineXYData(xic, cycle: true);
             Assert.That(xic.XYData.Length, Is.EqualTo(181));

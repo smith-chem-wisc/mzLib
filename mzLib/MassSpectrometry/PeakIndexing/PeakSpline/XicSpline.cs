@@ -80,7 +80,7 @@ namespace MassSpectrometry
         {
             if (NumberOfPeaksToAdd == 0)
             {
-                newRtArray = rtArray.Select(x => Math.Round((double)x, 3)).ToArray(); //in order to keep the same precision as in the original data
+                newRtArray = rtArray.Select(x => (double)x).ToArray(); //in order to keep the same precision as in the original data
                 newIntensityArray = intensityArray.Select(x => (double)x).ToArray();
                 return;
             }
