@@ -1674,5 +1674,47 @@ namespace Test
                 Assert.That(pag.ProteinDetectionHypothesis.Length, Is.GreaterThan(0));
             }
         }
+        [Test]
+        public void RootElement_HasExpectedAttributes()
+        {
+            var mzIdentML = LoadMzIdentML();
+            Assert.That(mzIdentML.id, Is.EqualTo(""));
+            Assert.That(mzIdentML.version, Is.EqualTo("1.1.0"));
+            Assert.That(mzIdentML.creationDate, Is.EqualTo(new System.DateTime(2022, 1, 1, 12, 0, 0)));
+        }
+
+        [Test]
+        public void CvList_ContainsExpectedCvRefsAndAccessions()
+        {
+            var mzIdentML = LoadMzIdentML();
+            Assert.That(mzIdentML.cvList, Is.Not.Null);
+            Assert.That(mzIdentML.cvList.Length, Is.EqualTo(4));
+            Assert.That(mzIdentML.cvList[0].id, Is.EqualTo("PSI-MS"));
+            Assert.That(mzIdentML.cvList[0].fullName, Is.EqualTo("Proteomics Standards Initiative Mass Spectrometry Vocabularies"));
+            Assert.That(mzIdentML.cvList[1].id, Is.EqualTo("PSI-MOD"));
+            Assert.That(mzIdentML.cvList[2].id, Is.EqualTo("UNIMOD"));
+            Assert.That(mzIdentML.cvList[3].id, Is.EqualTo("UO"));
+        }
+
+        [Test]
+        public void AnalysisSoftwareList_ContainsExpectedSoftwareC()
+        {
+            var mzIdentML = LoadMzIdentML();
+            Assert.That(mzIdentML.AnalysisSoftwareList, Is.Not.Null);
+            Assert.That(mzIdentML.AnalysisSoftwareList.Length, Is.EqualTo(1));
+            Assert.That(mzIdentML.AnalysisSoftwareList[0].id, Is.EqualTo("AS_MetaMorpheus"));
+            Assert.That(mzIdentML.AnalysisSoftwareList[0].name, Is.EqualTo("MetaMorpheus"));
+            Assert.That(mzIdentML.AnalysisSoftwareList[0].version, Is.EqualTo("1.10.0"));
+        }
+
+        [Test]
+        public void CvParam_ContainsExpectedCvRefAndAccession()
+        {
+            var mzIdentML = LoadMzIdentML();
+            var software = mzIdentML.AnalysisSoftwareList[0];
+            var roleCvParam = software.ContactRole.Role.cvParam;
+            Assert.That(roleCvParam.cvRef, Is.EqualTo("PSI-MS"));
+            Assert.That(roleCvParam.accession, Is.EqualTo("MS:1001267"));
+        }
     }
 }
