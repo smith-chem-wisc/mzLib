@@ -1,20 +1,19 @@
-﻿using FlashLFQ.Interfaces;
-using System;
+﻿using System;
 
-namespace FlashLFQ
+namespace MassSpectrometry
 {
     [Serializable]
-    public class IndexedMassSpectralPeak : IIndexedMzPeak
+    public class IndexedMassSpectralPeak : IIndexedPeak
     {
         public int ZeroBasedScanIndex { get; init; }
         public double Mz { get; init; }
+        public double M => Mz;
         public double RetentionTime { get; init; }
         public double Intensity { get; init; }
-
-        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
+        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedScanIndex, double retentionTime)
         {
             this.Mz = mz;
-            this.ZeroBasedScanIndex = zeroBasedMs1ScanIndex;
+            this.ZeroBasedScanIndex = zeroBasedScanIndex;
             this.RetentionTime = retentionTime;
             this.Intensity = intensity;
         }
@@ -23,7 +22,7 @@ namespace FlashLFQ
             return Equals((IndexedMassSpectralPeak)obj);
         }
 
-        public bool Equals(IIndexedMzPeak other)
+        public bool Equals(IIndexedPeak other)
         {
             return Equals((IndexedMassSpectralPeak)other);
         }
@@ -35,7 +34,6 @@ namespace FlashLFQ
             return other.ZeroBasedScanIndex == this.ZeroBasedScanIndex
                    && Math.Abs(other.Mz - this.Mz) < 1e-9;
         }
-
 
         public override int GetHashCode()
         {

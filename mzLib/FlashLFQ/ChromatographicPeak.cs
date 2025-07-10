@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using ClassExtensions = Chemistry.ClassExtensions;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -79,7 +80,7 @@ namespace FlashLFQ
 
                 foreach (Identification id in Identifications)
                 {
-                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
+                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.M, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
 
                     if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < Math.Abs(MassError))
                     {
@@ -107,7 +108,7 @@ namespace FlashLFQ
         {
             if (otherFeature != this)
             {
-                var thisFeaturesPeaks = new HashSet<IIndexedMzPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
+                var thisFeaturesPeaks = new HashSet<IIndexedPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
                 this.Identifications = this.Identifications
                     .Union(otherFeature.Identifications)
                     .Distinct()
@@ -116,6 +117,12 @@ namespace FlashLFQ
                 this.IsotopicEnvelopes.AddRange(otherFeature.IsotopicEnvelopes
                     .Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
                 this.CalculateIntensityForThisFeature(integrate);
+            }
+
+            // If any merge happens on Isobaric peak, the detection type should be set to MSMSAmbiguousPeakfinding
+            if (DetectionType == DetectionType.IsoTrack_MBR || DetectionType == DetectionType.IsoTrack_MSMS)
+            {
+                DetectionType = DetectionType.MSMSAmbiguousPeakfinding;
             }
         }
 
@@ -210,7 +217,7 @@ namespace FlashLFQ
                 sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.IndexedPeak.RetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
-                sb.Append(Apex.IndexedPeak.Mz.ToString(CultureInfo.InvariantCulture) + "\t");
+                sb.Append(Apex.IndexedPeak.M.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.ChargeState.ToString(CultureInfo.InvariantCulture) + "\t");
             }
             else
@@ -224,7 +231,7 @@ namespace FlashLFQ
 
             sb.Append(NumChargeStatesObserved.ToString(CultureInfo.InvariantCulture) + "\t");
 
-            // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous and MSMS peaks
+            // temporary way to distinguish between MBR, MBR_IsoTrack, IsoTrack_Ambiguous, MSMSAmbiguousPeakfinding and MSMS peaks
             switch (this.DetectionType)
             {
                 case DetectionType.IsoTrack_MBR:
@@ -232,6 +239,9 @@ namespace FlashLFQ
                     break;
                 case DetectionType.IsoTrack_Ambiguous:
                     sb.Append("IsoTrack_Ambiguous" + "\t");
+                    break;
+                case DetectionType.MSMSAmbiguousPeakfinding:
+                    sb.Append("MSMSAmbiguousPeakfinding" + "\t");
                     break;
                 default:
                     sb.Append("MSMS" + "\t");
