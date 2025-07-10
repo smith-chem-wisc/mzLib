@@ -74,7 +74,7 @@ namespace Test
             var linearSpline = new XicLinearSpline(0.05);
             cubicSpline.SetXicSplineXYData(xic);
             Assert.That(xic.XYData.Length, Is.EqualTo(18)); // Because the last time point will be stored as 18.999999 (origin 19) while convert the float to double. 
-            linearSpline.SetXicSplineXYData(xic);                            // Then we will lose one bin from 19 to 18. 
+            linearSpline.SetXicSplineXYData(xic);                            // Then we will lose one numPoint (19 to 18) in the XYData. 
             Assert.That(xic.XYData.Length, Is.EqualTo(18));
             //in scan cycle
             cubicSpline.SetXicSplineXYData(xic, cycle: true);
@@ -84,7 +84,7 @@ namespace Test
             var cubicSpline2 = new XicCubicSpline(0.05, 1, 0.1);
             cubicSpline2.SetXicSplineXYData(xic);
             Assert.That(xic.XYData.Min(xy => xy.Item1), Is.EqualTo(0.9).Within(0.0000001));
-            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(2).Within(0.0000001));
+            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(1.95).Within(0.0000001)); // Because we lost one numPoint, then last point will be 1.95 instead of original value 2.0.
         }
 
         [Test]

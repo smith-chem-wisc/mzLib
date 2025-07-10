@@ -90,17 +90,17 @@ namespace MassSpectrometry
             {
                 if (i < NumberOfPeaksToAdd)
                 {
-                    newRtArray[i] = Math.Round(rtArray[0] - (NumberOfPeaksToAdd - i) * Gap,3);
+                    newRtArray[i] = rtArray[0] - (NumberOfPeaksToAdd - i) * Gap;
                     newIntensityArray[i] = 0;
                 }
                 else if (i >= rtArray.Length + NumberOfPeaksToAdd - 1)
                 {
-                    newRtArray[i] = Math.Round(newRtArray[i - 1] + Gap, 3);
+                    newRtArray[i] = newRtArray[i - 1] + Gap;
                     newIntensityArray[i] = 0;
                 }
                 else
                 {
-                    newRtArray[i] = Math.Round(rtArray[i - NumberOfPeaksToAdd], 3);
+                    newRtArray[i] = rtArray[i - NumberOfPeaksToAdd];
                     newIntensityArray[i] = intensityArray[i - NumberOfPeaksToAdd];
                 }
             }

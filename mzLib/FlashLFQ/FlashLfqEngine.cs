@@ -2191,7 +2191,7 @@ namespace FlashLFQ
             {
                 _chargeStates.ForEach(chargeState =>
                 {
-                    targetMzs.Add((float)mass.ToMz(chargeState));
+                    targetMzs.Add(mass.ToMz(chargeState));
                 });
             }
             var sortedTargetMzs = targetMzs.ToList();

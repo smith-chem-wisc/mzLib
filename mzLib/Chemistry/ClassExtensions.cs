@@ -43,9 +43,9 @@ namespace Chemistry
         /// <summary>
         /// Calculates m/z value for a given mass assuming charge comes from losing or gaining protons
         /// </summary>
-        public static double ToMz(this float mass, int charge)
+        public static float ToMz(this float mass, int charge)
         {
-            return mass / Math.Abs(charge) + Math.Sign(charge) * Constants.ProtonMass;
+            return mass / Math.Abs(charge) + Math.Sign(charge) * (float)Constants.ProtonMass;
         }
 
         /// <summary>
