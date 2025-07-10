@@ -3,6 +3,8 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using mzIdentML111.Generated;
 using System.Windows.Media;
+using System.Xml.Serialization;
+using System.IO;
 
 namespace Test
 {
@@ -1587,6 +1589,90 @@ namespace Test
             Assert.That(obj.cvParam, Is.EqualTo(cvParams));
             Assert.That(obj.userParam, Is.EqualTo(userParams));
             Assert.That(obj.passThreshold, Is.True);
+        }
+        private string TestFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratible_Yeast.mzID");
+
+        private MzIdentMLType111 LoadMzIdentML()
+        {
+            var serializer = new XmlSerializer(typeof(MzIdentMLType111));
+            using (var stream = File.OpenRead(TestFilePath))
+            {
+                return (MzIdentMLType111)serializer.Deserialize(stream);
+            }
+        }
+
+        [Test]
+        public void CanDeserializeMzIdentMLFile()
+        {
+            var mzIdentML = LoadMzIdentML();
+            Assert.That(mzIdentML, Is.Not.Null);
+            Assert.That(string.IsNullOrEmpty(mzIdentML.version), Is.False);
+            Assert.That(mzIdentML.creationDate > DateTime.MinValue, Is.True);
+        }
+
+        [Test]
+        public void CvList_IsNotEmpty_And_HasExpectedFields()
+        {
+            var mzIdentML = LoadMzIdentML();
+            Assert.That(mzIdentML.cvList, Is.Not.Null);
+            Assert.That(mzIdentML.cvList.Length, Is.GreaterThan(0));
+
+            foreach (var cv in mzIdentML.cvList)
+            {
+                Assert.That(string.IsNullOrEmpty(cv.id), Is.False);
+                Assert.That(string.IsNullOrEmpty(cv.fullName), Is.False);
+                Assert.That(string.IsNullOrEmpty(cv.uri), Is.False);
+            }
+        }
+
+        [Test]
+        public void AnalysisSoftwareList_ContainsExpectedSoftware()
+        {
+            var mzIdentML = LoadMzIdentML();
+            Assert.That(mzIdentML.AnalysisSoftwareList, Is.Not.Null);
+            Assert.That(mzIdentML.AnalysisSoftwareList.Length, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void DataCollection_And_AnalysisData_ArePresent()
+        {
+            var mzIdentML = LoadMzIdentML();
+            Assert.That(mzIdentML.DataCollection, Is.Not.Null);
+            Assert.That(mzIdentML.DataCollection.AnalysisData, Is.Not.Null);
+            Assert.That(mzIdentML.DataCollection.AnalysisData.SpectrumIdentificationList, Is.Not.Null);
+            Assert.That(mzIdentML.DataCollection.AnalysisData.SpectrumIdentificationList.Length, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void SpectrumIdentificationResult_HasItems()
+        {
+            var mzIdentML = LoadMzIdentML();
+            var sil = mzIdentML.DataCollection.AnalysisData.SpectrumIdentificationList[0];
+            Assert.That(sil.SpectrumIdentificationResult, Is.Not.Null);
+            Assert.That(sil.SpectrumIdentificationResult.Length, Is.GreaterThan(0));
+
+            foreach (var result in sil.SpectrumIdentificationResult)
+            {
+                Assert.That(string.IsNullOrEmpty(result.spectrumID), Is.False);
+                Assert.That(result.SpectrumIdentificationItem, Is.Not.Null);
+                Assert.That(result.SpectrumIdentificationItem.Length, Is.GreaterThan(0));
+            }
+        }
+
+        [Test]
+        public void ProteinDetectionList_And_ProteinAmbiguityGroup_ArePresent()
+        {
+            var mzIdentML = LoadMzIdentML();
+            var pdl = mzIdentML.DataCollection.AnalysisData.ProteinDetectionList;
+            Assert.That(pdl, Is.Not.Null);
+            Assert.That(pdl.ProteinAmbiguityGroup, Is.Not.Null);
+            Assert.That(pdl.ProteinAmbiguityGroup.Length, Is.GreaterThan(0));
+
+            foreach (var pag in pdl.ProteinAmbiguityGroup)
+            {
+                Assert.That(pag.ProteinDetectionHypothesis, Is.Not.Null);
+                Assert.That(pag.ProteinDetectionHypothesis.Length, Is.GreaterThan(0));
+            }
         }
     }
 }
