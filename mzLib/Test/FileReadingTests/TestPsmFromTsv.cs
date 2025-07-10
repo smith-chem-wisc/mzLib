@@ -451,6 +451,12 @@ namespace Test.FileReadingTests
             file.LoadResults();
             Assert.That(file.Results.Count == psms.Count);
             loadedFile = file;
+
+            var testResult = file.First();
+            Assert.That(testResult != null);
+            Assert.That(!Double.IsNaN(testResult.PEP));
+            Assert.That(!Double.IsNaN(testResult.PEP_QValue));
+            Assert.That(!Double.IsNaN(testResult.RetentionTime));
         }
 
         [Test]
