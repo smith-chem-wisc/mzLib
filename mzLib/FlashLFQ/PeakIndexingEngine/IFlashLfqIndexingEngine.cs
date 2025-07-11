@@ -47,5 +47,10 @@ namespace FlashLFQ.Interfaces
         /// Reads the indexed peaks from a file. File will be read from the same directory as the data file, as determined by the SpectraFileInfo property
         /// </summary>
         public void DeserializeIndex();
+
+        /// <summary>
+        /// Prune the index engine to remove any unnecessary data or entries for the better memory usage.
+        /// </summary>
+        public void PruneIndex(List<float> targetMass);
     }
 }

@@ -685,8 +685,8 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
-            Assert.That(peak.SplitRT == 1.3);
+            Assert.That(Math.Abs(peak.Apex.IndexedPeak.RetentionTime - 1.6f) < 1e-6);
+            Assert.That(Math.Abs(peak.SplitRT - 1.3) < 1e-5);
             Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
@@ -737,9 +737,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
-            Assert.That(peak.SplitRT == 1.6);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
+            Assert.That(Math.Abs(peak.Apex.IndexedPeak.RetentionTime - 1.3f) < 1e-6);
+            Assert.That(Math.Abs(peak.SplitRT - 1.6) < 1e-6);
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6 + 1e-6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -795,9 +795,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
-            Assert.That(peak.SplitRT == 1.6);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
+            Assert.That(Math.Abs(peak.Apex.IndexedPeak.RetentionTime - 1.3f) < 1e-6);
+            Assert.That(Math.Abs(peak.SplitRT - 1.6) < 1e-6);
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6 + 1e-6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -853,9 +853,9 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
-            Assert.That(peak.SplitRT == 1.3);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
+            Assert.That(Math.Abs(peak.Apex.IndexedPeak.RetentionTime - 1.6f) < 1e-6);
+            Assert.That(Math.Abs(peak.SplitRT - 1.3) < 1e-6);
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3 - 1e-6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -922,8 +922,8 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
-            Assert.That(peak.SplitRT == 1.6);
+            Assert.That(Math.Abs(peak.Apex.IndexedPeak.RetentionTime - 1.3f) < 1e-6);
+            Assert.That(Math.Abs(peak.SplitRT - 1.6) < 1e-6);
             Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
@@ -991,8 +991,8 @@ namespace Test
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
-            Assert.That(peak.SplitRT == 1.3);
+            Assert.That(Math.Abs(peak.Apex.IndexedPeak.RetentionTime - 1.6f) < 1e-6);
+            Assert.That(Math.Abs(peak.SplitRT - 1.3) < 1e-6);
             Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
@@ -1002,7 +1002,7 @@ namespace Test
         public static void TestToString()
         {
             // many of these are just to check that the ToString methods don't cause crashes
-            var indexedPeak = new IndexedMassSpectralPeak(1.0, 2.0, 4, 5.0);
+            var indexedPeak = new IndexedMassSpectralPeak(1.0f, 2.0f, 4, 5.0f);
             Assert.That(indexedPeak.ToString().Equals("1.000; 4"));
 
             var spectraFile = new SpectraFileInfo("myFullPath", "", 0, 0, 0);
@@ -1512,7 +1512,7 @@ namespace Test
             // Any change to ML.NET or the PEP Analysis engine will cause these to change.
             Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
             Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
-            Assert.AreEqual(140, f1r1MbrResults.Count);
+            Assert.AreEqual(141, f1r1MbrResults.Count);
             Assert.AreEqual(78, f1r2MbrResults.Count);
 
             // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
@@ -1617,7 +1617,8 @@ namespace Test
 
             Assert.That((int)results.PeptideModifiedSequences[sequence].GetIntensity(file1) == 1386491);
             ChromatographicPeak peak = results.Peaks[file1].First(p => p.Identifications.First().ModifiedSequence == sequence);
-            Assert.That(Math.Round(peak.MassError, 3), Is.EqualTo(0));
+            Assert.That(Math.Round(peak.MassError, 3), Is.EqualTo(0).Within(0.1));
+
             Assert.That(peak.IsotopicEnvelopes.Count == 10);
         }
 
@@ -2192,7 +2193,7 @@ namespace Test
             var indexedPeaks = PeakIndexingEngine.InitializeIndexingEngine(scans);
             var xic = indexedPeaks.GetXic(1000.003, 3, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
             Assert.That(xic.Count == 3);
-            Assert.That(xic.First().M == 1000.002);
+            Assert.That(xic.First().M == 1000.002f);
         }
     }
 }

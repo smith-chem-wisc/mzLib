@@ -17,7 +17,7 @@ namespace MassSpectrometry
             Gap = gap;
         }
 
-        public override (double, double)[] GetXicSplineData(double[] rtArray, double[] intensityArray, double start = -1, double end = -1)
+        public override (double, double)[] GetXicSplineData(float[] rtArray, float[] intensityArray, double start = -1, double end = -1)
         {
             AddPeaks(rtArray, intensityArray, out double[] newRtArray, out double[] newIntensityArray);
             CheckArrays(newRtArray, newIntensityArray);
