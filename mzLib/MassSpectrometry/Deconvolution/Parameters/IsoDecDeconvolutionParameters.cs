@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿#nullable enable
+using System.Runtime.InteropServices;
 
 namespace MassSpectrometry;
 public class IsoDecDeconvolutionParameters : DeconvolutionParameters
@@ -162,7 +163,7 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     /// <summary>
     /// Mass difference between isotopes
     /// </summary>
-    public double MassDiffC { get; protected set; } = 1.0033;
+    public double MassDiffC { get; protected set; } = 1.0033; // TODO: Determine if this should be adjusted dynamically by <see cref="AverageResidueModel"/> deconvolution of alternative data types. 
 
     /// <summary>
     /// Adduct Mass
@@ -196,8 +197,9 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
         float[] mzWindow = null,
         int knockdownRounds = 5,
         float minAreaCovered = (float)0.20,
-        float relativeDataThreshold = (float)0.05)
-        : base(1, 50, polarity)
+        float relativeDataThreshold = (float)0.05,
+        AverageResidue? averageResidueModel = null)
+        : base(1, 50, polarity, averageResidueModel) // average residue model is currently unused for setting any parameters in IsoDec. 
     {
         PhaseRes = phaseRes;
         ReportMulitpleMonoisos = reportMultipleMonoisos;

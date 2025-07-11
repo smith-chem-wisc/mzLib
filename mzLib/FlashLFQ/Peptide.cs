@@ -158,13 +158,37 @@ namespace FlashLFQ
             }
         }
 
+        /// <summary>
+        /// Set the isobaric peptide intensities and detection types by iterating through the peak list.
+        /// </summary>
+        /// <param name="peakList"></param>
         public void SetIsobaricPeptide(List<ChromatographicPeak> peakList)
         {
             foreach (var peak in peakList.Where(p=>p != null))
             {
-                RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
-                Intensities[peak.SpectraFileInfo] = peak.Apex.Intensity;
-                DetectionTypes[peak.SpectraFileInfo] = peak.DetectionType;
+                if (peak.Identifications.Count > 1) // More than one id in this peak, the detectionType should be ambiguous and the intensity is set to 0
+                {
+                    RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
+                    Intensities[peak.SpectraFileInfo] = 0;
+                    if (peak.DetectionType != DetectionType.IsoTrack_Ambiguous) // If the detectionType is not IsoTrack_amb but with more than one id. That extra id must be added by RunErrorCheck
+                    {
+                        DetectionTypes[peak.SpectraFileInfo] = DetectionType.MSMSAmbiguousPeakfinding;
+                    }
+                    else
+                    {
+                        DetectionTypes[peak.SpectraFileInfo] = peak.DetectionType;
+                    }
+
+                }
+                else 
+                {
+                    RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
+                    //Some situation, the peak is merged in RunErrorCheck but still existed in IsoPeptideDict. In RunErrorCheck, we labeled it as ambiguous peak. At here, we set the intensity to 0!!
+                    Intensities[peak.SpectraFileInfo] = (peak.DetectionType == DetectionType.IsoTrack_Ambiguous || peak.DetectionType == DetectionType.MSMSAmbiguousPeakfinding)
+                                                        ? 0
+                                                        : peak.Apex.Intensity;
+                    DetectionTypes[peak.SpectraFileInfo] = peak.DetectionType;
+                }
             }
         }
 
@@ -195,7 +219,7 @@ namespace FlashLFQ
                     orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
 
                 foreach (var file in rawFiles)
-                {
+                {  
                     double intensity = GetIntensity(file);
                     str.Append(intensity + "\t");
                 }

@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace FlashLFQ
+﻿namespace MassSpectrometry
 {
     /// <summary>
-    /// An IIndexedMzPeak represents information that exists in a single mass spectrometric scan 
+    /// An IIndexedPeak represents information that exists in a single mass spectrometric scan 
     /// E.g., a single m/z peak
     /// </summary>
-    public interface IIndexedMzPeak
+    public interface IIndexedPeak
     {
         public double Intensity { get; }
         public double RetentionTime { get; }
@@ -19,6 +13,9 @@ namespace FlashLFQ
         /// (i.e., for indexing MS1 peaks, the array only contains MS1 scans)
         /// </summary>
         public int ZeroBasedScanIndex { get; }
-        public double Mz { get; }
+        /// <summary>
+        /// Represents the mass, either as m/z or a neutral mass, depending on the context
+        /// </summary>
+        public double M { get; }
     }
 }
