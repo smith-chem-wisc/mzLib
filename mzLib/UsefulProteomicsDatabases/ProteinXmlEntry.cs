@@ -9,6 +9,7 @@ using Omics.Modifications;
 using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
 using System.Data;
+using Proteomics.ProteolyticDigestion;
 
 namespace UsefulProteomicsDatabases
 {
@@ -16,9 +17,9 @@ namespace UsefulProteomicsDatabases
     {
         private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
         public string DatasetEntryTag { get; private set; }
-        public string CreatedEntryTag { get; private set; }
-        public string ModifiedEntryTag { get; private set; }
-        public string VersionEntryTag { get; private set; }
+        public string DatabaseCreatedEntryTag { get; private set; }
+        public string DatabaseModifiedEntryTag { get; private set; }
+        public string DatabaseVersionEntryTag { get; private set; }
         public string XmlnsEntryTag { get; private set; }
         public string Accession { get; private set; }
         public string Name { get; private set; }
@@ -49,7 +50,7 @@ namespace UsefulProteomicsDatabases
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
-
+        public UniProtSequenceAttributes SequenceAttributes { get; set; } = null; // this is used to store the sequence attributes from the <sequence> element, if present
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
 
@@ -154,7 +155,7 @@ namespace UsefulProteomicsDatabases
                     break;
 
                 case "sequence":
-                    Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+                    ParseSequenceAttributes(xml);
                     break;
             }
         }
@@ -166,12 +167,118 @@ namespace UsefulProteomicsDatabases
         private void ParseEntryAttributes(XmlReader xml)
         {
             DatasetEntryTag = xml.GetAttribute("dataset");
-            CreatedEntryTag = xml.GetAttribute("created");
-            ModifiedEntryTag = xml.GetAttribute("modified");
-            VersionEntryTag = xml.GetAttribute("version");
+            DatabaseCreatedEntryTag = xml.GetAttribute("created");
+            DatabaseModifiedEntryTag = xml.GetAttribute("modified");
+            DatabaseVersionEntryTag = xml.GetAttribute("version");
             XmlnsEntryTag = xml.GetAttribute("xmlns");
         }
+        /// <summary>
+        /// Parses some attributes of a &lt;sequence&gt; XML element and assigns their values to the corresponding properties of the ProteinXmlEntry.
+        /// Note: the Length and Mass of the sequence are computed based on the sequence string after parsing it.
+        /// 
+        /// Attribute definitions:
+        /// - length: (string) The length of the protein sequence.
+        /// - mass: (string) The mass of the protein sequence.
+        /// - checksum: (string) The checksum value for the sequence.
+        /// - modified: (string) The date the sequence was last modified.
+        /// - version: (string) The version of the sequence.
+        /// - precursor: (string) Indicates if the sequence is a precursor.
+        /// - fragment: (FragmentType) Indicates the type of fragment (unspecified, single, multiple).
+        /// </summary>
+        private void ParseSequenceAttributes(XmlReader xml)
+        {
+            string checksumAttr = xml.GetAttribute("checksum");
+            string modifiedAttr = xml.GetAttribute("modified");
+            string sequenceVersionAttribute = xml.GetAttribute("version");
+            string precursorAttr = xml.GetAttribute("precursor");
+            string fragmentAttrString = xml.GetAttribute("fragment");
 
+            string checksum = string.IsNullOrEmpty(checksumAttr) ? "" : checksumAttr;
+            DateTime entryModified = ParseModifiedDate(modifiedAttr);
+            int sequenceVersion = ParseSequenceVersion(sequenceVersionAttribute);
+            bool isPrecursor = ParseIsPrecursor(precursorAttr);
+            UniProtSequenceAttributes.FragmentType fragment = ParseFragmentType(fragmentAttrString);
+
+            // Read sequence and compute length/mass
+            Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+            int length = Sequence.Length;
+            int mass = ComputeSequenceMass(Sequence);
+
+            SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment);
+
+        }
+        // Helper method to parse the modified date attribute, with fallback to DateTime.Now if parsing fails.
+        /// <summary>
+        /// Parses the modified date attribute from the sequence element.
+        /// Returns DateTime.Now if parsing fails or the attribute is missing.
+        /// </summary>
+        private static DateTime ParseModifiedDate(string modifiedAttr)
+        {
+            if (!string.IsNullOrEmpty(modifiedAttr))
+            {
+                try
+                {
+                    return DateTime.ParseExact(modifiedAttr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                }
+                catch
+                {
+                    // Parsing failed; falling back to current date.
+                    System.Diagnostics.Trace.TraceWarning($"Warning: Failed to parse modified date '{modifiedAttr}'. Using DateTime.Now.");
+                }
+            }
+            return DateTime.Now;
+        }
+
+        // Helper method to parse the sequence version attribute.
+        /// <summary>
+        /// Parses the version attribute from the sequence element.
+        /// Returns -1 if parsing fails or the attribute is missing.
+        /// </summary>
+        private static int ParseSequenceVersion(string versionAttr)
+        {
+            if (int.TryParse(versionAttr, out int version))
+            {
+                return version;
+            }
+            return -1;
+        }
+
+        // Helper method to parse the precursor attribute.
+        /// <summary>
+        /// Parses the precursor attribute from the sequence element.
+        /// Returns false if the attribute is missing or not "true".
+        /// </summary>
+        private static bool ParseIsPrecursor(string precursorAttr)
+        {
+            return !string.IsNullOrEmpty(precursorAttr) && precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Helper method to parse the fragment type attribute.
+        /// <summary>
+        /// Parses the fragment attribute from the sequence element.
+        /// Returns FragmentType.unspecified if parsing fails or the attribute is missing.
+        /// </summary>
+        private static UniProtSequenceAttributes.FragmentType ParseFragmentType(string fragmentAttr)
+        {
+            if (!string.IsNullOrEmpty(fragmentAttr) &&
+                Enum.TryParse(fragmentAttr, true, out UniProtSequenceAttributes.FragmentType fragment))
+            {
+                return fragment;
+            }
+            return UniProtSequenceAttributes.FragmentType.unspecified;
+        }
+
+        // Helper method to compute the monoisotopic mass of a sequence.
+        /// <summary>
+        /// Computes the monoisotopic mass of the given sequence.
+        /// Returns 0 if the sequence is empty.
+        /// </summary>
+        private static int ComputeSequenceMass(string sequence)
+        {
+            if (string.IsNullOrEmpty(sequence))
+                return 0;
+            return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+        }
         /// <summary>
         /// Finish parsing at the end of an element
         /// </summary>
@@ -253,7 +360,7 @@ namespace UsefulProteomicsDatabases
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
-                    false, DatasetEntryTag, CreatedEntryTag, ModifiedEntryTag, VersionEntryTag, XmlnsEntryTag);
+                    false, DatasetEntryTag, DatabaseCreatedEntryTag, DatabaseModifiedEntryTag, DatabaseVersionEntryTag, XmlnsEntryTag, SequenceAttributes);
             }
             Clear();
             return result;
@@ -455,14 +562,15 @@ namespace UsefulProteomicsDatabases
         private void Clear()
         {
             DatasetEntryTag = null;
-            CreatedEntryTag = null;
-            ModifiedEntryTag = null;
-            VersionEntryTag = null;
+            DatabaseCreatedEntryTag = null;
+            DatabaseModifiedEntryTag = null;
+            DatabaseVersionEntryTag = null;
             XmlnsEntryTag = null;
             Accession = null;
             Name = null;
             FullName = null;
             Sequence = null;
+            SequenceAttributes = null;
             Organism = null;
             FeatureType = null;
             FeatureDescription = null;
