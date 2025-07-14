@@ -6,16 +6,16 @@ namespace MassSpectrometry
     public class IndexedMassSpectralPeak : IIndexedPeak
     {
         public int ZeroBasedScanIndex { get; init; }
-        public double Mz { get; init; }
-        public double M => Mz;
-        public double RetentionTime { get; init; }
-        public double Intensity { get; init; }
-        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedMs1ScanIndex, double retentionTime)
+        public float Mz { get; init; }
+        public float M => Mz;
+        public float RetentionTime { get; init; }
+        public float Intensity { get; init; }
+        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedScanIndex, double retentionTime)
         {
-            this.Mz = mz;
-            this.ZeroBasedScanIndex = zeroBasedMs1ScanIndex;
-            this.RetentionTime = retentionTime;
-            this.Intensity = intensity;
+            this.Mz = (float)mz;
+            this.ZeroBasedScanIndex = zeroBasedScanIndex;
+            this.RetentionTime = (float)retentionTime;
+            this.Intensity = (float)intensity;
         }
         public override bool Equals(object obj)
         {
