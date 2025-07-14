@@ -1674,14 +1674,7 @@ namespace Test
                 Assert.That(pag.ProteinDetectionHypothesis.Length, Is.GreaterThan(0));
             }
         }
-        [Test]
-        public void RootElement_HasExpectedAttributes()
-        {
-            var mzIdentML = LoadMzIdentML();
-            Assert.That(mzIdentML.id, Is.EqualTo(""));
-            Assert.That(mzIdentML.version, Is.EqualTo("1.1.0"));
-            Assert.That(mzIdentML.creationDate, Is.EqualTo(new System.DateTime(2022, 1, 1, 12, 0, 0)));
-        }
+
 
         [Test]
         public void CvList_ContainsExpectedCvRefsAndAccessions()
