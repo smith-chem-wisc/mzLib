@@ -68,5 +68,6 @@ namespace Test
             var expectedFullName = "tRNA-aminoacylation cofactor ARC1";
             Assert.That(mzid.ProteinFullName(0, 0), Is.EqualTo(expectedFullName));
         }
+        
     }
 }
