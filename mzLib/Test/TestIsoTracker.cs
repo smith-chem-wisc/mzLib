@@ -98,11 +98,11 @@ namespace Test
             // Arrange
             var peaks = new List<IIndexedPeak>
             {
-                new IndexedMassSpectralPeak(100, 200, 0, 1.0),
-                new IndexedMassSpectralPeak(100, 210, 1, 2.0),
-                new IndexedMassSpectralPeak(100, 220, 2, 3.0),
-                new IndexedMassSpectralPeak(100, 230, 3, 4.0),
-                new IndexedMassSpectralPeak(100, 240, 4, 5.0)
+                new IndexedMassSpectralPeak(100, 200, 0, 1.0f),
+                new IndexedMassSpectralPeak(100, 210, 1, 2.0f),
+                new IndexedMassSpectralPeak(100, 220, 2, 3.0f),
+                new IndexedMassSpectralPeak(100, 230, 3, 4.0f),
+                new IndexedMassSpectralPeak(100, 240, 4, 5.0f)
             };
             double peakFindingMass = 100.0;
             var spectraFile = new SpectraFileInfo("path/to/file.raw", "Condition", 1, 1, 1);
@@ -235,7 +235,7 @@ namespace Test
             List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
             {
-                peaks.Add(new IndexedMassSpectralPeak(mz: peakFindingMass, intensity: peak.Density(timesPoints[k]), 0, retentionTime: timesPoints[k]));
+                peaks.Add(new IndexedMassSpectralPeak(mz:peakFindingMass, intensity: peak.Density(timesPoints[k]), 0, retentionTime: timesPoints[k]));
             }
 
             var spectraFile = new SpectraFileInfo("test.raw", "TestCondition", 1, 1, 1);
@@ -1285,7 +1285,7 @@ namespace Test
 
         // Test the IsoTracker searchTarget
         [Test]
-        public static void TestRun_SearchginTarget()
+        public static void TestRun_SearchingTarget()
         {
             //Description: we will upload a motifList for IsoTracker
             //Only peptide with motif on N can be searched
