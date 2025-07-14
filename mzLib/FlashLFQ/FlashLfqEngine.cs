@@ -188,6 +188,12 @@ namespace FlashLFQ
             _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
+            List<float> targetMzs = new List<float>();
+            if (FlashParams.IsoTracker) // If IsoTracker is on, we need to set the target mass for pruning
+            {
+                targetMzs = GetTargetMz();
+            }
+
             // quantify each file
             foreach (var spectraFile in SpectraFileInfoList)
             {
@@ -205,15 +211,24 @@ namespace FlashLFQ
                 QuantifyMs2IdentifiedPeptides(spectraFile);
 
                 // Retain, Serialize and Clear, or Clear the indexing engine
-                if(!FlashParams.IsoTracker) // If IsoTracker is on, we don't need to serialize the index for each file. The indexed peaks are retained
+                // If IsoTracker is on, we don't need to serialize the index for each file. The indexed peaks are retained.
+                if (FlashParams.IsoTracker) 
                 {
-                    if (FlashParams.MatchBetweenRuns) // If IsoTracker is off, and MBR is on then we need to serialize the index before clearing the array.
-                        IndexingEngineDictionary[spectraFile].SerializeIndex();
-                    else
-                        IndexingEngineDictionary[spectraFile].ClearIndex(); // If IsoTracker and MBR are off, we simply clear the indexing engine array to save memory
+                    if (FlashParams.MatchBetweenRuns) // If MBR is on then we need to serialize the index.
+                    {
+                        IndexingEngineDictionary[spectraFile].SerializeIndex(); 
+                    }
+                    IndexingEngineDictionary[spectraFile].PruneIndex(targetMzs); // Remove some unused data from the index to save memory for IsoTracker
                 }
-
-
+                // If IsoTracker is off, we  need to clear the indexing engine array to save memory.
+                else
+                {
+                    if (FlashParams.MatchBetweenRuns) // If MBR is turned on then we need to serialize the index before clearing the array.
+                    {
+                        IndexingEngineDictionary[spectraFile].SerializeIndex(); 
+                    }
+                    IndexingEngineDictionary[spectraFile].ClearIndex();
+                }
                 // error checking function
                 // handles features with multiple identifying scans and scans that are associated with more than one feature
                 RunErrorChecking(spectraFile);
@@ -253,10 +268,7 @@ namespace FlashLFQ
                     }
 
                     //Deserialize the relevant index prior to MBR
-                    if (!FlashParams.IsoTracker) //If IsoTracker is on, there is no serializer then we don't need to deserialize the index
-                    {
-                        IndexingEngineDictionary[spectraFile].DeserializeIndex();
-                    }
+                    IndexingEngineDictionary[spectraFile].DeserializeIndex();
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
                     IndexingEngineDictionary[spectraFile].ClearIndex();
 
@@ -359,7 +371,7 @@ namespace FlashLFQ
 
                 ChemicalFormula formula = id.OptionalChemicalFormula;
 
-                var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundance)>();
+                var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundancence)>();
 
                 if(formula is null)
                 {
@@ -495,7 +507,7 @@ namespace FlashLFQ
                                     MissedScansAllowed)
                                 .OrderBy(p => p.RetentionTime)
                                 .ToList();
-
+                            
                             // filter by smaller mass tolerance
                             xic.RemoveAll(p => 
                                 !ppmTolerance.Within(p.M.ToMass(chargeState), identification.PeakfindingMass));
@@ -2148,6 +2160,45 @@ namespace FlashLFQ
             }
             return true;
         }
+
+        /// <summary>
+        /// Calculates the target m/z (mass-to-charge) values based on isotopic distributions and modifications for the
+        /// peptides in the current dataset.
+        /// </summary>
+        /// <returns>A list of doubles representing the calculated m/z values of interest.</returns>
+        private List<float> GetTargetMz()
+        {
+            HashSet<float> interestedMass = new HashSet<float>();
+            foreach (var peptide in ModifiedSequenceToIsotopicDistribution)
+            {
+                var id = _allIdentifications.First(p => p.ModifiedSequence == peptide.Key);
+                List<float> massesOfInterest = peptide.Value.Select(p => (float)(p.massShift + id.MonoisotopicMass)).ToList();
+                var minMass = massesOfInterest.Min();
+                var maxMass = massesOfInterest.Max();
+                massesOfInterest.Add(minMass - (float)Constants.C13MinusC12); // Except the isotopic distribution, we also add three mass (one before the lowest, two over the biggest)
+                massesOfInterest.Add(maxMass + (float)Constants.C13MinusC12);
+                massesOfInterest.Add(maxMass + 2f * (float)Constants.C13MinusC12);
+                interestedMass.AddRange(massesOfInterest);
+            }
+            return GetAllPossibleMzs(interestedMass);
+        }
+
+        // Helper method for float version
+        private List<float> GetAllPossibleMzs(HashSet<float> targetMasses)
+        {
+            HashSet<float> targetMzs = new();
+            foreach (var mass in targetMasses)
+            {
+                _chargeStates.ForEach(chargeState =>
+                {
+                    targetMzs.Add(mass.ToMz(chargeState));
+                });
+            }
+            var sortedTargetMzs = targetMzs.ToList();
+            sortedTargetMzs.Sort();
+            return sortedTargetMzs;
+        }
+        
     }
 
 }
