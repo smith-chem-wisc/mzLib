@@ -52,9 +52,9 @@ namespace MassSpectrometry
             }
             else
             {
-                peakRts = xic.Peaks.Select(p => p.RetentionTime).ToArray();
+                peakRts = xic.Peaks.Select(p => (float)p.RetentionTime).ToArray();
             }
-            var peakIntensities = xic.Peaks.Select(p => p.Intensity).ToArray();
+            var peakIntensities = xic.Peaks.Select(p => (float)p.Intensity).ToArray();
             xic.XYData = GetXicSplineData(peakRts, peakIntensities, start, end);
         }
 
