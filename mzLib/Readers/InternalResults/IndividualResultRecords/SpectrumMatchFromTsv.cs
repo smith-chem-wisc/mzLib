@@ -170,8 +170,8 @@ namespace Readers
             NextResidue = (parsedHeader[SpectrumMatchFromTsvHeader.NextResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]].Trim();
             QValueNotch = (parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch]].Trim(), CultureInfo.InvariantCulture);
             RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? -1 : double.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture, out double rt) ? rt : -1;
-            PEP = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
-            PEP_QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
+            PEP = (parsedHeader[SpectrumMatchFromTsvHeader.PEP] < 0) ? double.NaN : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
+            PEP_QValue = (parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue] < 0) ? double.NaN : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
             OneOverK0 = (parsedHeader[SpectrumMatchFromTsvHeader.OneOverK0] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.OneOverK0]].Trim(), CultureInfo.InvariantCulture);
             VariantCrossingIons = FindVariantCrossingIons();
             SpectralAngle = (parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle] < 0)
