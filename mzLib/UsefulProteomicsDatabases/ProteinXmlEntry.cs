@@ -15,7 +15,6 @@ namespace UsefulProteomicsDatabases
     public class ProteinXmlEntry
     {
         private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
-
         public string DatasetEntryTag { get; private set; }
         public string CreatedEntryTag { get; private set; }
         public string ModifiedEntryTag { get; private set; }
