@@ -291,7 +291,6 @@ namespace Test.FileReadingTests
             Assert.That(modDict[104].Count == 1);
             Assert.That(modDict[104].Contains("UniProt:N5-methylglutamine on Q"));
 
-
             // psm with two mods on the same amino acid
             string fullSeq = "[Common Fixed:Carbamidomethyl on C]|[UniProt:N-acetylserine on S]KPRKIEEIKDFLLTARRKDAKSVKIKKNKDNVKFK";
             modDict = SpectrumMatchFromTsv.ParseModifications(fullSeq);
@@ -300,6 +299,16 @@ namespace Test.FileReadingTests
             Assert.That(modDict[0].Count == 2);
             Assert.That(modDict[0].Contains("Common Fixed:Carbamidomethyl on C"));
             Assert.That(modDict[0].Contains("UniProt:N-acetylserine on S"));
+
+            // test if the locations of mods are correct
+            // the index is one based here
+            string seq = "NM[Common Variable: Oxidation on M]ITGTSQADC[Common Fixed: Carbamidomethyl on C]AILIIAGGVGEFEAGISK";
+            modDict = SpectrumMatchFromTsv.ParseModifications(seq);
+            Assert.That(modDict.Count == 2);
+            Assert.That(modDict.ContainsKey(2) && modDict.ContainsKey(11));
+            Assert.That(modDict[2].Count == 1 && modDict[11].Count == 1);
+            Assert.That(modDict[2].Contains("Common Variable: Oxidation on M"));
+            Assert.That(modDict[11].Contains("Common Fixed: Carbamidomethyl on C"));
         }
 
         [Test]
