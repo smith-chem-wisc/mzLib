@@ -85,6 +85,31 @@ namespace Test
             cubicSpline2.SetXicSplineXYData(xic);
             Assert.That(xic.XYData.Min(xy => xy.Item1), Is.EqualTo(0.9).Within(0.0000001));
             Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(1.95).Within(0.0000001)); // Because we lost one numPoint, then last point will be 1.95 instead of original value 2.0.
+
+            //ensure that add peaks works correctly
+            var peakList1 = new List<IIndexedPeak>();
+            double[] intensityMultipliers = { 1, 3, 1 };
+            for (int i = 0; i < intensityMultipliers.Length; i++)
+            {
+                peakList1.Add(new IndexedMassSpectralPeak(intensity: 1e5 * intensityMultipliers[i], retentionTime: 1 + i / 10, zeroBasedScanIndex: i + 5, mz: 500.0));
+            }
+            var xic1 = new ExtractedIonChromatogram(peakList1);
+            int numberOfPeaksToAdd = 2;
+            var linearSpline2 = new XicLinearSpline(1, numberOfPeaksToAdd, 1);
+            linearSpline2.SetXicSplineXYData(xic1, cycle: true);
+            Assert.That(xic1.XYData.Length, Is.EqualTo(7));
+            for (int i = 0; i < numberOfPeaksToAdd; i++)
+            {
+                Assert.That(xic1.XYData[i].Item2, Is.EqualTo(0)); 
+            }
+            for (int i = xic1.XYData.Length - 1; i > xic1.Peaks.Count + numberOfPeaksToAdd - 1; i--)
+            {
+                Assert.That(xic1.XYData[i].Item2, Is.EqualTo(0));
+            }
+            foreach(var intensity in xic1.Peaks.Select(p => p.Intensity))
+            {
+                Assert.That(xic1.XYData.Any(xy => xy.Item2 == intensity), Is.True, "Intensity " + intensity + " not found in XYData.");
+            }
         }
 
         [Test]
