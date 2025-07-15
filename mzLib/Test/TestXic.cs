@@ -106,9 +106,9 @@ namespace Test
             {
                 Assert.That(xic1.XYData[i].Item2, Is.EqualTo(0));
             }
-            foreach(var intensity in xic1.Peaks.Select(p => p.Intensity))
+            foreach(var peak in xic1.Peaks)
             {
-                Assert.That(xic1.XYData.Any(xy => xy.Item2 == intensity), Is.True, "Intensity " + intensity + " not found in XYData.");
+                Assert.That(xic1.XYData.First(xy => xy.Item1 == peak.ZeroBasedScanIndex).Item2 == peak.Intensity, Is.True);
             }
         }
 
