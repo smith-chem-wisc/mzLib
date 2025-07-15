@@ -16,29 +16,22 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Chemistry;
-using MzLibUtil;
 using System;
-using System.Collections.Concurrent;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
-    // TODO: Define scope of class 
-    // Class scope is to provide to the data loaded from the DataFile. 
-
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public abstract class MsDataFile
+    public abstract class MsDataFile : IEnumerable<MsDataScan>
     {
-        public MsDataScan[] Scans { get; set; }
+        public MsDataScan[] Scans { get; protected set; }
         public SourceFile SourceFile { get; set; }
-        public int NumSpectra => Scans.Length;
+        public int NumSpectra => Scans?.Length ?? 0;
         public string FilePath { get; }
-
         protected MsDataFile(int numSpectra, SourceFile sourceFile)
         {
             Scans = new MsDataScan[numSpectra];
@@ -96,7 +89,7 @@ namespace MassSpectrometry
             for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
-                if (scan != null && scan.MsnOrder == 1)
+                if (scan.MsnOrder == 1)
                 {
                     yield return scan;
                 }
@@ -107,7 +100,8 @@ namespace MassSpectrometry
         {
             if (!CheckIfScansLoaded())
                 LoadAllStaticData();
-            return Scans.SingleOrDefault(i => i.OneBasedScanNumber == scanNumber);
+
+            return Scans[scanNumber - 1];
         }
 
         public virtual IEnumerable<MsDataScan> GetMsScansInIndexRange(int firstSpectrumNumber, int lastSpectrumNumber)
@@ -164,11 +158,6 @@ namespace MassSpectrometry
             return NumSpectra;
         }
 
-        public virtual IEnumerator<MsDataScan> GetEnumerator()
-        {
-            return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
-        }
-
         public virtual int[] GetMsOrderByScanInDynamicConnection()
         {
             throw new NotImplementedException();
@@ -180,5 +169,17 @@ namespace MassSpectrometry
         {
             return (Scans != null && Scans.Length > 0);
         }
+
+        public IEnumerator<MsDataScan> GetEnumerator()
+        {
+            return Scans.Where(scan => scan is not null).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
+
+    
 }

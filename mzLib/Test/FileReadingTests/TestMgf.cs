@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Readers;
 using MzLibUtil;
 using Stopwatch = System.Diagnostics.Stopwatch;

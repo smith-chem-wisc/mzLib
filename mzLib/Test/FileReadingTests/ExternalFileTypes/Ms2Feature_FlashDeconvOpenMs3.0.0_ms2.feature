@@ -1,0 +1,2 @@
+Spec_ID	Fraction_ID	File_name	Scans	MS_one_ID	MS_one_scans	Precursor_mass	Precursor_intensity	Fraction_feature_ID	Fraction_feature_intensity	Fraction_feature_score	Fraction_feature_time_apex	Sample_feature_ID	Sample_feature_intensity
+-1	0	D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML	-1	-1	-1	11299.4	813423	16533	813423	-1000	5392.7	16533	813423

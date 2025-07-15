@@ -1,12 +1,11 @@
 ﻿using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Diagnostics.CodeAnalysis;
 using MzLibUtil;
-using System.IO;
-using System.Linq;
 using System;
 using MassSpectrometry;
 using System.Collections.Generic;
-
+using Chemistry;
 
 namespace Test
 {
@@ -14,6 +13,42 @@ namespace Test
     [ExcludeFromCodeCoverage]
     public class TestClassExtensions
     {
+
+        [Test]
+        public static void TestGetClosestIndex()
+        {
+            double[] sortedArray = {1, 2, 3, 4.5, 5 };
+            // First, make sure default binary search works how I think it does
+            Assert.AreEqual(Array.BinarySearch(sortedArray, 3.1), ~3);
+
+            // Then, the new extension
+            Assert.AreEqual(sortedArray.GetClosestIndex(3.1), 2);
+            Assert.AreEqual(sortedArray.GetClosestValue(3.1), 3);
+
+            // What happens when the value is greater than the max
+            Assert.AreEqual(sortedArray.GetClosestIndex(5.06), 4);
+            // Less than the min?
+            Assert.AreEqual(sortedArray.GetClosestIndex(-1), 0);
+
+            // Test different search options
+            Assert.AreEqual(sortedArray.GetClosestIndex(4.75, ArraySearchOption.Next), 4);
+            Assert.AreEqual(sortedArray.GetClosestIndex(4.75, ArraySearchOption.Previous), 3);
+
+            double[] smallerSortedArray = { 1, 2 };
+
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex( -1), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(0), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(1), 0);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(1.9), 1);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(Double.MaxValue), 1);
+
+            double[] smallestSortedArray = { 1 };
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(-1), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(0), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(1), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(Double.MaxValue), 0);
+        }
+
         [Test]
         public static void TestBoxCarSmooth()
         {
@@ -59,6 +94,49 @@ namespace Test
             Assert.That(!differentInt.AllSame());
             Assert.That(!differentDouble.AllSame());
             Assert.That(!differentSpectrum.AllSame());
+        }
+
+        [Test]
+        [TestCase(1874.28, 373.8487, -5)]
+        [TestCase(1874.28, 467.5627, -4)]
+        [TestCase(1874.28, 623.7527, -3)]
+        [TestCase(1874.28, 936.1327, -2)]
+        [TestCase(1874.28, 1873.273, -1)]
+        [TestCase(1874.28, 375.8633, 5)]
+        [TestCase(1874.28, 469.5773, 4)]
+        [TestCase(1874.28, 625.7673, 3)]
+        [TestCase(1874.28, 938.1473, 2)]
+        [TestCase(1874.28, 1875.287, 1)]
+
+        public static void TestToMzAndMass(double mass, double mz, int charge)
+        {
+            Assert.That(mass, Is.EqualTo(mz.ToMass(charge)).Within(0.01));
+            Assert.That(mz, Is.EqualTo(mass.ToMz(charge)).Within(0.01));
+        }
+
+        [Test]
+        [TestCase("tacos", null)]
+        [TestCase("1", 1)]
+        [TestCase("-16", -16)]
+        [TestCase("1.25", null)]
+        [TestCase("-16.345", null)]
+        public static void TestToNullableInt(string input, int? expected)
+        {
+            int? result = input.ToNullableInt();
+            NUnit.Framework.Assert.That(result, Is.EqualTo(expected));
+        }
+
+        [Test]
+        [TestCase("tacos", null)]
+        [TestCase("1", 1)]
+        [TestCase("-16", -16)]
+        [TestCase("1.25", 1.25)]
+        [TestCase("-16.345", -16.345)]
+        [TestCase("-16.345.364", null)]
+        public static void TestToNullableDouble(string input, double? expected)
+        {
+            double? result = input.ToNullableDouble();
+            NUnit.Framework.Assert.That(result, Is.EqualTo(expected));
         }
     }
 }

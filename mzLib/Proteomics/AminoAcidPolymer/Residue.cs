@@ -25,7 +25,7 @@ namespace Proteomics.AminoAcidPolymer
     {
         public static readonly double[] ResidueMonoisotopicMass;
 
-        private static readonly Dictionary<string, Residue> ResiduesDictionary;
+        public static readonly Dictionary<string, Residue> ResiduesDictionary;
         private static readonly Residue[] ResiduesByLetter;
 
         static Residue()

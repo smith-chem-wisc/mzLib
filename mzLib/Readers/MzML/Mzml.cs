@@ -18,17 +18,12 @@
 
 using MassSpectrometry;
 using MzLibUtil;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Xml;
 using UsefulProteomicsDatabases;
 
@@ -160,21 +155,19 @@ namespace Readers
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-            
-            SourceFile = GetSourceFile(); 
+            SourceFile = GetSourceFile();
 
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             MsDataScan[] scans = new MsDataScan[numSpecta];
 
-            Parallel.ForEach(Partitioner.Create(0, numSpecta), new ParallelOptions 
-                { MaxDegreeOfParallelism = maxThreads }, fff =>
+            Parallel.ForEach(Partitioner.Create(0, numSpecta), new ParallelOptions
+            { MaxDegreeOfParallelism = maxThreads }, fff =>
+        {
+            for (int i = fff.Item1; i < fff.Item2; i++)
             {
-                for (int i = fff.Item1; i < fff.Item2; i++)
-                {
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
-                }
-            });
+                scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
+            }
+        });
 
             scans = scans.Where(s => s.MassSpectrum != null).ToArray();
 
@@ -236,7 +229,9 @@ namespace Readers
         public override SourceFile GetSourceFile()
         {
             SourceFile sourceFile;
-            if (_mzMLConnection.fileDescription.sourceFileList != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0] != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0].cvParam != null)
+            if (_mzMLConnection.fileDescription.sourceFileList != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile
+                != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0] != null
+                && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0].cvParam != null)
             {
                 var simpler = _mzMLConnection.fileDescription.sourceFileList.sourceFile[0];
                 string nativeIdFormat = null;
@@ -689,7 +684,6 @@ namespace Readers
                 throw new InvalidDataException();
             }
 
-            Loaders.LoadElements();
             reader = new StreamReader(FilePath);
 
             ScanNumberToByteOffset = new Dictionary<int, long>();

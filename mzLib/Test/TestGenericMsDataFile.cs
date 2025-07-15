@@ -11,6 +11,7 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics; 
 using Readers;
 using Proteomics.ProteolyticDigestion;
+using Omics.Modifications;
 
 namespace Test;
 
@@ -27,8 +28,6 @@ public class TestGenericMsDataFile
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        UsefulProteomicsDatabases.Loaders.LoadElements();
-
         double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
         double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
 
@@ -79,6 +78,17 @@ public class TestGenericMsDataFile
         {
             gFile.InitiateDynamicConnection();
         }); 
+    }
+
+    [Test]
+    public static void TestXicExtraction()
+    {
+        string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
+        var reader = MsDataFileReader.GetDataFile(dataFilePath);
+        reader.LoadAllStaticData();
+        var peptide = new PeptideWithSetModifications("KAPAGGAADAAAK", new Dictionary<string, Modification>());
+        var xic = reader.ExtractIonChromatogram(peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
+        Assert.That(xic.Peaks.Count(p => p.Intensity > 0) == 4);
     }
 
     private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)

@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
 using SpectralAveraging;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
 
 namespace Test.AveragingTests
 {
@@ -25,11 +25,11 @@ namespace Test.AveragingTests
         public static void OneTimeSetup()
         {
             Parameters = new SpectralAveragingParameters();
-            OutputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, @"AveragingTestData");
+            OutputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "AveragingTests", "TestData");
             SpectraPath = Path.Combine(OutputDirectory, "TDYeastFractionMS1.mzML");
             Scans = MsDataFileReader.GetDataFile(SpectraPath).GetAllScansList().Take(50).ToList();
 
-            Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScansWithOverlap;
+            Parameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScans;
             DdaCompositeSpectra = SpectraFileAveraging.AverageSpectraFile(Scans, Parameters);
             Assert.That(DdaCompositeSpectra.Length > 1);
         }
@@ -114,6 +114,13 @@ namespace Test.AveragingTests
             Parameters.OutputType = OutputType.MzML;
             string customDestinationDirectory = Path.Combine(OutputDirectory, "NewTestingDirectory");
             string customDestinationDirectory2 = Path.Combine(OutputDirectory, "NewTestingDirectory2");
+
+            // clean up from any previous tests, if they exist
+            if (Directory.Exists(customDestinationDirectory))
+            {
+                Directory.Delete(customDestinationDirectory, true);
+                Directory.CreateDirectory(customDestinationDirectory);
+            }
             Directory.CreateDirectory(customDestinationDirectory);
             string customName = "AveragedSpectra";
 
@@ -131,7 +138,7 @@ namespace Test.AveragingTests
             files = Directory.GetFiles(customDestinationDirectory);
             Assert.That(files.Length == 2);
             Assert.That(files.Contains(Path.Combine(customDestinationDirectory, customName + ".mzML")));
-            
+
             // custom destination, custom name : directory not created before run
             AveragedSpectraWriter.WriteAveragedScans(DdaCompositeSpectra, Parameters, SpectraPath,
                 customDestinationDirectory2, customName);
@@ -148,7 +155,7 @@ namespace Test.AveragingTests
             Directory.Delete(customDestinationDirectory2, true);
         }
 
-       
+
 
     }
 }

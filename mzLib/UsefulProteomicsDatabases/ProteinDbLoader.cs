@@ -1,4 +1,5 @@
-﻿using Proteomics;
+﻿using Easy.Common.Extensions;
+using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
@@ -9,6 +10,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Omics.BioPolymer;
+using Omics.Modifications;
 
 namespace UsefulProteomicsDatabases
 {
@@ -55,7 +58,7 @@ namespace UsefulProteomicsDatabases
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false)
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -70,13 +73,22 @@ namespace UsefulProteomicsDatabases
             }
             List<Protein> targets = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
+
+            string newProteinDbLocation = proteinDbLocation;
+
+            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
+            if (proteinDbLocation.EndsWith(".gz"))
+            {
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
+                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using FileStream outputFileStream = File.Create(newProteinDbLocation);
+                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
+                decompressor.CopyTo(outputFileStream);
+            }
+
+            using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
-
-                Stream uniprotXmlFileStream = proteinDbLocation.EndsWith("gz") ? // allow for .bgz and .tgz, which are (rarely) used
-                    (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
-                    stream;
 
                 ProteinXmlEntry block = new ProteinXmlEntry();
 
@@ -100,13 +112,19 @@ namespace UsefulProteomicsDatabases
                                 targets.Add(newProtein);
                             }
                         }
+
                     }
                 }
             }
 
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
+            if (newProteinDbLocation != proteinDbLocation)
+            {
+                File.Delete(newProteinDbLocation);
+            }
+
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
+            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
         }
 
         /// <summary>
@@ -164,7 +182,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
-            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false)
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -179,12 +197,20 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> targets = new List<Protein>();
 
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                Stream fastaFileStream = proteinDbLocation.EndsWith("gz") ? // allow for .bgz and .tgz, which are (rarely) used
-                    (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
-                    stream;
+            string newProteinDbLocation = proteinDbLocation;
 
+            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
+            if (proteinDbLocation.EndsWith(".gz"))
+            {
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.fasta");
+                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using FileStream outputFileStream = File.Create(newProteinDbLocation);
+                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
+                decompressor.CopyTo(outputFileStream);
+            }
+
+            using (var fastaFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
                 StringBuilder sb = null;
                 StreamReader fasta = new StreamReader(fastaFileStream);
 
@@ -297,11 +323,17 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
+
+            if (newProteinDbLocation != proteinDbLocation)
+            {
+                File.Delete(newProteinDbLocation);
+            }
+
             if (!targets.Any())
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
 
@@ -326,11 +358,16 @@ namespace UsefulProteomicsDatabases
 
             foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
             {
+                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
+                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
+                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
+                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
+                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
                 HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
                 HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
                 HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
                 HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
-                HashSet<ProteolysisProduct> proteolysis = new HashSet<ProteolysisProduct>(proteins.Value.SelectMany(p => p.ProteolysisProducts));
+                HashSet<TruncationProduct> proteolysis = new HashSet<TruncationProduct>(proteins.Value.SelectMany(p => p.TruncationProducts));
                 HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
                 HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
                 HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
@@ -354,6 +391,7 @@ namespace UsefulProteomicsDatabases
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
                 yield return new Protein(
+
                     proteins.Key.Item2,
                     proteins.Key.Item1,
                     isContaminant: proteins.Key.Item3,
@@ -366,12 +404,17 @@ namespace UsefulProteomicsDatabases
                     databaseReferences: references.ToList(),
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList(),
-                    spliceSites: splices.ToList()
+                    spliceSites: splices.ToList(),
+                    dataset: datasets.FirstOrDefault(),
+                    created: createds.FirstOrDefault(),
+                    modified: modifieds.FirstOrDefault(),
+                    version: versions.FirstOrDefault(),
+                    xmlns: xmlnses.FirstOrDefault()
                     );
             }
         }
 
-        private static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
+        internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
         {
             string result = null;
             if (regex != null)
@@ -385,7 +428,7 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        private static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
+        internal static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
         {
             var mod_dict = new Dictionary<string, IList<Modification>>();
 
@@ -405,7 +448,7 @@ namespace UsefulProteomicsDatabases
             return mod_dict;
         }
 
-        private static Dictionary<string, Modification> GetModificationDictWithMotifs(IEnumerable<Modification> mods)
+        internal static Dictionary<string, Modification> GetModificationDictWithMotifs(IEnumerable<Modification> mods)
         {
             var mod_dict = new Dictionary<string, Modification>();
 

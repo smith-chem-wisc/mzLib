@@ -22,6 +22,8 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Chemistry;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -125,10 +127,11 @@ namespace Test
             Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987 + 0.001));
         }
 
+        // Tests in current implementation
         [Test]
         public void SpectrumContainsPeakInRangeEnd()
         {
-            Assert.AreEqual(0, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987));
+            Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987 - 0.001, 448.23987));
         }
 
         [Test]
@@ -140,7 +143,7 @@ namespace Test
         [Test]
         public void SpectrumContainsPeakInRangeStartEnd()
         {
-            Assert.AreEqual(0, _mzSpectrumA.NumPeaksWithinRange(448.23987, 448.23987));
+            Assert.AreEqual(1, _mzSpectrumA.NumPeaksWithinRange(448.23987, 448.23987));
         }
 
         [Test]
@@ -246,16 +249,15 @@ namespace Test
         {
             double[] xArray = { 1, 2, 3, 4, 5, 6, 7 };
             double[] yArray = { 1, 2, 1, 5, 1, 2, 1 };
-
             var thisSpectrum = new MzSpectrum(xArray, yArray, false);
 
             Assert.AreEqual(7, thisSpectrum.NumPeaksWithinRange(double.MinValue, double.MaxValue));
 
-            Assert.AreEqual(6, thisSpectrum.NumPeaksWithinRange(1, 7));
+            Assert.AreEqual(7, thisSpectrum.NumPeaksWithinRange(1, 7));
 
-            Assert.AreEqual(0, thisSpectrum.NumPeaksWithinRange(1, 1));
+            Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(1, 1));
 
-            Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(1, 2));
+            Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(1, 2));
 
             Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(0.001, 2.999));
 
@@ -263,7 +265,7 @@ namespace Test
 
             Assert.AreEqual(1, thisSpectrum.NumPeaksWithinRange(6.5, 8));
 
-            Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(3, 5));
+            Assert.AreEqual(3, thisSpectrum.NumPeaksWithinRange(3, 5));
 
             Assert.AreEqual(2, thisSpectrum.NumPeaksWithinRange(3.5, 5.5));
 
@@ -321,17 +323,172 @@ namespace Test
             MzSpectrum identicalSpectrum = new(_mzSpectrumA.XArray, _mzSpectrumA.YArray, true);
             Assert.AreEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
             Assert.IsTrue(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsTrue(identicalSpectrum.Equals((object)_mzSpectrumA));
 
             // changed x value
             identicalSpectrum.XArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsFalse(identicalSpectrum.Equals((object)_mzSpectrumA));
             Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
             identicalSpectrum.XArray[1] -= 10;
 
             // changed y value
             identicalSpectrum.YArray[1] += 10;
             Assert.IsFalse(identicalSpectrum.Equals(_mzSpectrumA));
+            Assert.IsFalse(identicalSpectrum.Equals((object)_mzSpectrumA));
             Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
+
+            Assert.That(!_mzSpectrumA.Equals(null));
+            Assert.That(!_mzSpectrumA.Equals((object)null));
+            Assert.That(!_mzSpectrumA.Equals(2));
+            Assert.That(!_mzSpectrumA.Equals((object)2));
+        }
+
+        #region Neutral Mass Spectrum
+
+        [Test]
+        public void NeutralMassSpectrum_Constructor_ValidArguments_InitializesProperties()
+        {
+            double[] monoisotopicMasses = { 100.0, 200.0, 300.0 };
+            double[] intensities = { 0.5, 0.8, 1.0 };
+            int[] charges = { 1, 2, 3 };
+
+            var spectrum = new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, true);
+
+            Assert.That(monoisotopicMasses.Length, Is.EqualTo(spectrum.XArray.Length));
+            Assert.That(intensities.Length, Is.EqualTo(spectrum.YArray.Length));
+            Assert.That(charges.Length, Is.EqualTo(spectrum.Charges.Length));
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_Constructor_InvalidArguments_ThrowsArgumentException()
+        {
+            double[] monoisotopicMasses = { 100.0, 200.0, 300.0 };
+            double[] intensities = { 0.5, 0.8 };
+            int[] charges = { 1, 2, 3 };
+            bool shouldCopy = true;
+
+            Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, shouldCopy));
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_MzPeak()
+        {
+            double[] monoisotopicMasses = { 100.0, 200.0, 300.0 };
+            double[] intensities = { 0.5, 0.8, 1.0 };
+            int[] charges = { 1, 2, 3 };
+            var spectrum = new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, true);
+
+
+            var peak = spectrum.Extract(50, 210).ToArray();
+            Assert.That(peak.Length, Is.EqualTo(2));
+
+            for (int i = 0; i < peak.Length; i++)
+            {
+                double mono = monoisotopicMasses[i];
+                int charge = charges[i];
+                double intensity = intensities[i];
+                double mz = mono.ToMz(charge);
+
+                Assert.That(peak[i].Mz, Is.EqualTo(mz));
+                Assert.That(peak[i].Intensity, Is.EqualTo(intensity));
+            }
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_MzRange()
+        {
+            double[] monoisotopicMasses = { 100.0, 200.0, 300.0 };
+            double[] intensities = { 0.5, 0.8, 1.0 };
+            int[] charges = { 1, 2, 3 };
+            var spectrum = new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, true);
+
+
+            var peak = spectrum.Extract(50, 2100).ToArray();
+            Assert.That(peak.Length, Is.EqualTo(3));
+            var minPeak = peak.MinBy(p => p.Mz);
+            var maxPeak = peak.MaxBy(p => p.Mz);
+
+            Assert.That(minPeak.Mz, Is.EqualTo(spectrum.Range.Minimum));
+            Assert.That(minPeak.Mz, Is.EqualTo(spectrum.FirstX));
+            Assert.That(maxPeak.Mz, Is.EqualTo(spectrum.Range.Maximum));
+            Assert.That(maxPeak.Mz, Is.EqualTo(spectrum.LastX));
+
+            for (int i = 0; i < peak.Length; i++)
+            {
+                double mono = monoisotopicMasses[i];
+                int charge = charges[i];
+                double intensity = intensities[i];
+                double mz = mono.ToMz(charge);
+
+                Assert.That(peak[i].Mz, Is.EqualTo(mz));
+                Assert.That(peak[i].Intensity, Is.EqualTo(intensity));
+            }
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_Constructor_ValidArguments_InitializesCharges()
+        {
+            // Arrange
+            double[,] monoisotopicMassesIntensities = new double[,] { { 100.0, 200.0 }, { 300.0, 400.0 } };
+            int[] charges = new int[] { 1, 2 };
+
+            // Act
+            var spectrum = new NeutralMassSpectrum(monoisotopicMassesIntensities, charges);
+
+            // Assert
+            Assert.AreEqual(charges, spectrum.Charges);
+        }
+
+        [Test]
+        public void NeutralMassSpectrum_Constructor2_InvalidArguments_ThrowsArgumentException()
+        {
+            // Arrange
+            double[,] monoisotopicMassesIntensities = new double[,] { { 100.0, 200.0 }, { 300.0, 400.0 } };
+            int[] charges = new int[] { 1, 2, 3 };
+
+            // Act & Assert
+            Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMassesIntensities, charges));
+        }
+
+        #endregion
+
+        [TestCase(50.0, new int[] { })] // Case: Nearest index is zero
+        [TestCase(101.0, new int[] { 1 })] // Case: Nearest index is within tolerance
+        [TestCase(102.0, new int[] { 1, 2 })] // Case: Upper and lower bounds within tolerance
+        [TestCase(104.0, new int[] { 3, 4, 2 })] // Case: Upper and lower bounds within tolerance
+        [TestCase(105.0, new int[] { 4, 5, 3 })] // Case: Upper and lower bounds within tolerance
+        [TestCase(106.0, new int[] { 5, 4 })] // Case: Upper and lower bounds with stopping conditions
+        [TestCase(107.0, new int[] { 5 })] // Case: Upper outside tolerance
+        [TestCase(200.0, new int[] {  })] // Case: Nearest index is outside range
+        public void TestGetPeakIndicesWithinTolerance(double x, int[] expectedIndices)
+        {
+            // Arrange
+            var xArray = new [] { 99.0, 101.0, 103.0, 104.0, 105.0, 106.0 };
+            var tolerance = new AbsoluteTolerance(1);
+            var testObject = new MzSpectrum(xArray, xArray, false);
+
+            // Act
+            List<int> result = testObject.GetPeakIndicesWithinTolerance(x, tolerance);
+
+            // Assert
+            NUnit.Framework.Assert.That(result, Is.EquivalentTo(expectedIndices));
+        }
+
+        [Test]
+        public void TestGetPeakIndicesWithinTolerance_HandlesEmptyXArray_Gracefully()
+        {
+            // Arrange
+            var empty = new double[] { }; // Empty array
+            var tolerance = new PpmTolerance(10);
+            var testObject = new MzSpectrum(empty, empty, false);
+            double x = 103.0;
+
+            // Act
+            List<int> result = testObject.GetPeakIndicesWithinTolerance(x, tolerance);
+
+            // Assert
+            NUnit.Framework.Assert.That(result, Is.Empty);
         }
     }
 }

@@ -17,6 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using Easy.Common.Extensions;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
@@ -1102,7 +1103,7 @@ namespace Proteomics.AminoAcidPolymer
                         {
                             modification = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula(modString));
                         }
-                        catch (MzLibException)
+                        catch (MzLibException e)
                         {
                             if (double.TryParse(modString, out double mass))
                             {
@@ -1110,7 +1111,7 @@ namespace Proteomics.AminoAcidPolymer
                             }
                             else
                             {
-                                throw new MzLibException("Unable to correctly parse the following modification: " + modString);
+                                throw new MzLibException("Unable to correctly parse the following modification: " + modString, e);
                             }
                         }
 

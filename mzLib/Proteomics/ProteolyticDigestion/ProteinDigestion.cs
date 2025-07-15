@@ -1,6 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Proteomics.Fragmentation;
+using Omics.BioPolymer;
+using Omics.Digestion;
+using Omics.Fragmentation;
+using Omics.Modifications;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -18,8 +21,8 @@ namespace Proteomics.ProteolyticDigestion
             Protease = digestionParams.Protease;
             MaximumMissedCleavages = digestionParams.MaxMissedCleavages;
             InitiatorMethionineBehavior = digestionParams.InitiatorMethionineBehavior;
-            MinPeptideLength = digestionParams.MinPeptideLength;
-            MaxPeptideLength = digestionParams.MaxPeptideLength;
+            MinPeptideLength = digestionParams.MinLength;
+            MaxPeptideLength = digestionParams.MaxLength;
             AllKnownFixedModifications = allKnownFixedModifications;
             VariableModifications = variableModifications;
         }
@@ -138,7 +141,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // Also digest using the proteolysis product start/end indices
-            foreach (ProteolysisProduct product in protein.ProteolysisProducts)
+            foreach (TruncationProduct product in protein.TruncationProducts)
             {
                 //if fixed N, we care if the start position is novel
                 if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N)

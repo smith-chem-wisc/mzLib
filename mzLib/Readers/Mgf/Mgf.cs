@@ -21,7 +21,12 @@ namespace Readers
 {
     public class Mgf : MsDataFile
     {
-        public Mgf(string filePath) : base(filePath) { }
+
+        protected MsDataScan[] IndexedScans { get; set; }
+        public Mgf(string filePath) : base(filePath)
+        {
+            
+        }
 
         public override MsDataFile LoadAllStaticData(FilteringParams filterParams = null, int maxThreads = 1)
         {
@@ -29,8 +34,6 @@ namespace Readers
             {
                 throw new FileNotFoundException();
             }
-
-            Loaders.LoadElements();
 
             List<MsDataScan> scans = new List<MsDataScan>();
             HashSet<int> checkForDuplicateScans = new HashSet<int>();
@@ -56,14 +59,30 @@ namespace Readers
                     }
                 }
             }
-            SourceFile = GetSourceFile(); 
-            Scans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
+
+            SourceFile = GetSourceFile();
+
+            // ensures that if a scan (OneBasedScanNumber) does not exist,
+            // the final scans array will contain a null value  
+            // this unique case is due to the nature of loading MGF files
+            var orderedScans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
+            var indexedScans = new MsDataScan[orderedScans[^1].OneBasedScanNumber];
+            foreach (var scan in orderedScans)
+                indexedScans[scan.OneBasedScanNumber - 1] = scan;
+
+            IndexedScans = indexedScans;
+            Scans = orderedScans;
             return this;
         }
 
         public override SourceFile GetSourceFile()
         {
             return new SourceFile("no nativeID format", "mgf format", null, null, null);
+        }
+
+        public override MsDataScan GetOneBasedScan(int scanNumber)
+        {
+            return IndexedScans[scanNumber - 1];
         }
 
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
@@ -101,7 +120,6 @@ namespace Readers
             {
                 throw new FileNotFoundException();
             }
-            Loaders.LoadElements();
             _streamReader = new StreamReader(FilePath);
 
             BuildIndex();

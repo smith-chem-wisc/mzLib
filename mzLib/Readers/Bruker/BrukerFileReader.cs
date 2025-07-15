@@ -55,8 +55,6 @@ namespace Readers
 			{
 				throw new FileNotFoundException(); 
 			}
-			// get the baf file inside
-			Loaders.LoadElements();
 
 			List<MsDataScan> scans = new(); 
 			OpenFileConnection(FilePath+@"\analysis.baf");
@@ -81,9 +79,9 @@ namespace Readers
 			// close the file connection. At this point, you don't need to be connected to the sqlite database anymore. You have all the data 
 			// you need. 
 			CloseFileConnection();
-			Scans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
+            Scans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
 			SourceFile = GetSourceFile();
-			return this; 
+            return this; 
 		}
 
 		private const string nativeIdFormat = "scan number only nativeID format";
@@ -378,7 +376,7 @@ namespace Readers
 		/// <param name="reader">SQLiteReader object, initialized after the execution of a command.</param>
 		/// <returns>Return null exception if there is an error in the data format of the baf file.</returns>
 		/// <exception cref="ArgumentNullException"></exception>
-		private T SqlColumnReader<T>(SQLiteDataReader reader) where T: new()
+		public static T SqlColumnReader<T>(SQLiteDataReader reader) where T: new()
 		{
 			// get all the property names, then iterate over that. 
 			// The objects should be exact 1:1 column corresponding so as 
@@ -450,7 +448,7 @@ namespace Readers
 			_connection = new SQLiteConnection();
 			_connection.ConnectionString = "DataSource=" + sqlite_fn; 
 			_connection.Open();
-		}
+        }
 		private void CloseFileConnection()
 		{
 			baf2sql_array_close_storage(_handle!.Value);
@@ -516,7 +514,7 @@ namespace Readers
 		}
 
 		/* ----------------------------------------------------------------------------------------------- */
-		private static byte[] ConvertStringToUTF8ByteArray(String input)
+		public static byte[] ConvertStringToUTF8ByteArray(String input)
 		{
 			byte[] utf8 = Encoding.UTF8.GetBytes(input);
 			var result = new byte[utf8.Length + 1];

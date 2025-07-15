@@ -1,13 +1,16 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics;
-using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Omics.Fragmentation;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Omics.Fragmentation.Peptide;
+using Omics.Modifications;
 
 namespace Test
 {

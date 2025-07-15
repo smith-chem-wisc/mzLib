@@ -10,6 +10,7 @@ using MassSpectrometry;
 using MzIdentML;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.AminoAcidPolymer;
 using Readers;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -728,8 +729,6 @@ namespace Test.FileReadingTests
         public void Setup()
         {
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
-
-            UsefulProteomicsDatabases.Loaders.LoadElements();
         }
 
         [Test]
@@ -831,7 +830,7 @@ namespace Test.FileReadingTests
             Assert.AreEqual(2, reader.GetClosestOneBasedSpectrumNumber(2));
 
             var newFirstValue = reader.GetOneBasedScan(1).MassSpectrum.FirstX;
-            Assert.AreEqual(oldFirstValue.Value, newFirstValue.Value, 1e-9);
+            Assert.AreEqual(oldFirstValue.Value, newFirstValue.Value);
 
             var secondScan2 = reader.GetOneBasedScan(2);
 

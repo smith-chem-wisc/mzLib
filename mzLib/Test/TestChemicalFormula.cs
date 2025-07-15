@@ -19,6 +19,7 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -1003,6 +1004,42 @@ namespace Test
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{12}");
             formulaB.Add(formulaA);
             Assert.AreEqual("CC{12}", formulaB.Formula);
+        }
+
+        [Test]
+        public static void TestAddChemicalFormulaOperator()
+        {
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{12}");
+
+            var addedFormula = formulaA + formulaB;
+            formulaB.Add(formulaA);
+
+            Assert.AreEqual("CC{12}", formulaB.Formula);
+            Assert.AreEqual("CC{12}", addedFormula.Formula);
+
+            var leftNull = null + formulaB;
+            Assert.AreEqual(formulaB, leftNull);
+
+            var rightNull = formulaB + null;
+            Assert.AreEqual(formulaB, rightNull);
+
+            ChemicalFormula nullFormula = null;
+            var bothNull = nullFormula + nullFormula;
+            Assert.AreEqual(null, bothNull);
+        }
+
+        [Test]
+        [TestCase("C", "N", "CN-1")]
+        [TestCase(null, "N", "N-1")]
+        [TestCase("C", null, "C")]
+        public static void TestSubtractChemicalFormulaOperator(string formA, string formB, string expected)
+        {
+            ChemicalFormula formulaA = formA == null ? null : ChemicalFormula.ParseFormula(formA);
+            ChemicalFormula formulaB = formB == null ? null : ChemicalFormula.ParseFormula(formB);
+
+            var subtractedFormula = formulaA - formulaB;
+            Assert.AreEqual(expected, subtractedFormula.Formula);
         }
 
         [Test]

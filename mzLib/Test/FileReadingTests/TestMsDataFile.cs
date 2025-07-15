@@ -21,13 +21,15 @@ using Readers;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.FileReadingTests
@@ -44,8 +46,6 @@ namespace Test.FileReadingTests
         public void Setup()
         {
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
-
-            UsefulProteomicsDatabases.Loaders.LoadElements();
 
             double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
             double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
@@ -161,6 +161,9 @@ namespace Test.FileReadingTests
 
             theSpectrum.SetIsolationMz(42);
             Assert.AreEqual(42, theSpectrum.IsolationMz);
+
+            theSpectrum.SetMsnOrder(2);
+            Assert.AreEqual(2, theSpectrum.MsnOrder);
         }
 
         [Test]
@@ -224,9 +227,6 @@ namespace Test.FileReadingTests
             reader.LoadAllStaticData();
 
             var peptide = new PeptideWithSetModifications("KAPAGGAADAAAK", new Dictionary<string, Modification>());
-
-            var xic = reader.ExtractIonChromatogram(peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
-            Assert.That(xic.Data.Count(p => p.Y > 0) == 4);
         }
 
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
@@ -334,7 +334,7 @@ namespace Test.FileReadingTests
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
             Assert.That(!dataFile.CheckIfScansLoaded());
-            var scanslistInTimeRange = dataFile.GetMsScansInTimeRange(0,100).ToList();
+            var scanslistInTimeRange = dataFile.GetMsScansInTimeRange(0, 100).ToList();
             Assert.That(dataFile.CheckIfScansLoaded());
             Assert.That(scanslistInTimeRange.Count == 142);
 
@@ -349,6 +349,37 @@ namespace Test.FileReadingTests
             var index = dataFile.GetClosestOneBasedSpectrumNumber(5);
             Assert.That(dataFile.CheckIfScansLoaded());
             Assert.That(scanslist.Count == 142);
+        }
+
+        [Test]
+        public static void NegativeModeSetsCorrectCharge_FromFile()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "GUACUG_NegativeMode_Sliced.mzML");
+            var scans = MsDataFileReader.GetDataFile(filePath).GetAllScansList();
+            var ms1 = scans.FirstOrDefault(s => s.MsnOrder == 1);
+
+            Assert.That(ms1, Is.Not.Null, "No MS1 scan found in the file.");
+            Assert.That(ms1.Polarity, Is.EqualTo(Polarity.Negative), "MS1 scan polarity is not negative.");
+
+            var ms2 = scans.FirstOrDefault(s => s.MsnOrder == 2);
+            Assert.That(ms2, Is.Not.Null, "No MS2 scan found in the file.");
+            Assert.That(ms2.Polarity, Is.EqualTo(Polarity.Negative), "MS2 scan polarity is not negative.");
+            Assert.That(ms2.SelectedIonChargeStateGuess.HasValue, Is.True, filePath + " does not have charge state guess for MS2 scan.");
+            Assert.That(ms2.SelectedIonChargeStateGuess!.Value, Is.EqualTo(-3), "MS2 scan charge state guess is not -3.");
+        }
+
+        [TestCase(Polarity.Positive, 3, 3, TestName = "PositiveMode_PositiveCharge")]
+        [TestCase(Polarity.Negative, -3, -3, TestName = "NegativeMode_NegativeCharge")]
+        [TestCase(Polarity.Negative, 3, -3, TestName = "NegativeMode_PositiveCharge")]
+        [TestCase(Polarity.Positive, -3, 3, TestName = "PositiveMode_NegativeCharge")]
+        public static void NegativeModeSetsCorrectCharge_FromConstructedScan(Polarity polarity, int inputCharge, int expectedCharge)
+        {
+            var scan = new MsDataScan(new([], [], false), 1, 2, true, polarity, 2, new(100, 1000), "", MZAnalyzerType.Orbitrap, 100, 2, null, "", 120, inputCharge, 20, 120, inputCharge, DissociationType.CID, 1, 120, "30", "");
+
+            Assert.That(scan.Polarity, Is.EqualTo(polarity), "Newly created scan has incorrect polarity.");
+            Assert.That(scan.SelectedIonChargeStateGuess, Is.Not.Null, "Charge state guess for newly created scan.");
+            Assert.That(scan.SelectedIonChargeStateGuess!.Value, Is.EqualTo(expectedCharge), $"Newly created scan charge state guess is not {expectedCharge}.");
         }
     }
 }

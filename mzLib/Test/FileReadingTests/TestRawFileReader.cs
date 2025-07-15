@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Readers;
 
 namespace Test.FileReadingTests
@@ -23,6 +23,34 @@ namespace Test.FileReadingTests
                 reader.InitiateDynamicConnection();
             });
         }
+
+        #region Testing Exceptions
+
+        [Test]
+        public void TestRawFileReaderFileNotFoundException()
+        {
+            var fakeRawFile = "asdasd.raw";
+
+            var ex = Assert.Throws<FileNotFoundException>(() => MsDataFileReader.GetDataFile(fakeRawFile).LoadAllStaticData());
+
+            Assert.That(ex.Message, Is.EqualTo(new FileNotFoundException().Message));
+        }
+
+        #endregion
+
+
+        [Test]
+        public void TestScanDescription()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "ScanDescriptionTestData.raw");
+            var scans = MsDataFileReader.GetDataFile(filePath).GetAllScansList();
+            var ms1Scans = scans.Where(x => x.MsnOrder == 1).ToList();
+            var ms2Scans = scans.Where(x => x.MsnOrder == 2).ToList();
+
+            ms1Scans.ForEach(x => Assert.That(x.ScanDescription, Is.EqualTo(null)));
+            ms2Scans.ForEach(x => Assert.That(x.ScanDescription, Is.EqualTo("Testing2")));
+        }
+
         /// <summary>
         /// Tests LoadAllStaticData for ThermoRawFileReader
         /// </summary>
@@ -143,9 +171,10 @@ namespace Test.FileReadingTests
 
                 for (int j = 0; j < mzmlScan.MassSpectrum.XArray.Length; j++)
                 {
-                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 2);
-                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 2);
+                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 4);
+                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 4);
 
+                    // XArray is rounded to the 4th digit during CreateAndWrite
                     Assert.AreEqual(roundedMzmlMz, roundedRawMz);
 
                     double roundedMzmlIntensity = Math.Round(mzmlScan.MassSpectrum.XArray[j], 0);

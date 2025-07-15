@@ -21,6 +21,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Omics.BioPolymer;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using Omics.Modifications;
 using Proteomics;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -68,7 +71,7 @@ namespace Test.DatabaseTests
                 geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("gene", "name") },
                 databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
                 sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
-                proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
+                proteolysisProducts: new List<TruncationProduct> { new TruncationProduct(1, 2, "prod") },
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 1, null, null, null, null, null, null) } } }
                 );
 
@@ -82,7 +85,7 @@ namespace Test.DatabaseTests
                 geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("gene", "name") },
                 databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
                 sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
-                proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
+                proteolysisProducts: new List<TruncationProduct> { new TruncationProduct(1, 2, "prod") },
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null) } } }
                 );
 
@@ -91,7 +94,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(1, merged.First().DatabaseReferences.Count());
             Assert.AreEqual(1, merged.First().GeneNames.Count());
             Assert.AreEqual(1, merged.First().SequenceVariations.Count());
-            Assert.AreEqual(1, merged.First().ProteolysisProducts.Count());
+            Assert.AreEqual(1, merged.First().TruncationProducts.Count());
             Assert.AreNotEqual(p.OneBasedPossibleLocalizedModifications.First().Value.First(), p2.OneBasedPossibleLocalizedModifications.First().Value.First());
             Assert.AreEqual(1, merged.First().OneBasedPossibleLocalizedModifications.Count());
             Assert.AreEqual(2, merged.First().OneBasedPossibleLocalizedModifications.First().Value.Count);
@@ -160,8 +163,8 @@ namespace Test.DatabaseTests
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             // proteolysis products check
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedEndPosition == null || d.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(d => d.OneBasedEndPosition == null || d.OneBasedEndPosition <= p.Length)));
 
             // base sequence check
             Assert.False(ok.All(p => p.BaseSequence.Contains(" ")));
@@ -178,7 +181,9 @@ namespace Test.DatabaseTests
         [Test]
         public static void XmlGzTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml.gz"),
+            string directory = Path.Combine(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests"));
+            
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(directory, @"xml.xml.gz"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             Assert.AreEqual('M', ok[0][0]);
@@ -194,6 +199,20 @@ namespace Test.DatabaseTests
             Assert.AreEqual("HIST1H4A", ok[0].GeneNames.Where(t => t.Item1 == "primary").First().Item2);
             Assert.AreEqual(23, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "Ensembl"));
         }
+
+        [Test]
+        public static void FastaGzTest()
+        {
+            string directory = Path.Combine(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests"));
+
+            var ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(directory, @"isoform.fasta.gz"),
+                true, DecoyType.Reverse, false, out var a,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.AreEqual(20, ok.Count);
+        }
+
 
         [Test]
         public static void XmlFunkySequenceTest()
@@ -231,6 +250,22 @@ namespace Test.DatabaseTests
             Assert.AreEqual("Histone H4", prots.First().FullName);
             Assert.AreEqual("HIST1H4A", prots.First().GeneNames.First().Item2);
             Assert.AreEqual("Homo sapiens", prots.First().Organism);
+        }
+
+        [Test]
+        public static void FastaWithCustomDecoyIdentifier()
+        {
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out var a,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, decoyIdentifier: "rev");
+
+            foreach (var prot in prots)
+            {
+                if (!prot.IsDecoy) continue;
+
+                Assert.That(prot.Accession, Does.StartWith("rev_"));
+                Assert.That(prot.Accession, Does.Not.StartWith("DECOY_"));
+            }
         }
 
         [Test]
@@ -309,6 +344,7 @@ namespace Test.DatabaseTests
         public static void CompareOxidationWithAndWithoutCf()
         {
             string aString =
+                //These next lines CANNOT be tabbed over becaue the leading characters mess up the reading.
 @"ID   Methionine (R)-sulfoxide
 AC   PTM-0480
 FT   MOD_RES
@@ -349,7 +385,7 @@ CF   O1
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
             Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
-            Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
+            Assert.AreEqual(ok2[0].TruncationProducts.Count(), ok2[1].TruncationProducts.Count());
             foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
             {
                 Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
@@ -363,6 +399,46 @@ CF   O1
         }
 
         [Test]
+        public static void TestReverseDecoyXML_WithCustomIdentifier()
+        {
+            var nice = new List<Modification>();
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false,
+                new string[] { "exclude_me" }, out Dictionary<string, Modification> un, decoyIdentifier: "rev");
+
+            foreach (var protein in proteins)
+            {
+                if (!protein.IsDecoy) continue;
+
+                Assert.That(protein.Accession, Does.StartWith("rev_"));
+                Assert.That(protein.Accession, Does.Not.StartWith("DECOY_"));
+
+                foreach (var truncationProduct in protein.TruncationProducts)
+                {
+                    Assert.That(truncationProduct.Type, Does.StartWith("rev"));
+                    Assert.That(truncationProduct.Type, Does.Not.StartWith("DECOY"));
+                }
+
+                foreach (var variant in protein.AppliedSequenceVariations)
+                {
+                    Assert.That(variant.Description, Does.StartWith("rev"));
+                    Assert.That(variant.Description, Does.Not.StartWith("DECOY"));
+                }
+
+                foreach (var bond in protein.DisulfideBonds)
+                {
+                    Assert.That(bond.Description, Does.StartWith("rev"));
+                    Assert.That(bond.Description, Does.Not.StartWith("DECOY"));
+                }
+
+                foreach (var spliceSite in protein.SpliceSites)
+                {
+                    Assert.That(spliceSite.Description, Does.StartWith("rev"));
+                    Assert.That(spliceSite.Description, Does.Not.StartWith("DECOY"));
+                }
+            }
+        }
+
+        [Test]
         public static void TestSlideDecoyXML()
         {
             //sequence, disulfides
@@ -372,11 +448,11 @@ CF   O1
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
             Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
-            Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
-            for (int i = 0; i < ok2[0].ProteolysisProducts.Count(); i++)
+            Assert.AreEqual(ok2[0].TruncationProducts.Count(), ok2[1].TruncationProducts.Count());
+            for (int i = 0; i < ok2[0].TruncationProducts.Count(); i++)
             {
-                Assert.AreEqual(ok2[0].ProteolysisProducts.ToArray()[i].OneBasedBeginPosition, ok2[1].ProteolysisProducts.ToArray()[i].OneBasedBeginPosition);
-                Assert.AreEqual(ok2[0].ProteolysisProducts.ToArray()[i].OneBasedEndPosition, ok2[1].ProteolysisProducts.ToArray()[i].OneBasedEndPosition);
+                Assert.AreEqual(ok2[0].TruncationProducts.ToArray()[i].OneBasedBeginPosition, ok2[1].TruncationProducts.ToArray()[i].OneBasedBeginPosition);
+                Assert.AreEqual(ok2[0].TruncationProducts.ToArray()[i].OneBasedEndPosition, ok2[1].TruncationProducts.ToArray()[i].OneBasedEndPosition);
             }
             foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
             {

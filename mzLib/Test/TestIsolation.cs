@@ -19,6 +19,7 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Linq;
@@ -37,8 +38,6 @@ namespace Test
         public void Setup()
         {
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
-
-            UsefulProteomicsDatabases.Loaders.LoadElements();
         }
 
         [SetUp]
