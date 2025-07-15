@@ -386,7 +386,7 @@ namespace Test
         }
 
         #endregion
-
+       
         [Test]
         public static void TestExampleNewDeconvolutionInDeconvoluter()
         {

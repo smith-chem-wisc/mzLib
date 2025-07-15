@@ -25,6 +25,7 @@ namespace UsefulProteomicsDatabases
         public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|(?:.+)\|(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\s(GN=|PE=|SV=|OX=)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotSequenceVersionRegex = new FastaHeaderFieldRegex("sequenceVersion", @"SV=(\d+)(?:\s|$)", 0, 1);
 
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
@@ -182,7 +183,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
-            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY")
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, FastaHeaderFieldRegex sequenceVersionRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -240,6 +241,7 @@ namespace UsefulProteomicsDatabases
                                     nameRegex = UniprotNameRegex;
                                     organismRegex = UniprotOrganismRegex;
                                     geneNameRegex = UniprotGeneNameRegex;
+                                    sequenceVersionRegex = UniprotSequenceVersionRegex;
                                     break;
 
                                 case FastaHeaderType.Ensembl:
@@ -261,6 +263,7 @@ namespace UsefulProteomicsDatabases
                         name = ApplyRegex(nameRegex, line);
                         organism = ApplyRegex(organismRegex, line);
                         string geneNameString = ApplyRegex(geneNameRegex, line);
+                        string sequenceVersion = ApplyRegex(sequenceVersionRegex, line);
                         if (geneNameString != null)
                         {
                             geneName.Add(new Tuple<string, string>("primary", geneNameString));
@@ -513,5 +516,35 @@ namespace UsefulProteomicsDatabases
 
             return FastaHeaderType.Unknown;
         }
+    }
+    /// <summary>
+    /// The value 'Experimental evidence at protein level' indicates that there is clear experimental evidence for the existence of the protein.
+    /// 
+    //  The criteria include partial or complete Edman sequencing, clear identification by mass spectrometry, X-ray or NMR structure, good quality
+    //  protein-protein interaction or detection of the protein by antibodies.
+    //
+    //  The value 'Experimental evidence at transcript level' indicates that the existence of a protein has not been strictly proven but that
+    //  expression data(such as existence of cDNA(s), RT-PCR or Northern blots) indicate the existence of a transcript.
+    //
+    //  The value 'Protein inferred by homology' indicates that the existence of a protein is probable because clear orthologs exist in closely
+    //  related species.
+    //
+    //  The value 'Protein predicted' is used for entries without evidence at protein, transcript, or homology levels.
+    //
+    //  The value 'Protein uncertain' indicates that the existence of the protein is unsure.
+    //
+    //  Only the highest or most reliable level of supporting evidence for the existence of a protein is displayed for each entry. For example,
+    //  if the existence of a protein is supported by both the presence of ESTs and direct protein sequencing, the protein is assigned the value
+    //  'Experimental evidence at protein level'.
+    //
+    //  The 'protein existence' value is assigned automatically, based on the annotation elements present in the entry.
+    /// </summary>
+    public enum ProteinExistence
+    {
+        ExperimentalEvidenceAtProteinLevel = 1,
+        ExperimentalEvidenceAtTranscriptLevel = 2,
+        ProteinInferredFromHomology = 3,
+        ProteinPredicted = 4,
+        ProteinUncertain = 5,
     }
 }
