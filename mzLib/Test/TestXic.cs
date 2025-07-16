@@ -93,10 +93,13 @@ namespace Test
             {
                 peakList1.Add(new IndexedMassSpectralPeak(intensity: 1e5 * intensityMultipliers[i], retentionTime: 1 + i / 10, zeroBasedScanIndex: i + 5, mz: 500.0));
             }
+            //The xic contains three original peaks, and we want to add two more peaks at the begining and the end. This setting of spline only adds peaks, no spline.
             var xic1 = new ExtractedIonChromatogram(peakList1);
             int numberOfPeaksToAdd = 2;
             var linearSpline2 = new XicLinearSpline(1, numberOfPeaksToAdd, 1);
             linearSpline2.SetXicSplineXYData(xic1, cycle: true);
+            //the xic length after adding the peaks should be 3 + 2*2
+            //the first two peaks and the last two peaks should have intensity 0
             Assert.That(xic1.XYData.Length, Is.EqualTo(7));
             for (int i = 0; i < numberOfPeaksToAdd; i++)
             {
@@ -106,7 +109,8 @@ namespace Test
             {
                 Assert.That(xic1.XYData[i].Item2, Is.EqualTo(0));
             }
-            foreach(var peak in xic1.Peaks)
+            //the orginal peaks should be present in the XYData after the 0 peaks are added
+            foreach (var peak in xic1.Peaks)
             {
                 Assert.That(xic1.XYData.First(xy => xy.Item1 == peak.ZeroBasedScanIndex).Item2 == peak.Intensity, Is.True);
             }
