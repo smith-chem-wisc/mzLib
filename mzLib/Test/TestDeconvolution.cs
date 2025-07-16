@@ -489,11 +489,12 @@ namespace Test
         public static void TestIsdDataProteoformFlashDeconv2(double selectedIonMz, int selectedIonChargeStateGuess,
 double selectedIonIntensity, double isolationMz)
         {
+            string realSequence = "MLMPKEDRNKIHQYLFQEGVVVAKKDFNQAKHEEIDTKNLYVIKALQSLTSKGYVKTQFSWQYYYYTLTEEGVEYLREYLNLPEHIVPGTYIQERNPTQRPQRRY";
             MsDataScan[] Scans = new MsDataScan[1];
 
             //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
             string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"DataFiles\mZchargeIsdProteoformSpectrum.txt");
+                @"DataFiles\realProteoform.txt");
 
             string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
 
@@ -520,7 +521,7 @@ double selectedIonIntensity, double isolationMz)
 
             // The ones marked 2 are for checking an overload method
 
-            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters(1, 60);
+            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters(10, 21);
             var isolatedMasses = Deconvoluter.Deconvolute(scan, deconParameters);
             var isolatedMasses2 = Deconvoluter.Deconvolute(scan.MassSpectrum, deconParameters);
 

@@ -23,14 +23,10 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             // 1. Log-transform the spectrum to linearize charge state spacing and filter low-intensity peaks.
             var logTransformedSpectrum = LogTransformSpectrum(spectrum);
 
-            // 2. Generate a list of all acceptable log(m/z) differences for adjacent charge states.
-            var acceptibleLogMzDiffs = AllAcceptibleLogMzDifferencesForAdjacentValues();
-
             // 3. Find groups of peaks that match expected charge state patterns in log(m/z) space.
             var matchingGroups = FindMatchingGroups(
                 logTransformedSpectrum.XArray,
-                logTransformedSpectrum.YArray,
-                acceptibleLogMzDiffs);
+                logTransformedSpectrum.YArray);
 
             // 4. Remove groups that are subsets of larger groups to avoid redundancy.
             var filteredGroups = RemoveSubsetGroups(
@@ -71,91 +67,184 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 
             return new MzSpectrum(xArray, yArray, true);
         }
-        private List<double> AllAcceptibleLogMzDifferencesForAdjacentValues(int lowValue = 1, int highValue = 60)
+        private static List<double> AllAcceptibleLogMzDifferencesForAdjacentValues(int lowValue = 1, int highValue = 60)
         {
-            return Enumerable.Range(lowValue, highValue)
-            .Select(i => Math.Log(i+1)-Math.Log(i))
-            .ToList();
+            var a = Enumerable.Range(lowValue, highValue - lowValue + 1).ToArray();
+            var b = a.Select(i => (double)i).ToArray();
+            var k = b.Select(i => Math.Log(i)).ToArray();
+
+            List<double> acceptibleLogMzDifferences = new List<double>();
+            acceptibleLogMzDifferences.Add(k[0]);
+            for (int i = 1; i < k.Length; i++)
+            {
+                acceptibleLogMzDifferences.Add(k[i] - k[i - 1]);
+            }
+            return acceptibleLogMzDifferences;
         }
+
         // Finds all groups in logTransformedXArray where the differences between consecutive elements
         // (from high to low) match (within a tolerance) a subsequence of acceptibleLogMzDifferences.
         // Returns a list of (X[], Y[], ChargeState[]) for each group found.
         private static List<(double[] X, double[] Y, int[] ChargeState)> FindMatchingGroups(
             double[] logTransformedXArray,
-            double[] yArray,
-            List<double> acceptibleLogMzDifferences)
+            double[] yArray)
         {
             var results = new List<(double[], double[], int[])>();
-            int n = logTransformedXArray.Length;
+            int logMzArrayLength = logTransformedXArray.Length;
 
             // Sort peaks by descending m/z (i.e., descending log(m/z))
             var sorted = logTransformedXArray
                 .Select((val, idx) => (val, idx))
                 .OrderByDescending(x => x.val)
-                .ToList();
+                .ToArray();
 
-            var sortedLogX = sorted.Select(x => x.val).ToArray();
+            var allExperimentalSortedLogMz = sorted.Select(x => x.val).ToArray();
             var sortedY = sorted.Select(x => yArray[x.idx]).ToArray();
-            var sortedIndices = sorted.Select(x => x.idx).ToArray();
 
             // Iterate through each peak as a potential group start
-            for (int start = 0; start < n - 1; start++)
+            for (int indexOfFirstPeakInPotentialSeries = 0; indexOfFirstPeakInPotentialSeries < logMzArrayLength - 1; indexOfFirstPeakInPotentialSeries++)
             {
-                var groupIndices = new List<int> { start };
-                List<int> groupCharges = new();
-                int prevIdx = start;
-                double longRangeExpectedDiff = 0;
-                double firstValue = sortedLogX[start];
-
-                // Try to extend the group by matching expected log(m/z) differences for charge states
-                for (int p = 0; p < acceptibleLogMzDifferences.Count; p++)
+                int minChargeState = 1;
+                int maxChargeState = 60;
+                for (int lowChargeState = minChargeState; lowChargeState < maxChargeState; lowChargeState++)
                 {
-                    double expectedDiff = acceptibleLogMzDifferences[p];
-                    double prevValue = sortedLogX[prevIdx];
-                    double tolerance = LogMzDependentTolerance(prevValue);
-                    bool found = false;
-
-                    // Search for the next peak that matches the expected difference within tolerance
-                    for (int nextIdx = prevIdx + 1; nextIdx < n; nextIdx++)
+                    var allPotentialTargetMzsAndCharges = GetTargetLogMzsAndCharges(allExperimentalSortedLogMz[indexOfFirstPeakInPotentialSeries], lowChargeState, maxChargeState);
+                    var indiciesOfFoundPotentialTargetMzs = FindMatchingSearchForIndices(allExperimentalSortedLogMz, allPotentialTargetMzsAndCharges.targetLogMzs, LogMzDependentTolerance(allExperimentalSortedLogMz[indexOfFirstPeakInPotentialSeries]));
+                    if(indiciesOfFoundPotentialTargetMzs.Any() && indiciesOfFoundPotentialTargetMzs.Length > 1)
                     {
-                        double diff = prevValue - sortedLogX[nextIdx]; // Difference from high to low
-                        if (Math.Abs(diff - expectedDiff) <= tolerance)
+                        var longestSeriesOfConsecutiveChargesWithMinimumGap = LongestSubarrayWithMaxGap(SelectByIndices(allPotentialTargetMzsAndCharges.charges,indiciesOfFoundPotentialTargetMzs), 1);
+                        if (longestSeriesOfConsecutiveChargesWithMinimumGap.Length > 1)
                         {
-                            longRangeExpectedDiff += diff; // Accumulate the difference
-                            double longRangeDiff = firstValue - sortedLogX[nextIdx]; // Total difference from start
-                            if (Math.Abs(longRangeDiff - longRangeExpectedDiff) <= tolerance)
-                            {
-                                // Assign charge states (1-indexed)
-                                if (groupCharges.Count == 0)
-                                {
-                                    groupCharges.Add(p + 1);
-                                    groupCharges.Add(p + 2);
-                                }
-                                else
-                                {
-                                    groupCharges.Add(p + 2);
-                                }
-                                groupIndices.Add(nextIdx);
-                                prevIdx = nextIdx;
-                                found = true;
-                                break;
-                            }
+                            var indiciesOfLongestSeriesOfConsecutiveChargesInTargetArray = FindMatchingSearchForIndices(longestSeriesOfConsecutiveChargesWithMinimumGap, allPotentialTargetMzsAndCharges.charges, 0.1);
+                            var groupX = FindMatchingValuesFromSearchIn(allExperimentalSortedLogMz,SelectByIndices(allPotentialTargetMzsAndCharges.targetLogMzs,indiciesOfLongestSeriesOfConsecutiveChargesInTargetArray), 0.01);
+                            int[] indices = groupX
+                                .Select(sf => Array.FindIndex(allExperimentalSortedLogMz, si => Math.Abs(si - sf) <= 0.0001))
+                                .Where(idx => idx != -1)
+                                .ToArray();
+                            var z = RemoveDuplicates(indices);
+                            var groupY = SelectByIndices(sortedY,z);
+                            var charges = longestSeriesOfConsecutiveChargesWithMinimumGap;
+                            results.Add((groupX, groupY, charges));
+
                         }
                     }
-                    if (!found)
-                        break; // Stop extending if no match is found
-                }
-
-                // Only keep groups with more than one peak
-                if (groupIndices.Count > 1)
-                {
-                    var groupX = groupIndices.Select(i => sortedLogX[i]).ToArray();
-                    var groupY = groupIndices.Select(i => sortedY[i]).ToArray();
-                    results.Add((groupX, groupY, groupCharges.ToArray()));
                 }
             }
             return results;
         }
+        public static int[] RemoveDuplicates(int[] input)
+        {
+            return input.Distinct().ToArray();
+        }
+        public static T[] SelectByIndices<T>(T[] source, int[] indices)
+        {
+            T[] result = new T[indices.Length];
+            for (int i = 0; i < indices.Length; i++)
+            {
+                result[i] = source[indices[i]];
+            }
+            return result;
+        }
+        public static int[] LongestSubarrayWithMaxGap(int[] input, int maxDifference)
+        {
+            if (input == null || input.Length == 0)
+                return new int[0];
+
+            List<int> current = new List<int> { input[0] };
+            List<int> best = new List<int>(current);
+
+            for (int i = 1; i < input.Length; i++)
+            {
+                if (Math.Abs(input[i] - input[i - 1]) <= maxDifference)
+                {
+                    current.Add(input[i]);
+                }
+                else
+                {
+                    if (current.Count > best.Count)
+                        best = new List<int>(current);
+                    current = new List<int> { input[i] };
+                }
+            }
+
+            if (current.Count > best.Count)
+                best = current;
+
+            return best.ToArray();
+        }
+        public static double[] FindMatchingValuesFromSearchIn(double[] searchIn, double[] searchFor, double tolerance)
+        {
+            var matchedValues = new List<double>();
+
+            for (int i = 0; i < searchFor.Length; i++)
+            {
+                double searchForValue = searchFor[i];
+                double closestValue = double.NaN;
+                double smallestDiff = double.MaxValue;
+
+                for (int j = 0; j < searchIn.Length; j++)
+                {
+                    double diff = Math.Abs(searchIn[j] - searchForValue);
+                    if (diff <= tolerance && diff < smallestDiff)
+                    {
+                        smallestDiff = diff;
+                        closestValue = searchIn[j];
+                    }
+                }
+
+                if (!double.IsNaN(closestValue))
+                {
+                    matchedValues.Add(closestValue);
+                }
+            }
+
+            return matchedValues.ToArray();
+        }
+        // Finds indices in searchIn that match values in searchFor within a specified tolerance.
+        // Returns an array of indices corresponding to searchFor values that were found in searchIn.
+        public static int[] FindMatchingSearchForIndices<T>(T[] searchIn, T[] searchFor, double tolerance) where T : IConvertible
+        {
+            var matchedIndices = new List<int>();
+
+            for (int i = 0; i < searchFor.Length; i++)
+            {
+                int closestIndex = -1;
+                double smallestDiff = double.MaxValue;
+                double searchForValue = Convert.ToDouble(searchFor[i]);
+                for (int j = 0; j < searchIn.Length; j++)
+                {
+                    double searchInValue = Convert.ToDouble(searchIn[j]);
+                    double diff = Math.Abs(searchInValue - searchForValue);
+                    if (diff <= tolerance && diff < smallestDiff)
+                    {
+                        smallestDiff = diff;
+                        closestIndex = i; // store index from searchFor
+                    }
+                }
+                if (closestIndex != -1)
+                {
+                    matchedIndices.Add(closestIndex);
+                }
+            }
+
+            return matchedIndices.ToArray();
+        }
+        public static (double[] targetLogMzs, int[] charges) GetTargetLogMzsAndCharges(double firstMz, int lowestCharge = 1, int highestCharge = 60)
+        {
+            double[] mzs = new double[highestCharge - lowestCharge + 1];
+            int[] charges = Enumerable.Range(lowestCharge, highestCharge - lowestCharge + 1).ToArray();
+            var logDiffs = AllAcceptibleLogMzDifferencesForAdjacentValues(lowestCharge, highestCharge);
+
+            double previousMz = firstMz;
+            mzs[0] = firstMz;
+            for (int i = 1; i < mzs.Length; i++)
+            {
+                mzs[i] = previousMz - logDiffs[i];
+                previousMz -= logDiffs[i];
+            }
+            return (mzs, charges);
+        }
+        
         // Removes any group from 'groups' where the double[] X is a subset of any other double[] X
         private static List<(double[] X, double[] Y)> RemoveSubsetGroups(List<(double[] X, double[] Y)> groups)
         {
@@ -211,8 +300,8 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             IEnumerable<(double[] neutralMass, double[] intensity)> massIntensityGroups,
             out List<(double[] neutralMass, double[] intensity)> likelyCorrect,
             out List<(double[] neutralMass, double[] intensity)> likelyIncorrect,
-            double correctPpmTolerance = 2,
-            double incorrectPpmTolerance = 25,
+            double correctPpmTolerance = 80,
+            double incorrectPpmTolerance = 85,
             double correctFraction = 0.7)
         {
             // Initialize output lists
@@ -331,14 +420,14 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 
             return result;
         }
-        private static double LogMzDependentTolerance(double logMz, double tolerance = 10)
+        private static double LogMzDependentTolerance(double logMz, double tolerance = 5000)
         {
             var m = Math.Exp(logMz);
             var mPlus = m + m * tolerance / 1000000.0;
             var lmPlus = Math.Log(mPlus);
             var newT = lmPlus - logMz;
-            return newT;
-            //return 0.0001;
+            //return newT;
+            return 0.0001;
         }
 
         private static double NeutralMassFromLogMz(double logmz, int chargeState)
