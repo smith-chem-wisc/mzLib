@@ -1,5 +1,4 @@
 ﻿using Chemistry;
-using MassSpectrometry.Deconvolution.Parameters;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
@@ -30,13 +29,13 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 
             // 4. Remove groups that are subsets of larger groups to avoid redundancy.
             var filteredGroups = RemoveSubsetGroups(
-                matchingGroups.Select(g => (g.X, g.Y)).ToList());
+                matchingGroups.Select(g => (g.X, g.Y, g.ChargeState)).ToList());
 
             // 5. Transform the filtered groups' X values back from log(m/z) to m/z space.
             var expTransformedGroups = TransformGroupsToExpX(filteredGroups);
 
             // 6. Create neutral mass/intensity groups from the charge state groups.
-            var neutralMassIntensityGroups = CreateNeutralMassIntensityGroups(matchingGroups);
+            var neutralMassIntensityGroups = CreateNeutralMassIntensityGroups(expTransformedGroups);
 
             // 7. Filter the neutral mass/intensity groups into likely correct and incorrect groups based on ppm tolerance.
             FilterMassIntensityGroupsByPpmTolerance(
@@ -246,7 +245,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
         }
         
         // Removes any group from 'groups' where the double[] X is a subset of any other double[] X
-        private static List<(double[] X, double[] Y)> RemoveSubsetGroups(List<(double[] X, double[] Y)> groups)
+        private static List<(double[] X, double[] Y, int[] charges)> RemoveSubsetGroups(List<(double[] X, double[] Y, int[] charges)> groups)
         {
             // Sort groups by length of X (ascending)
             var sortedGroups = groups
@@ -286,10 +285,10 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                 .ToList();
         }
         // Creates new groups from filteredGroups where each value in double[] X is transformed by the inverse natural log (Math.Exp)
-        private static List<(double[] X, double[] Y)> TransformGroupsToExpX(List<(double[] X, double[] Y)> filteredGroups)
+        private static List<(double[] X, double[] Y, int[] chargeStates)> TransformGroupsToExpX(List<(double[] X, double[] Y, int[] charges)> filteredGroups)
         {
             return filteredGroups
-                .Select(g => (X: g.X.Select(Math.Exp).ToArray(), Y: g.Y))
+                .Select(g => (X: g.X.Select(Math.Exp).ToArray(), Y: g.Y, g.charges))
                 .ToList();
         }
 
@@ -413,7 +412,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                 var neutralMass = new double[len];
                 for (int i = 0; i < len; i++)
                 {
-                    neutralMass[i] = NeutralMassFromLogMz(group.X[i], group.ChargeState[i]);
+                    neutralMass[i] = group.X[i].ToMass(group.ChargeState[i]);
                 }
                 result.Add((neutralMass, group.Y));
             }
@@ -429,11 +428,5 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             //return newT;
             return 0.0001;
         }
-
-        private static double NeutralMassFromLogMz(double logmz, int chargeState)
-        {
-            return Math.Exp(logmz).ToMass(chargeState);
-        }
-
     }
 }
