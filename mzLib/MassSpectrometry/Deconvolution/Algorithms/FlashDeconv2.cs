@@ -77,7 +77,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             acceptibleLogMzDifferences.Add(k[0]);
             for (int i = 1; i < k.Length; i++)
             {
-                acceptibleLogMzDifferences.Add(k[i] - k[i - 1]);
+                acceptibleLogMzDifferences.Add(k[i] - k[i - 1] - Math.Log(1.00007898996332));
             }
             return acceptibleLogMzDifferences;
         }

@@ -494,7 +494,7 @@ double selectedIonIntensity, double isolationMz)
 
             //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
             string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"DataFiles\realProteoform.txt");
+                @"DataFiles\artificialProteoform.txt");
 
             string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
 
