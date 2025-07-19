@@ -130,10 +130,13 @@ namespace MassSpectrometry
             }
         }
 
-        public void CutPeak(double discriminationFactorToCutPeak = 0.6)
+        public void CutPeak(double discriminationFactorToCutPeak = 0.6, bool updateRtInfo = true)
         {
             CutPeak(Peaks, discriminationFactorToCutPeak);
-            SetRtInfo(); // Update RT info after cutting the peak
+            if (updateRtInfo)
+            {
+                SetRtInfo(); // Update RT info after cutting the peak
+            }
         }
 
         public static void CutPeak(List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)

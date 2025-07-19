@@ -133,7 +133,7 @@ namespace Test
             Assert.That(xic.StartRT, Is.EqualTo(xic1.StartRT));
             Assert.That(xic.EndRT, Is.EqualTo(xic1.EndRT));
 
-            //if there is only one peak, it should not be cut
+            //if there is only one apex, it should not be cut
             xic1.CutPeak();
             Assert.That(xic1.Peaks.Count, Is.EqualTo(peak1.Count));
 
