@@ -89,6 +89,7 @@ namespace MassSpectrometry
         /// <param name="retentionTime"> the retention time where peak searching will begin </param>
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
+        /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
         public List<IIndexedPeak> GetXic(double mz, double retentionTime, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
         {
@@ -121,6 +122,7 @@ namespace MassSpectrometry
         /// <param name="zeroBasedStartIndex"> the scan where peak searching begins </param>
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
+        /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
         public List<IIndexedPeak> GetXic(double mz, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
         {
@@ -192,6 +194,9 @@ namespace MassSpectrometry
             return xic;
         }
 
+        /// <summary>
+        /// A generic method performing peak tracing for all the peaks in an indexingEngine and trying to find all XICs.
+        /// <returns> A list of ExtractedIonChromatogram objects representing all XICs that can be found in an indexingEngine </returns>
         public List<ExtractedIonChromatogram> GetAllXics(PpmTolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
         {
             var xics = new List<ExtractedIonChromatogram>();
