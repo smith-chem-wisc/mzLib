@@ -142,7 +142,7 @@ namespace MassSpectrometry
         public static void CutPeak(List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)
         {
             if (peaks == null || peaks.Count < 5) return;
-            var apexPeak = peaks.OrderByDescending(p => p.Intensity).FirstOrDefault();
+            var apexPeak = peaks.MaxBy(p => p.Intensity);
             var sortedPeaks = peaks.OrderBy(p => p.RetentionTime).ToList();
             var peakBoundaries = FindPeakBoundaries(sortedPeaks, sortedPeaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
             RemovePeaks(peaks, peakBoundaries, apexPeak.RetentionTime);
@@ -150,10 +150,10 @@ namespace MassSpectrometry
 
         public void SetRtInfo()
         {
-            ApexRT = Peaks.OrderByDescending(p => p.Intensity).First().RetentionTime;
+            ApexRT = Peaks.MaxBy(p => p.Intensity).RetentionTime;
             StartRT = Peaks.Min(p => p.RetentionTime);
             EndRT = Peaks.Max(p => p.RetentionTime);
-            ApexScanIndex = Peaks.OrderByDescending(p => p.Intensity).First().ZeroBasedScanIndex;
+            ApexScanIndex = Peaks.MaxBy(p => p.Intensity).ZeroBasedScanIndex;
             StartScanIndex = Peaks.Min(p => p.ZeroBasedScanIndex);
             EndScanIndex = Peaks.Max(p => p.ZeroBasedScanIndex);
         }
