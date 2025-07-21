@@ -51,7 +51,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
                 summarizedEnvelopes.Select(x => x.summedIntensity).ToArray(),
                 true);
 
-            var envelopes = ToEnvelopeDeconvoluter.Deconvolute(nms, nms.Range);
+            var envelopes = ToEnvelopeDeconvoluter.Deconvolute(nms, nms.Range).OrderByDescending(e=>e.TotalIntensity).ToList();
             return envelopes;
         }
         private MzSpectrum LogTransformSpectrum(MzSpectrum spectrum, double intensityThresholdForFilter = 0.01)
@@ -66,7 +66,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 
             return new MzSpectrum(xArray, yArray, true);
         }
-        private static List<double> AllAcceptibleLogMzDifferencesForAdjacentValues(int lowValue = 1, int highValue = 60)
+        private static List<double> AllAcceptibleLogMzDifferencesForAdjacentValues(int lowValue = 1, int highValue = 30)
         {
             var a = Enumerable.Range(lowValue, highValue - lowValue + 1).ToArray();
             var b = a.Select(i => (double)i).ToArray();
@@ -104,7 +104,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
             for (int indexOfFirstPeakInPotentialSeries = 0; indexOfFirstPeakInPotentialSeries < logMzArrayLength - 1; indexOfFirstPeakInPotentialSeries++)
             {
                 int minChargeState = 1;
-                int maxChargeState = 60;
+                int maxChargeState = 30;
                 for (int lowChargeState = minChargeState; lowChargeState < maxChargeState; lowChargeState++)
                 {
                     var allPotentialTargetMzsAndCharges = GetTargetLogMzsAndCharges(allExperimentalSortedLogMz[indexOfFirstPeakInPotentialSeries], lowChargeState, maxChargeState);
@@ -228,7 +228,7 @@ namespace MassSpectrometry.Deconvolution.Algorithms
 
             return matchedIndices.ToArray();
         }
-        public static (double[] targetLogMzs, int[] charges) GetTargetLogMzsAndCharges(double firstMz, int lowestCharge = 1, int highestCharge = 60)
+        public static (double[] targetLogMzs, int[] charges) GetTargetLogMzsAndCharges(double firstMz, int lowestCharge = 1, int highestCharge = 30)
         {
             double[] mzs = new double[highestCharge - lowestCharge + 1];
             int[] charges = Enumerable.Range(lowestCharge, highestCharge - lowestCharge + 1).ToArray();

@@ -316,6 +316,9 @@
     <None Update="DataFiles\artificialProteoform.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\complexRealProteoform.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\realProteoform.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
