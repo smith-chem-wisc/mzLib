@@ -69,7 +69,51 @@ namespace Test
             Assert.That(allMasses[0].MostAbundantObservedIsotopicMass, Is.EqualTo(12738.53003).Within(0.01));
             Assert.That(allMasses[0].Score, Is.EqualTo(5111.138226).Within(0.01));
             Assert.That(allMasses[0].TotalIntensity, Is.EqualTo(499.45).Within(0.01));
+        }
+        [Test]
+        public void FlashDeconvWithRealMs1Spectrum()
+        {
+            MsDataScan[] Scans = new MsDataScan[1];
+            double selectedIonMz = 850.24;
+            int selectedIonChargeStateGuess = 15;
+            double selectedIonIntensity = 13.4;
+            double isolationMz = 850.24; // This is the isolation m/z for the selected ion, which is the most intense proteoform in this test case.
 
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\realProteoform.txt");
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+
+            int mzIntensityPairsCount = spectrumLines.Length;
+            double[] ms1mzs = new double[mzIntensityPairsCount];
+            double[] ms1intensities = new double[mzIntensityPairsCount];
+
+            for (int i = 0; i < mzIntensityPairsCount; i++)
+            {
+                string[] pair = spectrumLines[i].Split('\t');
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
+            }
+
+            MzSpectrum spectrum = new MzSpectrum(ms1mzs, ms1intensities, false);
+
+            Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(740, 990), "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz, selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+
+            var myMsDataFile = new FakeMsDataFile(Scans);
+
+            MsDataScan scan = myMsDataFile.GetAllScansList()[0];
+
+            // The ones marked 2 are for checking an overload method
+
+            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters(13, 17);
+
+            FlashDeconv2 alg = new FlashDeconv2(deconParameters);
+            List<IsotopicEnvelope> allMasses = alg.Deconvolute(scan.MassSpectrum, new MzRange((double)scan.MassSpectrum.FirstX, (double)scan.MassSpectrum.LastX)).ToList();
+
+            Assert.That(allMasses.Count, Is.EqualTo(1));
+            Assert.That(allMasses[0].Charge, Is.EqualTo(1));
+            Assert.That(allMasses[0].MonoisotopicMass, Is.EqualTo(12730.499718360948).Within(0.01));
+            Assert.That(allMasses[0].MostAbundantObservedIsotopicMass, Is.EqualTo(12738.532541223694).Within(0.01));
+            Assert.That(allMasses[0].Score, Is.EqualTo(91500544022.111084).Within(0.01));
+            Assert.That(allMasses[0].TotalIntensity, Is.EqualTo(1602985825.25).Within(0.01));
         }
         [Test]
         // Tests that LogTransformSpectrum filters out low-intensity peaks and applies log transform to X values.
