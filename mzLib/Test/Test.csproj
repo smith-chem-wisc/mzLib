@@ -574,6 +574,15 @@
     <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="SpectralLibrary\SpectralLibraryData\myPrositLib.msp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Transcriptomics\TestData\20mer1.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
