@@ -14,6 +14,7 @@ using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Test.FileReadingTests;
+using MassSpectrometry.Deconvolution.Parameters;
 
 namespace Test
 {
@@ -386,7 +387,100 @@ namespace Test
         }
 
         #endregion
+        #region FlashDeconv
 
+       
+        [Test]
+        public static void TestIsdDataProteoformFlashDeconvRealData()
+        {
+            string realSequence = "MLMPKEDRNKIHQYLFQEGVVVAKKDFNQAKHEEIDTKNLYVIKALQSLTSKGYVKTQFSWQYYYYTLTEEGVEYLREYLNLPEHIVPGTYIQERNPTQRPQRRY";
+            MsDataScan[] Scans1 = new MsDataScan[1];
+
+            //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"DataFiles\realProteoform.txt");
+
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+
+            int mzIntensityPairsCount = spectrumLines.Length;
+            double[] ms1mzs = new double[mzIntensityPairsCount];
+            double[] ms1intensities = new double[mzIntensityPairsCount];
+
+            for (int i = 0; i < mzIntensityPairsCount; i++)
+            {
+                string[] pair = spectrumLines[i].Split('\t');
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
+            }
+
+            MzSpectrum spectrum1 = new MzSpectrum(ms1mzs, ms1intensities, true);
+            double selectedIonMz = 850.2421265; // This is the monoisotopic mass of the most abundant proteoform
+            int selectedIonChargeStateGuess = 15; // This is the charge state of the most abundant proteoform
+            double selectedIonIntensity = 64204956; // This is the intensity of the most abundant proteoform
+            double isolationMz = 850.2421265; // This is the isolation m/z of the most abundant proteoform
+            Scans1[0] = new MsDataScan(spectrum1, 1, 1, true, Polarity.Positive, 1.0, new MzRange(ms1mzs.Min(), ms1mzs.Max()),
+                "first spectrum", MZAnalyzerType.Unknown, spectrum1.SumOfAllY, null, null, null, selectedIonMz,
+                selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+
+            var myMsDataFile1 = new FakeMsDataFile(Scans1);
+
+            MsDataScan scan1 = myMsDataFile1.GetAllScansList()[0];
+
+            // The ones marked 2 are for checking an overload method
+
+            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters(10, 21);
+            var isolatedMasses = Deconvoluter.Deconvolute(scan1, deconParameters);
+
+            List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
+
+            Assert.That(monoIsotopicMasses[0], Is.EqualTo(12730.499718360948).Within(0.01));
+        }
+        [Test]
+        public static void TestIsdDataProteoformFlashDeconvArtificialData()
+        {
+            string realSequence = "MLMPKEDRNKIHQYLFQEGVVVAKKDFNQAKHEEIDTKNLYVIKALQSLTSKGYVKTQFSWQYYYYTLTEEGVEYLREYLNLPEHIVPGTYIQERNPTQRPQRRY";
+            MsDataScan[] Scans1 = new MsDataScan[1];
+
+            //txt file, not mgf, because it's an MS1. Most intense proteoform has mass of ~14037.9 Da
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"DataFiles\artificialProteoform.txt");
+
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+
+            int mzIntensityPairsCount = spectrumLines.Length;
+            double[] ms1mzs = new double[mzIntensityPairsCount];
+            double[] ms1intensities = new double[mzIntensityPairsCount];
+
+            for (int i = 0; i < mzIntensityPairsCount; i++)
+            {
+                string[] pair = spectrumLines[i].Split('\t');
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
+            }
+
+            MzSpectrum spectrum1 = new MzSpectrum(ms1mzs, ms1intensities, true);
+            double selectedIonMz = 850.2421265; // This is the monoisotopic mass of the most abundant proteoform
+            int selectedIonChargeStateGuess = 15; // This is the charge state of the most abundant proteoform
+            double selectedIonIntensity = 13.4; // This is the intensity of the most abundant proteoform
+            double isolationMz = 850.2421265; // This is the isolation m/z of the most abundant proteoform
+            Scans1[0] = new MsDataScan(spectrum1, 1, 1, true, Polarity.Positive, 1.0, new MzRange(ms1mzs.Min(), ms1mzs.Max()),
+                "first spectrum", MZAnalyzerType.Unknown, spectrum1.SumOfAllY, null, null, null, selectedIonMz,
+                selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+
+            var myMsDataFile1 = new FakeMsDataFile(Scans1);
+
+            MsDataScan scan1 = myMsDataFile1.GetAllScansList()[0];
+
+            // The ones marked 2 are for checking an overload method
+
+            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters(10, 21);
+            var isolatedMasses = Deconvoluter.Deconvolute(scan1, deconParameters);
+
+            List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
+
+            Assert.That(monoIsotopicMasses[0], Is.EqualTo(12730.505755140946).Within(0.01));
+        }
+        #endregion
         [Test]
         public static void TestExampleNewDeconvolutionInDeconvoluter()
         {
