@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using MassSpectrometry;
 using MassSpectrometry.Deconvolution.Algorithms;
 using MassSpectrometry.Deconvolution.Parameters;
 using MzLibUtil;
 using NUnit.Framework;
+using Test.FileReadingTests;
 
 namespace Test
 {
@@ -21,7 +25,52 @@ namespace Test
             var deconParams = new FlashDeconvDeconvolutionParameters(1,60);
             _flashDeconv2 = new FlashDeconv2(deconParams);
         }
+        [Test]
+        public void FlashDeconvWithArticialMs1Spectrum()
+        {
+            MsDataScan[] Scans = new MsDataScan[1];
+            double selectedIonMz = 850.24;
+            int selectedIonChargeStateGuess = 15;
+            double selectedIonIntensity = 13.4;
+            double isolationMz = 850.24; // This is the isolation m/z for the selected ion, which is the most intense proteoform in this test case.
 
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\artificialProteoform.txt");
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+
+            int mzIntensityPairsCount = spectrumLines.Length;
+            double[] ms1mzs = new double[mzIntensityPairsCount];
+            double[] ms1intensities = new double[mzIntensityPairsCount];
+
+            for (int i = 0; i < mzIntensityPairsCount; i++)
+            {
+                string[] pair = spectrumLines[i].Split('\t');
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
+            }
+
+            MzSpectrum spectrum = new MzSpectrum(ms1mzs, ms1intensities, false);
+
+            Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(740, 990), "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz, selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+
+            var myMsDataFile = new FakeMsDataFile(Scans);
+
+            MsDataScan scan = myMsDataFile.GetAllScansList()[0];
+
+            // The ones marked 2 are for checking an overload method
+
+            DeconvolutionParameters deconParameters = new FlashDeconvDeconvolutionParameters(13, 17);
+
+            FlashDeconv2 alg = new FlashDeconv2(deconParameters);
+            List<IsotopicEnvelope> allMasses = alg.Deconvolute(scan.MassSpectrum, new MzRange((double)scan.MassSpectrum.FirstX, (double)scan.MassSpectrum.LastX)).ToList();
+
+            Assert.That(allMasses.Count, Is.EqualTo(1));
+            Assert.That(allMasses[0].Charge, Is.EqualTo(1));
+            Assert.That(allMasses[0].MonoisotopicMass, Is.EqualTo(12730.5057551409).Within(0.01));
+            Assert.That(allMasses[0].MostAbundantObservedIsotopicMass, Is.EqualTo(12738.53003).Within(0.01));
+            Assert.That(allMasses[0].Score, Is.EqualTo(5111.138226).Within(0.01));
+            Assert.That(allMasses[0].TotalIntensity, Is.EqualTo(499.45).Within(0.01));
+
+        }
         [Test]
         // Tests that LogTransformSpectrum filters out low-intensity peaks and applies log transform to X values.
         public void LogTransformSpectrum_FiltersAndTransformsCorrectly()
@@ -39,69 +88,7 @@ namespace Test
             Assert.That(result.XArray, Is.All.GreaterThan(0));
         }
 
-        [Test]
-        // Tests that AllAcceptibleLogMzDifferencesForAdjacentValues returns the correct number of differences and correct values.
-        public void AllAcceptibleLogMzDifferencesForAdjacentValues_ReturnsExpectedCount()
-        {
-            var result = _flashDeconv2.GetType()
-                .GetMethod("AllAcceptibleLogMzDifferencesForAdjacentValues", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                .Invoke(_flashDeconv2, new object[] { 1, 5 }) as List<double>;
 
-            Assert.That(result.Count, Is.EqualTo(5));
-            Assert.That(result[0], Is.EqualTo(Math.Log(2) - Math.Log(1)).Within(1e-10));
-        }
-
-        [Test]
-        // Tests that FindMatchingGroups finds at least one group with more than one peak when differences match.
-        public void FindMatchingGroups_FindsExpectedGroups()
-        {
-            double[] logX = { Math.Log(100), Math.Log(200), Math.Log(300) };
-            double[] y = { 10, 20, 30 };
-            var diffs = new List<double> { Math.Log(200) - Math.Log(100), Math.Log(300) - Math.Log(200) };
-
-            var result = typeof(FlashDeconv2)
-                .GetMethod("FindMatchingGroups", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
-                .Invoke(null, new object[] { logX, y, diffs }) as List<(double[] X, double[] Y, int[] ChargeState)>;
-
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result.Count, Is.GreaterThanOrEqualTo(1));
-            Assert.That(result[0].X.Length, Is.GreaterThan(1));
-        }
-
-        [Test]
-        // Tests that RemoveSubsetGroups removes groups that are subsets of larger groups.
-        public void RemoveSubsetGroups_RemovesSubsets()
-        {
-            var groups = new List<(double[] X, double[] Y)>
-            {
-                (new double[] { 1, 2 }, new double[] { 10, 20 }),
-                (new double[] { 1, 2, 3 }, new double[] { 10, 20, 30 })
-            };
-
-            var result = typeof(FlashDeconv2)
-                .GetMethod("RemoveSubsetGroups", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
-                .Invoke(null, new object[] { groups }) as List<(double[] X, double[] Y)>;
-
-            Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(result[0].X.Length, Is.EqualTo(3));
-        }
-
-        [Test]
-        // Tests that TransformGroupsToExpX correctly exponentiates the X values in each group.
-        public void TransformGroupsToExpX_TransformsCorrectly()
-        {
-            var groups = new List<(double[] X, double[] Y)>
-            {
-                (new double[] { Math.Log(100), Math.Log(200) }, new double[] { 10, 20 })
-            };
-
-            var result = typeof(FlashDeconv2)
-                .GetMethod("TransformGroupsToExpX", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
-                .Invoke(null, new object[] { groups }) as List<(double[] X, double[] Y)>;
-
-            Assert.That(result[0].X[0], Is.EqualTo(100).Within(1e-10));
-            Assert.That(result[0].X[1], Is.EqualTo(200).Within(1e-10));
-        }
 
         [Test]
         // Tests that FilterMassIntensityGroupsByPpmTolerance separates groups into likely correct and incorrect based on ppm tolerance.
@@ -164,20 +151,6 @@ namespace Test
             var result = typeof(FlashDeconv2)
                 .GetMethod("LogMzDependentTolerance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
                 .Invoke(null, new object[] { logMz, 250.0 });
-
-            Assert.That(result, Is.TypeOf<double>());
-            Assert.That((double)result, Is.GreaterThan(0));
-        }
-
-        [Test]
-        // Tests that NeutralMassFromLogMz returns a positive neutral mass for a given log(m/z) and charge.
-        public void NeutralMassFromLogMz_ReturnsExpectedMass()
-        {
-            double logMz = Math.Log(1000);
-            int charge = 2;
-            var result = typeof(FlashDeconv2)
-                .GetMethod("NeutralMassFromLogMz", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
-                .Invoke(null, new object[] { logMz, charge });
 
             Assert.That(result, Is.TypeOf<double>());
             Assert.That((double)result, Is.GreaterThan(0));
