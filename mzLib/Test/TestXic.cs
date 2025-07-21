@@ -1,12 +1,10 @@
-﻿using System;
-using NUnit.Framework;
-using Readers;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Chemistry;
+﻿using Chemistry;
 using FlashLFQ;
+using MassSpectrometry;
 using MzLibUtil;
+using NUnit.Framework;
+using System.Collections.Generic;
+using System.Linq;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MassSpectrometry;
 using Microsoft.ML.Transforms;
@@ -56,16 +54,17 @@ namespace Test
 
             //Test XIC properties
             Assert.That(xic.Peaks.Count, Is.EqualTo(10));
-            Assert.That(xic.ApexRT, Is.EqualTo(1.6));
+            Assert.That(xic.ApexRT, Is.EqualTo(1.6f));
             Assert.That(xic.ApexScanIndex, Is.EqualTo(6));
-            Assert.That(xic.StartRT, Is.EqualTo(1.0));
-            Assert.That(xic.EndRT, Is.EqualTo(1.9));
-            Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0000001));
+            Assert.That(xic.StartRT, Is.EqualTo(1.0f));
+            Assert.That(xic.EndRT, Is.EqualTo(1.9f));
+            var mass = Dist.Masses.First().ToMz(1);
+            Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0001));
 
             //Test normalized peak intensities
             xic.SetNormalizedPeakIntensities();
             Assert.That(xic.NormalizedPeakIntensities.Length, Is.EqualTo(10));
-            Assert.That(xic.NormalizedPeakIntensities.Sum(), Is.EqualTo(100).Within(0.0001));
+            Assert.That(xic.NormalizedPeakIntensities.Sum(), Is.EqualTo(100f).Within(0.0001));
         }
 
         [Test]
@@ -78,9 +77,9 @@ namespace Test
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
             cubicSpline.SetXicSplineXYData(xic);
-            Assert.That(xic.XYData.Length, Is.EqualTo(19));
-            linearSpline.SetXicSplineXYData(xic);
-            Assert.That(xic.XYData.Length, Is.EqualTo(19));
+            Assert.That(xic.XYData.Length, Is.EqualTo(18)); // Because the last time point will be stored as 18.999999 (origin 19) while convert the float to double. 
+            linearSpline.SetXicSplineXYData(xic);                            // Then we will lose one numPoint (19 to 18) in the XYData. 
+            Assert.That(xic.XYData.Length, Is.EqualTo(18));
             //in scan cycle
             cubicSpline.SetXicSplineXYData(xic, cycle: true);
             Assert.That(xic.XYData.Length, Is.EqualTo(181));
@@ -89,7 +88,36 @@ namespace Test
             var cubicSpline2 = new XicCubicSpline(0.05, 1, 0.1);
             cubicSpline2.SetXicSplineXYData(xic);
             Assert.That(xic.XYData.Min(xy => xy.Item1), Is.EqualTo(0.9).Within(0.0000001));
-            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(2).Within(0.0000001));
+            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(1.95).Within(0.0000001)); // Because we lost one numPoint, then last point will be 1.95 instead of original value 2.0.
+
+            //ensure that add peaks works correctly
+            var peakList1 = new List<IIndexedPeak>();
+            double[] intensityMultipliers = { 1, 3, 1 };
+            for (int i = 0; i < intensityMultipliers.Length; i++)
+            {
+                peakList1.Add(new IndexedMassSpectralPeak(intensity: 1e5 * intensityMultipliers[i], retentionTime: 1 + i / 10, zeroBasedScanIndex: i + 5, mz: 500.0));
+            }
+            //The xic contains three original peaks, and we want to add two more peaks at the begining and the end. This setting of spline only adds peaks, no spline.
+            var xic1 = new ExtractedIonChromatogram(peakList1);
+            int numberOfPeaksToAdd = 2;
+            var linearSpline2 = new XicLinearSpline(1, numberOfPeaksToAdd, 1);
+            linearSpline2.SetXicSplineXYData(xic1, cycle: true);
+            //the xic length after adding the peaks should be 3 + 2*2
+            //the first two peaks and the last two peaks should have intensity 0
+            Assert.That(xic1.XYData.Length, Is.EqualTo(7));
+            for (int i = 0; i < numberOfPeaksToAdd; i++)
+            {
+                Assert.That(xic1.XYData[i].Item2, Is.EqualTo(0)); 
+            }
+            for (int i = xic1.XYData.Length - 1; i > xic1.Peaks.Count + numberOfPeaksToAdd - 1; i--)
+            {
+                Assert.That(xic1.XYData[i].Item2, Is.EqualTo(0));
+            }
+            //the orginal peaks should be present in the XYData after the 0 peaks are added
+            foreach (var peak in xic1.Peaks)
+            {
+                Assert.That(xic1.XYData.First(xy => xy.Item1 == peak.ZeroBasedScanIndex).Item2 == peak.Intensity, Is.True);
+            }
         }
 
         [Test]
@@ -97,11 +125,11 @@ namespace Test
         {
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
-            var rtArray = new double[] { 1.0, 1.1, 1.2 };
-            var intensityArray = new double[] { 100, 200, 300 };
+            var rtArray = new float[] { 1.0f, 1.1f, 1.2f };
+            var intensityArray = new float[] { 100, 200, 300 };
             var ex = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray, 1.0, 1.2));
             Assert.That(ex.Message, Is.EqualTo("Input arrays must contain at least 5 points."));
-            var intensityArray2 = new double[] { 100, 200, 300, 400, 500 };
+            var intensityArray2 = new float[] { 100, 200, 300, 400, 500 };
             var ex2 = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray2, 1.0, 1.2));
             Assert.That(ex2.Message, Is.EqualTo("Input arrays must have the same length."));
         }
