@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
 using Chemistry;
 using Easy.Common.Extensions;
 using MassSpectrometry;
@@ -107,5 +108,6 @@ namespace Omics.SpectrumMatch
             }
             return decoyFragmentIons;
         }
+
     }
 }

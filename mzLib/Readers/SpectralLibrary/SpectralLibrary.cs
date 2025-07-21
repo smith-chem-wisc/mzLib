@@ -15,8 +15,30 @@ using ThermoFisher.CommonCore.Data.Business;
 
 namespace Readers.SpectralLibrary
 {
-    public class SpectralLibrary
+    public class SpectralLibrary : ResultFile<LibrarySpectrum>, IResultFile
     {
+        public override SupportedFileType FileType => FilePath.ParseFileType();
+        public override Software Software { get; set; }
+        public SpectralLibrary() : base() { }
+        public SpectralLibrary(string filePath) : base(filePath, Software.MetaMorpheus) { }
+
+        public override void LoadResults()
+        {
+            Results = GetAllLibrarySpectra().ToList();
+        }
+
+        //This is from WriteSpectrumLibrary in MetaMorpheusTask
+        public override void WriteResults(string outputPath)
+        {
+            using (StreamWriter output = new StreamWriter(outputPath))
+            {
+                foreach (var x in Results)
+                {
+                    output.WriteLine(x.ToString());
+                }
+            }
+        }
+
         private List<string> LibraryPaths;
         private Dictionary<string, (string filePath, long byteOffset)> SequenceToFileAndLocation;
         private Queue<string> LibrarySpectrumBufferList;
