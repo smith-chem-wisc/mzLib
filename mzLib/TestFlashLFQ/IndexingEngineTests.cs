@@ -210,17 +210,6 @@ namespace Test
         }
 
         [Test]
-        public static void TestGetIndexedPeakWithChargeState()
-        {
-            MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
-            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
-            var peak = indexingEngine.GetIndexedPeak(997.986, 5, new PpmTolerance(20), 2);
-            Assert.IsNotNull(peak);
-            Assert.That(peak.M, Is.EqualTo(500).Within(0.001));
-            Assert.That(peak.ZeroBasedScanIndex, Is.EqualTo(5));
-        }
-
-        [Test]
         public static void TestGetIndexedPeakWithoutChargeState()
         {
             MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
@@ -266,7 +255,6 @@ namespace Test
          {
             PeakIndexingEngine indexingEngine = new();
             Assert.Throws<MzLibException>(() => indexingEngine.GetXic(500.0, 0, new PpmTolerance(20), 1));
-            Assert.Throws<MzLibException>(() => indexingEngine.GetIndexedPeak(500.0, 0, new PpmTolerance(20), 1));
         }
 
         [Test]
