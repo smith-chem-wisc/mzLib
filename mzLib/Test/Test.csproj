@@ -577,6 +577,9 @@
     <None Update="SpectralLibrary\SpectralLibraryData\myPrositLib.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="SpectralLibrary\SpectralLibraryData\RnaSpectralLibrary.msp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
