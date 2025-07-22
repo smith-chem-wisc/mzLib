@@ -384,14 +384,8 @@ namespace Readers
                     //   (b5-97.98)-1:531.18657
                     var match = Regex.Match(peak, @"^(.*?)([+-]\d+):([\d\.]+)$");
                     if (!match.Success)
-                    {
-                        // fallback for legacy negative mode: aBaseLoss5+1234.489 (no charge number, assume -1)
-                        match = Regex.Match(peak, @"^(.*?)([+-]):([\d\.]+)$");
-                    }
-                    if (!match.Success)
-                    {
                         throw new FormatException($"Could not parse ion string: {peak}");
-                    }
+
                     //get theoretical fragment
                     string ionTypeAndNumber = match.Groups[1].Value;
                     string chargeStr = match.Groups[2].Value;
@@ -420,7 +414,7 @@ namespace Readers
                         aminoAcidPosition = secondaryFragmentNumber - fragmentNumber;
 
                         //get mass error in Daltons
-                        if (peakMassErrorDa != null && peakMassErrorDa.Count > index && !string.IsNullOrEmpty(peakMassErrorDa[index]))
+                        if (peakMassErrorDa != null && !string.IsNullOrEmpty(peakMassErrorDa[index]))
                             errorDa = ExtractNumber(peakMassErrorDa[index], 3);
 
                     }
