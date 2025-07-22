@@ -73,7 +73,7 @@ namespace Readers
                             break;
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     warnings.Add("Could not read line: " + lineCount);
                 }
