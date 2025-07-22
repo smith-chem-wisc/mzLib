@@ -132,7 +132,7 @@ namespace Readers
     /// </summary>
     internal class FrameProxy
     {
-        private int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
+        protected int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
         /// <summary>
         /// This is one huge array that stores ALLLL the information for the frame. 
         /// Specific scans are accessed by determining the number of data points that were collected 
@@ -142,7 +142,7 @@ namespace Readers
         /// <summary>
         /// default size for the raw data array
         /// </summary>
-        private const int _defaultBufferSize = 4096;
+        protected const int _defaultBufferSize = 4096;
         internal UInt64 FileHandle { get; }
         internal long FrameId { get; }
         internal int NumberOfScans { get; }
