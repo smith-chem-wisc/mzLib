@@ -21,6 +21,38 @@ namespace Test
     [ExcludeFromCodeCoverage]
     internal class TestIsoTracker
     {
+        // Test the IsobaricPeptideGroup class
+        [Test]
+        public static void TestIsobaricPeptideGroup()
+        {
+            // Description: Test the IsobaricPeptideGroup class
+            // In this testing, we will create a new IsobaricPeptideGroup and check the properties
+            List<Identification> ids = new List<Identification>
+            {
+                new Identification(null, "PEPTIDE", "PEPTIDE", 500.0, 5.0, 2, new List<ProteinGroup>(), null, true, 0.9, 0, false),
+                new Identification(null, "PEPTIDE", "PEPTIDE", 500.0, 5.0, 2, new List<ProteinGroup>(), null, true, 0.9, 0, false)
+            };
+            IsobaricPeptideGroup group = new IsobaricPeptideGroup("PEPTIDE", 500.0, ids);
+            Assert.IsNotNull(group);
+            Assert.AreEqual(group.BaseSequence, "PEPTIDE");
+            Assert.AreEqual(group.MonoisotopicMass, 500.0);
+            Assert.IsNotNull(group.Identifications);
+            Assert.AreEqual(group.Identifications.Count, 2);
+
+            IsobaricPeptideGroup group2 = new IsobaricPeptideGroup("PEPTIDE", 500.0, null);
+            Assert.IsNotNull(group2); 
+            Assert.IsNotNull(group2.Identifications); // The identifications should be initialized to an empty list
+            Assert.AreEqual(group2, group); // Because the two groups have the same BaseSequence and MonoisotopicMass, they should be equal
+            Assert.AreEqual(group.GetHashCode(), group2.GetHashCode());
+
+            IsobaricPeptideGroup group3 = new IsobaricPeptideGroup("PEPTIDE", 501.0, ids);
+            Assert.IsNotNull(group3);
+            Assert.IsNotNull(group3.Identifications);
+            Assert.AreNotEqual(group3, group); // Because the two groups have difference MonoisotopicMass, they should be not equal
+            Assert.AreNotEqual(group3.GetHashCode(), group.GetHashCode());
+
+        }
+
         //Test the basic function in IsoTracker
         [Test]
         public static void TestIsoTrackerIdFilter_constructor()
