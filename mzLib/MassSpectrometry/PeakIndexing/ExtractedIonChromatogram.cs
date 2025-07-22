@@ -130,6 +130,9 @@ namespace MassSpectrometry
             }
         }
 
+        /// <summary>
+        /// Find the peak boundaries of this ExtractedIonChromatogram and remove the peaks that are outside of the boundaries.
+        /// </summary>
         public void CutPeak(double discriminationFactorToCutPeak = 0.6, bool updateRtInfo = true)
         {
             CutPeak(Peaks, discriminationFactorToCutPeak);
@@ -139,6 +142,9 @@ namespace MassSpectrometry
             }
         }
 
+        /// <summary>
+        /// Find the peak boundaries of any IIndexedPeak list and remove the peaks that are outside of the boundaries.
+        /// </summary>
         public static void CutPeak(List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)
         {
             if (peaks == null || peaks.Count < 5) return;
