@@ -19,6 +19,7 @@ using FlashLFQ.Interfaces;
 using MassSpectrometry;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
+[assembly: InternalsVisibleTo("Test")]
 
 namespace FlashLFQ
 {
@@ -54,7 +55,7 @@ namespace FlashLFQ
         /// <summary>
         /// The list of IsoPeptide Group with the same base sequence and monoisotopic mass. Only for IsoTracker analysis
         /// </summary>
-        internal List<IGrouping<(string BaseSequence, double MonoisotopicMassGroup), Identification>> PeptideGroupsForIsoTracker { get; private set; } 
+        internal List<IsobaricPeptideGroup> PeptideGroupsForIsoTracker { get; private set; } 
         /// <summary>
         /// The dictionary of isobaric peaks for each modified sequence
         /// </summary>
@@ -64,7 +65,7 @@ namespace FlashLFQ
         /// the mass shifts (isotope mass - monoisotopic mass) and normalized abundances for the
         /// isotopes for a given peptide
         /// </summary>
-        private Dictionary<string, List<(double massShift, double normalizedAbundance)>> ModifiedSequenceToIsotopicDistribution { get; set; }
+        internal Dictionary<string, List<(double massShift, double normalizedAbundance)>> ModifiedSequenceToIsotopicDistribution { get; set; }
         private List<int> _chargeStates;
         private FlashLfqResults _results;
         private readonly List<Identification> _allIdentifications;
@@ -192,10 +193,10 @@ namespace FlashLFQ
             _results = new FlashLfqResults(SpectraFileInfoList, _allIdentifications, FlashParams.MbrQValueThreshold, PeptideModifiedSequencesToQuantify, FlashParams.IsoTracker);
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
-            PeptideGroupsForIsoTracker = GroupPeptideForIsoTracker(); // Generate the isoPeptideGroups for IsoTracker
             List<float> targetMzs = new List<float>();
             if (FlashParams.IsoTracker) // If IsoTracker is on, we need to set the target mass for pruning
             {
+                PeptideGroupsForIsoTracker = GroupPeptideForIsoTracker(); // Generate the isoPeptideGroups for IsoTracker
                 targetMzs = GetTargetMz();
             }
 
@@ -1834,7 +1835,7 @@ namespace FlashLFQ
                     {
                         var idGroup = PeptideGroupsForIsoTracker[i];
                         List<XIC> xicGroup = new List<XIC>();
-                        var mostCommonChargeIdGroup = idGroup.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
+                        var mostCommonChargeIdGroup = idGroup.Identifications.GroupBy(p => p.PrecursorChargeState).OrderBy(p => p.Count()).Last();
                         var id = mostCommonChargeIdGroup.First();
 
                         // Try to get the primitive window for the XIC , from the (firstOne - 2) ->  (lastOne + 2)
@@ -2163,19 +2164,22 @@ namespace FlashLFQ
         /// peptides in the current dataset.
         /// </summary>
         /// <returns>A list of doubles representing the calculated m/z values of interest.</returns>
-        private List<float> GetTargetMz()
+        internal List<float> GetTargetMz()
         {
             // we only keep the masses from the PeptideListForIsoTracker.
-            // In peptideListForIsoTracker, we group the IDs by their base sequence and monoisotopic mass.
-            // At here we just take the first Id in each group for the mass information.
-            List<Identification> targetIdList = PeptideGroupsForIsoTracker.Select(p => p.First()).ToList();
+            // Then we will calculate the masses of interest from the isotopic distributions of the unique peptides.
+            IEnumerable<string> uniqueFullSequences = PeptideGroupsForIsoTracker
+                .SelectMany(g => g.Identifications)
+                .Select(p=>p.ModifiedSequence)
+                .Distinct();
             HashSet<float> interestedMass = new HashSet<float>();
 
             // Collect all the masses of interest from the isotopic distributions of the peptides
-            foreach (var targetId in targetIdList)
+            foreach (var fullSeq in uniqueFullSequences)
             {
-                var peptideIsotopicDistribution= ModifiedSequenceToIsotopicDistribution[targetId.ModifiedSequence];
-                List<float> massesOfInterest = peptideIsotopicDistribution.Select(p => (float)(p.massShift + targetId.MonoisotopicMass)).ToList();
+                var monoMass = _allIdentifications.FirstOrDefault(id => id.ModifiedSequence == fullSeq)?.MonoisotopicMass;
+                var peptideIsotopicDistribution= ModifiedSequenceToIsotopicDistribution[fullSeq];
+                List<float> massesOfInterest = peptideIsotopicDistribution.Select(p => (float)(p.massShift + monoMass)).ToList();
                 var minMass = massesOfInterest.Min();
                 var maxMass = massesOfInterest.Max();
                 massesOfInterest.Add(minMass - (float)Constants.C13MinusC12); // Except the isotopic distribution, we also add three mass (one before the lowest, two over the biggest)
@@ -2203,18 +2207,27 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Generate the target peptide list by filtering out the id with motif checking from the motif list we uploaded.
-        /// IsoTracker only runs IF modified AND modification contains residue.
-        /// Then grouped the IDs by their base sequence and monoisotopic mass -> isobaric peptide
+        /// Groups the peptide identifications for IsoTracker based on their base sequence and monoisotopic mass.
+        /// Each peptide is filtered by motif and modification, excluding decoys.
         /// </summary>
-        /// <returns></returns>
-        private List<IGrouping<(string BaseSequence, double MonoisotopicMassGroup), Identification>> GroupPeptideForIsoTracker()
+        /// <returns> the isobaricPeptideGroup</returns>
+        private List<IsobaricPeptideGroup> GroupPeptideForIsoTracker()
         {
-            return _allIdentifications
-                .Where(p => FlashParams.IsoTrackerIdFilter.ContainsAcceptableModifiedResidue(p.ModifiedSequence)) // Filtering part with motif
-                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy) // Only keep the non-decoy IDs and modified peptide
-                .GroupBy(p => (p.BaseSequence, MonoisotopicMassGroup: Math.Round(p.MonoisotopicMass / 0.0001))) // Group by the base sequence and monoisotopic mass
-                .ToList(); ;
+            // Filter IDs by motif and modification, exclude decoys
+            var filteredIds = _allIdentifications
+                .Where(p => FlashParams.IsoTrackerIdFilter.ContainsAcceptableModifiedResidue(p.ModifiedSequence))
+                .Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy);
+
+            // Group by base sequence and rounded monoisotopic mass
+            var grouped = filteredIds
+                .GroupBy(p => (p.BaseSequence, MonoisotopicMassGroup: Math.Round(p.MonoisotopicMass / 0.001)));
+
+            // Create IsobaricPeptideGroup objects for each group
+            var isoGroups = grouped
+                .Select(g => new IsobaricPeptideGroup(g.Key.BaseSequence, g.Key.MonoisotopicMassGroup,g.ToList()))
+                .ToList();
+
+            return isoGroups;
         }
 
     }

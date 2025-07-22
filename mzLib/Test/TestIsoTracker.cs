@@ -1,17 +1,19 @@
-﻿using FlashLFQ.IsoTracker;
-using FlashLFQ;
+﻿using FlashLFQ;
+using FlashLFQ.IsoTracker;
+using MassSpectrometry;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.Interpolation;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using MathNet.Numerics.Interpolation;
+using Chemistry;
+using Easy.Common.Extensions;
+using MzLibUtil;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
-using MassSpectrometry;
-using System.Windows.Media;
 
 namespace Test
 {
@@ -87,6 +89,112 @@ namespace Test
             Assert.IsTrue(filteredPeptides_2[0].Sequence == "PEPT[Modification]IEKNY");
             Assert.IsTrue(filteredPeptides_2[1].Sequence == "PES[modification]TIEKNY");
 
+        }
+
+        [Test]
+        public static void TestGetTargeMz()
+        {
+            // Description: Test the GetTargetMz function in FlashLfqEngine
+            // In this testing, we will check the isobaricPeptideGroup and targetMzs output
+
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
+            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "two", 1, 1, 1);
+
+            List<Identification> ids = new List<Identification>();
+            ids.Add(new Identification(f1r1, "PEPTIDE", "PE[A]PTIDE", 500.0, 5.0, 2, new List<ProteinGroup>(), null, true, 0.9, 0, false));
+            ids.Add(new Identification(f1r1, "PEPTIDE", "PEPT[A]IDE", 500.0, 5.0, 2, new List<ProteinGroup>(), null, true, 0.9, 0, false));
+            ids.Add(new Identification(f1r1, "PEPTIDE", "PEPTID[A]E", 500.0, 5.0, 2, new List<ProteinGroup>(), null, true, 0.9, 0, false));
+            
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: true,
+                requireMultipleIdsInOneFiles: false,
+                maxThreads: 1);
+            var results = engine.Run();
+
+            // Check the grouping function by manually create a new isobaric peptide group,
+            // then with the engine's peptide groups
+            var isobaricGroup = ids.Where(p => p.BaseSequence != p.ModifiedSequence && !p.IsDecoy)
+                    .GroupBy(p => (p.BaseSequence, MonoisotopicMassGroup: Math.Round(p.MonoisotopicMass / 0.001)))
+                    .Select(g => new IsobaricPeptideGroup(g.Key.BaseSequence, g.Key.MonoisotopicMassGroup, g.ToList()))
+                    .ToList();
+            Assert.IsTrue(isobaricGroup.Count == engine.PeptideGroupsForIsoTracker.Count); // The group count should be the same
+            Assert.AreEqual(isobaricGroup, engine.PeptideGroupsForIsoTracker); // The monoMass and the baseSeq should be the same
+
+            // Manually calculate the targetMzs
+            var peptideIsotopicDistribution = engine.ModifiedSequenceToIsotopicDistribution;
+            var interestedMass = new HashSet<float>();
+
+            IEnumerable<string> uniqueFullSeq = isobaricGroup.SelectMany(p => p.Identifications)
+                .Select(p => p.ModifiedSequence)
+                .Distinct();
+            foreach (var seq in uniqueFullSeq)
+            {
+                var monoMass = ids.FirstOrDefault(id => id.ModifiedSequence == seq)?.MonoisotopicMass;
+                var distribution = peptideIsotopicDistribution[seq];
+                List<float> massesOfInterest = distribution.Select(p => (float)(p.massShift + monoMass)).ToList();
+                var minMass = massesOfInterest.Min();
+                var maxMass = massesOfInterest.Max();
+                massesOfInterest.Add(minMass - (float)Constants.C13MinusC12); // Except the isotopic distribution, we also add three mass (one before the lowest, two over the biggest)
+                massesOfInterest.Add(maxMass + (float)Constants.C13MinusC12);
+                massesOfInterest.Add(maxMass + 2f * (float)Constants.C13MinusC12);
+                interestedMass.AddRange(massesOfInterest);
+            }
+            var manuallyValues = interestedMass.Select(p => p.ToMz(2)).ToList();
+            manuallyValues.Sort();
+
+            // Check the target m/z values in experimental values and manually calculated values
+            var experimentalValues = engine.GetTargetMz();
+            Assert.IsNotNull(experimentalValues);
+            CollectionAssert.AreEqual(experimentalValues, manuallyValues);
+        }
+
+        [Test]
+        public static void TestIndexPeakPrune()
+        {
+            // Description: Test the peak indexing engine pruning function
+            // In this test, we will create the targetMzs from the ids to prune the indexPeaks.
+            // After pruning, the index engine should only keep the peaks with the target m/z values.
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
+            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(testDataDirectory, file2 + ".mzML"), "two", 1, 1, 1);
+            List<SpectraFileInfo> fileInfos = new List<SpectraFileInfo>{ f1r1, f1r2 };
+            List<Identification> ids = new List<Identification>();
+            ids.Add(new Identification(f1r1, "PEPTIDE", "PE[A]PTIDE", 1201.53952, 5.0, 2, new List<ProteinGroup>(), null, true, 0.9, 0, false));
+            ids.Add(new Identification(f1r2, "PEPTIDE", "PEPT[A]IDE", 1201.53952, 5.0, 2, new List<ProteinGroup>(), null, true, 0.9, 0, false));
+
+            var engine = new FlashLfqEngine(ids,
+                matchBetweenRuns: false,
+                requireMsmsIdInCondition: false,
+                useSharedPeptidesForProteinQuant: false,
+                isoTracker: true,
+                requireMultipleIdsInOneFiles: false,
+                maxThreads: 1);
+            var results = engine.Run();
+
+            Tolerance ppTolerance = new PpmTolerance(10);
+
+            // Before pruning, the index engine should contain all the peaks
+            var indexEngine = PeakIndexingEngine.InitializeIndexingEngine(f1r1);
+            var xic = indexEngine.GetXic(866.9613, 108.02801, ppTolerance, 2);
+            var xic_2 = indexEngine.GetXic(601.77704, 108.72372, ppTolerance, 2);
+            Assert.IsTrue(xic.Any()); // Those two peaks are found
+            Assert.IsTrue(xic_2.Any());
+
+            // Prune the index engine that only keep the mz with 601.77704
+            var targetMzs = engine.GetTargetMz(); // Use the Ids to generate the target m/z values
+            indexEngine.PruneIndex(targetMzs);
+            xic = indexEngine.GetXic(866.9613, 108.02801, ppTolerance, 2);
+            xic_2 = indexEngine.GetXic(601.77704, 108.72372, ppTolerance, 2);
+            Assert.IsTrue(!xic.Any()); // Then there is not peak found with mz 866.9613
+            Assert.IsTrue(xic_2.Any()); // But the peak with mz 601.77704 should still be found
         }
 
 
