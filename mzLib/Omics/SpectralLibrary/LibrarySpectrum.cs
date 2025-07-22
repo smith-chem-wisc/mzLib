@@ -90,7 +90,7 @@ namespace Omics.SpectrumMatch
             return spectrum.ToString();
         }
 
-        // For decoy library spectrum generation, we use the predicted m/z valuse of the decoy sequence and we use the decoy's corresponding target's library spectrum's intensity values as decoy's intensities
+        // For decoy library spectrum generation, we use the predicted m/z value of the decoy sequence and we use the decoy's corresponding target's library spectrum's intensity values as decoy's intensities
         public static List<MatchedFragmentIon> GetDecoyLibrarySpectrumFromTargetByReverse(LibrarySpectrum targetSpectrum, List<Product> decoyPeptideTheorProducts)
         {
             var decoyFragmentIons = new List<MatchedFragmentIon>();
@@ -108,6 +108,5 @@ namespace Omics.SpectrumMatch
             }
             return decoyFragmentIons;
         }
-
     }
 }

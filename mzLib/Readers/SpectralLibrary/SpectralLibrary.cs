@@ -45,7 +45,7 @@ namespace Readers.SpectralLibrary
         public Dictionary<string, LibrarySpectrum> LibrarySpectrumBuffer;
         private int MaxElementsInBuffer = 10000;
         private Dictionary<string, StreamReader> StreamReaders;
-        private static Regex IonParserRegex = new Regex(@"^(\D{1,})(\d{1,})(?:[\^]|$)(\d{1,}|$)");
+        private static Regex IonParserRegex = new Regex(@"^(\D{1,})(\d{1,})(?:[\^]|$)(-?\d{1,}|$)");
 
         private static Dictionary<string, string> PrositToMetaMorpheusModDictionary = new Dictionary<string, string>
         {
@@ -144,16 +144,6 @@ namespace Readers.SpectralLibrary
             {
                 yield return ReadSpectrumFromLibraryFile(item.Value.filePath, item.Value.byteOffset);
             }
-        }
-
-        public void WriteSpectralLibrary(string path)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void WriteSpectralLibraryIndex(string path)
-        {
-            throw new NotImplementedException();
         }
 
         public void CloseConnections()
@@ -588,13 +578,6 @@ namespace Readers.SpectralLibrary
             // read fragment type, number
             Match regexMatchResult = IonParserRegex.Match(split[2]);
 
-            double neutralLoss = 0;
-            if (split[2].Contains("-"))
-            {
-                String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
-                neutralLoss = double.Parse(neutralLossInformation[1]);
-            }
-
             string fragmentType = regexMatchResult.Groups[1].Value;
             int fragmentNumber = int.Parse(regexMatchResult.Groups[2].Value);
             int fragmentCharge = 1;
@@ -602,6 +585,19 @@ namespace Readers.SpectralLibrary
             if (regexMatchResult.Groups.Count > 3 && !string.IsNullOrWhiteSpace(regexMatchResult.Groups[3].Value))
             {
                 fragmentCharge = int.Parse(regexMatchResult.Groups[3].Value);
+            }
+
+            double neutralLoss = 0;
+            if (split[2].Contains("-") && fragmentCharge > 0)
+            {
+                String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
+                neutralLoss = double.Parse(neutralLossInformation[1]);
+            }
+            if (fragmentCharge < 0)
+            {
+                String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
+                if (neutralLossInformation.Length > 2)
+                    neutralLoss = double.Parse(neutralLossInformation[2]);
             }
 
             ProductType peakProductType = (ProductType)Enum.Parse(typeof(ProductType), fragmentType, true);
