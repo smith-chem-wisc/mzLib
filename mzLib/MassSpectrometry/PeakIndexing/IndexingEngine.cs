@@ -59,16 +59,16 @@ namespace MassSpectrometry
         /// <summary>
         /// A generic method for finding the closest peak with a specified m/z and in a specified scan. Returns null if no peaks within tolerance are found.
         /// </summary>
-        /// <param name="mz"> the m/z of the peak to be searched for </param>
+        /// <param name="m"> the m/z of the peak to be searched for </param>
         /// <param name="zeroBasedScanIndex"> the zero based index of the scan where the peak is to be found </param>
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine </param>
-        public IIndexedPeak? GetIndexedPeak(double mz, int zeroBasedScanIndex, Tolerance ppmTolerance, int? charge = null)
+        public IIndexedPeak? GetIndexedPeak(double m, int zeroBasedScanIndex, Tolerance ppmTolerance, int? charge = null)
         {
             if (IndexedPeaks == null) throw new MzLibException("Error: Attempt to retrieve indexed peak before peak indexing was performed");
-            var bins = GetBinsInRange(mz, ppmTolerance);
+            var bins = GetBinsInRange(m, ppmTolerance);
             if (bins.Count == 0) return default(T);
             List<int> peakIndicesInBins = bins.Select(b => BinarySearchForIndexedPeak(b, zeroBasedScanIndex)).ToList();
-            return GetBestPeakFromBins(bins, mz, zeroBasedScanIndex, peakIndicesInBins, ppmTolerance, charge);
+            return GetBestPeakFromBins(bins, m, zeroBasedScanIndex, peakIndicesInBins, ppmTolerance, charge);
         }
 
         /// <summary>
@@ -90,6 +90,11 @@ namespace MassSpectrometry
             // get precursor scan to start at
             int scanIndex = -1;
             if (ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
+
+            if (charge != null && this is not MassIndexingEngine)
+            {
+                throw new MzLibException("Error: Attempt to retrieve indexed peak with charge parameter, but the indexingEngine is not massIndexingEngine.");
+            }
             foreach (ScanInfo scan in ScanInfoArray)
             {
                 if (scan.RetentionTime < retentionTime)
@@ -232,10 +237,6 @@ namespace MassSpectrometry
         {
             T? bestPeak = default(T);
             if (peakIndexInBin < 0 || peakIndexInBin >= bin.Count) return bestPeak;
-            if (charge != null && bin[0] is not IndexedMass)
-            {
-                throw new MzLibException("Error: Attempt to retrieve indexed peak with charge parameter, but the peak is not of type IndexedMass.");
-            }
             for (int i = peakIndexInBin; i < bin.Count; i++)
             {
                 var peak = bin[i];
