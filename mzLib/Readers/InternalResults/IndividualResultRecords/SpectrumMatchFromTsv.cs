@@ -146,7 +146,7 @@ namespace Readers
             //we are reading in all primary and child ions here only to delete the child scans later. This should be done better.
             MatchedIons = (spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) ?
                 ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq).First().Value :
-                ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMassDiffDa]].Trim());
+                ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMassDiffDa]].Trim(), this is PsmFromTsv);
 
             #pragma warning disable CS8601 // Possible null reference assignment.
             AmbiguityLevel = (parsedHeader[SpectrumMatchFromTsvHeader.AmbiguityLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.AmbiguityLevel]].Trim();
@@ -352,7 +352,7 @@ namespace Readers
         }
 
 
-        protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string matchedMassErrorDaString = null, bool isProtein = true)
+        protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string? matchedMassErrorDaString = null, bool isProtein = true)
         {
             List<MatchedFragmentIon> matchedIons = new List<MatchedFragmentIon>();
 
@@ -360,26 +360,42 @@ namespace Readers
             {
                 List<string> peakMzs = CleanMatchedIonString(matchedMzString);
                 List<string> peakIntensities = CleanMatchedIonString(matchedIntensityString);
-                List<string> peakMassErrorDa = null;
+                List<string>? peakMassErrorDa = matchedMassErrorDaString.IsNotNullOrEmpty()
+                    ? CleanMatchedIonString(matchedMassErrorDaString)
+                    : null;
 
-                if (matchedMassErrorDaString.IsNotNullOrEmpty())
+                // Helper: Extract nth number (with sign) from a string
+                static double ExtractNumber(string input, int n)
                 {
-                    peakMassErrorDa = CleanMatchedIonString(matchedMassErrorDaString);
+                    var matches = Regex.Matches(input, @"-?\d+(\.\d+)?");
+                    return matches.Count > n
+                        ? double.Parse(matches[n].Value, CultureInfo.InvariantCulture)
+                        : 1; // fallback default
                 }
 
                 for (int index = 0; index < peakMzs.Count; index++)
                 {
                     string peak = peakMzs[index];
-                    string[] split = peak.Split(new char[] { '+', ':' }); //TODO: needs update for negative charges that doesn't break internal fragment ions or neutral losses
-
+                    // Regex: IonTypeAndNumber (with optional neutral loss), charge (+/-), m/z
+                    // Examples:
+                    //   y1+1:147.11267
+                    //   (b5-97.98)+1:531.18657
+                    //   aBaseLoss5-1:1234.489
+                    //   (b5-97.98)-1:531.18657
+                    var match = Regex.Match(peak, @"^(.*?)([+-]\d+):([\d\.]+)$");
+                    if (!match.Success)
+                    {
+                        // fallback for legacy negative mode: aBaseLoss5+1234.489 (no charge number, assume -1)
+                        match = Regex.Match(peak, @"^(.*?)([+-]):([\d\.]+)$");
+                    }
+                    if (!match.Success)
+                    {
+                        throw new FormatException($"Could not parse ion string: {peak}");
+                    }
                     //get theoretical fragment
-                    string ionTypeAndNumber = split[0];
-
-                    // Pre-split intensity and error arrays
-                    string[] intensitySplit = peakIntensities[index].Split(new char[] { '+', ':', ']' });
-                    string[] errorSplit = null;
-                    if (peakMassErrorDa != null && peakMassErrorDa.Count > index && !string.IsNullOrEmpty(peakMassErrorDa[index]))
-                        errorSplit = peakMassErrorDa[index].Split(new char[] { '+', ':', ']' });
+                    string ionTypeAndNumber = match.Groups[1].Value;
+                    string chargeStr = match.Groups[2].Value;
+                    string mzStr = match.Groups[3].Value;
 
                     int fragmentNumber, secondaryFragmentNumber = 0;
                     ProductType productType;
@@ -392,10 +408,9 @@ namespace Readers
                     //if an internal fragment
                     if (ionTypeAndNumber.Contains('['))
                     {
-                        if (!double.TryParse(intensitySplit[3], NumberStyles.Any, CultureInfo.InvariantCulture, out intensity))
-                            intensity = 1;
+                        intensity = ExtractNumber(peakIntensities[index], 3);
 
-                        string[] internalSplit = split[0].Split('[');
+                        string[] internalSplit = ionTypeAndNumber.Split('[');
                         string[] productSplit = internalSplit[0].Split("I");
                         string[] positionSplit = internalSplit[1].Replace("]", "").Split('-');
                         productType = (ProductType)Enum.Parse(typeof(ProductType), productSplit[0]);
@@ -405,14 +420,13 @@ namespace Readers
                         aminoAcidPosition = secondaryFragmentNumber - fragmentNumber;
 
                         //get mass error in Daltons
-                        if (errorSplit is { Length: > 3 })
-                            double.TryParse(errorSplit[3], NumberStyles.Any, CultureInfo.InvariantCulture, out errorDa);
+                        if (peakMassErrorDa != null && peakMassErrorDa.Count > index && !string.IsNullOrEmpty(peakMassErrorDa[index]))
+                            errorDa = ExtractNumber(peakMassErrorDa[index], 3);
 
                     }
                     else //terminal fragment
                     {
-                        if (!double.TryParse(intensitySplit[2], NumberStyles.Any, CultureInfo.InvariantCulture, out intensity))
-                            intensity = 1;
+                        intensity = ExtractNumber(peakIntensities[index], 2);
 
                         Match result = IonParser.Match(ionTypeAndNumber);
                         productType = (ProductType)Enum.Parse(typeof(ProductType), result.Groups[1].Value);
@@ -441,13 +455,13 @@ namespace Readers
                             fragmentNumber;
 
                         //get mass error in Daltons
-                        if (errorSplit is { Length: > 2 })
-                            double.TryParse(errorSplit[2], NumberStyles.Any, CultureInfo.InvariantCulture, out errorDa);
+                        if (peakMassErrorDa != null && !string.IsNullOrEmpty(peakMassErrorDa[index]))
+                            errorDa = ExtractNumber(peakMassErrorDa[index], 2);
                     }
 
                     //get charge and mz
-                    int z = int.Parse(split[1]);
-                    double mz = double.Parse(split[2], CultureInfo.InvariantCulture);
+                    int z = int.Parse(chargeStr, NumberStyles.Integer, CultureInfo.InvariantCulture);
+                    double mz = double.Parse(mzStr, CultureInfo.InvariantCulture);
                     double neutralExperimentalMass = mz.ToMass(z); //read in m/z converted to mass
                     double neutralTheoreticalMass = neutralExperimentalMass - errorDa; //theoretical mass is measured mass - measured error
 
