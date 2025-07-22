@@ -9,6 +9,10 @@ namespace FlashLFQ.IsoTracker
     public class IsobaricPeptideGroup
     {
         public string BaseSequence { get; set; }
+        /// <summary>
+        /// The monoisotopic mass is got by dividing the monoMass with 0.01 in GroupPeptideForIsoTracker.
+        /// The number is used for peptide grouping.
+        /// </summary>
         public double MonoisotopicMass { get; set; }
         public List<Identification> Identifications { get; set; }
         public IsobaricPeptideGroup(string baseSequence, double monoisotopicMass, List<Identification> identifications)
@@ -22,8 +26,7 @@ namespace FlashLFQ.IsoTracker
             if (obj is IsobaricPeptideGroup other)
             {
                 // Compare BaseSequence and MonoisotopicMass (rounded to 4 decimal places for floating point safety)
-                return BaseSequence == other.BaseSequence &&
-                       Math.Round(Convert.ToDouble(MonoisotopicMass), 4) == Math.Round(Convert.ToDouble(other.MonoisotopicMass), 4);
+                return BaseSequence == other.BaseSequence && MonoisotopicMass == other.MonoisotopicMass;
             }
 
             return false;
