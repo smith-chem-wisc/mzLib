@@ -277,6 +277,8 @@ namespace FlashLFQ
                     listOfFoldChangesBetweenTheFiles.Add(intensityLogFoldChange);
                 }
             }
+
+            listOfFoldChangesBetweenTheFiles = listOfFoldChangesBetweenTheFiles.Where(d => !(double.IsNaN(d) | double.IsInfinity(d))).ToList();
             Normal foldChangeDistribution = listOfFoldChangesBetweenTheFiles.Count > 100
                 ? new Normal(listOfFoldChangesBetweenTheFiles.Median(), listOfFoldChangesBetweenTheFiles.StandardDeviation())
                 : null;
