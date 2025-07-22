@@ -321,28 +321,39 @@ namespace Test
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
-            Assert.That(librarySpectra.Count, Is.EqualTo(27));
-            //Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("VGIVPGEVIAPGM[Common Variable:Oxidation on M]R", 3, out var spectrum1));
-            //Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("C[Common Fixed:Carbamidomethyl on C]TSC[Common Fixed:Carbamidomethyl on C]NGQGIKFVTR", 3, out var spectrum2));
-            //Assert.That(spectrum2.PrecursorMz, Is.EqualTo(543.2608252287667));
-            //Assert.That(spectrum2.RetentionTime, Is.EqualTo(2789.812255859375));
+            Assert.That(librarySpectra.Count, Is.EqualTo(3));
+            Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("UUCAAGUAAUCCAGGAUAGGCU", -4, out var spectrum1));
+            Assert.That(spectrum1.PrecursorMz, Is.EqualTo(1754.7326250495053));
+            Assert.That(spectrum1.RetentionTime, Is.EqualTo(101.55053511946667));
+            Assert.That(spectrum1.ChargeState, Is.EqualTo(-4));
 
-            //testLibraryWithoutDecoy.TryGetSpectrum("YHPDKNPSEEAAEK", 3, out var test1);
+            var frags = new List<(double mz, double intensity, ProductType ProductType, int fragmentNumber, int charge, double ppm)>
+            {
+                (1754.732796641353, 1, ProductType.M, 0, -4, 0.0),
+                (1694.2156397364215, 0.18305825591795324, ProductType.c, 21, -4, 0.0), 
+                (916.0830517829334, 0.9851827672345452, ProductType.dWaterLoss, 3, -1, 0.0), 
+                (1245.1353067663367, 0.5200291013657108, ProductType.dWaterLoss, 4, -1, 0.0),
+                (1574.1872280020955, 0.4963628951003168, ProductType.dWaterLoss, 5, -1, 0.0),
+                (1926.91418476843, 0.2058209855536327, ProductType.dWaterLoss, 18, -3, 0.0),
+                (628.0697610310524, 0.2605801076610621, ProductType.w, 2, -1, 0.0),
+                (973.1145817718351, 0.3083674862193388, ProductType.w, 3, -1, 0.0),
+                (893.1496897199996, 0.6432446006411601, ProductType.y, 3, -1, 0.0),
+                (1238.1975015905555, 0.5120500414278845, ProductType.y, 4, -1, 0.0),
+                (1567.2476667354226, 0.266732410843633, ProductType.y, 5, -1, 0.0),
+                (1678.223510750143, 0.3100916505786839, ProductType.y, 21, -4, 0.0),
+            };
+            double maxOfIntensity = frags.Select(p => p.intensity).ToList().Max();
+            for (int i = 0; i < frags.Count; i++)
+            {
+                var frag = frags[i];
+                var readFrag = spectrum1.MatchedFragmentIons[i];
 
-            //Assert.That(test1.PrecursorMz, Is.EqualTo(538.9179945621));
-            //Assert.That(test1.RetentionTime, Is.EqualTo(1361.375244140625));
-            //Assert.That(test1.ChargeState, Is.EqualTo(3));
-
-            //var frags = new List<(double mz, double intensity, ProductType ProductType, int fragmentNumber, int charge, double ppm)>
-            //{
-            //    (301.1295080000, 10000.0, ProductType.b, 2, 1, 0.0),
-            //    (657.8122378432, 1102.3, ProductType.y, 12, 2, 0.0),
-            //    (974.4425296863, 1476.0, ProductType.y, 9, 1, 0.0),
-            //    (860.3996026863, 7228.2, ProductType.y, 8, 1, 0.0),
-            //    (763.3468386863, 1201.9, ProductType.y, 7, 1, 0.0),
-            //    (418.2296246863, 1178.9, ProductType.y, 4, 1, 0.0),
-            //    (347.1925106863, 1042.8, ProductType.y, 3, 1, 0.0)
-            //};
+                Assert.That(frag.mz == readFrag.Mz);
+                Assert.That((frag.intensity / maxOfIntensity) == readFrag.Intensity);
+                Assert.That(frag.ProductType == readFrag.NeutralTheoreticalProduct.ProductType);
+                Assert.That(frag.fragmentNumber == readFrag.NeutralTheoreticalProduct.FragmentNumber);
+                Assert.That(frag.charge == readFrag.Charge);
+            }
         }
 
         [Test]
