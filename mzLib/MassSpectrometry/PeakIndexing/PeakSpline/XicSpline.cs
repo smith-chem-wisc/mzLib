@@ -76,7 +76,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Add points with 0 intensity to the beginning and end of the XIC before interpolation.
         /// </summary>
-        protected void AddPeaks(float[] rtArray, float[] intensityArray, out double[] newRtArray, out double[] newIntensityArray)
+        public void AddPeaks(float[] rtArray, float[] intensityArray, out double[] newRtArray, out double[] newIntensityArray)
         {
             if (NumberOfPeaksToAdd == 0)
             {
@@ -93,7 +93,7 @@ namespace MassSpectrometry
                     newRtArray[i] = rtArray[0] - (NumberOfPeaksToAdd - i) * Gap;
                     newIntensityArray[i] = 0;
                 }
-                else if (i >= rtArray.Length + NumberOfPeaksToAdd - 1)
+                else if (i >= rtArray.Length + NumberOfPeaksToAdd)
                 {
                     newRtArray[i] = newRtArray[i - 1] + Gap;
                     newIntensityArray[i] = 0;
