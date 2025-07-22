@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
+using MathNet.Numerics.Interpolation;
 using MzLibUtil;
 using NUnit.Framework;
 using System.Collections.Generic;
@@ -117,7 +118,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestExceptionHandling()
+        public static void TestXicSplineExceptionHandling()
         {
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
@@ -128,6 +129,14 @@ namespace Test
             var intensityArray2 = new float[] { 100, 200, 300, 400, 500 };
             var ex2 = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray2, 1.0, 1.2));
             Assert.That(ex2.Message, Is.EqualTo("Input arrays must have the same length."));
+        }
+
+        [Test]
+        public static void TestMassXicExceptionHandling()
+        {
+            var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(FakeScans);
+            var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
+            Assert.That(ex.Message, Is.EqualTo("Error: Attempt to retrieve indexed peak with charge parameter, but the indexingEngine is not massIndexingEngine."));
         }
     }
 }

@@ -91,10 +91,6 @@ namespace MassSpectrometry
             int scanIndex = -1;
             if (ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
 
-            if (charge != null && this is not MassIndexingEngine)
-            {
-                throw new MzLibException("Error: Attempt to retrieve indexed peak with charge parameter, but the indexingEngine is not massIndexingEngine.");
-            }
             foreach (ScanInfo scan in ScanInfoArray)
             {
                 if (scan.RetentionTime < retentionTime)
@@ -126,6 +122,11 @@ namespace MassSpectrometry
         public List<IIndexedPeak> GetXic(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
         {
             if (IndexedPeaks == null || ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
+
+            if (charge != null && this is not MassIndexingEngine)
+            {
+                throw new MzLibException("Error: Attempt to retrieve indexed peak with charge parameter, but the indexingEngine is not massIndexingEngine.");
+            }
             List<IIndexedPeak> xic = new List<IIndexedPeak>();
             var allBins = GetBinsInRange(m, ppmTolerance);
             if (allBins.Count == 0)
