@@ -33,6 +33,7 @@ namespace FlashLFQ.Interfaces
         /// <param name="retentionTime"> the retention time where peak searching will begin </param>
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
+        /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
         public List<IIndexedPeak> GetXic(double mz, double retentionTime, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = int.MaxValue, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null);
         /// <summary>
