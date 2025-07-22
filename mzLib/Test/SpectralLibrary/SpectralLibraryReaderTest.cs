@@ -320,6 +320,29 @@ namespace Test
 
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
+
+            Assert.That(librarySpectra.Count, Is.EqualTo(27));
+            //Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("VGIVPGEVIAPGM[Common Variable:Oxidation on M]R", 3, out var spectrum1));
+            //Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("C[Common Fixed:Carbamidomethyl on C]TSC[Common Fixed:Carbamidomethyl on C]NGQGIKFVTR", 3, out var spectrum2));
+            //Assert.That(spectrum2.PrecursorMz, Is.EqualTo(543.2608252287667));
+            //Assert.That(spectrum2.RetentionTime, Is.EqualTo(2789.812255859375));
+
+            //testLibraryWithoutDecoy.TryGetSpectrum("YHPDKNPSEEAAEK", 3, out var test1);
+
+            //Assert.That(test1.PrecursorMz, Is.EqualTo(538.9179945621));
+            //Assert.That(test1.RetentionTime, Is.EqualTo(1361.375244140625));
+            //Assert.That(test1.ChargeState, Is.EqualTo(3));
+
+            //var frags = new List<(double mz, double intensity, ProductType ProductType, int fragmentNumber, int charge, double ppm)>
+            //{
+            //    (301.1295080000, 10000.0, ProductType.b, 2, 1, 0.0),
+            //    (657.8122378432, 1102.3, ProductType.y, 12, 2, 0.0),
+            //    (974.4425296863, 1476.0, ProductType.y, 9, 1, 0.0),
+            //    (860.3996026863, 7228.2, ProductType.y, 8, 1, 0.0),
+            //    (763.3468386863, 1201.9, ProductType.y, 7, 1, 0.0),
+            //    (418.2296246863, 1178.9, ProductType.y, 4, 1, 0.0),
+            //    (347.1925106863, 1042.8, ProductType.y, 3, 1, 0.0)
+            //};
         }
 
         [Test]
