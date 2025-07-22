@@ -10,6 +10,7 @@ using Omics.Modifications;
 using Readers;
 using Readers.SpectralLibrary;
 using Omics.SpectrumMatch;
+using NUnit.Framework.Legacy;
 
 namespace Test
 {
@@ -319,6 +320,44 @@ namespace Test
 
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
+        }
+
+        [Test]
+        public static void WriteXlSpectralLibraryTest()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp");
+            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+
+            // Check that SinglePeptides are written
+            Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("GNVINLSLGFSHPVDHQLPAGITAEC[Common Fixed:Carbamidomethyl on C]PTQTEIVLK", 4, out var spectrum));
+            Product productWithNeutralLoss =
+                new Product(ProductType.Y, FragmentationTerminus.C, 100, 1, 1, neutralLoss: 10.0);
+            Product productWithNeutralLoss20 =
+                new Product(ProductType.Y, FragmentationTerminus.C, 100, 1, 1, neutralLoss: 20.0);
+            // Check that interLinks
+            Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("GVTVDKMTELR(6)SFTFVTKTPPAAVLLK(7)", 2, out var interLinkSpectrum));
+            Assert.That(interLinkSpectrum.MatchedFragmentIons.Count, Is.EqualTo(17));
+            Assert.That(interLinkSpectrum is CrosslinkLibrarySpectrum);
+            CrosslinkLibrarySpectrum interSpectrum = (CrosslinkLibrarySpectrum)interLinkSpectrum;
+            Assert.That(interSpectrum.BetaPeptideSpectrum.MatchedFragmentIons.Count, Is.EqualTo(13));
+            Assert.That(interSpectrum.AlphaPeptideSequence, Is.EqualTo("GVTVDKMTELR"));
+            Assert.That(interSpectrum.BetaPeptideSequence, Is.EqualTo("SFTFVTKTPPAAVLLK"));
+            Assert.That(interSpectrum.BetaPeptideSpectrum.IsBetaPeptide);
+            interLinkSpectrum.MatchedFragmentIons.Add(new MatchedFragmentIon(productWithNeutralLoss, 100, 100, 1));
+            CrosslinkLibrarySpectrum spectrumDup = (CrosslinkLibrarySpectrum)interLinkSpectrum;
+            spectrumDup.BetaPeptideSpectrum.MatchedFragmentIons.Add(new MatchedFragmentIon(productWithNeutralLoss20, 100, 100, 1));
+            var spectrumString = spectrumDup.ToString();
+            // Check neutral loss fragments are written correctly
+            StringAssert.Contains("\"Y1^1-10/0ppm\"", spectrumString);
+            StringAssert.Contains("\"Y1^1-20/0ppm\"\tBetaPeptideIon", spectrumString);
+
+
+            // Check intraLinks
+            Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("LLDNAAADLAAISGQKPLITKAR(21)ITLNMGVGEAIADKK(14)", 5, out var intraLinkSpectrum));
+
+            Assert.That(intraLinkSpectrum is CrosslinkLibrarySpectrum);
+            CrosslinkLibrarySpectrum intraSpectrum = (CrosslinkLibrarySpectrum)interLinkSpectrum;
+            Assert.That(intraSpectrum.BetaPeptideSpectrum.MatchedFragmentIons.Count, Is.GreaterThan(0));
         }
     }
     
