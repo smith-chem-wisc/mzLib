@@ -143,8 +143,8 @@ namespace MassSpectrometry
         {
             if (peaks == null || peaks.Count < 5) return;
             var apexPeak = peaks.MaxBy(p => p.Intensity);
-            var sortedPeaks = peaks.OrderBy(p => p.RetentionTime).ToList();
-            var peakBoundaries = FindPeakBoundaries(sortedPeaks, sortedPeaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
+            peaks.Sort((x, y) => x.RetentionTime.CompareTo(y.RetentionTime));
+            var peakBoundaries = FindPeakBoundaries(peaks, peaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
             RemovePeaks(peaks, peakBoundaries, apexPeak.RetentionTime);
         }
 
