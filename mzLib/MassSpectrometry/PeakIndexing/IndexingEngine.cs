@@ -61,7 +61,7 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="m"> the m/z of the peak to be searched for </param>
         /// <param name="zeroBasedScanIndex"> the zero based index of the scan where the peak is to be found </param>
-        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine </param>
+        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         public IIndexedPeak? GetIndexedPeak(double m, int zeroBasedScanIndex, Tolerance ppmTolerance, int? charge = null)
         {
             if (IndexedPeaks == null) throw new MzLibException("Error: Attempt to retrieve indexed peak before peak indexing was performed");
@@ -82,7 +82,7 @@ namespace MassSpectrometry
         /// <param name="retentionTime"> the retention time where peak searching will begin </param>
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
-        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine </param>
+        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
         public List<IIndexedPeak> GetXic(double m, double retentionTime, Tolerance ppmTolerance,
             int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
@@ -117,7 +117,7 @@ namespace MassSpectrometry
         /// <param name="zeroBasedStartIndex"> the scan where peak searching begins </param>
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
-        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine </param>
+        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
         public List<IIndexedPeak> GetXic(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
         {
@@ -211,7 +211,7 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine </param>
+        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         /// Returns the peak that is closest to the target mz from all possible bins
         /// </summary>
         internal static T? GetBestPeakFromBins(List<List<T>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, Tolerance ppmTolerance, int? charge = null)
@@ -231,7 +231,7 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine </param>
+        /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         /// Returns the peak that is closest to the target mz from one bin
         /// </summary>
         internal static T GetPeakFromBin(List<T> bin, double mz, int zeroBasedScanIndex, int peakIndexInBin, Tolerance ppmTolerance, int? charge = null)
