@@ -24,18 +24,18 @@ namespace Readers
 
     internal readonly struct MrmRecord
     {
+        internal long FrameId { get; }
         internal int ScanStart { get; }
         internal int ScanEnd { get; }
-        internal double ScanMedian { get; }
         internal float IsolationMz { get; }
         internal float IsolationWidth { get; }
         internal float CollisionEnergy { get; }
-
-        public MrmRecord(int scanStart, int scanEnd, double scanMedian, float isolationMz, float isolationWidth, float collisionEnergy)
+        
+        public MrmRecord(long frame, int scanStart, int scanEnd, float isolationMz, float isolationWidth, float collisionEnergy)
         {
+            FrameId = frame;
             ScanStart = scanStart;
             ScanEnd = scanEnd;
-            ScanMedian = scanMedian;
             IsolationMz = isolationMz;
             IsolationWidth = isolationWidth;
             CollisionEnergy = collisionEnergy;

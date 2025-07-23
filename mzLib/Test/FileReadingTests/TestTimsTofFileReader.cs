@@ -38,7 +38,7 @@ namespace Test.FileReadingTests
         {
             string localFilePath = @"C:\Users\Alex\Downloads\data_TD_histonesH4\01_monoacetylated_H4_isomers\20220511-1512_TTP_000981_ONJ_HAT_20220511_H4K05Ac-H4K16Ac_Ramp1300ms_D200_P36_CID-32eV_charge18_T18_1.d";
             var reader = new TimsTofFileReader(localFilePath);
-            reader.LoadAllStaticData();
+            reader.LoadAllStaticData(maxThreads: 1);
         }
 
         [Test]
