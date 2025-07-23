@@ -132,6 +132,96 @@ namespace Test
 
             double manualMbrScore = Math.Pow( acceptorPeak.PpmScore * acceptorPeak.IntensityScore * acceptorPeak.RtScore * acceptorPeak.ScanCountScore * acceptorPeak.IsotopicDistributionScore, 1.0 / 5.0) * 100;
             Assert.That(acceptorPeak.MbrScore, Is.EqualTo(manualMbrScore).Within(0.1));
+
+
+            // Test the LogFcDictionary within the MbrScorer
+            List<ChromatographicPeak> donorPeaks = new List<ChromatographicPeak> { };
+            List<ChromatographicPeak> acceptorPeaks = new List<ChromatographicPeak> { };
+            var intensityProperty = typeof(ChromatographicPeak).GetProperty(
+                "Intensity",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic
+            );
+            var random = new Random();
+            for (int i = 0; i < 90; i++)
+            {
+                var seq = RandomPeptide(10);
+                Identification idDonor = new Identification(fakeDonorFile, seq, seq, 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
+                Identification idAcceptor = new Identification(fakeFile, seq, seq, 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
+                ChromatographicPeak newDonorPeak = new ChromatographicPeak(idDonor, fakeDonorFile);
+                intensityProperty.SetValue(newDonorPeak, 1000 + random.NextDouble());
+                ChromatographicPeak newAcceptorPeak = new ChromatographicPeak(idAcceptor, fakeFile);
+                intensityProperty.SetValue(newAcceptorPeak, 2000 + random.NextDouble());
+
+                donorPeaks.Add(newDonorPeak);
+                acceptorPeaks.Add(newAcceptorPeak);
+            }
+
+            var unambiguousPeaksProperty = typeof(MbrScorer).GetFields(
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .First(x => x.Name.Contains("UnambiguousMsMsAcceptorPeaks"));
+            unambiguousPeaksProperty.SetValue(scorer, acceptorPeaks);
+            scorer.CalculateFoldChangeBetweenFiles(donorPeaks);
+
+            // Get the FieldInfo for _logFcDistributionDictionary
+            var fieldInfo = typeof(MbrScorer).GetField(
+                "_logFcDistributionDictionary",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic
+            );
+            // Get the value from an instance (e.g., mbrScorerInstance)
+            var logFcDistributionDictionary = (Dictionary<SpectraFileInfo, Normal>)fieldInfo.GetValue(scorer);
+            Assert.That(logFcDistributionDictionary.Count, Is.EqualTo(0)); // Because there are fewer than 100 values, the logFC distribution is not calculated
+
+            // Add 20 more peaks to the acceptor peaks list to ensure that the logFC distribution is calculated
+            for (int i = 0; i < 20; i++)
+            {
+                var seq = RandomPeptide(10);
+                Identification idDonor = new Identification(fakeDonorFile, seq, seq, 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
+                Identification idAcceptor = new Identification(fakeFile, seq, seq, 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
+                ChromatographicPeak newDonorPeak = new ChromatographicPeak(idDonor, fakeDonorFile);
+                intensityProperty.SetValue(newDonorPeak, 1000 + random.NextDouble());
+                ChromatographicPeak newAcceptorPeak = new ChromatographicPeak(idAcceptor, fakeFile);
+                intensityProperty.SetValue(newAcceptorPeak, 2000 + random.NextDouble());
+
+                donorPeaks.Add(newDonorPeak);
+                acceptorPeaks.Add(newAcceptorPeak);
+            }
+
+            unambiguousPeaksProperty.SetValue(scorer, acceptorPeaks);
+            scorer.CalculateFoldChangeBetweenFiles(donorPeaks);
+            logFcDistributionDictionary = (Dictionary<SpectraFileInfo, Normal>)fieldInfo.GetValue(scorer);
+            Assert.That(logFcDistributionDictionary.Count, Is.EqualTo(1));
+            Assert.That(logFcDistributionDictionary.Values.First().Mean, Is.EqualTo(Math.Log2(2)).Within(0.001)); // The mean logFC should be around log(2) because the acceptor peaks are twice as intense as the donor peaks
+            logFcDistributionDictionary.Clear(); // Clear the dictionary for the next test
+
+            // Make sure that Nan values don't cause a crash
+            for (int i = 0; i < 1; i++)
+            {
+                var seq = RandomPeptide(10);
+                Identification idDonor = new Identification(fakeDonorFile, seq, seq, 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
+                Identification idAcceptor = new Identification(fakeFile, seq, seq, 669.4173, 1.9398, 2, new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
+                ChromatographicPeak newDonorPeak = new ChromatographicPeak(idDonor, fakeDonorFile);
+                intensityProperty.SetValue(newDonorPeak, double.NaN);
+                ChromatographicPeak newAcceptorPeak = new ChromatographicPeak(idAcceptor, fakeFile);
+                intensityProperty.SetValue(newAcceptorPeak, double.NaN);
+
+                donorPeaks.Add(newDonorPeak);
+                acceptorPeaks.Add(newAcceptorPeak);
+            }
+
+            unambiguousPeaksProperty.SetValue(scorer, acceptorPeaks);
+            scorer.CalculateFoldChangeBetweenFiles(donorPeaks);
+            Assert.That(logFcDistributionDictionary.Count, Is.EqualTo(1));
+            Assert.That(logFcDistributionDictionary.Values.First().Mean, Is.EqualTo(Math.Log2(2)).Within(0.001));
+
+        }
+
+        public static string RandomPeptide(int length)
+        {
+            //Generate a random peptide sequence
+            Random random = new Random();
+            const string aminoAcids = "ACDEFGHIKLMNPQRSTVWY"; // Standard amino acids
+            return new string(Enumerable.Repeat(aminoAcids, length)
+                .Select(s => s[random.Next(s.Length)]).ToArray());
         }
 
         [Test]
