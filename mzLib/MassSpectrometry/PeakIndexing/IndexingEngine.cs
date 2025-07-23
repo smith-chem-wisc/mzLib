@@ -123,10 +123,6 @@ namespace MassSpectrometry
         {
             if (IndexedPeaks == null || ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
 
-            if (charge != null && this is not MassIndexingEngine)
-            {
-                throw new MzLibException("Error: Attempt to retrieve indexed peak with charge parameter, but the indexingEngine is not massIndexingEngine.");
-            }
             List<IIndexedPeak> xic = new List<IIndexedPeak>();
             var allBins = GetBinsInRange(m, ppmTolerance);
             if (allBins.Count == 0)
@@ -238,6 +234,10 @@ namespace MassSpectrometry
         {
             T? bestPeak = default(T);
             if (peakIndexInBin < 0 || peakIndexInBin >= bin.Count) return bestPeak;
+            if (charge != null && bin.FirstOrDefault() is not IndexedMass)
+            {
+                throw new MzLibException("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available.");
+            }
             for (int i = peakIndexInBin; i < bin.Count; i++)
             {
                 var peak = bin[i];

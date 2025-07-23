@@ -136,7 +136,7 @@ namespace Test
         {
             var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(FakeScans);
             var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
-            Assert.That(ex.Message, Is.EqualTo("Error: Attempt to retrieve indexed peak with charge parameter, but the indexingEngine is not massIndexingEngine."));
+            Assert.That(ex.Message, Is.EqualTo("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available."));
         }
     }
 }
