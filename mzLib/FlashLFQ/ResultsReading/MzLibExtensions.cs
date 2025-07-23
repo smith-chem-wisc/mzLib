@@ -10,7 +10,7 @@ namespace FlashLFQ
         /// <summary>
         /// Makes a list of identification objects usable by FlashLFQ from an IQuantifiableResultFile
         /// </summary>
-        public static List<Identification> MakeIdentifications(this IQuantifiableResultFile quantifiable, List<SpectraFileInfo> spectraFiles)
+        public static List<Identification> MakeIdentifications(this IQuantifiableResultFile quantifiable, List<SpectraFileInfo> spectraFiles, bool usePepQValue = false)
         {
             IEnumerable<IQuantifiableRecord> quantifiableRecords = quantifiable.GetQuantifiableResults();
             List<Identification> identifications = new List<Identification>();
@@ -23,7 +23,7 @@ namespace FlashLFQ
                 string modifiedSequence = record.FullSequence;
                 double ms2RetentionTimeInMinutes = record.RetentionTime;
                 double monoisotopicMass = record.MonoisotopicMass;
-                int precursurChargeState = record.ChargeState;
+                int precursorChargeState = record.ChargeState;
 
                 // Get the spectra file info from the dictionary using the file name
                 if (!allSpectraFiles.TryGetValue(record.FileName, out var spectraFile))
@@ -48,7 +48,30 @@ namespace FlashLFQ
                         proteinGroups.Add(allProteinGroups[info.proteinAccessions]);
                     }
                 }
-                Identification id = new Identification(spectraFile, baseSequence, modifiedSequence, monoisotopicMass, ms2RetentionTimeInMinutes, precursurChargeState, proteinGroups);
+
+                double qValue = 0;
+                double pepQValue = 0;
+                double score = 0;
+                // Populate optional fields currently only supported for MetaMorpheus results
+                if( record is SpectrumMatchFromTsv psmFromTsv)
+                {
+                    qValue = psmFromTsv.QValue;
+                    pepQValue = psmFromTsv.PEP_QValue;
+                    score = psmFromTsv.Score;
+                }
+
+                Identification id = new Identification(
+                    spectraFile, 
+                    baseSequence, 
+                    modifiedSequence, 
+                    monoisotopicMass, 
+                    ms2RetentionTimeInMinutes, 
+                    precursorChargeState, 
+                    proteinGroups, 
+                    useForProteinQuant: !record.IsDecoy, 
+                    decoy: record.IsDecoy,
+                    psmScore: score,
+                    qValue: usePepQValue ? pepQValue : qValue);
                 identifications.Add(id);
             }
 
