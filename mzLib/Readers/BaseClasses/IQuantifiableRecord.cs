@@ -51,5 +51,6 @@ namespace Readers
         /// The mass of the monoisotopic peptide (i.e., no c13 or n15 atoms are present, the lowest possible mass)
         /// </summary>
         public double MonoisotopicMass { get; }
+
     }
 }
