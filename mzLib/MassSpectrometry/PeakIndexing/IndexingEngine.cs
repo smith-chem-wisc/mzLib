@@ -1,9 +1,7 @@
-﻿using Chemistry;
-using MzLibUtil;
+﻿using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 
 #nullable enable
 namespace MassSpectrometry
