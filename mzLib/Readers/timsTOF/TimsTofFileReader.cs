@@ -586,7 +586,29 @@ namespace Readers
 
         internal MrmRecord GetMrmRecords(long frameId)
         {
+            // Only do this if we have valid precursors (which we don't for like SRM/inclusion list type stuff) 
+            using (var command = new SQLiteCommand(_sqlConnection))
+            {
+                // This command finds all the precursors identified and fragmented in each MS/MS Pasef scan
+                // It is used to take an MS1 frame and create multiple "MsDataScans" by averaging the 
+                // spectra from each scan within a given Ion Mobility (i.e. ScanNum) range
+                command.CommandText =
+                    @"SELECT f.Time, f.SummedIntensities, " +
+                    " FROM Frames f" +
+                    " INNER JOIN FrameMsMsInfo m on m.Frame = " + frameId.ToString() +
+                    " WHERE p.Parent = " + frameId.ToString() +
+                    " GROUP BY p.Id;";
+                using var sqliteReader = command.ExecuteReader();
 
+                while (sqliteReader.Read())
+                {
+                    var scanStart = sqliteReader.GetInt32(0);
+                    var scanEnd = sqliteReader.GetInt32(1);
+                    var scanMedian = sqliteReader.GetFloat(2);
+                    int precursorId = sqliteReader.GetInt32(3);
+                    records.Add(new Ms1Record(precursorId, scanStart, scanEnd, (double)scanMedian));
+                }
+            }
 
             throw new NotImplementedException("MRM scans are not supported yet.");
         }
