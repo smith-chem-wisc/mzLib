@@ -23,7 +23,7 @@ namespace FlashLFQ
                 string modifiedSequence = record.FullSequence;
                 double ms2RetentionTimeInMinutes = record.RetentionTime;
                 double monoisotopicMass = record.MonoisotopicMass;
-                int precursurChargeState = record.ChargeState;
+                int precursorChargeState = record.ChargeState;
 
                 // Get the spectra file info from the dictionary using the file name
                 if (!allSpectraFiles.TryGetValue(record.FileName, out var spectraFile))
@@ -48,7 +48,8 @@ namespace FlashLFQ
                         proteinGroups.Add(allProteinGroups[info.proteinAccessions]);
                     }
                 }
-                Identification id = new Identification(spectraFile, baseSequence, modifiedSequence, monoisotopicMass, ms2RetentionTimeInMinutes, precursurChargeState, proteinGroups);
+
+                Identification id = new Identification(spectraFile, baseSequence, modifiedSequence, monoisotopicMass, ms2RetentionTimeInMinutes, precursorChargeState, proteinGroups, useForProteinQuant: !record.IsDecoy, decoy: record.IsDecoy);
                 identifications.Add(id);
             }
 
