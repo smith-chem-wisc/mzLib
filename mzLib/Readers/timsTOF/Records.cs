@@ -22,6 +22,26 @@ namespace Readers
         }
     }
 
+    internal readonly struct MrmRecord
+    {
+        internal int ScanStart { get; }
+        internal int ScanEnd { get; }
+        internal double ScanMedian { get; }
+        internal float IsolationMz { get; }
+        internal float IsolationWidth { get; }
+        internal float CollisionEnergy { get; }
+
+        public MrmRecord(int scanStart, int scanEnd, double scanMedian, float isolationMz, float isolationWidth, float collisionEnergy)
+        {
+            ScanStart = scanStart;
+            ScanEnd = scanEnd;
+            ScanMedian = scanMedian;
+            IsolationMz = isolationMz;
+            IsolationWidth = isolationWidth;
+            CollisionEnergy = collisionEnergy;
+        }
+    }
+
     internal readonly struct PasefRecord
     {
         internal IEnumerable<long> FrameList { get; }

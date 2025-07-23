@@ -24,13 +24,21 @@ namespace Test.FileReadingTests
         public TimsDataScan _testMs1Scan;
         public FilteringParams _filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
 
-        [OneTimeSetUp]
-        public void SetUp()
+        //[OneTimeSetUp]
+        //public void SetUp()
+        //{
+        //    _testReader = new TimsTofFileReader(_testDataPath);
+        //    _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
+        //    _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
+        //    _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
+        //}
+
+        [Test]
+        public static void TESTNAME()
         {
-            _testReader = new TimsTofFileReader(_testDataPath);
-            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
-            _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
-            _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
+            string localFilePath = @"C:\Users\Alex\Downloads\data_TD_histonesH4\01_monoacetylated_H4_isomers\20220511-1512_TTP_000981_ONJ_HAT_20220511_H4K05Ac-H4K16Ac_Ramp1300ms_D200_P36_CID-32eV_charge18_T18_1.d";
+            var reader = new TimsTofFileReader(localFilePath);
+            reader.LoadAllStaticData();
         }
 
         [Test]

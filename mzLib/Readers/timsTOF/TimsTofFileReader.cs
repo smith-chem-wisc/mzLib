@@ -18,11 +18,33 @@ using System.Diagnostics;
 using System.Security.Permissions;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using ThermoFisher.CommonCore.Data.FilterEnums;
 
 namespace Readers
 {
+
+
+    /// <summary>
+    /// In the .tdf files, the Frames table has a "Scan Mode" column that indicates the type of scan
+    /// This enum maps to that column
+    /// </summary>
+    public enum ScanMode
+    {
+        MS = 0,
+        AutoMSMS = 1, // This is only relevant for .tsf data
+        MRM = 2,
+        InSourceCID = 3,
+        BroadbandCID = 4,
+        PASEF = 8,
+        DIA = 9,
+        PRM = 10,
+        Maldi = 20
+    }
+
     public class TimsTofFileReader : MsDataFile, IDisposable
     {
+        
+
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
         // over multiple scans with each scan corresponding to the same retention time but different
         // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
@@ -32,7 +54,6 @@ namespace Readers
         {
             FaultyFrameIds = new();
         }
-
         private UInt64? _fileHandle;
         private Object _fileLock;
         private SQLiteConnection? _sqlConnection;
@@ -53,6 +74,10 @@ namespace Readers
 
         public override void InitiateDynamicConnection()
         {
+            //if (File.Exists(FilePath + @"\analysis.tsf") && File.Exists(FilePath + @"\analysis.tsf_bin"))
+            //{
+            //    throw new MzLibException("This is a TSF file, not a TDF file. Use the TsfFileReader instead.");
+            //}
             if (!File.Exists(FilePath + @"\analysis.tdf") | !File.Exists(FilePath + @"\analysis.tdf_bin"))
             {
                 throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
@@ -69,8 +94,20 @@ namespace Readers
 
             CountFrames();
             BuildProxyFactory();
-            CountMS1Frames();
-            CountPrecursors();
+            CheckScanMode();
+            
+            switch(ScanMode)
+            {
+                case ScanMode.PASEF:
+                    CountMS1Frames();
+                    CountPrecursors();
+                    break;
+                case ScanMode.MRM:
+                    throw new NotImplementedException("MRM scans are not supported yet.");
+                default:
+                    throw new MzLibException("The timsTOF file does not contain PASEF scans. Only PASEF scans are supported at this time.");
+            }
+            
         }
 
         internal void OpenSqlConnection()
@@ -181,6 +218,31 @@ namespace Readers
             NumberOfFrames = count;
         }
 
+        internal void CheckScanMode()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT DISTINCT ScanMode FROM Frames;";
+            using var sqliteReader = command.ExecuteReader();
+            HashSet<int> scanModes = new();
+
+            while (sqliteReader.Read())
+            {
+                scanModes.Add(sqliteReader.GetInt32(0));
+            }
+            if (scanModes.Count > 1)
+            {
+                throw new MzLibException("The timsTOF file contains multiple scan modes. This is not supported yet.");
+            }
+            if (scanModes.Count == 0)
+            {
+                throw new MzLibException("The timsTOF file does not contain any scan modes. This is not supported yet.");
+            }
+            ScanMode = (ScanMode)scanModes.FirstOrDefault();
+        }
+
+        public ScanMode ScanMode { get; private set; }
+
         internal void CountMS1Frames()
         {
             if (_sqlConnection == null) return;
@@ -193,7 +255,6 @@ namespace Readers
             {
                 Ms1FrameIds.Add(sqliteReader.GetInt64(0));
             }
-            
         }
 
         /// <summary>
@@ -246,22 +307,31 @@ namespace Readers
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
             InitiateDynamicConnection();
-
             _maxThreads = maxThreads;
-            Ms1ScansNoPrecursorsBag = new();
-            Parallel.ForEach(
-                Partitioner.Create(0, Ms1FrameIds.Count),
-                new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
-                (range) =>
+
+            switch (ScanMode)
             {
-                for (int i = range.Item1; i < range.Item2; i++)
-                {
-                    BuildAllScans(Ms1FrameIds[i], filteringParams);
-                }
-            });
+                case ScanMode.PASEF:
+                    Ms1ScansNoPrecursorsBag = new();
+                    Parallel.ForEach(
+                        Partitioner.Create(0, Ms1FrameIds.Count),
+                        new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
+                        (range) =>
+                        {
+                            for (int i = range.Item1; i < range.Item2; i++)
+                            {
+                                BuildAllScans(Ms1FrameIds[i], filteringParams);
+                            }
+                        });
+                    AssignOneBasedPrecursorsToPasefScans();
+                    break;
+                case ScanMode.MRM:
+                    throw new NotImplementedException("MRM scans are not supported yet.");
+                default:
+                    throw new MzLibException("The timsTOF file does not contain PASEF scans. Only PASEF scans are supported at this time.");
+            }
 
             CloseDynamicConnection();
-            AssignOneBasedPrecursorsToPasefScans();
             SourceFile = GetSourceFile();
             return this;
         }
@@ -512,6 +582,13 @@ namespace Readers
                     yield return new PasefRecord(frameList, precursorId, scanStart, scanEnd, scanMedian, isolationMz, isolationWidth, collisionEnergy, mostAbundantPrecursorPeak, precursorMonoisotopicMz, charge, precursorIntensity);
                 }
             }
+        }
+
+        internal MrmRecord GetMrmRecords(long frameId)
+        {
+
+
+            throw new NotImplementedException("MRM scans are not supported yet.");
         }
 
         /// <summary>
