@@ -258,6 +258,7 @@ namespace FlashLFQ
                     RunErrorChecking(file);
                 }
             }
+            IndexingEngineDictionary.ForEach(p=>p.Value.ClearIndex()); // Clear the indexEngine for each file after the quantification is done
             IsoTrackerIsRunning = false;
 
             // do MBR
