@@ -35,6 +35,9 @@
 	  <None Update="libmmd.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
+	  <None Update="OpenMS.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
 	  <None Update="svml_dispmd.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
