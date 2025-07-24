@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static MassSpectrometry.IsoDecAlgorithm;
 
 #nullable enable
 namespace MassSpectrometry
@@ -81,7 +82,9 @@ namespace MassSpectrometry
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
+        /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
+        public List<IIndexedPeak> GetXic(double mz, double retentionTime, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
         public List<IIndexedPeak> GetXic(double m, double retentionTime, Tolerance ppmTolerance,
             int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
         {
@@ -116,7 +119,9 @@ namespace MassSpectrometry
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
+        /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
+        public List<IIndexedPeak> GetXic(double mz, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
         public List<IIndexedPeak> GetXic(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
         {
             if (IndexedPeaks == null || ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
@@ -172,7 +177,7 @@ namespace MassSpectrometry
                     var nextPeak = GetBestPeakFromBins(allBins, m, currentZeroBasedScanIndex, pointerArrayCopy, ppmTolerance, charge);
 
                     // Add the peak to the XIC or increment the missed peaks
-                    if (nextPeak == null)
+                    if (nextPeak == null || (matchedPeaks != null && matchedPeaks.ContainsKey(nextPeak)))
                         missedPeaks++;
                     else
                     {
@@ -188,6 +193,36 @@ namespace MassSpectrometry
             return xic;
         }
 
+        /// <summary>
+        /// A generic method performing peak tracing for all the peaks in an indexingEngine and trying to find all XICs.
+        /// <returns> A list of ExtractedIonChromatogram objects representing all XICs that can be found in an indexingEngine </returns>
+        public List<ExtractedIonChromatogram> GetAllXics(PpmTolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
+        {
+            var xics = new List<ExtractedIonChromatogram>();
+            var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
+            var sortedPeaks = IndexedPeaks.Where(v => v != null).SelectMany(peaks => peaks).OrderBy(p => p.Intensity).ToList();
+            foreach (var peak in sortedPeaks)
+            {
+                if (!matchedPeaks.ContainsKey(peak))
+                {
+                    var peakList = GetXic(peak.M, peak.RetentionTime, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, matchedPeaks);
+                    if (peakList.Count >= numPeakThreshold)
+                    {
+                        var newXIC = new ExtractedIonChromatogram(peakList);
+                        foreach(var matchedPeak in peakList)
+                        {
+                            matchedPeaks.Add(matchedPeak, newXIC);
+                        }
+                        xics.Add(newXIC);
+                    }
+                    else
+                    {
+                        matchedPeaks.Add(peak, null);
+                    }
+                }
+            }
+            return xics;
+        }
         #region Peak finding helper functions
 
         internal List<List<T>> GetBinsInRange(double mz, Tolerance ppmTolerance)

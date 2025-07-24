@@ -132,6 +132,47 @@ namespace Test
         }
 
         [Test]
+        public static void TestGetAllXics()
+        {
+            //Test case using FakeScans
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(FakeScans);
+            var xics = indexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            Assert.That(xics.Count, Is.EqualTo(20));
+            foreach(var xic in xics)
+            {
+                Assert.That(xic.Peaks.Count, Is.EqualTo(10));
+            }
+
+            //Test if there are three missed scans in the middle
+            var fakeScans2 = (MsDataScan[])FakeScans.Clone();
+            var missedIndices = new List<int> { 3, 4, 5 }; //the ten scnas would be 1,1,1,0,0,0,1,1,1,1
+            foreach(var s in missedIndices)
+            {
+                // replace the scan at index s with an empty scan
+                fakeScans2[s] = new MsDataScan(massSpectrum: new MzSpectrum(new double[] {  }, new double[] {  }, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+            var indexingEngine2 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans2);
+            var xics2 = indexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            Assert.That(xics2.Count, Is.EqualTo(40)); //the first three scans and the last four scans will each contain two XICs
+
+            var fakeScans3 = (MsDataScan[])FakeScans.Clone();
+            var missedIndices2 = new List<int> { 2, 3, 4 }; //the ten scnas would be 1,1,0,0,0,1,1,1,1,1
+            foreach (var s in missedIndices2)
+            {
+                fakeScans3[s] = new MsDataScan(massSpectrum: new MzSpectrum(new double[] {  }, new double[] {  }, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+            var indexingEngine3 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans3);
+            var xics3 = indexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            Assert.That(xics3.Count, Is.EqualTo(20)); // Because the minumum number of peaks required is set to 3, the first two scans do not contain any XICs with only two consecutive peaks.
+            foreach (var xic in xics3)
+            {
+                Assert.That(xic.Peaks.Count, Is.EqualTo(5));
+            }
+        }   
+
+        [Test]
         public static void TestMassXicExceptionHandling()
         {
             var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(FakeScans);
