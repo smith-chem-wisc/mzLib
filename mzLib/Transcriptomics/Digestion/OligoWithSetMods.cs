@@ -49,7 +49,7 @@ namespace Transcriptomics.Digestion
 
             FullSequence = sequence;
             _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
-            _allModsOneIsNterminus = GetModsAfterDeserialization(allKnownMods);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
             Description = description;
@@ -371,72 +371,6 @@ namespace Transcriptomics.Digestion
                 CleavageSpecificityForFdrCategory, dictWithLocalizedMass, NumFixedMods, FivePrimeTerminus, ThreePrimeTerminus);
 
             return peptideWithLocalizedMass;
-        }
-
-        private Dictionary<int, Modification> GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
-        {
-            var mods = new Dictionary<int, Modification>();
-            int currentModStart = 0;
-            int currentModificationLocation = 1;
-            bool currentlyReadingMod = false;
-            int bracketCount = 0;
-
-            for (int r = 0; r < FullSequence.Length; r++)
-            {
-                char c = FullSequence[r];
-                if (c == '[')
-                {
-                    currentlyReadingMod = true;
-                    if (bracketCount == 0)
-                    {
-                        currentModStart = r + 1;
-                    }
-
-                    bracketCount++;
-                }
-                else if (c == ']')
-                {
-                    string modId = null;
-                    bracketCount--;
-                    if (bracketCount == 0)
-                    {
-                        try
-                        {
-                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
-                            string modString = FullSequence.Substring(currentModStart, r - currentModStart);
-                            int splitIndex = modString.IndexOf(':');
-                            string modType = modString.Substring(0, splitIndex);
-                            modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
-                        }
-                        catch (Exception e)
-                        {
-                            throw new MzLibUtil.MzLibException(
-                                "Error while trying to parse string into peptide: " + e.Message, e);
-                        }
-
-                        if (!idToMod.TryGetValue(modId, out Modification mod))
-                        {
-                            throw new MzLibUtil.MzLibException(
-                                "Could not find modification while reading string: " + FullSequence);
-                        }
-
-                        if (mod.LocationRestriction.Contains("3'-terminal.") && r == FullSequence.Length - 1)
-                        {
-                            currentModificationLocation = BaseSequence.Length + 2;
-                        }
-
-                        mods.Add(currentModificationLocation, mod);
-                        currentlyReadingMod = false;
-                    }
-                }
-                else if (!currentlyReadingMod)
-                {
-                    currentModificationLocation++;
-                }
-                //else do nothing
-            }
-
-            return mods;
         }
     }
 }
