@@ -238,13 +238,15 @@ namespace Test
         {
             string peptide = "PEPTIDE";
             ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
-            var floatcf = (float)(cf.MonoisotopicMass + 0.0001);
             var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
+            var allMasses = Deconvoluter.Deconvolute(FakeScans[0].MassSpectrum, deconParameters);
             var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(FakeScans, deconParameters);
             var xics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
             Assert.That(xics.Count, Is.EqualTo(2));
-            Assert.That(xics.Any(x => x.Peaks.First().M == (float)cf.MonoisotopicMass));
-            Assert.That(xics.Any(x => x.Peaks.Count == 10));
+            foreach(var mass in allMasses)
+            {
+                Assert.That(xics.Any(x => x.Peaks.Select(p => (IndexedMass)p).First().IsotopicEnvelope.MonoisotopicMass == mass.MonoisotopicMass));
+            }
             foreach(var xic in xics)
             {
                 Assert.That(xic.Peaks.Count, Is.EqualTo(10));

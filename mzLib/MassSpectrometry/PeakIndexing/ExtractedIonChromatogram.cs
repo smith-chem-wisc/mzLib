@@ -15,7 +15,7 @@ namespace MassSpectrometry
     /// </summary>
     public class ExtractedIonChromatogram
     {
-        public List<IIndexedPeak> Peaks { get; set; }
+        public virtual List<IIndexedPeak> Peaks { get; set; }
 
         public double ApexRT;
         public int ApexScanIndex;

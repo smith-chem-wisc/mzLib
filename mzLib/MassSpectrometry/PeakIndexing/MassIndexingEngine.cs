@@ -52,7 +52,7 @@ namespace MassSpectrometry
                 return true;
         }
 
-        public List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
+        public override List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
         {
             var xics = new List<ExtractedIonChromatogram>();
             var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
