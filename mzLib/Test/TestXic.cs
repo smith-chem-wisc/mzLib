@@ -6,6 +6,10 @@ using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using MassSpectrometry;
+using Microsoft.ML.Transforms;
+using MathNet.Numerics.Distributions;
+using System.Collections;
 
 namespace Test
 {
@@ -170,5 +174,54 @@ namespace Test
                 Assert.That(xic.Peaks.Count, Is.EqualTo(5));
             }
         }   
+
+        [Test]
+        public static void TestCutPeak()
+        {
+            var normal = new Normal(10, 1);
+            var RTs = Enumerable.Range(0, 10).Select(i => 7.5 + i * 0.5).ToArray();
+            var intensities = RTs.Select(r => normal.Density(r)).ToArray();
+
+            //generate two sets of peaks and put them together so the integrated xic shows double apex
+            var peak1 = new List<IIndexedPeak>();
+            for (int i = 0; i < RTs.Length; i++)
+            {
+                peak1.Add(new IndexedMassSpectralPeak(intensity: intensities[i] * 10, retentionTime: RTs[i], zeroBasedScanIndex: i, mz: 500.0));
+            }
+            var xic1 = new ExtractedIonChromatogram(peak1);
+            var peak2 = new List<IIndexedPeak>();
+            for (int i = 0; i < RTs.Length - 1; i++)
+            {
+                peak2.Add(new IndexedMassSpectralPeak(intensity: intensities[i], retentionTime: RTs[RTs.Length - 1] + (i + 1) * 0.5, zeroBasedScanIndex: i + RTs.Length, mz: 500.0));
+            }
+            var xic = new ExtractedIonChromatogram(peak1.Concat(peak2).OrderBy(p => p.RetentionTime).ToList());
+            Assert.That(xic.Peaks.Count, Is.EqualTo(peak1.Count + peak2.Count));
+            xic.CutPeak();
+            Assert.That(xic.Peaks.Count, Is.EqualTo(peak1.Count));
+            Assert.That(xic.ApexRT, Is.EqualTo(xic1.ApexRT));
+            Assert.That(xic.StartRT, Is.EqualTo(xic1.StartRT));
+            Assert.That(xic.EndRT, Is.EqualTo(xic1.EndRT));
+
+            //if there is only one apex, it should not be cut
+            xic1.CutPeak();
+            Assert.That(xic1.Peaks.Count, Is.EqualTo(peak1.Count));
+
+            //if the number of peaks is smaller than 5, it should not be cut
+            var xic2 = new ExtractedIonChromatogram(peak1.Take(3).ToList());
+            xic2.CutPeak();
+            Assert.That(xic2.Peaks.Count, Is.EqualTo(3));
+
+            //if the intensity difference does not exceed the discrimination factor, it should not be cut
+            var peak3 = new List<IIndexedPeak>();
+            var intensityIncrement = intensities[intensities.Length - 1] * 0.01;
+            for (int i = 0; i < 4; i++)
+            {
+                peak3.Add(new IndexedMassSpectralPeak(intensity: intensities[intensities.Length - 1] + intensityIncrement * i, retentionTime: RTs[RTs.Length - 1] + (i + 1) * 0.5, zeroBasedScanIndex: i, mz: 500.0));
+            }
+            var xic3 = new ExtractedIonChromatogram(peak1.Concat(peak3).OrderBy(p => p.RetentionTime).ToList());
+            Assert.That(xic3.Peaks.Count, Is.EqualTo(peak1.Count + peak3.Count));
+            xic3.CutPeak();
+            Assert.That(xic3.Peaks.Count, Is.EqualTo(peak1.Count + peak3.Count));
+        }
     }
 }
