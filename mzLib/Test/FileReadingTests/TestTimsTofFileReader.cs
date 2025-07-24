@@ -25,14 +25,14 @@ namespace Test.FileReadingTests
         public TimsDataScan _testMs1Scan;
         public FilteringParams _filteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow:200, minimumAllowedIntensityRatioToBasePeak: 0.01);
 
-        //[OneTimeSetUp]
-        //public void SetUp()
-        //{
-        //    _testReader = new TimsTofFileReader(_testDataPath);
-        //    _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
-        //    _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
-        //    _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
-        //}
+        [OneTimeSetUp]
+        public void SetUp()
+        {
+            _testReader = new TimsTofFileReader(_testDataPath);
+            _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
+            _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
+            _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
+        }
 
         [Test]
         public void TestReadForMrmFile()

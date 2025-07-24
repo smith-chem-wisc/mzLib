@@ -42,8 +42,6 @@ namespace Readers
 
     public class TimsTofFileReader : MsDataFile, IDisposable
     {
-        
-
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
         // over multiple scans with each scan corresponding to the same retention time but different
         // ion mobility valuess. When reading the file, multiple scans from the same frame are collapsed into 
@@ -100,7 +98,6 @@ namespace Readers
                     CountPrecursors();
                     break; 
             }
-
         }
         
         internal void OpenSqlConnection()
@@ -227,10 +224,6 @@ namespace Readers
             {
                 throw new MzLibException("The timsTOF file contains multiple scan modes. This is not supported yet.");
             }
-            if (scanModes.Count == 0)
-            {
-                throw new MzLibException("The timsTOF file does not contain any scan modes. This is not supported yet.");
-            }
             ScanMode = (ScanMode)scanModes.FirstOrDefault();
         }
 
@@ -286,7 +279,7 @@ namespace Readers
         public ConcurrentBag<TimsDataScan> Ms1ScansNoPrecursorsBag { internal get; set; }
         public TimsDataScan[] Ms1ScanArray { internal get; set; }
         public TimsDataScan[] PasefScanArray { internal get; set; }
-        public TimsDataScan[] MrmScanArray { internal get; set; } // Not implemented yet
+        public TimsDataScan[] MrmScanArray { internal get; set; }
 
         internal int GetNumberOfDigitizerSamples()
         {
