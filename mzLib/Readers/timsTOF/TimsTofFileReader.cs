@@ -566,7 +566,7 @@ namespace Readers
                 frameId: frame.FrameId,
                 scanNumberStart: record.ScanStart,
                 scanNumberEnd: record.ScanEnd,
-                medianOneOverK0: FrameProxyFactory.GetOneOverK0((record.ScanStart + record.ScanEnd)/2),
+                medianOneOverK0: FrameProxyFactory.GetOneOverK0((record.ScanStart + record.ScanEnd)/2.0),
                 precursorId: null);
             return dataScan;
         }
