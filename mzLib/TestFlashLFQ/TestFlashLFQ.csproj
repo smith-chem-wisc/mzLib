@@ -48,6 +48,9 @@
     <None Update="TestData\AllPSMs2.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TestData\AllPSMsWNewFormat.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="TestData\f1r1_sliced_mbr.raw">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
