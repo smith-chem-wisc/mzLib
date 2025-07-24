@@ -37,8 +37,7 @@ namespace FlashLFQ.Interfaces
         /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double mz, double retentionTime, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = int.MaxValue, int? charge = null);
-        public List<IIndexedPeak> GetXic(double mz, double retentionTime, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = int.MaxValue, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null);
+        public List<IIndexedPeak> GetXic(double mz, double retentionTime, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = int.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null);
         /// <summary>
         /// Clear the indexed peaks and the jagged array of indexed peaks to free up memory
         /// </summary>

@@ -179,5 +179,23 @@ namespace Test
             var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
             Assert.That(ex.Message, Is.EqualTo("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available."));
         }
+
+        [Test]
+        public static void TestGetAllXicsForMass()
+        {
+            string peptide = "PEPTIDE";
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+            var floatcf = (float)(cf.MonoisotopicMass + 0.0001);
+            var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
+            var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(FakeScans, deconParameters);
+            var xics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            Assert.That(xics.Count, Is.EqualTo(2));
+            Assert.That(xics.Any(x => x.Peaks.First().M == (float)cf.MonoisotopicMass));
+            Assert.That(xics.Any(x => x.Peaks.Count == 10));
+            foreach(var xic in xics)
+            {
+                Assert.That(xic.Peaks.Count, Is.EqualTo(10));
+            }
+        }
     }
 }

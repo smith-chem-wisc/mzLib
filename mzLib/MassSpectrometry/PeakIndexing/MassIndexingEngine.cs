@@ -18,6 +18,14 @@ namespace MassSpectrometry
         {
         }
 
+        public static MassIndexingEngine? InitializeMassIndexingEngine(MsDataScan[] scanArray, DeconvolutionParameters deconParameters)
+        {
+            MassIndexingEngine newEngine = new();
+            if (newEngine.IndexPeaks(scanArray, deconParameters))
+                return newEngine;
+            return null;
+        }
+
         public bool IndexPeaks(MsDataScan[] scanArray, DeconvolutionParameters deconParameters, MzRange mzRange = null, double minMass = 0, int minCharge = 1)
         {
             if (scanArray.IsNullOrEmpty() || scanArray.All(p => p == null))
@@ -42,6 +50,34 @@ namespace MassSpectrometry
                 return false;
             else
                 return true;
+        }
+
+        public List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
+        {
+            var xics = new List<ExtractedIonChromatogram>();
+            var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
+            var sortedPeaks = IndexedPeaks.Where(v => v != null).SelectMany(peaks => peaks).OrderBy(p => p.Intensity).ToList();
+            foreach (var peak in sortedPeaks)
+            {
+                if (!matchedPeaks.ContainsKey(peak))
+                {
+                    var peakList = GetXic(peak.M, peak.RetentionTime, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, peak.Charge, matchedPeaks);
+                    if (peakList.Count >= numPeakThreshold)
+                    {
+                        var newXIC = new ExtractedIonChromatogram(peakList);
+                        foreach (var matchedPeak in peakList)
+                        {
+                            matchedPeaks.Add(matchedPeak, newXIC);
+                        }
+                        xics.Add(newXIC);
+                    }
+                    else
+                    {
+                        matchedPeaks.Add(peak, null);
+                    }
+                }
+            }
+            return xics;
         }
     }
 }

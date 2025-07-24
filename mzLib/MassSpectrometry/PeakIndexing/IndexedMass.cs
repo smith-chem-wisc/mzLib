@@ -18,6 +18,7 @@ namespace MassSpectrometry
 
         public IndexedMass(IsotopicEnvelope envelope, double retentionTime, int zeroBasedScanIndex, int msLevel)
         {
+            IsotopicEnvelope = envelope;
             Intensity = envelope.Peaks.Max(p => (float)p.intensity);
             RetentionTime = (float)retentionTime;
             ZeroBasedScanIndex = zeroBasedScanIndex;

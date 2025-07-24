@@ -84,9 +84,8 @@ namespace MassSpectrometry
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double mz, double retentionTime, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
         public List<IIndexedPeak> GetXic(double m, double retentionTime, Tolerance ppmTolerance,
-            int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
+            int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
         {
             // get precursor scan to start at
             int scanIndex = -1;
@@ -104,7 +103,7 @@ namespace MassSpectrometry
                 }
             }
 
-            return GetXic(m, scanIndex, ppmTolerance, missedScansAllowed, maxPeakHalfWidth, charge);
+            return GetXic(m, scanIndex, ppmTolerance, missedScansAllowed, maxPeakHalfWidth, charge, matchedPeaks);
         }
 
         /// <summary>
@@ -121,8 +120,7 @@ namespace MassSpectrometry
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double mz, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
-        public List<IIndexedPeak> GetXic(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null)
+        public List<IIndexedPeak> GetXic(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
         {
             if (IndexedPeaks == null || ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
 
@@ -196,7 +194,7 @@ namespace MassSpectrometry
         /// <summary>
         /// A generic method performing peak tracing for all the peaks in an indexingEngine and trying to find all XICs.
         /// <returns> A list of ExtractedIonChromatogram objects representing all XICs that can be found in an indexingEngine </returns>
-        public List<ExtractedIonChromatogram> GetAllXics(PpmTolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
+        public virtual List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
         {
             var xics = new List<ExtractedIonChromatogram>();
             var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
@@ -205,7 +203,7 @@ namespace MassSpectrometry
             {
                 if (!matchedPeaks.ContainsKey(peak))
                 {
-                    var peakList = GetXic(peak.M, peak.RetentionTime, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, matchedPeaks);
+                    var peakList = GetXic(peak.M, peak.RetentionTime, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, null, matchedPeaks);
                     if (peakList.Count >= numPeakThreshold)
                     {
                         var newXIC = new ExtractedIonChromatogram(peakList);
