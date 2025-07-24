@@ -235,6 +235,39 @@ namespace Test
             Assert.That(Double.IsNaN(testResult.PEP_QValue));
             Assert.That(!Double.IsNaN(testResult.RetentionTime));
         }
+
+        [Test]
+        public static void MakeIdentificationsFromNewPsmtsv()
+        {
+            string psmFilename = "AllPSMsWNewFormat.psmtsv";
+
+            var myDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
+            var pathOfIdentificationFile = Path.Combine(myDirectory, psmFilename);
+            var pathOfMzml = Path.Combine(myDirectory, "SmallCalibratibleYeast.mzML");
+            SpectraFileInfo sfi = new SpectraFileInfo(pathOfMzml, "A", 1, 1, 1);
+
+            PsmFromTsvFile results = new PsmFromTsvFile(pathOfIdentificationFile);
+            Assert.That(results.Results.Count, Is.EqualTo(109));
+
+            IQuantifiableResultFile quantifiableResultFile = FileReader.ReadQuantifiableResultFile(pathOfIdentificationFile);
+            List<Identification> ids = quantifiableResultFile.MakeIdentifications(new List<SpectraFileInfo> { sfi });
+            Assert.That(ids.Count, Is.EqualTo(109));
+
+            var decoyId = ids.FirstOrDefault(r => r.ModifiedSequence == "GAAVVQK");
+            Assert.IsTrue(decoyId.IsDecoy);
+            Assert.IsFalse(decoyId.UseForProteinQuant);
+            Assert.That(decoyId.QValue, Is.EqualTo(0.013889).Within(0.000001));
+            Assert.That(decoyId.PsmScore, Is.EqualTo(6.218).Within(0.001));
+
+
+            ids = quantifiableResultFile.MakeIdentifications(new List<SpectraFileInfo> { sfi }, usePepQValue: true);
+            Assert.That(ids.Count, Is.EqualTo(109));
+            decoyId = ids.FirstOrDefault(r => r.ModifiedSequence == "GAAVVQK");
+            Assert.IsTrue(decoyId.IsDecoy);
+            Assert.IsFalse(decoyId.UseForProteinQuant);
+            Assert.That(decoyId.QValue, Is.EqualTo(2).Within(0.000001));
+            Assert.That(decoyId.PsmScore, Is.EqualTo(6.218).Within(0.001));
+        }
     }
 
     // Mock classes for testing
