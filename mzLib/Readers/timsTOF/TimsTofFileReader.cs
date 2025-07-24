@@ -20,10 +20,9 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 
+[assembly: InternalsVisibleTo("Test")]
 namespace Readers
 {
-
-
     /// <summary>
     /// In the .tdf files, the Frames table has a "Scan Mode" column that indicates the type of scan
     /// This enum maps to that column
@@ -74,10 +73,6 @@ namespace Readers
 
         public override void InitiateDynamicConnection()
         {
-            //if (File.Exists(FilePath + @"\analysis.tsf") && File.Exists(FilePath + @"\analysis.tsf_bin"))
-            //{
-            //    throw new MzLibException("This is a TSF file, not a TDF file. Use the TsfFileReader instead.");
-            //}
             if (!File.Exists(FilePath + @"\analysis.tdf") | !File.Exists(FilePath + @"\analysis.tdf_bin"))
             {
                 throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
@@ -95,21 +90,19 @@ namespace Readers
             CountFrames();
             BuildProxyFactory();
             CheckScanMode();
-            
-            switch(ScanMode)
+
+            // Currently, only MRM data is supported in addition to DDA_PASEF. For MRM, no additional functions need to be called
+            // however, as additional data becomes supported, this switch statement could grow
+            switch (ScanMode)
             {
                 case ScanMode.PASEF:
                     CountMS1Frames();
                     CountPrecursors();
-                    break;
-                case ScanMode.MRM:
-                    break;
-                default:
-                    throw new MzLibException("The timsTOF file does not contain PASEF scans. Only PASEF scans are supported at this time.");
+                    break; 
             }
-            
-        }
 
+        }
+        
         internal void OpenSqlConnection()
         {
             if (_sqlConnection?.State == ConnectionState.Open)
@@ -321,13 +314,14 @@ namespace Readers
                         {
                             for (int i = range.Item1; i < range.Item2; i++)
                             {
-                                BuildAllScans(Ms1FrameIds[i], filteringParams);
+                                BuildDDAScans(Ms1FrameIds[i], filteringParams);
                             }
                         });
                     AssignOneBasedPrecursorsToPasefScans();
                     break;
                 case ScanMode.MRM:
-                    MrmScanArray = new TimsDataScan[NumberOfFrames]; // Not implemented yet
+                    // The implicit assumption here is that in MRM mode, no MS1 scans are collected
+                    MrmScanArray = new TimsDataScan[NumberOfFrames]; 
                     Parallel.ForEach(
                         Partitioner.Create(0, NumberOfFrames),
                         new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
@@ -335,21 +329,13 @@ namespace Readers
                         {
                             for (int i = range.Item1; i < range.Item2; i++)
                             {
-                                var frame = FrameProxyFactory.GetFrameProxy(i + 1); // i is zero-based, frame ids are one-based
-                                if (frame == null || !frame.IsFrameValid())
-                                {
-                                    FaultyFrameIds.Add(i + 1);
-                                    continue; // If the frame is null, then we can't build any scans for it
-                                }
-                                var record = GetMrmRecord(frame.FrameId);
-                                if (record.Equals(default(MrmRecord))) continue; // If the record is null, then we can't build any scans for it
-                                MrmScanArray[i] = GetMrmScan(record, frame, filteringParams);
+                                BuildMrmScan(i + 1, filteringParams); // i is zero-based, frame ids are one-based
                             }
                         });
-                    AssignOneBasedPrecursorsToPasefScans();
-                    throw new NotImplementedException("MRM scans are not supported yet.");
+                    AssignScanNumbersToMrmScans();
+                    break;
                 default:
-                    throw new MzLibException("The timsTOF file does not contain PASEF scans. Only PASEF scans are supported at this time.");
+                    throw new MzLibException($"The timsTOF file contains unsupported scan mode: {Enum.GetName((ScanMode)ScanMode)}. Only DDA-PASEF and MRM data is supported at this time.");
             }
 
             CloseDynamicConnection();
@@ -406,6 +392,27 @@ namespace Readers
             Scans = scanArray.Where(scan => scan != null).ToArray();
         }
 
+        internal void AssignScanNumbersToMrmScans()
+        {
+            int validScans = MrmScanArray.Count(s => s != null);
+            if (validScans == 0) return; // If there are no valid scans, then we don't need to assign scan numbers
+            if (validScans != MrmScanArray.Length)
+            {
+                Scans = new TimsDataScan[validScans]; // Create a new array to hold the scans
+                int oneBasedScanNo = 1;
+                foreach (var scan in MrmScanArray.Where(s => s != null))
+                {
+                    scan.SetOneBasedScanNumber(oneBasedScanNo);
+                    oneBasedScanNo++;
+                    Scans[scan.OneBasedScanNumber - 1] = scan; // Assign the scan to the Scans array
+                }
+            }
+            else
+            {
+                Scans = MrmScanArray; // If all scans are valid, then we can just assign the MrmScanArray to the Scans array
+            }
+        }
+
         /// <summary>
         /// This function will create multiple MS1 scans from each MS1 frame in the timsTOF data file
         /// One Ms1 Scan per precursor
@@ -415,7 +422,7 @@ namespace Readers
         /// </summary>
         /// <param name="frameId"></param>
         /// <param name="filteringParams"></param>
-        internal void BuildAllScans(long frameId, FilteringParams filteringParams)
+        internal void BuildDDAScans(long frameId, FilteringParams filteringParams)
         {
             FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
             if (frame == null || !frame.IsFrameValid())
@@ -444,6 +451,29 @@ namespace Readers
                     PasefScanArray[(int)scan.PrecursorId - 1] = scan;
             }
         }
+
+        /// <summary>
+        /// This function will create an TimsDataScan for timsTOF data collected using the MRM scan mode and write it to the MrmScanarray
+        /// The scan's spectrum is created by averaging the spectra from all scans in the selected frame
+        /// </summary>
+        /// <param name="frameId"></param>
+        /// <param name="filteringParams"></param>
+        internal void BuildMrmScan(long frameId, FilteringParams filteringParams)
+        {
+            FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+            if (frame == null || !frame.IsFrameValid())
+            {
+                FaultyFrameIds.Add(frameId);
+                return; // If the frame is null, then we can't build any scans for it
+            }
+            var record = GetMrmRecord(frameId);
+            if (record.Equals(default(MrmRecord))) return; // If the record is null, then we can't build any scans for it
+            TimsDataScan? dataScan = GetMrmScan(record, frame, filteringParams);
+            if (dataScan != null)
+            {
+                MrmScanArray[(int)frameId - 1] = dataScan;
+            }
+        }   
 
         internal List<Ms1Record> GetMs1Records(long frameId)
         {
