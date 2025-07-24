@@ -277,14 +277,16 @@ namespace FlashLFQ
                     listOfFoldChangesBetweenTheFiles.Add(intensityLogFoldChange);
                 }
             }
-            Normal foldChangeDistribution = listOfFoldChangesBetweenTheFiles.Count > 100
-                ? new Normal(listOfFoldChangesBetweenTheFiles.Median(), listOfFoldChangesBetweenTheFiles.StandardDeviation())
-                : null;
 
-            if (foldChangeDistribution != null)
-            {
-                _logFcDistributionDictionary.Add(idDonorPeaks.First().SpectraFileInfo, foldChangeDistribution);
-            }
+            listOfFoldChangesBetweenTheFiles = listOfFoldChangesBetweenTheFiles.Where(d => !(double.IsNaN(d) | double.IsInfinity(d))).ToList();
+            if (listOfFoldChangesBetweenTheFiles.Count < 100)
+                return;
+            
+            double medianFC = listOfFoldChangesBetweenTheFiles.Median();
+            double stdDevFC = listOfFoldChangesBetweenTheFiles.StandardDeviation();
+            if (Normal.IsValidParameterSet(medianFC, stdDevFC))
+                _logFcDistributionDictionary.Add(idDonorPeaks.First().SpectraFileInfo, new Normal(medianFC, stdDevFC));
+            
         }
       
         /// <summary>
