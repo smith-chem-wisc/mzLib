@@ -164,6 +164,10 @@ namespace Test.FileReadingTests
 
             theSpectrum.SetMsnOrder(2);
             Assert.AreEqual(2, theSpectrum.MsnOrder);
+
+            theSpectrum.SetIsolationRange(400, 2000);
+            Assert.AreEqual(400, theSpectrum.IsolationRange.Minimum);
+            Assert.AreEqual(2000, theSpectrum.IsolationRange.Maximum);
         }
 
         [Test]
