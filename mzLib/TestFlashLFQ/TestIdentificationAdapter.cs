@@ -11,6 +11,25 @@ namespace Test
 {
     public class TestIdentificationAdapter
     {
+        //[Test]
+        //public void LocalFileTest()
+        //{
+        //    List<SpectraFileInfo> spectraFiles = new List<SpectraFileInfo>
+        //    {
+        //        new SpectraFileInfo(@"D:\FlashLFQVignette-selected\09-04-18_EcoliSpikeInSingleShot1x.raw",
+        //            "1x", 0, 0, 0),
+        //        new SpectraFileInfo(@"D:\FlashLFQVignette-selected\09-04-18_EcoliSpikeInSingleShot2x.raw",
+        //            "2x", 0, 0, 0),
+        //    };
+        //    string pepPath = @"D:\FlashLFQVignette-selected\MMv1p1p0_Search\Task1-SearchTask\AllPeptides.psmtsv";
+        //    string psmPath = @"D:\FlashLFQVignette-selected\MMv1p1p0_Search\Task1-SearchTask\AllPSMs.psmtsv";
+
+        //    IQuantifiableResultFile psmFile = FileReader.ReadQuantifiableResultFile(pepPath);
+        //    var ids = psmFile.MakeIdentifications(spectraFiles, usePepQValue: true);
+        //    int placeholder = 0;
+        //}
+        
+
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
         public void TestAddProteinGroupInfoCorrect(string path)
@@ -234,6 +253,39 @@ namespace Test
             Assert.That(Double.IsNaN(testResult.PEP));
             Assert.That(Double.IsNaN(testResult.PEP_QValue));
             Assert.That(!Double.IsNaN(testResult.RetentionTime));
+        }
+
+        [Test]
+        public static void MakeIdentificationsFromNewPsmtsv()
+        {
+            string psmFilename = "AllPSMsWNewFormat.psmtsv";
+
+            var myDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
+            var pathOfIdentificationFile = Path.Combine(myDirectory, psmFilename);
+            var pathOfMzml = Path.Combine(myDirectory, "SmallCalibratibleYeast.mzML");
+            SpectraFileInfo sfi = new SpectraFileInfo(pathOfMzml, "A", 1, 1, 1);
+
+            PsmFromTsvFile results = new PsmFromTsvFile(pathOfIdentificationFile);
+            Assert.That(results.Results.Count, Is.EqualTo(109));
+
+            IQuantifiableResultFile quantifiableResultFile = FileReader.ReadQuantifiableResultFile(pathOfIdentificationFile);
+            List<Identification> ids = quantifiableResultFile.MakeIdentifications(new List<SpectraFileInfo> { sfi });
+            Assert.That(ids.Count, Is.EqualTo(109));
+
+            var decoyId = ids.FirstOrDefault(r => r.ModifiedSequence == "GAAVVQK");
+            Assert.IsTrue(decoyId.IsDecoy);
+            Assert.IsFalse(decoyId.UseForProteinQuant);
+            Assert.That(decoyId.QValue, Is.EqualTo(0.013889).Within(0.000001));
+            Assert.That(decoyId.PsmScore, Is.EqualTo(6.218).Within(0.001));
+
+
+            ids = quantifiableResultFile.MakeIdentifications(new List<SpectraFileInfo> { sfi }, usePepQValue: true);
+            Assert.That(ids.Count, Is.EqualTo(109));
+            decoyId = ids.FirstOrDefault(r => r.ModifiedSequence == "GAAVVQK");
+            Assert.IsTrue(decoyId.IsDecoy);
+            Assert.IsFalse(decoyId.UseForProteinQuant);
+            Assert.That(decoyId.QValue, Is.EqualTo(2).Within(0.000001));
+            Assert.That(decoyId.PsmScore, Is.EqualTo(6.218).Within(0.001));
         }
     }
 

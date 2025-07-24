@@ -37,6 +37,10 @@ namespace Test.FileReadingTests
         [Test]
         public void TestReadForMrmFile()
         {
+            // This mrm file has been modified! There are actually 6437 scans per frame in this file. However, that takes a while to read in,
+            // merge, and centroid. So I edited the SQL database (contained in the .tdf) file to show that each frame only contains 100 scans)
+            // This resulted in a ~20x speed up
+            // This probably implies that the reader should handle the data fundamentally differently (e.g., chunking up each frame into 100 scan segments)
             string mrmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_MRM.d");
             var reader = new TimsTofFileReader(mrmFilePath);
             reader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
