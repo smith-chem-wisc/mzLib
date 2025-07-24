@@ -51,6 +51,9 @@ namespace Test.FileReadingTests
             Assert.That(reader.Scans[10], Is.Not.Null); // Null scan should be removed in AssignScanNumbersToMrmScans
             Assert.That(reader.NumSpectra, Is.EqualTo(908));
             Assert.That(reader.Scans[^1].OneBasedScanNumber, Is.EqualTo(908));
+            Assert.That(reader.Scans[0].IsolationWidth, Is.EqualTo(5).Within(0.01), "Isolation width of first scan is not as expected.");
+            Assert.That(reader.Scans[0].IsolationMz, Is.EqualTo(627.52).Within(0.01), "Selected ion m/z of first scan is not as expected.");
+            Assert.That(reader.Scans[0].HcdEnergy, Is.EqualTo("28"));
 
             reader.MrmScanArray = new TimsDataScan[reader.NumSpectra];
             reader.AssignScanNumbersToMrmScans();
