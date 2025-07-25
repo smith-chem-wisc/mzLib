@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
+using MathNet.Numerics.Interpolation;
 using MzLibUtil;
 using NUnit.Framework;
 using System.Collections.Generic;
@@ -121,7 +122,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestExceptionHandling()
+        public static void TestXicSplineExceptionHandling()
         {
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
@@ -145,6 +146,20 @@ namespace Test
             {
                 Assert.That(xic.Peaks.Count, Is.EqualTo(10));
             }
+            //Test with massIndexingEngine
+            var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
+            var allMasses = Deconvoluter.Deconvolute(FakeScans[0].MassSpectrum, deconParameters);
+            var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(FakeScans, deconParameters);
+            var massXics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            Assert.That(massXics.Count, Is.EqualTo(2));
+            foreach (var mass in allMasses)
+            {
+                Assert.That(massXics.Any(x => x.Peaks.Select(p => (IndexedMass)p).First().IsotopicEnvelope.MonoisotopicMass == mass.MonoisotopicMass));
+            }
+            foreach (var xic in massXics)
+            {
+                Assert.That(xic.Peaks.Count, Is.EqualTo(10));
+            }
 
             //Test if there are three missed scans in the middle
             var fakeScans2 = (MsDataScan[])FakeScans.Clone();
@@ -158,6 +173,10 @@ namespace Test
             var indexingEngine2 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans2);
             var xics2 = indexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
             Assert.That(xics2.Count, Is.EqualTo(40)); //the first three scans and the last four scans will each contain two XICs
+            //Test with massIndexingEngine
+            var massIndexingEngine2 = MassIndexingEngine.InitializeMassIndexingEngine(fakeScans2, deconParameters);
+            var massXics2 = massIndexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            Assert.That(massXics2.Count, Is.EqualTo(4));
 
             var fakeScans3 = (MsDataScan[])FakeScans.Clone();
             var missedIndices2 = new List<int> { 2, 3, 4 }; //the ten scnas would be 1,1,0,0,0,1,1,1,1,1
@@ -170,6 +189,14 @@ namespace Test
             var xics3 = indexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3);
             Assert.That(xics3.Count, Is.EqualTo(20)); // Because the minumum number of peaks required is set to 3, the first two scans do not contain any XICs with only two consecutive peaks.
             foreach (var xic in xics3)
+            {
+                Assert.That(xic.Peaks.Count, Is.EqualTo(5));
+            }
+            //Test with massIndexingEngine
+            var massIndexingEngine3 = MassIndexingEngine.InitializeMassIndexingEngine(fakeScans3, deconParameters);
+            var massXics3 = massIndexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            Assert.That(massXics3.Count, Is.EqualTo(2));
+            foreach (var xic in massXics3)
             {
                 Assert.That(xic.Peaks.Count, Is.EqualTo(5));
             }
@@ -222,6 +249,14 @@ namespace Test
             Assert.That(xic3.Peaks.Count, Is.EqualTo(peak1.Count + peak3.Count));
             xic3.CutPeak();
             Assert.That(xic3.Peaks.Count, Is.EqualTo(peak1.Count + peak3.Count));
+        }
+
+        [Test]
+        public static void TestMassXicExceptionHandling()
+        {
+            var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(FakeScans);
+            var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
+            Assert.That(ex.Message, Is.EqualTo("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available."));
         }
     }
 }
