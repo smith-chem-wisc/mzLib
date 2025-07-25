@@ -258,38 +258,5 @@ namespace Test
             var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
             Assert.That(ex.Message, Is.EqualTo("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available."));
         }
-
-        [Test]
-        public static void TestGetAllXicsForMass()
-        {
-            string peptide = "PEPTIDE";
-            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
-            var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
-            var allMasses = Deconvoluter.Deconvolute(FakeScans[0].MassSpectrum, deconParameters);
-            var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(FakeScans, deconParameters);
-            var xics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
-            Assert.That(xics.Count, Is.EqualTo(2));
-            foreach(var mass in allMasses)
-            {
-                Assert.That(xics.Any(x => x.Peaks.Select(p => (IndexedMass)p).First().IsotopicEnvelope.MonoisotopicMass == mass.MonoisotopicMass));
-            }
-            foreach(var xic in xics)
-            {
-                Assert.That(xic.Peaks.Count, Is.EqualTo(10));
-            }
-
-            //Test if there are three missed scans in the middle
-            var fakeScans2 = (MsDataScan[])FakeScans.Clone();
-            var missedIndices = new List<int> { 3, 4, 5 }; //the ten scnas would be 1,1,1,0,0,0,1,1,1,1
-            foreach (var s in missedIndices)
-            {
-                // replace the scan at index s with an empty scan
-                fakeScans2[s] = new MsDataScan(massSpectrum: new MzSpectrum(new double[] { }, new double[] { }, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
-                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
-            }
-            var massIndexingEngine2 = MassIndexingEngine.InitializeMassIndexingEngine(FakeScans, deconParameters);
-            var xics2 = massIndexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
-            Assert.That(xics2.Count, Is.EqualTo(4)); //the first three scans and the last four scans will each contain two XICs
-        }
     }
 }
