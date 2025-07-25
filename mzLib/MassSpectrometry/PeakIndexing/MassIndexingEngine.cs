@@ -51,33 +51,5 @@ namespace MassSpectrometry
             else
                 return true;
         }
-
-        public override List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
-        {
-            var xics = new List<ExtractedIonChromatogram>();
-            var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
-            var sortedPeaks = IndexedPeaks.Where(v => v != null).SelectMany(peaks => peaks).OrderBy(p => p.Intensity).ToList();
-            foreach (var peak in sortedPeaks)
-            {
-                if (!matchedPeaks.ContainsKey(peak))
-                {
-                    var peakList = GetXic(peak.M, peak.ZeroBasedScanIndex, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, peak.Charge, matchedPeaks);
-                    if (peakList.Count >= numPeakThreshold)
-                    {
-                        var newXIC = new ExtractedIonChromatogram(peakList);
-                        foreach (var matchedPeak in peakList)
-                        {
-                            matchedPeaks.Add(matchedPeak, newXIC);
-                        }
-                        xics.Add(newXIC);
-                    }
-                    else
-                    {
-                        matchedPeaks.Add(peak, null);
-                    }
-                }
-            }
-            return xics;
-        }
     }
 }

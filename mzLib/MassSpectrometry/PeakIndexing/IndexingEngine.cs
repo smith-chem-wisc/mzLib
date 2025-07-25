@@ -203,7 +203,8 @@ namespace MassSpectrometry
             {
                 if (!matchedPeaks.ContainsKey(peak))
                 {
-                    var peakList = GetXic(peak.M, peak.ZeroBasedScanIndex, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, null, matchedPeaks);
+                    int? charge = peak is IndexedMass indexedMass ? indexedMass.Charge : null;
+                    var peakList = GetXic(peak.M, peak.RetentionTime, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, charge, matchedPeaks);
                     if (peakList.Count >= numPeakThreshold)
                     {
                         var newXIC = new ExtractedIonChromatogram(peakList);
