@@ -244,6 +244,10 @@ namespace MassSpectrometry
         internal static T? GetBestPeakFromBins(List<List<T>> allBins, double mz, int zeroBasedScanIndex, IList<int> peakIndicesInBins, Tolerance ppmTolerance, int? charge = null)
         {
             T? bestPeak = default(T);
+            if (charge != null && typeof(T) != typeof(IndexedMass))
+            {
+                throw new MzLibException("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available.");
+            }
             for (int i = 0; i < allBins.Count; i++)
             {
                 var tempPeak = GetPeakFromBin(allBins[i], mz, zeroBasedScanIndex, peakIndicesInBins[i], ppmTolerance, charge);
@@ -265,10 +269,6 @@ namespace MassSpectrometry
         {
             T? bestPeak = default(T);
             if (peakIndexInBin < 0 || peakIndexInBin >= bin.Count) return bestPeak;
-            if (charge != null && bin.FirstOrDefault() is not IndexedMass)
-            {
-                throw new MzLibException("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available.");
-            }
             for (int i = peakIndexInBin; i < bin.Count; i++)
             {
                 var peak = bin[i];
