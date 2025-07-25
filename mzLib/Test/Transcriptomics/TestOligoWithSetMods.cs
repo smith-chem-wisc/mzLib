@@ -175,7 +175,7 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        public static void Fragment_Works_When_Parent_Is_Null()
+        public static void Fragment_WorksWhenParentIsNull()
         {
             // Arrange: create an OligoWithSetMods with no parent (using the string constructor)
             var baseSequence = "GUACUG";
