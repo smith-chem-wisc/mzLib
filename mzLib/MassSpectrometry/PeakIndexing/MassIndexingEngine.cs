@@ -61,7 +61,7 @@ namespace MassSpectrometry
             {
                 if (!matchedPeaks.ContainsKey(peak))
                 {
-                    var peakList = GetXic(peak.M, peak.RetentionTime, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, peak.Charge, matchedPeaks);
+                    var peakList = GetXic(peak.M, peak.ZeroBasedScanIndex, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, peak.Charge, matchedPeaks);
                     if (peakList.Count >= numPeakThreshold)
                     {
                         var newXIC = new ExtractedIonChromatogram(peakList);
