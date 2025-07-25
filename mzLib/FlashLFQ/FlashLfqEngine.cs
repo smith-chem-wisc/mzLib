@@ -1,5 +1,9 @@
 ﻿using Chemistry;
-using MathNet.Numerics.Distributions;
+using Easy.Common.Extensions;
+using FlashLFQ.Interfaces;
+using FlashLFQ.IsoTracker;
+using FlashLFQ.PEP;
+using MassSpectrometry;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using Proteomics.AminoAcidPolymer;
@@ -7,16 +11,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
 using System.IO;
-using Easy.Common.Extensions;
-using FlashLFQ.PEP;
-using FlashLFQ.IsoTracker;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
-using FlashLFQ.Interfaces;
-using MassSpectrometry;
+using System.Threading.Tasks;
 
 [assembly: InternalsVisibleTo("TestFlashLFQ")]
 [assembly: InternalsVisibleTo("Test")]
@@ -70,6 +69,7 @@ namespace FlashLFQ
         private FlashLfqResults _results;
         private readonly List<Identification> _allIdentifications;
         private readonly Stopwatch _globalStopwatch;
+        public bool RnaModeActive { get; private set; } = false; // RNA mode is activated when the charge state is less than 1
         #endregion
 
         /// <summary>
@@ -352,21 +352,17 @@ namespace FlashLFQ
         /// </summary>
         internal void CalculateTheoreticalIsotopeDistributions()
         {
+            // Find the maximum and minimum charge states across all identifications and set the _chargeStates property
+            var minChargeState = _allIdentifications.Min(p => p.PrecursorChargeState);
+            var maxChargeState = _allIdentifications.Max(p => p.PrecursorChargeState);
+            _chargeStates = Enumerable.Range(minChargeState, (maxChargeState - minChargeState) + 1).ToList();
+
+            if (minChargeState < 1 || maxChargeState < 1)
+            {
+                RnaModeActive = true; //RNA mode activated!!!
+            }
+
             ModifiedSequenceToIsotopicDistribution = new Dictionary<string, List<(double, double)>>();
-
-            // calculate averagine (used for isotopic distributions for unknown modifications)
-            double averageC = 4.9384;
-            double averageH = 7.7583;
-            double averageO = 1.4773;
-            double averageN = 1.3577;
-            double averageS = 0.0417;
-
-            double averagineMass =
-                PeriodicTable.GetElement("C").AverageMass * averageC +
-                PeriodicTable.GetElement("H").AverageMass * averageH +
-                PeriodicTable.GetElement("O").AverageMass * averageO +
-                PeriodicTable.GetElement("N").AverageMass * averageN +
-                PeriodicTable.GetElement("S").AverageMass * averageS;
 
             // calculate monoisotopic masses and isotopic envelope for the base sequences
             foreach (Identification id in _allIdentifications)
@@ -377,59 +373,39 @@ namespace FlashLFQ
                 }
 
                 ChemicalFormula formula = id.OptionalChemicalFormula;
-
                 var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundancence)>();
-
                 if(formula is null)
                 {
-                    formula = new ChemicalFormula();
                     if (id.BaseSequence.AllSequenceResiduesAreValid())
                     {
                         // there are sometimes non-parsable sequences in the base sequence input
-                        formula = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
-                        double massDiff = id.MonoisotopicMass;
-                        massDiff -= formula.MonoisotopicMass;
+                        formula = RnaModeActive ? 
+                            new Transcriptomics.RNA(id.BaseSequence).GetChemicalFormula() : 
+                            new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
 
+                        double massDiff = id.MonoisotopicMass - formula.MonoisotopicMass;
                         if (Math.Abs(massDiff) > 20)
                         {
-                            double averagines = massDiff / averagineMass;
-
-                            formula.Add("C", (int)Math.Round(averagines * averageC, 0));
-                            formula.Add("H", (int)Math.Round(averagines * averageH, 0));
-                            formula.Add("O", (int)Math.Round(averagines * averageO, 0));
-                            formula.Add("N", (int)Math.Round(averagines * averageN, 0));
-                            formula.Add("S", (int)Math.Round(averagines * averageS, 0));
+                            var massDiffFormulaFromAveragine = IsotopicDistributionCalculator.GetAveragineFormula(massDiff);
+                            formula.Add(massDiffFormulaFromAveragine);
                         }
                     }
                     else
                     {
-                        double averagines = id.MonoisotopicMass / averagineMass;
-
-                        formula.Add("C", (int)Math.Round(averagines * averageC, 0));
-                        formula.Add("H", (int)Math.Round(averagines * averageH, 0));
-                        formula.Add("O", (int)Math.Round(averagines * averageO, 0));
-                        formula.Add("N", (int)Math.Round(averagines * averageN, 0));
-                        formula.Add("S", (int)Math.Round(averagines * averageS, 0));
+                        formula = IsotopicDistributionCalculator.GetAveragineFormula(id.MonoisotopicMass);
                     }
                 }
 
                 var isotopicDistribution = IsotopicDistribution.GetDistribution(formula, 0.125, 1e-8);
-
+                
                 double[] masses = isotopicDistribution.Masses.ToArray();
                 double[] abundances = isotopicDistribution.Intensities.ToArray();
-
-                for (int i = 0; i < masses.Length; i++)
-                {
-                    masses[i] += (id.MonoisotopicMass - formula.MonoisotopicMass);
-                }
-
                 double highestAbundance = abundances.Max();
-                int highestAbundanceIndex = Array.IndexOf(abundances, highestAbundance);
 
                 for (int i = 0; i < masses.Length; i++)
                 {
-                    // expected isotopic mass shifts for this peptide
-                    masses[i] -= id.MonoisotopicMass;
+                    // expected isotopic mass shifts for this peptide (relative to the monoisotopic mass)
+                    masses[i] -= formula.MonoisotopicMass;
 
                     // normalized abundance of each isotope
                     abundances[i] /= highestAbundance;
@@ -444,12 +420,8 @@ namespace FlashLFQ
                 ModifiedSequenceToIsotopicDistribution.Add(id.ModifiedSequence, isotopicMassesAndNormalizedAbundances);
             }
 
-            var minChargeState = _allIdentifications.Min(p => p.PrecursorChargeState);
-            var maxChargeState = _allIdentifications.Max(p => p.PrecursorChargeState);
-            _chargeStates = Enumerable.Range(minChargeState, (maxChargeState - minChargeState) + 1).ToList();
-
-            var peptideModifiedSequences = _allIdentifications.GroupBy(p => p.ModifiedSequence);
-            foreach (var identifications in peptideModifiedSequences)
+            // Set the peakfinding mass for each identification
+            foreach (var identifications in _allIdentifications.GroupBy(p => p.ModifiedSequence))
             {
                 // isotope where normalized abundance is 1
                 double mostAbundantIsotopeShift = ModifiedSequenceToIsotopicDistribution[identifications.First().ModifiedSequence]
