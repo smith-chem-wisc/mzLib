@@ -1,5 +1,6 @@
 ﻿using MassSpectrometry;
 using MathNet.Numerics;
+using MzLibUtil;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Readers;
@@ -17,7 +18,7 @@ namespace Test.FileReadingTests
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class TestTimsTofFileReader
     {
-
+        // The timsTOF_snippet.d contains DDA_PASEF data
         public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
         public TimsTofFileReader _testReader;
         public TimsDataScan _testMs2Scan;
@@ -31,6 +32,44 @@ namespace Test.FileReadingTests
             _testReader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
             _testMs2Scan = (TimsDataScan)_testReader.Scans.Skip(1000).First(scan => scan.MsnOrder > 1);
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
+        }
+
+        [Test]
+        public void TestReadForMrmFile()
+        {
+            // This mrm file has been modified! There are actually 6437 scans per frame in this file. However, that takes a while to read in,
+            // merge, and centroid. So I edited the SQL database (contained in the .tdf) file to show that each frame only contains 100 scans)
+            // This resulted in a ~20x speed up
+            // This probably implies that the reader should handle the data fundamentally differently (e.g., chunking up each frame into 100 scan segments)
+            string mrmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_MRM.d");
+            var reader = new TimsTofFileReader(mrmFilePath);
+            reader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
+            Assert.That(reader.NumSpectra, Is.EqualTo(909), "Number of spectra in the MRM file is not as expected.");
+
+            reader.MrmScanArray[10] = null;
+            reader.AssignScanNumbersToMrmScans();
+            Assert.That(reader.Scans[10], Is.Not.Null); // Null scan should be removed in AssignScanNumbersToMrmScans
+            Assert.That(reader.NumSpectra, Is.EqualTo(908));
+            Assert.That(reader.Scans[^1].OneBasedScanNumber, Is.EqualTo(908));
+            Assert.That(reader.Scans[0].IsolationWidth, Is.EqualTo(5).Within(0.01), "Isolation width of first scan is not as expected.");
+            Assert.That(reader.Scans[0].IsolationMz, Is.EqualTo(627.52).Within(0.01), "Selected ion m/z of first scan is not as expected.");
+            Assert.That(reader.Scans[0].HcdEnergy, Is.EqualTo("28"));
+
+            reader.MrmScanArray = new TimsDataScan[reader.NumSpectra];
+            reader.AssignScanNumbersToMrmScans();
+            Assert.Pass(); // Make sure empty scan array doesn't crash
+        }
+
+        [Test]
+        public static void TestDiaFileThrowsAppropriateException()
+        {
+            string diaFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_DIA.d");
+            var reader = new TimsTofFileReader(diaFilePath);
+            Assert.That(
+                () => reader.LoadAllStaticData(filteringParams: new FilteringParams()),
+                Throws.TypeOf<MzLibException>()
+                    .With.Message.EqualTo("The timsTOF file contains unsupported scan mode: DIA. Only DDA-PASEF and MRM data is supported at this time.")
+            );
         }
 
         [Test]
@@ -80,7 +119,7 @@ namespace Test.FileReadingTests
                 x.SetValue(tempReader, mockFactory);
                 //typeof(TimsTofFileReader).GetProperty("FrameProxyFactory", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(tempReader, mockFactory);
 
-                tempReader.BuildAllScans(frameId: 1, null);
+                tempReader.BuildDDAScans(frameId: 1, null);
                 var scan = new TimsDataScan(massSpectrum: null,
                     oneBasedScanNumber: -1, // This will be adjusted once all scans have been read
                     msnOrder: 2,

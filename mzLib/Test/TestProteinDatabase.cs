@@ -7,6 +7,8 @@ using System.IO;
 using System.Linq;
 using Omics.Modifications;
 using UsefulProteomicsDatabases;
+using Omics.BioPolymer;
+using System;
 
 namespace Test
 {
@@ -206,6 +208,109 @@ namespace Test
             Assert.AreEqual(0, moreProteins[0].TruncationProducts.Where(p => p.Type.Contains("truncation")).Count());
 
             File.Delete(testOutXml);
+        }
+        [Test]
+        public void WriteXmlDatabase_WritesRequiredUniProtSequenceAttributes()
+        {
+            // Arrange
+            var protein = new Protein(
+                accession: "P00001",
+                sequence: "MPEPTIDESEQ",
+                organism: "Homo sapiens",
+                isDecoy: false,
+                geneNames: new List<Tuple<string, string>>(),
+                name: "Test",
+                fullName: "Test Protein",
+                isContaminant: false,
+                sequenceVariations: new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>(),
+                spliceSites: new List<SpliceSite>(),
+                databaseReferences: new List<DatabaseReference>(),
+                databaseFilePath: "db.fasta",
+                uniProtSequenceAttributes: new UniProtSequenceAttributes(
+                    length: 11,
+                    mass: 1234,
+                    checkSum: "CHK123",
+                    entryModified: new DateTime(2024, 6, 13),
+                    sequenceVersion: 1
+                ),
+                appliedSequenceVariations: new List<SequenceVariation>(),
+                sampleNameForVariants: null
+            );
+            var proteinList = new List<Protein> { protein };
+            var mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            string tempFile = Path.GetTempFileName();
+
+            try
+            {
+                // Act
+                var result = ProteinDbWriter.WriteXmlDatabase(mods, proteinList, tempFile);
+
+                // Assert
+                Assert.That(File.Exists(tempFile), Is.True);
+                string xml = File.ReadAllText(tempFile);
+                Assert.That(xml, Does.Contain("CHK123"));
+                Assert.That(xml, Does.Contain("2024-06-13"));
+                Assert.That(xml, Does.Contain("length=\"11\""));
+                Assert.That(xml, Does.Contain("mass=\"1234\""));
+                Assert.That(xml, Does.Contain("version=\"1\""));
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
+
+        [Test]
+        public void WriteXmlDatabase_WritesOptionalUniProtSequenceAttributes()
+        {
+            // Arrange
+            var protein = new Protein(
+                accession: "P00002",
+                sequence: "MPEPTIDESEQ",
+                organism: "Homo sapiens",
+                isDecoy: false,
+                geneNames: new List<Tuple<string, string>>(),
+                name: "Test",
+                fullName: "Test Protein",
+                isContaminant: false,
+                sequenceVariations: new List<SequenceVariation>(),
+                disulfideBonds: new List<DisulfideBond>(),
+                spliceSites: new List<SpliceSite>(),
+                databaseReferences: new List<DatabaseReference>(),
+                databaseFilePath: "db.fasta",
+                uniProtSequenceAttributes: new UniProtSequenceAttributes(
+                    length: 11,
+                    mass: 5678,
+                    checkSum: "CHK456",
+                    entryModified: new DateTime(2024, 6, 13),
+                    sequenceVersion: 2,
+                    isPrecursor: true,
+                    fragment: UniProtSequenceAttributes.FragmentType.multiple
+                ),
+                appliedSequenceVariations: new List<SequenceVariation>(),
+                sampleNameForVariants: null
+            );
+            var proteinList = new List<Protein> { protein };
+            var mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            string tempFile = Path.GetTempFileName();
+
+            try
+            {
+                // Act
+                var result = ProteinDbWriter.WriteXmlDatabase(mods, proteinList, tempFile);
+
+                // Assert
+                Assert.That(File.Exists(tempFile), Is.True);
+                string xml = File.ReadAllText(tempFile);
+                Assert.That(xml, Does.Contain("CHK456"));
+                Assert.That(xml, Does.Contain("precursor=\"true\""));
+                Assert.That(xml.ToLower(), Does.Contain("fragment=\"multiple\""));
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
         }
     }
 }

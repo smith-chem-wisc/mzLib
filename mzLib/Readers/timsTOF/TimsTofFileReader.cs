@@ -1,26 +1,32 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Runtime.InteropServices;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
 using MzLibUtil;
-using UsefulProteomicsDatabases;
-using System.Data.Common;
-using Readers;
-using System.Data.SqlClient;
 using System.Data;
-using ThermoFisher.CommonCore.Data.Business;
-using Polarity = MassSpectrometry.Polarity;
-using System.Security.AccessControl;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Security.Permissions;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("Test")]
 namespace Readers
 {
+    /// <summary>
+    /// In the .tdf files, the Frames table has a "Scan Mode" column that indicates the type of scan
+    /// This enum maps to that column
+    /// </summary>
+    public enum ScanMode
+    {
+        MS = 0,
+        AutoMSMS = 1, // This is only relevant for .tsf data
+        MRM = 2,
+        InSourceCID = 3,
+        BroadbandCID = 4,
+        PASEF = 8,
+        DIA = 9,
+        PRM = 10,
+        Maldi = 20
+    }
+
     public class TimsTofFileReader : MsDataFile, IDisposable
     {
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
@@ -32,7 +38,6 @@ namespace Readers
         {
             FaultyFrameIds = new();
         }
-
         private UInt64? _fileHandle;
         private Object _fileLock;
         private SQLiteConnection? _sqlConnection;
@@ -69,10 +74,19 @@ namespace Readers
 
             CountFrames();
             BuildProxyFactory();
-            CountMS1Frames();
-            CountPrecursors();
-        }
+            CheckScanMode();
 
+            // Currently, only MRM data is supported in addition to DDA_PASEF. For MRM, no additional functions need to be called
+            // however, as additional data becomes supported, this switch statement could grow
+            switch (ScanMode)
+            {
+                case ScanMode.PASEF:
+                    CountMS1Frames();
+                    CountPrecursors();
+                    break; 
+            }
+        }
+        
         internal void OpenSqlConnection()
         {
             if (_sqlConnection?.State == ConnectionState.Open)
@@ -181,6 +195,27 @@ namespace Readers
             NumberOfFrames = count;
         }
 
+        internal void CheckScanMode()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT DISTINCT ScanMode FROM Frames;";
+            using var sqliteReader = command.ExecuteReader();
+            HashSet<int> scanModes = new();
+
+            while (sqliteReader.Read())
+            {
+                scanModes.Add(sqliteReader.GetInt32(0));
+            }
+            if (scanModes.Count > 1)
+            {
+                throw new MzLibException("The timsTOF file contains multiple scan modes. This is not supported yet.");
+            }
+            ScanMode = (ScanMode)scanModes.FirstOrDefault();
+        }
+
+        public ScanMode ScanMode { get; private set; }
+
         internal void CountMS1Frames()
         {
             if (_sqlConnection == null) return;
@@ -193,7 +228,6 @@ namespace Readers
             {
                 Ms1FrameIds.Add(sqliteReader.GetInt64(0));
             }
-            
         }
 
         /// <summary>
@@ -232,6 +266,7 @@ namespace Readers
         public ConcurrentBag<TimsDataScan> Ms1ScansNoPrecursorsBag { internal get; set; }
         public TimsDataScan[] Ms1ScanArray { internal get; set; }
         public TimsDataScan[] PasefScanArray { internal get; set; }
+        public TimsDataScan[] MrmScanArray { internal get; set; }
 
         internal int GetNumberOfDigitizerSamples()
         {
@@ -246,22 +281,44 @@ namespace Readers
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
             InitiateDynamicConnection();
-
             _maxThreads = maxThreads;
-            Ms1ScansNoPrecursorsBag = new();
-            Parallel.ForEach(
-                Partitioner.Create(0, Ms1FrameIds.Count),
-                new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
-                (range) =>
+
+            switch (ScanMode)
             {
-                for (int i = range.Item1; i < range.Item2; i++)
-                {
-                    BuildAllScans(Ms1FrameIds[i], filteringParams);
-                }
-            });
+                case ScanMode.PASEF:
+                    Ms1ScansNoPrecursorsBag = new();
+                    Parallel.ForEach(
+                        Partitioner.Create(0, Ms1FrameIds.Count),
+                        new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
+                        (range) =>
+                        {
+                            for (int i = range.Item1; i < range.Item2; i++)
+                            {
+                                BuildDDAScans(Ms1FrameIds[i], filteringParams);
+                            }
+                        });
+                    AssignOneBasedPrecursorsToPasefScans();
+                    break;
+                case ScanMode.MRM:
+                    // The implicit assumption here is that in MRM mode, no MS1 scans are collected
+                    MrmScanArray = new TimsDataScan[NumberOfFrames]; 
+                    Parallel.ForEach(
+                        Partitioner.Create(0, NumberOfFrames),
+                        new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
+                        (range) =>
+                        {
+                            for (int i = range.Item1; i < range.Item2; i++)
+                            {
+                                BuildMrmScan(i + 1, filteringParams); // i is zero-based, frame ids are one-based
+                            }
+                        });
+                    AssignScanNumbersToMrmScans();
+                    break;
+                default:
+                    throw new MzLibException($"The timsTOF file contains unsupported scan mode: {Enum.GetName((ScanMode)ScanMode)}. Only DDA-PASEF and MRM data is supported at this time.");
+            }
 
             CloseDynamicConnection();
-            AssignOneBasedPrecursorsToPasefScans();
             SourceFile = GetSourceFile();
             return this;
         }
@@ -315,6 +372,27 @@ namespace Readers
             Scans = scanArray.Where(scan => scan != null).ToArray();
         }
 
+        internal void AssignScanNumbersToMrmScans()
+        {
+            int validScans = MrmScanArray.Count(s => s != null);
+            if (validScans == 0) return; // If there are no valid scans, then we don't need to assign scan numbers
+            if (validScans != MrmScanArray.Length)
+            {
+                Scans = new TimsDataScan[validScans]; // Create a new array to hold the scans
+                int oneBasedScanNo = 1;
+                foreach (var scan in MrmScanArray.Where(s => s != null))
+                {
+                    scan.SetOneBasedScanNumber(oneBasedScanNo);
+                    oneBasedScanNo++;
+                    Scans[scan.OneBasedScanNumber - 1] = scan; // Assign the scan to the Scans array
+                }
+            }
+            else
+            {
+                Scans = MrmScanArray; // If all scans are valid, then we can just assign the MrmScanArray to the Scans array
+            }
+        }
+
         /// <summary>
         /// This function will create multiple MS1 scans from each MS1 frame in the timsTOF data file
         /// One Ms1 Scan per precursor
@@ -324,7 +402,7 @@ namespace Readers
         /// </summary>
         /// <param name="frameId"></param>
         /// <param name="filteringParams"></param>
-        internal void BuildAllScans(long frameId, FilteringParams filteringParams)
+        internal void BuildDDAScans(long frameId, FilteringParams filteringParams)
         {
             FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
             if (frame == null || !frame.IsFrameValid())
@@ -353,6 +431,29 @@ namespace Readers
                     PasefScanArray[(int)scan.PrecursorId - 1] = scan;
             }
         }
+
+        /// <summary>
+        /// This function will create an TimsDataScan for timsTOF data collected using the MRM scan mode and write it to the MrmScanarray
+        /// The scan's spectrum is created by averaging the spectra from all scans in the selected frame
+        /// </summary>
+        /// <param name="frameId"></param>
+        /// <param name="filteringParams"></param>
+        internal void BuildMrmScan(long frameId, FilteringParams filteringParams)
+        {
+            FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+            if (frame == null || !frame.IsFrameValid())
+            {
+                FaultyFrameIds.Add(frameId);
+                return; // If the frame is null, then we can't build any scans for it
+            }
+            var record = GetMrmRecord(frameId);
+            if (record.Equals(default(MrmRecord))) return; // If the record is null, then we can't build any scans for it
+            TimsDataScan? dataScan = GetMrmScan(record, frame, filteringParams);
+            if (dataScan != null)
+            {
+                MrmScanArray[(int)frameId - 1] = dataScan;
+            }
+        }   
 
         internal List<Ms1Record> GetMs1Records(long frameId)
         {
@@ -397,7 +498,7 @@ namespace Readers
                 intensityArrays.Add(frame.GetScanIntensities(scan-1));
             }
             // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
+            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
             if (averagedSpectrum.Size < 1)
             {
                 return null;
@@ -425,6 +526,48 @@ namespace Readers
                 medianOneOverK0: FrameProxyFactory.GetOneOverK0(record.ScanMedian),
                 precursorId: record.PrecursorId);
 
+            return dataScan;
+        }
+
+        internal TimsDataScan? GetMrmScan(MrmRecord record, FrameProxy frame, FilteringParams filteringParams)
+        {
+            List<uint[]> indexArrays = new();
+            List<int[]> intensityArrays = new();
+            for (int scan = record.ScanStart; scan < record.ScanEnd; scan++)
+            {
+                indexArrays.Add(frame.GetScanIndices(scan - 1));
+                intensityArrays.Add(frame.GetScanIntensities(scan - 1));
+            }
+            // Step 2: Average those suckers
+            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams, msnLevel: 2);
+            if (averagedSpectrum.Size < 1)
+            {
+                return null;
+            }
+            // Step 3: Make an MsDataScan bby
+            var dataScan = new TimsDataScan(
+                massSpectrum: averagedSpectrum,
+                oneBasedScanNumber: (int)record.FrameId, // This gets adjusted once all data has been read
+                msnOrder: 2,
+                isCentroid: true,
+                polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+                retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+                scanWindowRange: ScanWindow,
+                isolationMZ: record.IsolationMz,
+                isolationWidth: record.IsolationWidth,
+                hcdEnergy: record.CollisionEnergy.ToString(),
+                scanFilter: ScanFilter,
+                mzAnalyzer: MZAnalyzerType.TOF,
+                totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
+                injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+                noiseData: null,
+                nativeId: "frame=" + frame.FrameId.ToString() +
+                    ";scans=" + record.ScanStart.ToString() + "-" + record.ScanEnd.ToString(),
+                frameId: frame.FrameId,
+                scanNumberStart: record.ScanStart,
+                scanNumberEnd: record.ScanEnd,
+                medianOneOverK0: FrameProxyFactory.GetOneOverK0((record.ScanStart + record.ScanEnd)/2.0),
+                precursorId: null);
             return dataScan;
         }
 
@@ -512,6 +655,36 @@ namespace Readers
                     yield return new PasefRecord(frameList, precursorId, scanStart, scanEnd, scanMedian, isolationMz, isolationWidth, collisionEnergy, mostAbundantPrecursorPeak, precursorMonoisotopicMz, charge, precursorIntensity);
                 }
             }
+        }
+
+        internal MrmRecord GetMrmRecord(long frameId)
+        {
+            // Only do this if we have valid precursors (which we don't for like SRM/inclusion list type stuff) 
+            using (var command = new SQLiteCommand(_sqlConnection))
+            {
+                // This command finds all the precursors identified and fragmented in each MS/MS Pasef scan
+                // It is used to take an MS1 frame and create multiple "MsDataScans" by averaging the 
+                // spectra from each scan within a given Ion Mobility (i.e. ScanNum) range
+                command.CommandText =
+                    @"SELECT f.NumScans," +
+                    " m.TriggerMass, m.IsolationWidth, m.CollisionEnergy" +
+                    " FROM Frames f" +
+                    " INNER JOIN FrameMsMsInfo m on m.Frame = " + frameId.ToString() +
+                    " WHERE f.ID = " + frameId.ToString() +
+                    ";";
+                using var sqliteReader = command.ExecuteReader();
+
+                while (sqliteReader.Read())
+                {
+                    var numScans = sqliteReader.GetInt32(0);
+                    var triggerMz = sqliteReader.GetFloat(1);
+                    var isolationWidth = sqliteReader.GetFloat(2);
+                    var collisionEnergy = sqliteReader.GetFloat(3);
+                    return new MrmRecord(frameId, scanStart: 1, scanEnd: numScans, isolationMz: triggerMz, isolationWidth: isolationWidth, collisionEnergy: collisionEnergy);
+                }
+            }
+
+            return default(MrmRecord); // If no record was found, return a default MrmRecord
         }
 
         /// <summary>

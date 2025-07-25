@@ -562,7 +562,21 @@ namespace UsefulProteomicsDatabases
                     }
 
                     writer.WriteStartElement("sequence");
-                    writer.WriteAttributeString("length", protein.Length.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteAttributeString("length", protein.UniProtSequenceAttributes.Length.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteAttributeString("mass", protein.UniProtSequenceAttributes.Mass.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteAttributeString("checksum", protein.UniProtSequenceAttributes.Checksum);
+                    writer.WriteAttributeString("modified", protein.UniProtSequenceAttributes.EntryModified.ToString("yyyy-MM-dd"));
+                    writer.WriteAttributeString("version", protein.UniProtSequenceAttributes.SequenceVersion.ToString(CultureInfo.InvariantCulture));
+                    //optional attributes
+                    if (protein.UniProtSequenceAttributes.IsPrecursor != null)
+                    {
+                        writer.WriteAttributeString("precursor", protein.UniProtSequenceAttributes.IsPrecursor.Value.ToString().ToLowerInvariant());
+                    }
+                    if(protein.UniProtSequenceAttributes.Fragment != UniProtSequenceAttributes.FragmentType.unspecified)
+                    {
+                        writer.WriteAttributeString("fragment", protein.UniProtSequenceAttributes.Fragment.ToString().ToLowerInvariant());
+                    }
+                    //end optional attributes
                     writer.WriteString(protein.BaseSequence);
                     writer.WriteEndElement(); // sequence
                     writer.WriteEndElement(); // entry
