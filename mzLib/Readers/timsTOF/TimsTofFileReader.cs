@@ -1,22 +1,10 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Runtime.InteropServices;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
 using MzLibUtil;
-using UsefulProteomicsDatabases;
-using System.Data.Common;
-using Readers;
-using System.Data.SqlClient;
 using System.Data;
-using ThermoFisher.CommonCore.Data.Business;
-using Polarity = MassSpectrometry.Polarity;
-using System.Security.AccessControl;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Security.Permissions;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 
@@ -406,6 +394,27 @@ namespace Readers
             }
         }
 
+        internal void AssignScanNumbersToMrmScans()
+        {
+            int validScans = MrmScanArray.Count(s => s != null);
+            if (validScans == 0) return; // If there are no valid scans, then we don't need to assign scan numbers
+            if (validScans != MrmScanArray.Length)
+            {
+                Scans = new TimsDataScan[validScans]; // Create a new array to hold the scans
+                int oneBasedScanNo = 1;
+                foreach (var scan in MrmScanArray.Where(s => s != null))
+                {
+                    scan.SetOneBasedScanNumber(oneBasedScanNo);
+                    oneBasedScanNo++;
+                    Scans[scan.OneBasedScanNumber - 1] = scan; // Assign the scan to the Scans array
+                }
+            }
+            else
+            {
+                Scans = MrmScanArray; // If all scans are valid, then we can just assign the MrmScanArray to the Scans array
+            }
+        }
+
         /// <summary>
         /// This function will create multiple MS1 scans from each MS1 frame in the timsTOF data file
         /// One Ms1 Scan per precursor
@@ -579,7 +588,7 @@ namespace Readers
                 frameId: frame.FrameId,
                 scanNumberStart: record.ScanStart,
                 scanNumberEnd: record.ScanEnd,
-                medianOneOverK0: FrameProxyFactory.GetOneOverK0((record.ScanStart + record.ScanEnd)/2),
+                medianOneOverK0: FrameProxyFactory.GetOneOverK0((record.ScanStart + record.ScanEnd)/2.0),
                 precursorId: null);
             return dataScan;
         }
