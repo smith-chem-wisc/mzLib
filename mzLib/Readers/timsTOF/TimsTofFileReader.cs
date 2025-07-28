@@ -28,6 +28,13 @@ namespace Readers
         Maldi = 20
     }
 
+    public enum TimsTofFileType
+    {
+        TDF = 0, // data with tims seperation + information
+        TSF = 1, // data without tims seperation
+        Unknown = 2 // Unknown file type
+    }
+
     public class TimsTofFileReader : MsDataFile, IDisposable
     {
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
@@ -57,11 +64,23 @@ namespace Readers
         public MzRange ScanWindow => _scanWindow ??= new MzRange(20, 2000);
         public const string ScanFilter = "f";
 
+        public ScanMode ScanMode { get; private set; }
+        public TimsTofFileType FileType { get; private set; }
+        
+
         public override void InitiateDynamicConnection()
         {
-            if (!File.Exists(FilePath + @"\analysis.tdf") | !File.Exists(FilePath + @"\analysis.tdf_bin"))
+            if (File.Exists(FilePath + @"\analysis.tdf")  && File.Exists(FilePath + @"\analysis.tdf_bin"))
             {
-                throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
+                FileType = TimsTofFileType.TDF;
+            }
+            if (File.Exists(FilePath + @"\analysis.tsf") && File.Exists(FilePath + @"\analysis.tsf_bin"))
+            {
+                FileType = TimsTofFileType.TSF;
+            }
+            else
+            {
+                throw new FileNotFoundException("Could not locate the the database (analysis.tdf, analysis.tsf) and/or binary (analysis.tdf_bin, analysis.tsf_bin) files");
             }
 
             if (Scans.IsNotNullOrEmpty() && Scans.All(s => s != null)) // If all scans have been loaded, then don't reload
@@ -87,33 +106,6 @@ namespace Readers
                     break; 
             }
         }
-        
-        internal void OpenSqlConnection()
-        {
-            if (_sqlConnection?.State == ConnectionState.Open)
-                return;
-
-            _sqlConnection = new SQLiteConnection("Data Source=" +
-                                    Path.Combine(FilePath, "analysis.tdf") +
-                                    "; Version=3", parseViaFramework: true);
-            try
-            {
-                _sqlConnection.Open();
-            }
-            catch (Exception e)
-            {
-                throw new MzLibException("Error opening the .tdf file: " + e.Message);
-            }
-        }
-
-        internal void OpenBinaryFileConnection()
-        {
-            byte[] binaryFileBytePath = BrukerFileReader.ConvertStringToUTF8ByteArray(FilePath);
-            _fileHandle = tims_open(binaryFileBytePath, 0);
-            if (_fileHandle == null || _fileHandle == 0)
-                throw new MzLibException("Could not open the analysis.tdf_bin file");
-        }
-
         public override void CloseDynamicConnection()
         {
             if (_sqlConnection?.State == ConnectionState.Open) _sqlConnection.Close();
@@ -123,13 +115,139 @@ namespace Readers
             {
                 tims_close((UInt64)_fileHandle);
                 _fileHandle = null;
-            }   
+            }
+        }
+
+        internal void OpenSqlConnection()
+        {
+            if (_sqlConnection?.State == ConnectionState.Open)
+                return;
+
+            string analysisFileName = FileType == TimsTofFileType.TDF ? "analysis.tdf" : "analysis.tsf";    
+            _sqlConnection = new SQLiteConnection("Data Source=" +
+                                    Path.Combine(FilePath, analysisFileName) +
+                                    "; Version=3", parseViaFramework: true);
+            try
+            {
+                _sqlConnection.Open();
+            }
+            catch (Exception e)
+            {
+                throw new MzLibException("Error opening the database file: " + e.Message);
+            }
+        }
+
+        internal void OpenBinaryFileConnection()
+        {
+            byte[] binaryFileBytePath = BrukerFileReader.ConvertStringToUTF8ByteArray(FilePath);
+            if (FileType == TimsTofFileType.TDF)
+                _fileHandle = tims_open(binaryFileBytePath, 0);
+            else if (FileType == TimsTofFileType.TSF)
+                _fileHandle = tsf_open(binaryFileBytePath, 0); 
+            else
+                throw new MzLibException("Unknown file type: " + FileType);
+            if (_fileHandle == null || _fileHandle == 0)
+                throw new MzLibException("Could not open the binary data (.tdf_bin or .tsf_bin) file");
         }
 
         public void Dispose()
         {
             CloseDynamicConnection();
         }
+
+        #region Database Access
+
+        internal void CountFrames()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT COUNT(*) FROM Frames;";
+            using var sqliteReader = command.ExecuteReader();
+            int count = 0;
+            while (sqliteReader.Read())
+            {
+                count = sqliteReader.GetInt32(0);
+                break;
+            }
+            NumberOfFrames = count;
+        }
+
+        internal void CheckScanMode()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT DISTINCT ScanMode FROM Frames;";
+            using var sqliteReader = command.ExecuteReader();
+            HashSet<int> scanModes = new();
+
+            while (sqliteReader.Read())
+            {
+                scanModes.Add(sqliteReader.GetInt32(0));
+            }
+            if (scanModes.Count > 1)
+            {
+                throw new MzLibException("The timsTOF file contains multiple scan modes. This is not supported yet.");
+            }
+            ScanMode = (ScanMode)scanModes.FirstOrDefault();
+        }
+
+        internal void CountMS1Frames()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT f.Id FROM Frames f WHERE f.MsMsType = 0;";
+            using var sqliteReader = command.ExecuteReader();
+            Ms1FrameIds = new();
+
+            while (sqliteReader.Read())
+            {
+                Ms1FrameIds.Add(sqliteReader.GetInt64(0));
+            }
+        }
+
+        /// <summary>
+        /// Builds a new FrameProxyFactory to pull frames from the timsTOF data file
+        /// and sets the FrameProxyFactory property 
+        /// </summary>
+        /// <exception cref="MzLibException"></exception>
+        internal void BuildProxyFactory()
+        {
+            if (_sqlConnection == null || _fileHandle == null) return;
+            var framesTable = new FrameTable(_sqlConnection, NumberOfFrames, FileType);
+            if (framesTable == null)
+                throw new MzLibException("Something went wrong while loading the Frames table from the database.");
+
+            int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
+            FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs, FileType);
+        }
+
+        internal void CountPrecursors()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT MAX(Id) FROM Precursors;";
+            using var sqliteReader = command.ExecuteReader();
+            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
+                .Select(sqliteReader.GetName).ToList();
+            long maxPrecursorId = 0;
+            while (sqliteReader.Read())
+            {
+                maxPrecursorId = sqliteReader.GetInt64(0);
+            }
+            Ms1ScanArray = new TimsDataScan[maxPrecursorId];
+            PasefScanArray = new TimsDataScan[maxPrecursorId];
+        }
+
+        internal int GetNumberOfDigitizerSamples()
+        {
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT value FROM GlobalMetadata" +
+                                  " WHERE GlobalMetadata.Key = 'DigitizerNumSamples'";
+            using var reader = command.ExecuteReader();
+            reader.Read();
+            return Int32.Parse(reader.GetString(0));
+        }
+
 
         /// <summary>
         /// WARNING! This method reads in the entire data file before
@@ -181,103 +299,11 @@ namespace Readers
             }
         }
 
-        internal void CountFrames()
-        {
-            if (_sqlConnection == null) return;
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT COUNT(*) FROM Frames;";
-            using var sqliteReader = command.ExecuteReader();
-            int count = 0;
-            while (sqliteReader.Read())
-            {
-                count = sqliteReader.GetInt32(0);
-                break;
-            }
-            NumberOfFrames = count;
-        }
-
-        internal void CheckScanMode()
-        {
-            if (_sqlConnection == null) return;
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT DISTINCT ScanMode FROM Frames;";
-            using var sqliteReader = command.ExecuteReader();
-            HashSet<int> scanModes = new();
-
-            while (sqliteReader.Read())
-            {
-                scanModes.Add(sqliteReader.GetInt32(0));
-            }
-            if (scanModes.Count > 1)
-            {
-                throw new MzLibException("The timsTOF file contains multiple scan modes. This is not supported yet.");
-            }
-            ScanMode = (ScanMode)scanModes.FirstOrDefault();
-        }
-
-        public ScanMode ScanMode { get; private set; }
-
-        internal void CountMS1Frames()
-        {
-            if (_sqlConnection == null) return;
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT f.Id FROM Frames f WHERE f.MsMsType = 0;";
-            using var sqliteReader = command.ExecuteReader();
-            Ms1FrameIds = new();
-
-            while (sqliteReader.Read())
-            {
-                Ms1FrameIds.Add(sqliteReader.GetInt64(0));
-            }
-        }
-
-        /// <summary>
-        /// Builds a new FrameProxyFactory to pull frames from the timsTOF data file
-        /// and sets the FrameProxyFactory property 
-        /// </summary>
-        /// <exception cref="MzLibException"></exception>
-        internal void BuildProxyFactory()
-        {
-            if (_sqlConnection == null || _fileHandle == null) return;
-            var framesTable = new FrameTable(_sqlConnection, NumberOfFrames);
-            if (framesTable == null)
-                throw new MzLibException("Something went wrong while loading the Frames table from the analysis.tdf database.");
-
-            int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
-            FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs);
-        }
-
-        internal void CountPrecursors()
-        {
-            if (_sqlConnection == null) return;
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT MAX(Id) FROM Precursors;";
-            using var sqliteReader = command.ExecuteReader();
-            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
-                .Select(sqliteReader.GetName).ToList();
-            long maxPrecursorId = 0;
-            while (sqliteReader.Read())
-            {
-                maxPrecursorId = sqliteReader.GetInt64(0);
-            }
-            Ms1ScanArray = new TimsDataScan[maxPrecursorId];
-            PasefScanArray = new TimsDataScan[maxPrecursorId];
-        }
-
         public ConcurrentBag<TimsDataScan> Ms1ScansNoPrecursorsBag { internal get; set; }
         public TimsDataScan[] Ms1ScanArray { internal get; set; }
         public TimsDataScan[] PasefScanArray { internal get; set; }
         public TimsDataScan[] MrmScanArray { internal get; set; }
 
-        internal int GetNumberOfDigitizerSamples()
-        {
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT value FROM GlobalMetadata" +
-                " WHERE GlobalMetadata.Key = 'DigitizerNumSamples'";
-            using var reader = command.ExecuteReader();
-            reader.Read();
-            return Int32.Parse(reader.GetString(0));
-        }
 
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
@@ -371,27 +397,6 @@ namespace Readers
 
             // Some MS1 scans contain no peaks where the precursor was identified, so they are not included in the scanArray
             Scans = scanArray.Where(scan => scan != null).ToArray();
-        }
-
-        internal void AssignScanNumbersToMrmScans()
-        {
-            int validScans = MrmScanArray.Count(s => s != null);
-            if (validScans == 0) return; // If there are no valid scans, then we don't need to assign scan numbers
-            if (validScans != MrmScanArray.Length)
-            {
-                Scans = new TimsDataScan[validScans]; // Create a new array to hold the scans
-                int oneBasedScanNo = 1;
-                foreach (var scan in MrmScanArray.Where(s => s != null))
-                {
-                    scan.SetOneBasedScanNumber(oneBasedScanNo);
-                    oneBasedScanNo++;
-                    Scans[scan.OneBasedScanNumber - 1] = scan; // Assign the scan to the Scans array
-                }
-            }
-            else
-            {
-                Scans = MrmScanArray; // If all scans are valid, then we can just assign the MrmScanArray to the Scans array
-            }
         }
 
         internal void AssignScanNumbersToMrmScans()
@@ -763,6 +768,7 @@ namespace Readers
         {
             // append the analysis.baf because the constructor for SourceFile will look for the 
             // parent directory. 
+            // TODO: Check if file is .tsf or .tdf
             string fileName = FilePath + @"\analysis.tdf";
             return new SourceFile(nativeIdFormat, massSpecFileFormat,
                 null, null, id: null, filePath: fileName);
@@ -786,6 +792,23 @@ namespace Readers
         [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         public static extern void tims_close
               (UInt64 fileHandle);
+
+        /// <summary>
+        /// Returns a unique handle that references an open timsTOF data file
+        /// </summary>
+        /// <param name="analysis_directory_name_utf8"></param>
+        /// <param name="use_recalibrated_state"></param>
+        /// <returns></returns>
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+        public static extern UInt64 tsf_open
+            (byte[] analysis_directory_name_utf8, UInt32 use_recalibrated_state);
+
+        /// <summary>
+        /// Closes a file connection to a .tdf binary file
+        /// </summary>
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void tsf_close
+            (UInt64 fileHandle);
 
         #endregion Bruker Dll Functions
 

@@ -7,6 +7,22 @@ using System.Threading.Tasks;
 
 namespace Readers
 {
+    //internal class TsfFrameProxyFactory: FrameProxyFactory
+    //{
+    //    internal TsfFrameProxyFactory(FrameTable framesTable, UInt64 fileHandle, Object fileLock, int maxIndex) 
+    //        : base(framesTable, fileHandle, fileLock, maxIndex)
+    //    {
+    //        // Initialize the factory with the provided parameters
+    //        // Additional initialization logic can be added here if needed
+    //    }
+
+    //    internal override TsfFrameProxy GetFrameProxy(long frameId) 
+    //    {
+    //        // Create a new instance of TsfFrameProxy with the provided parameters
+    //        return new TsfFrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
+    //    }
+    //}
+
     internal class TsfFrameProxy : FrameProxy
     {
         public TsfFrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter) 

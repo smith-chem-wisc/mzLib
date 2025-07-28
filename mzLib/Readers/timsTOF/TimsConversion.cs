@@ -17,7 +17,9 @@ namespace Readers
         ScanToOneOverK0,
         OneOverK0ToScan,
         ScanToVoltage,
-        VoltageToScan
+        VoltageToScan,
+        IndexToMzTsf,
+        MzToIndexTsf
     }
 
     internal unsafe class TimsConversion
@@ -73,6 +75,12 @@ namespace Readers
                             case ConversionFunctions.VoltageToScan:
                                 tims_voltage_to_scannum(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
                                 break;
+                            case ConversionFunctions.IndexToMzTsf:
+                                tsf_index_to_mz(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                                break;
+                            case ConversionFunctions.MzToIndexTsf:
+                                tsf_mz_to_index(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
+                                break;
                             default:
                                 break;
 
@@ -104,5 +112,11 @@ namespace Readers
         [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         unsafe static extern void tims_voltage_to_scannum
               (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+        unsafe static extern void tsf_index_to_mz
+            (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+        unsafe static extern void tsf_mz_to_index
+            (UInt64 fileHandle, Int64 frame_id, double* inputPtr, double* outPtr, UInt32 count);
     }
 }

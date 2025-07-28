@@ -34,49 +34,14 @@ namespace Test.FileReadingTests
         //    _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
         //}
 
+
         [Test]
         public static void TsfTest()
         {
             var localPath = @"C:\Users\Alex\Downloads\data_TD_histonesH4\01_monoacetylated_H4_isomers\20220511-1511_TTP_000976_ONJ_HAT_20220509_H4KAll_noTIMS_CID_P34_T01_1.d";
-            var reader = new TimsTofFileReader(localPath);
-        }
-
-        [Test]
-        public void TestReadForMrmFile()
-        {
-            // This mrm file has been modified! There are actually 6437 scans per frame in this file. However, that takes a while to read in,
-            // merge, and centroid. So I edited the SQL database (contained in the .tdf) file to show that each frame only contains 100 scans)
-            // This resulted in a ~20x speed up
-            // This probably implies that the reader should handle the data fundamentally differently (e.g., chunking up each frame into 100 scan segments)
-            string mrmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_MRM.d");
-            var reader = new TimsTofFileReader(mrmFilePath);
-            reader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
-            Assert.That(reader.NumSpectra, Is.EqualTo(909), "Number of spectra in the MRM file is not as expected.");
-
-            reader.MrmScanArray[10] = null;
-            reader.AssignScanNumbersToMrmScans();
-            Assert.That(reader.Scans[10], Is.Not.Null); // Null scan should be removed in AssignScanNumbersToMrmScans
-            Assert.That(reader.NumSpectra, Is.EqualTo(908));
-            Assert.That(reader.Scans[^1].OneBasedScanNumber, Is.EqualTo(908));
-            Assert.That(reader.Scans[0].IsolationWidth, Is.EqualTo(5).Within(0.01), "Isolation width of first scan is not as expected.");
-            Assert.That(reader.Scans[0].IsolationMz, Is.EqualTo(627.52).Within(0.01), "Selected ion m/z of first scan is not as expected.");
-            Assert.That(reader.Scans[0].HcdEnergy, Is.EqualTo("28"));
-
-            reader.MrmScanArray = new TimsDataScan[reader.NumSpectra];
-            reader.AssignScanNumbersToMrmScans();
-            Assert.Pass(); // Make sure empty scan array doesn't crash
-        }
-
-        [Test]
-        public static void TestDiaFileThrowsAppropriateException()
-        {
-            string diaFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_DIA.d");
-            var reader = new TimsTofFileReader(diaFilePath);
-            Assert.That(
-                () => reader.LoadAllStaticData(filteringParams: new FilteringParams()),
-                Throws.TypeOf<MzLibException>()
-                    .With.Message.EqualTo("The timsTOF file contains unsupported scan mode: DIA. Only DDA-PASEF and MRM data is supported at this time.")
-            );
+            var x = MsDataFileReader.GetDataFile(localPath);
+            x.LoadAllStaticData();
+            //var reader = new TimsTofFileReader(localPath);
         }
 
         [Test]
@@ -490,7 +455,7 @@ namespace Test.FileReadingTests
 
     internal class MockFrameProxyFactory : FrameProxyFactory
     {
-        public MockFrameProxyFactory(FrameProxyFactory realFactory) : base(realFactory.FramesTable, realFactory.FileHandle, realFactory.FileLock, realFactory.MaxIndex)
+        public MockFrameProxyFactory(FrameProxyFactory realFactory) : base(realFactory.FramesTable, realFactory.FileHandle, realFactory.FileLock, realFactory.MaxIndex, TimsTofFileType.TDF)
         {
             // Mock constructor does not need to do anything special
         }

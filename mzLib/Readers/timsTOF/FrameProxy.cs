@@ -13,6 +13,7 @@ namespace Readers
         internal UInt64 FileHandle { get; }
         internal Object FileLock { get; }
         internal TimsConversion Converter { get; }
+        internal TimsTofFileType FileType { get; init; }
         public int MaxIndex { get; init; } 
         /// <summary>
         /// Used to convert the tofIndices stored in the .d file to m/z values
@@ -23,13 +24,14 @@ namespace Readers
         /// </summary>
         public double[] OneOverK0LookupArray { get; set; }
 
-        internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock, int maxIndex)
+        internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock, int maxIndex, TimsTofFileType fileType)
         {
             FramesTable = table;
             FileHandle = fileHandle;
             FileLock = fileLock;
             Converter = new TimsConversion(fileHandle, fileLock);
             MaxIndex = maxIndex;
+            FileType = fileType;
             InitializeLookupTables(fileHandle);
         }   
 
@@ -74,7 +76,11 @@ namespace Readers
             // Populate the mzLookupArray
             double[] mzLookupIndices = Array
                 .ConvertAll(lArray, entry => (double)entry);
-            MzLookupArray = Converter.DoTransformation(handle, medianFrameId, mzLookupIndices, ConversionFunctions.IndexToMz);
+            MzLookupArray = Converter.DoTransformation(handle, medianFrameId, mzLookupIndices, 
+                FileType == TimsTofFileType.TDF ? ConversionFunctions.IndexToMz : ConversionFunctions.IndexToMzTsf);
+
+            if (FileType == TimsTofFileType.TSF) /// No scans or 1/K0 values in TSF files
+                return;
 
             // Populate the 1/K0 lookup array
             int scanMax = FramesTable.NumScans.Max();
