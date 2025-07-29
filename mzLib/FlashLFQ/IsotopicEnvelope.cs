@@ -1,4 +1,5 @@
-﻿using MassSpectrometry;
+﻿using System;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -17,7 +18,7 @@ namespace FlashLFQ
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
-            Intensity = intensity / chargeState;
+            Intensity = intensity / Math.Abs(chargeState);
             PearsonCorrelation = pearsonCorrelation;
         }
 
@@ -25,7 +26,7 @@ namespace FlashLFQ
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
-            Intensity = intensity / chargeState;
+            Intensity = intensity / Math.Abs(chargeState);
             PearsonCorrelation = pearsonCorrelation;
         }
 
