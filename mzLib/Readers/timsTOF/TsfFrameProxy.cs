@@ -26,8 +26,15 @@ namespace Readers
     internal class TsfFrameProxy : FrameProxy
     {
         public TsfFrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter) 
-            : base(fileHandle, frameId, numScans, fileLock, converter)
+            : base()
         {
+            NumberOfScans = numScans;
+            FileHandle = fileHandle;
+            FrameId = frameId;
+            Converter = converter;
+            FileLock = fileLock;
+
+            var x = GetLineSpectrumData(FileHandle, FrameId, (uint)NumberOfScans, FileLock);
             // Initialize the frame proxy with the provided file path and native ID format
             // Additional initialization logic can be added here if needed
         }
@@ -35,6 +42,11 @@ namespace Readers
         //public override string GetFileType()
         //{
         //    return "TsfFrame"; // Return the type of frame this proxy represents
+        //}
+
+        //internal new void ReadInData()
+        //{
+        //    _rawData = GetLineSpectrumData(FileHandle, FrameId, (uint)NumberOfScans, FileLock);  
         //}
 
         /// <summary>
@@ -47,7 +59,7 @@ namespace Readers
         /// Note: different threads must not read scans from the same storage handle
         /// concurrently.
         /// </summary> 
-        internal static uint[] GetLineSpectrumData(UInt64 fileHandle, long frameId, UInt32 numScans, Object fileLock)
+        internal static (double[], float[]) GetLineSpectrumData(UInt64 fileHandle, long frameId, UInt32 numScans, Object fileLock)
         {
             int bufferSize = _defaultBufferSize;
             // buffer expansion loop
@@ -61,7 +73,7 @@ namespace Readers
 
                     lock (fileLock)
                     {
-                        outputLength = tims_read_line_spectrum_v2(
+                        outputLength = tsf_read_line_spectrum_v2(
                             fileHandle,
                             frameId,
                             indices,
@@ -71,9 +83,13 @@ namespace Readers
 
                     if (4 * bufferSize > outputLength)
                     {
-                        var dataArray = new double[bufferSize];
-                        CopyToManaged(indices, dataArray, 0, bufferSize);
+                        var indexArray = new double[outputLength];
+                        CopyToManaged(indices, indexArray, 0, (int)outputLength);
 
+                        var intensityArray = new float[outputLength];
+                        CopyToManaged(intensities, intensityArray, 0, (int)outputLength);
+
+                        return (indexArray, intensityArray);
                         //return dataArray;
                     }
 
@@ -108,11 +124,11 @@ namespace Readers
         /// <param name="scan_end"> Last scan number (exclusive) </param>
         /// <param name="buffer"> Destination buffer allocated by user </param>
         /// <param name="length"> Length of the buffer (in bytes, i.e. 4 * buffer.length) </param>
-        /// <returns> 0 on error, otherwise the number of buffer bytes necessary for the output
-        /// of this call (if this is larger than the provided buffer length, the result is not
+        /// <returns> -1 on error, otherwise the number of entries necessary for the output arrays
+        /// of this call (if this is larger than the provided output array length, the result is not
         /// complete). </returns>
         [DllImport("timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
-        unsafe static extern UInt32 tims_read_line_spectrum_v2
+        unsafe static extern UInt32 tsf_read_line_spectrum_v2
             (UInt64 handle, Int64 spectrum_id, IntPtr index_array, IntPtr intensity_array, UInt32 length);
 
         /// <summary>
@@ -133,7 +149,7 @@ namespace Readers
         /// of this call (if this is larger than the provided buffer length, the result is not
         /// complete). </returns>
         [DllImport("timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
-        unsafe static extern UInt32 tims_read_profile_spectrum_v2
+        unsafe static extern UInt32 tsf_read_profile_spectrum_v2
             (UInt64 handle, Int64 spectrum_id, IntPtr buffer, UInt32 length);
 
     }

@@ -40,7 +40,9 @@ namespace Readers
         /// </summary>
         internal virtual FrameProxy GetFrameProxy(long frameId)
         {
-            return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
+            return FileType == TimsTofFileType.TDF 
+                ? new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter)
+                : new TsfFrameProxy(FileHandle, frameId, 0, FileLock, Converter);
         }
 
         internal double[] ConvertIndicesToMz(IList<uint> indices)
@@ -149,22 +151,26 @@ namespace Readers
         /// default size for the raw data array
         /// </summary>
         protected const int _defaultBufferSize = 4096;
-        internal UInt64 FileHandle { get; }
-        internal long FrameId { get; }
-        internal int NumberOfScans { get; }
-        internal TimsConversion Converter { get; }
-        
+        internal UInt64 FileHandle { get; init; }
+        internal long FrameId { get; init; }
+        internal int NumberOfScans { get; init; }
+        internal TimsConversion Converter { get; init; }
+
+        internal Object FileLock { get; init; }
+
         internal FrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter)
         {
             NumberOfScans = numScans;
             FileHandle = fileHandle;
             FrameId = frameId;
             Converter = converter;
+            FileLock = fileLock;
 
-            _rawData = GetScanRawData(fileHandle, frameId, (uint)numScans, fileLock);
-            _scanOffsets = PartialSum(_rawData, 0, numScans);
+            _rawData = GetScanRawData(FileHandle, FrameId, (uint)NumberOfScans, FileLock);
+            _scanOffsets = PartialSum(_rawData, 0, NumberOfScans);
         }
 
+        internal FrameProxy() { }
 
         /// <summary>
         /// Sometimes, with corrupted data, the _scanOffsets array will specify a scan range that is 
