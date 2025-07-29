@@ -92,7 +92,7 @@ namespace Readers
 
             OpenSqlConnection();
 
-            if(_fileHandle != null) tims_close((UInt64)_fileHandle);
+            if(_fileHandle != null) CloseBinaryFileConnection();
             OpenBinaryFileConnection();
             _fileLock = new();
 
@@ -120,11 +120,7 @@ namespace Readers
             if (_sqlConnection?.State == ConnectionState.Open) _sqlConnection.Close();
             _sqlConnection?.Dispose();
             _sqlConnection = null;
-            if (_fileHandle != null)
-            {
-                tims_close((UInt64)_fileHandle);
-                _fileHandle = null;
-            }
+            CloseBinaryFileConnection();
         }
 
         #region Database Access
@@ -159,6 +155,15 @@ namespace Readers
                 throw new MzLibException("Unknown file type: " + FileType);
             if (_fileHandle == null || _fileHandle == 0)
                 throw new MzLibException("Could not open the binary data (.tdf_bin or .tsf_bin) file");
+        }
+
+        internal void CloseBinaryFileConnection()
+        {
+            if (_fileHandle == null) return;
+            if (FileType == TimsTofFileType.TDF)
+                tims_close((ulong)_fileHandle);
+            else if (FileType == TimsTofFileType.TSF)
+                tsf_close((ulong)_fileHandle);
         }
 
         public void Dispose()
@@ -408,7 +413,10 @@ namespace Readers
                         var record = GetMrmRecordTsf(i+1);
                         var scan = GetMrmScanTsf(record, FrameProxyFactory.GetFrameProxy(i + 1), filteringParams);
                         MrmScanArray[i] = scan;
+                        //Console.WriteLine("Succesfully read scan " + (i + 1) + " of " + MrmScanArray.Length);
                     }
+                    Console.WriteLine("Finished reading all MRM scans from the TSF file");
+                    AssignScanNumbersToMrmScans();
                     break;
                 default:
                     throw new MzLibException($"The timsTOF file contains unsupported scan mode: {Enum.GetName((ScanMode)ScanMode)}. Only DMRM data is supported for .tsf files");
@@ -623,23 +631,15 @@ namespace Readers
 
         internal TimsDataScan? GetMrmScanTsf(MrmRecord record, FrameProxy frame, FilteringParams filteringParams)
         {
-            //TOD
-            List<uint[]> indexArrays = new();
-            List<int[]> intensityArrays = new();
-            for (int scan = (int)record.ScanStart; scan < (int)record.ScanEnd; scan++)
-            {
-                indexArrays.Add(frame.GetScanIndices(scan - 1));
-                intensityArrays.Add(frame.GetScanIntensities(scan - 1));
-            }
-            // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams, msnLevel: 2);
-            if (averagedSpectrum.Size < 1)
-            {
-                return null;
-            }
+            var tsfFrame = (TsfFrameProxy)frame;
+            double[] mzArray = FrameProxyFactory.ConvertIndicesToMz(tsfFrame.IndexArray);
+            double[] intensityArray = Array.ConvertAll(tsfFrame.IntensityArray, i => (double)i);
+
+            MzSpectrum spectrum = new MzSpectrum(mzArray, intensityArray, shouldCopy: false);
+
             // Step 3: Make an MsDataScan bby
             var dataScan = new TimsDataScan(
-                massSpectrum: averagedSpectrum,
+                massSpectrum: spectrum,
                 oneBasedScanNumber: (int)record.FrameId, // This gets adjusted once all data has been read
                 msnOrder: 2,
                 isCentroid: true,
@@ -651,18 +651,18 @@ namespace Readers
                 hcdEnergy: record.CollisionEnergy.ToString(),
                 scanFilter: ScanFilter,
                 mzAnalyzer: MZAnalyzerType.TOF,
-                totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
-                injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+                totalIonCurrent: intensityArray.Sum(),
+                injectionTime: -1,
                 noiseData: null,
-                nativeId: "frame=" + frame.FrameId.ToString() +
-                    ";scans=" + record.ScanStart.ToString() + "-" + record.ScanEnd.ToString(),
+                nativeId: "frame=" + frame.FrameId.ToString(),
                 frameId: frame.FrameId,
-                scanNumberStart: (int)record.ScanStart,
-                scanNumberEnd: (int)record.ScanEnd,
-                medianOneOverK0: FrameProxyFactory.GetOneOverK0(((int)record.ScanStart + (int)record.ScanEnd)/2.0),
+                scanNumberStart: -1,
+                scanNumberEnd: -1,
+                medianOneOverK0: -1,
                 precursorId: null);
             return dataScan;
         }
+
         internal TimsDataScan? GetMrmScan(MrmRecord record, FrameProxy frame, FilteringParams filteringParams)
         {
             if (!record.ScanStart.HasValue || !record.ScanEnd.HasValue) return null;

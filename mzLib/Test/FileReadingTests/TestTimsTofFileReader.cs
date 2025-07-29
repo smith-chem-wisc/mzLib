@@ -42,6 +42,9 @@ namespace Test.FileReadingTests
             var x = MsDataFileReader.GetDataFile(localPath);
             x.LoadAllStaticData();
             //var reader = new TimsTofFileReader(localPath);
+
+            Assert.That(x.Scans[2293].MassSpectrum.Size, Is.EqualTo(243));
+            Assert.That(x.Scans[2293].MassSpectrum.SumOfAllY, Is.EqualTo(17748));
         }
 
         [Test]

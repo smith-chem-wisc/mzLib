@@ -35,9 +35,14 @@ namespace Readers
             FileLock = fileLock;
 
             var x = GetLineSpectrumData(FileHandle, FrameId, (uint)NumberOfScans, FileLock);
+            IndexArray = x.Item1;
+            IntensityArray = x.Item2;
             // Initialize the frame proxy with the provided file path and native ID format
             // Additional initialization logic can be added here if needed
         }
+
+        public double[] IndexArray { get; }
+        public float[] IntensityArray { get; private set; }
 
         //public override string GetFileType()
         //{
@@ -61,7 +66,7 @@ namespace Readers
         /// </summary> 
         internal static (double[], float[]) GetLineSpectrumData(UInt64 fileHandle, long frameId, UInt32 numScans, Object fileLock)
         {
-            int bufferSize = _defaultBufferSize;
+            int bufferSize = 1024;
             // buffer expansion loop
             while (true)
             {
@@ -69,7 +74,7 @@ namespace Readers
                 IntPtr intensities = Marshal.AllocHGlobal(bufferSize * Marshal.SizeOf<float>());
                 try
                 {
-                    uint outputLength;
+                    int outputLength;
 
                     lock (fileLock)
                     {
@@ -78,19 +83,18 @@ namespace Readers
                             frameId,
                             indices,
                             intensities,
-                            length: (uint)(bufferSize * 4));
+                            length: bufferSize);
                     }
 
                     if (4 * bufferSize > outputLength)
                     {
                         var indexArray = new double[outputLength];
-                        CopyToManaged(indices, indexArray, 0, (int)outputLength);
+                        CopyToManaged(indices, indexArray, 0, outputLength);
 
                         var intensityArray = new float[outputLength];
-                        CopyToManaged(intensities, intensityArray, 0, (int)outputLength);
+                        CopyToManaged(intensities, intensityArray, 0, outputLength);
 
                         return (indexArray, intensityArray);
-                        //return dataArray;
                     }
 
                     if (outputLength > 16777216) // Arbitrary 16 mb frame limit
@@ -128,8 +132,8 @@ namespace Readers
         /// of this call (if this is larger than the provided output array length, the result is not
         /// complete). </returns>
         [DllImport("timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
-        unsafe static extern UInt32 tsf_read_line_spectrum_v2
-            (UInt64 handle, Int64 spectrum_id, IntPtr index_array, IntPtr intensity_array, UInt32 length);
+        unsafe static extern Int32 tsf_read_line_spectrum_v2
+            (UInt64 handle, Int64 spectrum_id, IntPtr index_array, IntPtr intensity_array, Int32 length);
 
         /// <summary>
         /// Read a range of scans from a single frame.

@@ -1,4 +1,5 @@
 ﻿using MassSpectrometry;
+using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -55,6 +56,11 @@ namespace Readers
                 mzArray[idx] = MzLookupArray[indices[idx]];
             }
             return mzArray;
+        }
+
+        internal double[] ConvertIndicesToMz(double[] indices, int frameId = 1)
+        {
+            return Converter.DoTransformation(FileHandle, frameId, indices, ConversionFunctions.IndexToMzTsf);
         }
 
         /// <summary>
