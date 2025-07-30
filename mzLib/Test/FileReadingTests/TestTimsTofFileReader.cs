@@ -38,13 +38,12 @@ namespace Test.FileReadingTests
         [Test]
         public static void TsfTest()
         {
-            var localPath = @"C:\Users\Alex\Downloads\data_TD_histonesH4\01_monoacetylated_H4_isomers\20220511-1511_TTP_000976_ONJ_HAT_20220509_H4KAll_noTIMS_CID_P34_T01_1.d";
-            var x = MsDataFileReader.GetDataFile(localPath);
-            x.LoadAllStaticData();
-            //var reader = new TimsTofFileReader(localPath);
+            string tsfFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_TSF_MRM.d");
+            var tsfFile = MsDataFileReader.GetDataFile(tsfFilePath);
+            tsfFile.LoadAllStaticData();
 
-            Assert.That(x.Scans[2293].MassSpectrum.Size, Is.EqualTo(243));
-            Assert.That(x.Scans[2293].MassSpectrum.SumOfAllY, Is.EqualTo(17748));
+            Assert.That(tsfFile.Scans[969].MassSpectrum.Size, Is.EqualTo(36));
+            Assert.That(tsfFile.Scans[969].MassSpectrum.SumOfAllY, Is.EqualTo(6494));
         }
 
         [Test]
