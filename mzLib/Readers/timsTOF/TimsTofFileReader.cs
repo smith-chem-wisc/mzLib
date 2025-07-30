@@ -6,7 +6,6 @@ using MzLibUtil;
 using System.Data;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using ThermoFisher.CommonCore.Data.FilterEnums;
 
 [assembly: InternalsVisibleTo("Test")]
 namespace Readers
@@ -161,9 +160,15 @@ namespace Readers
         {
             if (_fileHandle == null) return;
             if (FileType == TimsTofFileType.TDF)
+            {
                 tims_close((ulong)_fileHandle);
+                _fileHandle = null; // Set to null to indicate that the file is closed
+            }
             else if (FileType == TimsTofFileType.TSF)
+            {
                 tsf_close((ulong)_fileHandle);
+                _fileHandle = null; // Set to null to indicate that the file is closed
+            }  
         }
 
         public void Dispose()
@@ -266,12 +271,9 @@ namespace Readers
                 using var reader = command.ExecuteReader();
                 {
                     reader.Read();
-                    HasLineSpectra = reader.GetString(0) == "1";
+                    HasProfileSpectra = reader.GetString(0) == "1";
                 }
             }
-
-            int x = 5;
-
         }
 
         #endregion
@@ -295,7 +297,10 @@ namespace Readers
         /// <summary>
         /// WARNING! This method reads in the entire data file before
         /// returning the requested scan! It is recommended to call the 
-        /// GetScanFromPrecursorAndFrameIdFromDynamicConnection()
+        /// GetScanFromPrecursorAndFrameIdFromDynamicConnection().
+        /// 
+        /// Additionally, calling this method will 1 less than the maximum number
+        /// of available threads to read the data file
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
@@ -304,7 +309,7 @@ namespace Readers
             if (Scans != null && Scans.Length >= oneBasedScanNumber && Scans[oneBasedScanNumber - 1] != null)
                 return Scans[oneBasedScanNumber - 1];
 
-            LoadAllStaticData(filteringParams: (FilteringParams)filterParams);
+            LoadAllStaticData(filteringParams: (FilteringParams)filterParams, maxThreads: Environment.ProcessorCount - 1);
             if (oneBasedScanNumber > Scans.Length)
                 throw new IndexOutOfRangeException("Invalid one-based index given when accessing data scans. Index: " + oneBasedScanNumber);
             return Scans[oneBasedScanNumber - 1];
@@ -413,9 +418,7 @@ namespace Readers
                         var record = GetMrmRecordTsf(i+1);
                         var scan = GetMrmScanTsf(record, FrameProxyFactory.GetFrameProxy(i + 1), filteringParams);
                         MrmScanArray[i] = scan;
-                        //Console.WriteLine("Succesfully read scan " + (i + 1) + " of " + MrmScanArray.Length);
                     }
-                    Console.WriteLine("Finished reading all MRM scans from the TSF file");
                     AssignScanNumbersToMrmScans();
                     break;
                 default:
@@ -897,10 +900,8 @@ namespace Readers
         private const string massSpecFileFormat = ".D format";
         public override SourceFile GetSourceFile()
         {
-            // append the analysis.baf because the constructor for SourceFile will look for the 
-            // parent directory. 
-            // TODO: Check if file is .tsf or .tdf
-            string fileName = FilePath + @"\analysis.tdf";
+            string extension = FileType == TimsTofFileType.TDF ? ".tdf" : ".tsf";
+            string fileName = FilePath + @"\analysis" + extension;
             return new SourceFile(nativeIdFormat, massSpecFileFormat,
                 null, null, id: null, filePath: fileName);
         }

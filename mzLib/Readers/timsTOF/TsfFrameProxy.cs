@@ -7,22 +7,6 @@ using System.Threading.Tasks;
 
 namespace Readers
 {
-    //internal class TsfFrameProxyFactory: FrameProxyFactory
-    //{
-    //    internal TsfFrameProxyFactory(FrameTable framesTable, UInt64 fileHandle, Object fileLock, int maxIndex) 
-    //        : base(framesTable, fileHandle, fileLock, maxIndex)
-    //    {
-    //        // Initialize the factory with the provided parameters
-    //        // Additional initialization logic can be added here if needed
-    //    }
-
-    //    internal override TsfFrameProxy GetFrameProxy(long frameId) 
-    //    {
-    //        // Create a new instance of TsfFrameProxy with the provided parameters
-    //        return new TsfFrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
-    //    }
-    //}
-
     internal class TsfFrameProxy : FrameProxy
     {
         public TsfFrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter) 
@@ -34,35 +18,17 @@ namespace Readers
             Converter = converter;
             FileLock = fileLock;
 
-            var x = GetLineSpectrumData(FileHandle, FrameId, (uint)NumberOfScans, FileLock);
-            IndexArray = x.Item1;
-            IntensityArray = x.Item2;
-            // Initialize the frame proxy with the provided file path and native ID format
-            // Additional initialization logic can be added here if needed
+            var lineSpectrumTuple = GetLineSpectrumData(FileHandle, FrameId, (uint)NumberOfScans, FileLock);
+            IndexArray = lineSpectrumTuple.Item1;
+            IntensityArray = lineSpectrumTuple.Item2;
         }
 
         public double[] IndexArray { get; }
         public float[] IntensityArray { get; private set; }
 
-        //public override string GetFileType()
-        //{
-        //    return "TsfFrame"; // Return the type of frame this proxy represents
-        //}
-
-        //internal new void ReadInData()
-        //{
-        //    _rawData = GetLineSpectrumData(FileHandle, FrameId, (uint)NumberOfScans, FileLock);  
-        //}
 
         /// <summary>
-        /// Read a range of scans from a single frame.
-        ///
-        /// Output layout: (N = scan_end - scan_begin = number of requested scans)
-        ///   N x uint32_t: number of peaks in each of the N requested scans
-        ///   N x (two uint32_t arrays: first indices, then intensities)
-        ///
-        /// Note: different threads must not read scans from the same storage handle
-        /// concurrently.
+        /// Read a centroided spectrum from a single tsf frame.
         /// </summary> 
         internal static (double[], float[]) GetLineSpectrumData(UInt64 fileHandle, long frameId, UInt32 numScans, Object fileLock)
         {
@@ -86,7 +52,7 @@ namespace Readers
                             length: bufferSize);
                     }
 
-                    if (4 * bufferSize > outputLength)
+                    if (bufferSize >= outputLength)
                     {
                         var indexArray = new double[outputLength];
                         CopyToManaged(indices, indexArray, 0, outputLength);
@@ -103,7 +69,7 @@ namespace Readers
                     }
 
                     // Increase buffer size if necessary
-                    bufferSize = ((int)outputLength / 4) + 1;
+                    bufferSize = outputLength + 1;
                 }
                 finally { 
                     Marshal.FreeHGlobal(indices);
@@ -113,22 +79,17 @@ namespace Readers
         }
 
         /// <summary>
-        /// Read a range of scans from a single frame.
-        ///
-        /// Output layout: (N = scan_end - scan_begin = number of requested scans)
-        ///   N x uint32_t: number of peaks in each of the N requested scans
-        ///   N x (two uint32_t arrays: first indices, then intensities)
+        /// Read a centroided spectrum from a single tsf frame.
         ///
         /// Note: different threads must not read scans from the same storage handle
         /// concurrently.
         /// </summary> 
         /// <param name="handle"> Unique Handle of .d file ( returned on tims_open() )</param>
-        /// <param name="frame_id"> From .tdf SQLite: Frames.Id </param>
-        /// <param name="scan_begin"> first scan number to read (inclusive) </param>
-        /// <param name="scan_end"> Last scan number (exclusive) </param>
-        /// <param name="buffer"> Destination buffer allocated by user </param>
-        /// <param name="length"> Length of the buffer (in bytes, i.e. 4 * buffer.length) </param>
-        /// <returns> -1 on error, otherwise the number of entries necessary for the output arrays
+        /// <param name="spectrum_id"> From .tsf SQLite: Frames.Id </param>
+        /// <param name="index_array"> pointer to the address of a double array to store the indices of the peaks </param>
+        /// <param name="intensity_array"> pointer to the address of a float array to store the intensities of the peaks </param>
+        /// <param name="length"> number of peaks/ entries in the arrays </param>
+        /// <returns> 0 on error, otherwise the number of entries necessary for the output arrays
         /// of this call (if this is larger than the provided output array length, the result is not
         /// complete). </returns>
         [DllImport("timsdata.dll", CallingConvention = CallingConvention.Cdecl)]
