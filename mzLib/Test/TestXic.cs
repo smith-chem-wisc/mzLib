@@ -62,6 +62,7 @@ namespace Test
             Assert.That(xic.EndRT, Is.EqualTo(1.9f));
             var mass = Dist.Masses.First().ToMz(1);
             Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0001));
+            Assert.That(xic.ApexIntensity, Is.EqualTo(Dist.Intensities.First() * 1e6 * 10).Within(1));
 
             //Test normalized peak intensities
             xic.SetNormalizedPeakIntensities();

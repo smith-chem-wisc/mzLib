@@ -19,7 +19,8 @@ namespace MassSpectrometry
 
         public double ApexRT;
         public int ApexScanIndex;
-        public double AveragedM => AverageM();
+        public double ApexIntensity;
+        public double AveragedM;
         public (double, double)[] XYData { get; set; }
         public double[] NormalizedPeakIntensities { get; set; }
         public double StartRT { get; set; }
@@ -41,7 +42,7 @@ namespace MassSpectrometry
         public ExtractedIonChromatogram(List<IIndexedPeak> peaks)
         {
             Peaks = peaks;
-            SetRtInfo();
+            SetXicInfo();
         }
 
         public void SetNormalizedPeakIntensities()
@@ -138,7 +139,7 @@ namespace MassSpectrometry
             CutPeak(Peaks, discriminationFactorToCutPeak);
             if (updateRtInfo)
             {
-                SetRtInfo(); // Update RT info after cutting the peak
+                SetXicInfo(); // Update RT info after cutting the peak
             }
         }
 
@@ -154,14 +155,16 @@ namespace MassSpectrometry
             RemovePeaks(peaks, peakBoundaries, apexPeak.RetentionTime);
         }
 
-        public void SetRtInfo()
+        public void SetXicInfo()
         {
             ApexRT = Peaks.MaxBy(p => p.Intensity).RetentionTime;
+            ApexIntensity = Peaks.MaxBy(p => p.Intensity).Intensity;
             StartRT = Peaks.Min(p => p.RetentionTime);
             EndRT = Peaks.Max(p => p.RetentionTime);
             ApexScanIndex = Peaks.MaxBy(p => p.Intensity).ZeroBasedScanIndex;
             StartScanIndex = Peaks.Min(p => p.ZeroBasedScanIndex);
             EndScanIndex = Peaks.Max(p => p.ZeroBasedScanIndex);
+            AveragedM = AverageM();
         }
     }
 }
