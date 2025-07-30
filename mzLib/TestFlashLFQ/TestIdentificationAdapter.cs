@@ -11,6 +11,25 @@ namespace Test
 {
     public class TestIdentificationAdapter
     {
+        //[Test]
+        //public void LocalFileTest()
+        //{
+        //    List<SpectraFileInfo> spectraFiles = new List<SpectraFileInfo>
+        //    {
+        //        new SpectraFileInfo(@"D:\FlashLFQVignette-selected\09-04-18_EcoliSpikeInSingleShot1x.raw",
+        //            "1x", 0, 0, 0),
+        //        new SpectraFileInfo(@"D:\FlashLFQVignette-selected\09-04-18_EcoliSpikeInSingleShot2x.raw",
+        //            "2x", 0, 0, 0),
+        //    };
+        //    string pepPath = @"D:\FlashLFQVignette-selected\MMv1p1p0_Search\Task1-SearchTask\AllPeptides.psmtsv";
+        //    string psmPath = @"D:\FlashLFQVignette-selected\MMv1p1p0_Search\Task1-SearchTask\AllPSMs.psmtsv";
+
+        //    IQuantifiableResultFile psmFile = FileReader.ReadQuantifiableResultFile(pepPath);
+        //    var ids = psmFile.MakeIdentifications(spectraFiles, usePepQValue: true);
+        //    int placeholder = 0;
+        //}
+        
+
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv")]
         public void TestAddProteinGroupInfoCorrect(string path)

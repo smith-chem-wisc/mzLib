@@ -34,6 +34,18 @@ namespace Test.FileReadingTests
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
         }
 
+
+        [Test]
+        public static void TsfTest()
+        {
+            string tsfFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_TSF_MRM.d");
+            var tsfFile = MsDataFileReader.GetDataFile(tsfFilePath);
+            tsfFile.LoadAllStaticData();
+
+            Assert.That(tsfFile.Scans[969].MassSpectrum.Size, Is.EqualTo(36));
+            Assert.That(tsfFile.Scans[969].MassSpectrum.SumOfAllY, Is.EqualTo(6494));
+        }
+
         [Test]
         public void TestReadForMrmFile()
         {
@@ -445,7 +457,7 @@ namespace Test.FileReadingTests
 
     internal class MockFrameProxyFactory : FrameProxyFactory
     {
-        public MockFrameProxyFactory(FrameProxyFactory realFactory) : base(realFactory.FramesTable, realFactory.FileHandle, realFactory.FileLock, realFactory.MaxIndex)
+        public MockFrameProxyFactory(FrameProxyFactory realFactory) : base(realFactory.FramesTable, realFactory.FileHandle, realFactory.FileLock, realFactory.MaxIndex, TimsTofFileType.TDF)
         {
             // Mock constructor does not need to do anything special
         }
