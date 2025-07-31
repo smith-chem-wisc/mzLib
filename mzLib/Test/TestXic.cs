@@ -175,6 +175,7 @@ namespace Test
             var indexingEngine2 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans2);
             var xics2 = indexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
             Assert.That(xics2.Count, Is.EqualTo(40)); //the first three scans and the last four scans will each contain two XICs
+            Assert.That(xics2.SequenceEqual(xics2.OrderByDescending(x => x.ApexPeak.Intensity)));//make sure the XICs are ordered by descending apex intensity
             //Test with massIndexingEngine
             var massIndexingEngine2 = MassIndexingEngine.InitializeMassIndexingEngine(fakeScans2, deconParameters);
             var massXics2 = massIndexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
