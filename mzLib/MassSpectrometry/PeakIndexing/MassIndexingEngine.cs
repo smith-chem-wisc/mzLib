@@ -71,7 +71,7 @@ namespace MassSpectrometry
                     int roundedMass = (int)Math.Round(envelope.MonoisotopicMass * BinsPerDalton, 0);
 
                     // Skip if the mass bin index is out of range
-                    if (roundedMass < 0 || roundedMass >= MaxMass)
+                    if (roundedMass < 0 || roundedMass >= IndexedPeaks.Length)
                         continue;
 
                     // Initialize the list for this mass bin if it doesn't exist
