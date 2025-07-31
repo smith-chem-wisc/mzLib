@@ -324,7 +324,7 @@ namespace Test
             Assert.That(1043.48451309975, Is.EqualTo(chemicalFormulaHigherMassPeptide.MonoisotopicMass).Within(0.001));
 
             double ppmDifference = (chemicalFormulaHigherMassPeptide.MonoisotopicMass - chemicalFormulaLowerMassPeptide.MonoisotopicMass) / chemicalFormulaLowerMassPeptide.MonoisotopicMass * 1e6;
-            Assert.That(ppmDifference, Is.EqualTo(3.23).Within(0.01)); // 0.01 Da difference at 1043.48114179643 Da is about 28.6 ppm
+            Assert.That(ppmDifference, Is.EqualTo(3.23).Within(0.01)); // 0.01 Da difference at 1043.48114179643 Da corresponds to approximately 3.23 ppm
 
             // Create mzSpectra
             for (int s = 0; s < totalScans; s++)
