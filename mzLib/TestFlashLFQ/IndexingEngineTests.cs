@@ -377,7 +377,7 @@ namespace Test
             var higherMassXic3 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
             for (int i = 0; i < higherMassXic1.Count; i++)
             {
-                Assert.That(Object.ReferenceEquals(higherMassXic1[i], higherMassXic3[i]));
+                Assert.That(higherMassXic1[i], Is.SameAs(higherMassXic3[i]));
             }
 
             //lower the tolerance here to separate the peaks
