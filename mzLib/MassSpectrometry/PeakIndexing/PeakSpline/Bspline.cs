@@ -9,13 +9,17 @@ using MzLibUtil;
 
 namespace MassSpectrometry
 {
+    /// <summary>
+    /// This Bspline class is copied from DIA-Umpire code. It is a more generalized spline that allows different smoothing degrees.
+    /// In theory, it could replace linear and cubic spline where the smoothing degree is explicitly set to 1 and 3 respectively.
+    /// Only used for RT-based spline for now.
+    /// </summary>
     public class Bspline : XicSpline
     {
         public int SmoothDegree { get; set; }
         public int NumberOfPoints { get; set; }
-        private float[] bspline_T_;
 
-        public Bspline(int smoothDegree, int numberOfPoints, double splineRtInterval = 0.05, int numberOfPeaksToAdd = 0, double gap = 1)
+        public Bspline(int smoothDegree, int numberOfPoints)
         {
             SmoothDegree = smoothDegree;
             NumberOfPoints = numberOfPoints;
@@ -33,7 +37,7 @@ namespace MassSpectrometry
                 throw new MzLibException("The number of points in the input array must be greater than the degree of the Bspline.");
             }
 
-            bspline_T_ = new float[m + p];
+            float[] bspline_T_ = new float[m + p];
             for (int i = 0; i <= n; i++)
             {
                 bspline_T_[i] = 0;
@@ -44,10 +48,10 @@ namespace MassSpectrometry
             {
                 bspline_T_[p + i] = bspline_T_[p + i - 1] + intv;
             }
-            for (int i = 0; i <= NumberOfPoints; i++)
+            for (int i = 0; i < NumberOfPoints; i++)
             {
                 float t = (float)i / NumberOfPoints;
-                var pt = getbspline(rtArray, intensityArray, t, n, p);
+                var pt = getbspline(rtArray, intensityArray, t, n, p, bspline_T_);
                 bsplineCollection.Add(pt);
             }
             if (bsplineCollection[bsplineCollection.Count() - 1].Item1 < rtArray[rtArray.Length - 1])
@@ -61,19 +65,19 @@ namespace MassSpectrometry
             return bsplineCollection.ToArray();
         }
 
-        public (float, float) getbspline(float[] rtArray, float[] intensityArray, float t, int n, int p)
+        public (float, float) getbspline(float[] rtArray, float[] intensityArray, float t, int n, int p, float[] bspline_T_)
         {
             float x = 0, y = 0;
             for (int i = 0; i <= n; i++)
             {
-                float a = bspline_base(i, p, t);
+                float a = bspline_base(i, p, t, bspline_T_);
                 x += rtArray[i] * a;
                 y += intensityArray[i] * a;
             }
             return new(x, y);
         }
 
-        public float bspline_base(int i, int p, float t)
+        public float bspline_base(int i, int p, float t, float[] bspline_T_)
         {
             float n, c1, c2;
             float tn1 = 0;
@@ -97,7 +101,7 @@ namespace MassSpectrometry
                 }
                 else
                 {
-                    tn1 = bspline_base(i, p - 1, t);
+                    tn1 = bspline_base(i, p - 1, t, bspline_T_);
                     c1 = (t - bspline_T_[i]) / (bspline_T_[i + p] - bspline_T_[i]);
                 }
                 if (bspline_T_[i + p + 1] - bspline_T_[i + 1] == 0)
@@ -106,7 +110,7 @@ namespace MassSpectrometry
                 }
                 else
                 {
-                    tn2 = bspline_base(i + 1, p - 1, t);
+                    tn2 = bspline_base(i + 1, p - 1, t, bspline_T_);
                     c2 = (bspline_T_[i + p + 1] - t) / (bspline_T_[i + p + 1] - bspline_T_[i + 1]);
                 }
                 n = c1 * tn1 + c2 * tn2;
