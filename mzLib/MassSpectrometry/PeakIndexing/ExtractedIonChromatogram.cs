@@ -17,6 +17,8 @@ namespace MassSpectrometry
     {
         public virtual List<IIndexedPeak> Peaks { get; set; }
         public IIndexedPeak ApexPeak;
+        public double ApexRT => ApexPeak.RetentionTime;
+        public int ApexScanIndex => ApexPeak.ZeroBasedScanIndex;
         public double AveragedM;
         public (double, double)[] XYData { get; set; }
         public double[] NormalizedPeakIntensities { get; set; }
