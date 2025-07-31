@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -38,6 +39,7 @@ namespace Proteomics.ProteolyticDigestion
             set => Description = value;
         }
 
+
         #endregion
 
         /// <summary>
@@ -48,7 +50,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="digestionParams"></param>
         /// <param name="variableModifications"></param>
         /// <returns></returns>
-        internal IEnumerable<PeptideWithSetModifications> GetModifiedPeptides(List<Modification> allKnownFixedModifications,
+        internal IEnumerable<PeptideWithSetModifications> GetModifiedPeptides(List<Modification> allKnownFixedModifications, //for each peptide, peptide3.getvariablemods? 
             DigestionParams digestionParams, List<Modification> variableModifications)
         {
             int variable_modification_isoforms = 0;
@@ -82,6 +84,28 @@ namespace Proteomics.ProteolyticDigestion
                 FixedModDictionaryPool.Return(fixedModDictionary);
                 DictionaryPool.Return(twoBasedPossibleVariableAndLocalizeableModifications);
             }
+        }
+        /// <summary>
+        /// Calculates the number of possible proteoforms for a given peptide sequence. Both fixed and variable modifications are considered.
+        /// </summary>
+        /// <param name="allKnownFixedModifications">Number of Fixed Modifications</param>
+        /// <param name="digestionParams">Used to ascertain the user chosen max mods per peptide</param>
+        /// <param name="variableModifications">Number of Variable Modifications</param>
+        /// <returns></returns>
+        public long GetNumberOfPossibleProteoforms(List<Modification> allKnownFixedModifications,
+            DigestionParams digestionParams, List<Modification> variableModifications)
+        {
+            int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
+            var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
+            PopulateVariableModifications(variableModifications, in twoBasedPossibleVariableAndLocalizeableModifications);
+            List<int> modsPerResidue = new List<int>();  //list of possible mods at residue, without attention to the order. {2,6,3,4,5}
+            foreach (var x in twoBasedPossibleVariableAndLocalizeableModifications)
+            {
+                //iterate through each residue, add in the number of possible modifications for that residue.
+                modsPerResidue.Add(x.Value.Count);
+            }
+            //given a maximum number of mods, the upper bound on proteoforms we can have with a base sequence.
+            return DigestionProduct.PossibleProteoformRecursive(digestionParams.MaxMods, modsPerResidue); 
         }
     }
 }
