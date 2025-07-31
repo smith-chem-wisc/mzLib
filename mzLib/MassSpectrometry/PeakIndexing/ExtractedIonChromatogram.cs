@@ -129,27 +129,16 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// Find the peak boundaries of this ExtractedIonChromatogram and remove the peaks that are outside of the boundaries.
+        /// Find the peak boundaries of XIC and remove the peaks that are outside of the boundaries.
         /// </summary>
         public void CutPeak(double discriminationFactorToCutPeak = 0.6, bool updateRtInfo = true)
         {
-            CutPeak(Peaks, discriminationFactorToCutPeak);
+            var peakBoundaries = FindPeakBoundaries(Peaks, Peaks.IndexOf(ApexPeak), discriminationFactorToCutPeak);
+            RemovePeaks(Peaks, peakBoundaries, ApexPeak.RetentionTime);
             if (updateRtInfo)
             {
                 SetXicInfo(); // Update RT info after cutting the peak
             }
-        }
-
-        /// <summary>
-        /// Find the peak boundaries of any IIndexedPeak list and remove the peaks that are outside of the boundaries.
-        /// </summary>
-        public static void CutPeak(List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)
-        {
-            if (peaks == null || peaks.Count < 5) return;
-            var apexPeak = peaks.MaxBy(p => p.Intensity);
-            peaks.Sort((x, y) => x.RetentionTime.CompareTo(y.RetentionTime));
-            var peakBoundaries = FindPeakBoundaries(peaks, peaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
-            RemovePeaks(peaks, peakBoundaries, apexPeak.RetentionTime);
         }
 
         public void SetXicInfo()
