@@ -377,7 +377,7 @@ namespace Test
             var higherMassXic3 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
             for (int i = 0; i < higherMassXic1.Count; i++)
             {
-                Assert.That(Object.ReferenceEquals(lowerMassXic1[i], lowerMassXic3[i]));
+                Assert.That(Object.ReferenceEquals(higherMassXic1[i], higherMassXic3[i]));
             }
 
             //Get XIC with a mass that does not belong to any bins, should return an empty list
