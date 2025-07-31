@@ -366,6 +366,7 @@ namespace Test
             }
 
             //Test GetXIC with indexed masses
+            //even thought the higher mass peptide is only present in the first 5 scans, it should still return 10 scans for the XIC because of the wide tolerance
             var higherMassXic1 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
             Assert.That(higherMassXic1.Count, Is.EqualTo(10));
 
@@ -380,7 +381,7 @@ namespace Test
                 Assert.That(higherMassXic1[i], Is.SameAs(higherMassXic3[i]));
             }
 
-            //lower the tolerance here to separate the peaks
+            //lower the tolerance here to separate the peaks. Now we should get 5 scans in the xic for the higher mass peptide
             //Test GetXIC with indexed masses
             higherMassXic1 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(1), 2, 1);
             Assert.That(higherMassXic1.Count, Is.EqualTo(5));
