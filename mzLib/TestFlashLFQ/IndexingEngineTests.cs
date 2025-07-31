@@ -304,7 +304,86 @@ namespace Test
             var xic4 = massIndexingEngine.GetXic(5000.0, 5, new PpmTolerance(20), 2, 1);
             Assert.That(xic4.IsNullOrEmpty());
         }
+        [Test]
+        public static void TestMassIndexingEngineWithNearlyIsobaricPeptides()
+        {
+            int totalScans = 10;
+            MsDataScan[] scans = new MsDataScan[totalScans];
+            string lowerMassPeptide = "PEPTIDEFP";
+            string higherMassPeptide = "PEPTIDELM"; // A peptide with a mass that is 0.01 Da higher than the lower mass peptide
+            double intensity = 1e6;
+            var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
 
+            double[] lowerMassIntensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
+            double[] higherMassIntensityMultipliers = { 1, 10, 20, 10, 1};
+            ChemicalFormula chemicalFormulaLowerMassPeptide = new Proteomics.AminoAcidPolymer.Peptide(lowerMassPeptide).GetChemicalFormula();
+            ChemicalFormula chemicalFormulaHigherMassPeptide = new Proteomics.AminoAcidPolymer.Peptide(higherMassPeptide).GetChemicalFormula();
+            IsotopicDistribution lowerMassIsotopicDistribution = IsotopicDistribution.GetDistribution(chemicalFormulaLowerMassPeptide, 0.125, 1e-8);
+            IsotopicDistribution higherMassIsotopicDistribution = IsotopicDistribution.GetDistribution(chemicalFormulaHigherMassPeptide, 0.125, 1e-8);
+            Assert.That(1043.48114179643, Is.EqualTo(chemicalFormulaLowerMassPeptide.MonoisotopicMass).Within(0.001));
+            Assert.That(1043.48451309975, Is.EqualTo(chemicalFormulaHigherMassPeptide.MonoisotopicMass).Within(0.001));
+
+            double ppmDifference = (chemicalFormulaHigherMassPeptide.MonoisotopicMass - chemicalFormulaLowerMassPeptide.MonoisotopicMass) / chemicalFormulaLowerMassPeptide.MonoisotopicMass * 1e6;
+            Assert.That(ppmDifference, Is.EqualTo(3.23).Within(0.01)); // 0.01 Da difference at 1043.48114179643 Da is about 28.6 ppm
+
+            // Create mzSpectra
+            for (int s = 0; s < totalScans; s++)
+            {
+                List<double> mzValues = lowerMassIsotopicDistribution.Masses.Select(v => v.ToMz(2)).Concat(lowerMassIsotopicDistribution.Masses.Select(v => v.ToMz(1))).ToList();
+                List<double> intensities = lowerMassIsotopicDistribution.Intensities.Select(v => v * intensity * lowerMassIntensityMultipliers[s]).Concat(lowerMassIsotopicDistribution.Intensities.Select(v => v * intensity * lowerMassIntensityMultipliers[s])).ToList();
+
+                if(s < totalScans / 2)
+                {
+                    // For the first half of the scans, add the higher mass peptide
+                    mzValues.AddRange(higherMassIsotopicDistribution.Masses.Select(v => v.ToMz(2)).Concat(higherMassIsotopicDistribution.Masses.Select(v => v.ToMz(1))));
+                    intensities.AddRange(higherMassIsotopicDistribution.Intensities.Select(v => v * intensity * higherMassIntensityMultipliers[s]).Concat(higherMassIsotopicDistribution.Intensities.Select(v => v * intensity * higherMassIntensityMultipliers[s])));
+                }
+
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mzValues.ToArray(), intensities.ToArray(), false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            //Test the mass indexing function
+            var massIndexingEngine = new MassIndexingEngine();
+            Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters));
+
+            //Test GetXIC with indexed masses
+            var lowerMassXic1 = massIndexingEngine.GetXic(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
+            Assert.That(lowerMassXic1.Count, Is.EqualTo(10));
+
+            //Test GetXIC with different charge states
+            var lowerMassXic2 = massIndexingEngine.GetXic(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
+            Assert.That(lowerMassXic2.Count, Is.EqualTo(10));
+
+            //Test GetXIC with different starting scan and they should return the same list of peaks
+            var lowerMassXic3 = massIndexingEngine.GetXic(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
+            for (int i = 0; i < lowerMassXic1.Count; i++)
+            {
+                Assert.That(Object.ReferenceEquals(lowerMassXic1[i], lowerMassXic3[i]));
+            }
+
+            //Test GetXIC with indexed masses
+            var higherMassXic1 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
+            Assert.That(higherMassXic1.Count, Is.EqualTo(10));
+
+            //Test GetXIC with different charge states
+            var higherMassXic2 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
+            Assert.That(higherMassXic2.Count, Is.EqualTo(10));
+
+            //Test GetXIC with different starting scan and they should return the same list of peaks
+            var higherMassXic3 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
+            for (int i = 0; i < higherMassXic1.Count; i++)
+            {
+                Assert.That(Object.ReferenceEquals(lowerMassXic1[i], lowerMassXic3[i]));
+            }
+
+            //Get XIC with a mass that does not belong to any bins, should return an empty list
+            var emptyXic4 = massIndexingEngine.GetXic(5000.0, 5, new PpmTolerance(20), 2, 1);
+            Assert.That(emptyXic4.IsNullOrEmpty());
+        }
         [Test]
         public static void TestMassIndexingExceptions()
         {
