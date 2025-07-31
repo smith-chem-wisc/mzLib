@@ -362,7 +362,7 @@ namespace Test
             var lowerMassXic3 = massIndexingEngine.GetXic(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
             for (int i = 0; i < lowerMassXic1.Count; i++)
             {
-                Assert.That(Object.ReferenceEquals(lowerMassXic1[i], lowerMassXic3[i]));
+                Assert.That(lowerMassXic1[i], Is.SameAs(lowerMassXic3[i]));
             }
 
             //Test GetXIC with indexed masses
