@@ -16,10 +16,7 @@ namespace MassSpectrometry
     public class ExtractedIonChromatogram
     {
         public virtual List<IIndexedPeak> Peaks { get; set; }
-
-        public double ApexRT;
-        public int ApexScanIndex;
-        public double ApexIntensity;
+        public IIndexedPeak ApexPeak;
         public double AveragedM;
         public (double, double)[] XYData { get; set; }
         public double[] NormalizedPeakIntensities { get; set; }
@@ -157,11 +154,9 @@ namespace MassSpectrometry
 
         public void SetXicInfo()
         {
-            ApexRT = Peaks.MaxBy(p => p.Intensity).RetentionTime;
-            ApexIntensity = Peaks.MaxBy(p => p.Intensity).Intensity;
+            ApexPeak = Peaks.MaxBy(p => p.Intensity);
             StartRT = Peaks.Min(p => p.RetentionTime);
             EndRT = Peaks.Max(p => p.RetentionTime);
-            ApexScanIndex = Peaks.MaxBy(p => p.Intensity).ZeroBasedScanIndex;
             StartScanIndex = Peaks.Min(p => p.ZeroBasedScanIndex);
             EndScanIndex = Peaks.Max(p => p.ZeroBasedScanIndex);
             AveragedM = AverageM();
