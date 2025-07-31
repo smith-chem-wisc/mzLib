@@ -332,7 +332,7 @@ namespace Test
                 List<double> mzValues = lowerMassIsotopicDistribution.Masses.Select(v => v.ToMz(2)).Concat(lowerMassIsotopicDistribution.Masses.Select(v => v.ToMz(1))).ToList();
                 List<double> intensities = lowerMassIsotopicDistribution.Intensities.Select(v => v * intensity * lowerMassIntensityMultipliers[s]).Concat(lowerMassIsotopicDistribution.Intensities.Select(v => v * intensity * lowerMassIntensityMultipliers[s])).ToList();
 
-                if(s < totalScans / 2)
+                if(s < 5)
                 {
                     // For the first half of the scans, add the higher mass peptide
                     mzValues.AddRange(higherMassIsotopicDistribution.Masses.Select(v => v.ToMz(2)).Concat(higherMassIsotopicDistribution.Masses.Select(v => v.ToMz(1))));
@@ -375,6 +375,22 @@ namespace Test
 
             //Test GetXIC with different starting scan and they should return the same list of peaks
             var higherMassXic3 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
+            for (int i = 0; i < higherMassXic1.Count; i++)
+            {
+                Assert.That(Object.ReferenceEquals(higherMassXic1[i], higherMassXic3[i]));
+            }
+
+            //lower the tolerance here to separate the peaks
+            //Test GetXIC with indexed masses
+            higherMassXic1 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(1), 2, 1);
+            Assert.That(higherMassXic1.Count, Is.EqualTo(5));
+
+            //Test GetXIC with different charge states
+            higherMassXic2 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(1), 2, 2);
+            Assert.That(higherMassXic2.Count, Is.EqualTo(5));
+
+            //Test GetXIC with different starting scan and they should return the same list of peaks
+            higherMassXic3 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(1), 2, 1);
             for (int i = 0; i < higherMassXic1.Count; i++)
             {
                 Assert.That(Object.ReferenceEquals(higherMassXic1[i], higherMassXic3[i]));
