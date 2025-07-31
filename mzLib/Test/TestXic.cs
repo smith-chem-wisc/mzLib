@@ -133,6 +133,10 @@ namespace Test
             var intensityArray2 = new float[] { 100, 200, 300, 400, 500 };
             var ex2 = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray2, 1.0, 1.2));
             Assert.That(ex2.Message, Is.EqualTo("Input arrays must have the same length."));
+
+            var Bspline = new Bspline(4, 5, 0.05);
+            var ex3 = Assert.Throws<MzLibException>(() => Bspline.GetXicSplineData(rtArray, intensityArray));
+            Assert.That(ex3.Message, Is.EqualTo("The number of points in the input array must be greater than the degree of the Bspline."));
         }
 
         [Test]

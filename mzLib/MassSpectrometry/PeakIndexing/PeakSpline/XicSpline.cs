@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics;
+using System.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace MassSpectrometry
 {
@@ -61,7 +63,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Check if the input arrays meet the requirements of interpolation.
         /// </summary>
-        protected void CheckArrays(double[] rtArray, double[] intensityArray)
+        protected void CheckArrays<T>(T[] rtArray, T[] intensityArray) where T : INumber<T>
         {
             if (rtArray.Length != intensityArray.Length)
             {
