@@ -38,7 +38,7 @@ namespace MassSpectrometry
         public bool IndexPeaks(MsDataScan[] scanArray, DeconvolutionParameters deconParameters, MzRange mzRange = null, double minMass = 0, int minCharge = 1)
         {
             // Validate input: return false if scan array is null, empty, or all scans are null
-            if (scanArray == null || scanArray.Length == 0 || scanArray.All(p => p == null))
+            if (scanArray == null || scanArray.Length == 0 || !scanArray.Any(p => p != null))
                 return false;
 
             // Initialize the indexed peaks array with the maximum number of mass bins
