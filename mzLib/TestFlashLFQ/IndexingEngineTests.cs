@@ -399,6 +399,7 @@ namespace Test
             //Get XIC with a mass that does not belong to any bins, should return an empty list
             var emptyXic4 = massIndexingEngine.GetXic(5000.0, 5, new PpmTolerance(20), 2, 1);
             Assert.That(emptyXic4.IsNullOrEmpty());
+
         }
         [Test]
         public static void TestMassIndexingExceptions()
