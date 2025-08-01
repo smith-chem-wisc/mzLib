@@ -473,6 +473,18 @@ namespace Test
                 Assert.That(e.Message, Is.EqualTo("Error: Attempt to retrieve XIC before peak indexing was performed"));
             }
         }
-       
+        [Test]
+        public static void TestMassIndexingEngineNullable()
+        {
+            List<MsDataScan> scans = new List<MsDataScan>();
+            for (int i = 0; i < 10; i++)
+            {
+                MsDataScan scan = null;
+                scans.Add(scan);
+            }
+            var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
+            var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(scans.ToArray(), deconParameters);
+            Assert.That(massIndexingEngine, Is.Null);
+        }
     }
 }
