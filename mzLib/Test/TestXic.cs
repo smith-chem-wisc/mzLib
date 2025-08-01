@@ -56,8 +56,8 @@ namespace Test
 
             //Test XIC properties
             Assert.That(xic.Peaks.Count, Is.EqualTo(10));
-            Assert.That(xic.ApexPeak.RetentionTime, Is.EqualTo(1.6f));
-            Assert.That(xic.ApexPeak.ZeroBasedScanIndex, Is.EqualTo(6));
+            Assert.That(xic.ApexRT, Is.EqualTo(1.6f));
+            Assert.That(xic.ApexScanIndex, Is.EqualTo(6));
             Assert.That(xic.StartRT, Is.EqualTo(1.0f));
             Assert.That(xic.EndRT, Is.EqualTo(1.9f));
             var mass = Dist.Masses.First().ToMz(1);
@@ -228,7 +228,7 @@ namespace Test
             Assert.That(xic.Peaks.Count, Is.EqualTo(peak1.Count + peak2.Count));
             xic.CutPeak();
             Assert.That(xic.Peaks.Count, Is.EqualTo(peak1.Count));
-            Assert.That(xic.ApexPeak.RetentionTime, Is.EqualTo(xic1.ApexPeak.RetentionTime));
+            Assert.That(xic.ApexRT, Is.EqualTo(xic1.ApexRT));
             Assert.That(xic.StartRT, Is.EqualTo(xic1.StartRT));
             Assert.That(xic.EndRT, Is.EqualTo(xic1.EndRT));
 
@@ -274,14 +274,14 @@ namespace Test
             Assert.That(xics.Count(), Is.EqualTo(10)); 
             Assert.That(xics.All(x => x.Peaks.Count == 10), Is.True);
             //The XICs should have an apex at the eighth scan
-            Assert.That(xics.All(x => x.ApexPeak.ZeroBasedScanIndex == 7), Is.True);
+            Assert.That(xics.All(x => x.ApexScanIndex == 7), Is.True);
 
             var xicsWithCutPeak = indexingEngine.GetAllXics(new PpmTolerance(5), 2, 3, 3, 0.6);
             // since each original XIC contain two apex, cutting peaks should double the number of XICs found and each XIC should contain 5 peaks now
             Assert.That(xicsWithCutPeak.Count(), Is.EqualTo(20));
             Assert.That(xicsWithCutPeak.All(x => x.Peaks.Count == 5), Is.True);
             // The XICs should have an apex at either the third or the eighth scan
-            Assert.That(xicsWithCutPeak.All(x => x.ApexPeak.ZeroBasedScanIndex == 2 || x.ApexPeak.ZeroBasedScanIndex == 7), Is.True);
+            Assert.That(xicsWithCutPeak.All(x => x.ApexScanIndex == 2 || x.ApexScanIndex == 7), Is.True);
         }
 
         [Test]
@@ -290,6 +290,20 @@ namespace Test
             var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
             var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
             Assert.That(ex.Message, Is.EqualTo("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available."));
+        }
+
+        [Test]
+        public static void TestXicOnePeak()
+        {
+            var peaks = new List<IIndexedPeak> { new IndexedMassSpectralPeak(intensity: 10, retentionTime: 1, zeroBasedScanIndex: 0, mz: 500.0) };
+            var xic = new ExtractedIonChromatogram(peaks);
+            Assert.That(xic.Peaks.Count, Is.EqualTo(1));
+            Assert.That(xic.ApexRT, Is.EqualTo(peaks.First().RetentionTime));
+            Assert.That(xic.ApexScanIndex, Is.EqualTo(peaks.First().ZeroBasedScanIndex));
+            Assert.That(xic.StartRT, Is.EqualTo(peaks.First().RetentionTime));
+            Assert.That(xic.EndRT, Is.EqualTo(peaks.First().RetentionTime));
+            Assert.That(xic.AveragedM, Is.EqualTo(peaks.First().M).Within(0.0001));
+            Assert.That(xic.ApexPeak.Intensity, Is.EqualTo(peaks.First().Intensity));
         }
     }
 }
