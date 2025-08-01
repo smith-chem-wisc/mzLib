@@ -35,7 +35,7 @@ namespace MassSpectrometry
         /// <param name="minMass">Minimum monoisotopic mass to consider.</param>
         /// <param name="minCharge">Minimum charge state to consider.</param>
         /// <returns>True if processing completed successfully; false if input is invalid.</returns>
-        /// <remarks>TRUE IF NO PEAKS ARE INDEXED.
+
         public bool IndexPeaks(MsDataScan[] scanArray, DeconvolutionParameters deconParameters, MzRange mzRange = null, double minMass = 0, int minCharge = 1)
         {
             // Validate input: return false if scan array is null, empty, or all scans are null
@@ -44,6 +44,7 @@ namespace MassSpectrometry
 
             // Initialize the indexed peaks array with the maximum number of mass bins
             IndexedPeaks = new List<IndexedMass>[MaxMass];
+            bool anyPeaksIndexed = false;
 
             // Initialize the scan info array to store metadata for each scan
             ScanInfoArray = new ScanInfo[scanArray.Length];
@@ -80,8 +81,13 @@ namespace MassSpectrometry
 
                     // Add the indexed mass to the appropriate mass bin
                     IndexedPeaks[roundedMass].Add(new IndexedMass(envelope, scan.RetentionTime, scanIndex, scan.MsnOrder));
+                    anyPeaksIndexed = true; // Mark that at least one peak has been indexed
                 }
             }
+
+            // Throw exception if no peaks were indexed
+            if (!anyPeaksIndexed)
+                throw new MzLibException("No peaks indexed");
 
             // Return true to indicate successful processing
             return true;
