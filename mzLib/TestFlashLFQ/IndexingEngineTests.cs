@@ -27,23 +27,23 @@ namespace Test
 
             double intensity = 1e6;
 
-            MsDataScan[] scans = new MsDataScan[9];
+            MsDataScan[] scanArrayAvailableToAllUnitTests = new MsDataScan[9];
             double[] intensityMultipliers = { 1, 2, 3, 4, 5, 4, 3, 2, 1 };
 
             // Create mzSpectra where two peaks appear very close together
-            for (int s = 0; s < scans.Length; s++)
+            for (int s = 0; s < scanArrayAvailableToAllUnitTests.Length; s++)
             {
                 double[] mz = new double[] { 500, 500.5, 501, 501.5, 502 };
                 double[] intensities = Enumerable.Repeat(intensityMultipliers[s]*intensity, 5).ToArray();
 
                 // add the scan
-                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                scanArrayAvailableToAllUnitTests[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
                     polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
                     mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
 
             // write the .mzML
-            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scanArrayAvailableToAllUnitTests),
                 _testMzMlFullFilePath, false);
         }
 
@@ -342,7 +342,7 @@ namespace Test
 
                 // add the scan
                 scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mzValues.ToArray(), intensities.ToArray(), false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
-                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(100, 2000), scanFilter: "f",
                     mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
 
@@ -414,6 +414,93 @@ namespace Test
             {
                 Assert.That(e.Message, Is.EqualTo("Error: Attempt to retrieve XIC before peak indexing was performed"));
             }
+        }
+
+        [Test]
+        public static void IndexPeaks_ScanArrayContainsNullScan_SkipsNullScan()
+        {
+            // Arrange
+            var engine = new MassIndexingEngine();
+            var scanArray = new MsDataScan[2];
+            scanArray[0] = null; // This should trigger the 'continue' statement
+            scanArray[1] = CreateValidMsDataScan();
+
+            var deconParams = CreateValidDeconvolutionParameters();
+
+            // Act
+            bool result = engine.IndexPeaks(scanArray, deconParams);
+
+            // Assert
+            Assert.IsTrue(result, "IndexPeaks should return true when at least one scan is valid.");
+            Assert.IsNotNull(engine.ScanInfoArray[1], "Valid scan should be processed.");
+            Assert.IsNull(engine.ScanInfoArray[0], "Null scan should be skipped.");
+        }
+        public static MsDataScan CreateValidMsDataScan()
+        {
+            // Example values; adjust as needed for your implementation
+            MzSpectrum massSpectrum = CreateValidMzSpectrum();
+            int scanNumber = 1;
+            int msnOrder = 1;
+            bool isCentroid = true;
+            Polarity polarity = Polarity.Positive;
+            double retentionTime = 5.0;
+            MzRange scanWindowRange = new MzRange(100.0, 1000.0);
+            string scanFilter = "FTMS + p ESI Full ms [100.00-1000.00]";
+            MZAnalyzerType mzAnalyzer = MZAnalyzerType.Orbitrap;
+            double totalIonCurrent = 1500000.0; // Example TIC value
+            double[,] noiseData = null; // Assuming no noise data for this example
+            double[] mzArray = new double[] { 100.0, 200.0, 300.0 };
+            double[] intensityArray = new double[] { 1000.0, 1500.0, 1200.0 };         
+
+            // Construct the MsDataScan object
+            var scan = new MsDataScan(
+                massSpectrum,
+                scanNumber,
+                msnOrder,
+                isCentroid,
+                polarity,
+                retentionTime,
+                scanWindowRange,
+                scanFilter,
+                mzAnalyzer,
+                totalIonCurrent,
+                null,
+                noiseData,
+                "nativeId",
+                null
+            );
+
+            return scan;
+        }
+        public static MzSpectrum CreateValidMzSpectrum()
+        {
+            // Example m/z and intensity arrays
+            double[] mzArray = new double[] { 100.0, 200.0, 300.0 };
+            double[] intensityArray = new double[] { 1000.0, 1500.0, 1200.0 };
+            bool shouldCopy = true;
+
+            // Construct the MzSpectrum object
+            var spectrum = new MzSpectrum(mzArray, intensityArray, true);
+
+            return spectrum;
+        }
+        public static ClassicDeconvolutionParameters CreateValidDeconvolutionParameters()
+        {
+            // Example values; adjust as needed for your implementation
+            double massTolerance = 0.01;
+            int minCharge = 1;
+            int maxCharge = 5;
+            double intensityThreshold = 0.01;
+
+            // Construct the ClassicDeconvolutionParameters object
+            var parameters = new ClassicDeconvolutionParameters(
+                minCharge,
+                maxCharge,
+                massTolerance,
+                intensityThreshold
+            );
+
+            return parameters;
         }
     }
 }
