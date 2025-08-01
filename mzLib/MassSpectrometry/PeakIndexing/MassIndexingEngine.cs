@@ -35,6 +35,7 @@ namespace MassSpectrometry
         /// <param name="minMass">Minimum monoisotopic mass to consider.</param>
         /// <param name="minCharge">Minimum charge state to consider.</param>
         /// <returns>True if processing completed successfully; false if input is invalid.</returns>
+        /// <remarks>TRUE IF NO PEAKS ARE INDEXED.
         public bool IndexPeaks(MsDataScan[] scanArray, DeconvolutionParameters deconParameters, MzRange mzRange = null, double minMass = 0, int minCharge = 1)
         {
             // Validate input: return false if scan array is null, empty, or all scans are null

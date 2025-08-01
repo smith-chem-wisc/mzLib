@@ -84,7 +84,7 @@ namespace MassSpectrometry
             }
         }
 
-        public MzSpectrum(double[] mzArray, double[,] mzintensities)
+        public MzSpectrum(double[,] mzintensities)
         {
             var count = mzintensities.GetLength(1);
 

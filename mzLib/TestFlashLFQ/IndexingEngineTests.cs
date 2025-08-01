@@ -303,6 +303,14 @@ namespace Test
             //Get XIC with a mass that does not belong to any bins, should return an empty list
             var xic4 = massIndexingEngine.GetXic(5000.0, 5, new PpmTolerance(20), 2, 1);
             Assert.That(xic4.IsNullOrEmpty());
+
+            //Test the IndexPeaks method with a scan where the monoisotopic mass is less than the minimum
+            massIndexingEngine = new MassIndexingEngine();
+            double minMass = cf.MonoisotopicMass + 10; // Set a minimum mass that is greater than the peptide's monoisotopic mass
+
+            //this seems wrong to me. there are no scans with a monoisotopic mass above the minimum mass. so no scans are indexed, yet the IndexPeaks method returns true
+            Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters, null,minMass));
+
         }
         [Test]
         public static void TestMassIndexingEngineWithNearlyIsobaricPeptides()
