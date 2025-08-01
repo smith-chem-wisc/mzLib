@@ -19,7 +19,7 @@ namespace MassSpectrometry
         public IIndexedPeak ApexPeak;
         public double ApexRT => ApexPeak.RetentionTime;
         public int ApexScanIndex => ApexPeak.ZeroBasedScanIndex;
-        public double AveragedM;
+        public double AveragedMassOrMz;
         public (double, double)[] XYData { get; set; }
         public double[] NormalizedPeakIntensities { get; set; }
         public double StartRT { get; set; }
@@ -150,7 +150,7 @@ namespace MassSpectrometry
             EndRT = Peaks.Max(p => p.RetentionTime);
             StartScanIndex = Peaks.Min(p => p.ZeroBasedScanIndex);
             EndScanIndex = Peaks.Max(p => p.ZeroBasedScanIndex);
-            AveragedM = AverageM();
+            AveragedMassOrMz = AverageM();
         }
     }
 }

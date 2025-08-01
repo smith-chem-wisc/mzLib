@@ -61,7 +61,7 @@ namespace Test
             Assert.That(xic.StartRT, Is.EqualTo(1.0f));
             Assert.That(xic.EndRT, Is.EqualTo(1.9f));
             var mass = Dist.Masses.First().ToMz(1);
-            Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0001));
+            Assert.That(xic.AveragedMassOrMz, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0001));
             Assert.That(xic.ApexPeak.Intensity, Is.EqualTo(Dist.Intensities.First() * 1e6 * 10).Within(1));
 
             //Test normalized peak intensities
@@ -302,7 +302,7 @@ namespace Test
             Assert.That(xic.ApexScanIndex, Is.EqualTo(peaks.First().ZeroBasedScanIndex));
             Assert.That(xic.StartRT, Is.EqualTo(peaks.First().RetentionTime));
             Assert.That(xic.EndRT, Is.EqualTo(peaks.First().RetentionTime));
-            Assert.That(xic.AveragedM, Is.EqualTo(peaks.First().M).Within(0.0001));
+            Assert.That(xic.AveragedMassOrMz, Is.EqualTo(peaks.First().M).Within(0.0001));
             Assert.That(xic.ApexPeak.Intensity, Is.EqualTo(peaks.First().Intensity));
         }
     }
