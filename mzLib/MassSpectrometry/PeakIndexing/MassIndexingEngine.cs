@@ -87,7 +87,7 @@ namespace MassSpectrometry
 
             // Throw exception if no peaks were indexed
             if (!anyPeaksIndexed)
-                throw new MzLibException("No peaks indexed");
+                throw new MzLibException("No peaks in the acceptable mass or charge range.");
 
             // Return true to indicate successful processing
             return true;
