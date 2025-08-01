@@ -139,7 +139,7 @@ namespace MassSpectrometry
             RemovePeaks(Peaks, peakBoundaries, ApexPeak.RetentionTime);
             if (updateRtInfo)
             {
-                SetXicInfo(); // Update RT info after cutting the peak
+                SetXicInfo(); // Update XIC info after cutting the peak
             }
         }
 
