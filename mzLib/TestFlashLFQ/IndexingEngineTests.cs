@@ -318,7 +318,41 @@ namespace Test
 
             //this seems wrong to me. there are no scans with a charge above the minimum charge. so no scans are indexed, yet the IndexPeaks method returns true
             Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters, null, 0, minCharge + 2));
+        }
+        [Test]
+        public static void TestIndexPeaksWithAPeptideThatIsTooLarge()
+        {
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+            var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
 
+            MsDataScan[] scans = new MsDataScan[10];
+            double[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+            List<ChemicalFormula> chemicalFormulaList = new List<ChemicalFormula>();
+            for (int times = 0; times < 40; times++)
+            {
+                chemicalFormulaList.Add(cf);
+            }
+            ChemicalFormula cfTooLarge = ChemicalFormula.Combine(chemicalFormulaList);
+            IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cfTooLarge, 0.125, 1e-8);
+            int minCharge = 1; // Set a minimum charge state for indexing
+
+            // Create mzSpectra
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double[] mz = dist.Masses.Select(v => v.ToMz(minCharge + 1)).Concat(dist.Masses.Select(v => v.ToMz(minCharge))).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).Concat(dist.Intensities.Select(v => v * intensity * intensityMultipliers[s])).ToArray();
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+            //Test the mass indexing function
+            var massIndexingEngine = new MassIndexingEngine();
+            //This seems wrong to me. All scans have monoisotopic mass larger than the maximum mass. No scans are indexed yet the method returns true
+            Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters));
         }
         [Test]
         public static void TestMassIndexingEngineWithNearlyIsobaricPeptides()
