@@ -351,7 +351,7 @@ namespace Test
             }
             //Test the mass indexing function
             var massIndexingEngine = new MassIndexingEngine();
-            //This seems wrong to me. All scans have monoisotopic mass larger than the maximum mass. No scans are indexed yet the method returns true
+            // Expected behavior: IndexPeaks should throw MzLibException when no peaks can be indexed due to all scans having monoisotopic mass larger than the maximum mass.
             Assert.Throws<MzLibException>(() => massIndexingEngine.IndexPeaks(scans, deconParameters, null, cfTooLarge.MonoisotopicMass + 10, minCharge));
         }
         [Test]
