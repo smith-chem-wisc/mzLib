@@ -352,7 +352,7 @@ namespace Test
             //Test the mass indexing function
             var massIndexingEngine = new MassIndexingEngine();
             // Expected behavior: IndexPeaks should throw MzLibException when no peaks can be indexed due to all scans having monoisotopic mass larger than the maximum mass.
-            Assert.Throws<MzLibException>(() => massIndexingEngine.IndexPeaks(scans, deconParameters, null, cfTooLarge.MonoisotopicMass + 10, minCharge));
+            Assert.Throws<MzLibException>(() => massIndexingEngine.IndexPeaks(scans, deconParameters, null, 0, minCharge));
         }
         [Test]
         public static void TestMassIndexingEngineWithNearlyIsobaricPeptides()
