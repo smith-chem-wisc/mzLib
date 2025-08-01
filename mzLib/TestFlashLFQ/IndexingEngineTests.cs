@@ -268,11 +268,12 @@ namespace Test
             double[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
             ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
             IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+            int minCharge = 1; // Set a minimum charge state for indexing
 
             // Create mzSpectra
             for (int s = 0; s < scans.Length; s++)
             {
-                double[] mz = dist.Masses.Select(v => v.ToMz(2)).Concat(dist.Masses.Select(v => v.ToMz(1))).ToArray();
+                double[] mz = dist.Masses.Select(v => v.ToMz(minCharge + 1)).Concat(dist.Masses.Select(v => v.ToMz(minCharge))).ToArray();
                 double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).Concat(dist.Intensities.Select(v => v * intensity * intensityMultipliers[s])).ToArray();
 
                 // add the scan
@@ -310,6 +311,13 @@ namespace Test
 
             //this seems wrong to me. there are no scans with a monoisotopic mass above the minimum mass. so no scans are indexed, yet the IndexPeaks method returns true
             Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters, null,minMass));
+
+
+            //Test the IndexPeaks method with a scan where the scan charges are less than the minimum charge
+            massIndexingEngine = new MassIndexingEngine();
+
+            //this seems wrong to me. there are no scans with a charge above the minimum charge. so no scans are indexed, yet the IndexPeaks method returns true
+            Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters, null, 0, minCharge + 2));
 
         }
         [Test]
