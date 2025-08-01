@@ -148,7 +148,7 @@ namespace MassSpectrometry
                 {
                     // increment the scan index we're searching for
                     currentZeroBasedScanIndex += direction;
-                    if(currentZeroBasedScanIndex < 0 || currentZeroBasedScanIndex > ScanInfoArray.Length - 1 || (initialPeak.IsNotDefaultOrNull() && ScanInfoArray[currentZeroBasedScanIndex] == null && Math.Abs(ScanInfoArray[currentZeroBasedScanIndex].RetentionTime - initialPeak.RetentionTime) > maxPeakHalfWidth))
+                    if(currentZeroBasedScanIndex < 0 || currentZeroBasedScanIndex > ScanInfoArray.Length - 1 || (initialPeak.IsNotDefaultOrNull() && ScanInfoArray[currentZeroBasedScanIndex] != null && Math.Abs(ScanInfoArray[currentZeroBasedScanIndex].RetentionTime - initialPeak.RetentionTime) > maxPeakHalfWidth))
                         break;
                     
                     for (int i = 0; i < pointerArrayCopy.Length; i++)
