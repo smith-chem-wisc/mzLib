@@ -448,9 +448,7 @@ namespace Test
             string scanFilter = "FTMS + p ESI Full ms [100.00-1000.00]";
             MZAnalyzerType mzAnalyzer = MZAnalyzerType.Orbitrap;
             double totalIonCurrent = 1500000.0; // Example TIC value
-            double[,] noiseData = null; // Assuming no noise data for this example
-            double[] mzArray = new double[] { 100.0, 200.0, 300.0 };
-            double[] intensityArray = new double[] { 1000.0, 1500.0, 1200.0 };         
+            double[,] noiseData = null; // Assuming no noise data for this example      
 
             // Construct the MsDataScan object
             var scan = new MsDataScan(
@@ -480,7 +478,7 @@ namespace Test
             bool shouldCopy = true;
 
             // Construct the MzSpectrum object
-            var spectrum = new MzSpectrum(mzArray, intensityArray, true);
+            var spectrum = new MzSpectrum(mzArray, intensityArray, shouldCopy);
 
             return spectrum;
         }
