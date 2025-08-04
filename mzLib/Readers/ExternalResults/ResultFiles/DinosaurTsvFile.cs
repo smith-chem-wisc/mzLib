@@ -12,7 +12,7 @@ namespace Readers
         public override SupportedFileType FileType => SupportedFileType.Tsv_Dinosaur;
         public override Software Software { get; set; }
 
-        public DinosaurTsvFile(string filePath) : base(filePath, Software.Unspecified) { }
+        public DinosaurTsvFile(string filePath) : base(filePath, Software.Dinosaur) { }
 
         /// <summary>
         /// Constructor used to initialize from the factory method
