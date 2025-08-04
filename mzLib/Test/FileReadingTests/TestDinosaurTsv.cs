@@ -64,7 +64,13 @@ namespace Test.FileReadingTests
             Assert.That(feature.MassCalib, Is.EqualTo(247.0));
             Assert.That(feature.IntensityApex, Is.EqualTo(10000.0));
             Assert.That(feature.IntensitySum, Is.EqualTo(50000.0));
+        }
 
+        [Test]
+        public static void TestParameterlessConstructor()
+        {
+            DinosaurTsvFile x = new DinosaurTsvFile();
+            Assert.That(x.FileType, Is.EqualTo(SupportedFileType.Tsv_Dinosaur), "File type should be Tsv_Dinosaur.");
         }
 
         [Test]
@@ -77,19 +83,21 @@ namespace Test.FileReadingTests
 
             // Check that all required properties are populated for the first entry
             var first = dinoFile.Results.First();
-            Assert.That(first.Mz, Is.Not.EqualTo(0));
-            Assert.That(first.MostAbundantMz, Is.Not.EqualTo(0));
-            Assert.That(first.Charge, Is.GreaterThan(0));
-            Assert.That(first.RtStart, Is.LessThanOrEqualTo(first.RtApex));
-            Assert.That(first.RtApex, Is.LessThanOrEqualTo(first.RtEnd));
-            Assert.That(first.Fwhm, Is.GreaterThanOrEqualTo(0));
-            Assert.That(first.NIsotopes, Is.GreaterThanOrEqualTo(0));
-            Assert.That(first.NScans, Is.GreaterThanOrEqualTo(0));
-            Assert.That(first.AveragineCorr, Is.GreaterThanOrEqualTo(0));
-            Assert.That(first.Mass, Is.GreaterThan(0));
-            Assert.That(first.MassCalib, Is.GreaterThan(0));
-            Assert.That(first.IntensityApex, Is.GreaterThanOrEqualTo(0));
-            Assert.That(first.IntensitySum, Is.GreaterThanOrEqualTo(0));
+            Assert.That(first.Mz, Is.EqualTo(440.2366771));
+            Assert.That(first.MostAbundantMz, Is.EqualTo(440.2366771));
+            Assert.That(first.Charge, Is.EqualTo(3));
+            Assert.That(first.RtStart, Is.EqualTo(32.67795675));
+            Assert.That(first.RtApex, Is.EqualTo(32.72369833));
+            Assert.That(first.RtEnd, Is.EqualTo(32.73719507));
+            Assert.That(first.Fwhm, Is.EqualTo(1.021054854));
+            Assert.That(first.NIsotopes, Is.EqualTo(2));
+            Assert.That(first.NScans, Is.EqualTo(5));
+            Assert.That(first.AveragineCorr, Is.EqualTo(0.992839779));
+            Assert.That(first.Mass, Is.EqualTo(1317.687838));
+            Assert.That(first.MassCalib, Is.EqualTo(1317.687788));
+            Assert.That(first.IntensityApex, Is.EqualTo(8809.755127));
+            Assert.That(first.IntensitySum, Is.EqualTo(52349.81689));
+
         }
 
         [Test]
@@ -106,6 +114,11 @@ namespace Test.FileReadingTests
             var dinoFileReloaded = new DinosaurTsvFile(outPath);
             dinoFileReloaded.LoadResults();
             Assert.That(dinoFileReloaded.Results.Count, Is.EqualTo(9), "Reloaded file should have 9 entries.");
+
+            outPath = Path.Combine(directoryPath, "DinoSnippetNoExtension");
+            dinoFile.WriteResults(outPath);
+
+            Assert.That(File.Exists(outPath + ".feature.tsv"), Is.True, "Output file was not created.");
         }
     }
 }
