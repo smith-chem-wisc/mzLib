@@ -29,8 +29,7 @@ namespace MassSpectrometry
         /// </summary>
         protected (double, double)[] CalculateSpline(double startRT, double endRT, double splineRtInterval, IInterpolation spline)
         {
-            //adding 1e-6 to account for the loss of precision after double-float-double conversion
-            int numPoints = (int)Math.Floor((endRT - startRT) / splineRtInterval + 1e-6) + 1;
+            int numPoints = (int)Math.Round((endRT - startRT) / splineRtInterval, 0) + 1;
             var xyData = new (double, double)[numPoints];
             for (int i = 0; i < numPoints; i++)
             {
