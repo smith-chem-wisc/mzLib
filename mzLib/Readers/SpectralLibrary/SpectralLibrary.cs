@@ -175,6 +175,10 @@ namespace Readers.SpectralLibrary
             if (path.Contains("pdeep"))
             {
                 return ReadLibrarySpectrum_pDeep(reader);
+            } 
+            else if (path.Contains("ms2pip"))
+            {
+                return ReadLibrarySpectrum_ms2pip(reader);
             }
             else
             {
@@ -435,18 +439,15 @@ namespace Readers.SpectralLibrary
                     // read fragment intensity
                     var experIntensity = double.Parse(split[1], CultureInfo.InvariantCulture);
 
-                    // read fragment type, number      
-
+                    // read fragment type, number     
                     string fragmentType = split[2].ToCharArray()[0].ToString();
                     int fragmentNumber = int.Parse(new string(split[2].Split(new char[] { '^' })[0].Where(Char.IsDigit).ToArray()));
                     int fragmentCharge = 1;
-
 
                     if (split[2].Contains('^'))
                     {
                         fragmentCharge = int.Parse(split[2].Split('^')[1]);
                     }
-
                     ProductType peakProductType = (ProductType)Enum.Parse(typeof(ProductType), fragmentType, true);
 
                     //TODO: figure out terminus
@@ -456,6 +457,173 @@ namespace Readers.SpectralLibrary
                     var product = new Product(peakProductType, terminus, experMz, fragmentNumber, 0, 0);
 
                     matchedFragmentIons.Add(new MatchedFragmentIon(product, experMz, experIntensity, fragmentCharge));
+                }
+            }
+
+            return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt);
+        }
+
+        private LibrarySpectrum ReadLibrarySpectrum_ms2pip(StreamReader reader, bool onlyReadHeader = false)
+        {
+            char[] nameSplit = new char[] { '/' };
+            char[] mwSplit = new char[] { ':' };
+            char[] commentSplit = new char[] { ' ', ':', '=' };
+            char[] modSplit = new char[] { '=', '/' };
+            char[] fragmentSplit = new char[] { '\t', '\"', ')', '/' };
+            char[] neutralLossSplit = new char[] { '-' };
+
+            bool readingPeaks = false;
+            string sequence = null;
+            int z = 2;
+            double precursorMz = 0;
+            double rt = 0;
+            List<MatchedFragmentIon> matchedFragmentIons = new List<MatchedFragmentIon>();
+
+            while (reader.Peek() > 0)
+            {
+                string line = reader.ReadLine();
+                if (!line.IsNotNullOrEmpty())
+                {
+                    continue;
+                }
+                string[] split;
+
+                if (line.StartsWith("Name", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    if (CrosslinkLibrarySpectrum.CrosslinkRegex.Match(line).Success)
+                    {
+                        return ReadLibrarySpectrum_Crosslink(reader, line, onlyReadHeader);
+                    }
+
+                    if (sequence != null)
+                    {
+                        return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt);
+                    }
+
+                    split = line.Split(nameSplit);
+
+                    // get sequence
+                    sequence = split[0].Replace("Name:", string.Empty).Trim();
+
+                    // get charge
+                    z = int.Parse(split[1].Trim());
+                }
+                else if (line.StartsWith("MW", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    continue;
+                }
+                else if (line.StartsWith("Comment", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    split = line.Split(commentSplit);
+
+                    // get precursor m/z if not defined yet
+                    if (precursorMz == 0)
+                    {
+                        int indOfParent = Array.IndexOf(split, "Parent");
+                        if (indOfParent > 0)
+                        {
+                            precursorMz = double.Parse(split[indOfParent + 1], CultureInfo.InvariantCulture);
+                        }
+                    }
+
+                    // get RT
+                    int indOfRt = Array.IndexOf(split, "iRT");
+                    if (indOfRt > 0)
+                    {
+                        rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
+                    }
+                    else
+                    {
+                        indOfRt = Array.IndexOf(split, "RT");
+
+                        if (indOfRt > 0)
+                        {
+                            rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
+                        }
+                    }
+
+                    // get mods
+                    // be careful about spaces! mod names can have spaces in them
+                    StringBuilder sb = new StringBuilder();
+                    int ind = line.IndexOf("Mods", StringComparison.InvariantCultureIgnoreCase);
+
+                    if (ind > 0)
+                    {
+                        bool readingModName = false;
+                        int bracketCount = 0;
+
+                        for (int i = ind; i < line.Length; i++)
+                        {
+                            if (line[i] == ' ' && !readingModName)
+                            {
+                                break;
+                            }
+                            if (line[i] == '[')
+                            {
+                                bracketCount++;
+                                readingModName = true;
+                            }
+                            else if (line[i] == ']')
+                            {
+                                bracketCount--;
+
+                                if (bracketCount == 0)
+                                {
+                                    readingModName = false;
+                                }
+                            }
+
+                            sb.Append(line[i]);
+                        }
+
+                        if (sb.ToString() != "Mods=0")
+                        {
+                            split = sb.ToString().Split(modSplit);
+
+                            for (int i = split.Length - 1; i >= 2; i--)
+                            {
+                                string modString = split[i];
+
+                                string[] modInfo = modString.Split(',');
+                                int modPosition = int.Parse(modInfo[0]);
+                                string modName = modInfo[2];
+                                string modNameNoBrackets = modName;
+
+                                if (modName.StartsWith('['))
+                                {
+                                    modNameNoBrackets = modName.Substring(1, modName.Length - 2);
+                                }
+
+                                if (!ModificationConverter.AllKnownMods.Select(m => m.IdWithMotif).Contains(modNameNoBrackets))
+                                {
+                                    if (PrositToMetaMorpheusModDictionary.TryGetValue(modName, out var metaMorpheusMod))
+                                    {
+                                        modName = metaMorpheusMod;
+                                    }
+                                }
+
+                                // add the mod name into the sequence
+                                string leftSeq = sequence.Substring(0, modPosition);
+                                string rightSeq = sequence.Substring(modPosition);
+
+                                sequence = leftSeq + modName + rightSeq;
+                            }
+                        }
+                    }
+                }
+                else if (line.StartsWith("Num peaks", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    if (onlyReadHeader)
+                    {
+                        return new LibrarySpectrum(sequence, precursorMz, z, matchedFragmentIons, rt);
+                    }
+
+                    // this assumes that the peaks are listed after the "Num peaks" line
+                    readingPeaks = true;
+                }
+                else if (readingPeaks)
+                {
+                    matchedFragmentIons.Add(ReadFragmentIon(line, fragmentSplit, neutralLossSplit, sequence));
                 }
             }
 
@@ -641,6 +809,10 @@ namespace Readers.SpectralLibrary
                     if (path.Contains("pdeep"))
                     {
                         libraryItem = ReadLibrarySpectrum_pDeep(reader, onlyReadHeader: true);
+                    }
+                    else if (path.Contains("ms2pip"))
+                    {
+                        libraryItem = ReadLibrarySpectrum_ms2pip(reader, onlyReadHeader: true);
                     }
                     else
                     {
