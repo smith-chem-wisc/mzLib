@@ -526,22 +526,6 @@ namespace Readers.SpectralLibrary
                         }
                     }
 
-                    // get RT
-                    int indOfRt = Array.IndexOf(split, "iRT");
-                    if (indOfRt > 0)
-                    {
-                        rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
-                    }
-                    else
-                    {
-                        indOfRt = Array.IndexOf(split, "RT");
-
-                        if (indOfRt > 0)
-                        {
-                            rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
-                        }
-                    }
-
                     // get mods
                     // be careful about spaces! mod names can have spaces in them
                     StringBuilder sb = new StringBuilder();
@@ -572,7 +556,6 @@ namespace Readers.SpectralLibrary
                                     readingModName = false;
                                 }
                             }
-
                             sb.Append(line[i]);
                         }
 
