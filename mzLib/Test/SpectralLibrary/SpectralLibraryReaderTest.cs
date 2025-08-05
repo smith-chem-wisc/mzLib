@@ -397,12 +397,12 @@ namespace Test
         [Test]
         public static void SpectralLibraryReader_Ms2Pip()
         {
-            var libraryPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\testLibrary_ms2pip.msp"); ;
+            var libraryPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\test_ms2pip.msp"); ;
             var pathList = new List<string> { libraryPath }; 
             var library = new SpectralLibrary(pathList);
             var librarySpectra = library.GetAllLibrarySpectra().ToList();
 
-            Assert.That(librarySpectra.Count, Is.EqualTo(3));
+            Assert.That(librarySpectra.Count, Is.EqualTo(7));
             Assert.That(library.TryGetSpectrum("ACDEFGHIKLR", 3, out var spectrum2));
             Assert.That(spectrum2.PrecursorMz, Is.EqualTo(430.2209553149999));
             Assert.That(spectrum2.ChargeState, Is.EqualTo(3));
