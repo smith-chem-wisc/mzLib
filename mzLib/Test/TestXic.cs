@@ -148,6 +148,7 @@ namespace Test
             {
                 Assert.That(xic.Peaks.Count, Is.EqualTo(10));
             }
+
             //Test with massIndexingEngine
             var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
             var allMasses = Deconvoluter.Deconvolute(testScans[0].MassSpectrum, deconParameters);
