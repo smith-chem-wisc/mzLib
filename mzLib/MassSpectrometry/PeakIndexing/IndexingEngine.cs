@@ -148,7 +148,7 @@ namespace MassSpectrometry
                 {
                     // increment the scan index we're searching for
                     currentZeroBasedScanIndex += direction;
-                    if(currentZeroBasedScanIndex < 0 || currentZeroBasedScanIndex > ScanInfoArray.Length - 1 || (initialPeak.IsNotDefaultOrNull() && Math.Abs(ScanInfoArray[currentZeroBasedScanIndex].RetentionTime - initialPeak.RetentionTime) > maxPeakHalfWidth))
+                    if(currentZeroBasedScanIndex < 0 || currentZeroBasedScanIndex > ScanInfoArray.Length - 1 || (initialPeak.IsNotDefaultOrNull() && ScanInfoArray[currentZeroBasedScanIndex] != null && Math.Abs(ScanInfoArray[currentZeroBasedScanIndex].RetentionTime - initialPeak.RetentionTime) > maxPeakHalfWidth))
                         break;
                     
                     for (int i = 0; i < pointerArrayCopy.Length; i++)
@@ -193,12 +193,13 @@ namespace MassSpectrometry
 
         /// <summary>
         /// A generic method performing peak tracing for all the peaks in an indexingEngine and trying to find all XICs.
+        /// <param name="cutPeakDiscriminationFactor"> The discrimination factor to determine if a peak should be cut if we are doing peak cutting </param>
         /// <returns> A list of ExtractedIonChromatogram objects representing all XICs that can be found in an indexingEngine </returns>
-        public virtual List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold)
+        public virtual List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold, double? cutPeakDiscriminationFactor = null)
         {
             var xics = new List<ExtractedIonChromatogram>();
             var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
-            var sortedPeaks = IndexedPeaks.Where(v => v != null).SelectMany(peaks => peaks).OrderBy(p => p.Intensity).ToList();
+            var sortedPeaks = IndexedPeaks.Where(v => v != null).SelectMany(peaks => peaks).OrderByDescending(p => p.Intensity).ToList();
             foreach (var peak in sortedPeaks)
             {
                 if (!matchedPeaks.ContainsKey(peak))
@@ -208,7 +209,8 @@ namespace MassSpectrometry
                     if (peakList.Count >= numPeakThreshold)
                     {
                         var newXIC = new ExtractedIonChromatogram(peakList);
-                        foreach(var matchedPeak in peakList)
+                        if (cutPeakDiscriminationFactor.HasValue) newXIC.CutPeak(cutPeakDiscriminationFactor.Value);
+                        foreach (var matchedPeak in newXIC.Peaks)
                         {
                             matchedPeaks.Add(matchedPeak, newXIC);
                         }
