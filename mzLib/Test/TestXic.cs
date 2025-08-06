@@ -46,7 +46,7 @@ namespace Test
 
             //Example XIC
             var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
-            PeakList = peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            PeakList = peakIndexEngine.GetXicByScanIndex(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
         }
 
         [Test]
@@ -289,7 +289,7 @@ namespace Test
         public static void TestMassXicExceptionHandling()
         {
             var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
-            var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
+            var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXicByScanIndex(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
             Assert.That(ex.Message, Is.EqualTo("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available."));
         }
 
