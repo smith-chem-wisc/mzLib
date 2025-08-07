@@ -103,7 +103,7 @@ namespace MassSpectrometry
                 }
             }
 
-            return GetXic(m, scanIndex, ppmTolerance, missedScansAllowed, maxPeakHalfWidth, charge, matchedPeaks);
+            return GetXicByScanIndex(m, scanIndex, ppmTolerance, missedScansAllowed, maxPeakHalfWidth, charge, matchedPeaks);
         }
 
         /// <summary>
@@ -120,7 +120,7 @@ namespace MassSpectrometry
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
         /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXic(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
+        public List<IIndexedPeak> GetXicByScanIndex(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
         {
             if (IndexedPeaks == null || ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
 
@@ -205,7 +205,7 @@ namespace MassSpectrometry
                 if (!matchedPeaks.ContainsKey(peak))
                 {
                     int? charge = peak is IndexedMass indexedMass ? indexedMass.Charge : null;
-                    var peakList = GetXic(peak.M, peak.RetentionTime, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, charge, matchedPeaks);
+                    var peakList = GetXicByScanIndex(peak.M, peak.ZeroBasedScanIndex, peakFindingTolerance, maxMissedScanAllowed, maxRTRange, charge, matchedPeaks);
                     if (peakList.Count >= numPeakThreshold)
                     {
                         var newXIC = new ExtractedIonChromatogram(peakList);
