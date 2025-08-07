@@ -89,7 +89,7 @@ namespace Readers
                     var fileList = Directory.GetFiles(filePath).Select(p => Path.GetFileName(p));
                     if (fileList.Any(file => file == "analysis.baf"))
                         return SupportedFileType.BrukerD;
-                    if (fileList.Any(file => file == "analysis.tdf"))
+                    if (fileList.Any(file => file == "analysis.tdf" || file == "analysis.tsf"))
                         return SupportedFileType.BrukerTimsTof;
                     throw new MzLibException("Bruker file type not recognized");
 

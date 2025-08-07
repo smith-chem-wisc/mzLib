@@ -33,15 +33,15 @@ namespace Readers
     /// </summary>
     internal class FrameTable
     {
-        internal long[] OneBasedFrameIndex { get; }
-        internal char[] Polarity { get; }
-        internal int[] NumScans { get; }
-        internal int[] ScanMode { get; }
-        internal int[] MsMsType { get; }
-        internal int[] TotalNumberOfPeaks { get; }
-        internal int[] TotalIntensity { get; }
-        internal float[] RetentionTime { get; }
-        internal float[] FillTime { get; }
+        internal long[] OneBasedFrameIndex { get; private set; }
+        internal char[] Polarity { get; private set; }
+        internal int[] NumScans { get; private set; }
+        internal int[] ScanMode { get; private set; }
+        internal int[] MsMsType { get; private set; }
+        internal int[] TotalNumberOfPeaks { get; private set; }
+        internal int[] TotalIntensity { get; private set; }
+        internal float[] RetentionTime { get; private set; }
+        internal float[] FillTime { get; private set; }
 
         internal TimsTofMsMsType GetAnalysisType(int frameId)
         {
@@ -52,12 +52,25 @@ namespace Readers
                 throw new MzLibException("Unrecognized MS/MS method.");
         }
 
-        internal FrameTable(SQLiteConnection connection, int numberOfRows)
+        internal FrameTable(SQLiteConnection connection, int numberOfRows, TimsTofFileType fileType = TimsTofFileType.TDF)
+        {
+            switch (fileType)
+            {
+                case TimsTofFileType.TDF:
+                    PopulateTableForTdf(connection, numberOfRows);
+                    break;
+                case TimsTofFileType.TSF:
+                    PopulateTableForTsf(connection, numberOfRows);
+                    break;
+            }
+        }
+
+        private void PopulateTableForTdf(SQLiteConnection connection, int numberOfRows)
         {
             using var command = new SQLiteCommand(connection);
             command.CommandText = @"SELECT f.Id, f.Polarity, f.NumScans," +
-                " f.ScanMode, f.MsMsType, f.NumPeaks, f.SummedIntensities," +
-                " f.Time, f.AccumulationTime FROM Frames f;";
+                                  " f.ScanMode, f.MsMsType, f.NumPeaks, f.SummedIntensities," +
+                                  " f.Time, f.AccumulationTime FROM Frames f;";
             using var reader = command.ExecuteReader();
 
             OneBasedFrameIndex = new long[numberOfRows];
@@ -84,8 +97,38 @@ namespace Readers
                 RetentionTime[i] = reader.GetFloat(7);
                 FillTime[i] = reader.GetFloat(8);
             }
-
         }
 
+        private void PopulateTableForTsf(SQLiteConnection connection, int numberOfRows)
+        {
+            using var command = new SQLiteCommand(connection);
+            command.CommandText = @"SELECT f.Id, f.Polarity," +
+                                  " f.ScanMode, f.MsMsType, f.NumPeaks, f.SummedIntensities," +
+                                  " f.Time FROM Frames f;";
+            using var reader = command.ExecuteReader();
+
+            OneBasedFrameIndex = new long[numberOfRows];
+            Polarity = new char[numberOfRows];
+            NumScans = null;
+            ScanMode = new int[numberOfRows];
+            MsMsType = new int[numberOfRows];
+            TotalNumberOfPeaks = new int[numberOfRows];
+            TotalIntensity = new int[numberOfRows];
+            RetentionTime = new float[numberOfRows];
+            FillTime = null;
+
+            // Populate arrays by reading in the  table
+            for (int i = 0; i < numberOfRows; i++)
+            {
+                if (!reader.Read()) break;
+                OneBasedFrameIndex[i] = reader.GetInt64(0);
+                Polarity[i] = reader.GetString(1)[0];
+                ScanMode[i] = reader.GetInt32(2);
+                MsMsType[i] = reader.GetInt32(3);
+                TotalNumberOfPeaks[i] = reader.GetInt32(4);
+                TotalIntensity[i] = reader.GetInt32(5);
+                RetentionTime[i] = reader.GetFloat(6);
+            }
+        }
     }
 }
