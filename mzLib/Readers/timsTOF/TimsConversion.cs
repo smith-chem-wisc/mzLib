@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 
 namespace Readers
 {
-
     internal enum ConversionFunctions
     {
         IndexToMz,
@@ -81,9 +80,6 @@ namespace Readers
                             case ConversionFunctions.MzToIndexTsf:
                                 tsf_mz_to_index(fileHandle, frameId, inputPtr, (double*)outPtr, (UInt32)input.Length);
                                 break;
-                            default:
-                                break;
-
                         }
                     }
 

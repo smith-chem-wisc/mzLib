@@ -324,6 +324,38 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestTsfMzToIndexConversion()
+        {
+            // Skip test if TSF file is not available
+            string tsfFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_TSF_MRM.d");
+            if (!Directory.Exists(tsfFilePath))
+            {
+                Assert.Ignore("TSF test file not available, skipping test.");
+            }
+
+            var reader = new TimsTofFileReader(tsfFilePath);
+            reader.InitiateDynamicConnection();
+            try
+            {
+                TimsConversion timsConverter = new TimsConversion(reader.FrameProxyFactory.FileHandle, reader.FrameProxyFactory.FileLock);
+                var indexValues = new double[] { 100.0, 200.0, 500.0, 1000.0 };
+                var mzValues = timsConverter.DoTransformation(reader.FrameProxyFactory.FileHandle, 1, indexValues, ConversionFunctions.IndexToMzTsf);
+                var transformedIndices = timsConverter.DoTransformation(reader.FrameProxyFactory.FileHandle, 1, mzValues, ConversionFunctions.MzToIndexTsf);
+
+                Assert.That(transformedIndices, Is.Not.Null, "Transformed indices should not be null");
+                for (int i = 0; i < indexValues.Length; i++)
+                {
+                    Assert.That(transformedIndices[i], Is.EqualTo(indexValues[i]).Within(0.1),
+                        $"Transformed index for mz={mzValues[i]} should be close to original value {indexValues[i]}");
+                }
+            }
+            finally
+            {
+                reader.CloseDynamicConnection();
+            }
+        }
+
+        [Test]
         public void TestConstructor()
         {
             var reader = MsDataFileReader.GetDataFile(_testDataPath);
