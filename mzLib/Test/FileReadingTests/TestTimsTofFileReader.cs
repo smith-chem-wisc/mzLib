@@ -90,6 +90,24 @@ namespace Test.FileReadingTests
             _testReader.InitiateDynamicConnection();
             _testReader.CloseDynamicConnection();
             _testReader.InitiateDynamicConnection();
+
+            var sqlConnectionField = typeof(TimsTofFileReader).GetField("_sqlConnection",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            // Check that it's not null before closing
+            var sqlConnectionBeforeClose = sqlConnectionField.GetValue(_testReader);
+            Assert.That(sqlConnectionBeforeClose, Is.Not.Null,
+                "SQL connection should not be null after opening dynamic connection");
+
+            // Close the connection
+            _testReader.Dispose();
+
+            // Check that it's null after closing
+            var sqlConnectionAfterClose = sqlConnectionField.GetValue(_testReader);
+            Assert.That(sqlConnectionAfterClose, Is.Null,
+                "SQL connection should be null after closing dynamic connection");
+            
+            _testReader.CloseDynamicConnection(); // Shouldn't throw an error
             Assert.Pass();
         }
 

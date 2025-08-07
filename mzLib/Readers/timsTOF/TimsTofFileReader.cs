@@ -86,9 +86,6 @@ namespace Readers
                 throw new FileNotFoundException("Could not locate the the database (analysis.tdf, analysis.tsf) and/or binary (analysis.tdf_bin, analysis.tsf_bin) files");
             }
 
-            if (Scans.IsNotNullOrEmpty() && Scans.All(s => s != null)) // If all scans have been loaded, then don't reload
-                return;
-
             OpenSqlConnection();
 
             if(_fileHandle != null) CloseBinaryFileConnection();
@@ -102,6 +99,9 @@ namespace Readers
             {
                 CheckSpectraType();
             }
+
+            if (Scans.IsNotNullOrEmpty() && Scans.All(s => s != null)) // If all scans have been loaded, then don't reload
+                return;
 
             // Currently, only MRM data is supported in addition to DDA_PASEF. For MRM, no additional functions need to be called
             // however, as additional data becomes supported, this switch statement could grow
