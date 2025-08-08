@@ -68,5 +68,5 @@ namespace Readers
     }
 
     public record SingleChargeMs1Feature(double Mz, int Charge, double RetentionTimeStart, double RetentionTimeEnd, double Intensity,
-        int? NumberOfIsotopes = null, double? FractionalIntensity = null) : ISingleChargeMs1Feature;
+        int? NumberOfIsotopes = null) : ISingleChargeMs1Feature;
 }
