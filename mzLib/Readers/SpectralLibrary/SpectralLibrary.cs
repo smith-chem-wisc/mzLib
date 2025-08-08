@@ -542,20 +542,6 @@ namespace Readers.SpectralLibrary
                             {
                                 break;
                             }
-                            if (line[i] == '[')
-                            {
-                                bracketCount++;
-                                readingModName = true;
-                            }
-                            else if (line[i] == ']')
-                            {
-                                bracketCount--;
-
-                                if (bracketCount == 0)
-                                {
-                                    readingModName = false;
-                                }
-                            }
                             sb.Append(line[i]);
                         }
 
@@ -788,12 +774,14 @@ namespace Readers.SpectralLibrary
                     reader.DiscardBufferedData();
 
                     // parse the header
+                    //TODO: This is not very reliable way of determining the input library format but it works for our purpose and has no problem reading in libraries generated from MetaMorpheus.
+                    // A user-defined library format might be necessary if we want to use outputs from various external tools.
                     LibrarySpectrum libraryItem;
                     if (path.Contains("pdeep"))
                     {
                         libraryItem = ReadLibrarySpectrum_pDeep(reader, onlyReadHeader: true);
                     }
-                    else if (path.Contains("ms2pip"))
+                    else if (path.Contains("ms2pip")) 
                     {
                         libraryItem = ReadLibrarySpectrum_ms2pip(reader, onlyReadHeader: true);
                     }
