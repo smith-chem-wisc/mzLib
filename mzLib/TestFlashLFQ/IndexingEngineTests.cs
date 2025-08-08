@@ -86,8 +86,8 @@ namespace Test
 
             PeakIndexingEngine indexEngine = PeakIndexingEngine.InitializeIndexingEngine(file1);
 
-            var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
-            var shiftedXic = indexEngine.GetXic((dist.Masses.First() + 0.0001).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            var xic = indexEngine.GetXicByScanIndex(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            var shiftedXic = indexEngine.GetXicByScanIndex((dist.Masses.First() + 0.0001).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
 
             Assert.That(xic.Count, Is.EqualTo(10));
             Assert.That(shiftedXic.Count, Is.EqualTo(10));
@@ -137,7 +137,7 @@ namespace Test
             SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
             PeakIndexingEngine indexEngine = PeakIndexingEngine.InitializeIndexingEngine(file1);
 
-            var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 7, new PpmTolerance(20), 1);
+            var xic = indexEngine.GetXicByScanIndex(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 7, new PpmTolerance(20), 1);
             //var shiftedXic = indexEngine.GetXic((dist.Masses.First() + 0.0001).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
 
             Assert.That(xic.Count, Is.EqualTo(6));
@@ -182,8 +182,8 @@ namespace Test
             PeakIndexingEngine indexEngine = PeakIndexingEngine.InitializeIndexingEngine(file1);
 
             // due to the wide tolerance and the way the data was constructed, the XIC and shiftedXIC should match
-            var xic = indexEngine.GetXic(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
-            var shiftedXic = indexEngine.GetXic((dist.Masses.First() + 0.01).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            var xic = indexEngine.GetXicByScanIndex(dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            var shiftedXic = indexEngine.GetXicByScanIndex((dist.Masses.First() + 0.01).ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
 
             Assert.That(xic.Count, Is.EqualTo(10));
             Assert.That(shiftedXic.Count, Is.EqualTo(10));
@@ -235,7 +235,7 @@ namespace Test
         {
             MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
             var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
-            var xic = indexingEngine.GetXic(500.0, 0, new PpmTolerance(20), 1);
+            var xic = indexingEngine.GetXicByScanIndex(500.0, 0, new PpmTolerance(20), 1);
             Assert.IsNotNull(xic);
             Assert.That(xic.Count, Is.EqualTo(9));
         }
@@ -245,7 +245,7 @@ namespace Test
         {
             MsDataFile testFile = MsDataFileReader.GetDataFile(_testMzMlFullFilePath);
             var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testFile);
-            var xic = indexingEngine.GetXic(400.0, 0, new PpmTolerance(20), 1);
+            var xic = indexingEngine.GetXicByScanIndex(400.0, 0, new PpmTolerance(20), 1);
             Assert.IsNotNull(xic);
             Assert.IsEmpty(xic);
         }
@@ -254,7 +254,7 @@ namespace Test
         public static void TestNotIndexedException()
          {
             PeakIndexingEngine indexingEngine = new();
-            Assert.Throws<MzLibException>(() => indexingEngine.GetXic(500.0, 0, new PpmTolerance(20), 1));
+            Assert.Throws<MzLibException>(() => indexingEngine.GetXicByScanIndex(500.0, 0, new PpmTolerance(20), 1));
         }
 
         [Test]
@@ -287,22 +287,22 @@ namespace Test
             Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters));
 
             //Test GetXIC with indexed masses
-            var xic1 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
+            var xic1 = massIndexingEngine.GetXicByScanIndex(cf.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
             Assert.That(xic1.Count, Is.EqualTo(10));
 
             //Test GetXIC with different charge states
-            var xic2 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
+            var xic2 = massIndexingEngine.GetXicByScanIndex(cf.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
             Assert.That(xic2.Count, Is.EqualTo(10));
 
             //Test GetXIC with different starting scan and they should return the same list of peaks
-            var xic3 = massIndexingEngine.GetXic(cf.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
+            var xic3 = massIndexingEngine.GetXicByScanIndex(cf.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
             for (int i = 0; i < xic1.Count; i++)
             {
                 Assert.That(Object.ReferenceEquals(xic1[i], xic3[i]));
             }
 
             //Get XIC with a mass that does not belong to any bins, should return an empty list
-            var xic4 = massIndexingEngine.GetXic(5000.0, 5, new PpmTolerance(20), 2, 1);
+            var xic4 = massIndexingEngine.GetXicByScanIndex(5000.0, 5, new PpmTolerance(20), 2, 1);
             Assert.That(xic4.IsNullOrEmpty());
 
             //Test the IndexPeaks method with a scan where the monoisotopic mass is less than the minimum
@@ -401,15 +401,15 @@ namespace Test
             Assert.IsTrue(massIndexingEngine.IndexPeaks(scans, deconParameters));
 
             //Test GetXIC with indexed masses
-            var lowerMassXic1 = massIndexingEngine.GetXic(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
+            var lowerMassXic1 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
             Assert.That(lowerMassXic1.Count, Is.EqualTo(10));
 
             //Test GetXIC with different charge states
-            var lowerMassXic2 = massIndexingEngine.GetXic(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
+            var lowerMassXic2 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
             Assert.That(lowerMassXic2.Count, Is.EqualTo(10));
 
             //Test GetXIC with different starting scan and they should return the same list of peaks
-            var lowerMassXic3 = massIndexingEngine.GetXic(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
+            var lowerMassXic3 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
             for (int i = 0; i < lowerMassXic1.Count; i++)
             {
                 Assert.That(lowerMassXic1[i], Is.SameAs(lowerMassXic3[i]));
@@ -417,15 +417,15 @@ namespace Test
 
             //Test GetXIC with indexed masses
             //even thought the higher mass peptide is only present in the first 5 scans, it should still return 10 scans for the XIC because of the wide tolerance
-            var higherMassXic1 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
+            var higherMassXic1 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1);
             Assert.That(higherMassXic1.Count, Is.EqualTo(10));
 
             //Test GetXIC with different charge states
-            var higherMassXic2 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
+            var higherMassXic2 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 2);
             Assert.That(higherMassXic2.Count, Is.EqualTo(10));
 
             //Test GetXIC with different starting scan and they should return the same list of peaks
-            var higherMassXic3 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
+            var higherMassXic3 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(20), 2, 1);
             for (int i = 0; i < higherMassXic1.Count; i++)
             {
                 Assert.That(higherMassXic1[i], Is.SameAs(higherMassXic3[i]));
@@ -433,24 +433,24 @@ namespace Test
 
             //lower the tolerance here to separate the peaks. Now we should get 5 scans in the xic for the higher mass peptide
             //Test GetXIC with indexed masses
-            higherMassXic1 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(1), 2, 1);
+            higherMassXic1 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(1), 2, 1);
             //this should be 5 but there is currently an error in deconvolution. when that gets fixed this should change to 5.
             Assert.That(higherMassXic1.Count, Is.EqualTo(4));
 
             //Test GetXIC with different charge states
-            higherMassXic2 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(1), 2, 2);
+            higherMassXic2 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 5, new PpmTolerance(1), 2, 2);
             //this should be 5 but there is currently an error in deconvolution. when that gets fixed this should change to 5.
             Assert.That(higherMassXic2.Count, Is.EqualTo(4));
 
             //Test GetXIC with different starting scan and they should return the same list of peaks
-            higherMassXic3 = massIndexingEngine.GetXic(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(1), 2, 1);
+            higherMassXic3 = massIndexingEngine.GetXicByScanIndex(chemicalFormulaHigherMassPeptide.MonoisotopicMass, 1, new PpmTolerance(1), 2, 1);
             for (int i = 0; i < higherMassXic1.Count; i++)
             {
                 Assert.That(higherMassXic1[i], Is.SameAs(higherMassXic3[i]));
             }
 
             //Get XIC with a mass that does not belong to any bins, should return an empty list
-            var emptyXic4 = massIndexingEngine.GetXic(5000.0, 5, new PpmTolerance(20), 2, 1);
+            var emptyXic4 = massIndexingEngine.GetXicByScanIndex(5000.0, 5, new PpmTolerance(20), 2, 1);
             Assert.That(emptyXic4.IsNullOrEmpty());
 
             //Test for proper handling of a null scan.
@@ -458,7 +458,7 @@ namespace Test
             MsDataScan[] scansWithNull = scans.ToList().Append(nullScan).ToArray();
             massIndexingEngine = new MassIndexingEngine();
             Assert.That(massIndexingEngine.IndexPeaks(scansWithNull, deconParameters), Is.EqualTo(true));
-            Assert.That(massIndexingEngine.GetXic(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1).Count, Is.EqualTo(10));
+            Assert.That(massIndexingEngine.GetXicByScanIndex(chemicalFormulaLowerMassPeptide.MonoisotopicMass, 5, new PpmTolerance(20), 2, 1).Count, Is.EqualTo(10));
         }
         [Test]
         public static void TestMassIndexingExceptions()
@@ -467,7 +467,7 @@ namespace Test
             Assert.That(massIndexingEngine.IndexPeaks(new MsDataScan[] { }, new ClassicDeconvolutionParameters(1, 20, 4, 3)), Is.EqualTo(false));
             try
             {
-                massIndexingEngine.GetXic(500.0,  5, new PpmTolerance(20), 2, 1);
+                massIndexingEngine.GetXicByScanIndex(500.0,  5, new PpmTolerance(20), 2, 1);
             } catch (MzLibException e)
             {
                 Assert.That(e.Message, Is.EqualTo("Error: Attempt to retrieve XIC before peak indexing was performed"));

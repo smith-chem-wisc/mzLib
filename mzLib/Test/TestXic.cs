@@ -46,7 +46,7 @@ namespace Test
 
             //Example XIC
             var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
-            PeakList = peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            PeakList = peakIndexEngine.GetXicByScanIndex(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
         }
 
         [Test]
@@ -80,9 +80,9 @@ namespace Test
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
             cubicSpline.SetXicSplineXYData(xic);
-            Assert.That(xic.XYData.Length, Is.EqualTo(18)); // Because the last time point will be stored as 18.999999 (origin 19) while convert the float to double. 
-            linearSpline.SetXicSplineXYData(xic);                            // Then we will lose one numPoint (19 to 18) in the XYData. 
-            Assert.That(xic.XYData.Length, Is.EqualTo(18));
+            Assert.That(xic.XYData.Length, Is.EqualTo(19)); 
+            linearSpline.SetXicSplineXYData(xic);  
+            Assert.That(xic.XYData.Length, Is.EqualTo(19));
             //in scan cycle
             cubicSpline.SetXicSplineXYData(xic, cycle: true);
             Assert.That(xic.XYData.Length, Is.EqualTo(181));
@@ -91,7 +91,7 @@ namespace Test
             var cubicSpline2 = new XicCubicSpline(0.05, 1, 0.1);
             cubicSpline2.SetXicSplineXYData(xic);
             Assert.That(xic.XYData.Min(xy => xy.Item1), Is.EqualTo(0.9).Within(0.0000001));
-            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(1.95).Within(0.0000001)); // Because we lost one numPoint, then last point will be 1.95 instead of original value 2.0.
+            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(2.0).Within(0.0000001)); 
 
             //ensure that add peaks works correctly
             var peakList1 = new List<IIndexedPeak>();
@@ -148,6 +148,7 @@ namespace Test
             {
                 Assert.That(xic.Peaks.Count, Is.EqualTo(10));
             }
+
             //Test with massIndexingEngine
             var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
             var allMasses = Deconvoluter.Deconvolute(testScans[0].MassSpectrum, deconParameters);
@@ -288,7 +289,7 @@ namespace Test
         public static void TestMassXicExceptionHandling()
         {
             var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
-            var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
+            var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXicByScanIndex(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
             Assert.That(ex.Message, Is.EqualTo("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available."));
         }
 
