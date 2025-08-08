@@ -15,6 +15,8 @@ namespace Readers
         public double RetentionTimeStart => RtStart;
         public double RetentionTimeEnd => RtEnd;
         public double Intensity => IntensityApex;
+        public int? NumberOfIsotopes => NIsotopes;
+        public double? FractionalIntensity => null;
 
         #endregion
 

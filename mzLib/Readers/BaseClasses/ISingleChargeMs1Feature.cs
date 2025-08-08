@@ -13,5 +13,7 @@ namespace Readers
         double RetentionTimeStart { get; }
         double RetentionTimeEnd { get; }
         double Intensity { get; }
+        int? NumberOfIsotopes { get; }
+        double? FractionalIntensity { get; }
     }
 }
