@@ -7,10 +7,11 @@ namespace Readers
     /// For supported versions and software this file type can come from see
     ///     Readers.ExternalResources.SupportedVersions.txt
     /// </summary>
-    public class DinosaurTsvFile : ResultFile<DinosaurFeature>, IResultFile
+    public class DinosaurTsvFile : ResultFile<DinosaurFeature>, IResultFile, IMs1FeatureFile
     {
         public override SupportedFileType FileType => SupportedFileType.Tsv_Dinosaur;
         public override Software Software { get; set; }
+        public IEnumerable<ISingleChargeMs1Feature> GetMs1Features() { return Results; }
 
         public DinosaurTsvFile(string filePath) : base(filePath, Software.Dinosaur) { }
 
