@@ -97,7 +97,19 @@ namespace Test.FileReadingTests
             Assert.That(first.MassCalib, Is.EqualTo(1317.687788));
             Assert.That(first.IntensityApex, Is.EqualTo(8809.755127));
             Assert.That(first.IntensitySum, Is.EqualTo(52349.81689));
+        }
 
+        [Test]
+        public void TestDinosaurIMs1FeatureFileImplementation()
+        {
+            var dinoFile = new DinosaurTsvFile(filePath);
+            dinoFile.LoadResults();
+
+            // Check that all required properties are populated for the first entry
+            var first = dinoFile.Results.First();
+
+            var firstIMs1Feature = dinoFile.GetMs1Features().First();
+            Assert.That(first, Is.EqualTo(firstIMs1Feature), "First entry from Results should match first from GetMs1Features().");
         }
 
         [Test]
