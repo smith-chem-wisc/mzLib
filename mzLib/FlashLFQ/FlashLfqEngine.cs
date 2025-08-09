@@ -1013,7 +1013,7 @@ namespace FlashLFQ
                                 }
                                 else
                                 {
-                                    windowWidth += 0.5;
+                                    windowWidth *= 2;
                                 }
                             }
 
