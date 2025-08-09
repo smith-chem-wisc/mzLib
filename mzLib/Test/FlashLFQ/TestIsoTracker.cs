@@ -15,7 +15,7 @@ using MzLibUtil;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 
-namespace Test
+namespace Test.FlashLFQ
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -434,7 +434,7 @@ namespace Test
             //Peak setting: normal disstriubtion with mean 20 and standard deviation 0.6
             var peak = new Normal(20, 0.6);
             double peakFindingMass = 100.0;
-            List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0).ToList(); //The timeLine from 10 to 30 mins
+            List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + t / 10.0).ToList(); //The timeLine from 10 to 30 mins
 
             List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
@@ -456,7 +456,7 @@ namespace Test
             //Peak setting: normal disstriubtion with mean 20 and standard deviation 0.6
             var peak = new Normal(20, 0.6);
             double peakFindingMass = 100.0;
-            List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0).ToList(); //The timeLine from 10 to 30 mins
+            List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + t / 10.0).ToList(); //The timeLine from 10 to 30 mins
 
             List<IIndexedPeak> peaks = new List<IIndexedPeak>();
             for (int k = 0; k < 200; k++)
@@ -624,7 +624,7 @@ namespace Test
             //One shared peak should contain the Apex at 20 min.
 
             //The timeLine from 10 to 30 mins
-            List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + (double)t / 10.0)
+            List<double> timesPoints = Enumerable.Range(0, 200).Select(t => 10 + t / 10.0)
                         .ToList();
 
             List<double> intensities_P1 = new List<double>();
@@ -636,9 +636,9 @@ namespace Test
             // Create three peaks with different retention times
             for (int k = 0; k < 200; k++)
             {
-                intensities_P1.Add((peak.Density(timesPoints[k])));
-                intensities_P2.Add((peak.Density(timesPoints[k] - 3)));
-                intensities_P3.Add((peak.Density(timesPoints[k] + 3)));
+                intensities_P1.Add(peak.Density(timesPoints[k]));
+                intensities_P2.Add(peak.Density(timesPoints[k] - 3));
+                intensities_P3.Add(peak.Density(timesPoints[k] + 3));
             }
 
             List<IIndexedPeak> p1List = new List<IIndexedPeak>(); // create the timepoints
@@ -764,7 +764,7 @@ namespace Test
             }
 
             // Test there is no crush while turning on the whole searching options
-            Assert.DoesNotThrow(() =>
+            NUnit.Framework.Assert.DoesNotThrow(() =>
             {
                 var engine = new FlashLfqEngine(ids,
                     matchBetweenRuns: true,
@@ -777,7 +777,7 @@ namespace Test
             });
 
             // Test there is no crush while turning on the IsoTracker and MBR
-            Assert.DoesNotThrow(() =>
+            NUnit.Framework.Assert.DoesNotThrow(() =>
             {
                 var engine = new FlashLfqEngine(ids,
                     matchBetweenRuns: true,
