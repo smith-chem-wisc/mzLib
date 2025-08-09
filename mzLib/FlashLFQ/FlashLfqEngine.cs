@@ -18,7 +18,6 @@ using System.Threading;
 using FlashLFQ.Interfaces;
 using MassSpectrometry;
 
-[assembly: InternalsVisibleTo("TestFlashLFQ")]
 [assembly: InternalsVisibleTo("Test")]
 
 namespace FlashLFQ
