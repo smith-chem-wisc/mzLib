@@ -8,8 +8,17 @@ namespace Readers
     /// <summary>
     /// A class representing a single entry in a .feature.tsv file, the output from Dinosaur
     /// </summary>
-    public class DinosaurFeature
+    public class DinosaurFeature : ISingleChargeMs1Feature
     {
+        #region IMs1FeatureProperties
+
+        public double RetentionTimeStart => RtStart;
+        public double RetentionTimeEnd => RtEnd;
+        public double Intensity => IntensityApex;
+        public int? NumberOfIsotopes => NIsotopes;
+
+        #endregion
+
         [Ignore]
         public static CsvConfiguration CsvConfiguration => new CsvConfiguration(CultureInfo.InvariantCulture)
         {
