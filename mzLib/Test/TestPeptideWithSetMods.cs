@@ -18,7 +18,6 @@ using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Transcriptomics;
-using System.Windows.Markup;
 
 namespace Test
 {
