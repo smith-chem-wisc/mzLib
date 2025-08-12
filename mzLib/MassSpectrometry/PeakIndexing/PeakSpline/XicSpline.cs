@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics;
+using System.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace MassSpectrometry
 {
@@ -52,16 +54,16 @@ namespace MassSpectrometry
             }
             else
             {
-                peakRts = xic.Peaks.Select(p => (float)p.RetentionTime).ToArray();
+                peakRts = xic.Peaks.Select(p => p.RetentionTime).ToArray();
             }
-            var peakIntensities = xic.Peaks.Select(p => (float)p.Intensity).ToArray();
+            var peakIntensities = xic.Peaks.Select(p => p.Intensity).ToArray();
             xic.XYData = GetXicSplineData(peakRts, peakIntensities, start, end);
         }
 
         /// <summary>
         /// Check if the input arrays meet the requirements of interpolation.
         /// </summary>
-        protected void CheckArrays(double[] rtArray, double[] intensityArray)
+        protected void CheckArrays<T>(T[] rtArray, T[] intensityArray) where T : INumber<T>
         {
             if (rtArray.Length != intensityArray.Length)
             {

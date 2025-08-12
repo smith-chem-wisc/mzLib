@@ -135,6 +135,10 @@ namespace Test
             var intensityArray2 = new float[] { 100, 200, 300, 400, 500 };
             var ex2 = Assert.Throws<MzLibException>(() => cubicSpline.GetXicSplineData(rtArray, intensityArray2, 1.0, 1.2));
             Assert.That(ex2.Message, Is.EqualTo("Input arrays must have the same length."));
+
+            var Bspline = new Bspline(4, 10);
+            var ex3 = Assert.Throws<MzLibException>(() => Bspline.GetXicSplineData(rtArray, intensityArray));
+            Assert.That(ex3.Message, Is.EqualTo("The number of points in the input array must be greater than the degree of the Bspline."));
         }
 
         [Test]
@@ -305,6 +309,32 @@ namespace Test
             Assert.That(xic.EndRT, Is.EqualTo(peaks.First().RetentionTime));
             Assert.That(xic.AveragedMassOrMz, Is.EqualTo(peaks.First().M).Within(0.0001));
             Assert.That(xic.ApexPeak.Intensity, Is.EqualTo(peaks.First().Intensity));
+        }
+
+        [Test]
+        public static void TestBspline()
+        {
+            double[] intensityMultipliers = { 1, 2, 3, 2, 1 };
+            var peakList = new List<IIndexedPeak>();
+            for (int i = 0; i < intensityMultipliers.Length; i++)
+            {
+                peakList.Add(new IndexedMassSpectralPeak(intensity: 1e6 * intensityMultipliers[i], retentionTime: 1 + i / 10.0, zeroBasedScanIndex: i, mz: 500.0));
+            }
+            var xic = new ExtractedIonChromatogram(peakList);
+            var bspline1 = new Bspline(1, 50);
+            bspline1.SetXicSplineXYData(xic);
+            //When the smoothing degree is 1, it is equivalent to linear spline, so the apex of the interpolated points should be the same as the original xic
+            Assert.That(xic.XYData.MaxBy(p => p.Item2).Item1, Is.EqualTo(xic.ApexRT).Within(0.0001));
+            Assert.That(xic.XYData.Max(p => p.Item2), Is.EqualTo(xic.Peaks.Max(p => p.Intensity)).Within(0.0001));
+
+            var bspline2 = new Bspline(2, 150);
+            bspline2.SetXicSplineXYData(xic);
+            //When the smoothing degree is 2 the apex should still be around the original apex RT
+            Assert.That(xic.XYData.MaxBy(p => p.Item2).Item1, Is.EqualTo(xic.ApexRT).Within(0.001));
+
+            //The start and end RT should always stay the same
+            Assert.That(xic.XYData.First().Item1, Is.EqualTo(xic.StartRT).Within(0.0001));
+            Assert.That(xic.XYData.Last().Item1, Is.EqualTo(xic.EndRT).Within(0.0001));
         }
     }
 }
