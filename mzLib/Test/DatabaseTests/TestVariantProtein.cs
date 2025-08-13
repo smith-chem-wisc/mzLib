@@ -13,6 +13,8 @@ using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics;
 using Transcriptomics;
+using MassSpectrometry;
+using Chemistry;
 
 namespace Test.DatabaseTests
 {
@@ -583,6 +585,46 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, decoyMods.Count);
             Assert.AreEqual(0, negativeResidues.Count);
 
+        }
+        [Test]
+        public void WriteProteinXmlWithVariantsDiscoveredAsModifications()
+        {
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications);
+            var target = proteins[0];
+            
+            ModificationMotif.TryGetMotif("W", out ModificationMotif motifW);
+            string _originalId = "W->G";
+            string _accession = null;
+            string _modificationType = "1 nucleotide substitution";
+            string _featureType = null;
+            ModificationMotif _target = motifW;
+            string _locationRestriction = "Anywhere.";
+            ChemicalFormula _chemicalFormula = null;
+            double? _monoisotopicMass = null;
+            Dictionary < string, IList<string> > _databaseReference = null;
+            Dictionary < string, IList<string> > _taxonomicRange = null;
+            List<string> _keywords = null;
+            Dictionary < DissociationType, List<double> > _neutralLosses = null;
+            Dictionary < DissociationType, List<double> > _diagnosticIons = null;
+            string _fileOrigin = null;
+
+            Modification substitutionMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
+                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins = new();
+            Tuple<int, Modification> modTuple = new Tuple<int, Modification>(87, substitutionMod);
+            if (!additionalModsToAddToProteins.ContainsKey(target.Accession))
+            {
+                additionalModsToAddToProteins[target.Accession] = new HashSet<Tuple<int, Modification>>() { modTuple};
+            }
+            //string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
+            string rewriteDbName = @"C:\Users\trish\Downloads\rewrite.xml";
+            ProteinDbWriter.WriteXmlDatabase(additionalModsToAddToProteins, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
+            proteins = ProteinDbLoader.LoadProteinXML(rewriteDbName, true,
+                DecoyType.Reverse, null, false, null, out unknownModifications);
+            target = proteins[0];
         }
     }
 }

@@ -11,6 +11,8 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
 using System.Data;
+using Easy.Common;
+using System.Xml.Linq;
 
 namespace UsefulProteomicsDatabases
 {
@@ -28,7 +30,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="bioPolymerList">A list of RNA sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
         /// <returns>A dictionary of new modification residue entries.</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(
+        public static Dictionary<Modification, int> WriteXmlDatabase(
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
             List<IBioPolymer> bioPolymerList, string outputFileName)
         {
@@ -48,7 +50,7 @@ namespace UsefulProteomicsDatabases
         /// Several chunks of code are commented out. These are blocks that are intended to be implmented in the future, but
         /// are not necessary for the bare bones implementation of Transcriptomics
         /// </remarks>
-        public static Dictionary<string, int> WriteXmlDatabase(
+        public static Dictionary<Modification, int> WriteXmlDatabase(
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
             List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
         {
@@ -63,7 +65,7 @@ namespace UsefulProteomicsDatabases
                 IndentChars = "  "
             };
 
-            Dictionary<string, int> newModResEntries = new Dictionary<string, int>();
+            Dictionary<Modification, int> newModResEntries = new Dictionary<Modification, int>();
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
                 writer.WriteStartDocument();
@@ -192,11 +194,11 @@ namespace UsefulProteomicsDatabases
 
                     foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
-                        foreach (var modId in hm.Value)
+                        foreach (var mod in hm.Value)
                         {
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", modId);
+                            writer.WriteAttributeString("description", mod.IdWithMotif);
                             writer.WriteStartElement("location");
                             writer.WriteStartElement("position");
                             writer.WriteAttributeString("position", hm.Key.ToString(CultureInfo.InvariantCulture));
@@ -235,11 +237,11 @@ namespace UsefulProteomicsDatabases
                         }
                         foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
-                            foreach (var modId in hmm.Value)
+                            foreach (var mod in hmm.Value)
                             {
                                 writer.WriteStartElement("subfeature");
                                 writer.WriteAttributeString("type", "modified residue");
-                                writer.WriteAttributeString("description", modId);
+                                writer.WriteAttributeString("description", mod.IdWithMotif);
                                 writer.WriteStartElement("location");
                                 writer.WriteStartElement("subposition");
                                 writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
@@ -297,7 +299,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+        public static Dictionary<Modification, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
             List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
@@ -311,8 +313,8 @@ namespace UsefulProteomicsDatabases
                 IndentChars = "  "
             };
 
-            Dictionary<string, int> newModResEntries = new Dictionary<string, int>();
-
+            Dictionary<Modification, int> newModResEntries = new Dictionary<Modification, int>();
+            Dictionary<Modification, int> newSubstitutionResEntries = new Dictionary<Modification, int>();
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
                 writer.WriteStartDocument();
@@ -339,7 +341,11 @@ namespace UsefulProteomicsDatabases
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
                                 .Contains(kv.Key))
                             .SelectMany(kv => kv.Value.Select(v => v.Item2))));
-
+                
+                HashSet<Modification> aminoAcidSubstitutionModifications = new HashSet<Modification>(
+                                       myModificationList.Where(m => m.ModificationType.Contains("nucleotide substitution")));
+                allRelevantModifications.RemoveWhere(m => aminoAcidSubstitutionModifications.Contains(m));
+                
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
                     writer.WriteStartElement("modification");
@@ -447,14 +453,39 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                         writer.WriteEndElement();
                     }
+                    // Write sequence variants and modifications for the protein
+                    // Note all variants placed in the modifications dictionary are nucleotide substitutions found in GPTMD
+                    // and will be written to the sequence variant features with the description "GPTMD Discovery"
+                    foreach (var positionModKvp in GetVariantsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newSubstitutionResEntries).OrderBy(b => b.Key))
+                    {
+                        foreach (var modification in positionModKvp.Value.OrderBy(mod => mod))
+                        {
+                            writer.WriteStartElement("feature");
+                            writer.WriteAttributeString("type", "sequence variant");
+                            writer.WriteAttributeString("description", "GPTMD Discovery");
+                            string[] OriginalAndSubstitutedAminoAcids = modification.OriginalId.Split("->").ToArray();
 
+                            writer.WriteStartElement("original");
+                            writer.WriteString(OriginalAndSubstitutedAminoAcids[0]);
+                            writer.WriteEndElement(); // original
+                            writer.WriteStartElement("variation");
+                            writer.WriteString(OriginalAndSubstitutedAminoAcids[1]);
+                            writer.WriteEndElement(); // variation
+                            writer.WriteStartElement("location");
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
+                            writer.WriteEndElement();
+                            writer.WriteEndElement();
+                            writer.WriteEndElement();
+                        }
+                    }
                     foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
-                        foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
+                        foreach (var mod in positionModKvp.Value.OrderBy(mod => mod))
                         {
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", modId);
+                            writer.WriteAttributeString("description", mod.IdWithMotif);
                             writer.WriteStartElement("location");
                             writer.WriteStartElement("position");
                             writer.WriteAttributeString("position", positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
@@ -494,11 +525,11 @@ namespace UsefulProteomicsDatabases
                         }
                         foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
-                            foreach (var modId in hmm.Value.OrderBy(mod => mod))
+                            foreach (var mod in hmm.Value.OrderBy(mod => mod))
                             {
                                 writer.WriteStartElement("subfeature");
                                 writer.WriteAttributeString("type", "modified residue");
-                                writer.WriteAttributeString("description", modId);
+                                writer.WriteAttributeString("description", mod.IdWithMotif);
                                 writer.WriteStartElement("location");
                                 writer.WriteStartElement("subposition");
                                 writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
@@ -602,19 +633,20 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<string, int> newModResEntries)
+        private static Dictionary<int, HashSet<Modification>> GetModsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<Modification, int> newModResEntries)
         {
-            var modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
+            var modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<Modification>>();
 
             var primaryModDict = seqvar == null ? protein.OneBasedPossibleLocalizedModifications : seqvar.OneBasedModifications;
             foreach (var mods in primaryModDict)
             {
-                foreach (var mod in mods.Value)
+                List<Modification> nonSubstitutionMods = mods.Value.Where(m => !m.ModificationType.Contains("nucleotide substitution")).ToList();
+                foreach (var mod in nonSubstitutionMods)
                 {
-                    if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<string> val))
-                        val.Add(mod.IdWithMotif);
+                    if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<Modification> val))
+                        val.Add(mod);
                     else
-                        modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { mod.IdWithMotif });
+                        modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<Modification> { mod });
                 }
             }
 
@@ -624,11 +656,72 @@ namespace UsefulProteomicsDatabases
                 foreach (var ye in additionalModsToAddToProteins[accession])
                 {
                     int additionalModResidueIndex = ye.Item1;
-                    string additionalModId = ye.Item2.IdWithMotif;
+                    Modification additionalMod = ye.Item2;
+                    bool modAdded = false;
+                    if (additionalMod.ModificationType.Contains("nucleotide substitution"))
+                    {
+                        // If the modification is a nucleotide substitution, we will not write it to the residue modifications
+                        // but rather to the sequence variation modifications.
+                        continue;
+                    }
+                    // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
+                    if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<Modification> val))
+                    {
+                        // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
+                        modAdded = val.Add(additionalMod);
+                    }
+
+                    // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
+                    else
+                    {
+                        modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<Modification> { additionalMod });
+                        modAdded = true;
+                    }
+
+                    // Finally, if a new modification has in fact been deemed worthy of being added to the database, mark that in the output dictionary
+                    if (modAdded)
+                    {
+                        if (newModResEntries.ContainsKey(additionalMod))
+                        {
+                            newModResEntries[additionalMod]++;
+                        }
+                        else
+                        {
+                            newModResEntries.Add(additionalMod, 1);
+                        }
+                    }
+                }
+            }
+            return modsToWriteForThisSpecificProtein;
+        }
+        private static Dictionary<int, HashSet<Modification>> GetVariantsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<Modification, int> newModResEntries)
+        {
+            var variantsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<Modification>>();
+
+            var primaryModDict = seqvar == null ? protein.OneBasedPossibleLocalizedModifications : seqvar.OneBasedModifications;
+            foreach (var mods in primaryModDict)
+            {
+                List<Modification> substitutionMods = mods.Value.Where(m => m.ModificationType.Contains("nucleotide substitution")).ToList();
+                foreach (var mod in substitutionMods)
+                {
+                    if (variantsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<Modification> val))
+                        val.Add(mod);
+                    else
+                        variantsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<Modification> { mod });
+                }
+            }
+            string accession = seqvar == null ? protein.Accession : VariantApplication.GetAccession(protein, new[] { seqvar });
+            if (additionalModsToAddToProteins.ContainsKey(accession))
+            {
+                foreach (var ye in additionalModsToAddToProteins[accession])
+                {
+                    if (!ye.Item2.ModificationType.Contains("nucleotide substitution")) continue;
+                    int additionalModResidueIndex = ye.Item1;
+                    Modification additionalModId = ye.Item2;
                     bool modAdded = false;
 
                     // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
-                    if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
+                    if (variantsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<Modification> val))
                     {
                         // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
                         modAdded = val.Add(additionalModId);
@@ -637,7 +730,7 @@ namespace UsefulProteomicsDatabases
                     // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
                     else
                     {
-                        modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
+                        variantsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<Modification> { additionalModId });
                         modAdded = true;
                     }
 
@@ -655,7 +748,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
-            return modsToWriteForThisSpecificProtein;
+            return variantsToWriteForThisSpecificProtein;
         }
     }
 }
