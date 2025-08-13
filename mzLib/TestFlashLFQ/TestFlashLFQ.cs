@@ -2191,7 +2191,7 @@ namespace Test
             //This tests if the length of XIC is limited by the maxRT parameter. Peak finding starts at mz 1000.003 from scan4 and maxRT limit is set to 0.15.
             //Without RT limit, the XIC would find 5 peaks, but with the limit, the peak from scan1 and 2 (because scan4.RT - scan2.RT = 0.2 and 0.2 > 0.15) will be excluded.
             var indexedPeaks = PeakIndexingEngine.InitializeIndexingEngine(scans);
-            var xic = indexedPeaks.GetXic(1000.003, 3, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
+            var xic = indexedPeaks.GetXicByScanIndex(1000.003, 3, new PpmTolerance(10), 2, maxPeakHalfWidth: 0.15);
             Assert.That(xic.Count == 3);
             Assert.That(xic.First().M == 1000.002f);
         }

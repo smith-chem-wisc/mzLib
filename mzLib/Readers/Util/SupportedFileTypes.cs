@@ -9,6 +9,7 @@ namespace Readers
         TopFDMzrt,
         Ms1Tsv_FlashDeconv,
         Tsv_FlashDeconv,
+        Tsv_Dinosaur,
         ThermoRaw,
         MzML,
         Mgf,
@@ -49,6 +50,7 @@ namespace Readers
                 SupportedFileType.Ms2Feature => "_ms2.feature",
                 SupportedFileType.TopFDMzrt => ".mzrt.csv",
                 SupportedFileType.Ms1Tsv_FlashDeconv => "_ms1.tsv",
+                SupportedFileType.Tsv_Dinosaur => ".feature.tsv",
                 SupportedFileType.Tsv_FlashDeconv => ".tsv",
                 SupportedFileType.ThermoRaw => ".raw",
                 SupportedFileType.MzML => ".mzML",
@@ -87,7 +89,7 @@ namespace Readers
                     var fileList = Directory.GetFiles(filePath).Select(p => Path.GetFileName(p));
                     if (fileList.Any(file => file == "analysis.baf"))
                         return SupportedFileType.BrukerD;
-                    if (fileList.Any(file => file == "analysis.tdf"))
+                    if (fileList.Any(file => file == "analysis.tdf" || file == "analysis.tsf"))
                         return SupportedFileType.BrukerTimsTof;
                     throw new MzLibException("Bruker file type not recognized");
 
@@ -139,10 +141,12 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTAllResults;
                     if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ExperimentAnnotation;
+                    if(filePath.EndsWith(SupportedFileType.Tsv_Dinosaur.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.Tsv_Dinosaur;
 
-                    // these tsv cases are just .tsv and need an extra step to determine the type
-                    // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
-                    using var sw = new StreamReader(filePath);
+                        // these tsv cases are just .tsv and need an extra step to determine the type
+                        // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
+                        using var sw = new StreamReader(filePath);
                     var firstLine = sw.ReadLine() ?? "";
                     if (firstLine == "") throw new MzLibException("Tsv file is empty");
 
@@ -184,6 +188,7 @@ namespace Readers
                 SupportedFileType.TopFDMzrt => typeof(TopFDMzrtFile),
                 SupportedFileType.Ms1Tsv_FlashDeconv => typeof(FlashDeconvMs1TsvFile),
                 SupportedFileType.Tsv_FlashDeconv => typeof(FlashDeconvTsvFile),
+                SupportedFileType.Tsv_Dinosaur => typeof(DinosaurTsvFile),
                 SupportedFileType.psmtsv => typeof(PsmFromTsvFile),
                 SupportedFileType.osmtsv => typeof(OsmFromTsvFile),
                 SupportedFileType.ToppicPrsm => typeof(ToppicSearchResultFile),
