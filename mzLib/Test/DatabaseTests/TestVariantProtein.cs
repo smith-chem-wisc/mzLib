@@ -584,5 +584,14 @@ namespace Test.DatabaseTests
             Assert.AreEqual(0, negativeResidues.Count);
 
         }
+
+        [Test]
+        public static void TestVariantLoading()
+        {
+            var xmlDb = @"E:\Aneuploidy\uniprotkb_taxonomy_id_559292_AND_review_2024_08_16.xml";
+            var fastaDb = @"E:\Aneuploidy\uniprotkb_taxonomy_id_559292_AND_review_2024_10_02.fasta";
+            var xmlProteins = ProteinDbLoader.LoadProteinXML(xmlDb, true, DecoyType.None, null, false, null, out var unknownModifications);
+            var fastaProteins = ProteinDbLoader.LoadProteinFasta(fastaDb, true, DecoyType.None, false, out List<string> errors);
+        }
     }
 }

@@ -88,11 +88,24 @@ namespace Omics.BioPolymer
         public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
             where TBioPolymerType : IHasSequenceVariants
         {
+            var originalProtein = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts, protein.OneBasedPossibleLocalizedModifications, null);
+            var returnList = new List<TBioPolymerType> { originalProtein };
+            if (sequenceVariations.IsNullOrEmpty()) return returnList;
+            else
+            {
+                foreach(var variant in sequenceVariations)
+                {
+                    var variantProtein = protein.CreateVariant(variant.VariantSequence, protein, null, protein.TruncationProducts, variant.OneBasedModifications, null);
+                    returnList.Add(variantProtein);
+                }
+            }
+            return returnList;
+
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
                 .GroupBy(v => v.SimpleString())
                 .Select(x => x.First())
-                //.Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
-                //.OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
+                .Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
+                .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
                 .ToList();
 
             TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts, protein.OneBasedPossibleLocalizedModifications, null);
