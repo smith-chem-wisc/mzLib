@@ -28,6 +28,7 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class MsDataFile : IEnumerable<MsDataScan>
     {
+        protected readonly object DynamicReadingLock = new();
         public MsDataScan[] Scans { get; protected set; }
         public SourceFile SourceFile { get; set; }
         public int NumSpectra => Scans?.Length ?? 0;
