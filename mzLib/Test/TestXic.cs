@@ -11,12 +11,13 @@ using MassSpectrometry;
 using Microsoft.ML.Transforms;
 using MathNet.Numerics.Distributions;
 using System.Collections;
+using Proteomics.AminoAcidPolymer;
 
 namespace Test
 {
     public class TestXic
     {
-        public static MsDataScan[] FakeScans { get; set; }
+        public static MsDataScan[] testScans { get; set; }
         public static IsotopicDistribution Dist { get; set; }
         public static List<IIndexedPeak> PeakList { get; set; } 
 
@@ -26,26 +27,26 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            FakeScans = new MsDataScan[10];
+            testScans = new MsDataScan[10];
             double[] intensityMultipliers = { 1, 3, 1, 1, 3, 5, 10, 5, 3, 1 };
             ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
             Dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
 
             // Create mzSpectra where two peaks appear very close together
-            for (int s = 0; s < FakeScans.Length; s++)
+            for (int s = 0; s < testScans.Length; s++)
             {
                 double[] mz = Dist.Masses.SelectMany(v => new List<double> { v.ToMz(1), (v + 0.0001).ToMz(1) }).ToArray();
                 double[] intensities = Dist.Intensities.SelectMany(v => new List<double> { v * intensity * intensityMultipliers[s], v * intensity }).ToArray();
 
                 // add the scan
-                FakeScans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                testScans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
                     polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
                     mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
 
             //Example XIC
-            var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(FakeScans);
-            PeakList = peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
+            var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
+            PeakList = peakIndexEngine.GetXicByScanIndex(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1);
         }
 
         [Test]
@@ -60,7 +61,8 @@ namespace Test
             Assert.That(xic.StartRT, Is.EqualTo(1.0f));
             Assert.That(xic.EndRT, Is.EqualTo(1.9f));
             var mass = Dist.Masses.First().ToMz(1);
-            Assert.That(xic.AveragedM, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0001));
+            Assert.That(xic.AveragedMassOrMz, Is.EqualTo(Dist.Masses.First().ToMz(1)).Within(0.0001));
+            Assert.That(xic.ApexPeak.Intensity, Is.EqualTo(Dist.Intensities.First() * 1e6 * 10).Within(1));
 
             //Test normalized peak intensities
             xic.SetNormalizedPeakIntensities();
@@ -78,9 +80,9 @@ namespace Test
             var cubicSpline = new XicCubicSpline(0.05);
             var linearSpline = new XicLinearSpline(0.05);
             cubicSpline.SetXicSplineXYData(xic);
-            Assert.That(xic.XYData.Length, Is.EqualTo(18)); // Because the last time point will be stored as 18.999999 (origin 19) while convert the float to double. 
-            linearSpline.SetXicSplineXYData(xic);                            // Then we will lose one numPoint (19 to 18) in the XYData. 
-            Assert.That(xic.XYData.Length, Is.EqualTo(18));
+            Assert.That(xic.XYData.Length, Is.EqualTo(19)); 
+            linearSpline.SetXicSplineXYData(xic);  
+            Assert.That(xic.XYData.Length, Is.EqualTo(19));
             //in scan cycle
             cubicSpline.SetXicSplineXYData(xic, cycle: true);
             Assert.That(xic.XYData.Length, Is.EqualTo(181));
@@ -89,7 +91,7 @@ namespace Test
             var cubicSpline2 = new XicCubicSpline(0.05, 1, 0.1);
             cubicSpline2.SetXicSplineXYData(xic);
             Assert.That(xic.XYData.Min(xy => xy.Item1), Is.EqualTo(0.9).Within(0.0000001));
-            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(1.95).Within(0.0000001)); // Because we lost one numPoint, then last point will be 1.95 instead of original value 2.0.
+            Assert.That(xic.XYData.Max(xy => xy.Item1), Is.EqualTo(2.0).Within(0.0000001)); 
 
             //ensure that add peaks works correctly
             var peakList1 = new List<IIndexedPeak>();
@@ -139,17 +141,18 @@ namespace Test
         public static void TestGetAllXics()
         {
             //Test case using FakeScans
-            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(FakeScans);
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
             var xics = indexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
             Assert.That(xics.Count, Is.EqualTo(20));
             foreach(var xic in xics)
             {
                 Assert.That(xic.Peaks.Count, Is.EqualTo(10));
             }
+
             //Test with massIndexingEngine
             var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
-            var allMasses = Deconvoluter.Deconvolute(FakeScans[0].MassSpectrum, deconParameters);
-            var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(FakeScans, deconParameters);
+            var allMasses = Deconvoluter.Deconvolute(testScans[0].MassSpectrum, deconParameters);
+            var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(testScans, deconParameters);
             var massXics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
             Assert.That(massXics.Count, Is.EqualTo(2));
             foreach (var mass in allMasses)
@@ -162,7 +165,7 @@ namespace Test
             }
 
             //Test if there are three missed scans in the middle
-            var fakeScans2 = (MsDataScan[])FakeScans.Clone();
+            var fakeScans2 = (MsDataScan[])testScans.Clone();
             var missedIndices = new List<int> { 3, 4, 5 }; //the ten scnas would be 1,1,1,0,0,0,1,1,1,1
             foreach(var s in missedIndices)
             {
@@ -173,12 +176,13 @@ namespace Test
             var indexingEngine2 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans2);
             var xics2 = indexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
             Assert.That(xics2.Count, Is.EqualTo(40)); //the first three scans and the last four scans will each contain two XICs
+            Assert.That(xics2.SequenceEqual(xics2.OrderByDescending(x => x.ApexPeak.Intensity)));//make sure the XICs are ordered by descending apex intensity
             //Test with massIndexingEngine
             var massIndexingEngine2 = MassIndexingEngine.InitializeMassIndexingEngine(fakeScans2, deconParameters);
             var massXics2 = massIndexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
             Assert.That(massXics2.Count, Is.EqualTo(4));
 
-            var fakeScans3 = (MsDataScan[])FakeScans.Clone();
+            var fakeScans3 = (MsDataScan[])testScans.Clone();
             var missedIndices2 = new List<int> { 2, 3, 4 }; //the ten scnas would be 1,1,0,0,0,1,1,1,1,1
             foreach (var s in missedIndices2)
             {
@@ -252,11 +256,55 @@ namespace Test
         }
 
         [Test]
+        public static void TestGetAllXicsWithCutPeak()
+        {
+            var testScans = new MsDataScan[10];
+            //make all peak traces to have two apex at the third and the eighth scan
+            double[] intensityMultipliers = { 1, 2, 6, 2, 1, 1.1, 2, 8, 2, 1.1 };
+            var intensity = 1e6;
+
+            for (int s = 0; s < testScans.Length; s++)
+            {
+                double[] mz = Dist.Masses.SelectMany(v => new List<double> { v.ToMz(1) }).ToArray();
+                double[] intensities = Dist.Intensities.SelectMany(v => new List<double> { v * intensity * intensityMultipliers[s] }).ToArray();
+                testScans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
+            var xics = indexingEngine.GetAllXics(new PpmTolerance(5), 2, 3, 3);
+            // 10 XICs should be found without peak cutting, each containing 10 peaks
+            Assert.That(xics.Count(), Is.EqualTo(10)); 
+            Assert.That(xics.All(x => x.Peaks.Count == 10), Is.True);
+            //The XICs should have an apex at the eighth scan
+            Assert.That(xics.All(x => x.ApexScanIndex == 7), Is.True);
+
+            var xicsWithCutPeak = indexingEngine.GetAllXics(new PpmTolerance(5), 2, 3, 3, 0.6);
+            // since each original XIC contain two apex, cutting peaks should double the number of XICs found and each XIC should contain 5 peaks now
+            Assert.That(xicsWithCutPeak.Count(), Is.EqualTo(20));
+            Assert.That(xicsWithCutPeak.All(x => x.Peaks.Count == 5), Is.True);
+            // The XICs should have an apex at either the third or the eighth scan
+            Assert.That(xicsWithCutPeak.All(x => x.ApexScanIndex == 2 || x.ApexScanIndex == 7), Is.True);
+        }
+
+        [Test]
         public static void TestMassXicExceptionHandling()
         {
-            var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(FakeScans);
-            var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXic(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
+            var peakIndexEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
+            var ex = Assert.Throws<MzLibException>(() => peakIndexEngine.GetXicByScanIndex(Dist.Masses.First().ToMz(1), zeroBasedStartIndex: 4, new PpmTolerance(20), 1, 10, 1));
             Assert.That(ex.Message, Is.EqualTo("Error: Attempted to access a peak using a charge parameter, but the peaks do not have charge information available."));
+        }
+
+        [Test]
+        public static void TestXicOnePeak()
+        {
+            var peaks = new List<IIndexedPeak> { new IndexedMassSpectralPeak(intensity: 10, retentionTime: 1, zeroBasedScanIndex: 0, mz: 500.0) };
+            var xic = new ExtractedIonChromatogram(peaks);
+            Assert.That(xic.Peaks.Count, Is.EqualTo(1));
+            Assert.That(xic.ApexRT, Is.EqualTo(peaks.First().RetentionTime));
+            Assert.That(xic.ApexScanIndex, Is.EqualTo(peaks.First().ZeroBasedScanIndex));
+            Assert.That(xic.StartRT, Is.EqualTo(peaks.First().RetentionTime));
+            Assert.That(xic.EndRT, Is.EqualTo(peaks.First().RetentionTime));
+            Assert.That(xic.AveragedMassOrMz, Is.EqualTo(peaks.First().M).Within(0.0001));
+            Assert.That(xic.ApexPeak.Intensity, Is.EqualTo(peaks.First().Intensity));
         }
     }
 }
