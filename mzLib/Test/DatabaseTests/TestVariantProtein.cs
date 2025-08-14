@@ -592,6 +592,8 @@ namespace Test.DatabaseTests
             var fastaDb = @"E:\Aneuploidy\uniprotkb_taxonomy_id_559292_AND_review_2024_10_02.fasta";
             var xmlProteins = ProteinDbLoader.LoadProteinXML(xmlDb, true, DecoyType.None, null, false, null, out var unknownModifications);
             var fastaProteins = ProteinDbLoader.LoadProteinFasta(fastaDb, true, DecoyType.None, false, out List<string> errors);
+
+            var xmlPeptides = xmlProteins.Select(p => p.Digest(new DigestionParams(), null, null)).SelectMany(p => p).ToList();
         }
     }
 }

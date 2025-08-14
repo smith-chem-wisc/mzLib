@@ -95,7 +95,7 @@ namespace Omics.BioPolymer
             {
                 foreach(var variant in sequenceVariations)
                 {
-                    var variantProtein = protein.CreateVariant(variant.VariantSequence, protein, null, protein.TruncationProducts, variant.OneBasedModifications, null);
+                    var variantProtein = ApplySingleVariant(variant, protein, null);
                     returnList.Add(variantProtein);
                 }
             }
