@@ -7,7 +7,7 @@ using FlashLFQ;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.IO;
 
-namespace Test
+namespace Test.FlashLFQ
 {
     public class TestIdentificationAdapter
     {
@@ -235,7 +235,7 @@ namespace Test
         {
             string psmFilename = "AllPSMs2.psmtsv";
 
-            var myDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
+            var myDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData");
             var pathOfIdentificationFile = Path.Combine(myDirectory, psmFilename);
             var pathOfMzml = Path.Combine(myDirectory, "SmallCalibratible_Yeast.mzML");
             SpectraFileInfo sfi = new SpectraFileInfo(pathOfMzml, "A", 1, 1, 1);
@@ -260,7 +260,7 @@ namespace Test
         {
             string psmFilename = "AllPSMsWNewFormat.psmtsv";
 
-            var myDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData");
+            var myDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData");
             var pathOfIdentificationFile = Path.Combine(myDirectory, psmFilename);
             var pathOfMzml = Path.Combine(myDirectory, "SmallCalibratibleYeast.mzML");
             SpectraFileInfo sfi = new SpectraFileInfo(pathOfMzml, "A", 1, 1, 1);

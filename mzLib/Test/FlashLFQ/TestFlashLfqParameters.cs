@@ -19,7 +19,7 @@ using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using TopDownProteomics;
 
-namespace TestFlashLfq
+namespace Test.FlashLFQ
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
