@@ -96,6 +96,7 @@ namespace Omics.BioPolymer
             }
             else
             {
+                variantProteins.Add(proteinCopy); 
                 var variantsWithGenotypeInfo = sequenceVariations.Where(v => v.Description.Genotypes.Count > 0).ToList();
                 var variantsWithoutGenotypeInfo = sequenceVariations.Where(v => v.Description.Genotypes.Count == 0).ToList();
                 foreach (var variant in variantsWithoutGenotypeInfo)
@@ -132,7 +133,6 @@ namespace Omics.BioPolymer
             foreach (string individual in individuals)
             {
                 newVariantProteins.Clear();
-                newVariantProteins.Add(proteinCopy);
 
                 bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
                 foreach (var variant in uniqueEffectsToApply)
