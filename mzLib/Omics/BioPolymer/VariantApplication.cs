@@ -96,9 +96,12 @@ namespace Omics.BioPolymer
             }
             else
             {
-                variantProteins.Add(proteinCopy); 
                 var variantsWithGenotypeInfo = sequenceVariations.Where(v => v.Description.Genotypes.Count > 0).ToList();
                 var variantsWithoutGenotypeInfo = sequenceVariations.Where(v => v.Description.Genotypes.Count == 0).ToList();
+                if (variantsWithGenotypeInfo.Count == 0)
+                {
+                    variantProteins.Add(proteinCopy);
+                }
                 foreach (var variant in variantsWithoutGenotypeInfo)
                 {
                     var variantProtein = ApplySingleVariant(variant, protein, null);
@@ -123,7 +126,7 @@ namespace Omics.BioPolymer
             // If there aren't any variants to apply, just return the base protein
             if (uniqueEffectsToApply.Count == 0)
             {
-                return new List<TBioPolymerType> { };
+                return new List<TBioPolymerType> { proteinCopy };
             }
 
             HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.Description.Genotypes.Keys));
@@ -133,6 +136,7 @@ namespace Omics.BioPolymer
             foreach (string individual in individuals)
             {
                 newVariantProteins.Clear();
+                newVariantProteins.Add(proteinCopy);
 
                 bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
                 foreach (var variant in uniqueEffectsToApply)
