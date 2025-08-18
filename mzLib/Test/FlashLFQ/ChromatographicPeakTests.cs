@@ -7,7 +7,7 @@ using System.Linq;
 using MassSpectrometry;
 using IsotopicEnvelope = FlashLFQ.IsotopicEnvelope;
 
-namespace Test
+namespace Test.FlashLFQ
 {
     public class ChromatographicPeakTests
     {

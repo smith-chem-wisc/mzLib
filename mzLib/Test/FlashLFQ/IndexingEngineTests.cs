@@ -11,7 +11,7 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MassSpectrometry;
 using Test.FileReadingTests;
 
-namespace Test
+namespace Test.FlashLFQ
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
