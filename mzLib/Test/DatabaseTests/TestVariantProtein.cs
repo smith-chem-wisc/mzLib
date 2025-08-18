@@ -583,31 +583,6 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, variantMods.Count);
             Assert.AreEqual(2, decoyMods.Count);
             Assert.AreEqual(0, negativeResidues.Count);
-
-        }
-
-        [Test]
-        public static void TestVariantLoading()
-        {
-            var xmlDb = @"E:\Aneuploidy\uniprotkb_taxonomy_id_559292_AND_review_2024_08_16.xml";
-            var fastaDb = @"E:\Aneuploidy\uniprotkb_taxonomy_id_559292_AND_review_2024_10_02.fasta";
-            var svDb = @"E:\Aneuploidy\DDA\071525\RtPredictionResults\mannual_modified100_variantsOnly.xml";
-
-            var xmlProteins = ProteinDbLoader.LoadProteinXML(xmlDb, true, DecoyType.None, null, false, null, out var unknownModifications);
-            var fastaProteins = ProteinDbLoader.LoadProteinFasta(fastaDb, true, DecoyType.None, false, out List<string> errors);
-            var svProteins = ProteinDbLoader.LoadProteinXML(svDb, true, DecoyType.None, null, false, null, out unknownModifications);
-
-            var xmlPeptides = xmlProteins.Select(p => p.Digest(new DigestionParams(), null, null)).SelectMany(p => p).ToList();
-            var svPeptides = svProteins.Select(p => p.Digest(new DigestionParams(), null, null)).SelectMany(p => p).ToList();
-        }
-
-        [Test]
-        public static void VariantResult()
-        {
-            var svPsmPath = @"E:\Aneuploidy\DDA\071525\RtPredictionResults\mannual_modified100_variants_xml\Task1-SearchTask\VariantPSMs.psmtsv";
-            var svPeptidePath = @"E:\Aneuploidy\DDA\071525\RtPredictionResults\mannual_modified100_variants_xml\Task1-SearchTask\VariantPeptides.psmtsv";
-            var svPsms = SpectrumMatchTsvReader.ReadPsmTsv(svPsmPath, out List<string> errors);
-            var svPeptides = SpectrumMatchTsvReader.ReadPsmTsv(svPeptidePath, out errors);
         }
     }
 }
