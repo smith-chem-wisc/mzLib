@@ -639,7 +639,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(87, v.OneBasedEndPosition);
             Assert.AreEqual("W", v.OriginalSequence);
             Assert.AreEqual("G", v.VariantSequence);
-
+            Assert.AreEqual("GPTMD Discovery", v.Description.Description);
             // Delete the folder and its contents
             if (Directory.Exists(tempFolderPath))
             {
