@@ -12,9 +12,12 @@ using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics;
+using Omics.Modifications;
 using Transcriptomics;
 using MassSpectrometry;
 using Chemistry;
+using UsefulProteomicsDatabases.Generated;
+using System.Formats.Tar;
 
 namespace Test.DatabaseTests
 {
@@ -566,9 +569,9 @@ namespace Test.DatabaseTests
             List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
             List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
             List<Protein> variantDecoys = decoys.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
-            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");           
+            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");
 
-            var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x=>x.OneBasedModifications.Count>= 1)).ToList();
+            var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
             var decoyMods = decoys.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
             var negativeResidues = decoyMods.SelectMany(x => x.OneBasedModifications.Where(w => w.Key < 0)).ToList();
             bool namingWrong = targets.Select(p => p.Accession).Contains("Q8N865_H300R_A158T_H300R");
@@ -605,21 +608,26 @@ namespace Test.DatabaseTests
             string _locationRestriction = "Anywhere.";
             ChemicalFormula _chemicalFormula = null;
             double? _monoisotopicMass = null;
-            Dictionary < string, IList<string> > _databaseReference = null;
-            Dictionary < string, IList<string> > _taxonomicRange = null;
+            Dictionary<string, IList<string>> _databaseReference = null;
+            Dictionary<string, IList<string>> _taxonomicRange = null;
             List<string> _keywords = null;
-            Dictionary < DissociationType, List<double> > _neutralLosses = null;
-            Dictionary < DissociationType, List<double> > _diagnosticIons = null;
+            Dictionary<DissociationType, List<double>> _neutralLosses = null;
+            Dictionary<DissociationType, List<double>> _diagnosticIons = null;
             string _fileOrigin = null;
 
             Modification substitutionMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
+                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+            _originalId = "Oxidation";
+            _modificationType = "Post-translational";
+            _monoisotopicMass = 15.994915;
+            Modification oxidationMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
                                _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins = new();
             Tuple<int, Modification> modTuple = new Tuple<int, Modification>(87, substitutionMod);
             if (!additionalModsToAddToProteins.ContainsKey(target.Accession))
             {
-                additionalModsToAddToProteins[target.Accession] = new HashSet<Tuple<int, Modification>>() { modTuple};
+                additionalModsToAddToProteins[target.Accession] = new HashSet<Tuple<int, Modification>>() { modTuple };
             }
 
             // Create a unique temporary folder
@@ -640,11 +648,178 @@ namespace Test.DatabaseTests
             Assert.AreEqual("W", v.OriginalSequence);
             Assert.AreEqual("G", v.VariantSequence);
             Assert.AreEqual("GPTMD Discovery", v.Description.Description);
+
+
+            var wPositions = new List<int>();
+            for (int i = 0; i < proteins[0].BaseSequence.Length; i++)
+            {
+                if (proteins[0].BaseSequence[i] == 'W')
+                {
+                    wPositions.Add(i + 1);
+                }
+            }
+            wPositions.Remove(87);
+            foreach (var wp in wPositions)
+            {
+                modTuple = new Tuple<int, Modification>(wp, substitutionMod);
+                additionalModsToAddToProteins[target.Accession] = new HashSet<Tuple<int, Modification>>() { modTuple };
+            }
+            modTuple = new Tuple<int, Modification>(87, oxidationMod);
+            additionalModsToAddToProteins[target.Accession].Add(modTuple);
+
+            ProteinDbWriter.WriteXmlDatabase(additionalModsToAddToProteins, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filePath));
+            proteins = ProteinDbLoader.LoadProteinXML(filePath, true,
+                DecoyType.Reverse, null, false, null, out unknownModifications);
+            target = proteins[0];
+
+            Assert.AreEqual(totalSequenceVariations + 2, target.SequenceVariations.Count()); //This number increases by 1 because we added a sequence variation that was discovered as a modification
+
             // Delete the folder and its contents
             if (Directory.Exists(tempFolderPath))
             {
                 Directory.Delete(tempFolderPath, true);
             }
+        }
+        [Test]
+        public void GetVariantsForThisBioPolymer_AddsNewModificationToNewResidue()
+        {
+            // Arrange
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications);
+            Protein target = proteins[0];
+            List<SequenceVariation> sequenceVariations = target.SequenceVariations.ToList();
+
+            var chars = target.BaseSequence.ToCharArray();
+
+            char firstChar = chars[sequenceVariations[0].OneBasedBeginPosition - 1];
+            char secondChar = chars[sequenceVariations[1].OneBasedBeginPosition - 1];
+
+            chars[sequenceVariations[0].OneBasedBeginPosition - 1] = sequenceVariations[0].VariantSequence[0];
+            chars[sequenceVariations[1].OneBasedBeginPosition - 1] = sequenceVariations[1].VariantSequence[0];
+
+            string variantSequence = new string(chars);
+
+            ModificationMotif.TryGetMotif("N", out ModificationMotif motifN);
+            string _originalId = "Oxidation";
+            string _accession = null;
+            string _modificationType = "Post-translational";
+            string _featureType = null;
+            ModificationMotif _target = motifN;
+            string _locationRestriction = "Anywhere.";
+            ChemicalFormula _chemicalFormula = null;
+            double? _monoisotopicMass = 15.994915;
+            Dictionary<string, IList<string>> _databaseReference = null;
+            Dictionary<string, IList<string>> _taxonomicRange = null;
+            List<string> _keywords = null;
+            Dictionary<DissociationType, List<double>> _neutralLosses = null;
+            Dictionary<DissociationType, List<double>> _diagnosticIons = null;
+            string _fileOrigin = null;
+
+            Modification oxidationMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
+                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+
+            if (!target.OneBasedPossibleLocalizedModifications.ContainsKey(sequenceVariations[1].OneBasedBeginPosition - 1))
+            {
+                target.OneBasedPossibleLocalizedModifications[87] = new List<Modification>() { oxidationMod };
+            }
+
+
+
+            var vbp = target.GetVariantBioPolymers();
+
+            // Create a unique temporary folder
+            string tempFolderPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            //Directory.CreateDirectory(tempFolderPath);
+            //// Use tempFolderPath for output
+            //string filePath = Path.Combine(tempFolderPath, "rewrite.xml");
+
+            ////ProteinDbWriter.WriteXmlDatabase(additionalModsToAddToProteins, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filePath));
+            ////proteins = ProteinDbLoader.LoadProteinXML(filePath, true,
+            ////    DecoyType.Reverse, null, false, null, out unknownModifications);
+            //// Delete the folder and its contents
+            //if (Directory.Exists(tempFolderPath))
+            //{
+            //    Directory.Delete(tempFolderPath, true);
+            //}
+        }
+        [Test]
+        public void Constructor_ParsesDescriptionCorrectly()
+        {
+            // Arrange
+            string description = @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30";
+
+            // Example VCF line with snpEff annotation:
+            // 1   50000000   .   A   G   .   PASS   ANN=G||||||||||||||||   GT:AD:DP   1/1:30,30:30
+
+            // --- VCF Standard Columns ---
+            //
+            // CHROM (1)      → Chromosome name (here, chromosome 1).
+            // POS (50000000) → 1-based position of the variant (50,000,000).
+            // ID (.)         → Variant identifier. "." means no ID (e.g., not in dbSNP).
+            // REF (A)        → Reference allele in the reference genome (A).
+            // ALT (G)        → Alternate allele observed in reads (G).
+            // QUAL (.)       → Variant call quality score (Phred-scaled). "." means not provided.
+            // FILTER (PASS)  → Indicates if the call passed filtering. "PASS" = high confidence.
+            //
+            // --- INFO Column ---
+            //
+            // INFO (ANN=...) holds snpEff annotation data.
+            // ANN format is:
+            //   Allele | Effect | Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID |
+            //   Transcript_Biotype | Rank | HGVS.c | HGVS.p | cDNA_pos/cDNA_len |
+            //   CDS_pos/CDS_len | AA_pos/AA_len | Distance | Errors/Warnings
+            //
+            // In this case: ANN=G||||||||||||||||
+            //   - Allele = G
+            //   - All other fields are empty → snpEff did not predict any functional impact
+            //     (likely intergenic or unannotated region).
+            //
+            // --- FORMAT Column ---
+            //
+            // FORMAT (GT:AD:DP) defines how to read the sample column(s):
+            //   GT → Genotype
+            //   AD → Allele depth (number of reads supporting REF and ALT)
+            //   DP → Read depth (total reads covering the site)
+            //
+            // --- SAMPLE Column ---
+            //
+            // Sample entry: 1/1:30,30:30
+            //   GT = 1/1 → Homozygous ALT genotype (both alleles = G)
+            //   AD = 30,30 → Read counts: REF=A has 30 reads, ALT=G has 30 reads
+            //                (⚠ usually homozygous ALT would have few/no REF reads;
+            //                 this may be caller-specific behavior or a quirk.)
+            //   DP = 30   → Total coverage at this site = 30 reads
+            //                (⚠ note AD sums to 60, which does not match DP.
+            //                 This discrepancy is common in some callers.)
+            //
+            // --- Overall Summary ---
+            // Variant at chr1:50000000 changes A → G.
+            // The sample is homozygous for the ALT allele (G).
+            // Variant passed filters, but no functional annotation from snpEff.
+
+
+            // Act
+            var svd = new SequenceVariantDescription(description);
+
+            // Assert
+            Assert.AreEqual(description, svd.Description);
+            Assert.AreEqual("A", svd.ReferenceAlleleString);
+            Assert.AreEqual("G", svd.AlternateAlleleString);
+            Assert.IsNotNull(svd.Info);
+            Assert.AreEqual("GT:AD:DP", svd.Format);
+            Assert.AreEqual(1, svd.Genotypes.Count);
+            Assert.AreEqual(1, svd.AlleleDepths.Count);
+            Assert.AreEqual(new[] { "0" }, new List<string>(svd.Genotypes.Keys));
+
+            var hzKey = svd.Homozygous.Keys.First();
+            Assert.AreEqual("0", hzKey);
+            var hzBool = svd.Homozygous[hzKey];
+            Assert.IsTrue(hzBool);
+            var adKey = svd.AlleleDepths.Keys.First();
+            Assert.AreEqual("0", adKey);
+            var adValues = svd.AlleleDepths[adKey];
+            Assert.AreEqual(new[] { "30", "30" }, adValues);
         }
     }
 }

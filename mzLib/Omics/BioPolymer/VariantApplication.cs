@@ -91,7 +91,7 @@ namespace Omics.BioPolymer
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
                 .GroupBy(v => v.SimpleString())
                 .Select(x => x.First())
-                .Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
+                .Where(v => v.Description.Genotypes.Count >= 0) // this is a VCF line
                 .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
                 .ToList();
 
