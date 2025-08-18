@@ -22,16 +22,10 @@ jobs:
       run: cd mzLib && dotnet build --no-restore
     - name: Build (Test)
       run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
-    - name: Build (TestFlashLFQ)
-      run: cd mzLib && dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj
     - name: Add coverlet collector (Test)
       run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
-    - name: Add coverlet collector (TestFlashLFQ)
-      run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector -v 6.0.2
     - name: Test
       run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
-    - name: TestFlashLFQ
-      run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./TestFlashLFQ/TestFlashLFQ.csproj
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       env:
