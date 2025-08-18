@@ -221,10 +221,10 @@ namespace Test.DatabaseTests
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             Assert.AreEqual("S", ok[0].BaseSequence.Substring(0, 1));
-            Assert.AreEqual("G", ok[1].BaseSequence.Substring(0, 1));
+            Assert.AreEqual("G", ok[2].BaseSequence.Substring(0, 1));
 
             Assert.AreEqual('S', ok[0][0]);
-            Assert.AreEqual('G', ok[1][0]);
+            Assert.AreEqual('G', ok[2][0]);
         }
 
         [Test]
@@ -469,8 +469,8 @@ CF   O1
             ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, UniProtPtms, false,
     new string[] { "exclude_me" }, out un);
 
-            Assert.AreEqual(ok2[1].OneBasedPossibleLocalizedModifications.First().Key, 13);
-            var decoyVariants = ok2[1].SequenceVariations.ToList();
+            Assert.AreEqual(ok2[3].OneBasedPossibleLocalizedModifications.First().Key, 13);
+            var decoyVariants = ok2[3].SequenceVariations.ToList();
             Assert.AreEqual(decoyVariants[0].VariantSequence, "MLAAKLVMLL"); //variant should shuffle but keep initiator methionine
             Assert.AreEqual(decoyVariants[0].OneBasedBeginPosition, 1);//shouldn't have changed
             Assert.AreEqual(decoyVariants[1].OneBasedBeginPosition, 10); //30-20
