@@ -593,7 +593,9 @@ namespace Test.DatabaseTests
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             var target = proteins[0];
-            
+            int totalSequenceVariations = target.SequenceVariations.Count();
+            Assert.AreEqual(2, totalSequenceVariations); //these sequence variations were in the original
+
             ModificationMotif.TryGetMotif("W", out ModificationMotif motifW);
             string _originalId = "W->G";
             string _accession = null;
@@ -619,12 +621,30 @@ namespace Test.DatabaseTests
             {
                 additionalModsToAddToProteins[target.Accession] = new HashSet<Tuple<int, Modification>>() { modTuple};
             }
-            //string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
-            string rewriteDbName = @"C:\Users\trish\Downloads\rewrite.xml";
-            ProteinDbWriter.WriteXmlDatabase(additionalModsToAddToProteins, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
-            proteins = ProteinDbLoader.LoadProteinXML(rewriteDbName, true,
+
+            // Create a unique temporary folder
+            string tempFolderPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(tempFolderPath);
+            // Use tempFolderPath for output
+            string filePath = Path.Combine(tempFolderPath, "rewrite.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(additionalModsToAddToProteins, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filePath));
+            proteins = ProteinDbLoader.LoadProteinXML(filePath, true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
+
+            Assert.AreEqual(totalSequenceVariations + 1, target.SequenceVariations.Count()); //This number increases by 1 because we added a sequence variation that was discovered as a modification
+            var v = target.SequenceVariations[0];
+            Assert.AreEqual(87, v.OneBasedBeginPosition);
+            Assert.AreEqual(87, v.OneBasedEndPosition);
+            Assert.AreEqual("W", v.OriginalSequence);
+            Assert.AreEqual("G", v.VariantSequence);
+
+            // Delete the folder and its contents
+            if (Directory.Exists(tempFolderPath))
+            {
+                Directory.Delete(tempFolderPath, true);
+            }
         }
     }
 }
