@@ -462,7 +462,10 @@ namespace UsefulProteomicsDatabases
                         {
                             string[] OriginalAndSubstitutedAminoAcids = modification.OriginalId.Split("->").ToArray();
                             //we could add the next line but I don't think it is necessary
-                            //if(OriginalAndSubstitutedAminoAcids.Length != 2) continue; // skip if not a substitution modification (shouldn't happen anyway
+                            if (OriginalAndSubstitutedAminoAcids.Length != 2)
+                            {
+                                continue; // skip if not a substitution modification (shouldn't happen anyway)
+                            }
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "sequence variant");
                             writer.WriteAttributeString("description", "GPTMD Discovery");
