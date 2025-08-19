@@ -13,6 +13,8 @@ using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics;
 using Transcriptomics;
+using MassSpectrometry;
+using Chemistry;
 
 namespace Test.DatabaseTests
 {
@@ -583,6 +585,45 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, decoyMods.Count);
             Assert.AreEqual(0, negativeResidues.Count);
 
+        }
+        [Test]
+        public void WriteProteinXmlWithVariantsDiscoveredAsModifications2()
+        {
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 0);
+            var target = proteins[0];
+            int totalSequenceVariations = target.SequenceVariations.Count();
+            Assert.AreEqual(2, totalSequenceVariations); //these sequence variations were in the original
+
+            ModificationMotif.TryGetMotif("W", out ModificationMotif motifW);
+            string _originalId = "W->G";
+            string _accession = null;
+            string _modificationType = "1 nucleotide substitution";
+            string _featureType = null;
+            ModificationMotif _target = motifW;
+            string _locationRestriction = "Anywhere.";
+            ChemicalFormula _chemicalFormula = ChemicalFormula.ParseFormula("C-9H-7N-1");
+            double? _monoisotopicMass = null;
+            Dictionary<string, IList<string>> _databaseReference = null;
+            Dictionary<string, IList<string>> _taxonomicRange = null;
+            List<string> _keywords = null;
+            Dictionary<DissociationType, List<double>> _neutralLosses = null;
+            Dictionary<DissociationType, List<double>> _diagnosticIons = null;
+            string _fileOrigin = null;
+
+            Modification substitutionMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
+                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+
+            Dictionary<int, List<Modification>> substitutionDictionary = new Dictionary<int, List<Modification>>();
+            substitutionDictionary.Add(87, new List<Modification> { substitutionMod });
+
+            Assert.AreEqual(0, target.OneBasedPossibleLocalizedModifications.Count); //This number should be 1 because we added a modification that was discovered as a sequence variation
+            Protein newProtein = (Protein)target.CloneWithNewSequenceAndMods(target.BaseSequence, substitutionDictionary);
+            Assert.AreEqual(1, newProtein.OneBasedPossibleLocalizedModifications.Count); //This number should be 1 because we added a modification that was discovered as a sequence variation
+            newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+            Assert.AreEqual(3, newProtein.SequenceVariations.Count); //This number increases by 1 because we added a sequence variation that was discovered as a modification
+            Assert.AreEqual(0,newProtein.OneBasedPossibleLocalizedModifications.Count); //This number should be 0 because we converted the modification to a sequence variation
         }
     }
 }

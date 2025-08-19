@@ -11,6 +11,7 @@ using MzLibUtil;
 using Omics.BioPolymer;
 using System.Data;
 using Chemistry;
+using Easy.Common.Extensions;
 
 
 namespace Proteomics
@@ -605,6 +606,37 @@ namespace Proteomics
             var variantProtein =  new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants, 
                 applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
+        }
+        
+        public void ConvertNucleotideSubstitutionModificationsToSequenceVariants()
+        {
+            List<KeyValuePair<int,Modification>> modificationsToRemove = new();
+            //convert substitution modifications to sequence variations
+            foreach (var kvp in OneBasedPossibleLocalizedModifications)
+            {
+                foreach (Modification mod in kvp.Value)
+                {
+                    if (mod.ModificationType.Contains("nucleotide substitution"))
+                    {
+                        string[] originalAndSubstitutedAminoAcids = mod.OriginalId.Split(new[] { "->" }, StringSplitOptions.RemoveEmptyEntries);
+                        SequenceVariations.Add(new SequenceVariation(kvp.Key, kvp.Key, originalAndSubstitutedAminoAcids[0], originalAndSubstitutedAminoAcids[1], "GPTMD Potential Substitution"));
+                        KeyValuePair<int, Modification> pair = new(kvp.Key, mod);
+                        modificationsToRemove.Add(pair);
+                    }
+                }
+            }
+            //remove the modifications that were converted to sequence variations
+            foreach (KeyValuePair<int, Modification> pair in modificationsToRemove)
+            {
+                if (OneBasedPossibleLocalizedModifications.ContainsKey(pair.Key) && OneBasedPossibleLocalizedModifications[pair.Key].Contains(pair.Value))
+                {
+                    OneBasedPossibleLocalizedModifications[pair.Key].Remove(pair.Value);
+                    if (OneBasedPossibleLocalizedModifications[pair.Key].Count == 0)
+                    {
+                        OneBasedPossibleLocalizedModifications.Remove(pair.Key);
+                    }
+                }
+            }
         }
 
         #endregion
