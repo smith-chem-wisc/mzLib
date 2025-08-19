@@ -186,7 +186,7 @@ public class MsAlign : MsDataFile
 
     public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
     {
-        lock(DynamicReadingLock)
+        lock (DynamicReadingLock)
         {
             if (_streamReader == null)
             {
