@@ -71,15 +71,6 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
-                List<Modification> myModificationList = new List<Modification>();
-                foreach (var p in nonVariantRna)
-                {
-                    foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
-                    {
-                        myModificationList.AddRange(entry.Value);
-                    }
-                }
-
                 // get modifications from nucleic acid list and concatenate the modifications discovered in GPTMDictionary
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
                     nonVariantRna
@@ -343,8 +334,8 @@ namespace UsefulProteomicsDatabases
                             .SelectMany(kv => kv.Value.Select(v => v.Item2))));
                 
                 HashSet<Modification> aminoAcidSubstitutionModifications = new HashSet<Modification>(
-                                       myModificationList.Where(m => m.ModificationType.Contains("nucleotide substitution")));
-                allRelevantModifications.RemoveWhere(m => aminoAcidSubstitutionModifications.Contains(m));
+                                       allRelevantModifications.Where(m => m.ModificationType.Contains("nucleotide substitution")));
+                allRelevantModifications.ExceptWith(aminoAcidSubstitutionModifications);
                 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {

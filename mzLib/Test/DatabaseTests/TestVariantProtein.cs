@@ -685,69 +685,7 @@ namespace Test.DatabaseTests
                 Directory.Delete(tempFolderPath, true);
             }
         }
-        [Test]
-        public void GetVariantsForThisBioPolymer_AddsNewModificationToNewResidue()
-        {
-            // Arrange
-            string databaseName = "humanGAPDH.xml";
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications);
-            Protein target = proteins[0];
-            List<SequenceVariation> sequenceVariations = target.SequenceVariations.ToList();
-
-            var chars = target.BaseSequence.ToCharArray();
-
-            char firstChar = chars[sequenceVariations[0].OneBasedBeginPosition - 1];
-            char secondChar = chars[sequenceVariations[1].OneBasedBeginPosition - 1];
-
-            chars[sequenceVariations[0].OneBasedBeginPosition - 1] = sequenceVariations[0].VariantSequence[0];
-            chars[sequenceVariations[1].OneBasedBeginPosition - 1] = sequenceVariations[1].VariantSequence[0];
-
-            string variantSequence = new string(chars);
-
-            ModificationMotif.TryGetMotif("N", out ModificationMotif motifN);
-            string _originalId = "Oxidation";
-            string _accession = null;
-            string _modificationType = "Post-translational";
-            string _featureType = null;
-            ModificationMotif _target = motifN;
-            string _locationRestriction = "Anywhere.";
-            ChemicalFormula _chemicalFormula = null;
-            double? _monoisotopicMass = 15.994915;
-            Dictionary<string, IList<string>> _databaseReference = null;
-            Dictionary<string, IList<string>> _taxonomicRange = null;
-            List<string> _keywords = null;
-            Dictionary<DissociationType, List<double>> _neutralLosses = null;
-            Dictionary<DissociationType, List<double>> _diagnosticIons = null;
-            string _fileOrigin = null;
-
-            Modification oxidationMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
-                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
-
-            if (!target.OneBasedPossibleLocalizedModifications.ContainsKey(sequenceVariations[1].OneBasedBeginPosition - 1))
-            {
-                target.OneBasedPossibleLocalizedModifications[87] = new List<Modification>() { oxidationMod };
-            }
-
-
-
-            var vbp = target.GetVariantBioPolymers();
-
-            // Create a unique temporary folder
-            string tempFolderPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            //Directory.CreateDirectory(tempFolderPath);
-            //// Use tempFolderPath for output
-            //string filePath = Path.Combine(tempFolderPath, "rewrite.xml");
-
-            ////ProteinDbWriter.WriteXmlDatabase(additionalModsToAddToProteins, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filePath));
-            ////proteins = ProteinDbLoader.LoadProteinXML(filePath, true,
-            ////    DecoyType.Reverse, null, false, null, out unknownModifications);
-            //// Delete the folder and its contents
-            //if (Directory.Exists(tempFolderPath))
-            //{
-            //    Directory.Delete(tempFolderPath, true);
-            //}
-        }
+       
         [Test]
         public void Constructor_ParsesDescriptionCorrectly()
         {
