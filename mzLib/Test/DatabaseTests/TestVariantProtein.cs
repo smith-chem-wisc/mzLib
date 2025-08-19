@@ -636,7 +636,7 @@ namespace Test.DatabaseTests
             // Use tempFolderPath for output
             string filePath = Path.Combine(tempFolderPath, "rewrite.xml");
 
-            ProteinDbWriter.WriteXmlDatabase(additionalModsToAddToProteins, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filePath));
+            ProteinDbWriter.WriteXmlDatabase(additionalModsToAddToProteins, proteins.Where(p => !p.IsDecoy).ToList(), filePath);
             proteins = ProteinDbLoader.LoadProteinXML(filePath, true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
