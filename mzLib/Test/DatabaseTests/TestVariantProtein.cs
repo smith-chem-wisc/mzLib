@@ -594,7 +594,7 @@ namespace Test.DatabaseTests
         {
             string databaseName = "humanGAPDH.xml";
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications);
+                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 0);
             var target = proteins[0];
             int totalSequenceVariations = target.SequenceVariations.Count();
             Assert.AreEqual(2, totalSequenceVariations); //these sequence variations were in the original
@@ -617,11 +617,7 @@ namespace Test.DatabaseTests
 
             Modification substitutionMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
                                _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
-            _originalId = "Oxidation";
-            _modificationType = "Post-translational";
-            _monoisotopicMass = 15.994915;
-            Modification oxidationMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
-                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins = new();
             Tuple<int, Modification> modTuple = new Tuple<int, Modification>(87, substitutionMod);
@@ -664,6 +660,15 @@ namespace Test.DatabaseTests
                 modTuple = new Tuple<int, Modification>(wp, substitutionMod);
                 additionalModsToAddToProteins[target.Accession] = new HashSet<Tuple<int, Modification>>() { modTuple };
             }
+
+            //create a second modification that is a common one
+            _originalId = "Oxidation";
+            _modificationType = "Post-translational";
+            _monoisotopicMass = 15.994915;
+            Modification oxidationMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
+                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+
+            //add the modifcation to the same residue as the sequence variation
             modTuple = new Tuple<int, Modification>(87, oxidationMod);
             additionalModsToAddToProteins[target.Accession].Add(modTuple);
 
