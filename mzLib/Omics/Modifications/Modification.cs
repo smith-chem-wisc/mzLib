@@ -146,7 +146,7 @@ namespace Omics.Modifications
         {
             StringBuilder sb = new StringBuilder();
             if (this.IdWithMotif != null)
-            { sb.AppendLine("ID   " + this.IdWithMotif); }
+            { sb.AppendLine("ID   " + System.Security.SecurityElement.Escape(this.IdWithMotif)); }
             if (this.Accession != null)
             { sb.AppendLine("AC   " + this.Accession); }
             if (this.ModificationType != null)
