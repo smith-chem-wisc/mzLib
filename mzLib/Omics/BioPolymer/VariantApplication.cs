@@ -22,10 +22,12 @@ namespace Omics.BioPolymer
         public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
-            if (protein.SequenceVariations.All(v=>v.AreValid() && v.Description.Genotypes.Count == 0))
+            if (protein.SequenceVariations.All(v=>v.AreValid()) && protein.SequenceVariations.Any(v=>v.Description.Genotypes.Count == 0))
             {
+                // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
                 return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
             }
+            // this is a protein with only VCF lines
             return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
         }
 
