@@ -461,11 +461,6 @@ namespace UsefulProteomicsDatabases
                         foreach (var modification in positionModKvp.Value.OrderBy(mod => mod))
                         {
                             string[] OriginalAndSubstitutedAminoAcids = modification.OriginalId.Split("->").ToArray();
-                            //we could add the next line but I don't think it is necessary
-                            if (OriginalAndSubstitutedAminoAcids.Length != 2)
-                            {
-                                continue; // skip if not a substitution modification (shouldn't happen anyway)
-                            }
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "sequence variant");
                             writer.WriteAttributeString("description", "GPTMD Discovery");
@@ -701,19 +696,6 @@ namespace UsefulProteomicsDatabases
         private static Dictionary<int, HashSet<Modification>> GetVariantsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<Modification, int> newModResEntries)
         {
             var variantsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<Modification>>();
-
-            var primaryModDict = seqvar == null ? protein.OneBasedPossibleLocalizedModifications : seqvar.OneBasedModifications;
-            foreach (var mods in primaryModDict)
-            {
-                List<Modification> substitutionMods = mods.Value.Where(m => m.ModificationType.Contains("nucleotide substitution")).ToList();
-                foreach (var mod in substitutionMods)
-                {
-                    if (variantsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<Modification> val))
-                        val.Add(mod);
-                    else
-                        variantsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<Modification> { mod });
-                }
-            }
             string accession = seqvar == null ? protein.Accession : VariantApplication.GetAccession(protein, new[] { seqvar });
             if (additionalModsToAddToProteins.ContainsKey(accession))
             {
