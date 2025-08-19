@@ -82,7 +82,7 @@ namespace Readers
 
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
         {
-            lock(DynamicReadingLock)
+            lock (DynamicReadingLock)
             {
                 if (_streamReader == null)
                 {
