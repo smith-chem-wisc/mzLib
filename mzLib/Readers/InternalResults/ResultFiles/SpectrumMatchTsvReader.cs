@@ -63,7 +63,14 @@ namespace Readers
                 }
             });
 
-            var psms = psmsArray.Where(x => x is not null).Cast<T>().ToList();
+            var psms = new List<T>(lineCount);
+            foreach (var x in psmsArray)
+            {
+                if (x is not null)
+                {
+                    psms.Add(x);
+                }
+            }
             warnings = warningsBag.ToList();
 
             if (lineCount != psms.Count)
