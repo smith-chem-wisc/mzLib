@@ -682,6 +682,11 @@ namespace Test.DatabaseTests
             Directory.CreateDirectory(tempDir);
 
             string tempFile = Path.Combine(tempDir, "xmlWithSequenceVariantsAndNoModifications.txt");
+
+
+
+            // I checked above and there are no modifications in these proteins, only sequence variations
+            // but called WriteXmlDatabase with proteins somehow writes modifications
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), tempFile);
             proteins = ProteinDbLoader.LoadProteinXML(tempFile, true,
                 DecoyType.None, null, false, null, out unknownModifications, 1, 0);
