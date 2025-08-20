@@ -666,6 +666,9 @@ namespace Test.DatabaseTests
         public static void ProteinVariantsReadAsModificationsWrittenAsVariants()
         {
             string databaseName = "nucleotideVariantsAsModifications.xml";
+
+            Assert.That(File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName)).Count(l => l.Contains("1 nucleotide substitution")), Is.EqualTo(57));
+
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.None, null, false, null, out var unknownModifications, 1, 0);
             Assert.AreEqual(9, proteins.Count); // 1 target
@@ -685,7 +688,7 @@ namespace Test.DatabaseTests
             
             Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("feature type=\"sequence variant\"")), Is.EqualTo(194));
             Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("Putative GPTMD Substitution")), Is.EqualTo(194));
-
+            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("1 nucleotide substitution")), Is.EqualTo(0));
             if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
         }
 

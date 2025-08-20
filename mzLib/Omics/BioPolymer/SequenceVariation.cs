@@ -14,14 +14,14 @@ namespace Omics.BioPolymer
         /// <param name="originalSequence"></param>
         /// <param name="variantSequence"></param>
         /// <param name="oneBasedModifications"></param>
-        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>> oneBasedModifications = null)
+        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
             Description = new SequenceVariantDescription(description);
-            OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+            OneBasedModifications = oneBasedModifications ?? [];
         }
 
         /// <summary>
@@ -33,7 +33,7 @@ namespace Omics.BioPolymer
         /// <param name="variantSequence"></param>
         /// <param name="description"></param>
         /// <param name="oneBasedModifications"></param>
-        public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>> oneBasedModifications = null)
+        public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
             : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
         { }
 
