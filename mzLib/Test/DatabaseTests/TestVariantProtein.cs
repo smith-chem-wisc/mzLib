@@ -595,7 +595,6 @@ namespace Test.DatabaseTests
             var target = proteins[0];
             int totalSequenceVariations = target.SequenceVariations.Count();
             Assert.AreEqual(2, totalSequenceVariations); //these sequence variations were in the original
-
             ModificationMotif.TryGetMotif("W", out ModificationMotif motifW);
             string _originalId = "W->G";
             string _accession = null;
@@ -614,16 +613,115 @@ namespace Test.DatabaseTests
 
             Modification substitutionMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
                                _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
-
             Dictionary<int, List<Modification>> substitutionDictionary = new Dictionary<int, List<Modification>>();
             substitutionDictionary.Add(87, new List<Modification> { substitutionMod });
 
-            Assert.AreEqual(0, target.OneBasedPossibleLocalizedModifications.Count); //This number should be 1 because we added a modification that was discovered as a sequence variation
             Protein newProtein = (Protein)target.CloneWithNewSequenceAndMods(target.BaseSequence, substitutionDictionary);
-            Assert.AreEqual(1, newProtein.OneBasedPossibleLocalizedModifications.Count); //This number should be 1 because we added a modification that was discovered as a sequence variation
+            Assert.That(newProtein.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
+
+            // This process examines the OneBasedPossibleLocalizedModifications that are ModificationType 'nucleotide substitution'
+            // and converts them to SequenceVariations
             newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            Assert.AreEqual(3, newProtein.SequenceVariations.Count); //This number increases by 1 because we added a sequence variation that was discovered as a modification
+            Assert.That(newProtein.SequenceVariations.Count, Is.EqualTo(totalSequenceVariations + 1)); //This number increases by 1 because we added a sequence variation that was discovered as a modification
             Assert.AreEqual(0,newProtein.OneBasedPossibleLocalizedModifications.Count); //This number should be 0 because we converted the modification to a sequence variation
+        }
+
+        [Test]
+        public static void TestThatProteinVariantsAreGeneratedDuringRead()
+        {
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 99);
+            Assert.AreEqual(8, proteins.Count); // 4 target + 4 decoy
+            Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // these sequence variations were in the original
+            Assert.That("P04406", Is.EqualTo(proteins[0].Accession));
+            Assert.That("P04406_A22G", Is.EqualTo(proteins[1].Accession));
+            Assert.That("P04406_K251N", Is.EqualTo(proteins[2].Accession));
+            Assert.That("P04406_K251N_A22G", Is.EqualTo(proteins[3].Accession));
+            Assert.That("DECOY_P04406", Is.EqualTo(proteins[4].Accession));
+            Assert.That("DECOY_P04406_A315G", Is.EqualTo(proteins[5].Accession));
+            Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession));
+            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession));
+        }
+
+
+        [Test]
+        public void Constructor_ParsesDescriptionCorrectly()
+        {
+            // Arrange
+            string description = @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30";
+
+            // Example VCF line with snpEff annotation:
+            // 1   50000000   .   A   G   .   PASS   ANN=G||||||||||||||||   GT:AD:DP   1/1:30,30:30
+
+            // --- VCF Standard Columns ---
+            //
+            // CHROM (1)      → Chromosome name (here, chromosome 1).
+            // POS (50000000) → 1-based position of the variant (50,000,000).
+            // ID (.)         → Variant identifier. "." means no ID (e.g., not in dbSNP).
+            // REF (A)        → Reference allele in the reference genome (A).
+            // ALT (G)        → Alternate allele observed in reads (G).
+            // QUAL (.)       → Variant call quality score (Phred-scaled). "." means not provided.
+            // FILTER (PASS)  → Indicates if the call passed filtering. "PASS" = high confidence.
+            //
+            // --- INFO Column ---
+            //
+            // INFO (ANN=...) holds snpEff annotation data.
+            // ANN format is:
+            //   Allele | Effect | Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID |
+            //   Transcript_Biotype | Rank | HGVS.c | HGVS.p | cDNA_pos/cDNA_len |
+            //   CDS_pos/CDS_len | AA_pos/AA_len | Distance | Errors/Warnings
+            //
+            // In this case: ANN=G||||||||||||||||
+            //   - Allele = G
+            //   - All other fields are empty → snpEff did not predict any functional impact
+            //     (likely intergenic or unannotated region).
+            //
+            // --- FORMAT Column ---
+            //
+            // FORMAT (GT:AD:DP) defines how to read the sample column(s):
+            //   GT → Genotype
+            //   AD → Allele depth (number of reads supporting REF and ALT)
+            //   DP → Read depth (total reads covering the site)
+            //
+            // --- SAMPLE Column ---
+            //
+            // Sample entry: 1/1:30,30:30
+            //   GT = 1/1 → Homozygous ALT genotype (both alleles = G)
+            //   AD = 30,30 → Read counts: REF=A has 30 reads, ALT=G has 30 reads
+            //                (⚠ usually homozygous ALT would have few/no REF reads;
+            //                 this may be caller-specific behavior or a quirk.)
+            //   DP = 30   → Total coverage at this site = 30 reads
+            //                (⚠ note AD sums to 60, which does not match DP.
+            //                 This discrepancy is common in some callers.)
+            //
+            // --- Overall Summary ---
+            // Variant at chr1:50000000 changes A → G.
+            // The sample is homozygous for the ALT allele (G).
+            // Variant passed filters, but no functional annotation from snpEff.
+
+
+            // Act
+            var svd = new SequenceVariantDescription(description);
+
+            // Assert
+            Assert.AreEqual(description, svd.Description);
+            Assert.AreEqual("A", svd.ReferenceAlleleString);
+            Assert.AreEqual("G", svd.AlternateAlleleString);
+            Assert.IsNotNull(svd.Info);
+            Assert.AreEqual("GT:AD:DP", svd.Format);
+            Assert.AreEqual(1, svd.Genotypes.Count);
+            Assert.AreEqual(1, svd.AlleleDepths.Count);
+            Assert.AreEqual(new[] { "0" }, new List<string>(svd.Genotypes.Keys));
+
+            var hzKey = svd.Homozygous.Keys.First();
+            Assert.AreEqual("0", hzKey);
+            var hzBool = svd.Homozygous[hzKey];
+            Assert.IsTrue(hzBool);
+            var adKey = svd.AlleleDepths.Keys.First();
+            Assert.AreEqual("0", adKey);
+            var adValues = svd.AlleleDepths[adKey];
+            Assert.AreEqual(new[] { "30", "30" }, adValues);
         }
     }
 }

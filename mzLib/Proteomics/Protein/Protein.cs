@@ -619,7 +619,11 @@ namespace Proteomics
                     if (mod.ModificationType.Contains("nucleotide substitution"))
                     {
                         string[] originalAndSubstitutedAminoAcids = mod.OriginalId.Split(new[] { "->" }, StringSplitOptions.RemoveEmptyEntries);
-                        SequenceVariations.Add(new SequenceVariation(kvp.Key, kvp.Key, originalAndSubstitutedAminoAcids[0], originalAndSubstitutedAminoAcids[1], "GPTMD Potential Substitution"));
+                        SequenceVariation sequenceVariation = new SequenceVariation(kvp.Key, kvp.Key, originalAndSubstitutedAminoAcids[0], originalAndSubstitutedAminoAcids[1], "Nucleotide Substitution");
+                        if (!SequenceVariations.Contains(sequenceVariation))
+                        {
+                            SequenceVariations.Add(sequenceVariation);
+                        }
                         KeyValuePair<int, Modification> pair = new(kvp.Key, mod);
                         modificationsToRemove.Add(pair);
                     }

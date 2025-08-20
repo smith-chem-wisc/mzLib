@@ -22,6 +22,12 @@ namespace Omics.BioPolymer
         public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
+            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description.Genotypes.Count == 0))
+            {
+                // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
+                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
+            }
+            // this is a protein with only VCF lines
             return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
         }
 
@@ -417,6 +423,82 @@ namespace Omics.BioPolymer
         public static string CombineDescriptions(IEnumerable<SequenceVariation>? variations)
         {
             return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.Description));
+        }
+        /// <summary>
+        /// Applies all possible combinations of the provided SequenceVariation list to the base TBioPolymerType object,
+        /// starting with the fewest single variations and up to the specified maximum number of combinations.
+        /// </summary>
+        /// <typeparam name="TBioPolymerType">The type of the biopolymer object.</typeparam>
+        /// <param name="baseBioPolymer">The base biopolymer object to apply variations to.</param>
+        /// <param name="variations">List of SequenceVariation objects to combine and apply. Assumed not null or empty.</param>
+        /// <param name="maxCombinations">Maximum number of combinations to return.</param>
+        /// <returns>
+        /// An IEnumerable of TBioPolymerType objects, each with a unique combination of variations applied.
+        /// </returns>
+        public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
+            TBioPolymerType baseBioPolymer,
+            List<SequenceVariation> variations,
+            int maxCombinations)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            int count = 0;
+
+            // Always yield the base biopolymer first
+            yield return baseBioPolymer;
+            count++;
+            if (count >= maxCombinations)
+                yield break;
+
+            int n = variations.Count;
+            for (int size = 1; size <= n; size++)
+            {
+                foreach (var combo in GetCombinations(variations, size))
+                {
+                    var result = baseBioPolymer;
+                    foreach (var variant in combo)
+                    {
+                        result = ApplySingleVariant(variant, result, string.Empty);
+                    }
+                    if (result != null)
+                    {
+                        yield return result;
+                        count++;
+                        if (count >= maxCombinations)
+                            yield break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generates all possible combinations of the specified size from the input list.
+        /// </summary>
+        /// <param name="variations">List of SequenceVariation objects to combine. Assumed not null or empty.</param>
+        /// <param name="size">The size of each combination.</param>
+        /// <returns>
+        /// An IEnumerable of IList&lt;SequenceVariation&gt; representing each combination.
+        /// </returns>
+        private static IEnumerable<IList<SequenceVariation>> GetCombinations(List<SequenceVariation> variations, int size)
+        {
+            int n = variations.Count;
+            var indices = new int[size];
+            for (int i = 0; i < size; i++) indices[i] = i;
+
+            while (true)
+            {
+                var combo = new List<SequenceVariation>(size);
+                for (int i = 0; i < size; i++)
+                    combo.Add(variations[indices[i]]);
+                yield return combo;
+
+                int pos = size - 1;
+                while (pos >= 0 && indices[pos] == n - size + pos)
+                    pos--;
+                if (pos < 0) break;
+                indices[pos]++;
+                for (int i = pos + 1; i < size; i++)
+                    indices[i] = indices[i - 1] + 1;
+            }
         }
     }
 }

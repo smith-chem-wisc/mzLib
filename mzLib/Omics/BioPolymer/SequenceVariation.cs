@@ -159,5 +159,10 @@ namespace Omics.BioPolymer
         {
             return OneBasedBeginPosition <= pos && pos <= OneBasedEndPosition;
         }
+        internal bool AreValid()
+        {
+            return OneBasedBeginPosition > 0 && OneBasedEndPosition >= OneBasedBeginPosition
+                && !string.IsNullOrEmpty(VariantSequence) && VariantSequence.Length > 0;
+        }
     }
 }
