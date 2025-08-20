@@ -1,4 +1,5 @@
 ﻿using MzLibUtil;
+using Omics.BioPolymer;
 using Omics.Modifications;
 
 namespace Omics.BioPolymer
@@ -22,6 +23,7 @@ namespace Omics.BioPolymer
         public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
+            protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
             if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description == null || v.Description.Genotypes.Count == 0))
             {
                 // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
@@ -498,6 +500,65 @@ namespace Omics.BioPolymer
                 indices[pos]++;
                 for (int i = pos + 1; i < size; i++)
                     indices[i] = indices[i - 1] + 1;
+            }
+        }
+        public static void ConvertNucleotideSubstitutionModificationsToSequenceVariants<TBioPolymerType>(this TBioPolymerType protein)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            List<KeyValuePair<int, Modification>> modificationsToRemove = new();
+            //convert substitution modifications to sequence variations
+            foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
+            {
+                foreach (Modification mod in kvp.Value)
+                {
+                    if (mod.ModificationType.Contains("nucleotide substitution") && mod.OriginalId.Contains("->"))
+                    {
+                        string[] originalAndSubstitutedAminoAcids = mod.OriginalId.Split(new[] { "->" }, StringSplitOptions.RemoveEmptyEntries);
+                        SequenceVariation sequenceVariation = new SequenceVariation(kvp.Key, kvp.Key, originalAndSubstitutedAminoAcids[0], originalAndSubstitutedAminoAcids[1], "Putative GPTMD Substitution");
+                        if (!protein.SequenceVariations.Contains(sequenceVariation))
+                        {
+                            protein.SequenceVariations.Add(sequenceVariation);
+                        }
+                        KeyValuePair<int, Modification> pair = new(kvp.Key, mod);
+                        modificationsToRemove.Add(pair);
+                    }
+                }
+            }
+            //remove the modifications that were converted to sequence variations
+            foreach (KeyValuePair<int, Modification> pair in modificationsToRemove)
+            {
+                if (protein.OneBasedPossibleLocalizedModifications.ContainsKey(pair.Key))
+                {
+                    List<Modification> modList = protein.OneBasedPossibleLocalizedModifications[pair.Key];
+                    var modToRemove = modList.FirstOrDefault(m =>
+                        m.ModificationType == pair.Value.ModificationType &&
+                        m.OriginalId == pair.Value.OriginalId);
+                    if (modToRemove != null)
+                    {
+                        modList.Remove(modToRemove);
+                        if (modList.Count == 0)
+                        {
+                            protein.OneBasedPossibleLocalizedModifications.Remove(pair.Key);
+                            protein.ConsensusVariant.OneBasedPossibleLocalizedModifications.Remove(pair.Key);
+                        }
+                    }
+                }
+                if (protein.OriginalNonVariantModifications.ContainsKey(pair.Key))
+                {
+                    List<Modification> modList = protein.OriginalNonVariantModifications[pair.Key];
+                    var modToRemove = modList.FirstOrDefault(m =>
+                        m.ModificationType == pair.Value.ModificationType &&
+                        m.OriginalId == pair.Value.OriginalId);
+                    if (modToRemove != null)
+                    {
+                        modList.Remove(modToRemove);
+                        if (modList.Count == 0)
+                        {
+                            protein.OriginalNonVariantModifications.Remove(pair.Key);
+                            protein.ConsensusVariant.OriginalNonVariantModifications.Remove(pair.Key);
+                        }
+                    }
+                }
             }
         }
     }

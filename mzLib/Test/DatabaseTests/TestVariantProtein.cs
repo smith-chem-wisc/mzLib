@@ -669,30 +669,24 @@ namespace Test.DatabaseTests
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.None, null, false, null, out var unknownModifications, 1, 0);
             Assert.AreEqual(9, proteins.Count); // 1 target
-            Assert.AreEqual(0, proteins.Select(v=>v.SequenceVariations.Count).Sum()); // there are no sequence variations in the original proteins
-            Assert.AreEqual(194, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list=>list.Value.Count)).Sum()); // there are 194 sequence variants as modifications in the original proteins
-            foreach (var protein in proteins)
-            {
-                protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            }
-            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // all modifications have been converted to sequence variants
-            Assert.AreEqual(194, proteins.Select(v => v.SequenceVariations.Count).Sum()); // there are 194 sequence variations in the proteins after conversion
+            Assert.AreEqual(194, proteins.Select(v=>v.SequenceVariations.Count).Sum()); // there are no sequence variations in the original proteins
+            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list=>list.Value.Count)).Sum()); // there are 194 sequence variants as modifications in the original proteins
 
             string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             Directory.CreateDirectory(tempDir);
-
             string tempFile = Path.Combine(tempDir, "xmlWithSequenceVariantsAndNoModifications.txt");
 
-
-
-            // I checked above and there are no modifications in these proteins, only sequence variations
-            // but called WriteXmlDatabase with proteins somehow writes modifications
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), tempFile);
             proteins = ProteinDbLoader.LoadProteinXML(tempFile, true,
                 DecoyType.None, null, false, null, out unknownModifications, 1, 0);
             Assert.AreEqual(9, proteins.Count); // 1 target
             Assert.AreEqual(194, proteins.Select(v => v.SequenceVariations.Count).Sum()); // there are 194 sequence variations in the revised proteins
             Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // there are 0 sequence variants as modifications in the original proteins
+            
+            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("feature type=\"sequence variant\"")), Is.EqualTo(194));
+            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("Putative GPTMD Substitution")), Is.EqualTo(194));
+
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
         }
 
         [Test]
