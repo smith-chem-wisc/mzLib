@@ -10,6 +10,7 @@ using Omics.Fragmentation;
 using Readers;
 using MzLibUtil;
 using FlashLFQ;
+using System.Windows.Media;
 
 namespace Test.FileReadingTests
 {
@@ -274,7 +275,7 @@ namespace Test.FileReadingTests
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
-            // psm with single modificaiton
+            // psm with single modification
             PsmFromTsv singleMod = psms[0];
             var modDict = SpectrumMatchFromTsv.ParseModifications(singleMod.FullSequence);
             Assert.That(modDict.Count == 1);
@@ -286,29 +287,20 @@ namespace Test.FileReadingTests
             modDict = SpectrumMatchFromTsv.ParseModifications(twoMods.FullSequence);
             Assert.That(modDict.Count == 2);
             Assert.That(modDict.ContainsKey(0) && modDict.ContainsKey(104));
-            Assert.That(modDict[0].Count == 1);
             Assert.That(modDict[0].Contains("UniProt:N-acetylserine on S"));
-            Assert.That(modDict[104].Count == 1);
             Assert.That(modDict[104].Contains("UniProt:N5-methylglutamine on Q"));
 
-            // psm with two mods on the same amino acid
-            string fullSeq = "[Common Fixed:Carbamidomethyl on C]|[UniProt:N-acetylserine on S]KPRKIEEIKDFLLTARRKDAKSVKIKKNKDNVKFK";
-            modDict = SpectrumMatchFromTsv.ParseModifications(fullSeq);
-            Assert.That(modDict.Count == 1);
-            Assert.That(modDict.ContainsKey(0));
-            Assert.That(modDict[0].Count == 2);
-            Assert.That(modDict[0].Contains("Common Fixed:Carbamidomethyl on C"));
-            Assert.That(modDict[0].Contains("UniProt:N-acetylserine on S"));
-
+            // test sequence with mods at all relevant positions. Mods include cation mod to test bracket selectivity when parsing mods. 
+            string allPosSeq = "[mod type1: testmodW on N-term]S[mod type2: testmodX on S]TGTSQ[Common Artifact: Fe[II] on Q]ADDC[mod type3: testmodY on C]-[mod type4: testmodZ on C-Term]";
             // test if the locations of mods are correct
-            // the index is one based here
-            string seq = "NM[Common Variable: Oxidation on M]ITGTSQADC[Common Fixed: Carbamidomethyl on C]AILIIAGGVGEFEAGISK";
-            modDict = SpectrumMatchFromTsv.ParseModifications(seq);
-            Assert.That(modDict.Count == 2);
-            Assert.That(modDict.ContainsKey(2) && modDict.ContainsKey(11));
-            Assert.That(modDict[2].Count == 1 && modDict[11].Count == 1);
-            Assert.That(modDict[2].Contains("Common Variable: Oxidation on M"));
-            Assert.That(modDict[11].Contains("Common Fixed: Carbamidomethyl on C"));
+            modDict = SpectrumMatchFromTsv.ParseModifications(allPosSeq);
+            Assert.That(modDict.Count == 5);
+            Assert.AreEqual(modDict.Keys.Order(), new List<int>{ 0, 1, 6, 10, 11 });
+            Assert.AreEqual(modDict[0], "mod type1: testmodW on N-term");
+            Assert.AreEqual(modDict[1], "mod type2: testmodX on S");
+            Assert.AreEqual(modDict[6], "Common Artifact: Fe[II] on Q");
+            Assert.AreEqual(modDict[10], "mod type3: testmodY on C");
+            Assert.AreEqual(modDict[11], "mod type4: testmodZ on C-Term");
         }
 
         [Test]
