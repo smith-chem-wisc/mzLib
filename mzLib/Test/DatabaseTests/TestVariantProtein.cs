@@ -558,6 +558,25 @@ namespace Test.DatabaseTests
             Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
         }
         [Test]
+        public void SequenceVariationIsValidTest()
+        {
+            SequenceVariation sv1 = new SequenceVariation(10, 10, "A", "T", "info", null);
+            SequenceVariation sv2 = new SequenceVariation(5, 5, "G", "C", "info", null);
+            SequenceVariation sv3 = new SequenceVariation(8, 8, "T", "A", "info", null);
+            List<SequenceVariation> svList = new List<SequenceVariation> { sv1, sv2, sv3 };
+
+            Protein variantProtein = new Protein("ACDEFGHIKLMNPQRSTVWY", "protein1", sequenceVariations: svList);
+            Assert.IsTrue(variantProtein.SequenceVariations.All(v => v.AreValid()));
+            SequenceVariation svInvalidOneBasedBeginLessThanOne = new SequenceVariation(0, 10, "A", "T", "info", null);
+            SequenceVariation svInvalidOneBasedEndLessThanOneBasedBegin = new SequenceVariation(5, 4, "G", "C", "info", null);
+            SequenceVariation svValidOriginalSequenceIsEmpty = new SequenceVariation(8, 8, "", "A", "info", null);
+            SequenceVariation svValidVariantSequenceLenthIsZero = new SequenceVariation(10, 10, "A", "", "info", null);
+            Assert.IsFalse(svInvalidOneBasedBeginLessThanOne.AreValid());
+            Assert.IsFalse(svInvalidOneBasedEndLessThanOneBasedBegin.AreValid());
+            Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid()); //This is valid because it is an insertion
+            Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid()); // This is valid because it is a deletion
+        }
+        [Test]
         public void VariantModificationTest()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "VariantModsGPTMD.xml");
