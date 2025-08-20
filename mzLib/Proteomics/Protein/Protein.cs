@@ -616,7 +616,7 @@ namespace Proteomics
             {
                 foreach (Modification mod in kvp.Value)
                 {
-                    if (mod.ModificationType.Contains("nucleotide substitution"))
+                    if (mod.ModificationType.Contains("nucleotide substitution") && mod.OriginalId.Contains("->"))
                     {
                         string[] originalAndSubstitutedAminoAcids = mod.OriginalId.Split(new[] { "->" }, StringSplitOptions.RemoveEmptyEntries);
                         SequenceVariation sequenceVariation = new SequenceVariation(kvp.Key, kvp.Key, originalAndSubstitutedAminoAcids[0], originalAndSubstitutedAminoAcids[1], "Nucleotide Substitution");
