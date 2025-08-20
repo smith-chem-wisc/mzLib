@@ -607,54 +607,10 @@ namespace Proteomics
                 applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
-        
-        public void ConvertNucleotideSubstitutionModificationsToSequenceVariants()
-        {
-            List<KeyValuePair<int,Modification>> modificationsToRemove = new();
-            //convert substitution modifications to sequence variations
-            foreach (var kvp in OneBasedPossibleLocalizedModifications)
-            {
-                foreach (Modification mod in kvp.Value)
-                {
-                    if (mod.ModificationType.Contains("nucleotide substitution") && mod.OriginalId.Contains("->"))
-                    {
-                        string[] originalAndSubstitutedAminoAcids = mod.OriginalId.Split(new[] { "->" }, StringSplitOptions.RemoveEmptyEntries);
-                        SequenceVariation sequenceVariation = new SequenceVariation(kvp.Key, kvp.Key, originalAndSubstitutedAminoAcids[0], originalAndSubstitutedAminoAcids[1], "Nucleotide Substitution");
-                        if (!SequenceVariations.Contains(sequenceVariation))
-                        {
-                            SequenceVariations.Add(sequenceVariation);
-                        }
-                        KeyValuePair<int, Modification> pair = new(kvp.Key, mod);
-                        modificationsToRemove.Add(pair);
-                    }
-                }
-            }
-            //remove the modifications that were converted to sequence variations
-            foreach (KeyValuePair<int, Modification> pair in modificationsToRemove)
-            {
-                if (OneBasedPossibleLocalizedModifications.ContainsKey(pair.Key))
-                {
-                    var modList = OneBasedPossibleLocalizedModifications[pair.Key];
-                    var modToRemove = modList.FirstOrDefault(m =>
-                        m.ModificationType == pair.Value.ModificationType &&
-                        m.OriginalId == pair.Value.OriginalId);
-                    if (modToRemove != null)
-                    {
-                        modList.Remove(modToRemove);
-                        if (modList.Count == 0)
-                        {
-                            OneBasedPossibleLocalizedModifications.Remove(pair.Key);
-                        }
-                    }
-                }
-            }
-        }
-
         #endregion
 
         #region Truncation Products
 
-        
         /// <summary>
         /// Protein XML files contain annotated proteolysis products for many proteins (e.g. signal peptides, chain peptides).
         /// This method adds N- and C-terminal truncations to these products.
