@@ -662,7 +662,33 @@ namespace Test.DatabaseTests
             Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession));
             Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession));
         }
+        [Test]
+        public static void ProteinVariantsReadAsModificationsWrittenAsVariants()
+        {
+            string databaseName = "nucleotideVariantsAsModifications.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.None, null, false, null, out var unknownModifications, 1, 0);
+            Assert.AreEqual(9, proteins.Count); // 1 target
+            Assert.AreEqual(0, proteins.Select(v=>v.SequenceVariations.Count).Sum()); // there are no sequence variations in the original proteins
+            Assert.AreEqual(194, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list=>list.Value.Count)).Sum()); // there are 194 sequence variants as modifications in the original proteins
+            foreach (var protein in proteins)
+            {
+                protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+            }
+            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // all modifications have been converted to sequence variants
+            Assert.AreEqual(194, proteins.Select(v => v.SequenceVariations.Count).Sum()); // there are 194 sequence variations in the proteins after conversion
 
+            string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(tempDir);
+
+            string tempFile = Path.Combine(tempDir, "xmlWithSequenceVariantsAndNoModifications.txt");
+            ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), tempFile);
+            proteins = ProteinDbLoader.LoadProteinXML(tempFile, true,
+                DecoyType.None, null, false, null, out unknownModifications, 1, 0);
+            Assert.AreEqual(9, proteins.Count); // 1 target
+            Assert.AreEqual(194, proteins.Select(v => v.SequenceVariations.Count).Sum()); // there are 194 sequence variations in the revised proteins
+            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // there are 0 sequence variants as modifications in the original proteins
+        }
 
         [Test]
         public void Constructor_ParsesDescriptionCorrectly()

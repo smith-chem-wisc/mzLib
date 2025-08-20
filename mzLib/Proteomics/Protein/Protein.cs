@@ -632,12 +632,19 @@ namespace Proteomics
             //remove the modifications that were converted to sequence variations
             foreach (KeyValuePair<int, Modification> pair in modificationsToRemove)
             {
-                if (OneBasedPossibleLocalizedModifications.ContainsKey(pair.Key) && OneBasedPossibleLocalizedModifications[pair.Key].Contains(pair.Value))
+                if (OneBasedPossibleLocalizedModifications.ContainsKey(pair.Key))
                 {
-                    OneBasedPossibleLocalizedModifications[pair.Key].Remove(pair.Value);
-                    if (OneBasedPossibleLocalizedModifications[pair.Key].Count == 0)
+                    var modList = OneBasedPossibleLocalizedModifications[pair.Key];
+                    var modToRemove = modList.FirstOrDefault(m =>
+                        m.ModificationType == pair.Value.ModificationType &&
+                        m.OriginalId == pair.Value.OriginalId);
+                    if (modToRemove != null)
                     {
-                        OneBasedPossibleLocalizedModifications.Remove(pair.Key);
+                        modList.Remove(modToRemove);
+                        if (modList.Count == 0)
+                        {
+                            OneBasedPossibleLocalizedModifications.Remove(pair.Key);
+                        }
                     }
                 }
             }
