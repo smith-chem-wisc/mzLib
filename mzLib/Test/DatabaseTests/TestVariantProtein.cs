@@ -13,6 +13,7 @@ using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics;
 using Transcriptomics;
+using Readers;
 
 namespace Test.DatabaseTests
 {
@@ -582,7 +583,6 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, variantMods.Count);
             Assert.AreEqual(2, decoyMods.Count);
             Assert.AreEqual(0, negativeResidues.Count);
-
         }
     }
 }
