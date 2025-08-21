@@ -222,7 +222,7 @@ namespace Test
 
             var ye = prot.Digest(digestionParams, new List<Modification>(), variableModifications).ToList();
             Assert.AreEqual(3 * 2 * 3, ye.Count);
-            Assert.AreEqual("[H]M[H][H]", ye.Last().SequenceWithChemicalFormulas);
+            Assert.AreEqual("[H]M[H]-[H]", ye.Last().SequenceWithChemicalFormulas);
 
             double m1 = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
             m1 = Math.Round(m1, 9, MidpointRounding.AwayFromZero);
@@ -248,7 +248,7 @@ namespace Test
 
             Assert.AreEqual(1, ok.Count);
             
-            string expectedFullSequence = "[:ProtNmod on M]M[:resMod on M][:ProtCmod on M]";
+            string expectedFullSequence = "[:ProtNmod on M]M[:resMod on M]-[:ProtCmod on M]";
             Assert.AreEqual(expectedFullSequence, ok.First().FullSequence);
             var mods = ok.First().AllModsOneIsNterminus;
 
@@ -256,7 +256,7 @@ namespace Test
             NUnit.Framework.Assert.That(IBioPolymerWithSetMods.DetermineFullSequence(baseSequence, mods), Is.EqualTo(expectedFullSequence));
             NUnit.Framework.Assert.That(ok.First().DetermineFullSequence(), Is.EqualTo(expectedFullSequence));
 
-            Assert.AreEqual("[H]M[H][H]", ok.First().SequenceWithChemicalFormulas);
+            Assert.AreEqual("[H]M[H]-[H]", ok.First().SequenceWithChemicalFormulas);
             Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ok.Last().MonoisotopicMass, 1e-9);
         }
 
@@ -277,8 +277,8 @@ namespace Test
 
             // set expected values
             int expectedDigestionProducts = 1;
-            string expectedFullSequence = "[:ProtNmod on M]M[:resMod on M][:ProtCmod on M]";
-            string expectedSequenceWithChemicalFormulas = "[H]M[H][H]";
+            string expectedFullSequence = "[:ProtNmod on M]M[:resMod on M]-[:ProtCmod on M]";
+            string expectedSequenceWithChemicalFormulas = "[H]M[H]-[H]";
             double expectedMonoisotopicMass = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
 
             
@@ -324,11 +324,11 @@ namespace Test
 
             Assert.AreEqual(2, ok.Count);
 
-            Assert.AreEqual("[:ProtNmod on M]M[:resMod on M]K[:PepCmod on K]", ok.First().FullSequence);
-            Assert.AreEqual("[:pepNmod on M]M[:resMod on M][:ProtCmod on M]", ok.Skip(1).First().FullSequence);
+            Assert.AreEqual("[:ProtNmod on M]M[:resMod on M]K-[:PepCmod on K]", ok.First().FullSequence);
+            Assert.AreEqual("[:pepNmod on M]M[:resMod on M]-[:ProtCmod on M]", ok.Skip(1).First().FullSequence);
 
-            Assert.AreEqual("[H]M[H]K[H]", ok.First().SequenceWithChemicalFormulas);
-            Assert.AreEqual("[H]M[H][H]", ok.Skip(1).First().SequenceWithChemicalFormulas);
+            Assert.AreEqual("[H]M[H]K-[H]", ok.First().SequenceWithChemicalFormulas);
+            Assert.AreEqual("[H]M[H]-[H]", ok.Skip(1).First().SequenceWithChemicalFormulas);
             Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ok.Last().MonoisotopicMass, 1e-9);
         }
 
