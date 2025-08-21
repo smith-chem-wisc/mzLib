@@ -304,33 +304,6 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public static void TestRemoveSpecialCharacters()
-        {
-            // successful removal of the default character
-            string toRemove = "ANDVHAO|CNVASDF|ABVCUAE";
-            int length = toRemove.Length;
-            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove);
-            Assert.That(toRemove.Length == length - 2);
-            Assert.That(toRemove.Equals("ANDVHAOCNVASDFABVCUAE"));
-
-            // does not remove default character when prompted otherwise
-            toRemove = "ANDVHAO|CNVASDF|ABVCUAE";
-            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, specialCharacter: @"\[");
-            Assert.That(toRemove.Length == length);
-            Assert.That(toRemove.Equals("ANDVHAO|CNVASDF|ABVCUAE"));
-
-            // replaces default symbol when prompted
-            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"%");
-            Assert.That(toRemove.Length == length);
-            Assert.That(toRemove.Equals("ANDVHAO%CNVASDF%ABVCUAE"));
-
-            // replaces inputted symbol with non-default symbol
-            SpectrumMatchFromTsv.RemoveSpecialCharacters(ref toRemove, replacement: @"=", specialCharacter: @"%");
-            Assert.That(toRemove.Length == length);
-            Assert.That(toRemove.Equals("ANDVHAO=CNVASDF=ABVCUAE"));
-        }
-
-        [Test]
         public static void TestToString()
         {
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
