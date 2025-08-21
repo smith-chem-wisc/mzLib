@@ -46,11 +46,11 @@ public static class BioPolymerWithSetModsExtensions
         {
             if (mod.MonoisotopicMass > 0)
             {
-                subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
+                subsequence.Append($"-[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
             }
             else
             {
-                subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
+                subsequence.Append($"-[{mod.MonoisotopicMass.RoundedDouble(6)}]");
             }
         }
         return subsequence.ToString();
@@ -99,7 +99,7 @@ public static class BioPolymerWithSetModsExtensions
                 if (modstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
                 {
                     sbsequence.Append(
-                        $"[{pep_c_term_variable_mod.ModificationType}:{pep_c_term_variable_mod.IdWithMotif}]");
+                        $"-[{pep_c_term_variable_mod.ModificationType}:{pep_c_term_variable_mod.IdWithMotif}]");
                 }
             }
 
