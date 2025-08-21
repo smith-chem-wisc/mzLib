@@ -557,5 +557,6 @@ namespace Test
                 Assert.That(result[i].Charge, Is.EqualTo(charges[i]));
             }
         }
+
     }
 }

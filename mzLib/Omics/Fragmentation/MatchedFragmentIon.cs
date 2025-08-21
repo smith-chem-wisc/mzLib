@@ -44,7 +44,8 @@ namespace Omics.Fragmentation
                     sb.Append(")");
                 }
 
-                sb.Append("+");
+                if (Charge > 0)
+                    sb.Append('+');
                 sb.Append(Charge);
 
                 return sb.ToString();

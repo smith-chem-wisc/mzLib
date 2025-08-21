@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MathNet.Numerics;
+using System.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace MassSpectrometry
 {
@@ -29,7 +31,7 @@ namespace MassSpectrometry
         /// </summary>
         protected (double, double)[] CalculateSpline(double startRT, double endRT, double splineRtInterval, IInterpolation spline)
         {
-            int numPoints = (int)Math.Floor((endRT - startRT) / splineRtInterval + 1e-8) + 1;
+            int numPoints = (int)Math.Round((endRT - startRT) / splineRtInterval, 0) + 1;
             var xyData = new (double, double)[numPoints];
             for (int i = 0; i < numPoints; i++)
             {
@@ -61,7 +63,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Check if the input arrays meet the requirements of interpolation.
         /// </summary>
-        protected void CheckArrays(double[] rtArray, double[] intensityArray)
+        protected void CheckArrays<T>(T[] rtArray, T[] intensityArray) where T : INumber<T>
         {
             if (rtArray.Length != intensityArray.Length)
             {
@@ -76,7 +78,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Add points with 0 intensity to the beginning and end of the XIC before interpolation.
         /// </summary>
-        protected void AddPeaks(float[] rtArray, float[] intensityArray, out double[] newRtArray, out double[] newIntensityArray)
+        public void AddPeaks(float[] rtArray, float[] intensityArray, out double[] newRtArray, out double[] newIntensityArray)
         {
             if (NumberOfPeaksToAdd == 0)
             {
@@ -93,7 +95,7 @@ namespace MassSpectrometry
                     newRtArray[i] = rtArray[0] - (NumberOfPeaksToAdd - i) * Gap;
                     newIntensityArray[i] = 0;
                 }
-                else if (i >= rtArray.Length + NumberOfPeaksToAdd - 1)
+                else if (i >= rtArray.Length + NumberOfPeaksToAdd)
                 {
                     newRtArray[i] = newRtArray[i - 1] + Gap;
                     newIntensityArray[i] = 0;
