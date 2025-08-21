@@ -16,74 +16,66 @@ namespace Readers
         /// <exception cref="ArgumentOutOfRangeException"></exception>
         public static List<T> ReadTsv<T>(string filePath, out List<string> warnings) where T : SpectrumMatchFromTsv
         {
-            List<T> psms = new List<T>();
-            warnings = new List<string>();
-
-            StreamReader reader = null;
+            string[] lines;
             try
             {
-                reader = new StreamReader(filePath);
+                lines = File.ReadAllLines(filePath);
             }
             catch (Exception e)
             {
                 throw new MzLibException("Could not read file: " + e.Message, e);
             }
 
-            int lineCount = 0;
-
-            string line;
-            Dictionary<string, int> parsedHeader = null;
             MzLibException? parsingException = null;
-
-            while (reader.Peek() > 0)
+            SupportedFileType type;
+            try
             {
-                lineCount++;
+                type = filePath.ParseFileType();
+            }
+            catch (MzLibException e)
+            {
+                // if the parsing fails due to file path not being in the correct format, assume Psm reader will work. 
+                parsingException = e;
+                type = SupportedFileType.psmtsv;
+            }
+            Dictionary<string, int> parsedHeader = ParseHeader(lines[0]);
+            int lineCount = lines.Length - 1; // Exclude header
 
-                line = reader.ReadLine();
+            // Pre-allocate result array
+            T?[] psmsArray = new T[lineCount];
+            var warningsBag = new System.Collections.Concurrent.ConcurrentBag<string>();
 
-                if (lineCount == 1)
-                {
-                    parsedHeader = ParseHeader(line);
-                    continue;
-                }
-
+            Parallel.For(1, lines.Length, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+            {
+                var line = lines[i];
                 try
                 {
-                    SupportedFileType type;
-                    try
+                    T result = type switch
                     {
-                        type = filePath.ParseFileType();
-                    }
-                    catch (MzLibException e)
-                    {
-                        // if the parsing fails due to file path not being in the correct format, assume Psm reader will work. 
-                        parsingException = e;
-                        type = SupportedFileType.psmtsv;
-                    }
-
-                    switch (type)
-                    {
-                        case SupportedFileType.osmtsv:
-                            psms.Add((T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader));
-                            break;
-
-                        case SupportedFileType.psmtsv:
-                        default:
-                            psms.Add((T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader));
-                            break;
-                    }
+                        SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader),
+                        _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader)
+                    };
+                    psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
                 }
                 catch (Exception)
                 {
-                    warnings.Add("Could not read line: " + lineCount);
+                    warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
+                }
+            });
+
+            var psms = new List<T>(lineCount);
+            foreach (var x in psmsArray)
+            {
+                if (x is not null)
+                {
+                    psms.Add(x);
                 }
             }
+            warnings = warningsBag.ToList();
 
-            reader.Close();
-
-            if (lineCount - 1 != psms.Count)
+            if (lineCount != psms.Count)
             {
-                warnings.Add("Warning: " + (lineCount - 1 - psms.Count) + " PSMs were not read.");
+                warnings.Add("Warning: " + (lineCount - psms.Count) + " PSMs were not read.");
             }
 
             // if we could not parse type, we assumed PSMs were in the file.
