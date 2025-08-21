@@ -1,6 +1,8 @@
 ﻿using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace FlashLFQ.IsoTracker
 {
@@ -10,6 +12,17 @@ namespace FlashLFQ.IsoTracker
     public class XICGroups : IEnumerable<XIC>
     {
         /// <summary>
+        /// The resolution used for XIC alignment. Default is 600, equating to 600 points per minute.
+        /// This yields a time resolution of 0.1 seconds.
+        /// </summary>
+        public const int AlignmentResolution = 1000;
+
+        /// <summary>
+        /// Defines the tolerance for locating shared extrema. 
+        /// </summary>
+        public double SharedExtremaTolerance = 60.0 / AlignmentResolution + 0.005; // 60 seconds, divided by the Alignment resolution, plus a small tolerance
+
+        /// <summary>
         /// The reference XIC for alignment
         /// </summary>
         public XIC ReferenceXIC;
@@ -17,10 +30,6 @@ namespace FlashLFQ.IsoTracker
         /// The XICs list
         /// </summary>
         public List<XIC> XICs;
-        /// <summary>
-        /// The retention time shift of each XIC
-        /// </summary>
-        public Dictionary<int, double> RTDict;
         /// <summary>
         /// The shared extrema in the XICs, time project to the reference XIC
         /// </summary>
@@ -41,23 +50,20 @@ namespace FlashLFQ.IsoTracker
         /// <param name="xICs"> The xICs list </param>
         /// <param name="sharedPeakThreshold"> The require number ratio to define the shared peaks, if threshold is 0.5, at lease 50% need to be tracked </param>
         /// <param name="tolerance"> The tolerance window to pick up shared exterma </param>
-        public XICGroups(List<XIC> xICs, double sharedPeakThreshold = 0.55 , double tolerance = 0.10, double cutOff = 30000)
+        public XICGroups(List<XIC> xICs, double sharedPeakThreshold = 0.55 , double tolerance = 0.10, double cutOff = 30000, int maxThreads = 1)
         {
             XICs = xICs;
-            //this.ids = ids;
             ReferenceXIC = XICs.First(p => p.Reference);    // set up the XIC reference
-            RTDict = new Dictionary<int, double>();                             // build a dictionary to store the retention time shift of each XIC
 
-            int xicID = 0;
-            foreach (var xic in XICs)
+            Parallel.ForEach(XICs, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, xic =>
             {
-                RTDict.Add(xicID, xic.AlignXICs(ReferenceXIC)); //xic.AlignXICs(reference)
-                xic.FindExtrema();
-                xicID++;
-            }
+                xic.AlignXICs(ReferenceXIC, AlignmentResolution); // align the XICs to the reference
+                xic.FindExtrema(); // find the extrema in each XIC
+            });
+
 
             SharedExtrema = new List<Extremum>();
-            FindSharedExtrema(sharedPeakThreshold, tolerance, cutOff);    // find the sharedExtrema
+            FindSharedExtrema(sharedPeakThreshold, SharedExtremaTolerance, cutOff);    // find the sharedExtrema
             ProjectExtremaInRef(ReferenceXIC, SharedExtrema);         // project the sharedExtrema in the reference XIC
             SharedPeaks = BuildSharedPeaks();                   // build the indexed peaks
             
@@ -92,8 +98,6 @@ namespace FlashLFQ.IsoTracker
             SharedExtrema = group_min.Concat(group_max).ToList();
             SharedExtrema.Sort((p1, p2) => p1.RetentionTime.CompareTo(p2.RetentionTime)); // sort the shared extrema by the retention time
             SharePeakTrimming();
-
-
         }
 
         /// <summary>

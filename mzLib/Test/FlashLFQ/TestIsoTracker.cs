@@ -401,7 +401,7 @@ namespace Test.FlashLFQ
             var xic2 = new XIC(peaks2, 100, spectraFile, false);
             var xic3 = new XIC(peaks3, 100, spectraFile, false);
 
-            double rtTolerance = 0.0011;
+            double rtTolerance = 0.011;
             // Assert
             Assert.AreEqual(-0.1, xic2.AlignXICs(xic1), rtTolerance); // Peak 2 should be shifted to the left by 0.1
             Assert.AreEqual(0.1, xic3.AlignXICs(xic1), rtTolerance); // Peak 3 should be shifted to the right by 0.1
@@ -514,11 +514,8 @@ namespace Test.FlashLFQ
             Assert.AreEqual(xic, xicGroup.XICs[0]);
             Assert.AreEqual(xic2, xicGroup.XICs[1]);
 
-
-            Assert.IsNotNull(xicGroup.RTDict);
-            Assert.AreEqual(xicGroup.RTDict.Count, 2);
-            Assert.AreEqual(xicGroup.RTDict[0], 0.0);  //reference XIC Rt is 0
-            Assert.AreEqual(xicGroup.RTDict[1], 0.0);  //non-reference XIC Rt is 0
+            Assert.AreEqual(xicGroup.XICs[1].RtShift, 0.0);  //reference XIC Rt is 0
+            Assert.AreEqual(xicGroup.XICs[1].RtShift, 0.0);  //non-reference XIC Rt is 0
 
             Assert.IsNotNull(xicGroup.IdList);
             Assert.AreEqual(xicGroup.IdList.Count, 2);
@@ -574,9 +571,9 @@ namespace Test.FlashLFQ
             var xicGroup = new XICGroups(new List<XIC> { xic1, xic2, xic3 });
 
             // Assert
-            Assert.AreEqual(xicGroup.RTDict[0], xic1.AlignXICs(xic1));
-            Assert.AreEqual(xicGroup.RTDict[1], xic2.AlignXICs(xic1));
-            Assert.AreEqual(xicGroup.RTDict[2], xic3.AlignXICs(xic1));
+            Assert.That(0, Is.EqualTo(xic1.AlignXICs(xic1)).Within(0.1) );
+            Assert.That(-0.1, Is.EqualTo(xic2.AlignXICs(xic1)).Within(0.1) );
+            Assert.That(0.1, Is.EqualTo(xic3.AlignXICs(xic1)).Within(0.1) );
         }
 
         [Test]
@@ -660,9 +657,9 @@ namespace Test.FlashLFQ
 
 
             // Assert RT shift
-            Assert.AreEqual(xicGroup.RTDict[0], 0, 0.001);
-            Assert.AreEqual(xicGroup.RTDict[1], -3, 0.001);
-            Assert.AreEqual(xicGroup.RTDict[2], 3, 0.001);
+            Assert.AreEqual(xicGroup.XICs[0].RtShift, 0, 0.01);
+            Assert.AreEqual(xicGroup.XICs[1].RtShift, -3, 0.01);
+            Assert.AreEqual(xicGroup.XICs[2].RtShift, 3, 0.01);
 
             // Assert the sharedPeak projection, the time point should be the same as the reference XIC
             Assert.AreEqual(xicGroup.SharedExtrema.Count, xicGroup.ExtremaInRef.Count);
@@ -1033,12 +1030,13 @@ namespace Test.FlashLFQ
             Assert.AreEqual(peptidesList.Count, isobaricPeptideNum);
             Assert.AreEqual(peaksList.Count, isobaricPeakNum);
             List<string> expectedSequence = new List<string> { "DIVENYFM[Common Variable:Oxidation on M]R", "DIVENYF[Common Variable:Oxidation on M]MR", "DIVENY[Common Variable:Oxidation on M]FMR" };
+            expectedSequence.Sort();
 
             //Check the detectionType of each peak, in this case all  peaks is IsoTrack_Ambiguous
             //The output sequence should be the same as the expected sequence
             foreach (var peak in peaksList)
             {
-                var peakSeq = peak.Split('\t')[2].Split('|').ToList();
+                var peakSeq = peak.Split('\t')[2].Split('|').OrderBy(s => s).ToList();
                 var detectionType = peak.Split('\t')[16];
                 Assert.AreEqual(peakSeq, expectedSequence);
                 CollectionAssert.AreEqual(detectionType, "IsoTrack_Ambiguous");

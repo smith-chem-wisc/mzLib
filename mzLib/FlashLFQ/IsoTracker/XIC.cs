@@ -115,12 +115,12 @@ namespace FlashLFQ.IsoTracker
         }
 
         /// <summary>
-        /// calculate the retention time shift among the reference. Then store the value in the RtShift property.
+        /// Calculate the retention time shift among the reference. Then store the value in the RtShift property.
         /// </summary>
         /// <param name="xicToAlign"> The reference XIC</param>
         /// <param name="resolution"> The number of the timePoint for X-correlation </param>
         /// <returns> The retention to shift to align to the reference </returns>
-        public double AlignXICs(XIC referenceXIC, int resolution = 1000)
+        public double AlignXICs(XIC referenceXIC, int resolution = 600)
         {
             var referSpline = referenceXIC.LinearSpline;
             var toAlignSpline = this.LinearSpline;
@@ -132,7 +132,7 @@ namespace FlashLFQ.IsoTracker
 
             // Create two intensity arrays of the reference and target XICs by interpolating the time point. 
             // The number of timePoints depend on the resolution.
-            // If the resolution is 1000, the timePoint is 1/1000 = 0.001s.
+            // If the resolution is 600, the timePoint is 60/600 = 0.1s.
             Complex[] reference = new Complex[(int)((FinalTime - initialTime) * resolution + 2)];
             Complex[] toAlign = new Complex[(int)((FinalTime - initialTime) * resolution + 2)];
             int index = 0;
