@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MzIdentML xmlns="http://psidev.info/psi/pi/mzIdentML/1.1.1" id="TestMzid" version="1.1.0" creationDate="2022-01-01T12:00:00">
+  <CvList>
+    <Cv id="PSI-MS" fullName="Proteomics Standards Initiative Mass Spectrometry Vocabularies" uri="https://raw.githubusercontent.com/HUPO-PSI/psi-ms-CV/master/psi-ms.obo" version="4.1.45"/>
+  </CvList>
+  <AnalysisProtocolCollection>
+    <SpectrumIdentificationProtocol id="SIP_1">
+      <ParentTolerance>
+        <cvParam cvRef="PSI-MS" accession="MS:1001412" name="search tolerance plus value" value="10" unitCvRef="UO" unitAccession="UO:0000169" unitName="parts per million"/>
+        <cvParam cvRef="PSI-MS" accession="MS:1001413" name="search tolerance minus value" value="10" unitCvRef="UO" unitAccession="UO:0000169" unitName="parts per million"/>
+      </ParentTolerance>
+    </SpectrumIdentificationProtocol>
+  </AnalysisProtocolCollection>
+</MzIdentML>
