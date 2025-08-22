@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Windows.Documents;
 using MzLibUtil;
 using Omics;
 using Omics.BioPolymer;
@@ -761,6 +762,30 @@ namespace Test
             Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("|", new Dictionary<string, Modification>())); // ambiguous
             Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("[]", new Dictionary<string, Modification>())); // bad mod
             Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("A[:mod]", new Dictionary<string, Modification>())); // nonexistent mod
+        }
+
+        [Test]
+        public static void TestNumRestrictedProteoforms()
+        {
+            Protein myProtein = new Protein("PEPTIDKKK", "accession");
+
+            DigestionParams digest1 = new DigestionParams(protease: "top-down", maxMissedCleavages: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain, maxModsForPeptides:2);
+            var variableMods = new List<Modification>();
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif_p);
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_p, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            Modification phospho2 = new Modification(_originalId: "phosphorylation", _modificationType: "CommonBiological", _target: motif_p, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H20")); //random mod on P
+            ModificationMotif.TryGetMotif("E", out ModificationMotif motif_k);
+            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+
+            variableMods.Add(phosphorylation);
+            variableMods.Add(phospho2);
+            variableMods.Add(acetylation);
+
+            PeptideWithSetModifications pep1 = myProtein.Digest(digest1, new List<Modification>(), variableMods).First();
+            Console.WriteLine(pep1.GetNumberOfPossibleProteoforms(new List<Modification>(), digest1, variableMods));
+            Console.WriteLine();
+            Assert.That(pep1.GetNumberOfPossibleProteoforms(new List<Modification>(), digest1, variableMods).Equals(14)); //restricted to 2 residue sites maximum -> length less or equal to 2 subsets.
+            Assert.That(pep1.GetNumberOfPossibleProteoforms(new List<Modification>(), digest1, new List<Modification>()).Equals(1)); // no variable mods
         }
 
         [Test]

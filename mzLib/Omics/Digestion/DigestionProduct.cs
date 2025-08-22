@@ -22,6 +22,7 @@ namespace Omics.Digestion
             _baseSequence = baseSequence;
         }
 
+
         [field: NonSerialized] public IBioPolymer Parent { get; protected set; } // BioPolymer that this lysis product is a digestion product of
         public string Description { get; protected set; } //unstructured explanation of source
         public int OneBasedStartResidue { get; }// the residue number at which the peptide begins (the first residue in a protein is 1)
@@ -37,6 +38,7 @@ namespace Omics.Digestion
                 OneBasedEndResidue - OneBasedStartResidue + 1);
         public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } //structured explanation of source
         public int Length => BaseSequence.Length; //how many residues long the peptide is
+
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         #region Digestion Helper Methods
@@ -85,6 +87,68 @@ namespace Omics.Digestion
                 }
             }
         }
+        /// <summary>
+        /// Helper method to call Piset() with standard parameters to get the number of proteoforms for a given peptide.
+        /// </summary>
+        /// <param name="sitesConsidered"></param>
+        /// <param name="modsAsList"></param>
+        /// <returns></returns>
+        public static long PossibleProteoformRecursive(int sitesConsidered, List<int> modsAsList)
+        {
+            long result = 0;
+            List<int> subset = new();
+            Piset(sitesConsidered, ref result, subset, modsAsList);
+            return result;
+        }
+
+        /// <summary>
+        ///  Recursive backtracking method to calculate the number of all possible proteoforms for a given peptide.
+        /// </summary>
+        /// <param name="sitesConsidered"> Restriction on the number of sites. For all possible proteoforms, this is equal to the number of total residues </param>
+        /// <param name="result">The product to be returned</param>
+        /// <param name="subset">Consider each subset in a powerset of modsAsList less or equal to the length sitesConsidered</param>
+        /// <param name="modsAsList">Mods given as {#mods at residue 1, #mods at residue 2, ... #mods at residue n} where n is the number of sites with any mods</param>
+        /// <returns></returns>
+        internal static long Piset(int sitesConsidered, ref long result, List<int> subset, List<int> modsAsList)
+        {
+            if (modsAsList.Count == 0)
+            { // collect subset if valid and not already in result. Essentially, what conditions must exist if the subset is valid?
+                if (subset.Count <= sitesConsidered) 
+                { result = result + PI(subset); }
+                return result;
+            }
+            int currentSite = modsAsList[0]; //where modsAsList[0] is the current residue. To add or not to add?
+            //case 1: exclude current
+            List<int> remaining = new(modsAsList);
+            remaining.RemoveAt(0);
+            //recursively call the function w/o current integer.
+            Piset(sitesConsidered, ref result, subset, remaining); 
+            //case 2: include current, once we consider if adding current to set keeps length less or equal to sitesConsidered.
+            if (subset.Count < sitesConsidered)  // Check if we can add one more element
+            {
+                List<int> include = new(subset);
+                include.Add(currentSite);
+                Piset(sitesConsidered, ref result, include, remaining);
+            }
+            return result;
+        }
+        /// <summary>
+        /// Calculates the product of all elements in a list of integers.
+        /// </summary>
+        /// <param name="subset"> List to get product from </param>
+        /// <returns></returns>
+        internal static int PI(List<int> subset)
+        {
+            int product = 1;
+            for (int i = 0; i < subset.Count; i++)
+            {
+                //suppose no numbers are 0, given the context that 0 would not be a possible residue.
+                product = product * subset[i];
+            }
+
+            return product;
+        }
+
 
         /// <summary>
         /// Sets the fixed modifications for the peptide, considering the N-terminal and C-terminal positions, by populating the <paramref name="fixedModsOneIsNterminus"/> dictionary.
@@ -187,7 +251,7 @@ namespace Omics.Digestion
         /// This method iterates through all variable modifications and assigns them to the appropriate positions in the peptide.
         /// It considers different location restrictions such as N-terminal, C-terminal, and anywhere within the peptide.
         /// </remarks>
-        protected void PopulateVariableModifications(List<Modification> allVariableMods, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate)
+        protected void PopulateVariableModifications(List<Modification> allVariableMods, in Dictionary<int, SortedSet<Modification>> twoBasedDictToPopulate) //{1, Oxy, 3, acetylation}
         {
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
             var pepNTermVariableMods = new SortedSet<Modification>();
