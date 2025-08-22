@@ -301,6 +301,12 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\SmallCalibratible_Yeast.mzID">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\TestParentTolerance.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+     </None>
     <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -650,6 +656,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="SpectralLibrary\SpectralLibraryData\test_ms2pip.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp">
