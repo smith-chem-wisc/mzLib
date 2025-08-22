@@ -1931,7 +1931,7 @@ namespace FlashLFQ
         internal XIC BuildXIC(List<Identification> ids, SpectraFileInfo spectraFile, bool isReference, double start, double end)
         {
             Identification id = ids.FirstOrDefault(); 
-            var peakIndexingEngine = IndexingEngineDictionary[spectraFile];
+            var peakIndexingEngine = (PeakIndexingEngine)IndexingEngineDictionary[spectraFile];
             PpmTolerance isotopeTolerance = new PpmTolerance(FlashParams.PpmTolerance);
             ScanInfo[] ms1ScanInfos = peakIndexingEngine.ScanInfoArray;
 
@@ -1956,23 +1956,15 @@ namespace FlashLFQ
             ScanInfo endScan = ms1ScanInfos[endIndex];
 
             // Collect all peaks from the Ms1 scans in the given time window, then build the XIC
-            List<IIndexedPeak> peaks = new List<IIndexedPeak>();
-            for (int j = startScan.ZeroBasedScanIndex; j <= endScan.ZeroBasedScanIndex; j++)
-            {
-                double mz = id.PeakfindingMass.ToMz(id.PrecursorChargeState);
-                IIndexedPeak peak = peakIndexingEngine.GetIndexedPeak(mz , j, isotopeTolerance);
-                if (peak != null)
-                {
-                    peaks.Add(peak);
-                }
-            }
+            double mz = id.PeakfindingMass.ToMz(id.PrecursorChargeState);
+            List<IIndexedPeak> peaks = peakIndexingEngine.GetXicFromScanRange(startScan.ZeroBasedScanIndex, endScan.ZeroBasedScanIndex, mz, isotopeTolerance);
 
-            XIC xIC = null;
             if (peaks.Count > 0)
             {
-                xIC = new XIC(peaks, id.PeakfindingMass, spectraFile, isReference, ids);
+                return new XIC(peaks, id.PeakfindingMass, spectraFile, isReference, ids);
             }
-            return xIC;
+            else 
+                return null;
         }
 
         /// <summary>

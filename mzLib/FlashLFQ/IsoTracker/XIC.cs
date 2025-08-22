@@ -125,9 +125,10 @@ namespace FlashLFQ.IsoTracker
             var referSpline = referenceXIC.LinearSpline;
             var toAlignSpline = this.LinearSpline;
 
-            double timegap = (Ms1Peaks.Last().RetentionTime - Ms1Peaks[0].RetentionTime) / (Ms1Peaks.Count - 1);
+            // Timegap is the average time that elapses between each MS1 scan
+            double timegap = (Ms1Peaks[^1].RetentionTime - Ms1Peaks[0].RetentionTime) / (Ms1Peaks[^1].ZeroBasedScanIndex - Ms1Peaks[0].ZeroBasedScanIndex);
             double initialTime = Ms1Peaks[0].RetentionTime - 5.0 * timegap; //after the padding, the first peak move ahead 5 timegap
-            double FinalTime = Ms1Peaks.Last().RetentionTime + 5.0 * timegap; //after the padding, the last peak move back 5 timegap
+            double FinalTime = Ms1Peaks[^1].RetentionTime + 5.0 * timegap; //after the padding, the last peak move back 5 timegap
             double time = initialTime;
 
             // Create two intensity arrays of the reference and target XICs by interpolating the time point. 

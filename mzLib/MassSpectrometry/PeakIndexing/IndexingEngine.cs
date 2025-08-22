@@ -1,4 +1,5 @@
-﻿using MzLibUtil;
+﻿using MathNet.Numerics.RootFinding;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -103,6 +104,44 @@ namespace MassSpectrometry
             }
 
             return GetXicByScanIndex(m, scanIndex, ppmTolerance, missedScansAllowed, maxPeakHalfWidth, charge, matchedPeaks);
+        }
+
+        public List<IIndexedPeak> GetXicFromScanRange(int zeroBasedStartIndex, int zeroBasedEndIndex, double m, Tolerance ppmTolerance,
+            int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
+        {
+            if (ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
+            if (zeroBasedStartIndex < 0 || zeroBasedEndIndex >= ScanInfoArray.Length)
+                throw new ArgumentOutOfRangeException("Scan indices are out of range of the indexed scans");
+            List<IIndexedPeak> xic = new List<IIndexedPeak>();
+            var allBins = GetBinsInRange(m, ppmTolerance);
+            if (allBins.Count == 0)
+                return xic;
+
+            // For each bin, find + store a pointer to the current index
+            int[] peakPointerArray = allBins.Select(b => BinarySearchForIndexedPeak(b, zeroBasedStartIndex)).ToArray();
+
+            for (int i = zeroBasedStartIndex; i <= zeroBasedEndIndex; i++)
+            {
+                
+                if (i < 0 || i > ScanInfoArray.Length - 1)
+                    break;
+
+                for (int j = 0; j < peakPointerArray.Length; j++)
+                {
+                    // Increment all pointers in the pointer array
+                    while (peakPointerArray[j] < allBins[j].Count - 1 && allBins[j][peakPointerArray[j]].ZeroBasedScanIndex < i)
+                        peakPointerArray[j]++;
+                }
+
+                // Search for the next peak
+                var nextPeak = GetBestPeakFromBins(allBins, m, i, peakPointerArray, ppmTolerance, charge);
+
+                // Add the peak to the XIC or increment the missed peaks
+                if (nextPeak.IsNotDefaultOrNull())
+                    xic.Add(nextPeak);
+
+            }
+            return xic;
         }
 
         /// <summary>
