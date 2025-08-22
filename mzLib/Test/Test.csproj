@@ -304,6 +304,12 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\SmallCalibratible_Yeast.mzID">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\TestParentTolerance.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+     </None>
     <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
