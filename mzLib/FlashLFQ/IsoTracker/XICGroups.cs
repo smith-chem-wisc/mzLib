@@ -15,7 +15,7 @@ namespace FlashLFQ.IsoTracker
         /// The resolution used for XIC alignment. Default is 600, equating to 600 points per minute.
         /// This yields a time resolution of 0.1 seconds.
         /// </summary>
-        public const int AlignmentResolution = 1000;
+        public const int AlignmentResolution = 600;
 
         /// <summary>
         /// Defines the tolerance for locating shared extrema. 
