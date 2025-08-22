@@ -1821,13 +1821,20 @@ namespace FlashLFQ
         private void QuantifyIsobaricPeaks()
         {
             if(!FlashParams.Silent)
-                Console.WriteLine("Quantifying isobaric species...");
+                Console.WriteLine("Quantifying isobaric species for {0} isobar groups...", PeptideGroupsForIsoTracker.Count);
             int isoGroupsSearched = 0;
             double lastReportedProgress = 0;
             double currentProgress = 0;
 
+
             foreach(var idGroup in PeptideGroupsForIsoTracker)
             {
+                Stopwatch stopwatch = null;
+                if(currentProgress == lastReportedProgress)
+                {
+                    stopwatch = Stopwatch.StartNew();
+                }
+
                 List<XIC> xicGroup = new List<XIC>();
                 var mostCommonChargeIdGroup = idGroup.Identifications.GroupBy(p => p.PrecursorChargeState).MaxBy(p => p.Count());
                 var id = mostCommonChargeIdGroup.First();
@@ -1846,8 +1853,20 @@ namespace FlashLFQ
                     {
                         xicIds = mostCommonChargeIdGroup.Where(p => !p.IsDecoy).ToList();
                     }
-
+                    Stopwatch xicStopwatch = null;
+                    if (currentProgress == lastReportedProgress)
+                    {
+                        xicStopwatch = Stopwatch.StartNew();
+                    }
                     XIC xic = BuildXIC(xicIds, spectraFile, false, leftWindow, rightWindow);
+                    if (xicStopwatch != null)
+                    {
+                        xicStopwatch.Stop();
+                        if (!FlashParams.Silent)
+                        {
+                            Console.WriteLine("XIC for {0} took {1} seconds", id.ModifiedSequence, xicStopwatch.Elapsed.TotalSeconds);
+                        }
+                    }
                     if (xic != null && xic.Ms1Peaks.Count() > 5) // each XIC should have at least 5 points
                     {
                         xicGroup.Add(xic);
@@ -1861,8 +1880,21 @@ namespace FlashLFQ
                     // Step 1: Find the XIC with most IDs then, set as reference XIC
                     xicGroup.OrderByDescending(p => p.Ids.Count()).First().Reference = true;
 
+                    Stopwatch xicGroupContstructorStopwatch = null;
+                    if (currentProgress == lastReportedProgress)
+                    {
+                        xicGroupContstructorStopwatch = Stopwatch.StartNew();
+                    }
                     //Step 2: Build the XICGroups
                     XICGroups xicGroups = new XICGroups(xicGroup, maxThreads: FlashParams.MaxThreads);
+                    if (xicGroupContstructorStopwatch != null)
+                    {
+                        xicGroupContstructorStopwatch.Stop();
+                        if (!FlashParams.Silent)
+                        {
+                            Console.WriteLine("XICGroup construction for {0}, including peak Alignment, took {1} seconds", id.ModifiedSequence, xicGroupContstructorStopwatch.Elapsed.TotalSeconds);
+                        }
+                    }
 
                     //Step 3: Build the peakPairChrom dictionary
                     //The shared peak dictionary, each sharedPeak included serval ChromatographicPeak for each run [SharedPeak <-> ChromatographicPeaks]
@@ -1890,6 +1922,15 @@ namespace FlashLFQ
                     IsobaricPeptideDict.TryAdd(id.ModifiedSequence, sharedPeaksDict);
                 }
 
+                if (stopwatch != null)
+                {
+                    stopwatch.Stop();
+                    if (!FlashParams.Silent)
+                    {
+                        Console.WriteLine("IsoTracker for {0} took {1} seconds", id.ModifiedSequence, stopwatch.Elapsed.TotalSeconds);
+                    }
+                }
+
                 // report search progress (proteins searched so far out of total proteins in database)
                 if (!FlashParams.Silent)
                 {
@@ -1898,7 +1939,7 @@ namespace FlashLFQ
                     double percentProgress = ((double)isoGroupsSearched / PeptideGroupsForIsoTracker.Count * 100);
                     currentProgress = Math.Max(percentProgress, currentProgress);
 
-                    if (currentProgress > lastReportedProgress + 10)
+                    if (currentProgress > lastReportedProgress + 5)
                     {
                         Console.WriteLine("{0:0.}% of isobaric species quantified", currentProgress);
                         lastReportedProgress = currentProgress;
