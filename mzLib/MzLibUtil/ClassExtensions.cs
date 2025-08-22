@@ -25,6 +25,8 @@ namespace MzLibUtil
 {
     public static class ClassExtensions
     {
+        public static readonly string ModificationPattern = @"-?\[(.+?)(?<!\[I+)\]";
+
         /// <summary>
         /// Applies a boxcar smoothing algorithm to the input data.
         /// </summary>
@@ -281,6 +283,12 @@ namespace MzLibUtil
                 totalCaptureLength += group[0].Length;
             }
             return modDict;
+        }
+
+        public static string GetBaseSequenceFromFullSequence(this string fullSeq, string? modPattern=null, string? replacement=null)
+        { 
+            Regex regex = new(modPattern ?? ModificationPattern);
+            return regex.Replace(fullSeq, replacement ?? string.Empty);
         }
 
         /// <summary>
