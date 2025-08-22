@@ -1,4 +1,5 @@
 ﻿using MzLibUtil;
+using Omics.BioPolymer;
 using Omics.Modifications;
 
 namespace Omics.BioPolymer
@@ -22,6 +23,14 @@ namespace Omics.BioPolymer
         public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
+            protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+            protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description == null || v.Description.Genotypes.Count == 0))
+            {
+                // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
+                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
+            }
+            // this is a protein with only VCF lines
             return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
         }
 
@@ -417,6 +426,141 @@ namespace Omics.BioPolymer
         public static string CombineDescriptions(IEnumerable<SequenceVariation>? variations)
         {
             return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.Description));
+        }
+        /// <summary>
+        /// Applies all possible combinations of the provided SequenceVariation list to the base TBioPolymerType object,
+        /// starting with the fewest single variations and up to the specified maximum number of combinations.
+        /// </summary>
+        /// <typeparam name="TBioPolymerType">The type of the biopolymer object.</typeparam>
+        /// <param name="baseBioPolymer">The base biopolymer object to apply variations to.</param>
+        /// <param name="variations">List of SequenceVariation objects to combine and apply. Assumed not null or empty.</param>
+        /// <param name="maxCombinations">Maximum number of combinations to return.</param>
+        /// <returns>
+        /// An IEnumerable of TBioPolymerType objects, each with a unique combination of variations applied.
+        /// </returns>
+        public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
+            TBioPolymerType baseBioPolymer,
+            List<SequenceVariation> variations,
+            int maxCombinations)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            int count = 0;
+
+            // Always yield the base biopolymer first
+            yield return baseBioPolymer;
+            count++;
+            if (count >= maxCombinations)
+                yield break;
+
+            int n = variations.Count;
+            for (int size = 1; size <= n; size++)
+            {
+                foreach (var combo in GetCombinations(variations, size))
+                {
+                    var result = baseBioPolymer;
+                    foreach (var variant in combo)
+                    {
+                        result = ApplySingleVariant(variant, result, string.Empty);
+                    }
+                    if (result != null)
+                    {
+                        yield return result;
+                        count++;
+                        if (count >= maxCombinations)
+                            yield break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generates all possible combinations of the specified size from the input list.
+        /// </summary>
+        /// <param name="variations">List of SequenceVariation objects to combine. Assumed not null or empty.</param>
+        /// <param name="size">The size of each combination.</param>
+        /// <returns>
+        /// An IEnumerable of IList&lt;SequenceVariation&gt; representing each combination.
+        /// </returns>
+        private static IEnumerable<IList<SequenceVariation>> GetCombinations(List<SequenceVariation> variations, int size)
+        {
+            int n = variations.Count;
+            var indices = new int[size];
+            for (int i = 0; i < size; i++) indices[i] = i;
+
+            while (true)
+            {
+                var combo = new List<SequenceVariation>(size);
+                for (int i = 0; i < size; i++)
+                    combo.Add(variations[indices[i]]);
+                yield return combo;
+
+                int pos = size - 1;
+                while (pos >= 0 && indices[pos] == n - size + pos)
+                    pos--;
+                if (pos < 0) break;
+                indices[pos]++;
+                for (int i = pos + 1; i < size; i++)
+                    indices[i] = indices[i - 1] + 1;
+            }
+        }
+        public static void ConvertNucleotideSubstitutionModificationsToSequenceVariants<TBioPolymerType>(this TBioPolymerType protein)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            List<KeyValuePair<int, Modification>> modificationsToRemove = new();
+            //convert substitution modifications to sequence variations
+            foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
+            {
+                foreach (Modification mod in kvp.Value)
+                {
+                    if (mod.ModificationType.Contains("nucleotide substitution") && mod.OriginalId.Contains("->"))
+                    {
+                        string[] originalAndSubstitutedAminoAcids = mod.OriginalId.Split(new[] { "->" }, StringSplitOptions.RemoveEmptyEntries);
+                        SequenceVariation sequenceVariation = new SequenceVariation(kvp.Key, kvp.Key, originalAndSubstitutedAminoAcids[0], originalAndSubstitutedAminoAcids[1], "Putative GPTMD Substitution");
+                        if (!protein.SequenceVariations.Contains(sequenceVariation))
+                        {
+                            protein.SequenceVariations.Add(sequenceVariation);
+                        }
+                        KeyValuePair<int, Modification> pair = new(kvp.Key, mod);
+                        modificationsToRemove.Add(pair);
+                    }
+                }
+            }
+            //remove the modifications that were converted to sequence variations
+            foreach (KeyValuePair<int, Modification> pair in modificationsToRemove)
+            {
+                if (protein.OneBasedPossibleLocalizedModifications.ContainsKey(pair.Key))
+                {
+                    List<Modification> modList = protein.OneBasedPossibleLocalizedModifications[pair.Key];
+                    var modToRemove = modList.FirstOrDefault(m =>
+                        m.ModificationType == pair.Value.ModificationType &&
+                        m.OriginalId == pair.Value.OriginalId);
+                    if (modToRemove != null)
+                    {
+                        modList.Remove(modToRemove);
+                        if (modList.Count == 0)
+                        {
+                            protein.OneBasedPossibleLocalizedModifications.Remove(pair.Key);
+                            protein.ConsensusVariant.OneBasedPossibleLocalizedModifications.Remove(pair.Key);
+                        }
+                    }
+                }
+                if (protein.OriginalNonVariantModifications.ContainsKey(pair.Key))
+                {
+                    List<Modification> modList = protein.OriginalNonVariantModifications[pair.Key];
+                    var modToRemove = modList.FirstOrDefault(m =>
+                        m.ModificationType == pair.Value.ModificationType &&
+                        m.OriginalId == pair.Value.OriginalId);
+                    if (modToRemove != null)
+                    {
+                        modList.Remove(modToRemove);
+                        if (modList.Count == 0)
+                        {
+                            protein.OriginalNonVariantModifications.Remove(pair.Key);
+                            protein.ConsensusVariant.OriginalNonVariantModifications.Remove(pair.Key);
+                        }
+                    }
+                }
+            }
         }
     }
 }

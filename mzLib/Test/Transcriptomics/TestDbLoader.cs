@@ -131,21 +131,31 @@ namespace Test.Transcriptomics
                 new Tuple<int, Modification>(3, methylG)
             });
 
+            IDictionary<int, List<Modification>> simpleModDictionary = new Dictionary<int, List<Modification>>();
+            simpleModDictionary.Add(3, new List<Modification>() { methylG });
+            simpleModDictionary.Add(4, new List<Modification>() { methylG });
+
+            RNA newRna = (RNA)rna.First().CloneWithNewSequenceAndMods(
+                "GGGGCUAUAGCUCAGCUGGGAGAGCGCCUGCUUUGCACGCAGGAGGUCUGCGGUUCGAUCCCGCAUAGCUCCACCA",
+                simpleModDictionary);
+            rna.RemoveAt(0);
+            rna.Add(newRna);
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
+
             var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
 
             Assert.That(unknownMods.Count, Is.EqualTo(0));
             Assert.That(temp.Count, Is.EqualTo(5));
-            var first = temp.First();
+            var first = temp.Last();
             var loadedMods = first.OneBasedPossibleLocalizedModifications;
             Assert.That(loadedMods.Count, Is.EqualTo(2));
-            Assert.That(loadedMods[1].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].Count, Is.EqualTo(1));
-            Assert.That(loadedMods[1].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[4].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[4].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
         }
 
         [Test]
@@ -164,22 +174,30 @@ namespace Test.Transcriptomics
                 new Tuple<int, Modification>(1, methylG),
                 new Tuple<int, Modification>(3, methylG)
             });
+            IDictionary<int, List<Modification>> simpleModDictionary = new Dictionary<int, List<Modification>>();
+            simpleModDictionary.Add(3, new List<Modification>() { methylG });
+            simpleModDictionary.Add(4, new List<Modification>() { methylG });
 
+            RNA newRna = (RNA)rna.First().CloneWithNewSequenceAndMods(
+                "GGGGCUAUAGCUCAGCUGGGAGAGCGCCUGCUUUGCACGCAGGAGGUCUGCGGUUCGAUCCCGCAUAGCUCCACCA",
+                simpleModDictionary);
+            rna.RemoveAt(0);
+            rna.Add(newRna);
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
             var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
 
             Assert.That(unknownMods.Count, Is.EqualTo(0));
             Assert.That(temp.Count, Is.EqualTo(5));
-            var first = temp.First();
+            var first = temp.Last();
             var loadedMods = first.OneBasedPossibleLocalizedModifications;
             Assert.That(loadedMods.Count, Is.EqualTo(2));
-            Assert.That(loadedMods[1].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].Count, Is.EqualTo(1));
-            Assert.That(loadedMods[1].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[4].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[4].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
         }
 
         [Test]
@@ -199,7 +217,7 @@ namespace Test.Transcriptomics
             });
 
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
-            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
             rna = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.Reverse, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods, decoyIdentifier: "rev");
 

@@ -82,7 +82,7 @@ public class TestVariantOligo
         Assert.That(decoy.SequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(reversedModIdx));
 
         string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
-        ProteinDbWriter.WriteXmlDatabase(null, rna.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", rewriteDbName));
+        ProteinDbWriter.WriteXmlDatabase(rna.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", rewriteDbName));
         rna = RnaDbLoader.LoadRnaXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", rewriteDbName), true,
             DecoyType.Reverse, false, AllKnownMods, [], out unknownModifications);
         target = rna[0];
@@ -121,7 +121,7 @@ public class TestVariantOligo
         Assert.That(decoy.TruncationProducts.Single().OneBasedEndPosition, Is.EqualTo(reversedEndIdx));
 
         string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
-        ProteinDbWriter.WriteXmlDatabase(null, rna.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", rewriteDbName));
+        ProteinDbWriter.WriteXmlDatabase(rna.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", rewriteDbName));
         rna = RnaDbLoader.LoadRnaXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", rewriteDbName), true,
             DecoyType.Reverse, false, AllKnownMods, [], out unknownModifications);
         target = rna[0];
@@ -168,7 +168,7 @@ public class TestVariantOligo
         var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
         var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
         string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
-        ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
+        ProteinDbWriter.WriteXmlDatabase(proteinsWithSeqVars, xml);
         var proteinsWithAppliedVariants3 = RnaDbLoader.LoadRnaXML(xml, true, DecoyType.None, false, AllKnownMods, null, out var un);
 
         var listArray = new List<RNA>[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
@@ -217,7 +217,7 @@ public class TestVariantOligo
         var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
         var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
         string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
-        ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
+        ProteinDbWriter.WriteXmlDatabase(proteinsWithSeqVars, xml);
         var proteinsWithAppliedVariants3 = RnaDbLoader.LoadRnaXML(xml, true, DecoyType.None, false, AllKnownMods, null, out var un).Cast<IBioPolymer>().ToList();
 
         var listArray = new List<IBioPolymer>[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
