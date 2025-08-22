@@ -172,7 +172,7 @@ namespace MassSpectrometry
                 ? new List<IsotopicEnvelope>()
                 : Deconvoluter.Deconvolute(precursorSpectrum, deconParameters,
                     new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
-                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+                    .Where(b => IsolationRange.ContainsMajority(b.Peaks.Select(p => p.mz)));
         }
 
         /// <summary>
@@ -182,20 +182,13 @@ namespace MassSpectrometry
         /// <param name="deconParameters">deconvolution parameters</param>
         /// <remarks>
         /// +- 8.5 are magic numbers from the original implementation of Classic Deconvolution
-        /// it is believe that they represent the maximum mz space an isotopic envelopes can exist within
+        /// it is believed that they represent the maximum mz space an isotopic envelopes can exist within
         /// This ensure that a peak is not cut in half by the mz isolation range
         /// </remarks>
         /// <returns></returns>
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MsDataScan precursorScan,
-            DeconvolutionParameters deconParameters)
-        {
-            return IsolationRange == null
-                ? new List<IsotopicEnvelope>()
-                : Deconvoluter.Deconvolute(precursorScan, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
-                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
-        }
-        
+            DeconvolutionParameters deconParameters) => GetIsolatedMassesAndCharges(precursorScan.MassSpectrum, deconParameters);
+
 
         [Obsolete]
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState,
