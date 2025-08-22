@@ -1935,17 +1935,25 @@ namespace FlashLFQ
             PpmTolerance isotopeTolerance = new PpmTolerance(FlashParams.PpmTolerance);
             ScanInfo[] ms1ScanInfos = peakIndexingEngine.ScanInfoArray;
 
-            ScanInfo startScan = ms1ScanInfos
-                .Where(p => p.RetentionTime < start)
-                .OrderBy(p => p.RetentionTime)
-                .LastOrDefault()
-                ?? ms1ScanInfos.OrderBy(p => p.RetentionTime).First(); // If the start time is before the first scan, use the first scan
+            // Binary search for start and end scans using a custom comparer for RetentionTime
+            var scanInfoComparer = Comparer<ScanInfo>.Create((a, b) => a.RetentionTime.CompareTo(b.RetentionTime));
 
-            ScanInfo endScan = ms1ScanInfos
-                .Where(p => p.RetentionTime > end)
-                .OrderBy(p => p.RetentionTime)
-                .FirstOrDefault()
-                ?? ms1ScanInfos.OrderBy(p => p.RetentionTime).Last(); // If the end time is after the last scan, use the last scan
+            // Create search keys (dummy ScanInfo objects with target retention times)
+            var startKey = new ScanInfo(0, 0, start, 0);
+            var endKey = new ScanInfo(0, 0, end, 0);
+
+            // Binary search for start scan (scan with RT <= start)
+            int startIndex = Array.BinarySearch(ms1ScanInfos, startKey, scanInfoComparer);
+            if (startIndex < 0) startIndex = ~startIndex - 1; // If exact match not found, get largest index with RT <= start
+            if (startIndex < 0) startIndex = 0; // Handle case where all scans have RT > start
+
+            // Binary search for end scan (scan with RT >= end)
+            int endIndex = Array.BinarySearch(ms1ScanInfos, endKey, scanInfoComparer);
+            if (endIndex < 0) endIndex = ~endIndex; // If exact match not found, get smallest index with RT >= end
+            if (endIndex >= ms1ScanInfos.Length) endIndex = ms1ScanInfos.Length - 1; // Handle case where all scans have RT < end
+
+            ScanInfo startScan = ms1ScanInfos[startIndex];
+            ScanInfo endScan = ms1ScanInfos[endIndex];
 
             // Collect all peaks from the Ms1 scans in the given time window, then build the XIC
             List<IIndexedPeak> peaks = new List<IIndexedPeak>();
