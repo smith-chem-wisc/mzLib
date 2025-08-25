@@ -10,7 +10,6 @@ using Omics.Fragmentation;
 using Readers;
 using MzLibUtil;
 using FlashLFQ;
-using System.Windows.Media;
 
 namespace Test.FileReadingTests
 {
