@@ -243,5 +243,58 @@ namespace MzLibUtil
         {
             return !value.IsDefaultOrNull();
         }
+
+        /// <summary>
+        /// Parses the full sequence to identify mods
+        /// </summary>
+        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
+        /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
+        public static Dictionary<int, string> ParseModifications(this string fullSeq)
+        {
+            // use a regex to get all modifications
+            // "-?": checks if the mod starts with an optional "-", which marks the mod as an C-Terminus for position tracking.
+            // "\[": indicates the start of a mod, and the end of the mod is indicated by "]"
+            // "(.+?)": captures the content of the mod, which can be anything except for a closing bracket
+            // "(?<!\[I+)": negative lookbehind to ensure that the closing bracket match does not correspond to a cation charge state (also defined with brackets).
+            // "\]": indicates the end of the mod
+            string pattern = @"-?\[(.+?)(?<!\[I+)\]";
+            Regex regex = new(pattern);
+
+            Dictionary<int, string> modDict = new();
+
+            MatchCollection matches = regex.Matches(fullSeq);
+            int totalCaptureLength = 0;
+            foreach (Match match in matches)
+            {
+                GroupCollection group = match.Groups;
+                string val = group[1].Value;
+                int startIndex = group[0].Index;
+
+                // int to add is startIndex - current position
+                int positionToAddToDict = startIndex - totalCaptureLength;
+                if (group[0].Value.StartsWith('-')) //if the mod starts with a "-", it is a C-Terminus mod, and the position should be incremented by 1
+                {
+                    positionToAddToDict++;
+                }
+
+                modDict.Add(positionToAddToDict, val);
+                totalCaptureLength += group[0].Length;
+            }
+            return modDict;
+        }
+
+        /// <summary>
+        /// Fixes an issue where the | appears and throws off the numbering if there are multiple mods on a single amino acid.
+        /// </summary>
+        /// <param name="fullSeq"></param>
+        /// <param name="replacement"></param>
+        /// <param name="specialCharacter"></param>
+        /// <returns></returns>
+        public static void RemoveSpecialCharacters(ref string fullSeq, string replacement = @"", string specialCharacter = @"\|")
+        {
+            // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
+            Regex regexSpecialChar = new(specialCharacter);
+            fullSeq = regexSpecialChar.Replace(fullSeq, replacement);
+        }
     }
 }

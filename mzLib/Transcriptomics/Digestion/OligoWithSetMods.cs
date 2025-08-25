@@ -165,7 +165,7 @@ namespace Transcriptomics.Digestion
                 if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification? pepCTermVariableMod))
                 {
                     if (pepCTermVariableMod is { } mod)
-                        subsequence.Append('[' + mod.ChemicalFormula.Formula + ']');
+                        subsequence.Append("-[" + mod.ChemicalFormula.Formula + ']');
                 }
 
                 _sequenceWithChemicalFormula = subsequence.ToString();

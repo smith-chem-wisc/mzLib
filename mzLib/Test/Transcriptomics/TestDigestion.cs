@@ -373,9 +373,9 @@ namespace Test.Transcriptomics
             Assert.That(digestionProducts[0].SequenceWithChemicalFormulas, Is.EqualTo("UAGUCGUUGAUAG"));
             Assert.That(digestionProducts[0].FullSequenceWithMassShift(), Is.EqualTo("UAGUCGUUGAUAG"));
             
-            Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("UAGUCGUUGAUAG[Digestion Termini:Cyclic Phosphate on X]"));
-            Assert.That(digestionProducts[1].SequenceWithChemicalFormulas, Is.EqualTo("UAGUCGUUGAUAG[H-2O-1]"));
-            Assert.That(digestionProducts[1].FullSequenceWithMassShift(), Is.EqualTo("UAGUCGUUGAUAG[-18.010565]"));
+            Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("UAGUCGUUGAUAG-[Digestion Termini:Cyclic Phosphate on X]"));
+            Assert.That(digestionProducts[1].SequenceWithChemicalFormulas, Is.EqualTo("UAGUCGUUGAUAG-[H-2O-1]"));
+            Assert.That(digestionProducts[1].FullSequenceWithMassShift(), Is.EqualTo("UAGUCGUUGAUAG-[-18.010565]"));
 
             // top-down digestion, 3' oligo terminal modification
             variableMods = new List<Modification> { oligoCyclicPhosphate };
@@ -383,7 +383,7 @@ namespace Test.Transcriptomics
                 .Select(p => (OligoWithSetMods)p).ToList();
             Assert.That(digestionProducts.Count, Is.EqualTo(2));
             Assert.That(digestionProducts[0].FullSequence, Is.EqualTo("UAGUCGUUGAUAG"));
-            Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("UAGUCGUUGAUAG[Digestion Termini:Cyclic Phosphate on X]"));
+            Assert.That(digestionProducts[1].FullSequence, Is.EqualTo("UAGUCGUUGAUAG-[Digestion Termini:Cyclic Phosphate on X]"));
 
             // RNase T1 digestion, 3' terminal modification
             digestionParams = new RnaDigestionParams("RNase T1");
@@ -393,7 +393,7 @@ namespace Test.Transcriptomics
             Assert.That(digestionProducts.Count, Is.EqualTo(5));
             var expected = new List<string>()
             {
-                "UAG", "UCG", "UUG", "AUAG", "AUAG[Digestion Termini:Cyclic Phosphate on X]"
+                "UAG", "UCG", "UUG", "AUAG", "AUAG-[Digestion Termini:Cyclic Phosphate on X]"
             };
             for (int i = 0; i < expected.Count; i++)
             {
@@ -407,10 +407,10 @@ namespace Test.Transcriptomics
             Assert.That(digestionProducts.Count, Is.EqualTo(8));
             expected = new List<string>()
             {
-                "UAG", "UAG[Digestion Termini:Cyclic Phosphate on X]",
-                "UCG", "UCG[Digestion Termini:Cyclic Phosphate on X]",
-                "UUG", "UUG[Digestion Termini:Cyclic Phosphate on X]",
-                "AUAG","AUAG[Digestion Termini:Cyclic Phosphate on X]"
+                "UAG", "UAG-[Digestion Termini:Cyclic Phosphate on X]",
+                "UCG", "UCG-[Digestion Termini:Cyclic Phosphate on X]",
+                "UUG", "UUG-[Digestion Termini:Cyclic Phosphate on X]",
+                "AUAG","AUAG-[Digestion Termini:Cyclic Phosphate on X]"
             };
 
             for (int i = 0; i < expected.Count; i++)
@@ -1018,11 +1018,11 @@ namespace Test.Transcriptomics
                 Assert.That(precursors.Any(p => p.NumVariableMods == 1));
                 Assert.That(fullSequences.Contains("GUACUG"));
                 Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG"));
-                Assert.That(fullSequences.Contains("GUACUG[Metal:Sodium on G]"));
+                Assert.That(fullSequences.Contains("GUACUG-[Metal:Sodium on G]"));
 
                 if (rnaDigestionParams.MaxMods != 2) continue;
                 Assert.That(precursors.Any(p => p.NumVariableMods == 2));
-                Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Sodium on G]"));
+                Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG-[Metal:Sodium on G]"));
             }
         }
 
@@ -1079,12 +1079,12 @@ namespace Test.Transcriptomics
                     Assert.That(fullSequences.Contains("GUACUG"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG"));
                     Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG"));
-                    Assert.That(fullSequences.Contains("GUACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("GUACUG-[Metal:Sodium on G]"));
                 }
                 else if (rnaDigestionParams.MaxMods >= 2)
                 {
-                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Sodium on G]"));
-                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG-[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG-[Metal:Sodium on G]"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG"));
                 }
                 else if (rnaDigestionParams.MaxMods >= 3)
@@ -1147,25 +1147,25 @@ namespace Test.Transcriptomics
                     Assert.That(fullSequences.Contains("GUACUG"));
                     Assert.That(fullSequences.Contains("GUACUG[Metal:Potassium on G]"));
                     Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG"));
-                    Assert.That(fullSequences.Contains("GUACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("GUACUG-[Metal:Sodium on G]"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG"));
                 }
                 else if (rnaDigestionParams.MaxMods >= 2)
                 {
                     Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Potassium on G]"));
-                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Sodium on G]"));
-                    Assert.That(fullSequences.Contains("GUACUG[Metal:Potassium on G][Metal:Sodium on G]"));
-                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG-[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("GUACUG[Metal:Potassium on G]-[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG-[Metal:Sodium on G]"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Potassium on G]"));
                 }
                 else if (rnaDigestionParams.MaxMods >= 3)
                 {
-                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG-[Metal:Sodium on G]"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG[Metal:Potassium on G]"));
 
-                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Potassium on G][Metal:Sodium on G]"));
-                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Potassium on G][Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Potassium on G]-[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Potassium on G]-[Metal:Sodium on G]"));
                 }
             }
         }

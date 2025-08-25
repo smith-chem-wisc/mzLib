@@ -62,7 +62,7 @@ namespace Omics
         /// <returns></returns>
         public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize);
 
-        public static string GetBaseSequenceFromFullSequence(string fullSequence, char modStartDelimiter = '[', char modEndDelimiter = ']')
+        public static string GetBaseSequenceFromFullSequence(string fullSequence, char modStartDelimiter = '[', char modEndDelimiter = ']', char cTerminusDelimiter = '-')
         {
             StringBuilder sb = new StringBuilder();
             int bracketCount = 0;
@@ -75,6 +75,10 @@ namespace Omics
                 else if (c == modEndDelimiter)
                 {
                     bracketCount--;
+                }
+                else if (c == cTerminusDelimiter)
+                {
+                    continue;
                 }
                 else if (bracketCount == 0)
                 {
@@ -193,7 +197,7 @@ namespace Omics
             // modification on peptide C-terminus
             if (allModsOneIsNterminus.TryGetValue(baseSequence.Length + 2, out mod))
             {
-                subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
+                subSequence.Append($"-[{mod.ModificationType}:{mod.IdWithMotif}]");
             }
 
             return subSequence.ToString();
