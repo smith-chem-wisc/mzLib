@@ -8,7 +8,6 @@ using ThermoFisher.CommonCore.Data.Business;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 using ThermoFisher.CommonCore.Data.Interfaces;
 using ThermoFisher.CommonCore.RawFileReader;
-using UsefulProteomicsDatabases;
 
 // old namespace to ensure backwards compatibility
 namespace IO.ThermoRawFileReader
@@ -162,21 +161,21 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
-            dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
-            dynamicConnection.SelectInstrument(Device.MS, 1);
+            var dymConnection = RawFileReaderAdapter.FileFactory(FilePath);
+            dymConnection.SelectInstrument(Device.MS, 1);
 
-            if (dynamicConnection == null)
+            if (dymConnection == null)
             {
                 throw new MzLibException("The dynamic connection has not been created yet!");
             }
 
-            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum ||
-                oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+            if (oneBasedScanNumber > dymConnection.RunHeaderEx.LastSpectrum ||
+                oneBasedScanNumber < dymConnection.RunHeaderEx.FirstSpectrum)
             {
                 return null;
             }
 
-            return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+            return ThermoRawFileReader.GetOneBasedScan(dymConnection, filterParams, oneBasedScanNumber);
         }
 
         /// <summary>
