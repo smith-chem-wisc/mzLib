@@ -286,7 +286,7 @@ namespace Test.FileReadingTests
             modDict = SpectrumMatchFromTsv.ParseModifications(twoMods.FullSequence);
             Assert.That(modDict.Count == 2);
             Assert.That(modDict.ContainsKey(0) && modDict.ContainsKey(104));
-            Assert.That(modDict[0].Contains("UniProt:N-acetylserine on S"));
+            Assert.AreEqual(modDict[0], "UniProt:N-acetylserine on S");
             Assert.That(modDict[104].Contains("UniProt:N5-methylglutamine on Q"));
 
             // test sequence with mods at all relevant positions. Mods include cation mod to test bracket selectivity when parsing mods. 
