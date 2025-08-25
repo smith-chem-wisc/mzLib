@@ -55,7 +55,7 @@ namespace MzLibUtil
             }
             else
             {
-                throw new Exception("The base sequence of the peptide does not match the full sequence.");
+                throw new Exception("The base sequence of the peptide being added does not match the base sequence of this peptide.");
             }
         }
 
@@ -63,7 +63,7 @@ namespace MzLibUtil
         {
             if (peptideToMerge == null || peptideToMerge.BaseSequence != BaseSequence)
             {
-                throw new Exception("The base sequence of the peptide to merge does not match the base sequence of this peptide.");
+                throw new Exception("The base sequence of the peptide being added does not match the base sequence of this peptide.");
             }
             foreach (var fullSeq in peptideToMerge.FullSequences)
             {
@@ -146,6 +146,11 @@ namespace MzLibUtil
 
             foreach (var peptide in Peptides.Values)
             {
+                // if peptide position in protein is unknown, set it using the protein sequence
+                if (peptide.OneBasedStartIndexInProtein == -1)
+                {
+                    peptide.OneBasedStartIndexInProtein = Sequence.IndexOf(peptide.BaseSequence) + 1;
+                }
                 // if peptide has no modifications, add to all its positions
                 if (!peptide.ModifiedAminoAcidPositions.IsNotNullOrEmpty())
                 {
@@ -206,17 +211,19 @@ namespace MzLibUtil
 
         }
 
-        public Dictionary<int, Dictionary<string, QuantifiedModification>> GetModStoichiometryFromProteinMods()
+        public Dictionary<int, Dictionary<string, double>> GetModStoichiometryFromProteinMods()
         {
             SetProteinModsFromPeptides();
-
-            var aaModsStoichiometry = ModifiedAminoAcidPositionsInProtein;
-            foreach (var modpos in aaModsStoichiometry.Keys)
+            var aaModsStoichiometry = new Dictionary<int, Dictionary<string, double>>();
+            foreach (var modpos in ModifiedAminoAcidPositionsInProtein.Keys)
             {
+                aaModsStoichiometry[modpos] = new Dictionary<string, double>();
+
                 double totalPositionIntensity = Peptides.Where(pep => PeptidesByProteinPosition[modpos].Contains(pep.Key)).Sum(x => x.Value.Intensity);
-                foreach (var mod in aaModsStoichiometry[modpos].Values)
+                foreach (var mod in ModifiedAminoAcidPositionsInProtein[modpos].Values)
                 {
-                    mod.Intensity /= totalPositionIntensity;
+                    double modFraction = mod.Intensity / totalPositionIntensity;
+                    aaModsStoichiometry[modpos].Add(mod.IdWithMotif, modFraction);
                 }
             }
             return aaModsStoichiometry;
