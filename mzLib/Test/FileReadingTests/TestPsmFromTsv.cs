@@ -287,7 +287,7 @@ namespace Test.FileReadingTests
             Assert.That(modDict.Count == 2);
             Assert.That(modDict.ContainsKey(0) && modDict.ContainsKey(104));
             Assert.AreEqual(modDict[0], "UniProt:N-acetylserine on S");
-            Assert.That(modDict[104].Contains("UniProt:N5-methylglutamine on Q"));
+            Assert.AreEqual(modDict[104], "UniProt:N5-methylglutamine on Q");
 
             // test sequence with mods at all relevant positions. Mods include cation mod to test bracket selectivity when parsing mods. 
             string allPosSeq = "[mod type1: testmodW on N-term]S[mod type2: testmodX on S]TGTSQ[Common Artifact: Fe[II] on Q]ADDC[mod type3: testmodY on C]-[mod type4: testmodZ on C-Term]";
