@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using FlashLFQ;
 using System.Linq;
 using Proteomics.AminoAcidPolymer;
+using System;
 
 namespace Test
 {
@@ -287,6 +288,53 @@ namespace Test
             Assert.AreEqual(stoich[8]["UniProt:N-methylalanine on A"], 1);
             Assert.AreEqual(stoich[9]["UniProt: O - linked(Hex) hydroxylysine on K"], 1);
             Assert.AreEqual(stoich[10]["C-Terminal UniProt: Lysine Amide on K"], 1);
+        }
+
+        [Test]
+        public void TestQuantifiedProteinGroup()
+        {   
+            // Test correct arguments where protein group name contains the names of the proteins
+            var protein1 = new QuantifiedProtein(accession: "PROT1", sequence: "AAAYYY", peptides: new Dictionary<string, QuantifiedPeptide>());
+            var protein2 = new QuantifiedProtein(accession: "PROT2", sequence: "AAARRR", peptides: new Dictionary<string, QuantifiedPeptide>());
+            var proteins = new Dictionary<string, QuantifiedProtein> { { protein1.Accession, protein1 },
+                                                                       { protein2.Accession, protein2 } };
+            var proteinGroup = new QuantifiedProteinGroup("PROT1|PROT2", proteins);
+            Assert.AreEqual(proteinGroup.Proteins.Count, 2);
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].Accession, "PROT1");
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].Accession, "PROT2");
+
+            // Test incorrect argument where protein group name does not contain the names of the proteins
+            var errorMessage = "The number of proteins provided does not match the number of proteins in the protein group name.";
+            var exception1 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2", new Dictionary<string, QuantifiedProtein> { { protein1.Accession, protein1 } }));
+            Assert.AreEqual(exception1.Message, errorMessage);
+
+            var exception2 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1", proteins));
+            Assert.AreEqual(exception2.Message, errorMessage);
+
+            var exception3 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2|PROT3", proteins));
+            Assert.AreEqual(exception3.Message, errorMessage);
+        }
+
+        [Test]
+        public void TestSetUpQuantificationObjects()
+        {
+            var fullSeq1 = "[UniProt: N - palmitoyl glycine on G]G[UniProt: N - methylglycine on G]K[UniProt: O - linked(Hex) hydroxylysine on K]";
+            var fullSeq2 = "[UniProt: N - acetylglycine on G]G[UniProt: N - methylglycine on G]K-[C-Terminal UniProt: Lysine Amide on K]";
+            var fullSequences = new List<string> { fullSeq1, fullSeq2 };
+            var proteinGroups = new List<string> { "TESTPROT1|TESTPROT2", "TESTPROT3" };
+            var proteinSequences = new Dictionary<string, string> { { "TESTPROT1", "GKAAAAAAK" },
+                                                                    { "TESTPROT2", "AKAAAAAGK" },
+                                                                    { "TESTPROT3", "AKGK"} };
+            var intensities = new List<double> { 1, 5 };
+            var sequenceInputs = new List<(string, List<string>, double)> { };
+            for (int i = 0; i < 2; i++)
+            {
+                sequenceInputs.Add((fullSequences[i], proteinGroups, intensities[i]));
+            }
+
+            var quantificationObjects = new PositionFrequencyAnalysis();
+            quantificationObjects.SetUpQuantificationObjects(sequenceInputs, proteinSequences);
+            // NEED TO FINISH THIS TEST
         }
 
         public struct TestStruct
