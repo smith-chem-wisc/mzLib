@@ -112,6 +112,7 @@ namespace MassSpectrometry
         {
             var sb = new StringBuilder();
             sb.AppendLine($"XicSplineSettings: ");
+
             sb.AppendLine($"    XicSplineType: {GetType().Name}");
             sb.AppendLine($"    SplineRtInterval: {SplineRtInterval}");
             sb.AppendLine($"    NumberOfPeaksToAdd: {NumberOfPeaksToAdd}");
