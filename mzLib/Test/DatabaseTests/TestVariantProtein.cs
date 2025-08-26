@@ -13,6 +13,8 @@ using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics;
 using Transcriptomics;
+using MassSpectrometry;
+using Chemistry;
 
 namespace Test.DatabaseTests
 {
@@ -146,7 +148,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
-            ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
+            ProteinDbWriter.WriteXmlDatabase( proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
@@ -185,7 +187,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedEndIdx, decoy.TruncationProducts.Single().OneBasedEndPosition);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
-            ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
+            ProteinDbWriter.WriteXmlDatabase(proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
@@ -215,7 +217,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedEndIdx, decoy.DisulfideBonds.Single().OneBasedEndPosition);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
-            ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
+            ProteinDbWriter.WriteXmlDatabase(proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
@@ -251,7 +253,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedEndIdx, decoy.SpliceSites.Single().OneBasedEndPosition);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
-            ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
+            ProteinDbWriter.WriteXmlDatabase(proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
@@ -300,7 +302,7 @@ namespace Test.DatabaseTests
             var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
             var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
-            ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
+            ProteinDbWriter.WriteXmlDatabase(proteinsWithSeqVars, xml);
             var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
 
             var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
@@ -349,7 +351,7 @@ namespace Test.DatabaseTests
             var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
             var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
-            ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
+            ProteinDbWriter.WriteXmlDatabase(proteinsWithSeqVars, xml);
             var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
 
             var listArray = new List<IBioPolymer>[]
@@ -556,6 +558,25 @@ namespace Test.DatabaseTests
             Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
         }
         [Test]
+        public void SequenceVariationIsValidTest()
+        {
+            SequenceVariation sv1 = new SequenceVariation(10, 10, "A", "T", "info", null);
+            SequenceVariation sv2 = new SequenceVariation(5, 5, "G", "C", "info", null);
+            SequenceVariation sv3 = new SequenceVariation(8, 8, "T", "A", "info", null);
+            List<SequenceVariation> svList = new List<SequenceVariation> { sv1, sv2, sv3 };
+
+            Protein variantProtein = new Protein("ACDEFGHIKLMNPQRSTVWY", "protein1", sequenceVariations: svList);
+            Assert.IsTrue(variantProtein.SequenceVariations.All(v => v.AreValid()));
+            SequenceVariation svInvalidOneBasedBeginLessThanOne = new SequenceVariation(0, 10, "A", "T", "info", null);
+            SequenceVariation svInvalidOneBasedEndLessThanOneBasedBegin = new SequenceVariation(5, 4, "G", "C", "info", null);
+            SequenceVariation svValidOriginalSequenceIsEmpty = new SequenceVariation(8, 8, "", "A", "info", null);
+            SequenceVariation svValidVariantSequenceLenthIsZero = new SequenceVariation(10, 10, "A", "", "info", null);
+            Assert.IsFalse(svInvalidOneBasedBeginLessThanOne.AreValid());
+            Assert.IsFalse(svInvalidOneBasedEndLessThanOneBasedBegin.AreValid());
+            Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid()); //This is valid because it is an insertion
+            Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid()); // This is valid because it is a deletion
+        }
+        [Test]
         public void VariantModificationTest()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "VariantModsGPTMD.xml");
@@ -583,6 +604,171 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, decoyMods.Count);
             Assert.AreEqual(0, negativeResidues.Count);
 
+        }
+        [Test]
+        public void WriteProteinXmlWithVariantsDiscoveredAsModifications2()
+        {
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 0);
+            var target = proteins[0];
+            int totalSequenceVariations = target.SequenceVariations.Count();
+            Assert.AreEqual(2, totalSequenceVariations); //these sequence variations were in the original
+            ModificationMotif.TryGetMotif("W", out ModificationMotif motifW);
+            string _originalId = "W->G";
+            string _accession = null;
+            string _modificationType = "1 nucleotide substitution";
+            string _featureType = null;
+            ModificationMotif _target = motifW;
+            string _locationRestriction = "Anywhere.";
+            ChemicalFormula _chemicalFormula = ChemicalFormula.ParseFormula("C-9H-7N-1");
+            double? _monoisotopicMass = null;
+            Dictionary<string, IList<string>> _databaseReference = null;
+            Dictionary<string, IList<string>> _taxonomicRange = null;
+            List<string> _keywords = null;
+            Dictionary<DissociationType, List<double>> _neutralLosses = null;
+            Dictionary<DissociationType, List<double>> _diagnosticIons = null;
+            string _fileOrigin = null;
+
+            Modification substitutionMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
+                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+            Dictionary<int, List<Modification>> substitutionDictionary = new Dictionary<int, List<Modification>>();
+            substitutionDictionary.Add(87, new List<Modification> { substitutionMod });
+
+            Protein newProtein = (Protein)target.CloneWithNewSequenceAndMods(target.BaseSequence, substitutionDictionary);
+            Assert.That(newProtein.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
+
+            // This process examines the OneBasedPossibleLocalizedModifications that are ModificationType 'nucleotide substitution'
+            // and converts them to SequenceVariations
+            newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+            Assert.That(newProtein.SequenceVariations.Count, Is.EqualTo(totalSequenceVariations + 1)); //This number increases by 1 because we added a sequence variation that was discovered as a modification
+            Assert.AreEqual(0,newProtein.OneBasedPossibleLocalizedModifications.Count); //This number should be 0 because we converted the modification to a sequence variation
+        }
+
+        [Test]
+        public static void TestThatProteinVariantsAreGeneratedDuringRead()
+        {
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 99);
+            Assert.AreEqual(8, proteins.Count); // 4 target + 4 decoy
+            Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // these sequence variations were in the original
+            Assert.That("P04406", Is.EqualTo(proteins[0].Accession));
+            Assert.That("P04406_A22G", Is.EqualTo(proteins[1].Accession));
+            Assert.That("P04406_K251N", Is.EqualTo(proteins[2].Accession));
+            Assert.That("P04406_K251N_A22G", Is.EqualTo(proteins[3].Accession));
+            Assert.That("DECOY_P04406", Is.EqualTo(proteins[4].Accession));
+            Assert.That("DECOY_P04406_A315G", Is.EqualTo(proteins[5].Accession));
+            Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession));
+            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession));
+        }
+        [Test]
+        public static void ProteinVariantsReadAsModificationsWrittenAsVariants()
+        {
+            string databaseName = "nucleotideVariantsAsModifications.xml";
+
+            Assert.That(File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName)).Count(l => l.Contains("1 nucleotide substitution")), Is.EqualTo(57));
+
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.None, null, false, null, out var unknownModifications, 1, 0);
+            Assert.AreEqual(9, proteins.Count); // 1 target
+            Assert.AreEqual(194, proteins.Select(v=>v.SequenceVariations.Count).Sum()); // there are no sequence variations in the original proteins
+            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list=>list.Value.Count)).Sum()); // there are 194 sequence variants as modifications in the original proteins
+
+            string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            Directory.CreateDirectory(tempDir);
+            string tempFile = Path.Combine(tempDir, "xmlWithSequenceVariantsAndNoModifications.txt");
+
+            ProteinDbWriter.WriteXmlDatabase(proteins.Where(p => !p.IsDecoy).ToList(), tempFile);
+            proteins = ProteinDbLoader.LoadProteinXML(tempFile, true,
+                DecoyType.None, null, false, null, out unknownModifications, 1, 0);
+            Assert.AreEqual(9, proteins.Count); // 1 target
+            Assert.AreEqual(194, proteins.Select(v => v.SequenceVariations.Count).Sum()); // there are 194 sequence variations in the revised proteins
+            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // there are 0 sequence variants as modifications in the original proteins
+            
+            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("feature type=\"sequence variant\"")), Is.EqualTo(194));
+            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("Putative GPTMD Substitution")), Is.EqualTo(194));
+            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("1 nucleotide substitution")), Is.EqualTo(0));
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+
+        [Test]
+        public void Constructor_ParsesDescriptionCorrectly()
+        {
+            // Arrange
+            string description = @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30";
+
+            // Example VCF line with snpEff annotation:
+            // 1   50000000   .   A   G   .   PASS   ANN=G||||||||||||||||   GT:AD:DP   1/1:30,30:30
+
+            // --- VCF Standard Columns ---
+            //
+            // CHROM (1)      → Chromosome name (here, chromosome 1).
+            // POS (50000000) → 1-based position of the variant (50,000,000).
+            // ID (.)         → Variant identifier. "." means no ID (e.g., not in dbSNP).
+            // REF (A)        → Reference allele in the reference genome (A).
+            // ALT (G)        → Alternate allele observed in reads (G).
+            // QUAL (.)       → Variant call quality score (Phred-scaled). "." means not provided.
+            // FILTER (PASS)  → Indicates if the call passed filtering. "PASS" = high confidence.
+            //
+            // --- INFO Column ---
+            //
+            // INFO (ANN=...) holds snpEff annotation data.
+            // ANN format is:
+            //   Allele | Effect | Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID |
+            //   Transcript_Biotype | Rank | HGVS.c | HGVS.p | cDNA_pos/cDNA_len |
+            //   CDS_pos/CDS_len | AA_pos/AA_len | Distance | Errors/Warnings
+            //
+            // In this case: ANN=G||||||||||||||||
+            //   - Allele = G
+            //   - All other fields are empty → snpEff did not predict any functional impact
+            //     (likely intergenic or unannotated region).
+            //
+            // --- FORMAT Column ---
+            //
+            // FORMAT (GT:AD:DP) defines how to read the sample column(s):
+            //   GT → Genotype
+            //   AD → Allele depth (number of reads supporting REF and ALT)
+            //   DP → Read depth (total reads covering the site)
+            //
+            // --- SAMPLE Column ---
+            //
+            // Sample entry: 1/1:30,30:30
+            //   GT = 1/1 → Homozygous ALT genotype (both alleles = G)
+            //   AD = 30,30 → Read counts: REF=A has 30 reads, ALT=G has 30 reads
+            //                (⚠ usually homozygous ALT would have few/no REF reads;
+            //                 this may be caller-specific behavior or a quirk.)
+            //   DP = 30   → Total coverage at this site = 30 reads
+            //                (⚠ note AD sums to 60, which does not match DP.
+            //                 This discrepancy is common in some callers.)
+            //
+            // --- Overall Summary ---
+            // Variant at chr1:50000000 changes A → G.
+            // The sample is homozygous for the ALT allele (G).
+            // Variant passed filters, but no functional annotation from snpEff.
+
+
+            // Act
+            var svd = new SequenceVariantDescription(description);
+
+            // Assert
+            Assert.AreEqual(description, svd.Description);
+            Assert.AreEqual("A", svd.ReferenceAlleleString);
+            Assert.AreEqual("G", svd.AlternateAlleleString);
+            Assert.IsNotNull(svd.Info);
+            Assert.AreEqual("GT:AD:DP", svd.Format);
+            Assert.AreEqual(1, svd.Genotypes.Count);
+            Assert.AreEqual(1, svd.AlleleDepths.Count);
+            Assert.AreEqual(new[] { "0" }, new List<string>(svd.Genotypes.Keys));
+
+            var hzKey = svd.Homozygous.Keys.First();
+            Assert.AreEqual("0", hzKey);
+            var hzBool = svd.Homozygous[hzKey];
+            Assert.IsTrue(hzBool);
+            var adKey = svd.AlleleDepths.Keys.First();
+            Assert.AreEqual("0", adKey);
+            var adValues = svd.AlleleDepths[adKey];
+            Assert.AreEqual(new[] { "30", "30" }, adValues);
         }
     }
 }

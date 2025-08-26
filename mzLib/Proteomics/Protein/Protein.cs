@@ -11,6 +11,7 @@ using MzLibUtil;
 using Omics.BioPolymer;
 using System.Data;
 using Chemistry;
+using Easy.Common.Extensions;
 
 
 namespace Proteomics
@@ -606,12 +607,10 @@ namespace Proteomics
                 applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
-
         #endregion
 
         #region Truncation Products
 
-        
         /// <summary>
         /// Protein XML files contain annotated proteolysis products for many proteins (e.g. signal peptides, chain peptides).
         /// This method adds N- and C-terminal truncations to these products.
