@@ -19,6 +19,7 @@ namespace MassSpectrometry
         public double SplineRtInterval { get; set; } //can be in RT or scan cycle
         public int NumberOfPeaksToAdd { get; set; } //number of peaks to add on each side of the chromatogram
         public double Gap { get; set; } // gap between added peaks
+        public bool ScanIndexBased { get; set; }
 
         /// <summary>
         /// Get the data points as a list of tuple (rt/scanIndex, intensity) after smoothing/interpolation.
@@ -45,10 +46,10 @@ namespace MassSpectrometry
         /// <summary>
         /// Set the XYData field of an ExtractedIonChromatogram object as the result of spline.
         /// </summary>
-        public void SetXicSplineXYData(ExtractedIonChromatogram xic, bool cycle = false, double start = -1, double end = -1)
+        public void SetXicSplineXYData(ExtractedIonChromatogram xic, double start = -1, double end = -1)
         {
             float[] peakRts = null;
-            if (cycle)
+            if (ScanIndexBased)
             {
                 peakRts = xic.Peaks.Select(p =>(float)p.ZeroBasedScanIndex).ToArray();
             }

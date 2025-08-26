@@ -12,8 +12,9 @@ namespace MassSpectrometry
 {
     public class XicCubicSpline : XicSpline
     {
-        public XicCubicSpline(double splineRtInterval = 0.05, int numberOfPeaksToAdd = 0, double gap = 1)
+        public XicCubicSpline(double splineRtInterval = 0.05, int numberOfPeaksToAdd = 0, double gap = 1, bool scanIndexBased = false)
         {
+            ScanIndexBased = scanIndexBased;
             SplineRtInterval = splineRtInterval;
             NumberOfPeaksToAdd = numberOfPeaksToAdd;
             Gap = gap;
