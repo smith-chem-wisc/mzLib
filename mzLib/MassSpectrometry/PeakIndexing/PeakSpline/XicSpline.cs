@@ -21,6 +21,14 @@ namespace MassSpectrometry
         public double Gap { get; set; } // gap between added peaks
         public bool ScanIndexBased { get; set; }
 
+        protected XicSpline(double splineRtInterval = 0.05, int numberOfPeaksToAdd = 0, double gap = 1, bool scanIndexBased = false)
+        {
+            SplineRtInterval = splineRtInterval;
+            NumberOfPeaksToAdd = numberOfPeaksToAdd;
+            Gap = gap;
+            ScanIndexBased = scanIndexBased;
+        }
+
         /// <summary>
         /// Get the data points as a list of tuple (rt/scanIndex, intensity) after smoothing/interpolation.
         /// Requires a rt/scanIndex array and an intensity array as input. Start and end of rt/index as optionl parameters.
