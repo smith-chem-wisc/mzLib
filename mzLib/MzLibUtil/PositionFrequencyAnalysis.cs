@@ -238,16 +238,24 @@ namespace MzLibUtil
 
         public QuantifiedProteinGroup(string name, Dictionary<string, QuantifiedProtein> proteins = null)
         {
-            Name = name;
-            if (proteins != null) Proteins = proteins;
-            else Proteins = new Dictionary<string, QuantifiedProtein>();
+            string splitPattern = @";|\|";
+            var proteinAccessions = Regex.Split(name, splitPattern);
+            if ((proteinAccessions.Length == proteins.Count && proteinAccessions.OrderBy(x => x).SequenceEqual(proteins.Keys.OrderBy(x => x))) || proteins.IsNullOrEmpty())
+            {
+                Name = name;
+                Proteins = proteins ?? new Dictionary<string, QuantifiedProtein>();
+            }
+            else
+            {ProteinGroupQuantObjects
+                throw new Exception("The number of proteins provided does not match the number of proteins in the protein group name.");
+            }
         }
     }
     public class PositionFrequencyAnalysis
     {
 
-        public Dictionary<string, QuantifiedProteinGroup> ProteinGroupOccupancies { get; private set; }
-        public Dictionary<string, (QuantifiedPeptide QuantifiedPeptide, string ProteinGroups)> PeptideOccupancies { get; private set; }
+        public Dictionary<string, QuantifiedProteinGroup> ProteinGroupQuantObjects { get; private set; }
+        public Dictionary<string, (QuantifiedPeptide QuantifiedPeptide, string ProteinGroups)> PeptideQuantObjects { get; private set; }
 
         /// <summary>
         /// Calculates the occupancy of post-translational modifications at the peptide level. 
@@ -258,11 +266,10 @@ namespace MzLibUtil
         /// Note: Each BaseSequence dictionary contains a ModifiedAminoAcidIndex key of -1 that then contains a ModificationName key called "Total" that is used to track the total intensity observed for 
         /// all of the amino acids in that peptide.</returns>
         ///
-        public void CalculateOccupancies(List<(string fullSeq, List<string> proteinGroups, double intensity)> peptides, bool ignoreTerminusMod = false)
+        public void SetUpQuantificationObjects(List<(string fullSeq, List<string> proteinGroups, double intensity)> peptides, Dictionary<string, string> proteinSequences=null)
         {
-            // ToDo: change first argument to Dictionary<IPeptide, intensity>
-            ProteinGroupOccupancies = new Dictionary<string, QuantifiedProteinGroup>();
-            PeptideOccupancies = new Dictionary<string, (QuantifiedPeptide, string)>();
+            ProteinGroupQuantObjects = new Dictionary<string, QuantifiedProteinGroup>();
+            PeptideQuantObjects = new Dictionary<string, (QuantifiedPeptide, string)>();
 
             // Go through the peptides given
             foreach (var pep in peptides)
@@ -271,27 +278,27 @@ namespace MzLibUtil
                 //ClassExtensions.RemoveSpecialCharacters(ref baseSeq, @"", ClassExtensions.modificationPattern); 
                 string baseSeq = pep.fullSeq.GetBaseSequenceFromFullSequence();
 
-                if (!PeptideOccupancies.ContainsKey(pep.fullSeq))
+                if (!PeptideQuantObjects.ContainsKey(pep.fullSeq))
                 {
                     // Need to make sure clustering of proteingroups is correct
                     string proteinGroupsJoined = string.Join(";", pep.proteinGroups);
-                    PeptideOccupancies[pep.fullSeq] = (new QuantifiedPeptide(pep.fullSeq, intensity: pep.intensity), proteinGroupsJoined);
+                    PeptideQuantObjects[pep.fullSeq] = (new QuantifiedPeptide(pep.fullSeq, intensity: pep.intensity), proteinGroupsJoined);
                 }
                 else
                 {
-                    PeptideOccupancies[pep.fullSeq].QuantifiedPeptide.AddFullSequence(pep.fullSeq, intensity: pep.intensity);
+                    PeptideQuantObjects[pep.fullSeq].QuantifiedPeptide.AddFullSequence(pep.fullSeq, intensity: pep.intensity);
                 }
 
                 // Go through the peptide's protein groups
                 foreach (var pg in pep.proteinGroups)
                 {
                     // If have not seen that protein group, store it
-                    if (!ProteinGroupOccupancies.ContainsKey(pg))
+                    if (!ProteinGroupQuantObjects.ContainsKey(pg))
                     {
-                        ProteinGroupOccupancies[pg] = new QuantifiedProteinGroup(pg);
-                        ProteinGroupOccupancies[pg].OccupancyLevel = "peptide";
+                        ProteinGroupQuantObjects[pg] = new QuantifiedProteinGroup(pg);
+                        ProteinGroupQuantObjects[pg].OccupancyLevel = "peptide";
                     }
-                    var proteinGroup = ProteinGroupOccupancies[pg];
+                    var proteinGroup = ProteinGroupQuantObjects[pg];
 
                     // Go through the proteins in each protein group
                     foreach (var proteinName in pg.Split('|'))
@@ -300,6 +307,10 @@ namespace MzLibUtil
                         if (!proteinGroup.Proteins.ContainsKey(proteinName))
                         {
                             proteinGroup.Proteins[proteinName] = new QuantifiedProtein(proteinName);
+                            if (proteinSequences.IsNotNullOrEmpty() && proteinSequences.ContainsKey(proteinName))
+                            {
+                                proteinGroup.Proteins[proteinName].Sequence = proteinSequences[proteinName];
+                            }
                         }
                         var protein = proteinGroup.Proteins[proteinName];
 
