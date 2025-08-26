@@ -1,19 +1,12 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
-using MathNet.Numerics.Interpolation;
 using MzLibUtil;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using MassSpectrometry;
-using Microsoft.ML.Transforms;
 using MathNet.Numerics.Distributions;
-using System.Collections;
-using Proteomics.AminoAcidPolymer;
-using NUnit.Framework.Legacy;
-using static Nett.TomlObjectFactory;
 
 namespace Test
 {
@@ -345,7 +338,6 @@ namespace Test
             var cubicSpline = new XicCubicSpline(0.05);
             var result = cubicSpline.ToString();
             var lines = result.Split('\n').Select(l => l.Trim()).ToArray();
-
             Assert.That(lines.Any(l => l.Contains("XicSplineSettings:")), Is.True);
             Assert.That(lines.Any(l => l.Contains("XicSplineType: XicCubicSpline")), Is.True);
             Assert.That(lines.Any(l => l.Contains("SplineRtInterval: 0.05")), Is.True);
