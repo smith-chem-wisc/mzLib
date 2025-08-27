@@ -39,6 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\nucleotideVariantsAsModifications.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DatabaseTests\SingleEntry_ModOrder1.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DatabaseTests\SingleEntry_ModOrder2.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
@@ -131,16 +132,42 @@
     <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="DataFiles\timsTOF_MRM.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
-    <None Update="DataFiles\timsTOF_MRM.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
-    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_TSF_MRM.d\analysis.tsf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_TSF_MRM.d\analysis.tsf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_MRM.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
 
+    <None Update="FlashLFQ\TestData\20100614_Velos1_TaGe_SA_K562_3.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\20100614_Velos1_TaGe_SA_K562_4.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\aggregatePSMs_5ppmAroundZero.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\AllPSMs.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\AllPSMs2.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\AllPSMsWNewFormat.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\f1r1_sliced_mbr.raw"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\f1r2_sliced_mbr.raw"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\PSMsForMbrTest.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\SilacTest.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\sliced-mzml.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\sliced-raw.raw"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\SmallCalibratibleYeast.mzml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\Task1-SearchTaskconfig.toml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\UP000005640_reviewedproteinPruned.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\DinoSnippet.features.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\protein.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\psm.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_2\protein.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_2\psm.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\combined_ion.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\SmallCalibratibleYeastFragger_psm.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
 
     <None Update="DataFiles\timsTOF_snippet.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="DataFiles\timsTOF_snippet.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
@@ -160,6 +187,11 @@
     <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_IsoDec1.0.0_ms2.msalign"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_TopFDv1.6.2_ms2.msalign"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
 
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_WithMods_IcTda.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
     <None Update="DataFiles\GUACUG_NegativeMode_Sliced.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="DataFiles\ScanDescriptionTestData.raw"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
 
@@ -171,6 +203,15 @@
     <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms2Feature_TopFDv1.6.2_ms2.feature"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="FileReadingTests\ExternalFileTypes\mzrt_TopFDv1.6.2.mzrt.csv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="ModificationTests\CommonArtifacts.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ModificationTests\CommonBiological.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ModificationTests\ModsWithComments.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ModificationTests\ProteaseMods.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod_dupName.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_dupName.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
 
     <None Update="DataFiles\humanInsulin.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DataFiles\humanInsulin.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
@@ -185,9 +226,11 @@
     <None Update="DataFiles\sliced_ethcd.raw"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DataFiles\small.RAW"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DataFiles\SmallCalibratibleYeast.mgf"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\SmallCalibratible_Yeast.mzID"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DataFiles\SmallCalibratibleYeast.mzml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DataFiles\SmallCalibratibleYeast_mixed_bits.mzml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DataFiles\Tab_separated_peak_list.mgf"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\TestParentTolerance.mzid"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="AveragingTests\TestData\TDYeastFractionMMResult.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="AveragingTests\TestData\TDYeastFractionMS1.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="DataFiles\tester.mgf"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
@@ -218,6 +261,7 @@
     <None Update="SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="SpectralLibrary\SpectralLibraryData\test_ms2pip.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
 
     <None Update="Transcriptomics\TestData\20mer1.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
     <None Update="Transcriptomics\TestData\20mer1.fasta.gz"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
