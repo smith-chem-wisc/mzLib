@@ -3,77 +3,116 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
+using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace MassSpectrometry.Deconvolution.Algorithms
 {
-    internal class FlashDeconv : DeconvolutionAlgorithm
+    /// <summary>
+    /// Minimal wrapper for the external FLASHDeconv executable.
+    /// (Simplified: no dependency probing, no temp dirs, no advanced error handling.)
+    /// </summary>
+    public sealed class FlashDeconv : DeconvolutionAlgorithm
     {
-        private readonly string exePath;
-        internal FlashDeconv(DeconvolutionParameters deconParameters) : base(deconParameters)
+        private static readonly string[] CandidateExeNames =
         {
+            "FLASHDeconv.exe",
+            "FlashDeconv.exe"
+        };
+
+        private readonly string _exePath;
+
+        public string ExecutablePath => _exePath;
+
+        public FlashDeconv(DeconvolutionParameters deconParameters, string? exePath = null)
+            : base(deconParameters)
+        {
+            _exePath = ResolveExecutable(exePath);
+            if (!File.Exists(_exePath))
+            {
+                throw new FileNotFoundException(
+                    $"FLASHDeconv executable not found at '{_exePath}'. " +
+                    "Provide full path or set FLASHDECONV_PATH.", _exePath);
+            }
+        }
+
+        private static string ResolveExecutable(string? explicitPath)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitPath))
+                return Path.GetFullPath(explicitPath);
+
+            var env = Environment.GetEnvironmentVariable("FLASHDECONV_PATH");
+            if (!string.IsNullOrWhiteSpace(env))
+                return Path.GetFullPath(env);
+
+            string assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+                                 ?? AppDomain.CurrentDomain.BaseDirectory;
+
+            foreach (var name in CandidateExeNames)
+            {
+                var candidate = Path.Combine(assemblyDir, name);
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+
+            return Path.Combine(assemblyDir, CandidateExeNames[0]);
         }
 
         internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
-            throw new NotImplementedException();
-        }
-        /// <summary>
-        /// Constructor.
-        /// exePath: path to FlashDeconv.exe; if null, assumes it's in the same folder as the app.
-        /// deconParameters: parameters for deconvolution algorithm.
-        /// </summary>
-        public FlashDeconv(DeconvolutionParameters deconParameters, string exePath = null)
-            : base(deconParameters)
-        {
-            if (string.IsNullOrEmpty(exePath))
-            {
-                // Assume FlashDeconv.exe is in the same folder as the app
-                this.exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FlashDeconv.exe");
-            }
-            else
-            {
-                this.exePath = exePath;
-            }
-
-            if (!File.Exists(this.exePath))
-                throw new FileNotFoundException("FlashDeconv executable not found", this.exePath);
+            throw new NotImplementedException("FLASHDeconv result parsing to IsotopicEnvelope not implemented.");
         }
 
         /// <summary>
-        /// Run FlashDeconv with specified input and output files.
+        /// Run FLASHDeconv with minimal arguments.
+        /// Caller is responsible for selecting appropriate extra arguments (may be blank).
         /// </summary>
-        /// <param name="inputFile">Path to input mzML file</param>
-        /// <param name="outputFile">Path to output mzML file</param>
-        /// <param name="extraArgs">Optional extra arguments for FlashDeconv</param>
-        public void Run(string inputFile, string outputFile, string extraArgs = "")
+        public void Run(string inputFile, string outputFile, string? extraArgs = null)
         {
+            if (string.IsNullOrWhiteSpace(inputFile))
+                throw new ArgumentException("Input file path is null/empty.", nameof(inputFile));
             if (!File.Exists(inputFile))
-                throw new FileNotFoundException("Input file not found", inputFile);
+                throw new FileNotFoundException("Input file not found.", inputFile);
+            if (string.IsNullOrWhiteSpace(outputFile))
+                throw new ArgumentException("Output file path is null/empty.", nameof(outputFile));
 
-            Process proc = new Process();
-            proc.StartInfo.FileName = exePath;
-            proc.StartInfo.Arguments = $"-in \"{inputFile}\" -out \"{outputFile}\" {extraArgs}";
-            proc.StartInfo.UseShellExecute = false;
-            proc.StartInfo.RedirectStandardOutput = true;
-            proc.StartInfo.RedirectStandardError = true;
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputFile))!);
+            extraArgs ??= string.Empty;
 
-            proc.Start();
+            var psi = new ProcessStartInfo
+            {
+                FileName = _exePath,
+                Arguments = $"-in \"{inputFile}\" -out \"{outputFile}\" {extraArgs}".Trim(),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetDirectoryName(_exePath) ?? Environment.CurrentDirectory
+            };
 
-            // Capture output and errors
-            string stdout = proc.StandardOutput.ReadToEnd();
-            string stderr = proc.StandardError.ReadToEnd();
+            using var proc = new Process { StartInfo = psi };
+            var stdout = new StringBuilder();
+            var stderr = new StringBuilder();
 
+            proc.OutputDataReceived += (_, e) => { if (e.Data != null) stdout.AppendLine(e.Data); };
+            proc.ErrorDataReceived  += (_, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
+
+            if (!proc.Start())
+                throw new InvalidOperationException("Failed to start FLASHDeconv.");
+
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
             proc.WaitForExit();
 
             if (proc.ExitCode != 0)
             {
-                throw new Exception($"FlashDeconv exited with code {proc.ExitCode}.\nError output:\n{stderr}");
+                throw new MzLibException(
+                    $"FLASHDeconv exited with code {proc.ExitCode}.{Environment.NewLine}" +
+                    $"Exe: {_exePath}{Environment.NewLine}" +
+                    $"Args: {psi.Arguments}{Environment.NewLine}" +
+                    $"StdOut:{Environment.NewLine}{stdout}{Environment.NewLine}" +
+                    $"StdErr:{Environment.NewLine}{stderr}");
             }
-
-            Console.WriteLine(stdout);
         }
     }
 }
