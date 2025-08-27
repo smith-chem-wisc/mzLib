@@ -16,10 +16,10 @@ namespace MassSpectrometry
     public class ExtractedIonChromatogram
     {
         public virtual List<IIndexedPeak> Peaks { get; set; }
-
-        public double ApexRT;
-        public int ApexScanIndex;
-        public double AveragedM => AverageM();
+        public IIndexedPeak ApexPeak;
+        public double ApexRT => ApexPeak.RetentionTime;
+        public int ApexScanIndex => ApexPeak.ZeroBasedScanIndex;
+        public double AveragedMassOrMz;
         public (double, double)[] XYData { get; set; }
         public double[] NormalizedPeakIntensities { get; set; }
         public double StartRT { get; set; }
@@ -41,7 +41,7 @@ namespace MassSpectrometry
         public ExtractedIonChromatogram(List<IIndexedPeak> peaks)
         {
             Peaks = peaks;
-            SetRtInfo();
+            SetXicInfo();
         }
 
         public void SetNormalizedPeakIntensities()
@@ -131,37 +131,26 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// Find the peak boundaries of this ExtractedIonChromatogram and remove the peaks that are outside of the boundaries.
+        /// Find the peak boundaries of XIC and remove the peaks that are outside of the boundaries.
         /// </summary>
         public void CutPeak(double discriminationFactorToCutPeak = 0.6, bool updateRtInfo = true)
         {
-            CutPeak(Peaks, discriminationFactorToCutPeak);
+            var peakBoundaries = FindPeakBoundaries(Peaks, Peaks.IndexOf(ApexPeak), discriminationFactorToCutPeak);
+            RemovePeaks(Peaks, peakBoundaries, ApexPeak.RetentionTime);
             if (updateRtInfo)
             {
-                SetRtInfo(); // Update RT info after cutting the peak
+                SetXicInfo(); // Update XIC info after cutting the peak
             }
         }
 
-        /// <summary>
-        /// Find the peak boundaries of any IIndexedPeak list and remove the peaks that are outside of the boundaries.
-        /// </summary>
-        public static void CutPeak(List<IIndexedPeak> peaks, double discriminationFactorToCutPeak = 0.6)
+        public void SetXicInfo()
         {
-            if (peaks == null || peaks.Count < 5) return;
-            var apexPeak = peaks.MaxBy(p => p.Intensity);
-            peaks.Sort((x, y) => x.RetentionTime.CompareTo(y.RetentionTime));
-            var peakBoundaries = FindPeakBoundaries(peaks, peaks.IndexOf(apexPeak), discriminationFactorToCutPeak);
-            RemovePeaks(peaks, peakBoundaries, apexPeak.RetentionTime);
-        }
-
-        public void SetRtInfo()
-        {
-            ApexRT = Peaks.MaxBy(p => p.Intensity).RetentionTime;
+            ApexPeak = Peaks.MaxBy(p => p.Intensity);
             StartRT = Peaks.Min(p => p.RetentionTime);
             EndRT = Peaks.Max(p => p.RetentionTime);
-            ApexScanIndex = Peaks.MaxBy(p => p.Intensity).ZeroBasedScanIndex;
             StartScanIndex = Peaks.Min(p => p.ZeroBasedScanIndex);
             EndScanIndex = Peaks.Max(p => p.ZeroBasedScanIndex);
+            AveragedMassOrMz = AverageM();
         }
     }
 }

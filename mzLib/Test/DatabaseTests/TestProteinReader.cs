@@ -104,7 +104,7 @@ namespace Test.DatabaseTests
         public static void XmlTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un, 1, 0);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -184,7 +184,7 @@ namespace Test.DatabaseTests
             string directory = Path.Combine(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests"));
             
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(directory, @"xml.xml.gz"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un, 1, 0);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -218,7 +218,7 @@ namespace Test.DatabaseTests
         public static void XmlFunkySequenceTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un, 1, 0);
 
             Assert.AreEqual("S", ok[0].BaseSequence.Substring(0, 1));
             Assert.AreEqual("G", ok[1].BaseSequence.Substring(0, 1));
@@ -443,7 +443,7 @@ CF   O1
         {
             //sequence, disulfides
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Slide, UniProtPtms, false,
-                new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+                new string[] { "exclude_me" }, out Dictionary<string, Modification> un, 1, 0);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
@@ -467,7 +467,7 @@ CF   O1
 
             //sequence variants, modifications
             ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, UniProtPtms, false,
-    new string[] { "exclude_me" }, out un);
+    new string[] { "exclude_me" }, out un, 1, 0);
 
             Assert.AreEqual(ok2[1].OneBasedPossibleLocalizedModifications.First().Key, 13);
             var decoyVariants = ok2[1].SequenceVariations.ToList();

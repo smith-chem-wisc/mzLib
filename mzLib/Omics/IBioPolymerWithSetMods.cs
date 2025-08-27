@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 using Chemistry;
 using MassSpectrometry;
 using Omics.Digestion;
@@ -196,6 +197,29 @@ namespace Omics
             }
 
             return subSequence.ToString();
+        }
+
+        public static string ParseSubstitutedFullSequence(string fullSequenceWithSubstitution)
+        {
+            string pattern = @"\[\d+\+?\s*nucleotide substitution:\s*([A-Z])->([A-Z]) on ([A-Z])\]";
+            string parsedSequence = fullSequenceWithSubstitution;
+            var match = Regex.Match(parsedSequence, pattern);
+            while (match.Success)
+            {
+                string original = match.Groups[1].Value; // Z (original)
+                string sub = match.Groups[2].Value;   // Y (substitute)
+                int patternIndex = match.Index;
+                int replaceIndex = parsedSequence.LastIndexOf(original, patternIndex);
+                if (replaceIndex != -1)
+                {
+                    // Replace the first occurrence of Z before the pattern with Y
+                    parsedSequence = parsedSequence.Remove(replaceIndex, 1).Insert(replaceIndex, sub);
+                }
+                // Remove the pattern
+                parsedSequence = parsedSequence.Remove(patternIndex, match.Length);
+                match = Regex.Match(parsedSequence, pattern); // Find the next match
+            }
+            return parsedSequence;
         }
     }
 }
