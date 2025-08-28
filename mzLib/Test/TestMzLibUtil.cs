@@ -7,6 +7,7 @@ using FlashLFQ;
 using System.Linq;
 using Proteomics.AminoAcidPolymer;
 using System;
+using NUnit.Framework.Legacy;
 
 namespace Test
 {
@@ -331,10 +332,28 @@ namespace Test
             {
                 sequenceInputs.Add((fullSequences[i], proteinGroups, intensities[i]));
             }
+            sequenceInputs.Add(("AAAA", new List<string> { "TESTPROT1|TESTPROT2" }, 10));
 
-            var quantificationObjects = new PositionFrequencyAnalysis();
-            quantificationObjects.SetUpQuantificationObjects(sequenceInputs, proteinSequences);
-            // NEED TO FINISH THIS TEST
+            var quant = new PositionFrequencyAnalysis();
+            quant.SetUpQuantificationObjects(sequenceInputs, proteinSequences);
+            Assert.AreEqual(quant.ProteinGroups.Count, 2);
+            Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT1"));
+            Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT2"));
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Accession, "TESTPROT1");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Sequence, "GKAAAAAAK");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Peptides.Count, 2);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Peptides["GK"].FullSequences.Count, 2);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Peptides["AAAA"].FullSequences.Count, 1);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Accession, "TESTPROT2");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Sequence, "AKAAAAAGK");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Peptides.Count, 2);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Peptides["GK"].FullSequences.Count, 2);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Peptides["AAAA"].FullSequences.Count, 1);
+
+            Assert.That(quant.ProteinGroups["TESTPROT3"].Proteins.Keys.Contains("TESTPROT3"));
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Accession, "TESTPROT3");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Sequence, "AKGK");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Peptides.Count, 1);
         }
 
         public struct TestStruct
