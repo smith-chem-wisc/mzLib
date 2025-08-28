@@ -136,15 +136,12 @@
     <None Update="DataFiles\timsTOF_TSF_MRM.d\analysis.tsf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="DataFiles\timsTOF_MRM.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
-    <None Update="DataFiles\TopDown\lvsYeastSnipFlashDeconvExpected.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\TopDown\lvsYeastTopDownSnip.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\TopDown\lvsYeastTopDownSnipPrunedproteinPruned.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+
+    <None Update="DataFiles\TopDown\lvsYeastSnipFlashDeconvOptions_features.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\TopDown\lvsYeastSnipFlashDeconvOptions_spectra.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None> 
+    <None Update="DataFiles\TopDown\lvsYeastSnipFlashDeconvExpected.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\TopDown\lvsYeastTopDownSnip.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\TopDown\lvsYeastTopDownSnipPrunedproteinPruned.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
 
     <None Update="FlashLFQ\TestData\20100614_Velos1_TaGe_SA_K562_3.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
     <None Update="FlashLFQ\TestData\20100614_Velos1_TaGe_SA_K562_4.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
