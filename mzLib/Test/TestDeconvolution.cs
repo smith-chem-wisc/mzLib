@@ -1,6 +1,6 @@
 using Chemistry;
+using Test.FileReadingTests;
 using MassSpectrometry;
-using MassSpectrometry.Deconvolution.Algorithms;
 using MzLibUtil;
 using NUnit.Framework;
 using Omics.Digestion;
@@ -25,39 +25,39 @@ namespace Test
     {
         #region Old Deconvolution
 
-        //[Test]
-        //[TestCase(586.2143122, 24, 41983672, 586.2)]
-        //[TestCase(740.372202090153, 19, 108419280, 740.37)]
-        //[TestCase(1081.385183, 13, 35454636, 1081.385)]
-        //public void TestDeconvolutionProteoformMultiChargeState(double selectedIonMz, int selectedIonChargeStateGuess,
-        //    double selectedIonIntensity, double isolationMz)
-        //{
-        //    MsDataScan[] Scans = new MsDataScan[1];
-        //    string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
-        //        @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
+        [Test]
+        [TestCase(586.2143122, 24, 41983672, 586.2)]
+        [TestCase(740.372202090153, 19, 108419280, 740.37)]
+        [TestCase(1081.385183, 13, 35454636, 1081.385)]
+        public void TestDeconvolutionProteoformMultiChargeState(double selectedIonMz, int selectedIonChargeStateGuess,
+            double selectedIonIntensity, double isolationMz)
+        {
+            MsDataScan[] Scans = new MsDataScan[1];
+            string Ms1SpectrumPath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
 
-        //    string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
-        //    int n = spectrumLines.Length;
-        //    double[] mzs = new double[n];
-        //    double[] intensities = new double[n];
-        //    for (int i = 0; i < n; i++)
-        //    {
-        //        var p = spectrumLines[i].Split('\t');
-        //        mzs[i] = Convert.ToDouble(p[0], CultureInfo.InvariantCulture);
-        //        intensities[i] = Convert.ToDouble(p[1], CultureInfo.InvariantCulture);
-        //    }
+            string[] spectrumLines = File.ReadAllLines(Ms1SpectrumPath);
+            int n = spectrumLines.Length;
+            double[] mzs = new double[n];
+            double[] intensities = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                var p = spectrumLines[i].Split('\t');
+                mzs[i] = Convert.ToDouble(p[0], CultureInfo.InvariantCulture);
+                intensities[i] = Convert.ToDouble(p[1], CultureInfo.InvariantCulture);
+            }
 
-        //    var spectrum = new MzSpectrum(mzs, intensities, false);
-        //    Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617),
-        //        "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz,
-        //        selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
-        //    var fake = new FakeMsDataFile(Scans);
-        //    var scan = fake.GetAllScansList()[0];
+            var spectrum = new MzSpectrum(mzs, intensities, false);
+            Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617),
+                "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz,
+                selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+            var fake = new FakeMsDataFile(Scans);
+            var scan = fake.GetAllScansList()[0];
 
-        //    var isolated = scan.GetIsolatedMassesAndCharges(spectrum, new ClassicDeconvolutionParameters(1, 60, 4, 3))
-        //        .Select(m => m.MonoisotopicMass).ToList();
-        //    Assert.That(isolated[0], Is.EqualTo(14037.926829).Within(.0005));
-        //}
+            var isolated = scan.GetIsolatedMassesAndCharges(spectrum, new ClassicDeconvolutionParameters(1, 60, 4, 3))
+                .Select(m => m.MonoisotopicMass).ToList();
+            Assert.That(isolated[0], Is.EqualTo(14037.926829).Within(.0005));
+        }
 
         [Test]
         [TestCase("APSGGKK", "12-18-17_frac7_calib_ms1_663_665.mzML", 2)]
@@ -93,37 +93,37 @@ namespace Test
 
         #region Classic Deconvolution
 
-        //[Test]
-        //[TestCase(586.2143122, 24, 41983672, 586.2)]
-        //[TestCase(740.372202090153, 19, 108419280, 740.37)]
-        //[TestCase(1081.385183, 13, 35454636, 1081.385)]
-        //public void TestClassicDeconvolutionProteoformMultiChargeState(double selectedIonMz,
-        //    int selectedIonChargeStateGuess, double selectedIonIntensity, double isolationMz)
-        //{
-        //    MsDataScan[] Scans = new MsDataScan[1];
-        //    string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
-        //    var lines = File.ReadAllLines(path);
-        //    double[] mzs = new double[lines.Length];
-        //    double[] ints = new double[lines.Length];
-        //    for (int i = 0; i < lines.Length; i++)
-        //    {
-        //        var p = lines[i].Split('\t');
-        //        mzs[i] = Convert.ToDouble(p[0], CultureInfo.InvariantCulture);
-        //        ints[i] = Convert.ToDouble(p[1], CultureInfo.InvariantCulture);
-        //    }
-        //    var spectrum = new MzSpectrum(mzs, ints, false);
-        //    Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617),
-        //        "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz,
-        //        selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
-        //    var fake = new FakeMsDataFile(Scans);
-        //    var scan = fake.GetAllScansList()[0];
+        [Test]
+        [TestCase(586.2143122, 24, 41983672, 586.2)]
+        [TestCase(740.372202090153, 19, 108419280, 740.37)]
+        [TestCase(1081.385183, 13, 35454636, 1081.385)]
+        public void TestClassicDeconvolutionProteoformMultiChargeState(double selectedIonMz,
+            int selectedIonChargeStateGuess, double selectedIonIntensity, double isolationMz)
+        {
+            MsDataScan[] Scans = new MsDataScan[1];
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
+            var lines = File.ReadAllLines(path);
+            double[] mzs = new double[lines.Length];
+            double[] ints = new double[lines.Length];
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var p = lines[i].Split('\t');
+                mzs[i] = Convert.ToDouble(p[0], CultureInfo.InvariantCulture);
+                ints[i] = Convert.ToDouble(p[1], CultureInfo.InvariantCulture);
+            }
+            var spectrum = new MzSpectrum(mzs, ints, false);
+            Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617),
+                "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz,
+                selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+            var fake = new FakeMsDataFile(Scans);
+            var scan = fake.GetAllScansList()[0];
 
-        //    var dp = new ClassicDeconvolutionParameters(1, 60, 4, 3);
-        //    var iso1 = scan.GetIsolatedMassesAndCharges(scan, dp).Select(i => i.MonoisotopicMass).ToList();
-        //    var iso2 = scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, dp).Select(i => i.MonoisotopicMass).ToList();
-        //    Assert.That(iso1[0], Is.EqualTo(14037.926829).Within(.0005));
-        //    Assert.That(iso2[0], Is.EqualTo(14037.926829).Within(.0005));
-        //}
+            var dp = new ClassicDeconvolutionParameters(1, 60, 4, 3);
+            var iso1 = scan.GetIsolatedMassesAndCharges(scan, dp).Select(i => i.MonoisotopicMass).ToList();
+            var iso2 = scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, dp).Select(i => i.MonoisotopicMass).ToList();
+            Assert.That(iso1[0], Is.EqualTo(14037.926829).Within(.0005));
+            Assert.That(iso2[0], Is.EqualTo(14037.926829).Within(.0005));
+        }
 
         #endregion
 
@@ -131,47 +131,47 @@ namespace Test
 
         // The remaining deconvolution-related tests from the original file are preserved below.
 
-        //[Test]
-        //[TestCase(586.2143122, 24, 41983672, 586.2)]
-        //[TestCase(740.372202090153, 19, 108419280, 740.37)]
-        //[TestCase(1081.385183, 13, 35454636, 1081.385)]
-        //public void TestIsoDecDeconvolutionProteoformMultiChargeState(double selectedIonMz, int selectedIonChargeStateGuess, double selectedIonIntensity, double isolationMz)
-        //{
-        //    MsDataScan[] Scans = new MsDataScan[1];
-        //    string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
-        //    var lines = File.ReadAllLines(path);
-        //    double[] mzs = new double[lines.Length];
-        //    double[] ints = new double[lines.Length];
-        //    for (int i = 0; i < lines.Length; i++)
-        //    {
-        //        var p = lines[i].Split('\t');
-        //        mzs[i] = Convert.ToDouble(p[0], CultureInfo.InvariantCulture);
-        //        ints[i] = Convert.ToDouble(p[1], CultureInfo.InvariantCulture);
-        //    }
-        //    var spectrum = new MzSpectrum(mzs, ints, false);
-        //    Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617),
-        //        "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz,
-        //        selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
-        //    var fake = new FakeMsDataFile(Scans);
-        //    var scan = fake.GetAllScansList()[0];
+        [Test]
+        [TestCase(586.2143122, 24, 41983672, 586.2)]
+        [TestCase(740.372202090153, 19, 108419280, 740.37)]
+        [TestCase(1081.385183, 13, 35454636, 1081.385)]
+        public void TestIsoDecDeconvolutionProteoformMultiChargeState(double selectedIonMz, int selectedIonChargeStateGuess, double selectedIonIntensity, double isolationMz)
+        {
+            MsDataScan[] Scans = new MsDataScan[1];
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\14kDaProteoformMzIntensityMs1.txt");
+            var lines = File.ReadAllLines(path);
+            double[] mzs = new double[lines.Length];
+            double[] ints = new double[lines.Length];
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var p = lines[i].Split('\t');
+                mzs[i] = Convert.ToDouble(p[0], CultureInfo.InvariantCulture);
+                ints[i] = Convert.ToDouble(p[1], CultureInfo.InvariantCulture);
+            }
+            var spectrum = new MzSpectrum(mzs, ints, false);
+            Scans[0] = new MsDataScan(spectrum, 1, 1, false, Polarity.Positive, 1.0, new MzRange(495, 1617),
+                "first spectrum", MZAnalyzerType.Unknown, spectrum.SumOfAllY, null, null, null, selectedIonMz,
+                selectedIonChargeStateGuess, selectedIonIntensity, isolationMz, 4);
+            var fake = new FakeMsDataFile(Scans);
+            var scan = fake.GetAllScansList()[0];
 
-        //    var dp = new IsoDecDeconvolutionParameters();
-        //    var alg = new IsoDecAlgorithm(dp);
-        //    var allMasses = alg.Deconvolute(scan.MassSpectrum,
-        //        new MzRange((double)scan.MassSpectrum.FirstX!, (double)scan.MassSpectrum.LastX!)).ToList();
+            var dp = new IsoDecDeconvolutionParameters();
+            var alg = new IsoDecAlgorithm(dp);
+            var allMasses = alg.Deconvolute(scan.MassSpectrum,
+                new MzRange((double)scan.MassSpectrum.FirstX!, (double)scan.MassSpectrum.LastX!)).ToList();
 
-        //    var iso1 = scan.GetIsolatedMassesAndCharges(scan, dp).ToList();
-        //    var iso2 = scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, dp).ToList();
-        //    var mono1 = iso1.Select(m => m.MonoisotopicMass).ToList();
-        //    var mono2 = iso2.Select(m => m.MonoisotopicMass).ToList();
-        //    Assert.That(mono2.Count, Is.EqualTo(mono1.Count));
+            var iso1 = scan.GetIsolatedMassesAndCharges(scan, dp).ToList();
+            var iso2 = scan.GetIsolatedMassesAndCharges(scan.MassSpectrum, dp).ToList();
+            var mono1 = iso1.Select(m => m.MonoisotopicMass).ToList();
+            var mono2 = iso2.Select(m => m.MonoisotopicMass).ToList();
+            Assert.That(mono2.Count, Is.EqualTo(mono1.Count));
 
-        //    double ppmwidth = (14037.926829 / 1e6) * 5;
-        //    bool any1 = mono1.Any(m => m >= 14037.926829 - ppmwidth && m <= 14037.926829 + ppmwidth);
-        //    bool any2 = mono2.Any(m => m >= 14037.926829 - ppmwidth && m <= 14037.926829 + ppmwidth);
-        //    Assert.That(any1);
-        //    Assert.That(any2);
-        //}
+            double ppmwidth = (14037.926829 / 1e6) * 5;
+            bool any1 = mono1.Any(m => m >= 14037.926829 - ppmwidth && m <= 14037.926829 + ppmwidth);
+            bool any2 = mono2.Any(m => m >= 14037.926829 - ppmwidth && m <= 14037.926829 + ppmwidth);
+            Assert.That(any1);
+            Assert.That(any2);
+        }
 
         [Test]
         [TestCase("APSGGKK", "12-18-17_frac7_calib_ms1_663_665.mzML", 2)]
