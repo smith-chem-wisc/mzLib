@@ -234,10 +234,10 @@ namespace MzLibUtil
     {
         public string Name { get; set; }
         public Dictionary<string, QuantifiedProtein> Proteins { get; set; }
-        public string OccupancyLevel { get; set; }
 
         public QuantifiedProteinGroup(string name, Dictionary<string, QuantifiedProtein> proteins = null)
         {
+            proteins = proteins ?? new Dictionary<string, QuantifiedProtein>();
             string splitPattern = @";|\|";
             var proteinAccessions = Regex.Split(name, splitPattern);
             if ((proteinAccessions.Length == proteins.Count && proteinAccessions.OrderBy(x => x).SequenceEqual(proteins.Keys.OrderBy(x => x))) || proteins.IsNullOrEmpty())
@@ -246,7 +246,7 @@ namespace MzLibUtil
                 Proteins = proteins ?? new Dictionary<string, QuantifiedProtein>();
             }
             else
-            {ProteinGroupQuantObjects
+            {
                 throw new Exception("The number of proteins provided does not match the number of proteins in the protein group name.");
             }
         }
@@ -254,51 +254,35 @@ namespace MzLibUtil
     public class PositionFrequencyAnalysis
     {
 
-        public Dictionary<string, QuantifiedProteinGroup> ProteinGroupQuantObjects { get; private set; }
-        public Dictionary<string, (QuantifiedPeptide QuantifiedPeptide, string ProteinGroups)> PeptideQuantObjects { get; private set; }
+        public Dictionary<string, QuantifiedProteinGroup> ProteinGroups { get; private set; }
+        //public Dictionary<string, (QuantifiedPeptide QuantifiedPeptide, string ProteinGroups)> Peptides { get; private set; }
 
         /// <summary>
         /// Calculates the occupancy of post-translational modifications at the peptide level. 
         /// </summary>
         /// <param name="peptides"> A List of Tuples whose entries are ordered as (string FullSequence, string BaseSequence, List<string> ProteinGroups, Intensity) for each peptide.</param>
-        /// <param name="ignoreTerminusMod"> If true, terminal modifications will be ignored.</param>
         /// <returns> A nested dictionary whose key mappings are as follows: string ProteinGroup-> string Protein-> string BaseSequence-> int ModifiedAminoAcidIndex-> string ModificationName-> double Intensity
         /// Note: Each BaseSequence dictionary contains a ModifiedAminoAcidIndex key of -1 that then contains a ModificationName key called "Total" that is used to track the total intensity observed for 
         /// all of the amino acids in that peptide.</returns>
         ///
         public void SetUpQuantificationObjects(List<(string fullSeq, List<string> proteinGroups, double intensity)> peptides, Dictionary<string, string> proteinSequences=null)
         {
-            ProteinGroupQuantObjects = new Dictionary<string, QuantifiedProteinGroup>();
-            PeptideQuantObjects = new Dictionary<string, (QuantifiedPeptide, string)>();
+            ProteinGroups = new Dictionary<string, QuantifiedProteinGroup>();
 
             // Go through the peptides given
             foreach (var pep in peptides)
             {
-                //string baseSeq = pep.Item2.IsNotNullOrEmpty() ? pep.Item2 : new string(pep.Item1.ToCharArray()); // in case it is null or empty and we need to get the base sequence from the full sequence
-                //ClassExtensions.RemoveSpecialCharacters(ref baseSeq, @"", ClassExtensions.modificationPattern); 
                 string baseSeq = pep.fullSeq.GetBaseSequenceFromFullSequence();
-
-                if (!PeptideQuantObjects.ContainsKey(pep.fullSeq))
-                {
-                    // Need to make sure clustering of proteingroups is correct
-                    string proteinGroupsJoined = string.Join(";", pep.proteinGroups);
-                    PeptideQuantObjects[pep.fullSeq] = (new QuantifiedPeptide(pep.fullSeq, intensity: pep.intensity), proteinGroupsJoined);
-                }
-                else
-                {
-                    PeptideQuantObjects[pep.fullSeq].QuantifiedPeptide.AddFullSequence(pep.fullSeq, intensity: pep.intensity);
-                }
 
                 // Go through the peptide's protein groups
                 foreach (var pg in pep.proteinGroups)
                 {
                     // If have not seen that protein group, store it
-                    if (!ProteinGroupQuantObjects.ContainsKey(pg))
+                    if (!ProteinGroups.ContainsKey(pg))
                     {
-                        ProteinGroupQuantObjects[pg] = new QuantifiedProteinGroup(pg);
-                        ProteinGroupQuantObjects[pg].OccupancyLevel = "peptide";
+                        ProteinGroups[pg] = new QuantifiedProteinGroup(pg);
                     }
-                    var proteinGroup = ProteinGroupQuantObjects[pg];
+                    var proteinGroup = ProteinGroups[pg];
 
                     // Go through the proteins in each protein group
                     foreach (var proteinName in pg.Split('|'))
